@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شیکو · حالت‌های تلویزیون</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mockup.css">
+<script src="mockup.js"></script>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>شیکو · حالت‌های تلویزیون</h1>
+  <p>فوکوس ریموت، فهرست بلند و چند سرویس، کد تصویریِ تمدید و پشتیبانی، تنظیمات، و ورود: کد تمام‌شده، تأیید، رد.</p>
+  <nav class="sheet-nav">
+    <a href="phone.html">گوشی</a>
+    <a href="phone-states.html">حالت‌های گوشی</a>
+    <a href="tv.html">تلویزیون</a>
+    <a href="tv-states.html" aria-current="page">حالت‌های تلویزیون</a>
+  </nav>
+  <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
+</header>
+
+<main class="board tv-board">
+
+  <!-- خانه: فوکوس اول روی دکمهٔ گرد -->
+  <figure class="shot">
+    <figcaption>خانه · قطع · فوکوس اول روی دکمهٔ گرد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-first-focus">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+                <span class="chip chip-positive">فعال</span>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 33%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+              </div>
+              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+              <ul class="servers">
+                <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              </ul>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power">
+          <div class="power-ring">
+            <button class="power is-focused" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴ <span class="unit">ms</span></span></span>
+          <p class="tv-hint">دکمهٔ وسطِ ریموت را بزن تا وصل شوی</p>
+        </section>
+      </div>
+    </div>
+    <p class="note">وقتی خانه باز می‌شود، ریموت اول روی دکمهٔ گرد است: یک بار زدنِ دکمهٔ وسط کافی است.</p>
+  </figure>
+
+  <!-- فهرست بلند و چند سرویس -->
+  <figure class="shot">
+    <figcaption>خانه · فهرست بلند و چند سرویس · ستون اسکرول‌شده</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-long">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col is-scrolled">
+          <div class="tv-col-content mock-scroll-end">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+                <span class="chip chip-positive">فعال</span>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 33%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+              </div>
+              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+              <ul class="servers">
+                <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۷۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۰۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server is-focused"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۲۴۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              </ul>
+            </article>
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2>
+                <span class="chip chip-positive">فعال</span>
+                <svg class="icon"><use href="#i-chevron-down"/></svg>
+              </header>
+              <p class="svc-summary">مصرف شده <span class="warn">۴۹٫۸ از ۵۰ گیگ</span> · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+            </article>
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user456</bdi> · طلایی</h2>
+                <span class="chip chip-danger">تاریخ انقضا گذشته</span>
+                <svg class="icon"><use href="#i-chevron-down"/></svg>
+              </header>
+              <p class="svc-summary">اعتبارش ۲۸ شهریور ۱۴۰۵ تمام شد. با تمدید دوباره فعال می‌شود.</p>
+            </article>
+          </div>
+          <span class="scroll-thumb mock-scroll-end"></span>
+        </div>
+        <section class="tv-power is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴ <span class="unit">ms</span></span></span>
+        </section>
+      </div>
+    </div>
+    <p class="note">ریموت پایین رفته و ستون همراهش اسکرول شده: لبهٔ بالا محو است و نشانگر اسکرول کنار ستون است. زیر سرورها، سرویس‌های دیگر جمع‌شده‌اند؛ دکمهٔ وسط هر کدام را باز می‌کند.</p>
+  </figure>
+
+  <!-- QR تمدید -->
+  <figure class="shot">
+    <figcaption>«تمدید» روی تلویزیون · کد تصویری برای گوشی</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-renew-qr">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+                <span class="chip chip-positive">فعال</span>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 33%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+              </div>
+              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="scrim">
+        <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-title">
+          <h2 id="renew-title">تمدید با گوشی</h2>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکو صفحهٔ تمدیدِ همین سرویس را باز می‌کند.</p>
+          <div class="qr-tile sm"><svg class="qr" data-seed="31337" role="img" aria-label="QR نمونه"></svg></div>
+          <p class="for"><bdi dir="ltr">user123</bdi> · الماس</p>
+          <button class="btn btn-outline is-focused" type="button">بستن</button>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>کد تصویری به ربات شیکو می‌رود و ربات باید بداند کدام سرویس را تمدید کند؛ این پیوند هنوز در ربات نیست.</p>
+  </figure>
+
+  <!-- QR پشتیبانی -->
+  <figure class="shot">
+    <figcaption>«پشتیبانی» روی تلویزیون · کد تصویری برای گوشی</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-support-qr">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+                <span class="chip chip-positive">فعال</span>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 33%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+              </div>
+              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="scrim">
+        <div class="dialog qr-sheet" role="dialog" aria-labelledby="support-title">
+          <h2 id="support-title">پشتیبانی با گوشی</h2>
+          <p>با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکو در تلگرام باز شود.</p>
+          <div class="qr-tile sm"><svg class="qr" data-seed="90210" role="img" aria-label="QR نمونه"></svg></div>
+          <p class="for"><bdi dir="ltr">user123</bdi> · الماس</p>
+          <button class="btn btn-outline is-focused" type="button">بستن</button>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>نشانیِ پشتیبانی باید از پنل یا ربات بیاید. دکمهٔ پشتیبانیِ لینک اشتراک امروز خالی است، پس این کد تصویری هنوز مقصدی ندارد.</p>
+  </figure>
+
+  <!-- تنظیمات تلویزیون -->
+  <figure class="shot">
+    <figcaption>تنظیمات · فوکوس اول روی گزینهٔ فعلیِ ظاهر</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-settings">
+      <header class="tv-top">
+        <h2 class="tv-title">تنظیمات</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-settings">
+        <div class="settings">
+          <section>
+            <h3 class="group-title">ظاهر</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="false">روشن</button>
+              <button type="button" role="radio" aria-checked="false">تیره</button>
+              <button class="is-focused" type="button" role="radio" aria-checked="true">خودکار</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">حساب</h3>
+            <div class="card">
+              <button class="row danger" type="button">
+                <svg class="icon"><use href="#i-logout"/></svg>
+                <span class="t"><span>خروج</span><small>این تلویزیون از حساب تلگرامت جدا می‌شود</small></span>
+              </button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">اپ</h3>
+            <div class="card">
+              <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۰</span></div>
+              <button class="row" type="button">
+                <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
+                <svg class="icon"><use href="#i-chevron-fwd"/></svg>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>«این تلویزیون از حساب تلگرامت جدا می‌شود» به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+  </figure>
+
+  <!-- ورود: کد تمام شده -->
+  <figure class="shot">
+    <figcaption>ورود · کد تمام شده</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-expired">
+      <div class="tv-login">
+        <div class="login-copy">
+          <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+          <h1>ورود با تلگرام</h1>
+          <p class="lead">این کد دیگر کار نمی‌کند. یک کد تازه بگیر.</p>
+          <div class="code-box">
+            <span class="code-label">کد قبلی</span>
+            <span class="code is-expired">K7P2-9QXM</span>
+          </div>
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>کد تازه</button>
+        </div>
+        <div class="qr-tile is-expired">
+          <svg class="qr" role="img" aria-label="QR نمونه"></svg>
+          <div class="qr-overlay"><svg class="icon"><use href="#i-refresh"/></svg>این کد تمام شد</div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>یا کد بی‌دکمه و خودکار عوض شود. هر دو به مهلت کد بستگی دارند که سمت سرور تعیین می‌شود.</p>
+  </figure>
+
+  <!-- ورود: تأیید شد -->
+  <figure class="shot">
+    <figcaption>ورود · در تلگرام «تأیید» زده شد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-approved">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+        <h1>ورود انجام شد</h1>
+        <p>حساب تلگرامت به این تلویزیون وصل شد. سرویس‌هایت دارند می‌آیند…</p>
+        <div class="progress"><span></span></div>
+      </div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>بعد از آمدن سرویس‌ها خودش به خانه می‌رود و ریموت روی دکمهٔ گرد است. به سمت سرورِ ورود بستگی دارد.</p>
+  </figure>
+
+  <!-- ورود: رد شد -->
+  <figure class="shot">
+    <figcaption>ورود · در تلگرام «رد» زده شد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-rejected">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon danger"><svg class="icon"><use href="#i-x"/></svg></span>
+        <h1>ورود رد شد</h1>
+        <p>در تلگرام «رد» زده شد، پس این تلویزیون وصل نشد. اگر اشتباهی بود، دوباره امتحان کن.</p>
+        <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>کد تازه</button>
+      </div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+  </figure>
+
+  <!-- نمونهٔ فوکوس اجزا -->
+  <figure class="shot">
+    <figcaption>نمونهٔ اجزا · شکل فوکوس ریموت (این صفحهٔ اپ نیست)</figcaption>
+    <div class="tv spec-frame" data-device="tv" data-frame="tv-focus-board">
+      <div class="spec-grid">
+        <div class="spec">
+          <div class="power-ring">
+            <button class="power is-focused" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <p class="spec-cap"><strong>دکمهٔ گرد</strong>فوکوس اولِ خانه</p>
+        </div>
+        <div class="spec">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+          <p class="spec-cap"><strong>«تمدید»</strong>دکمهٔ پُر</p>
+        </div>
+        <div class="spec">
+          <button class="btn btn-outline is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+          <p class="spec-cap"><strong>«پشتیبانی»</strong>دکمهٔ دورخط‌دار</p>
+        </div>
+        <div class="spec">
+          <button class="btn btn-outline is-focused" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+          <p class="spec-cap"><strong>«تنظیمات»</strong>بالای صفحه</p>
+        </div>
+        <div class="spec-row">
+          <div class="card">
+            <ul class="servers">
+              <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              <li class="server is-focused"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              <li class="server is-selected is-focused"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            </ul>
+          </div>
+          <div class="spec-legend">
+            <p class="spec-cap"><strong>انتخاب‌شده</strong>نوار سبز و تیک</p>
+            <p class="spec-cap"><strong>فوکوس ریموت</strong>حلقهٔ ضخیم و سطح روشن</p>
+            <p class="spec-cap"><strong>هر دو</strong>نوار و حلقه با هم</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">حلقهٔ فوکوس همیشه یک رنگ است (سیاه در روشن، سفید در تیره) و به رنگ برند وابسته نیست.</p>
+  </figure>
+
+  <!-- حالت‌های دکمهٔ گرد روی تلویزیون -->
+  <figure class="shot">
+    <figcaption>نمونهٔ اجزا · دکمهٔ گرد روی تلویزیون (این صفحهٔ اپ نیست)</figcaption>
+    <div class="tv spec-frame" data-device="tv" data-frame="tv-power-states">
+      <div class="spec-grid">
+        <div class="spec is-connecting">
+          <div class="power-ring">
+            <svg class="arc" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="48" pathLength="100"/><circle class="head" cx="50" cy="50" r="48" pathLength="100" stroke-dasharray="28 72"/></svg>
+            <button class="power is-focused" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">در حال اتصال…</span>
+              <span class="power-sub">دکمهٔ وسط: لغو</span>
+            </button>
+          </div>
+          <p class="spec-cap"><strong>در حال اتصال</strong>فوکوس روی دکمه می‌ماند</p>
+        </div>
+        <div class="spec is-error">
+          <div class="power-ring">
+            <button class="power is-focused" type="button">
+              <svg class="icon"><use href="#i-alert"/></svg>
+              <span class="power-label">وصل نشد</span>
+              <span class="power-sub">دکمهٔ وسط: دوباره</span>
+            </button>
+          </div>
+          <p class="spec-cap"><strong>وصل نشد</strong>فوکوس روی دکمه می‌ماند</p>
+        </div>
+        <div class="spec is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">حجم تمام شده</span>
+            </div>
+          </div>
+          <p class="spec-cap"><strong>حجم تمام شده</strong>فوکوس اول به «تمدید» می‌رود</p>
+        </div>
+        <div class="spec is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اعتبار تمام شده</span>
+            </div>
+          </div>
+          <p class="spec-cap"><strong>اعتبار تمام شده</strong>فوکوس اول به «تمدید» می‌رود</p>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>مهلت «در حال اتصال» مثل گوشی ۲۰ ثانیه است و حدس است. کارتِ سرویسِ تمام‌شده روی تلویزیون همان کارت گوشی است، با «تمدید»ی که کد تصویری نشان می‌دهد.</p>
+  </figure>
+
+</main>
+</body>
+</html>

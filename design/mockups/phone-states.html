@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شیکو · حالت‌های گوشی</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mockup.css">
+<script src="mockup.js"></script>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>شیکو · حالت‌های گوشی</h1>
+  <p>اتصال و خطا، سرویسِ تمام‌شده، فهرست بلند، خروج، ورود بدون تلگرام و انواع کارت سرویس.</p>
+  <nav class="sheet-nav">
+    <a href="phone.html">گوشی</a>
+    <a href="phone-states.html" aria-current="page">حالت‌های گوشی</a>
+    <a href="tv.html">تلویزیون</a>
+    <a href="tv-states.html">حالت‌های تلویزیون</a>
+  </nav>
+  <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
+</header>
+
+<main class="board">
+
+  <!-- در حال اتصال -->
+  <figure class="shot">
+    <figcaption>خانه · در حال اتصال</figcaption>
+    <div class="phone" data-frame="phone-home-connecting">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-connecting">
+          <div class="power-ring">
+            <svg class="arc" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="48" pathLength="100"/><circle class="head" cx="50" cy="50" r="48" pathLength="100" stroke-dasharray="28 72"/></svg>
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">در حال اتصال…</span>
+              <span class="power-sub">برای لغو بزن</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴ <span class="unit">ms</span></span></span>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+            <span class="chip chip-positive">فعال</span>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 33%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+          </div>
+          <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <ul class="servers">
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+          </ul>
+        </article>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">«وصل» فقط وقتی نشان داده می‌شود که موتور اتصال را واقعاً تأیید کرده باشد؛ تا آن موقع همین حالت می‌ماند.</p>
+    <p class="note"><b>پیشنهاد</b>اگر تا ۲۰ ثانیه وصل نشد، به «وصل نشد» می‌رود (قاب بعدی). عدد ۲۰ ثانیه حدس است و باید روی شبکهٔ واقعی سنجیده شود.</p>
+  </figure>
+
+  <!-- خطای اتصال -->
+  <figure class="shot">
+    <figcaption>خانه · وصل نشد</figcaption>
+    <div class="phone" data-frame="phone-home-error">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-error">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-alert"/></svg>
+              <span class="power-label">وصل نشد</span>
+              <span class="power-sub">دوباره بزن</span>
+            </button>
+          </div>
+          <p class="power-msg danger">آلمان ۲ تا ۲۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.</p>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+            <span class="chip chip-positive">فعال</span>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 33%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+          </div>
+          <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <ul class="servers">
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+          </ul>
+        </article>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">دکمهٔ گرد حالا یعنی «دوباره». پینگِ سرورِ انتخاب‌شده هم «بی‌پاسخ» می‌شود تا علت دیده شود.</p>
+    <p class="note"><b>پیشنهاد</b>«۲۰ ثانیه» در متن این قاب حدس است؛ مهلت واقعی باید روی شبکهٔ واقعی سنجیده و تعیین شود.</p>
+  </figure>
+
+  <!-- حجم تمام شده -->
+  <figure class="shot">
+    <figcaption>خانه · حجم تمام شده</figcaption>
+    <div class="phone" data-frame="phone-home-exhausted">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">حجم تمام شده</span>
+            </div>
+          </div>
+          <p class="power-msg">با «تمدید» دوباره وصل می‌شوی.</p>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+            <span class="chip chip-danger">حجم تمام شده</span>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۰۰</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong class="danger">۰ گیگ</strong></span></div>
+            <div class="bar is-full"><span style="inline-size: 100%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <p class="state-msg">فهرست سرورها بعد از تمدید برمی‌گردد.</p>
+        </article>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">نوار مثل ربات به اندازهٔ مصرف پر می‌شود و «۱۰۰٪» فقط برای حجمی است که واقعاً تمام شده.</p>
+  </figure>
+
+  <!-- اعتبار تمام شده -->
+  <figure class="shot">
+    <figcaption>خانه · اعتبار تمام شده</figcaption>
+    <div class="phone" data-frame="phone-home-expired">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اعتبار تمام شده</span>
+            </div>
+          </div>
+          <p class="power-msg">با «تمدید» دوباره وصل می‌شوی.</p>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+            <span class="chip chip-danger">تاریخ انقضا گذشته</span>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۵۸</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۴۲ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 58%"></span></div>
+            <div class="usage-row"><span class="danger">اعتبار تا ۲۸ شهریور ۱۴۰۵</span><span class="danger">تمام شده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <p class="state-msg">فهرست سرورها بعد از تمدید برمی‌گردد.</p>
+        </article>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">دکمهٔ گرد کار نمی‌کند و خاکستری است؛ کار اصلی صفحه «تمدید» است.</p>
+  </figure>
+
+  <!-- تأیید خروج -->
+  <figure class="shot">
+    <figcaption>تنظیمات · تأیید خروج</figcaption>
+    <div class="phone" data-frame="phone-logout-confirm">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>تنظیمات</h2>
+      </div>
+      <div class="settings">
+        <section>
+          <h3 class="group-title">ظاهر</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="false">روشن</button>
+            <button type="button" role="radio" aria-checked="false">تیره</button>
+            <button type="button" role="radio" aria-checked="true">خودکار</button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">حساب</h3>
+          <div class="card">
+            <button class="row danger" type="button">
+              <svg class="icon"><use href="#i-logout"/></svg>
+              <span class="t"><span>خروج</span><small>این گوشی از حساب تلگرامت جدا می‌شود</small></span>
+            </button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">اپ</h3>
+          <div class="card">
+            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۰</span></div>
+            <button class="row" type="button">
+              <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
+              <svg class="icon"><use href="#i-chevron-fwd"/></svg>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="scrim">
+        <div class="dialog" role="alertdialog" aria-labelledby="logout-title">
+          <h2 id="logout-title">از حساب خارج می‌شوی؟</h2>
+          <p>اتصال قطع می‌شود و این گوشی از حساب تلگرامت جدا می‌شود. برای برگشتن، دوباره با تلگرام وارد شو.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-text" type="button">انصراف</button>
+            <button class="btn btn-danger" type="button">خروج</button>
+          </div>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>جدا کردن دستگاه از حساب کارِ سرور است و سمت سرورِ ورود هنوز ساخته نشده. اگر سرور نتواند، «خروج» فقط اطلاعات همین گوشی را پاک می‌کند.</p>
+  </figure>
+
+  <!-- ورود بدون تلگرام -->
+  <figure class="shot">
+    <figcaption>ورود بدون تلگرام روی این گوشی</figcaption>
+    <div class="phone" data-frame="phone-login-no-telegram">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>ورود بدون تلگرام</h2>
+      </div>
+      <div class="alt-login">
+        <p class="lead">با گوشی یا کامپیوتری که تلگرام دارد، این QR را اسکن کن و در ربات شیکو «تأیید» را بزن.</p>
+        <div class="qr-tile sm"><svg class="qr" data-seed="77031" role="img" aria-label="QR نمونه"></svg></div>
+        <p class="fine">یا این کد را در ربات شیکو بفرست:</p>
+        <div class="code-box"><span class="code">K7P2-9QXM</span></div>
+        <p class="fine">بعد از تأیید، این صفحه خودش به خانه می‌رود.</p>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>کل این صفحه پیشنهاد است: همان کد و کد تصویریِ تلویزیون، برای گوشی‌ای که تلگرام ندارد. به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+  </figure>
+
+  <!-- آینده: چند نوع اتصال (هنوز تصمیم نیست) -->
+  <figure class="shot future">
+    <figcaption><span class="future-tag">آینده؛ هنوز تصمیم نیست</span>سرویسی با چند نوع اتصال، و «روش اتصال» در تنظیمات</figcaption>
+    <div class="future-pair">
+      <div class="phone" data-frame="phone-future-home">
+        <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+        <div class="appbar">
+          <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+          <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+        </div>
+        <div class="home">
+          <section class="power-zone is-connecting">
+            <div class="power-ring">
+              <svg class="arc" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="48" pathLength="100"/><circle class="head" cx="50" cy="50" r="48" pathLength="100" stroke-dasharray="28 72"/></svg>
+              <button class="power" type="button">
+                <svg class="icon"><use href="#i-power"/></svg>
+                <span class="power-label">در حال اتصال…</span>
+                <span class="power-sub">روش: <bdi>WireGuard</bdi></span>
+              </button>
+            </div>
+            <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴ <span class="unit">ms</span></span></span>
+            <p class="power-msg">اگر نشد، روش بعدی خودکار امتحان می‌شود.</p>
+          </section>
+          <article class="card svc with-proto">
+            <header class="svc-head">
+              <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+              <span class="chip chip-positive">فعال</span>
+              <svg class="icon"><use href="#i-chevron-up"/></svg>
+            </header>
+            <div class="usage">
+              <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+              <div class="bar"><span style="inline-size: 33%"></span></div>
+              <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+            </div>
+            <p class="svc-protos">روش‌ها:<bdi class="proto">V2Ray</bdi><bdi class="proto">WireGuard</bdi><bdi class="proto">OpenVPN</bdi></p>
+            <div class="actions">
+              <button class="btn btn-primary" type="button">تمدید</button>
+              <button class="btn btn-outline" type="button">پشتیبانی</button>
+            </div>
+            <ul class="servers">
+              <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">WireGuard</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">WireGuard</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">OpenVPN</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            </ul>
+          </article>
+        </div>
+        <div class="gesture"></div>
+      </div>
+      <div class="phone" data-frame="phone-future-settings">
+        <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+        <div class="appbar sub">
+          <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+          <h2>تنظیمات</h2>
+        </div>
+        <div class="settings">
+          <section>
+            <h3 class="group-title">ظاهر</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="false">روشن</button>
+              <button type="button" role="radio" aria-checked="false">تیره</button>
+              <button type="button" role="radio" aria-checked="true">خودکار</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">روش اتصال</h3>
+            <div class="card" role="radiogroup">
+              <button class="row" type="button" role="radio" aria-checked="true"><span class="radio"></span><span class="t"><span>خودکار</span><small>روش‌ها به ترتیب امتحان می‌شوند تا یکی وصل شود</small></span></button>
+              <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="t"><span><bdi>V2Ray</bdi></span></span></button>
+              <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="t"><span><bdi>WireGuard</bdi></span></span></button>
+              <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="t"><span><bdi>OpenVPN</bdi></span></span></button>
+              <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="t"><span><bdi>L2TP</bdi></span></span></button>
+              <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="t"><span>تونل <bdi>DNS</bdi></span></span></button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">حساب</h3>
+            <div class="card">
+              <button class="row danger" type="button">
+                <svg class="icon"><use href="#i-logout"/></svg>
+                <span class="t"><span>خروج</span><small>این گوشی از حساب تلگرامت جدا می‌شود</small></span>
+              </button>
+            </div>
+          </section>
+        </div>
+        <div class="gesture"></div>
+      </div>
+    </div>
+    <p class="note">امروز فقط وی‌تو‌ری و وایرگارد هست؛ اوپن‌وی‌پی‌ان، ال‌تو‌تی‌پی و تونل دی‌ان‌اس شاید بعداً بیایند. این دو قاب فقط نشان می‌دهند طرح جای آن‌ها را دارد.</p>
+    <p class="note">ردیف سرور از همین حالا جای برچسب نوع اتصال را دارد: پیش‌فرض پنهان است و فقط وقتی سرویس چند روش دارد، کم‌رنگ دیده می‌شود. «خودکار» یعنی اپ روش‌ها را به ترتیب امتحان می‌کند و دکمهٔ گرد می‌گوید کدام را.</p>
+  </figure>
+
+  <!-- انواع کارت سرویس -->
+  <figure class="shot">
+    <figcaption>کارت سرویس · حجم نامحدود، بی‌تاریخ، شروع از اولین اتصال، ۹۹٪ مصرف</figcaption>
+    <div class="cards-stack" data-frame="phone-cards-variants">
+      <article class="card svc">
+        <header class="svc-head">
+          <h2 class="svc-name"><bdi dir="ltr">user321</bdi> · پلاتینیوم</h2>
+          <span class="chip chip-positive">فعال</span>
+        </header>
+        <div class="usage">
+          <div class="usage-row"><span>مصرف شده: <strong>۴۲ گیگ</strong></span><span>حجم: <strong>نامحدود</strong></span></div>
+          <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۷۰ روز باقی‌مانده</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button">تمدید</button>
+          <button class="btn btn-outline" type="button">پشتیبانی</button>
+        </div>
+      </article>
+      <article class="card svc">
+        <header class="svc-head">
+          <h2 class="svc-name"><bdi dir="ltr">user654</bdi> · طلایی</h2>
+          <span class="chip chip-positive">فعال</span>
+        </header>
+        <div class="usage">
+          <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+          <div class="bar"><span style="inline-size: 24%"></span></div>
+          <div class="usage-row"><span>اعتبار: بدون محدودیت زمان</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button">تمدید</button>
+          <button class="btn btn-outline" type="button">پشتیبانی</button>
+        </div>
+      </article>
+      <article class="card svc">
+        <header class="svc-head">
+          <h2 class="svc-name"><bdi dir="ltr">user987</bdi> · الماس</h2>
+          <span class="chip chip-muted">در انتظار فعال‌سازی</span>
+        </header>
+        <div class="usage">
+          <div class="usage-row"><span>مصرف شده: <strong>۰</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۵۰ گیگ</strong></span></div>
+          <div class="bar"><span style="inline-size: 0%"></span></div>
+          <div class="usage-row"><span>اعتبار: ۳۰ روز از اولین اتصال</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button">تمدید</button>
+          <button class="btn btn-outline" type="button">پشتیبانی</button>
+        </div>
+      </article>
+      <article class="card svc">
+        <header class="svc-head">
+          <h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2>
+          <span class="chip chip-positive">فعال</span>
+        </header>
+        <div class="usage">
+          <div class="usage-row"><span>مصرف شده: <strong>۴۹٫۸</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong class="warn">۰٫۲ گیگ</strong></span></div>
+          <div class="bar is-warning"><span style="inline-size: 99%"></span></div>
+          <div class="usage-row"><span>اعتبار تا ۱۰ آذر ۱۴۰۵</span><span>۶۰ روز باقی‌مانده</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button">تمدید</button>
+          <button class="btn btn-outline" type="button">پشتیبانی</button>
+        </div>
+      </article>
+    </div>
+    <p class="note">متن‌ها همان متن‌های صفحهٔ جزئیات سرویس در ربات‌اند: «حجم: نامحدود»، «اعتبار: بدون محدودیت زمان»، «اعتبار: ۳۰ روز از اولین اتصال» و برچسب «در انتظار فعال‌سازی». کارت آخر حجمِ ۹۹٪ مصرف‌شده است: نوار رنگ هشدار می‌گیرد، ولی مثل ربات تا وقتی واقعاً تمام نشده «۱۰۰٪» و «تمام شده» نمی‌شود.</p>
+  </figure>
+
+  <!-- خانهٔ بلند: ۹ سرور و چند سرویس -->
+  <figure class="shot tall">
+    <figcaption>خانه · فهرست بلند و چند سرویس (کل صفحه)</figcaption>
+    <div class="phone tall" data-frame="phone-home-long">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴ <span class="unit">ms</span></span></span>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+            <span class="chip chip-positive">فعال</span>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 33%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+          </div>
+          <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <ul class="servers">
+            <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۷۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۰۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۲۴۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+          </ul>
+        </article>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2>
+            <span class="chip chip-positive">فعال</span>
+            <svg class="icon"><use href="#i-chevron-down"/></svg>
+          </header>
+          <p class="svc-summary">مصرف شده <span class="warn">۴۹٫۸ از ۵۰ گیگ</span> · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+        </article>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name"><bdi dir="ltr">user456</bdi> · طلایی</h2>
+            <span class="chip chip-danger">تاریخ انقضا گذشته</span>
+            <svg class="icon"><use href="#i-chevron-down"/></svg>
+          </header>
+          <p class="svc-summary">اعتبارش ۲۸ شهریور ۱۴۰۵ تمام شد. با تمدید دوباره فعال می‌شود.</p>
+        </article>
+      </div>
+    </div>
+    <div class="fold">پایان صفحهٔ اول</div>
+    <p class="note">کل صفحه یکجا اسکرول می‌شود و دکمهٔ گرد هم بالا می‌رود. خط‌چینِ کنار قاب ارتفاع یک صفحهٔ گوشی است.</p>
+    <p class="note">سرویسِ در حال استفاده باز است و بقیه جمع‌اند؛ با زدن روی هر کدام باز می‌شود. سرویس دوم ۹۹٪ مصرف شده و رنگ هشدار گرفته، ولی هنوز «تمام شده» نیست.</p>
+  </figure>
+
+</main>
+</body>
+</html>
