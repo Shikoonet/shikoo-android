@@ -1,0 +1,22 @@
+{
+  "@@locale": "fa",
+  "appTitle": "شیکو",
+  "brandMark": "ش",
+  "powerConnect": "اتصال",
+  "powerOn": "وصل",
+  "powerConnecting": "در حال اتصال…",
+  "powerFailed": "وصل نشد",
+  "subCancelTv": "دکمهٔ وسط: لغو",
+  "subCancelTouch": "برای لغو بزن",
+  "subRetryTv": "دکمهٔ وسط: دوباره",
+  "subRetryTouch": "دوباره بزن",
+  "tvHint": "دکمهٔ وسطِ ریموت را بزن تا وصل شوی",
+  "noService": "هنوز سرویسی اضافه نشده",
+  "loadingServers": "در حال گرفتن فهرست سرورها…",
+  "msUnit": "ms",
+  "noResponse": "بی‌پاسخ",
+  "errorConnect": "{server} تا {seconds} ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.",
+  "errorServer": "سرور عوض نشد.",
+  "errorAdd": "سرویس اضافه نشد.",
+  "initError": "اپ باز نشد."
+}

@@ -1,0 +1,28 @@
+{
+  "@@locale": "en",
+  "appTitle": "Shikoo",
+  "brandMark": "S",
+  "powerConnect": "Connect",
+  "powerOn": "Connected",
+  "powerConnecting": "Connecting…",
+  "powerFailed": "Couldn't connect",
+  "subCancelTv": "OK button: cancel",
+  "subCancelTouch": "Tap to cancel",
+  "subRetryTv": "OK button: retry",
+  "subRetryTouch": "Tap to retry",
+  "tvHint": "Press OK on the remote to connect",
+  "noService": "No service yet",
+  "loadingServers": "Getting the server list…",
+  "msUnit": "ms",
+  "noResponse": "No response",
+  "errorConnect": "{server} didn't answer within {seconds} seconds. Try again, or pick another server.",
+  "@errorConnect": {
+    "placeholders": {
+      "server": {"type": "String"},
+      "seconds": {"type": "int", "format": "decimalPattern"}
+    }
+  },
+  "errorServer": "Couldn't switch the server.",
+  "errorAdd": "Couldn't add the service.",
+  "initError": "The app couldn't start."
+}

@@ -1,0 +1,509 @@
+import 'dart:math' as math;
+
+import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:intl/intl.dart' show Bidi, NumberFormat;
+import 'package:material_ui/material_ui.dart';
+
+/// Digits in the UI language: Persian digits under `fa`.
+String localDigits(BuildContext context, int value, [String pattern = '0']) =>
+    NumberFormat(
+      pattern,
+      Localizations.localeOf(context).languageCode,
+    ).format(value);
+
+/// A name from the subscription keeps its own script's direction, so `آلمان ۲ (ساختگی)` stays
+/// whole in the English layout, while it still lines up with the UI's start edge.
+Text nameText(BuildContext context, String name, TextStyle style) => Text(
+  name,
+  maxLines: 1,
+  overflow: TextOverflow.ellipsis,
+  style: style,
+  textDirection: Bidi.detectRtlDirectionality(name)
+      ? TextDirection.rtl
+      : TextDirection.ltr,
+  textAlign: Directionality.of(context) == TextDirection.rtl
+      ? TextAlign.right
+      : TextAlign.left,
+);
+
+/// A focusable, pressable surface. The remote's OK key and a tap both press it.
+/// The focus ring is drawn outside the child, as in `tv-focus-board`.
+class Pressable extends StatefulWidget {
+  const Pressable({
+    super.key,
+    required this.onPressed,
+    required this.shape,
+    required this.builder,
+    this.autofocus = false,
+  });
+
+  final VoidCallback onPressed;
+  final OutlinedBorder shape;
+  final bool autofocus;
+  final Widget Function(BuildContext context, bool focused) builder;
+
+  @override
+  State<Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<Pressable> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    const gap = ShikooSizes.focusRingOffset;
+    return FocusableActionDetector(
+      autofocus: widget.autofocus,
+      onShowFocusHighlight: (value) => setState(() => _focused = value),
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onPressed();
+            return null;
+          },
+        ),
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onPressed,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            widget.builder(context, _focused),
+            if (_focused)
+              Positioned.fill(
+                left: -gap,
+                top: -gap,
+                right: -gap,
+                bottom: -gap,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: ShapeDecoration(
+                      shape: _grow(widget.shape, gap).copyWith(
+                        side: BorderSide(
+                          color: t.c.focusRing,
+                          width: ShikooSizes.focusRingWidth,
+                          strokeAlign: BorderSide.strokeAlignOutside,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  OutlinedBorder _grow(OutlinedBorder shape, double by) => switch (shape) {
+    RoundedSuperellipseBorder(:final borderRadius) => RoundedSuperellipseBorder(
+      borderRadius: borderRadius.add(BorderRadius.circular(by)),
+    ),
+    _ => shape,
+  };
+}
+
+class Brand extends StatelessWidget {
+  const Brand({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final mark = t.s.mark;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: mark,
+          height: mark,
+          alignment: Alignment.center,
+          padding: EdgeInsets.only(bottom: mark * 0.1),
+          decoration: ShapeDecoration(
+            color: t.c.primary,
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(mark * Radii.markRatio),
+            ),
+          ),
+          child: Text(
+            l.brandMark,
+            style: t.text(
+              mark * 0.56,
+              weight: FontWeight.w800,
+              color: t.c.onPrimary,
+              height: 1,
+            ),
+          ),
+        ),
+        const SizedBox(width: Space.s2),
+        Text(l.appTitle, style: t.text(t.s.title, weight: FontWeight.w800)),
+      ],
+    );
+  }
+}
+
+class PowerButton extends StatefulWidget {
+  const PowerButton({
+    super.key,
+    required this.connection,
+    required this.connectedFor,
+    required this.isTV,
+    required this.onPressed,
+  });
+
+  final ShikooConnection connection;
+  final Duration connectedFor;
+  final bool isTV;
+  final VoidCallback onPressed;
+
+  @override
+  State<PowerButton> createState() => _PowerButtonState();
+}
+
+class _PowerButtonState extends State<PowerButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _spin = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(PowerButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _sync();
+  }
+
+  void _sync() {
+    if (widget.connection == ShikooConnection.connecting) {
+      if (!_spin.isAnimating) _spin.repeat();
+    } else {
+      _spin.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
+  }
+
+  String _clock(Duration d) => [
+    d.inHours,
+    d.inMinutes % 60,
+    d.inSeconds % 60,
+  ].map((part) => localDigits(context, part, '00')).join(':');
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final c = t.c;
+    final s = t.s;
+    final l = ShikooL10n.of(context);
+    final conn = widget.connection;
+    final on = conn == ShikooConnection.on;
+    final error = conn == ShikooConnection.error;
+    final halo = switch (conn) {
+      ShikooConnection.on => c.positiveSoft,
+      ShikooConnection.error => c.dangerSoft,
+      _ => null,
+    };
+    final label = switch (conn) {
+      ShikooConnection.off => l.powerConnect,
+      ShikooConnection.connecting => l.powerConnecting,
+      ShikooConnection.on => l.powerOn,
+      ShikooConnection.error => l.powerFailed,
+    };
+    final sub = switch (conn) {
+      ShikooConnection.connecting =>
+        widget.isTV ? l.subCancelTv : l.subCancelTouch,
+      ShikooConnection.error => widget.isTV ? l.subRetryTv : l.subRetryTouch,
+      _ => null,
+    };
+    final iconColor = on ? c.onPositive : (error ? c.danger : c.textMuted);
+    final labelColor = on ? c.onPositive : (error ? c.danger : c.text);
+    return SizedBox.square(
+      dimension: s.powerRing,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: halo,
+                border: halo == null && conn != ShikooConnection.connecting
+                    ? Border.all(color: c.border)
+                    : null,
+              ),
+            ),
+          ),
+          if (conn == ShikooConnection.connecting)
+            Positioned.fill(
+              child: RotationTransition(
+                turns: _spin,
+                child: CustomPaint(
+                  painter: _ArcPainter(track: c.border, head: c.primary),
+                ),
+              ),
+            ),
+          Pressable(
+            autofocus: true,
+            shape: const CircleBorder(),
+            onPressed: widget.onPressed,
+            builder: (context, focused) => Container(
+              width: s.power,
+              height: s.power,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: on ? c.positive : c.surface,
+                boxShadow: focused ? c.raisedShadow : c.cardShadow,
+              ),
+              child: Semantics(
+                button: true,
+                label: label,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      error ? Icons.error_outline : Icons.power_settings_new,
+                      size: conn == ShikooConnection.off
+                          ? ShikooSizes.powerIcon
+                          : ShikooSizes.powerIconOn,
+                      color: iconColor,
+                    ),
+                    const SizedBox(height: Space.s1),
+                    Text(
+                      label,
+                      style: t.text(
+                        s.body,
+                        weight: FontWeight.w700,
+                        color: labelColor,
+                      ),
+                    ),
+                    if (on)
+                      Text(
+                        _clock(widget.connectedFor),
+                        textDirection: TextDirection.ltr,
+                        style: t.text(
+                          s.display,
+                          weight: FontWeight.w700,
+                          color: c.onPositive,
+                        ),
+                      ),
+                    if (sub != null)
+                      Text(sub, style: t.text(s.caption, color: c.textMuted)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArcPainter extends CustomPainter {
+  const _ArcPainter({required this.track, required this.head});
+
+  final Color track;
+  final Color head;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = size.shortestSide * ShikooSizes.arcStrokeRatio;
+    final rect = (Offset.zero & size).deflate(stroke / 2);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawOval(rect, paint..color = track);
+    canvas.drawArc(rect, -math.pi / 2, math.pi / 2, false, paint..color = head);
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter old) => old.track != track || old.head != head;
+}
+
+/// Ping with its coloured dot: `۸۴ ms`, `بی‌پاسخ`, or a quiet ellipsis while testing.
+class Ping extends StatelessWidget {
+  const Ping({super.key, required this.server});
+
+  final ShikooServer server;
+
+  // ponytail: one fixed threshold taken from the frames (112 green, 130 amber); tune with real pings.
+  static const _slowMs = 120;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final ping = server.ping;
+    if (server.testing || ping == null) {
+      return Text(
+        server.testing ? '…' : '',
+        style: t.text(t.s.bodySm, color: t.c.textMuted),
+      );
+    }
+    final failed = ping < 0;
+    final dot = failed
+        ? t.c.danger
+        : (ping > _slowMs ? t.c.warning : t.c.positive);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: ShikooSizes.dot,
+          height: ShikooSizes.dot,
+          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: Space.s2),
+        Text.rich(
+          failed
+              ? TextSpan(text: l.noResponse)
+              : TextSpan(
+                  children: [
+                    TextSpan(text: localDigits(context, ping)),
+                    const TextSpan(text: ' '),
+                    TextSpan(
+                      text: l.msUnit,
+                      style: TextStyle(fontSize: t.s.caption),
+                    ),
+                  ],
+                ),
+          style: t.text(t.s.bodySm, color: failed ? t.c.danger : t.c.textMuted),
+        ),
+      ],
+    );
+  }
+}
+
+class ServerRow extends StatelessWidget {
+  const ServerRow({
+    super.key,
+    required this.server,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final ShikooServer server;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final shape = RoundedSuperellipseBorder(
+      borderRadius: BorderRadius.circular(Radii.md),
+    );
+    return Pressable(
+      shape: shape,
+      onPressed: onPressed,
+      builder: (context, focused) => Container(
+        constraints: BoxConstraints(minHeight: t.s.row),
+        decoration: ShapeDecoration(
+          shape: shape,
+          color: focused
+              ? t.c.focusBg
+              : (selected ? t.c.selectedBg : Colors.transparent),
+          shadows: focused ? t.c.raisedShadow : null,
+        ),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                Space.s4,
+                Space.s2,
+                Space.s3,
+                Space.s2,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: nameText(
+                      context,
+                      server.name,
+                      t.text(
+                        t.s.body,
+                        weight: selected ? FontWeight.w700 : FontWeight.w500,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Space.s3),
+                  Ping(server: server),
+                  const SizedBox(width: Space.s3),
+                  Icon(
+                    Icons.check,
+                    size: ShikooSizes.icon,
+                    color: selected ? t.c.positive : Colors.transparent,
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              PositionedDirectional(
+                start: 0,
+                top: Space.s2,
+                bottom: Space.s2,
+                child: Container(
+                  width: ShikooSizes.selectedBar,
+                  decoration: ShapeDecoration(
+                    color: t.c.positive,
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The selected server under the power button.
+class NowPill extends StatelessWidget {
+  const NowPill({super.key, required this.server});
+
+  final ShikooServer server;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s2,
+      ),
+      decoration: ShapeDecoration(
+        color: t.c.surface,
+        shape: const StadiumBorder(),
+        shadows: t.c.cardShadow,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: nameText(
+              context,
+              server.name,
+              t.text(t.s.body, weight: FontWeight.w500),
+            ),
+          ),
+          const SizedBox(width: Space.s3),
+          Ping(server: server),
+        ],
+      ),
+    );
+  }
+}
