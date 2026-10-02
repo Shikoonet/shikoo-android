@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Home, laid out after `phone-home-*` and `tv-home-*`. The service card is not built yet.
+/// Home, laid out after `design/mockups/tv.html` (frames `tv-home-*`) and `phone.html`.
 class ShikooHome extends ConsumerWidget {
   const ShikooHome({super.key});
 
@@ -18,30 +20,32 @@ class ShikooHome extends ConsumerWidget {
     final controller = ref.watch(shikooControllerProvider);
     final t = ShikooTheme.of(context);
     final power = _PowerZone(state: state, controller: controller);
-    final servers = _ServersCard(state: state, controller: controller);
+    final card = ServiceCard(state: state, controller: controller);
     return Scaffold(
       backgroundColor: t.c.bg,
       body: PageFocusScope(
         child: FocusTraversalGroup(
           policy: PageTraversalPolicy(),
           child: state.isTV
-              ? _TvLayout(power: power, servers: servers)
-              : _PhoneLayout(power: power, servers: servers),
+              ? _TvLayout(power: power, card: card)
+              : _PhoneLayout(power: power, card: card),
         ),
       ),
     );
   }
 }
 
+/// `.tv`, `.tv-top` and `.tv-home`: the card column at the start, the power button beside it.
 class _TvLayout extends StatelessWidget {
-  const _TvLayout({required this.power, required this.servers});
+  const _TvLayout({required this.power, required this.card});
 
   final Widget power;
-  final Widget servers;
+  final Widget card;
 
   @override
   Widget build(BuildContext context) {
-    final s = ShikooTheme.of(context).s;
+    final t = ShikooTheme.of(context);
+    final s = t.s;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: s.safeX, vertical: s.safeY),
       child: Column(
@@ -49,9 +53,17 @@ class _TvLayout extends StatelessWidget {
         children: [
           SizedBox(
             height: s.appbar,
-            child: const Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Brand(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Brand(),
+                // The settings screen comes in a later round.
+                ShikooButton(
+                  label: ShikooL10n.of(context).settings,
+                  icon: ShikooIcon.gear,
+                  onPressed: () {},
+                ),
+              ],
             ),
           ),
           const SizedBox(height: Space.s3),
@@ -59,7 +71,10 @@ class _TvLayout extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(width: s.pane, child: servers),
+                SizedBox(
+                  width: s.pane,
+                  child: _TvColumn(child: card),
+                ),
                 const SizedBox(width: Space.s10),
                 Expanded(child: Center(child: power)),
               ],
@@ -71,23 +86,112 @@ class _TvLayout extends StatelessWidget {
   }
 }
 
-class _PhoneLayout extends StatelessWidget {
-  const _PhoneLayout({required this.power, required this.servers});
+/// `.tv-col`: scrolls as one; once scrolled, its top edge fades and a thumb shows. It reaches
+/// 8dp past the pane on every side (`margin: -8; padding: 8`) so focus rings are not clipped.
+class _TvColumn extends StatefulWidget {
+  const _TvColumn({required this.child});
 
-  final Widget power;
-  final Widget servers;
+  final Widget child;
+
+  @override
+  State<_TvColumn> createState() => _TvColumnState();
+}
+
+class _TvColumnState extends State<_TvColumn> {
+  final _scroll = ScrollController();
+  bool _scrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      final scrolled = _scroll.offset > 0;
+      if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final s = ShikooTheme.of(context).s;
+    final t = ShikooTheme.of(context);
+    return LayoutBuilder(
+      builder: (context, box) => OverflowBox(
+        maxWidth: box.maxWidth + 2 * Space.s2,
+        maxHeight: box.maxHeight + 2 * Space.s2,
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              _scrolled ? Colors.transparent : Colors.black,
+              Colors.black,
+            ],
+            stops: [0, ShikooSizes.fade / rect.height],
+          ).createShader(rect),
+          child: RawScrollbar(
+            controller: _scroll,
+            thumbVisibility: _scrolled,
+            thickness: ShikooSizes.scrollThumb,
+            radius: const Radius.circular(ShikooSizes.scrollThumb),
+            thumbColor: t.c.outline,
+            child: SingleChildScrollView(
+              controller: _scroll,
+              padding: const EdgeInsets.all(Space.s2),
+              child: widget.child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneLayout extends StatelessWidget {
+  const _PhoneLayout({required this.power, required this.card});
+
+  final Widget power;
+  final Widget card;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final s = t.s;
     return SafeArea(
       child: Column(
         children: [
           Container(
             height: s.appbar,
-            padding: EdgeInsets.symmetric(horizontal: s.safeX),
-            alignment: AlignmentDirectional.centerStart,
-            child: const Brand(),
+            padding: EdgeInsetsDirectional.only(start: s.safeX, end: Space.s1),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Brand(),
+                Pressable(
+                  shape: const CircleBorder(),
+                  onPressed: () {},
+                  builder: (context, _) => Semantics(
+                    button: true,
+                    label: ShikooL10n.of(context).settings,
+                    child: SizedBox.square(
+                      dimension: ShikooSizes.touch,
+                      child: Center(
+                        child: SvgIcon(
+                          ShikooIcon.gear,
+                          size: s.icon,
+                          color: t.c.text,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -101,7 +205,7 @@ class _PhoneLayout extends StatelessWidget {
                 children: [
                   power,
                   const SizedBox(height: Space.s3),
-                  servers,
+                  card,
                 ],
               ),
             ),
@@ -112,6 +216,7 @@ class _PhoneLayout extends StatelessWidget {
   }
 }
 
+/// `.tv-power` / `.power-zone`: the button, the selected server, and a hint or an error.
 class _PowerZone extends StatelessWidget {
   const _PowerZone({required this.state, required this.controller});
 
@@ -123,9 +228,10 @@ class _PowerZone extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final selected = state.selectedServer;
+    final gap = state.isTV ? Space.s4 : Space.s3;
     final message = switch (state.lastError) {
       ShikooError.connectTimeout => l.errorConnect(
-        selected?.name ?? '',
+        selected?.label ?? '',
         connectTimeout.inSeconds,
       ),
       ShikooError.serverChange => l.errorServer,
@@ -150,11 +256,11 @@ class _PowerZone extends StatelessWidget {
           }),
         ),
         if (selected != null) ...[
-          const SizedBox(height: Space.s4),
+          SizedBox(height: gap),
           NowPill(server: selected),
         ],
         if (message != null) ...[
-          const SizedBox(height: Space.s4),
+          SizedBox(height: gap),
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: t.s.powerRing * 1.5),
             child: Text(
@@ -168,78 +274,6 @@ class _PowerZone extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _ServersCard extends StatelessWidget {
-  const _ServersCard({required this.state, required this.controller});
-
-  final ShikooState state;
-  final ShikooController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    final l = ShikooL10n.of(context);
-    final name = state.serviceName;
-    final rows = [
-      for (final server in state.servers)
-        Padding(
-          padding: EdgeInsets.only(bottom: t.s.rowGap),
-          child: ServerRow(
-            server: server,
-            selected: server.name == state.selected,
-            onPressed: () => unawaited(controller.selectServer(server.name)),
-          ),
-        ),
-    ];
-    final empty = Padding(
-      padding: const EdgeInsets.all(Space.s4),
-      child: Text(
-        name == null ? l.noService : l.loadingServers,
-        style: t.text(t.s.body, color: t.c.textMuted),
-      ),
-    );
-    final list = Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.s2,
-        vertical: Space.s2,
-      ),
-      child: Column(children: rows.isEmpty ? [empty] : rows),
-    );
-    return Container(
-      decoration: ShapeDecoration(
-        color: t.c.surface,
-        shadows: t.c.cardShadow,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Radii.lg),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (name != null)
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                Space.s4,
-                Space.s4,
-                Space.s4,
-                0,
-              ),
-              child: nameText(
-                context,
-                name,
-                t.text(t.s.title, weight: FontWeight.w700, height: 1.6),
-              ),
-            ),
-          if (state.isTV)
-            Expanded(child: SingleChildScrollView(child: list))
-          else
-            list,
-        ],
-      ),
     );
   }
 }

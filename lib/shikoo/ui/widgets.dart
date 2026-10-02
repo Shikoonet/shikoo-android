@@ -2,19 +2,20 @@ import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:intl/intl.dart' show Bidi, NumberFormat;
 import 'package:material_ui/material_ui.dart';
 
-/// Digits in the UI language: Persian digits under `fa`.
-String localDigits(BuildContext context, int value, [String pattern = '0']) =>
+/// Numbers in the UI language: Persian digits under `fa`.
+String localNumber(BuildContext context, num value, [String pattern = '0']) =>
     NumberFormat(
       pattern,
       Localizations.localeOf(context).languageCode,
     ).format(value);
 
-/// A name from the subscription keeps its own script's direction, so `آلمان ۲ (ساختگی)` stays
-/// whole in the English layout, while it still lines up with the UI's start edge.
+/// A name from the subscription keeps its own script's direction, so `آلمان ۲` stays whole in
+/// the English layout, while it still lines up with the UI's start edge.
 Text nameText(BuildContext context, String name, TextStyle style) => Text(
   name,
   maxLines: 1,
@@ -29,7 +30,7 @@ Text nameText(BuildContext context, String name, TextStyle style) => Text(
 );
 
 /// A focusable, pressable surface. The remote's OK key and a tap both press it.
-/// The focus ring is drawn outside the child, as in `tv-focus-board`.
+/// The focus ring (`.is-focused`: 3dp, 2dp away) is drawn outside the child.
 class Pressable extends StatefulWidget {
   const Pressable({
     super.key,
@@ -71,6 +72,7 @@ class _PressableState extends State<Pressable> {
         onTap: widget.onPressed,
         child: Stack(
           clipBehavior: Clip.none,
+          fit: StackFit.passthrough,
           children: [
             widget.builder(context, _focused),
             if (_focused)
@@ -107,6 +109,7 @@ class _PressableState extends State<Pressable> {
   };
 }
 
+/// `.brand`: the letter mark and the word.
 class Brand extends StatelessWidget {
   const Brand({super.key});
 
@@ -146,6 +149,97 @@ class Brand extends StatelessWidget {
   }
 }
 
+/// `.btn-primary` and `.btn-outline`, with an icon before the label.
+class ShikooButton extends StatelessWidget {
+  const ShikooButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.primary = false,
+  });
+
+  final String label;
+  final ShikooIcon icon;
+  final VoidCallback onPressed;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final radius = BorderRadius.circular(Radii.md);
+    final fg = primary ? t.c.onPrimary : t.c.text;
+    return Pressable(
+      shape: RoundedSuperellipseBorder(borderRadius: radius),
+      onPressed: onPressed,
+      builder: (context, focused) => Container(
+        height: t.s.button,
+        padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+        decoration: ShapeDecoration(
+          color: primary ? t.c.primary : (focused ? t.c.focusBg : null),
+          shadows: focused ? t.c.raisedShadow : null,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: radius,
+            side: primary
+                ? BorderSide.none
+                : BorderSide(color: t.c.outline, width: t.s.borderControl),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgIcon(icon, size: t.s.icon, color: fg),
+            const SizedBox(width: Space.s2),
+            Text(
+              label,
+              maxLines: 1,
+              style: t.text(t.s.body, weight: FontWeight.w700, color: fg),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// `.chip`: the service's status.
+class StatusChip extends StatelessWidget {
+  const StatusChip({super.key, required this.status});
+
+  final ShikooServiceStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final ok = status == ShikooServiceStatus.active;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s3,
+        vertical: Space.s1,
+      ),
+      decoration: ShapeDecoration(
+        color: ok ? t.c.positiveSoft : t.c.dangerSoft,
+        shape: const StadiumBorder(),
+      ),
+      child: Text(
+        switch (status) {
+          ShikooServiceStatus.active => l.statusActive,
+          ShikooServiceStatus.expired => l.statusExpired,
+          ShikooServiceStatus.exhausted => l.statusExhausted,
+        },
+        style: t.text(
+          t.s.caption,
+          weight: FontWeight.w700,
+          color: ok ? t.c.positive : t.c.danger,
+        ),
+      ),
+    );
+  }
+}
+
+/// `.power-ring` and `.power`: off, connecting, on and couldn't-connect.
 class PowerButton extends StatefulWidget {
   const PowerButton({
     super.key,
@@ -201,7 +295,7 @@ class _PowerButtonState extends State<PowerButton>
     d.inHours,
     d.inMinutes % 60,
     d.inSeconds % 60,
-  ].map((part) => localDigits(context, part, '00')).join(':');
+  ].map((part) => localNumber(context, part, '00')).join(':');
 
   @override
   Widget build(BuildContext context) {
@@ -229,8 +323,7 @@ class _PowerButtonState extends State<PowerButton>
       ShikooConnection.error => widget.isTV ? l.subRetryTv : l.subRetryTouch,
       _ => null,
     };
-    final iconColor = on ? c.onPositive : (error ? c.danger : c.textMuted);
-    final labelColor = on ? c.onPositive : (error ? c.danger : c.text);
+    final fg = on ? c.onPositive : c.text;
     return SizedBox.square(
       dimension: s.powerRing,
       child: Stack(
@@ -241,7 +334,7 @@ class _PowerButtonState extends State<PowerButton>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: halo,
-                border: halo == null && conn != ShikooConnection.connecting
+                border: conn == ShikooConnection.off
                     ? Border.all(color: c.border)
                     : null,
               ),
@@ -274,12 +367,13 @@ class _PowerButtonState extends State<PowerButton>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      error ? Icons.error_outline : Icons.power_settings_new,
+                    SvgIcon(
+                      error ? ShikooIcon.alert : ShikooIcon.power,
                       size: conn == ShikooConnection.off
                           ? ShikooSizes.powerIcon
                           : ShikooSizes.powerIconOn,
-                      color: iconColor,
+                      stroke: ShikooSizes.iconStrokeStrong,
+                      color: on ? fg : (error ? c.danger : c.textMuted),
                     ),
                     const SizedBox(height: Space.s1),
                     Text(
@@ -287,21 +381,26 @@ class _PowerButtonState extends State<PowerButton>
                       style: t.text(
                         s.body,
                         weight: FontWeight.w700,
-                        color: labelColor,
+                        color: error ? c.danger : fg,
                       ),
                     ),
-                    if (on)
+                    if (on) ...[
+                      const SizedBox(height: Space.s1),
                       Text(
                         _clock(widget.connectedFor),
                         textDirection: TextDirection.ltr,
                         style: t.text(
                           s.display,
                           weight: FontWeight.w700,
-                          color: c.onPositive,
+                          color: fg,
+                          tabular: true,
                         ),
                       ),
-                    if (sub != null)
+                    ],
+                    if (sub != null) ...[
+                      const SizedBox(height: Space.s1),
                       Text(sub, style: t.text(s.caption, color: c.textMuted)),
+                    ],
                   ],
                 ),
               ),
@@ -313,6 +412,7 @@ class _PowerButtonState extends State<PowerButton>
   }
 }
 
+/// `.arc`: a circle of r=48 in a 100-unit box, stroke 2, the head 28% of it, from the top.
 class _ArcPainter extends CustomPainter {
   const _ArcPainter({required this.track, required this.head});
 
@@ -322,20 +422,26 @@ class _ArcPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final stroke = size.shortestSide * ShikooSizes.arcStrokeRatio;
-    final rect = (Offset.zero & size).deflate(stroke / 2);
+    final rect = (Offset.zero & size).deflate(size.shortestSide * 0.02);
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round;
     canvas.drawOval(rect, paint..color = track);
-    canvas.drawArc(rect, -math.pi / 2, math.pi / 2, false, paint..color = head);
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      2 * math.pi * 0.28,
+      false,
+      paint..color = head,
+    );
   }
 
   @override
   bool shouldRepaint(_ArcPainter old) => old.track != track || old.head != head;
 }
 
-/// Ping with its coloured dot: `۸۴ ms`, `بی‌پاسخ`, or a quiet ellipsis while testing.
+/// `.ping`: a coloured dot and `۸۴ ms`, or `بی‌پاسخ`; a quiet ellipsis while testing.
 class Ping extends StatelessWidget {
   const Ping({super.key, required this.server});
 
@@ -373,7 +479,7 @@ class Ping extends StatelessWidget {
               ? TextSpan(text: l.noResponse)
               : TextSpan(
                   children: [
-                    TextSpan(text: localDigits(context, ping)),
+                    TextSpan(text: localNumber(context, ping)),
                     const TextSpan(text: ' '),
                     TextSpan(
                       text: l.msUnit,
@@ -381,13 +487,18 @@ class Ping extends StatelessWidget {
                     ),
                   ],
                 ),
-          style: t.text(t.s.bodySm, color: failed ? t.c.danger : t.c.textMuted),
+          style: t.text(
+            t.s.bodySm,
+            color: failed ? t.c.danger : t.c.textMuted,
+            tabular: true,
+          ),
         ),
       ],
     );
   }
 }
 
+/// `.server`: flag, name, ping and tick; `.is-selected` adds the green start bar.
 class ServerRow extends StatelessWidget {
   const ServerRow({
     super.key,
@@ -413,40 +524,38 @@ class ServerRow extends StatelessWidget {
         constraints: BoxConstraints(minHeight: t.s.row),
         decoration: ShapeDecoration(
           shape: shape,
-          color: focused
-              ? t.c.focusBg
-              : (selected ? t.c.selectedBg : Colors.transparent),
+          color: focused ? t.c.focusBg : (selected ? t.c.selectedBg : null),
           shadows: focused ? t.c.raisedShadow : null,
         ),
         child: Stack(
+          alignment: AlignmentDirectional.centerStart,
           children: [
             Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                Space.s4,
-                Space.s2,
-                Space.s3,
-                Space.s2,
-              ),
+              padding: const EdgeInsets.all(Space.s2),
               child: Row(
                 children: [
+                  Flag(country: server.country),
+                  const SizedBox(width: Space.s3),
                   Expanded(
                     child: nameText(
                       context,
-                      server.name,
+                      server.label,
                       t.text(
                         t.s.body,
                         weight: selected ? FontWeight.w700 : FontWeight.w500,
-                        height: 1.6,
                       ),
                     ),
                   ),
                   const SizedBox(width: Space.s3),
                   Ping(server: server),
                   const SizedBox(width: Space.s3),
-                  Icon(
-                    Icons.check,
-                    size: ShikooSizes.icon,
-                    color: selected ? t.c.positive : Colors.transparent,
+                  Opacity(
+                    opacity: selected ? 1 : 0,
+                    child: SvgIcon(
+                      ShikooIcon.check,
+                      size: t.s.icon,
+                      color: t.c.positive,
+                    ),
                   ),
                 ],
               ),
@@ -471,7 +580,7 @@ class ServerRow extends StatelessWidget {
   }
 }
 
-/// The selected server under the power button.
+/// `.now`: the selected server under the power button.
 class NowPill extends StatelessWidget {
   const NowPill({super.key, required this.server});
 
@@ -493,14 +602,16 @@ class NowPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Flag(country: server.country),
+          const SizedBox(width: Space.s2),
           Flexible(
             child: nameText(
               context,
-              server.name,
+              server.label,
               t.text(t.s.body, weight: FontWeight.w500),
             ),
           ),
-          const SizedBox(width: Space.s3),
+          const SizedBox(width: Space.s2),
           Ping(server: server),
         ],
       ),

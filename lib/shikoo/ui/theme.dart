@@ -26,9 +26,17 @@ abstract final class Space {
 }
 
 abstract final class Radii {
+  static const xs = 3.0;
+  static const sm = 8.0;
   static const md = 12.0;
   static const lg = 20.0;
   static const markRatio = 0.28;
+}
+
+abstract final class Leading {
+  static const tight = 1.35;
+  static const body = 1.7;
+  static const snug = 1.6;
 }
 
 @immutable
@@ -36,7 +44,9 @@ class ShikooColors {
   const ShikooColors({
     required this.bg,
     required this.surface,
+    required this.surfaceSunken,
     required this.border,
+    required this.outline,
     required this.text,
     required this.textMuted,
     required this.primary,
@@ -56,7 +66,9 @@ class ShikooColors {
 
   final Color bg;
   final Color surface;
+  final Color surfaceSunken;
   final Color border;
+  final Color outline;
   final Color text;
   final Color textMuted;
   final Color primary;
@@ -76,7 +88,9 @@ class ShikooColors {
   static const light = ShikooColors(
     bg: Color(0xFFF4F4F1),
     surface: Color(0xFFFFFFFF),
+    surfaceSunken: Color(0xFFECECE8),
     border: Color(0xFFDEDED8),
+    outline: Color(0xFF8B8E87),
     text: Color(0xFF1A1B19),
     textMuted: Color(0xFF5C5F59),
     primary: Color(0xFF1A1B19),
@@ -106,7 +120,9 @@ class ShikooColors {
   static const dark = ShikooColors(
     bg: Color(0xFF121413),
     surface: Color(0xFF1B1E1D),
+    surfaceSunken: Color(0xFF252927),
     border: Color(0xFF313634),
+    outline: Color(0xFF737975),
     text: Color(0xFFECEEEC),
     textMuted: Color(0xFFA2A8A5),
     primary: Color(0xFFECEEEC),
@@ -145,8 +161,14 @@ class ShikooSizes {
     required this.display,
     required this.appbar,
     required this.row,
-    required this.rowGap,
+    required this.button,
+    required this.icon,
+    required this.iconSm,
+    required this.flagW,
+    required this.flagH,
     required this.mark,
+    required this.bar,
+    required this.borderControl,
     required this.power,
     required this.powerRing,
     required this.safeX,
@@ -161,10 +183,14 @@ class ShikooSizes {
   final double display;
   final double appbar;
   final double row;
-
-  /// Room between server rows for the focus ring, which is drawn outside the row.
-  final double rowGap;
+  final double button;
+  final double icon;
+  final double iconSm;
+  final double flagW;
+  final double flagH;
   final double mark;
+  final double bar;
+  final double borderControl;
   final double power;
   final double powerRing;
   final double safeX;
@@ -179,8 +205,14 @@ class ShikooSizes {
     display: 26,
     appbar: 56,
     row: 56,
-    rowGap: 0,
+    button: 44,
+    icon: 24,
+    iconSm: 18,
+    flagW: 27,
+    flagH: 18,
     mark: 32,
+    bar: 8,
+    borderControl: 1,
     power: 160,
     powerRing: 200,
     safeX: 16,
@@ -196,8 +228,14 @@ class ShikooSizes {
     display: 30,
     appbar: 40,
     row: 44,
-    rowGap: Space.s2,
+    button: 40,
+    icon: 20,
+    iconSm: 16,
+    flagW: 30,
+    flagH: 20,
     mark: 28,
+    bar: 6,
+    borderControl: 2,
     power: 176,
     powerRing: 224,
     safeX: 48,
@@ -205,13 +243,17 @@ class ShikooSizes {
     pane: 500,
   );
 
+  static const touch = 48.0;
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
-  static const icon = 20.0;
   static const dot = 8.0;
   static const selectedBar = 4.0;
   static const focusRingWidth = 3.0;
   static const focusRingOffset = 2.0;
+  static const scrollThumb = 4.0;
+  static const fade = 24.0;
+  static const iconStroke = 2.0;
+  static const iconStrokeStrong = 2.25;
 
   /// `--arc-stroke: 2` in a 100-unit frame, so it scales with the ring.
   static const arcStrokeRatio = 0.02;
@@ -231,13 +273,15 @@ class ShikooTheme extends ThemeExtension<ShikooTheme> {
     double size, {
     FontWeight weight = FontWeight.w400,
     Color? color,
-    double height = 1.35,
+    double height = Leading.tight,
+    bool tabular = false,
   }) => TextStyle(
     fontFamily: shikooFont,
     fontSize: size,
     fontWeight: weight,
     color: color ?? c.text,
     height: height,
+    fontFeatures: tabular ? const [FontFeature.tabularFigures()] : null,
   );
 
   @override

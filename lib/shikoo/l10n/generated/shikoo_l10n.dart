@@ -110,6 +110,96 @@ abstract class ShikooL10n {
   /// **'S'**
   String get brandMark;
 
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @renew.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew'**
+  String get renew;
+
+  /// No description provided for @support.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get support;
+
+  /// No description provided for @statusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get statusActive;
+
+  /// No description provided for @statusExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get statusExpired;
+
+  /// No description provided for @statusExhausted.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume used up'**
+  String get statusExhausted;
+
+  /// No description provided for @usedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Used:'**
+  String get usedLabel;
+
+  /// No description provided for @ofTotalGb.
+  ///
+  /// In en, this message translates to:
+  /// **'of {total} GB'**
+  String ofTotalGb(String total);
+
+  /// No description provided for @remainingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Left:'**
+  String get remainingLabel;
+
+  /// No description provided for @gb.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} GB'**
+  String gb(String amount);
+
+  /// No description provided for @unlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get unlimited;
+
+  /// No description provided for @validUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid until {date}'**
+  String validUntil(String date);
+
+  /// No description provided for @daysLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day left} other{{days} days left}}'**
+  String daysLeft(int days);
+
+  /// No description provided for @jalaliMonths.
+  ///
+  /// In en, this message translates to:
+  /// **'Farvardin|Ordibehesht|Khordad|Tir|Mordad|Shahrivar|Mehr|Aban|Azar|Dey|Bahman|Esfand'**
+  String get jalaliMonths;
+
+  /// No description provided for @jalaliDate.
+  ///
+  /// In en, this message translates to:
+  /// **'{day} {month} {year}'**
+  String jalaliDate(String day, String month, String year);
+
   /// No description provided for @powerConnect.
   ///
   /// In en, this message translates to:

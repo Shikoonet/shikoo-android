@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:collection/collection.dart';
-import 'package:fl_clash/common/system.dart';
+import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// The only door from the Shikoo screens into FlClash's engine (docs/extensibility.md section 1).
 /// Screens read [shikooStateProvider] and call [ShikooController]; nothing else.
@@ -15,6 +18,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum ShikooConnection { off, connecting, on, error }
 
 enum ShikooError { connectTimeout, serverChange, addService }
+
+enum ShikooServiceStatus { active, expired, exhausted }
 
 /// How long "connecting" may last, including the user reading Android's VPN consent dialog.
 // ponytail: a fixed wait; native never reports a refused consent to Flutter (engine map section 4),
@@ -30,6 +35,7 @@ class ShikooServer {
     this.testing = false,
   });
 
+  /// The engine's name for the server; [label] is what the screen shows.
   final String name;
 
   /// The engine's protocol name, kept as data so a new protocol needs no screen change.
@@ -38,6 +44,41 @@ class ShikooServer {
   /// Milliseconds; null = not tested yet, -1 = no answer.
   final int? ping;
   final bool testing;
+
+  String get label => withoutFlags(name);
+
+  String? get country => countryOf(name);
+}
+
+@immutable
+class ShikooService {
+  const ShikooService({
+    required this.name,
+    required this.usedBytes,
+    required this.totalBytes,
+    this.expire,
+    this.announce,
+    this.supportUrl,
+  });
+
+  final String name;
+  final int usedBytes;
+
+  /// 0 = no volume limit.
+  final int totalBytes;
+  final DateTime? expire;
+  final String? announce;
+  final String? supportUrl;
+
+  ShikooServiceStatus statusAt(DateTime now) {
+    if (expire != null && !expire!.isAfter(now)) {
+      return ShikooServiceStatus.expired;
+    }
+    if (totalBytes > 0 && usedBytes >= totalBytes) {
+      return ShikooServiceStatus.exhausted;
+    }
+    return ShikooServiceStatus.active;
+  }
 }
 
 @immutable
@@ -47,7 +88,7 @@ class ShikooState {
     required this.connectedFor,
     required this.isTV,
     required this.servers,
-    this.serviceName,
+    this.service,
     this.selected,
     this.lastError,
   });
@@ -55,7 +96,7 @@ class ShikooState {
   final ShikooConnection connection;
   final Duration connectedFor;
   final bool isTV;
-  final String? serviceName;
+  final ShikooService? service;
   final List<ShikooServer> servers;
   final String? selected;
   final ShikooError? lastError;
@@ -81,6 +122,44 @@ class _IntentNotifier extends Notifier<_Intent> {
 
 final _intentProvider = NotifierProvider<_IntentNotifier, _Intent>(
   _IntentNotifier.new,
+);
+
+/// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
+typedef _Extras = ({String? announce, String? supportUrl});
+
+class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
+  static const _key = 'shikoo.serviceExtras';
+
+  @override
+  Map<int, _Extras> build() => const {};
+
+  Future<void> load() async {
+    final raw = (await SharedPreferences.getInstance()).getString(_key);
+    if (raw == null) return;
+    state = {
+      for (final MapEntry(:key, :value)
+          in (jsonDecode(raw) as Map<String, dynamic>).entries)
+        int.parse(key): (
+          announce: value['announce'] as String?,
+          supportUrl: value['supportUrl'] as String?,
+        ),
+    };
+  }
+
+  Future<void> put(int profileId, _Extras extras) async {
+    state = {...state, profileId: extras};
+    await (await SharedPreferences.getInstance()).setString(
+      _key,
+      jsonEncode({
+        for (final MapEntry(:key, :value) in state.entries)
+          '$key': {'announce': value.announce, 'supportUrl': value.supportUrl},
+      }),
+    );
+  }
+}
+
+final _extrasProvider = NotifierProvider<_ExtrasNotifier, Map<int, _Extras>>(
+  _ExtrasNotifier.new,
 );
 
 /// Outbounds a subscription may list that are not servers a customer picks.
@@ -110,6 +189,9 @@ ShikooConnection deriveConnection({
 final shikooStateProvider = Provider<ShikooState>((ref) {
   final runTime = ref.watch(runTimeProvider);
   final intent = ref.watch(_intentProvider);
+  final profile = ref.watch(currentProfileProvider);
+  final extras = ref.watch(_extrasProvider)[profile?.id];
+  final info = profile?.subscriptionInfo;
   final group = _mainGroup(ref);
   final servers = <ShikooServer>[
     for (final proxy in group?.all ?? const <Proxy>[])
@@ -136,7 +218,18 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     ),
     connectedFor: Duration(milliseconds: runTime ?? 0),
     isTV: system.isTV,
-    serviceName: ref.watch(currentProfileProvider.select((p) => p?.label)),
+    service: profile == null
+        ? null
+        : ShikooService(
+            name: profile.label,
+            usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
+            totalBytes: info?.total ?? 0,
+            expire: (info?.expire ?? 0) > 0
+                ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
+                : null,
+            announce: extras?.announce,
+            supportUrl: extras?.supportUrl,
+          ),
     servers: servers,
     selected: group == null
         ? null
@@ -166,6 +259,15 @@ Future<bool> waitForTunnel(
   return false;
 }
 
+SubscriptionInfo _subscriptionInfo(String? header) {
+  try {
+    return SubscriptionInfo.formHString(header);
+  } on RangeError {
+    // FlClash's parser throws on a segment without "=", such as a trailing ";".
+    return const SubscriptionInfo();
+  }
+}
+
 class ShikooController {
   // Both listeners write other providers, which Riverpod forbids while this one is being built,
   // hence the microtasks.
@@ -188,6 +290,7 @@ class ShikooController {
       },
       fireImmediately: true,
     );
+    scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
   }
 
   final Ref _ref;
@@ -261,21 +364,36 @@ class ShikooController {
     }
   }
 
-  /// Adds the service through FlClash's own profile path, under our label. The url carries the
+  /// FlClash's `Profile.update` minus its file-name guess, keeping the panel headers it drops.
+  /// Same request (and so the same User-Agent) and the same validation. The url carries the
   /// customer's token: never print or log it, nor the error, which can quote it.
   Future<void> addService(String url, String label) async {
     try {
+      final response = await request
+          .getFileResponseForUrl(url)
+          .timeout(const Duration(seconds: 30));
+      final header = response.headers.value;
       final existing = _ref
           .read(profilesProvider)
           .firstWhereOrNull((profile) => profile.url == url);
-      final profile = await (existing ?? Profile.normal(label: label, url: url))
-          .update(
+      final profile = await (existing ?? Profile.normal(url: url))
+          .copyWith(
+            label: label,
+            subscriptionInfo: _subscriptionInfo(
+              header('subscription-userinfo'),
+            ),
+          )
+          .saveFile(
+            response.data ?? Uint8List(0),
             validate: (path) =>
                 _ref.read(coreHandlerProvider).validateConfig(path),
-          )
-          .timeout(const Duration(seconds: 30));
+          );
       _ref.read(profilesActionProvider.notifier).putProfile(profile);
       _ref.read(currentProfileIdProvider.notifier).value = profile.id;
+      await _ref.read(_extrasProvider.notifier).put(profile.id, (
+        announce: headerText(header('announce')),
+        supportUrl: headerText(header('support-url')),
+      ));
     } catch (_) {
       _set(const _Intent(error: ShikooError.addService));
     }
