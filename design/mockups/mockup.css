@@ -260,7 +260,7 @@ ul { list-style: none; }
 
 /* ۱۴. کد ورود */
 .code-box {
-  margin-top: var(--space-6); display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center;
   padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-card);
 }
 .code-label { font-size: var(--text-body); color: var(--color-text-muted); }
@@ -360,7 +360,6 @@ ul { list-style: none; }
 .login-note { text-align: center; font-size: var(--text-body-sm); color: var(--color-text-muted); }
 .alt-login { flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-2) var(--space-6) var(--space-10); text-align: center; }
 .alt-login .lead { line-height: var(--leading-body); }
-.alt-login .code-box { margin-top: 0; }
 
 /* خانهٔ گوشی */
 .home { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--safe-x); }
@@ -406,7 +405,6 @@ ul { list-style: none; }
 .login-copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
 .login-copy h1 { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); }
 .login-copy .lead { font-size: var(--text-title); line-height: var(--leading-tight); }
-.login-copy .code-box { margin-top: 0; }
 .qr-side { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 
 /* نتیجهٔ ورود تلویزیون */
