@@ -436,4 +436,12 @@ class ShikooL10nEn extends ShikooL10n {
   String selectedDown(String name) {
     return '“$name” isn\'t answering.\nPick another server from the list.';
   }
+
+  @override
+  String get vpnRefused =>
+      'VPN permission wasn\'t given.\nConnect again and allow it in Android\'s window.';
+
+  @override
+  String get vpnMissing =>
+      'This device has no VPN permission window.\nAsk Support.';
 }

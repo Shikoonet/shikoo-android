@@ -15,6 +15,7 @@ class App {
   late MethodChannel methodChannel;
   Function()? onExit;
   Function()? onPackagesChanged;
+  Function(String result)? onVpnConsent;
 
   App._internal() {
     methodChannel = const MethodChannel('$packageName/app');
@@ -26,6 +27,8 @@ class App {
           }
         case 'packagesChanged':
           onPackagesChanged?.call();
+        case 'vpnConsent':
+          onVpnConsent?.call(call.arguments as String);
         default:
           throw MissingPluginException();
       }

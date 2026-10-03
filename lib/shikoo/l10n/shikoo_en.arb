@@ -145,5 +145,7 @@
   "@selectedDown": {
     "description": "Under the power button while connected to a server the user picked that does not answer.",
     "placeholders": {"name": {"type": "String"}}
-  }
+  },
+  "vpnRefused": "VPN permission wasn't given.\nConnect again and allow it in Android's window.",
+  "vpnMissing": "This device has no VPN permission window.\nAsk Support."
 }

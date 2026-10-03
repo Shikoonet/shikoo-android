@@ -568,4 +568,23 @@ void main() {
     await _pumpTvHome(tester, _tv(ShikooConnection.off, selected: 'آلمان ۲'));
     expect(find.textContaining('جواب نمی‌دهد'), findsNothing);
   });
+
+  testWidgets('a refused or missing VPN consent is not blamed on the server', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.error, error: ShikooError.vpnRefused),
+    );
+    expect(find.text('وصل نشد'), findsOneWidget);
+    expect(find.textContaining('اجازهٔ VPN داده نشد.'), findsOneWidget);
+    expect(find.textContaining('جواب نداد'), findsNothing);
+
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.error, error: ShikooError.vpnMissing),
+    );
+    expect(find.textContaining('پنجرهٔ اجازهٔ VPN ندارد'), findsOneWidget);
+  });
 }

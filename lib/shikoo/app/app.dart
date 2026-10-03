@@ -74,7 +74,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_attached) return;
-    final controller = ref.read(shikooControllerProvider);
+    final controller = ref.read(shikooControllerProvider)
+      ..foreground = state == AppLifecycleState.resumed;
     if (state == AppLifecycleState.resumed) controller.onForeground();
     if (state == AppLifecycleState.paused) controller.clearNews();
   }

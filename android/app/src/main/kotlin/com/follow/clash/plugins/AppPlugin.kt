@@ -346,8 +346,14 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
             if (activity == null) {
                 invokeVpnPrepareCallback(false)
             } else {
-                @Suppress("DEPRECATION")
-                activity.startActivityForResult(intent, VPN_PERMISSION_REQUEST_CODE)
+                // Shikoo: some TV boxes ship without the consent dialog.
+                try {
+                    @Suppress("DEPRECATION")
+                    activity.startActivityForResult(intent, VPN_PERMISSION_REQUEST_CODE)
+                } catch (e: Exception) {
+                    invokeVpnPrepareCallback(false)
+                    channel.invokeMethod("vpnConsent", "missing")
+                }
             }
             return@onMainThread
         }
@@ -433,7 +439,11 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         if (requestCode != VPN_PERMISSION_REQUEST_CODE) {
             return false
         }
-        invokeVpnPrepareCallback(resultCode == Activity.RESULT_OK)
+        val granted = resultCode == Activity.RESULT_OK
+        if (!granted) {
+            channel.invokeMethod("vpnConsent", "refused")
+        }
+        invokeVpnPrepareCallback(granted)
         return true
     }
 

@@ -66,6 +66,18 @@ void main() {
       expect(up, isFalse);
     });
 
+    test('time under the consent dialog does not count', () async {
+      var calls = 0;
+      final up = await waitForTunnel(
+        () async => ++calls < 52 ? null : DateTime(2026),
+        timeout: const Duration(milliseconds: 200),
+        stillWanted: () => true,
+        paused: () => calls < 50,
+        every: const Duration(milliseconds: 5),
+      );
+      expect(up, isTrue, reason: 'a late OK still connects');
+    });
+
     test('stops at once when the user cancels', () async {
       var calls = 0;
       final up = await waitForTunnel(

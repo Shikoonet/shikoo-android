@@ -367,6 +367,8 @@ class _PowerZone extends StatelessWidget {
       ),
       ShikooError.noServer =>
         state.isTV ? l.noServerAnsweredHelpTv : l.noServerAnsweredHelpTouch,
+      ShikooError.vpnRefused => l.vpnRefused,
+      ShikooError.vpnMissing => l.vpnMissing,
       ShikooError.serverChange => l.errorServer,
       ShikooError.addService => l.errorAdd,
       null when state.waiting => l.connectsToFirst,

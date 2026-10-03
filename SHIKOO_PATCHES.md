@@ -7,6 +7,8 @@
 |---|---|---|---|
 | ۱ | `CLAUDE.md` | یک خط آخر: `@.claude/CLAUDE.md` | راهنمای شیکو کنار `AGENTS.md` خود FlClash خوانده شود. اسناد Claude Code نمی‌گویند وقتی هر دو فایل هستند، هر دو خوانده می‌شوند یا نه. |
 | ۲ | `pubspec.yaml`، `pubspec.lock` | وابستگی تازهٔ `qr: ^4.0.0` (با `flutter pub add qr`) | QR «تمدید» و «پشتیبانی» تلویزیون. FlClash و وابستگی‌هایش سازندهٔ QR ندارند (`mobile_scanner` فقط می‌خواند). `qr` خالص Dart است، مجوز BSD-3، و جز `meta` وابستگی ندارد. |
+| ۳ | `android/app/src/main/kotlin/com/follow/clash/plugins/AppPlugin.kt` | `startActivityForResult` پنجرهٔ اجازهٔ VPN داخل try/catch؛ اگر پنجره نبود یا کاربر رد کرد، پیام `vpnConsent` (`missing` یا `refused`) به Dart می‌رود. | باکس‌هایی که پنجرهٔ اجازه ندارند کرش نکنند، و اپ رد شدن اجازه را بفهمد. شروع سرویس خوش‌بینانه است و این خبر را به Dart نمی‌داد. |
+| ۴ | `lib/plugins/app.dart` | `onVpnConsent` و `case 'vpnConsent'` در گیرندهٔ کانال. | پیام وصلهٔ ۳ به کنترل‌گر شیکو برسد. |
 
 ## نکته‌ها
 
@@ -14,9 +16,9 @@
 - `.gitattributes` فایل تازهٔ شیکو است، نه وصله: همهٔ متن‌ها با پایان خط LF، تا اسکریپت‌ها داخل WSL هم درست اجرا شوند.
 - `.github/workflows/build.yaml` خود FlClash با هر push اجرا می‌شود. GitHub Actions در این مخزن خاموش است تا CI خود شیکو ساخته شود.
 
-## اپ شیکو بدون وصله
+## ساختن اپ شیکو
 
-اپ شیکو هیچ فایل FlClash را عوض نمی‌کند. ورودی‌اش `lib/shikoo/app/main.dart` است و با `-t` ساخته می‌شود:
+اپ شیکو جز وصله‌های بالا فایلی از FlClash را عوض نمی‌کند. ورودی‌اش `lib/shikoo/app/main.dart` است و با `-t` ساخته می‌شود:
 
 ```bash
 source ~/android-toolchain/env.sh

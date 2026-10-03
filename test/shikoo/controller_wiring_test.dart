@@ -368,4 +368,30 @@ void main() {
       isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
     );
   });
+
+  test('a refused VPN consent stops connecting and says so', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      ),
+    );
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    expect(
+      container.read(shikooStateProvider).connection,
+      ShikooConnection.connecting,
+    );
+
+    controller.onVpnConsent('refused');
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(state.lastError, ShikooError.vpnRefused);
+    expect(state.connection, ShikooConnection.error);
+    expect(setup.runs, [true, false]);
+  });
 }

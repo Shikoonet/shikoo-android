@@ -398,4 +398,12 @@ class ShikooL10nFa extends ShikooL10n {
   String selectedDown(String name) {
     return '«$name» جواب نمی‌دهد.\nسرور دیگری را از فهرست انتخاب کن.';
   }
+
+  @override
+  String get vpnRefused =>
+      'اجازهٔ VPN داده نشد.\nدوباره وصل شو و در پنجرهٔ اندروید اجازه بده.';
+
+  @override
+  String get vpnMissing =>
+      'این دستگاه پنجرهٔ اجازهٔ VPN ندارد.\nاز «پشتیبانی» بپرس.';
 }

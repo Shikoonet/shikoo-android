@@ -697,6 +697,18 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'“{name}” isn\'t answering.\nPick another server from the list.'**
   String selectedDown(String name);
+
+  /// No description provided for @vpnRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'VPN permission wasn\'t given.\nConnect again and allow it in Android\'s window.'**
+  String get vpnRefused;
+
+  /// No description provided for @vpnMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This device has no VPN permission window.\nAsk Support.'**
+  String get vpnMissing;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

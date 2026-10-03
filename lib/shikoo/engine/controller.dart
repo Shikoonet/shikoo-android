@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
@@ -18,7 +19,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum ShikooConnection { off, connecting, on, error }
 
-enum ShikooError { connectTimeout, serverChange, addService, noServer }
+enum ShikooError {
+  connectTimeout,
+  serverChange,
+  addService,
+  noServer,
+  vpnRefused,
+  vpnMissing,
+}
 
 enum ShikooServiceStatus { active, expired, exhausted }
 
@@ -26,8 +34,6 @@ enum ShikooPick { server, finding, none }
 
 enum ShikooRefresh { idle, running, failed }
 
-// ponytail: native never reports a refused VPN consent (engine map section 4), so a user
-// slower than this on the consent dialog sees "couldn't connect" and presses again.
 const connectTimeout = Duration(seconds: 30);
 
 @immutable
@@ -297,10 +303,13 @@ ShikooConnection deriveConnection({
 }) {
   if (connecting) return ShikooConnection.connecting;
   if (running) return ShikooConnection.on;
-  if (error == ShikooError.connectTimeout || error == ShikooError.noServer) {
-    return ShikooConnection.error;
-  }
-  return ShikooConnection.off;
+  return switch (error) {
+    ShikooError.connectTimeout ||
+    ShikooError.noServer ||
+    ShikooError.vpnRefused ||
+    ShikooError.vpnMissing => ShikooConnection.error,
+    _ => ShikooConnection.off,
+  };
 }
 
 ShikooPick derivePick({
@@ -386,20 +395,25 @@ final shikooControllerProvider = Provider<ShikooController>(
 
 /// Polls [runTime] until native reports a running tunnel. Flutter's own run state is set
 /// optimistically before the service starts (engine map section 4), so only native is proof.
+/// Time while [paused], as under Android's VPN consent dialog, does not count.
 Future<bool> waitForTunnel(
   Future<DateTime?> Function() runTime, {
   required Duration timeout,
   required bool Function() stillWanted,
+  bool Function() paused = _never,
   Duration every = const Duration(seconds: 1),
 }) async {
-  final deadline = DateTime.now().add(timeout);
+  final waited = Stopwatch();
   while (stillWanted()) {
     if (await runTime() != null) return true;
-    if (DateTime.now().isAfter(deadline)) return false;
+    paused() ? waited.stop() : waited.start();
+    if (waited.elapsed >= timeout) return false;
     await Future<void>.delayed(every);
   }
   return false;
 }
+
+bool _never() => false;
 
 SubscriptionInfo _subscriptionInfo(String? header) {
   try {
@@ -448,6 +462,7 @@ class ShikooController {
         unawaited(_checkSelected());
       });
     });
+    app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(() async {
       final stored = (await SharedPreferences.getInstance()).getString(
@@ -467,6 +482,8 @@ class ShikooController {
   }
 
   final Ref _ref;
+
+  bool foreground = true;
   static const _appPicksKey = 'shikoo.appPicks';
 
   /// By profile id, the server the app chose itself: only these are replaced when silent.
@@ -565,6 +582,7 @@ class ShikooController {
           () async => service?.getRunTime(),
           timeout: connectTimeout,
           stillWanted: () => attempt == _attempt,
+          paused: () => !foreground,
         );
     if (attempt != _attempt) return;
     if (up) {
@@ -573,6 +591,20 @@ class ShikooController {
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
     await _setup.setRunning(false);
+  }
+
+  /// From AppPlugin: `refused`, or `missing` on a device without the consent dialog.
+  void onVpnConsent(String result) {
+    if (!_ref.read(_intentProvider).connecting) return;
+    _attempt++;
+    _set(
+      _Intent(
+        error: result == 'missing'
+            ? ShikooError.vpnMissing
+            : ShikooError.vpnRefused,
+      ),
+    );
+    unawaited(_setup.setRunning(false));
   }
 
   Future<void> disconnect() async {
