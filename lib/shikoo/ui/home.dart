@@ -166,6 +166,21 @@ class _TvColumnState extends State<_TvColumn> {
     super.dispose();
   }
 
+  void _onFocusInside(bool inside) {
+    if (inside || !_scroll.hasClients) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _scroll.jumpTo(0);
+    } else {
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -184,16 +199,21 @@ class _TvColumnState extends State<_TvColumn> {
             ],
             stops: [0, ShikooSizes.fade / rect.height],
           ).createShader(rect),
-          child: RawScrollbar(
-            controller: _scroll,
-            thumbVisibility: _scrolled,
-            thickness: ShikooSizes.scrollThumb,
-            radius: const Radius.circular(ShikooSizes.scrollThumb),
-            thumbColor: t.c.outline,
-            child: SingleChildScrollView(
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onFocusChange: _onFocusInside,
+            child: RawScrollbar(
               controller: _scroll,
-              padding: const EdgeInsets.all(Space.s2),
-              child: widget.child,
+              thumbVisibility: _scrolled,
+              thickness: ShikooSizes.scrollThumb,
+              radius: const Radius.circular(ShikooSizes.scrollThumb),
+              thumbColor: t.c.outline,
+              child: SingleChildScrollView(
+                controller: _scroll,
+                padding: const EdgeInsets.all(Space.s2),
+                child: widget.child,
+              ),
             ),
           ),
         ),
@@ -291,9 +311,12 @@ class _PowerZone extends StatelessWidget {
             ? l.tvHint
             : null,
     };
+    final slot = state.isTV ? _twoLines(context, t) : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Balances the message slot below, so the TV centres the button and pill alone.
+        if (slot != null) SizedBox(height: gap + slot),
         PowerButton(
           connection: state.connection,
           connectedFor: state.connectedFor,
@@ -309,12 +332,11 @@ class _PowerZone extends StatelessWidget {
           SizedBox(height: gap),
           NowPill(server: selected),
         ],
-        // The TV column is centred: a slot of fixed height keeps the button still.
-        if (message != null || state.isTV) ...[
+        if (message != null || slot != null) ...[
           SizedBox(height: gap),
           SizedBox(
             width: t.s.powerRing * 1.5,
-            height: state.isTV ? _twoLines(context, t) : null,
+            height: slot,
             child: Text(
               message ?? '',
               maxLines: 2,
