@@ -200,6 +200,11 @@ void main() {
 
     // The user picks the very server the app had picked: from now on it is theirs.
     await controller.selectServer('هلند ۱');
+    expect(
+      container.read(shikooStateProvider).notice,
+      isNull,
+      reason: 'the user chose; the old switch is news no more',
+    );
     pings
       ..['هلند ۱'] = -1
       ..['آلمان ۱'] = 50;

@@ -646,6 +646,10 @@ class ShikooController {
   /// The user's choice, which the app never replaces.
   Future<void> selectServer(String name) async {
     _pickedByApp(null);
+    if (_ref.read(_noticeProvider)
+        case SilentReplaced() || SelectedReplaced()) {
+      _notice(null);
+    }
     await _choose(name);
     await _checkSelected();
   }
