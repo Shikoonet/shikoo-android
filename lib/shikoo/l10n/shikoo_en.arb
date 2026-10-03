@@ -129,9 +129,8 @@
   "logout": "Log out",
   "logoutHelpTv": "Removes the services from this TV.",
   "logoutHelpTouch": "Removes the services from this phone.",
-  "logoutTitle": "Remove the services?",
-  "logoutBodyTv": "You'll be disconnected and the services will be removed from this TV. Your subscription stays as it is in the Shikoo bot.",
-  "logoutBodyTouch": "You'll be disconnected and the services will be removed from this phone. Your subscription stays as it is in the Shikoo bot.",
+  "logoutBodyTv": "You'll be disconnected and the services removed from this TV. Your subscription stays as it is in the Shikoo bot.",
+  "logoutBodyTouch": "You'll be disconnected and the services removed from this phone. The services themselves stay as they are; they come back with the same link or with Telegram.",
   "cancel": "Cancel",
   "appSection": "App",
   "version": "Version",
@@ -147,5 +146,8 @@
     "placeholders": {"name": {"type": "String"}}
   },
   "vpnRefused": "VPN permission wasn't given.\nConnect again and allow it in Android's window.",
-  "vpnMissing": "This device has no VPN permission window.\nAsk Support."
+  "vpnMissing": "This device has no VPN permission window.\nAsk Support.",
+  "logoutTitleTv": "Remove the services from this TV?",
+  "logoutTitleTouch": "Remove the services from this phone?",
+  "removeButton": "Remove"
 }

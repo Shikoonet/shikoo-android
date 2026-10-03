@@ -391,15 +391,12 @@ class ShikooL10nEn extends ShikooL10n {
   String get logoutHelpTouch => 'Removes the services from this phone.';
 
   @override
-  String get logoutTitle => 'Remove the services?';
-
-  @override
   String get logoutBodyTv =>
-      'You\'ll be disconnected and the services will be removed from this TV. Your subscription stays as it is in the Shikoo bot.';
+      'You\'ll be disconnected and the services removed from this TV. Your subscription stays as it is in the Shikoo bot.';
 
   @override
   String get logoutBodyTouch =>
-      'You\'ll be disconnected and the services will be removed from this phone. Your subscription stays as it is in the Shikoo bot.';
+      'You\'ll be disconnected and the services removed from this phone. The services themselves stay as they are; they come back with the same link or with Telegram.';
 
   @override
   String get cancel => 'Cancel';
@@ -444,4 +441,13 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get vpnMissing =>
       'This device has no VPN permission window.\nAsk Support.';
+
+  @override
+  String get logoutTitleTv => 'Remove the services from this TV?';
+
+  @override
+  String get logoutTitleTouch => 'Remove the services from this phone?';
+
+  @override
+  String get removeButton => 'Remove';
 }

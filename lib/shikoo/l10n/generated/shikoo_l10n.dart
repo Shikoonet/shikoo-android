@@ -620,22 +620,16 @@ abstract class ShikooL10n {
   /// **'Removes the services from this phone.'**
   String get logoutHelpTouch;
 
-  /// No description provided for @logoutTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove the services?'**
-  String get logoutTitle;
-
   /// No description provided for @logoutBodyTv.
   ///
   /// In en, this message translates to:
-  /// **'You\'ll be disconnected and the services will be removed from this TV. Your subscription stays as it is in the Shikoo bot.'**
+  /// **'You\'ll be disconnected and the services removed from this TV. Your subscription stays as it is in the Shikoo bot.'**
   String get logoutBodyTv;
 
   /// No description provided for @logoutBodyTouch.
   ///
   /// In en, this message translates to:
-  /// **'You\'ll be disconnected and the services will be removed from this phone. Your subscription stays as it is in the Shikoo bot.'**
+  /// **'You\'ll be disconnected and the services removed from this phone. The services themselves stay as they are; they come back with the same link or with Telegram.'**
   String get logoutBodyTouch;
 
   /// No description provided for @cancel.
@@ -709,6 +703,24 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'This device has no VPN permission window.\nAsk Support.'**
   String get vpnMissing;
+
+  /// No description provided for @logoutTitleTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the services from this TV?'**
+  String get logoutTitleTv;
+
+  /// No description provided for @logoutTitleTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the services from this phone?'**
+  String get logoutTitleTouch;
+
+  /// No description provided for @removeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get removeButton;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

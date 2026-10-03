@@ -354,15 +354,12 @@ class ShikooL10nFa extends ShikooL10n {
   String get logoutHelpTouch => 'سرویس‌ها از این گوشی پاک می‌شوند.';
 
   @override
-  String get logoutTitle => 'سرویس‌ها پاک شوند؟';
-
-  @override
   String get logoutBodyTv =>
       'اتصال قطع می‌شود و سرویس‌ها از این تلویزیون پاک می‌شوند. اشتراکت در ربات شیکو سر جایش می‌ماند.';
 
   @override
   String get logoutBodyTouch =>
-      'اتصال قطع می‌شود و سرویس‌ها از این گوشی پاک می‌شوند. اشتراکت در ربات شیکو سر جایش می‌ماند.';
+      'اتصال قطع می‌شود و سرویس‌ها از این گوشی پاک می‌شوند. خودِ سرویس‌ها سر جایشان‌اند؛ با همان لینک یا با تلگرام برمی‌گردند.';
 
   @override
   String get cancel => 'انصراف';
@@ -406,4 +403,13 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get vpnMissing =>
       'این دستگاه پنجرهٔ اجازهٔ VPN ندارد.\nاز «پشتیبانی» بپرس.';
+
+  @override
+  String get logoutTitleTv => 'سرویس‌ها از این تلویزیون پاک شوند؟';
+
+  @override
+  String get logoutTitleTouch => 'سرویس‌ها از این گوشی پاک شوند؟';
+
+  @override
+  String get removeButton => 'پاک کردن';
 }

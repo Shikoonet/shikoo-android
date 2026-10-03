@@ -133,15 +133,15 @@ void main() {
 
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'خروج');
     expect(await _press(tester, LogicalKeyboardKey.select), 'انصراف');
-    expect(find.text('سرویس‌ها پاک شوند؟'), findsOneWidget);
+    expect(find.text('سرویس‌ها از این تلویزیون پاک شوند؟'), findsOneWidget);
     expect(await _press(tester, LogicalKeyboardKey.select), 'خروج');
     verifyNever(controller.forgetServices);
 
     await _press(tester, LogicalKeyboardKey.select);
-    await _press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'پاک کردن');
     await _press(tester, LogicalKeyboardKey.select);
     verify(controller.forgetServices).called(1);
-    expect(find.text('سرویس‌ها پاک شوند؟'), findsNothing);
+    expect(find.text('سرویس‌ها از این تلویزیون پاک شوند؟'), findsNothing);
   });
 
   testWidgets('About names the licence, both upstreams and the source', (

@@ -122,7 +122,10 @@ class ShikooSettings extends ConsumerWidget {
     final sure = await showShikooDialog<bool>(
       context,
       children: [
-        Text(l.logoutTitle, style: t.text(t.s.title, weight: FontWeight.w700)),
+        Text(
+          isTV ? l.logoutTitleTv : l.logoutTitleTouch,
+          style: t.text(t.s.title, weight: FontWeight.w700),
+        ),
         Text(
           isTV ? l.logoutBodyTv : l.logoutBodyTouch,
           style: t.text(
@@ -143,7 +146,7 @@ class ShikooSettings extends ConsumerWidget {
                 onPressed: () => Navigator.pop(context, false),
               ),
               ShikooButton(
-                label: l.logout,
+                label: l.removeButton,
                 danger: true,
                 onPressed: () => Navigator.pop(context, true),
               ),
