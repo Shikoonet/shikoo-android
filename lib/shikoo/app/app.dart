@@ -17,12 +17,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Test builds only (`--dart-define=SHIKOO_DEBUG=true`): `shikoo-debug://add?url=<encoded>&name=<label>`
-/// adds a service and `shikoo-debug://lang?code=en` switches the language. A build without the
-/// define compiles the listener out.
+/// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and `shikoo-debug://lang?code=en`.
 const _debugLinks = bool.fromEnvironment('SHIKOO_DEBUG');
 
-/// Persian unless a build asks otherwise (`--dart-define=SHIKOO_LANG=en`).
 const _defaultLanguage = String.fromEnvironment(
   'SHIKOO_LANG',
   defaultValue: 'fa',
@@ -34,8 +31,6 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
   ...GlobalMaterialLocalizations.delegates,
 ];
 
-/// Replaces FlClash's `Application` (lib/application.dart) and keeps what its engine needs
-/// from it: docs/flclash-engine-map.md section 1.
 class ShikooApp extends ConsumerStatefulWidget {
   const ShikooApp({super.key});
 
@@ -43,7 +38,8 @@ class ShikooApp extends ConsumerStatefulWidget {
   ConsumerState<ShikooApp> createState() => _ShikooAppState();
 }
 
-class _ShikooAppState extends ConsumerState<ShikooApp> {
+class _ShikooAppState extends ConsumerState<ShikooApp>
+    with WidgetsBindingObserver {
   final _locale = ValueNotifier(const Locale(_defaultLanguage));
   Timer? _profilesTimer;
   StreamSubscription<Uri>? _links;
@@ -52,6 +48,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     SystemNavigator.setFrameworkHandlesBack(true);
     if (system.isTV) {
       FocusManager.instance.highlightStrategy =
@@ -59,8 +56,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (globalState.navigatorKey.currentContext == null) exit(0);
-      // FlClash's own first-run dialogs (disclaimer, data collection) and its GitHub update
-      // check stay off. AppStateManager is mounted by now, so the write is saved.
+      // Saved only because AppStateManager is mounted by now (engine map section 1).
       ref
           .read(appSettingProvider.notifier)
           .update(
@@ -109,8 +105,15 @@ class _ShikooAppState extends ConsumerState<ShikooApp> {
     _hadVpn = hasVpn;
   }
 
+  /// Flutter pushes every link the activity receives as a named route, and this app has
+  /// none; `app_links` reads links on its own channel.
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) =>
+      Future.value(true);
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _profilesTimer?.cancel();
     unawaited(_links?.cancel());
     _locale.dispose();
@@ -132,7 +135,6 @@ class _ShikooAppState extends ConsumerState<ShikooApp> {
         theme: shikooThemeData(Brightness.light, tv: system.isTV),
         darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
         builder: (context, child) {
-          // Same wrapping as FlClash's Application.build; see the note there.
           // ignore: deprecated_member_use
           return MaterialUiCompatibilityBridge(
             child: IconTheme(
@@ -151,7 +153,6 @@ class _ShikooAppState extends ConsumerState<ShikooApp> {
   }
 }
 
-/// Shown when the engine fails to boot, instead of FlClash's InitErrorScreen.
 class ShikooInitErrorApp extends StatelessWidget {
   const ShikooInitErrorApp({super.key});
 
@@ -173,8 +174,7 @@ class ShikooInitErrorApp extends StatelessWidget {
   }
 }
 
-/// FlClash's own delegate refuses `fa`, and its rare dialogs and toasts (engine map, risk 2)
-/// read AppLocalizations; without one for every locale they would throw. They stay English.
+/// FlClash's rare dialogs and toasts throw without its strings, and its delegate refuses `fa`.
 class _FlClashStrings extends LocalizationsDelegate<AppLocalizations> {
   const _FlClashStrings();
 
