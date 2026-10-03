@@ -12,8 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// The only door from the Shikoo screens into FlClash's engine (docs/extensibility.md section 1).
-/// Screens read [shikooStateProvider] and call [ShikooController]; nothing else.
+/// The only door from Shikoo screens into FlClash's engine (docs/extensibility.md section 1).
 
 enum ShikooConnection { off, connecting, on, error }
 
@@ -21,9 +20,8 @@ enum ShikooError { connectTimeout, serverChange, addService }
 
 enum ShikooServiceStatus { active, expired, exhausted }
 
-/// How long "connecting" may last, including the user reading Android's VPN consent dialog.
-// ponytail: a fixed wait; native never reports a refused consent to Flutter (engine map section 4),
-// so a user slower than this sees "couldn't connect" and must press again.
+// ponytail: native never reports a refused VPN consent (engine map section 4), so a user
+// slower than this on the consent dialog sees "couldn't connect" and presses again.
 const connectTimeout = Duration(seconds: 30);
 
 @immutable
@@ -35,7 +33,6 @@ class ShikooServer {
     this.testing = false,
   });
 
-  /// The engine's name for the server; [label] is what the screen shows.
   final String name;
 
   /// The engine's protocol name, kept as data so a new protocol needs no screen change.
@@ -162,7 +159,6 @@ final _extrasProvider = NotifierProvider<_ExtrasNotifier, Map<int, _Extras>>(
   _ExtrasNotifier.new,
 );
 
-/// Outbounds a subscription may list that are not servers a customer picks.
 const _notServers = {
   'Direct',
   'Reject',
@@ -269,8 +265,7 @@ SubscriptionInfo _subscriptionInfo(String? header) {
 }
 
 class ShikooController {
-  // Both listeners write other providers, which Riverpod forbids while this one is being built,
-  // hence the microtasks.
+  // Microtasks: Riverpod forbids writing other providers while this one is being built.
   ShikooController(this._ref) {
     _ref.listen(patchClashConfigProvider.select((config) => config.mode), (
       _,
@@ -353,8 +348,7 @@ class ShikooController {
     );
   }
 
-  /// One server at a time: the engine map (section 3) suspects 16 parallel probes of the
-  /// spike's false timeouts.
+  /// One at a time: engine map section 3 suspects parallel probes of the spike's false timeouts.
   Future<void> pingAll() async {
     final group = _group;
     if (group == null) return;
@@ -364,9 +358,8 @@ class ShikooController {
     }
   }
 
-  /// FlClash's `Profile.update` minus its file-name guess, keeping the panel headers it drops.
-  /// Same request (and so the same User-Agent) and the same validation. The url carries the
-  /// customer's token: never print or log it, nor the error, which can quote it.
+  /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
+  /// The url holds the customer's token: never log it, nor the error, which can quote it.
   Future<void> addService(String url, String label) async {
     try {
       final response = await request

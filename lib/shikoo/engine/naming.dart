@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-/// Country names a subscription writes in its server names, Persian or English. They are
-/// matched, never shown.
 const _countryWords = {
   'DE': ['آلمان', 'germany'],
   'FI': ['فنلاند', 'finland'],
@@ -23,8 +21,7 @@ const _countryWords = {
 final _flagEmoji = RegExp('[\u{1F1E6}-\u{1F1FF}]{2}', unicode: true);
 final _wordBreak = RegExp(r'[^\p{L}]+', unicode: true);
 
-/// The ISO 3166 code of the country a server name points at: a flag emoji first, then a
-/// country word. Null when the name names none.
+/// ISO 3166 code from a flag emoji in the name, else from a Persian or English country word.
 String? countryOf(String name) {
   final flag = _flagEmoji.firstMatch(name)?[0];
   if (flag != null) {
@@ -42,7 +39,6 @@ String? countryOf(String name) {
   return null;
 }
 
-/// The name without its flag emoji, which the screen draws as a flag instead.
 String withoutFlags(String name) => name.replaceAll(_flagEmoji, '').trim();
 
 /// Panels send some header values as `base64:<utf-8 text>`, so non-ASCII text survives HTTP.
