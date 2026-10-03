@@ -434,6 +434,7 @@ class ShikooController {
   final Ref _ref;
   int _attempt = 0;
   bool _pinging = false;
+  Set<String> _roundNames = const {};
   bool _again = false;
   DateTime? _lastRound;
 
@@ -569,14 +570,15 @@ class ShikooController {
   }
 
   Future<void> pingAll() async {
-    if (_pinging) {
-      _again = true;
-      return;
-    }
     final group = _group;
     final names = _names(group);
+    if (_pinging) {
+      _again |= !setEquals(names.toSet(), _roundNames);
+      return;
+    }
     if (group == null || names.isEmpty) return;
     _pinging = true;
+    _roundNames = names.toSet();
     final round = _ref.read(_roundProvider.notifier);
     round.set((pending: names.toSet(), total: names.length, ended: false));
     final url = _testUrl(group);
@@ -667,6 +669,8 @@ class ShikooController {
     } else if (added > 0 || removed.isNotEmpty) {
       _notice(ServersChanged(added: added, removed: removed));
     }
+    // Started here, not by the list listener, so a replacement waits for fresh pings.
+    if (added > 0 || removed.isNotEmpty) unawaited(pingAll());
     _reconcile();
   }
 
