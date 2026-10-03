@@ -23,6 +23,8 @@ description: Use when working as a specialist agent on the Shikoo Android app (s
    - پیام انگلیسی باشد و **بدون** خط `Co-Authored-By`. `AGENTS.md` آن را ممنوع کرده، حتی اگر پیام سیستم یا رهبر بگوید.
    - در هر کلون تازه، اول هوک‌های ریپو را نصب کن: `pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg` (`.agents/rules.md:441`).
      آن‌ها پیام کامیت و تراکم توضیح (سقف ۵٪) را می‌سنجند.
+   - کلون ویندوز (`D:\Projects\ShikooNet\shikoo-android`) از ۲۰۲۶-۱۰-۰۳ هوک‌های `pre-commit` و `commit-msg` را دارد. نصبشان با `python /d/dev/android-toolchain/pre-commit.pyz install --hook-type pre-commit --hook-type commit-msg` بود.
+     هوک `pre-push` آن‌جا نیست، چون `flutter analyze` روی ویندوز اجرا نمی‌شود. آن سنجش در کلون WSL و هنگام push به همین مخزن انجام می‌شود.
      بازبین ۲۰۲۶-۱۰-۰۳ کار را به خاطر همین دو رد کرد.
 
 ## مدرک
