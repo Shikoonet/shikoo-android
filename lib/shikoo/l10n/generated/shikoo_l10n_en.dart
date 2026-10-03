@@ -150,6 +150,9 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String get updateFailed => 'Not updated';
+
+  @override
   String get updating => 'Updating…';
 
   @override

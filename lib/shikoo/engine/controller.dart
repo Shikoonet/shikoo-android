@@ -244,13 +244,19 @@ const _notServers = {
   'Dns',
 };
 
+// ponytail: the panel's info rows ("V3.7.9 🆔 …", "قبل از اتصال …") are spotted by their
+// wording, so a new wording needs a new entry here; the real fix is the panel not sending them.
+const _infoRowParts = ['🆔', 'قبل از اتصال'];
+
 /// Groups ("Fastest", Fallback, LoadBalance) are not servers: the app finds the fastest itself.
-bool isServer(String type) =>
-    !_notServers.contains(type) && !GroupTypeExtension.valueList.contains(type);
+bool isServer(String type, String name) =>
+    !_notServers.contains(type) &&
+    !GroupTypeExtension.valueList.contains(type) &&
+    !_infoRowParts.any(name.contains);
 
 List<Proxy> _serversOf(Group? group) => [
   for (final proxy in group?.all ?? const <Proxy>[])
-    if (isServer(proxy.type)) proxy,
+    if (isServer(proxy.type, proxy.name)) proxy,
 ];
 
 Group? _mainGroup(Ref ref) =>
@@ -431,6 +437,11 @@ class ShikooController {
 
   void _notice(ShikooNotice? notice) =>
       _ref.read(_noticeProvider.notifier).set(notice);
+
+  /// News leaves with the app or the next update; a failed update stays until one succeeds.
+  void clearNews() {
+    if (_ref.read(_noticeProvider) is! RefreshFailed) _notice(null);
+  }
 
   List<String> _names(Group? group) => [
     for (final proxy in _serversOf(group)) proxy.name,
@@ -617,7 +628,7 @@ class ShikooController {
     if (profile == null || profile.url.isEmpty) return;
     final status = _ref.read(_refreshProvider.notifier);
     status.set(ShikooRefresh.running);
-    _notice(null);
+    clearNews();
     final before = _names(_group);
     final had = _validSelection();
     try {
@@ -631,6 +642,7 @@ class ShikooController {
       return;
     }
     status.set(ShikooRefresh.idle);
+    _notice(null);
     final after = _names(_group);
     final removed = [
       for (final name in before)

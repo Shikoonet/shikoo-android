@@ -140,15 +140,18 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String updatedAgo(String ago) {
-    return 'به‌روز شد · $ago';
+    return 'به‌روز شد، $ago';
   }
+
+  @override
+  String get updateFailed => 'به‌روز نشد';
 
   @override
   String get updating => 'در حال به‌روزرسانی…';
 
   @override
   String updateFailedAgo(String ago) {
-    return 'به‌روز نشد · فهرستِ $ago';
+    return 'به‌روز نشد، فهرستِ $ago';
   }
 
   @override

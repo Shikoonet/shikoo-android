@@ -117,6 +117,15 @@ void main() {
     );
   });
 
+  test("the panel's info rows are not servers", () {
+    for (final row in [
+      'V3.7.9 🆔 : (user123) 📊 (50 GB) ⏰ (30)',
+      'قبل از اتصال به هر سرور یکبار به روز رسانی کنید',
+    ]) {
+      expect(isServer('Vless', row), isFalse, reason: row);
+    }
+  });
+
   test('groups are not servers', () {
     for (final group in [
       'Selector',
@@ -125,11 +134,11 @@ void main() {
       'LoadBalance',
       'Relay',
     ]) {
-      expect(isServer(group), isFalse, reason: group);
+      expect(isServer(group, '⚡ Fastest'), isFalse, reason: group);
     }
-    expect(isServer('Direct'), isFalse);
+    expect(isServer('Direct', 'DIRECT'), isFalse);
     for (final server in ['Vless', 'WireGuard', 'Http']) {
-      expect(isServer(server), isTrue, reason: server);
+      expect(isServer(server, '🇩🇪 آلمان ۲'), isTrue, reason: server);
     }
   });
 

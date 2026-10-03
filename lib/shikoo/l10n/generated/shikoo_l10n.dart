@@ -320,6 +320,12 @@ abstract class ShikooL10n {
   /// **'Updated · {ago}'**
   String updatedAgo(String ago);
 
+  /// No description provided for @updateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not updated'**
+  String get updateFailed;
+
   /// No description provided for @updating.
   ///
   /// In en, this message translates to:

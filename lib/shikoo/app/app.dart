@@ -78,9 +78,10 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   /// apps are resumed far more often than started.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _attached) {
-      ref.read(shikooControllerProvider).onForeground();
-    }
+    if (!_attached) return;
+    final controller = ref.read(shikooControllerProvider);
+    if (state == AppLifecycleState.resumed) controller.onForeground();
+    if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
   /// The link carries a subscription url: never print or log it.

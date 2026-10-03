@@ -157,12 +157,15 @@ class _Head extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final updatedAt = service.updatedAt;
-    final ago = updatedAt == null
+    final since = updatedAt == null
         ? null
-        : agoText(l, DateTime.now().difference(updatedAt));
+        : DateTime.now().difference(updatedAt);
+    final ago = since == null ? null : agoText(l, since);
     final sub = switch (refresh) {
       ShikooRefresh.running => l.updating,
-      ShikooRefresh.failed when ago != null => l.updateFailedAgo(ago),
+      ShikooRefresh.failed when since == null || since.inMinutes < 1 =>
+        l.updateFailed,
+      ShikooRefresh.failed => l.updateFailedAgo(ago!),
       _ when ago != null => l.updatedAgo(ago),
       _ => null,
     };
@@ -175,7 +178,7 @@ class _Head extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Flexible(
+                  Expanded(
                     child: nameText(
                       context,
                       service.name,
@@ -482,87 +485,96 @@ class _ServerListState extends State<_ServerList> {
     final order = [...byName.keys];
     final shown = _held == null ? order : keepOrder(_held!, order);
     final pinging = state.pinging;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.s4,
-            Space.s4,
-            Space.s4,
-            Space.s2,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: l.serversTitle,
-                        style: TextStyle(
-                          fontSize: t.s.body,
-                          fontWeight: FontWeight.w700,
-                          color: t.c.text,
+    // tv-ping.html: with the remote on ping-all or a row, the list head goes to the top; a
+    // row it would push out of view scrolls back in by itself (Pressable).
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (inside) {
+        if (inside) Scrollable.ensureVisible(context);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.s4,
+              Space.s4,
+              Space.s4,
+              Space.s2,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: l.serversTitle,
+                          style: TextStyle(
+                            fontSize: t.s.body,
+                            fontWeight: FontWeight.w700,
+                            color: t.c.text,
+                          ),
                         ),
-                      ),
-                      TextSpan(
-                        text:
-                            ' · ${listEquals(shown, order) ? l.fastestFirst : l.sortsOnLeave}',
-                      ),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.text(t.s.bodySm, color: t.c.textMuted),
-                ),
-              ),
-              const SizedBox(width: Space.s2),
-              ShikooButton(
-                label: pinging == null
-                    ? l.pingAll
-                    : l.pingProgress(pinging.done, pinging.total),
-                icon: ShikooIcon.gauge,
-                busy: pinging != null,
-                focusNode: widget.focus.pingAll,
-                onPressed: pinging == null
-                    ? () => unawaited(widget.controller.pingAll())
-                    : () {},
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.s2),
-          child: order.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(Space.s2),
-                  child: Text(
-                    l.loadingServers,
+                        TextSpan(
+                          text:
+                              ' · ${listEquals(shown, order) ? l.fastestFirst : l.sortsOnLeave}',
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: t.text(t.s.bodySm, color: t.c.textMuted),
                   ),
-                )
-              : Focus(
-                  canRequestFocus: false,
-                  skipTraversal: true,
-                  onFocusChange: (inside) =>
-                      setState(() => _held = inside ? shown : null),
-                  child: Column(
-                    children: [
-                      for (final name in shown)
-                        ServerRow(
-                          key: ValueKey(name),
-                          server: byName[name]!,
-                          selected: name == state.selected,
-                          focusNode: widget.focus.row(name),
-                          onPressed: () =>
-                              unawaited(widget.controller.selectServer(name)),
-                        ),
-                    ],
-                  ),
                 ),
-        ),
-      ],
+                const SizedBox(width: Space.s2),
+                ShikooButton(
+                  label: pinging == null
+                      ? l.pingAll
+                      : l.pingProgress(pinging.done, pinging.total),
+                  icon: ShikooIcon.gauge,
+                  busy: pinging != null,
+                  focusNode: widget.focus.pingAll,
+                  onPressed: pinging == null
+                      ? () => unawaited(widget.controller.pingAll())
+                      : () {},
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+            child: order.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(Space.s2),
+                    child: Text(
+                      l.loadingServers,
+                      style: t.text(t.s.bodySm, color: t.c.textMuted),
+                    ),
+                  )
+                : Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onFocusChange: (inside) =>
+                        setState(() => _held = inside ? shown : null),
+                    child: Column(
+                      children: [
+                        for (final name in shown)
+                          ServerRow(
+                            key: ValueKey(name),
+                            server: byName[name]!,
+                            selected: name == state.selected,
+                            focusNode: widget.focus.row(name),
+                            onPressed: () =>
+                                unawaited(widget.controller.selectServer(name)),
+                          ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -57,6 +57,7 @@
   "@refreshServers": {"description": "Accessibility label of the icon-only update button on the phone."},
   "updatedAgo": "Updated · {ago}",
   "@updatedAgo": {"placeholders": {"ago": {"type": "String"}}},
+  "updateFailed": "Not updated",
   "updating": "Updating…",
   "updateFailedAgo": "Not updated · list from {ago}",
   "@updateFailedAgo": {"placeholders": {"ago": {"type": "String"}}},

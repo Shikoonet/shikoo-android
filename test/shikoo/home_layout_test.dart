@@ -33,6 +33,7 @@ ShikooState _tv(
   ShikooRefresh refresh = ShikooRefresh.idle,
   ShikooNotice? notice,
   DateTime? expire,
+  DateTime? updatedAt,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -42,7 +43,7 @@ ShikooState _tv(
     usedBytes: 33 << 30,
     totalBytes: 100 << 30,
     expire: expire,
-    updatedAt: DateTime.now(),
+    updatedAt: updatedAt ?? DateTime.now(),
   ),
   servers: servers,
   selected: selected,
@@ -325,8 +326,22 @@ void main() {
       tester,
       _tv(ShikooConnection.off, refresh: ShikooRefresh.failed),
     );
-    expect(find.textContaining('به‌روز نشد · فهرستِ'), findsOneWidget);
+    expect(
+      find.text('به‌روز نشد'),
+      findsOneWidget,
+      reason: 'list from just now',
+    );
     expect(find.textContaining('دکمهٔ وسط را دوباره بزن'), findsNothing);
+
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.off,
+        refresh: ShikooRefresh.failed,
+        updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+    );
+    expect(find.text('به‌روز نشد، فهرستِ ۲ روز پیش'), findsOneWidget);
 
     await _pumpTvHome(
       tester,
@@ -337,6 +352,30 @@ void main() {
       ),
     );
     expect(find.textContaining('دکمهٔ وسط را دوباره بزن'), findsOneWidget);
+  });
+
+  testWidgets('on ping-all or a row, the list head goes to the top', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.on, servers: _longList, selected: 'سرور 1'),
+    );
+    final column = find
+        .ancestor(
+          of: find.byType(ServiceCard),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    double headTop() =>
+        tester.getTopLeft(find.textContaining('سریع‌ترین بالا')).dy -
+        tester.getTopLeft(column).dy;
+
+    await _focus(tester, 'پینگ همه');
+    expect(headTop(), lessThan(Space.s4 * 2 + Space.s2));
+    expect(await _press(tester, _down), 'سرور 1');
+    expect(headTop(), lessThan(Space.s4 * 2 + Space.s2));
   });
 
   testWidgets('the update names what changed', (tester) async {
