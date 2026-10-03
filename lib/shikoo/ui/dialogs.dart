@@ -20,8 +20,8 @@ Future<T?> showShikooDialog<T>(
     builder: (context) => Center(
       child: Padding(
         padding: const EdgeInsets.all(Space.s6),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: t.s.dialog),
+        child: SizedBox(
+          width: t.s.dialog,
           child: DecoratedBox(
             decoration: ShapeDecoration(
               color: t.c.surface,

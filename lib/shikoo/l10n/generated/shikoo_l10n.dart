@@ -677,7 +677,7 @@ abstract class ShikooL10n {
   /// No description provided for @aboutBasedOn.
   ///
   /// In en, this message translates to:
-  /// **'It is built on FlClash (by chen08209), and its connection core is mihomo (by MetaCubeX). Thanks to the makers of both.'**
+  /// **'It is built on two free programs: FlClash by chen08209 and the mihomo core by MetaCubeX. Thanks to their makers.'**
   String get aboutBasedOn;
 
   /// No description provided for @aboutSource.

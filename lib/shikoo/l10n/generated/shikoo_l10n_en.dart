@@ -423,7 +423,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get aboutBasedOn =>
-      'It is built on FlClash (by chen08209), and its connection core is mihomo (by MetaCubeX). Thanks to the makers of both.';
+      'It is built on two free programs: FlClash by chen08209 and the mihomo core by MetaCubeX. Thanks to their makers.';
 
   @override
   String get aboutSource =>

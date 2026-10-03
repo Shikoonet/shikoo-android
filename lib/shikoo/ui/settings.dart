@@ -242,9 +242,9 @@ class _Page extends StatelessWidget {
                   ),
                   const SizedBox(height: Space.s3),
                   Expanded(
-                    // The padding keeps the focus ring of the first and last rows in view.
+                    // Keeps the focus ring of the last row in view.
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(vertical: Space.s2),
+                      padding: const EdgeInsets.only(bottom: Space.s2),
                       child: Center(
                         child: SizedBox(
                           width: isTV ? s.pane : double.infinity,

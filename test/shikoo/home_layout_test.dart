@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -586,5 +588,25 @@ void main() {
       _tv(ShikooConnection.error, error: ShikooError.vpnMissing),
     );
     expect(find.textContaining('پنجرهٔ اجازهٔ VPN ندارد'), findsOneWidget);
+  });
+
+  testWidgets('a dialog is as wide as the design, however short its text', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(tester, _tv(ShikooConnection.off));
+    unawaited(
+      showShikooDialog<void>(
+        tester.element(find.byType(ShikooHome)),
+        centered: true,
+        children: const [Text('x')],
+      ),
+    );
+    await tester.pumpAndSettle();
+    final card = find.ancestor(
+      of: find.text('x'),
+      matching: find.byType(SingleChildScrollView),
+    );
+    expect(tester.getSize(card.first).width, ShikooSizes.tv.dialog);
   });
 }

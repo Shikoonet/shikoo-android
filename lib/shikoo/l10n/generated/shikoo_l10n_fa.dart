@@ -386,7 +386,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutBasedOn =>
-      'بر پایهٔ FlClash (از chen08209) و هستهٔ اتصال mihomo (از MetaCubeX) ساخته شده است؛ سپاس از سازندگان هر دو.';
+      'شیکو بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.';
 
   @override
   String get aboutSource => 'سورس همین نسخه را می‌توانی از «پشتیبانی» بگیری.';
