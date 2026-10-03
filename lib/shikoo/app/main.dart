@@ -5,6 +5,7 @@ import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -29,6 +30,7 @@ void main() {
         await RustLib.init();
         final version = await system.init();
         final container = await bootstrap.init(version);
+        await container.read(shikooLookProvider.notifier).load();
         HttpOverrides.global = FlClashHttpOverrides(container);
         request.attach(container.read);
         runApp(

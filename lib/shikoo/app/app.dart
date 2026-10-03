@@ -9,6 +9,7 @@ import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -19,11 +20,6 @@ import 'package:material_ui/material_ui.dart';
 
 /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and `shikoo-debug://lang?code=en`.
 const _debugLinks = bool.fromEnvironment('SHIKOO_DEBUG');
-
-const _defaultLanguage = String.fromEnvironment(
-  'SHIKOO_LANG',
-  defaultValue: 'fa',
-);
 
 const _delegates = <LocalizationsDelegate<dynamic>>[
   ShikooL10n.delegate,
@@ -40,7 +36,6 @@ class ShikooApp extends ConsumerStatefulWidget {
 
 class _ShikooAppState extends ConsumerState<ShikooApp>
     with WidgetsBindingObserver {
-  final _locale = ValueNotifier(const Locale(_defaultLanguage));
   StreamSubscription<Uri>? _links;
   bool _hadVpn = false;
   bool _attached = false;
@@ -98,7 +93,11 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
               .addService(url, query['name'] ?? Uri.parse(url).host),
         );
       case 'lang':
-        _locale.value = Locale(query['code'] ?? _defaultLanguage);
+        unawaited(
+          ref
+              .read(shikooLookProvider.notifier)
+              .setLanguage(query['code'] ?? shikooDefaultLanguage),
+        );
     }
   }
 
@@ -119,39 +118,37 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_links?.cancel());
-    _locale.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: _locale,
-      builder: (_, locale, _) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        navigatorKey: globalState.navigatorKey,
-        onNavigationNotification: (_) => true,
-        onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
-        locale: locale,
-        supportedLocales: ShikooL10n.supportedLocales,
-        localizationsDelegates: _delegates,
-        theme: shikooThemeData(Brightness.light, tv: system.isTV),
-        darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
-        builder: (context, child) {
-          // ignore: deprecated_member_use
-          return MaterialUiCompatibilityBridge(
-            child: IconTheme(
-              data: Theme.of(context).iconTheme,
-              child: buildManagerStack(
-                isDesktop: false,
-                onConnectivityChanged: _onConnectivityChanged,
-                child: child!,
-              ),
+    final look = ref.watch(shikooLookProvider);
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      navigatorKey: globalState.navigatorKey,
+      onNavigationNotification: (_) => true,
+      onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
+      locale: Locale(look.language),
+      supportedLocales: ShikooL10n.supportedLocales,
+      localizationsDelegates: _delegates,
+      themeMode: look.theme,
+      theme: shikooThemeData(Brightness.light, tv: system.isTV),
+      darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
+      builder: (context, child) {
+        // ignore: deprecated_member_use
+        return MaterialUiCompatibilityBridge(
+          child: IconTheme(
+            data: Theme.of(context).iconTheme,
+            child: buildManagerStack(
+              isDesktop: false,
+              onConnectivityChanged: _onConnectivityChanged,
+              child: child!,
             ),
-          );
-        },
-        home: const ShikooHome(),
-      ),
+          ),
+        );
+      },
+      home: const ShikooHome(),
     );
   }
 }
@@ -163,7 +160,7 @@ class ShikooInitErrorApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      locale: const Locale(_defaultLanguage),
+      locale: const Locale(shikooDefaultLanguage),
       supportedLocales: ShikooL10n.supportedLocales,
       localizationsDelegates: _delegates,
       theme: shikooThemeData(Brightness.light, tv: system.isTV),

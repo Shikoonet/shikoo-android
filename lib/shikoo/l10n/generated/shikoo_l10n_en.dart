@@ -358,4 +358,82 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get close => 'Close';
+
+  @override
+  String get backHintTv => 'Press Back on the remote to go back';
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get themeAuto => 'Auto';
+
+  @override
+  String get language => 'Language';
+
+  @override
+  String get languageFa => 'فارسی';
+
+  @override
+  String get languageEn => 'English';
+
+  @override
+  String get account => 'Account';
+
+  @override
+  String get logout => 'Log out';
+
+  @override
+  String get logoutHelpTv => 'Removes the services from this TV';
+
+  @override
+  String get logoutHelpTouch => 'Removes the services from this phone';
+
+  @override
+  String get logoutTitle => 'Remove the services?';
+
+  @override
+  String get logoutBodyTv =>
+      'You\'ll be disconnected and the services will be removed from this TV. Your subscription stays as it is in the Shikoo bot.';
+
+  @override
+  String get logoutBodyTouch =>
+      'You\'ll be disconnected and the services will be removed from this phone. Your subscription stays as it is in the Shikoo bot.';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get appSection => 'App';
+
+  @override
+  String get version => 'Version';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get aboutSummary =>
+      'Free software under GPL-3.0, built on FlClash and mihomo';
+
+  @override
+  String get aboutFree =>
+      'Shikoo is free software, released under the GPL-3.0 license.';
+
+  @override
+  String get aboutBasedOn =>
+      'It is built on FlClash (by chen08209), and its connection core is mihomo (by MetaCubeX). Thanks to the makers of both.';
+
+  @override
+  String get aboutSource =>
+      'You can get the source code of this version from Support.';
+
+  @override
+  String get aboutLicense => 'License text: gnu.org/licenses/gpl-3.0';
 }

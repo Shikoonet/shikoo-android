@@ -237,6 +237,11 @@ class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
     };
   }
 
+  Future<void> clear() async {
+    state = const {};
+    await (await SharedPreferences.getInstance()).remove(_key);
+  }
+
   Future<void> put(int profileId, _Extras extras) async {
     state = {...state, profileId: extras};
     await (await SharedPreferences.getInstance()).setString(
@@ -518,10 +523,8 @@ class ShikooController {
   }
 
   Future<void> connect() async {
-    if (_validSelection() != null ||
-        _ref.read(currentProfileProvider) == null) {
-      return _start();
-    }
+    if (_ref.read(currentProfileProvider) == null) return;
+    if (_validSelection() != null) return _start();
     _set(const _Intent(connecting: true, waiting: true));
     if (!_pinging) unawaited(pingAll());
     _reconcile();
@@ -560,6 +563,20 @@ class ShikooController {
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
+  }
+
+  /// "Log out" until sign-in with Telegram exists: this device forgets every service.
+  Future<void> forgetServices() async {
+    await disconnect();
+    final profiles = _ref.read(profilesActionProvider.notifier);
+    for (final profile in [..._ref.read(profilesProvider)]) {
+      await profiles.deleteProfile(profile.id);
+    }
+    await _ref.read(_extrasProvider.notifier).clear();
+    _pickedByApp(null);
+    _notice(null);
+    _ref.read(_pingsProvider.notifier).set(const {});
+    _ref.read(_orderProvider.notifier).set(const []);
   }
 
   /// The user's choice, which the app never replaces.

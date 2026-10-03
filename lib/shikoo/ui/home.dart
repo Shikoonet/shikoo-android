@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
+import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -160,11 +161,10 @@ class _TvLayout extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Brand(),
-                // The settings screen comes in a later round.
                 ShikooButton(
                   label: ShikooL10n.of(context).settings,
                   icon: ShikooIcon.gear,
-                  onPressed: () {},
+                  onPressed: () => openSettings(context),
                 ),
               ],
             ),
@@ -298,7 +298,7 @@ class _PhoneLayout extends StatelessWidget {
                 const Brand(),
                 Pressable(
                   shape: const CircleBorder(),
-                  onPressed: () {},
+                  onPressed: () => openSettings(context),
                   builder: (context, _) => Semantics(
                     button: true,
                     label: ShikooL10n.of(context).settings,
@@ -369,7 +369,9 @@ class _PowerZone extends StatelessWidget {
       ShikooError.addService => l.errorAdd,
       null when state.waiting => l.connectsToFirst,
       null =>
-        state.isTV && state.connection == ShikooConnection.off
+        state.isTV &&
+                state.connection == ShikooConnection.off &&
+                state.service != null
             ? l.tvHint
             : null,
     };

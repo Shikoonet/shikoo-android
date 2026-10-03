@@ -37,6 +37,15 @@ class _Proxies extends ProxiesAction {
   void updateGroupsDebounce([Duration? duration]) {}
 }
 
+/// FlClash's own delete also clears files and the core, which a unit test has neither of.
+class _Profiles extends ProfilesAction {
+  @override
+  Future<void> deleteProfile(int id) async {
+    await ref.read(profilesProvider.notifier).del(id);
+    ref.read(currentProfileIdProvider.notifier).value = null;
+  }
+}
+
 class _Setup extends SetupAction {
   final runs = <bool>[];
 
@@ -60,6 +69,7 @@ _home() {
     overrides: [
       profilesProvider.overrideWith(() => TestProfiles([profile])),
       proxiesActionProvider.overrideWith(() => proxies),
+      profilesActionProvider.overrideWith(_Profiles.new),
       setupActionProvider.overrideWith(() => setup),
       coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
     ],
@@ -229,4 +239,29 @@ void main() {
     expect(state.selected, 'هلند ۱');
     expect(setup.runs, isEmpty, reason: 'connecting stays with the user');
   });
+
+  test(
+    'log out forgets every service, and connect then does nothing',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 50,
+        ),
+      );
+      final controller = container.read(shikooControllerProvider);
+      await controller.pingAll();
+      expect(container.read(shikooStateProvider).service, isNotNull);
+
+      await controller.forgetServices();
+      expect(setup.runs, [false], reason: 'disconnected first');
+      expect(container.read(profilesProvider), isEmpty);
+      expect(container.read(shikooStateProvider).service, isNull);
+
+      await controller.connect();
+      expect(setup.runs, [false], reason: 'nothing to connect with');
+    },
+  );
 }

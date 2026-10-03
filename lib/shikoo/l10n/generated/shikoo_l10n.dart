@@ -553,6 +553,150 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Close'**
   String get close;
+
+  /// No description provided for @backHintTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Press Back on the remote to go back'**
+  String get backHintTv;
+
+  /// No description provided for @appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearance;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeDark;
+
+  /// No description provided for @themeAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get themeAuto;
+
+  /// No description provided for @language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get language;
+
+  /// No description provided for @languageFa.
+  ///
+  /// In en, this message translates to:
+  /// **'فارسی'**
+  String get languageFa;
+
+  /// No description provided for @languageEn.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get languageEn;
+
+  /// No description provided for @account.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get account;
+
+  /// No description provided for @logout.
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get logout;
+
+  /// No description provided for @logoutHelpTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the services from this TV'**
+  String get logoutHelpTv;
+
+  /// No description provided for @logoutHelpTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the services from this phone'**
+  String get logoutHelpTouch;
+
+  /// No description provided for @logoutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the services?'**
+  String get logoutTitle;
+
+  /// No description provided for @logoutBodyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be disconnected and the services will be removed from this TV. Your subscription stays as it is in the Shikoo bot.'**
+  String get logoutBodyTv;
+
+  /// No description provided for @logoutBodyTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be disconnected and the services will be removed from this phone. Your subscription stays as it is in the Shikoo bot.'**
+  String get logoutBodyTouch;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @appSection.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get appSection;
+
+  /// No description provided for @version.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get version;
+
+  /// No description provided for @about.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get about;
+
+  /// No description provided for @aboutSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Free software under GPL-3.0, built on FlClash and mihomo'**
+  String get aboutSummary;
+
+  /// No description provided for @aboutFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikoo is free software, released under the GPL-3.0 license.'**
+  String get aboutFree;
+
+  /// No description provided for @aboutBasedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'It is built on FlClash (by chen08209), and its connection core is mihomo (by MetaCubeX). Thanks to the makers of both.'**
+  String get aboutBasedOn;
+
+  /// No description provided for @aboutSource.
+  ///
+  /// In en, this message translates to:
+  /// **'You can get the source code of this version from Support.'**
+  String get aboutSource;
+
+  /// No description provided for @aboutLicense.
+  ///
+  /// In en, this message translates to:
+  /// **'License text: gnu.org/licenses/gpl-3.0'**
+  String get aboutLicense;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

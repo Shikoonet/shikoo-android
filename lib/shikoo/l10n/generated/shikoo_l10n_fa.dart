@@ -321,4 +321,81 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get close => 'بستن';
+
+  @override
+  String get backHintTv => 'برای برگشت، دکمهٔ برگشتِ ریموت را بزن';
+
+  @override
+  String get appearance => 'ظاهر';
+
+  @override
+  String get themeLight => 'روشن';
+
+  @override
+  String get themeDark => 'تیره';
+
+  @override
+  String get themeAuto => 'خودکار';
+
+  @override
+  String get language => 'زبان';
+
+  @override
+  String get languageFa => 'فارسی';
+
+  @override
+  String get languageEn => 'English';
+
+  @override
+  String get account => 'حساب';
+
+  @override
+  String get logout => 'خروج';
+
+  @override
+  String get logoutHelpTv => 'سرویس‌ها از این تلویزیون پاک می‌شوند';
+
+  @override
+  String get logoutHelpTouch => 'سرویس‌ها از این گوشی پاک می‌شوند';
+
+  @override
+  String get logoutTitle => 'سرویس‌ها پاک شوند؟';
+
+  @override
+  String get logoutBodyTv =>
+      'اتصال قطع می‌شود و سرویس‌ها از این تلویزیون پاک می‌شوند. اشتراکت در ربات شیکو سر جایش می‌ماند.';
+
+  @override
+  String get logoutBodyTouch =>
+      'اتصال قطع می‌شود و سرویس‌ها از این گوشی پاک می‌شوند. اشتراکت در ربات شیکو سر جایش می‌ماند.';
+
+  @override
+  String get cancel => 'انصراف';
+
+  @override
+  String get appSection => 'اپ';
+
+  @override
+  String get version => 'نسخه';
+
+  @override
+  String get about => 'درباره';
+
+  @override
+  String get aboutSummary =>
+      'نرم‌افزار آزاد با مجوز GPL-3.0، بر پایهٔ FlClash و mihomo';
+
+  @override
+  String get aboutFree =>
+      'شیکو نرم‌افزار آزاد است و با مجوز GPL-3.0 منتشر می‌شود.';
+
+  @override
+  String get aboutBasedOn =>
+      'بر پایهٔ FlClash (از chen08209) و هستهٔ اتصال mihomo (از MetaCubeX) ساخته شده است؛ سپاس از سازندگان هر دو.';
+
+  @override
+  String get aboutSource => 'سورس همین نسخه را می‌توانی از «پشتیبانی» بگیری.';
+
+  @override
+  String get aboutLicense => 'متن مجوز: gnu.org/licenses/gpl-3.0';
 }
