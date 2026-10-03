@@ -342,7 +342,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get renewHelp =>
-      'Scan with your phone\'s camera; the Shikoo bot opens your services for renewal.';
+      'Scan with your phone\'s camera; the Shikoo bot opens the renewal list of your services.';
 
   @override
   String get supportTitle => 'Support on your phone';
@@ -450,4 +450,9 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get removeButton => 'Remove';
+
+  @override
+  String renewPickInList(String username) {
+    return 'In the bot\'s list, tap the service $username; if it isn\'t there, check the next page of the list.';
+  }
 }

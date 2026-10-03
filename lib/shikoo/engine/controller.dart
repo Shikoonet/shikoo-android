@@ -84,6 +84,9 @@ class ShikooService {
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
+  /// The name is `<username> · <tier>`, as in the bot's "my services".
+  String get username => name.split(' · ').first;
+
   ShikooServiceStatus statusAt(DateTime now) {
     if (expire != null && !expire!.isAfter(now)) {
       return ShikooServiceStatus.expired;

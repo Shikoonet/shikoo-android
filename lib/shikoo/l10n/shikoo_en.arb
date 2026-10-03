@@ -113,7 +113,7 @@
   "searchNoMatch": "No server with that name",
   "clearSearch": "Clear search",
   "renewTitle": "Renew on your phone",
-  "renewHelp": "Scan with your phone's camera; the Shikoo bot opens your services for renewal.",
+  "renewHelp": "Scan with your phone's camera; the Shikoo bot opens the renewal list of your services.",
   "supportTitle": "Support on your phone",
   "supportHelp": "Scan with your phone's camera to chat with Shikoo support on Telegram.",
   "close": "Close",
@@ -149,5 +149,10 @@
   "vpnMissing": "This device has no VPN permission window.\nAsk Support.",
   "logoutTitleTv": "Remove the services from this TV?",
   "logoutTitleTouch": "Remove the services from this phone?",
-  "removeButton": "Remove"
+  "removeButton": "Remove",
+  "renewPickInList": "In the bot's list, tap the service {username}; if it isn't there, check the next page of the list.",
+  "@renewPickInList": {
+    "description": "Under the renew QR. The username is shown bold; the bot's list pages and shortens names, so only the username is named.",
+    "placeholders": {"username": {"type": "String"}}
+  }
 }

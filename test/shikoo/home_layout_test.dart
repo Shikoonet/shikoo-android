@@ -494,6 +494,13 @@ void main() {
     expect(await _press(tester, _ok), 'بستن');
     expect(find.text('تمدید با گوشی'), findsOneWidget);
     expect(qr(), ShikooLinks.renew);
+    expect(
+      find.text(
+        'در فهرست ربات، سرویسِ user123 را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(qr(), isNull);

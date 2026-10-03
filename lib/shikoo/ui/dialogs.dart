@@ -53,14 +53,15 @@ Future<T?> showShikooDialog<T>(
 }
 
 /// On the TV, `.qr-sheet` (frames `tv-renew-qr`, `tv-support-qr`): the phone scans what the TV
-/// cannot open. A phone opens the link in Telegram at once.
+/// cannot open. A phone opens the link in Telegram at once. [strong] is bold in [below].
 void openLink(
   BuildContext context, {
   required bool isTV,
   required String link,
   required String title,
   required String help,
-  required String service,
+  required String below,
+  required String strong,
 }) {
   if (!isTV) {
     unawaited(launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication));
@@ -84,13 +85,24 @@ void openLink(
         ),
         Text(help, textAlign: TextAlign.center, style: paragraph),
         QrTile(data: link),
-        Text(
-          service,
-          textAlign: TextAlign.center,
-          style: paragraph.copyWith(
-            color: t.c.text,
-            fontWeight: FontWeight.w700,
+        Text.rich(
+          TextSpan(
+            children: [
+              for (final (i, part) in below.split(strong).indexed) ...[
+                if (i > 0)
+                  TextSpan(
+                    text: strong,
+                    style: TextStyle(
+                      color: t.c.text,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                TextSpan(text: part),
+              ],
+            ],
           ),
+          textAlign: TextAlign.center,
+          style: paragraph,
         ),
         Builder(
           builder: (context) => ShikooButton(

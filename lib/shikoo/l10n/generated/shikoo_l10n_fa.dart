@@ -305,7 +305,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get renewHelp =>
-      'با دوربین گوشی اسکن کن؛ ربات شیکو سرویس‌هایت را برای تمدید باز می‌کند.';
+      'با دوربین گوشی اسکن کن؛ ربات شیکو فهرست تمدید سرویس‌هایت را باز می‌کند.';
 
   @override
   String get supportTitle => 'پشتیبانی با گوشی';
@@ -412,4 +412,9 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get removeButton => 'پاک کردن';
+
+  @override
+  String renewPickInList(String username) {
+    return 'در فهرست ربات، سرویسِ $username را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.';
+  }
 }

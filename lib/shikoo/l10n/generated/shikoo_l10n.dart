@@ -527,7 +527,7 @@ abstract class ShikooL10n {
   /// No description provided for @renewHelp.
   ///
   /// In en, this message translates to:
-  /// **'Scan with your phone\'s camera; the Shikoo bot opens your services for renewal.'**
+  /// **'Scan with your phone\'s camera; the Shikoo bot opens the renewal list of your services.'**
   String get renewHelp;
 
   /// No description provided for @supportTitle.
@@ -721,6 +721,12 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Remove'**
   String get removeButton;
+
+  /// Under the renew QR. The username is shown bold; the bot's list pages and shortens names, so only the username is named.
+  ///
+  /// In en, this message translates to:
+  /// **'In the bot\'s list, tap the service {username}; if it isn\'t there, check the next page of the list.'**
+  String renewPickInList(String username);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {
