@@ -27,3 +27,6 @@ include(":app")
 include(":core")
 include(":service")
 include(":common")
+
+// Shikoo: mobile_scanner's Android side swapped for an empty plugin, so ML Kit stays out of the APK.
+project(":mobile_scanner").projectDir = file("shikoo/mobile_scanner")
