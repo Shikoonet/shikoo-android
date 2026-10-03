@@ -9,12 +9,34 @@
 | ۲ | `pubspec.yaml`، `pubspec.lock` | وابستگی تازهٔ `qr: ^4.0.0` (با `flutter pub add qr`) | QR «تمدید» و «پشتیبانی» تلویزیون. FlClash و وابستگی‌هایش سازندهٔ QR ندارند (`mobile_scanner` فقط می‌خواند). `qr` خالص Dart است، مجوز BSD-3، و جز `meta` وابستگی ندارد. |
 | ۳ | `android/app/src/main/kotlin/com/follow/clash/plugins/AppPlugin.kt` | `startActivityForResult` پنجرهٔ اجازهٔ VPN داخل try/catch؛ اگر پنجره نبود یا کاربر رد کرد، پیام `vpnConsent` (`missing` یا `refused`) به Dart می‌رود. | باکس‌هایی که پنجرهٔ اجازه ندارند کرش نکنند، و اپ رد شدن اجازه را بفهمد. شروع سرویس خوش‌بینانه است و این خبر را به Dart نمی‌داد. |
 | ۴ | `lib/plugins/app.dart` | `onVpnConsent` و `case 'vpnConsent'` در گیرندهٔ کانال. | پیام وصلهٔ ۳ به کنترل‌گر شیکو برسد. |
+| ۵ | `android/settings.gradle.kts`، `android/app/build.gradle.kts`، `android/common/build.gradle.kts`، `android/gradle/libs.versions.toml`، `android/app/google-services.json` | افزونه‌های `com.google.gms.google-services` و `com.google.firebase.crashlytics`، وابستگی‌های `firebase-bom`، `firebase-crashlytics-ndk` و `firebase-analytics`، و نام‌هایشان در فهرست نسخه‌ها حذف شدند. `google-services.json` (پروژهٔ جای‌نگه‌دار `dev`) پاک شد. | حذف Firebase، تصمیم Sam: اپ نه Firebase را راه بیندازد، نه به آن وصل شود، نه کتابخانه‌اش را داشته باشد. ارسال `mapping.txt` هنگام ساخت هم با افزونه می‌رود. |
+| ۶ | `android/common/src/main/java/com/follow/clash/common/GlobalState.kt` | importهای Firebase رفت. `setCrashlytics` کاری نمی‌کند و `didCrashOnPreviousExecution()` همیشه `false` می‌دهد. | صدازننده‌ها (`ServiceStateHost.kt`، `ServiceStateMachine.kt`، `AppPlugin.kt` و کانال Dart) و تست‌هایشان بی‌وصله بمانند. سمت Dart دست نخورد: `crashlytics` در شیکو `false` است و `bootGuard` بدون آن کاوشگر کار می‌کند. |
+| ۷ | `android/settings.gradle.kts` | یک خط دیگر: `project(":mobile_scanner").projectDir = file("shikoo/mobile_scanner")`. | اسکنر QR فلکلش (تصمیم رهبر، ۲۰۲۶-۱۰-۰۴): بخش اندرویدیِ پلاگین `mobile_scanner` با یک پلاگین خالی عوض می‌شود. پس ML Kit، کتابخانه‌های Google datatransport (که آمار ML Kit را به گوگل می‌فرستند)، کتابخانه‌های دوربین androidx و مجوز `CAMERA` داخل APK نمی‌آیند. کد Dart فلکلش (`lib/pages/scan.dart`، `lib/common/picker.dart`) و تستش دست نخوردند؛ شیکو آن صفحه‌ها را باز نمی‌کند. |
+| ۸ | `android/app/src/main/AndroidManifest.xml` | سه خط `tools:node="remove"` برای `ACCESS_COARSE_LOCATION`، `ACCESS_FINE_LOCATION` و `ACCESS_BACKGROUND_LOCATION`. | این‌ها از پلاگین `plugins/wifi_ssid` می‌آمدند، برای قاعدهٔ «Wi-Fiهای مستثنا» در صفحهٔ on-demand فلکلش. شیکو آن صفحه را ندارد، پس `excludeSSIDs` خالی می‌ماند و اپ هیچ‌وقت اجازه نمی‌خواهد. هزینه: اگر روزی آن قاعده لازم شد، `getSsid` همیشه `null` می‌دهد و درخواست اجازه بی‌پنجره رد می‌شود. |
 
 ## نکته‌ها
 
 - `.gitignore` خود FlClash پوشهٔ `docs/` را نادیده می‌گیرد. برای اینکه به آن دست نزنیم، یادداشت‌های شیکو با `git add -f docs/...` اضافه می‌شوند. فایل‌هایی که یک بار اضافه شده‌اند، بعد عادی دنبال می‌شوند.
 - `.gitattributes` فایل تازهٔ شیکو است، نه وصله: همهٔ متن‌ها با پایان خط LF، تا اسکریپت‌ها داخل WSL هم درست اجرا شوند.
 - `.github/workflows/build.yaml` خود FlClash با هر push اجرا می‌شود. GitHub Actions در این مخزن خاموش است تا CI خود شیکو ساخته شود.
+  آن فایل `google-services.json` را از راز `SERVICE_JSON` می‌سازد (`:280`)؛ CI شیکو این گام را نمی‌خواهد.
+- **ادغام FlClash و وصلهٔ ۵:** FlClash نسخهٔ `firebaseBom` و دو افزونه را گاهی بالا می‌برد و آن‌جا تداخل پیش می‌آید. حذف ما را نگه دار.
+- **ادغام FlClash و وصلهٔ ۷:** اگر FlClash `mobile_scanner` را بردارد، خط وصله با `UnknownProjectException` می‌شکند؛ آن خط و `android/shikoo/mobile_scanner/` را پاک کن. اگر نام کلاس یا بستهٔ پلاگین عوض شود، `GeneratedPluginRegistrant.java` کامپایل نمی‌شود؛ کلاس پلاگین خالی را هم‌نام کن.
+- **سنجه:** بعد از هر ساخت، و حتماً بعد از هر ادغام FlClash: `bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk`.
+  اگر Firebase، Crashlytics، ML Kit، datatransport، دوربین androidx یا Google Play services (یا اجزای مانیفستشان)، یا مجوزهای تبلیغ، دوربین یا موقعیت برگشته باشند، رد می‌شود و آن‌ها را نام می‌برد.
+- **مجوزهایی که با وصله‌های ۵ تا ۸ رفتند:**
+  - با ۵: `com.google.android.gms.permission.AD_ID`، `android.permission.ACCESS_ADSERVICES_AD_ID`، `android.permission.ACCESS_ADSERVICES_ATTRIBUTION`، `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`، `android.permission.WAKE_LOCK`، و کتابخانهٔ `android.ext.adservices`. خود FlClash هیچ wake lock نمی‌گیرد.
+  - با ۷: `android.permission.CAMERA`.
+  - با ۸: `ACCESS_COARSE_LOCATION`، `ACCESS_FINE_LOCATION`، `ACCESS_BACKGROUND_LOCATION`، و ویژگی ضمنی `android.hardware.location`.
+- **اجزای مانیفست که با وصله‌های ۵ و ۷ رفتند:**
+  - با ۵: `com.google.firebase.provider.FirebaseInitProvider`، `com.google.firebase.components.ComponentDiscoveryService` با ثبت‌کننده‌های Crashlytics، Analytics، Sessions و Installations، `com.google.firebase.sessions.SessionLifecycleService`، و `com.google.android.gms.measurement.AppMeasurementService`، `AppMeasurementReceiver` و `AppMeasurementJobService`.
+  - با ۷: `com.google.mlkit.common.internal.MlKitInitProvider`، `MlKitComponentDiscoveryService`، `com.google.android.datatransport.runtime.backends.TransportBackendDiscovery`، `JobInfoSchedulerService`، `AlarmManagerSchedulerBroadcastReceiver`، `com.google.android.gms.common.api.GoogleApiActivity`، meta-data `com.google.android.gms.version`، و `androidx.camera.core.impl.MetadataHolderService`.
+- **کد Dart اسکنر داخل APK نیست:** ورودی شیکو به `lib/pages/scan.dart` و `lib/common/picker.dart` نمی‌رسد، پس کامپایلر Dart آن را دور می‌ریزد. نام کانال‌های اسکنر (`dev.steenbakker.mobile_scanner`) در `libapp.so` صفر بار آمده است (سنجش ۲۰۲۶-۱۰-۰۴).
+- **چیزهای گوگل یا Firebase که در APK مانده‌اند** (سنجش ۲۰۲۶-۱۰-۰۴):
+  - `uses-feature android.hardware.camera` با `required="false"` در مانیفست خود FlClash (`android/app/src/main/AndroidManifest.xml:8-10`). این مجوز نیست.
+  - سرویس غیرفعال `com.google.android.gms.metadata.ModuleDependencies` با `photopicker_activity:0:required` از `image_picker`. کلاسی ندارد و فقط از Google Play services نسخهٔ پشتیبان «انتخاب عکس» را می‌خواهد.
+  - کتابخانهٔ رابط کاربری Material Components (`com.google.android.material`). شبکه ندارد.
+  - متن‌های ترجمهٔ FlClash دربارهٔ Firebase (`dataCollectionContent`) و کلید `crashlytics` تنظیمات FlClash، به شکل متن و دادهٔ بی‌کار.
 
 ## ساختن اپ شیکو
 
@@ -24,6 +46,7 @@
 source ~/android-toolchain/env.sh
 flutter build apk -t lib/shikoo/app/main.dart --split-per-abi --target-platform android-x64,android-arm \
   --dart-define=APP_ENV=stable                 # نسخهٔ آزمایشی: --dart-define=SHIKOO_DEBUG=true هم
+bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 ```
 
 - `dart setup.dart android` همچنان اپ خود FlClash را می‌سازد. برای اینکه آن هم اپ شیکو بسازد، یا `setup.dart` وصله می‌خورد (و دو تست `test/setup_test.dart`)، یا `lib/main.dart`. فعلاً لازم نیست.
@@ -36,6 +59,7 @@ flutter build apk -t lib/shikoo/app/main.dart --split-per-abi --target-platform 
 | `assets/fonts/Vazirmatn-{Regular,Medium,Bold,ExtraBold}.ttf` | فونت وزیرمتن داخل APK. `assets/fonts/` در `pubspec.yaml` خود FlClash از قبل بسته‌بندی می‌شود، پس pubspec دست نخورد. با `FontLoader` بار می‌شود. |
 | `assets/fonts/Vazirmatn-OFL.txt` | متن مجوز OFL، همراه فونت. |
 | `test/shikoo/` | تست‌های شیکو: مرز import لایهٔ UI، و منطق وضعیت اتصال. |
+| `android/shikoo/mobile_scanner/` (`build.gradle.kts` و `MobileScannerPlugin.java`) | پلاگین خالیِ جایگزین `mobile_scanner` روی اندروید (وصلهٔ ۷). هم‌نام کلاسی است که `GeneratedPluginRegistrant` ثبت می‌کند. |
 
 **منبع فونت:** `rastikerdar/vazirmatn` تگ `v33.003`، مسیر `fonts/ttf/`. شناسهٔ گیتِ هر فایل با API گیت‌هاب یکی بود.
 
