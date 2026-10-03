@@ -432,4 +432,32 @@ void main() {
     expect(state.connection, ShikooConnection.error);
     expect(setup.runs, [true, false]);
   });
+
+  test('the clock counts from the tunnel, not from the press', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      ),
+    );
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    // A minute under the consent dialog, then a tunnel up for three seconds.
+    container.read(runTimeProvider.notifier).value = 63000;
+    setup.tunnel = DateTime.now().subtract(const Duration(seconds: 3));
+    await controller.connect();
+
+    final state = container.read(shikooStateProvider);
+    expect(state.connection, ShikooConnection.on);
+    expect(state.connectedFor.inSeconds, inInclusiveRange(3, 5));
+
+    container.read(runTimeProvider.notifier).value = null;
+    await pumpEventQueue();
+    expect(
+      container.read(shikooStateProvider).connection,
+      ShikooConnection.off,
+    );
+  });
 }

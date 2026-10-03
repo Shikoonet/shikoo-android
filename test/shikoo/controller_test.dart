@@ -52,7 +52,7 @@ void main() {
         stillWanted: () => true,
         every: tick,
       );
-      expect(up, isTrue);
+      expect(up, isNotNull);
       expect(calls, 3);
     });
 
@@ -63,7 +63,7 @@ void main() {
         stillWanted: () => true,
         every: tick,
       );
-      expect(up, isFalse);
+      expect(up, isNull);
     });
 
     test('time under the consent dialog does not count', () async {
@@ -75,7 +75,7 @@ void main() {
         paused: () => calls < 50,
         every: const Duration(milliseconds: 5),
       );
-      expect(up, isTrue, reason: 'a late OK still connects');
+      expect(up, isNotNull, reason: 'a late OK still connects');
     });
 
     test('stops at once when the user cancels', () async {
@@ -89,7 +89,7 @@ void main() {
         stillWanted: () => calls < 2,
         every: tick,
       );
-      expect(up, isFalse);
+      expect(up, isNull);
       expect(calls, 2);
     });
   });

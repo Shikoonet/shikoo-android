@@ -221,7 +221,8 @@ final _pingsProvider = _cell<Map<String, int>>(const {});
 final _refreshProvider = _cell(ShikooRefresh.idle);
 final _noticeProvider = _cell<ShikooNotice?>(null);
 
-/// Native's run start until FlClash's own run time arrives, seconds after a run again.
+/// The tunnel's real start. FlClash's own run time starts at the press, so it also counts the
+/// consent dialog, and it arrives seconds late after the app is opened again.
 final _nativeStartProvider = _cell<DateTime?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
@@ -352,7 +353,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       running: runTime != null || nativeStart != null,
       error: intent.error,
     ),
-    connectedFor: runTime == null && nativeStart != null
+    connectedFor: nativeStart != null
         ? DateTime.now().difference(nativeStart)
         : Duration(milliseconds: runTime ?? 0),
     isTV: system.isTV,
@@ -400,7 +401,7 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
 /// Polls [runTime] until native reports a running tunnel. Flutter's own run state is set
 /// optimistically before the service starts (engine map section 4), so only native is proof.
 /// Time while [paused], as under Android's VPN consent dialog, does not count.
-Future<bool> waitForTunnel(
+Future<DateTime?> waitForTunnel(
   Future<DateTime?> Function() runTime, {
   required Duration timeout,
   required bool Function() stillWanted,
@@ -409,12 +410,12 @@ Future<bool> waitForTunnel(
 }) async {
   final waited = Stopwatch();
   while (stillWanted()) {
-    if (await runTime() != null) return true;
+    if (await runTime() case final start?) return start;
     paused() ? waited.stop() : waited.start();
-    if (waited.elapsed >= timeout) return false;
+    if (waited.elapsed >= timeout) return null;
     await Future<void>.delayed(every);
   }
-  return false;
+  return null;
 }
 
 bool _never() => false;
@@ -459,11 +460,7 @@ class ShikooController {
       fireImmediately: true,
     );
     _ref.listen(runTimeProvider.select((time) => time != null), (_, running) {
-      if (!running) return;
-      scheduleMicrotask(() {
-        _nativeStart(null);
-        _reconcile();
-      });
+      scheduleMicrotask(running ? _reconcile : () => _nativeStart(null));
     });
     app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
@@ -581,16 +578,17 @@ class ShikooController {
     } catch (_) {
       started = false;
     }
-    final up =
-        started &&
-        await waitForTunnel(
-          _nativeRunTime,
-          timeout: connectTimeout,
-          stillWanted: () => attempt == _attempt,
-          paused: () => !foreground,
-        );
+    final since = started
+        ? await waitForTunnel(
+            _nativeRunTime,
+            timeout: connectTimeout,
+            stillWanted: () => attempt == _attempt,
+            paused: () => !foreground,
+          )
+        : null;
     if (attempt != _attempt) return;
-    if (up) {
+    if (since != null) {
+      _nativeStart(since);
       _set(const _Intent());
       unawaited(_checkSelected());
       return;
