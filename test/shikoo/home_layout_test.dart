@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -710,5 +711,32 @@ void main() {
       find.widgetWithText(ShikooButton, 'پشتیبانی'),
     );
     expect(support.icon, isNull);
+  });
+
+  testWidgets('a server with no known country keeps the flag space, empty', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.off,
+        servers: const [
+          ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
+          ShikooServer(name: 'WireGuard 3', type: 'WireGuard', ping: 90),
+        ],
+        selected: 'آلمان ۲',
+      ),
+    );
+    Finder flagOf(String name) => find.descendant(
+      of: find.ancestor(of: find.text(name), matching: find.byType(ServerRow)),
+      matching: find.byType(Flag),
+    );
+    final blank = flagOf('WireGuard 3');
+    expect(tester.getSize(blank), tester.getSize(flagOf('آلمان ۲')));
+    expect(
+      find.descendant(of: blank, matching: find.byType(DecoratedBox)),
+      findsNothing,
+    );
   });
 }

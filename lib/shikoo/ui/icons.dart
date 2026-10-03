@@ -77,7 +77,7 @@ const _flags = {
 };
 
 /// A country flag in the design's 3:2 box. Countries the mockup has no drawing for use the
-/// emoji flag from FlClash's bundled Twemoji font; an unknown country gets an empty box.
+/// emoji flag from FlClash's bundled Twemoji font; an unknown country keeps only the space.
 class Flag extends StatelessWidget {
   const Flag({super.key, required this.country});
 
@@ -90,6 +90,7 @@ class Flag extends StatelessWidget {
     final h = t.s.flagH;
     final svg = _flags[country];
     final code = country;
+    if (code == null) return SizedBox(width: w, height: h);
     final Widget art = svg != null
         ? SvgPicture.string(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">$svg</svg>',
@@ -97,8 +98,6 @@ class Flag extends StatelessWidget {
             height: h,
             fit: BoxFit.fill,
           )
-        : code == null
-        ? ColoredBox(color: t.c.surfaceSunken)
         : FittedBox(
             fit: BoxFit.cover,
             child: Text(
