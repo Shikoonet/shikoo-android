@@ -1,0 +1,13 @@
+{
+  "@@locale": "en",
+  "vpnRefused": "Permission to connect wasn't given.\nConnect again and allow it in Android's window.",
+  "@vpnRefused": {"description": "Under the round button when Android's connection request was declined or dismissed. Says “connect”, not the Latin name, like the Persian."},
+  "vpnMissing": "This device doesn't show Android's permission window.\nAsk Support.",
+  "@vpnMissing": {"description": "Same place, on a device whose system has no connection request window at all."},
+  "selectedDown": "“{name}” isn't answering.\nPick another server from the list.",
+  "@selectedDown": {"placeholders": {"name": {"type": "String"}}},
+  "powerNoService": "No service",
+  "noServiceTitleTv": "No service on this TV",
+  "noServiceTitleTouch": "No service on this phone",
+  "noServiceHelp": "Ask Support to bring it back."
+}
