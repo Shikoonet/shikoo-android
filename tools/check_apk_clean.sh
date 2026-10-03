@@ -8,6 +8,9 @@ aapt2=${AAPT2:-$(ls "$ANDROID_HOME"/build-tools/*/aapt2{,.exe} 2>/dev/null | tai
 [ -x "$aapt2" ] || { echo "aapt2 not found: set AAPT2 or ANDROID_HOME" >&2; exit 2; }
 [ $# -gt 0 ] || { echo "usage: $0 <apk>..." >&2; exit 2; }
 
+# grep exits 1 for "no match", which is the clean case; any other failure must stop the script
+find_in() { grep -iE "$1" <<<"$2" || [ $? -eq 1 ]; }
+
 status=0
 for apk in "$@"; do
   # read each listing first: a failing tool must stop the script, not read as "nothing found"
@@ -15,10 +18,12 @@ for apk in "$@"; do
   badging=$("$aapt2" dump badging "$apk")
   manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
   hits=$(
-    grep -iE 'libcrashlytics|transport-|firebase-|mlkit' <<<"$files"
-    grep -iE 'ad_id|adservices|permission\.camera|_location' <<<"$badging"
-    grep -iE 'firebase|crashlytics|mlkit|datatransport|measurement' <<<"$manifest" | sed -E 's/ \(Raw: .*//'
-  ) || true
+    set -e
+    find_in 'libcrashlytics|transport-|firebase-|mlkit' "$files"
+    find_in 'ad_id|adservices|permission\.camera|_location' "$badging"
+    find_in 'firebase|crashlytics|mlkit|datatransport|measurement|GoogleApiActivity|gms\.version|androidx\.camera' "$manifest" |
+      sed -E 's/ \(Raw: .*//'
+  )
   if [ -n "$hits" ]; then
     echo "FAIL $apk"
     sed 's/^ */  /' <<<"$hits"

@@ -23,13 +23,16 @@
 - **ادغام FlClash و وصلهٔ ۵:** FlClash نسخهٔ `firebaseBom` و دو افزونه را گاهی بالا می‌برد و آن‌جا تداخل پیش می‌آید. حذف ما را نگه دار.
 - **ادغام FlClash و وصلهٔ ۷:** اگر FlClash `mobile_scanner` را بردارد، خط وصله با `UnknownProjectException` می‌شکند؛ آن خط و `android/shikoo/mobile_scanner/` را پاک کن. اگر نام کلاس یا بستهٔ پلاگین عوض شود، `GeneratedPluginRegistrant.java` کامپایل نمی‌شود؛ کلاس پلاگین خالی را هم‌نام کن.
 - **سنجه:** بعد از هر ساخت، و حتماً بعد از هر ادغام FlClash: `bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk`.
-  اگر Firebase، Crashlytics، ML Kit یا datatransport، یا مجوزهای تبلیغ، دوربین یا موقعیت برگشته باشند، رد می‌شود و آن‌ها را نام می‌برد.
+  اگر Firebase، Crashlytics، ML Kit، datatransport، دوربین androidx یا Google Play services (یا اجزای مانیفستشان)، یا مجوزهای تبلیغ، دوربین یا موقعیت برگشته باشند، رد می‌شود و آن‌ها را نام می‌برد.
 - **مجوزهایی که با وصله‌های ۵ تا ۸ رفتند:**
   - با ۵: `com.google.android.gms.permission.AD_ID`، `android.permission.ACCESS_ADSERVICES_AD_ID`، `android.permission.ACCESS_ADSERVICES_ATTRIBUTION`، `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`، `android.permission.WAKE_LOCK`، و کتابخانهٔ `android.ext.adservices`. خود FlClash هیچ wake lock نمی‌گیرد.
   - با ۷: `android.permission.CAMERA`.
   - با ۸: `ACCESS_COARSE_LOCATION`، `ACCESS_FINE_LOCATION`، `ACCESS_BACKGROUND_LOCATION`، و ویژگی ضمنی `android.hardware.location`.
+- **اجزای مانیفست که با وصله‌های ۵ و ۷ رفتند:**
+  - با ۵: `com.google.firebase.provider.FirebaseInitProvider`، `com.google.firebase.components.ComponentDiscoveryService` با ثبت‌کننده‌های Crashlytics، Analytics، Sessions و Installations، `com.google.firebase.sessions.SessionLifecycleService`، و `com.google.android.gms.measurement.AppMeasurementService`، `AppMeasurementReceiver` و `AppMeasurementJobService`.
+  - با ۷: `com.google.mlkit.common.internal.MlKitInitProvider`، `MlKitComponentDiscoveryService`، `com.google.android.datatransport.runtime.backends.TransportBackendDiscovery`، `JobInfoSchedulerService`، `AlarmManagerSchedulerBroadcastReceiver`، `com.google.android.gms.common.api.GoogleApiActivity`، meta-data `com.google.android.gms.version`، و `androidx.camera.core.impl.MetadataHolderService`.
+- **کد Dart اسکنر داخل APK نیست:** ورودی شیکو به `lib/pages/scan.dart` و `lib/common/picker.dart` نمی‌رسد، پس کامپایلر Dart آن را دور می‌ریزد. نام کانال‌های اسکنر (`dev.steenbakker.mobile_scanner`) در `libapp.so` صفر بار آمده است (سنجش ۲۰۲۶-۱۰-۰۴).
 - **چیزهای گوگل یا Firebase که در APK مانده‌اند** (سنجش ۲۰۲۶-۱۰-۰۴):
-  - کد Dart بستهٔ `mobile_scanner` و صفحهٔ اسکن فلکلش داخل `libapp.so`. سمت اندرویدش خالی است و اگر کسی آن صفحه را باز کند، `MissingPluginException` می‌گیرد.
   - `uses-feature android.hardware.camera` با `required="false"` در مانیفست خود FlClash (`android/app/src/main/AndroidManifest.xml:8-10`). این مجوز نیست.
   - سرویس غیرفعال `com.google.android.gms.metadata.ModuleDependencies` با `photopicker_activity:0:required` از `image_picker`. کلاسی ندارد و فقط از Google Play services نسخهٔ پشتیبان «انتخاب عکس» را می‌خواهد.
   - کتابخانهٔ رابط کاربری Material Components (`com.google.android.material`). شبکه ندارد.
