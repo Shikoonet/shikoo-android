@@ -15,11 +15,11 @@
 
 ## اپ شیکو بدون وصله
 
-اپ شیکو هیچ فایل FlClash را عوض نمی‌کند. ورودی‌اش `lib/shikoo/main.dart` است و با `-t` ساخته می‌شود:
+اپ شیکو هیچ فایل FlClash را عوض نمی‌کند. ورودی‌اش `lib/shikoo/app/main.dart` است و با `-t` ساخته می‌شود:
 
 ```bash
 source ~/android-toolchain/env.sh
-flutter build apk -t lib/shikoo/main.dart --split-per-abi --target-platform android-x64,android-arm \
+flutter build apk -t lib/shikoo/app/main.dart --split-per-abi --target-platform android-x64,android-arm \
   --dart-define=APP_ENV=stable                 # نسخهٔ آزمایشی: --dart-define=SHIKOO_DEBUG=true هم
 ```
 
@@ -45,7 +45,7 @@ flutter build apk -t lib/shikoo/main.dart --split-per-abi --target-platform andr
 | `Vazirmatn-OFL.txt` (از `OFL.txt`) | `17e355067c8284f47743a1ee3b1ef7ff684ff0601eda357f9353b10b3016ab31` |
 
 **کپی‌هایی که با ادغام FlClash باید دستی هم‌گام شوند:**
-- `lib/shikoo/main.dart` تکرار `lib/main.dart` است، با `ShikooApp` به‌جای `Application`.
+- `lib/shikoo/app/main.dart` تکرار `lib/main.dart` است، با `ShikooApp` به‌جای `Application`.
 - `lib/shikoo/ui/focus.dart` کپی `lib/widgets/focus.dart` است، تا UI شیکو هرگز FlClash را import نکند.
 - `lib/shikoo/app/app.dart` همان کارهای `ApplicationState` در `lib/application.dart` را تکرار می‌کند (`attach`، تایمر ۲۰ دقیقه‌ای، کار تغییر شبکه).
 

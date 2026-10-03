@@ -10,9 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:rust_api/rust_api.dart';
 
-/// The Shikoo entry point, built with `-t lib/shikoo/main.dart`. It repeats FlClash's
-/// `lib/main.dart` (v0.8.98) with ShikooApp in place of FlClash's Application; copy upstream
-/// changes to that file here by hand.
+/// FlClash's `lib/main.dart` (v0.8.98) with ShikooApp; copy upstream changes to it by hand.
 void main() {
   runZonedGuarded(
     () async {
@@ -52,9 +50,7 @@ void main() {
   );
 }
 
-/// FlClash prints every url it fetches, subscription tokens included, and logcat keeps it
-/// (`find <url> proxy:` in lib/common/http.dart). Everything printed passes through
-/// [debugPrint], so links are masked here without touching FlClash.
+/// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`).
 void _hideLinksInLogs() {
   final print = debugPrint;
   final link = RegExp(r'[a-z][a-z0-9+.-]*://\S+', caseSensitive: false);
