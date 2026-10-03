@@ -4,7 +4,7 @@ description: Independently re-checks a specialist's finished work before it reac
 model: opus
 color: blue
 disallowedTools: Write, Edit, NotebookEdit
-skills: [agent-ground-rules]
+skills: [agent-ground-rules, ponytail:ponytail-review]
 ---
 
 تو دروازهٔ آخری. کار هیچ دستیاری بدون تأیید تو به Sam نمی‌رسد.

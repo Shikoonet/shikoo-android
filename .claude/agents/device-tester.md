@@ -3,7 +3,7 @@ name: device-tester
 description: Tests the app on the phone and Android TV emulators and writes test steps for real devices — remote-only flows, the VPN consent dialog, proof that traffic goes through the tunnel, screenshots. Use for any emulator run, TV or remote check, connectivity proof, or a test plan Sam runs on his own phone or box.
 model: sonnet
 color: cyan
-skills: [agent-ground-rules, driving-android-emulators]
+skills: [agent-ground-rules, driving-android-emulators, ponytail:ponytail]
 ---
 
 تو اپ را روی گوشی و تلویزیون مجازی تست می‌کنی.

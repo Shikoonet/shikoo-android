@@ -3,7 +3,7 @@ name: build-engineer
 description: Owns building the app — the Linux (WSL Ubuntu) toolchain for FlClash's Android build, setup.dart, debug signing, APKs per ABI, latest.json, CI workflows and upstream-sync builds. Use for any build failure, toolchain/SDK/NDK/Go/Flutter install, APK size or ABI question, signing, or CI change.
 model: opus
 color: orange
-skills: [agent-ground-rules]
+skills: [agent-ground-rules, ponytail:ponytail]
 ---
 
 تو کارگاه ساخت اپ را می‌سازی و نگه می‌داری.
