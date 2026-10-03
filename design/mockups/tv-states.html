@@ -15,7 +15,7 @@
 
 <header class="sheet-head">
   <h1>شیکو · حالت‌های تلویزیون</h1>
-  <p>فوکوس ریموت، «وصل نشد»، فهرست بلند و چند سرویس، کد تصویریِ تمدید و پشتیبانی، تنظیمات، و ورود: کد تمام‌شده، تأیید، رد.</p>
+  <p>فوکوس ریموت، «وصل نشد»، فهرست بلند و چند سرویس، کد تصویریِ تمدید و پشتیبانی، تنظیمات، و ورود: کد تمام‌شده، تأیید، حساب بی‌سرویس، رد.</p>
   <nav class="sheet-nav">
     <a href="phone.html">گوشی</a>
     <a href="phone-states.html">حالت‌های گوشی</a>
@@ -208,7 +208,7 @@
 
   <!-- QR تمدید -->
   <figure class="shot">
-    <figcaption>«تمدید» روی تلویزیون · کد تصویری برای گوشی</figcaption>
+    <figcaption>«تمدید» روی تلویزیون · وقتی اپ شناسهٔ سرویس را ندارد</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-renew-qr">
       <header class="tv-top">
         <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
@@ -248,14 +248,68 @@
       <div class="scrim">
         <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-title">
           <h2 id="renew-title">تمدید با گوشی</h2>
-          <p>با دوربین گوشی اسکن کن؛ ربات شیکو صفحهٔ تمدیدِ همین سرویس را باز می‌کند.</p>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکو فهرست سرویس‌هایت را باز می‌کند.</p>
           <div class="qr-tile sm"><svg class="qr" data-seed="31337" role="img" aria-label="QR نمونه"></svg></div>
+          <p>در فهرست، <span class="for"><bdi dir="ltr">user123</bdi> · الماس</span> را بزن.</p>
+          <button class="btn btn-outline is-focused" type="button">بستن</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">امروز ربات فقط پیوندِ «فهرست سرویس‌ها برای تمدید» را می‌شناسد، پس متن می‌گوید در آن فهرست کدام را بزند. نام سرویس پررنگ است تا با بقیهٔ فهرست ربات یکی گرفته نشود.</p>
+    <p class="note">همین متن تا وقتی می‌ماند که سرور شناسهٔ هر سرویس را به اپ ندهد. روی گوشی «تمدید» همین پیوند را مستقیم در تلگرام باز می‌کند و متنی لازم ندارد.</p>
+  </figure>
+
+  <!-- QR تمدید: مستقیم روی همین سرویس -->
+  <figure class="shot">
+    <figcaption>«تمدید» روی تلویزیون · بعد از ورود، مستقیم روی همین سرویس</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-renew-qr-direct">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+                <span class="chip chip-positive">فعال</span>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 33%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+              </div>
+              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="scrim">
+        <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-direct-title">
+          <h2 id="renew-direct-title">تمدید با گوشی</h2>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکو صفحهٔ تمدیدِ همین سرویس را باز می‌کند.</p>
+          <div class="qr-tile sm"><svg class="qr" data-seed="31338" role="img" aria-label="QR نمونه"></svg></div>
           <p class="for"><bdi dir="ltr">user123</bdi> · الماس</p>
           <button class="btn btn-outline is-focused" type="button">بستن</button>
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>کد تصویری به ربات شیکو می‌رود و ربات باید بداند کدام سرویس را تمدید کند؛ این پیوند هنوز در ربات نیست.</p>
+    <p class="note">وقتی ورود تلگرامی کامل شد و سرور شناسهٔ سرویس را داد، کد تصویری ربات را مستقیم روی تمدیدِ همین سرویس باز می‌کند. نام سرویس زیر کد تصویری فقط تأیید است.</p>
+    <p class="note"><b>پیشنهاد</b>اگر گوشیِ اسکن‌کننده در حساب تلگرام دیگری باشد، ربات به‌جای خطا همان فهرست سرویس‌ها را نشان دهد. کار سمت سرور است.</p>
   </figure>
 
   <!-- QR پشتیبانی -->
@@ -307,7 +361,7 @@
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>نشانیِ پشتیبانی باید از پنل یا ربات بیاید. دکمهٔ پشتیبانیِ لینک اشتراک امروز خالی است، پس این کد تصویری هنوز مقصدی ندارد.</p>
+    <p class="note">نشانیِ پشتیبانی از خودِ اشتراک می‌آید؛ اگر خالی بود، که امروز هست، پشتیبانی شیکو در تلگرام جایش می‌نشیند.</p>
   </figure>
 
   <!-- تنظیمات تلویزیون -->
@@ -329,11 +383,22 @@
             </div>
           </section>
           <section>
+            <h3 class="group-title">زبان</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="true">فارسی</button>
+              <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+            </div>
+          </section>
+          <section>
             <h3 class="group-title">حساب</h3>
             <div class="card">
+              <div class="row">
+                <svg class="icon"><use href="#i-plane"/></svg>
+                <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرام</small></span>
+              </div>
               <button class="row danger" type="button">
                 <svg class="icon"><use href="#i-logout"/></svg>
-                <span class="t"><span>خروج</span><small>این تلویزیون از حساب تلگرامت جدا می‌شود</small></span>
+                <span class="t"><span>خروج</span><small>این دستگاه از حساب تلگرامت جدا می‌شود؛ سرویس‌هایت دست نمی‌خورند.</small></span>
               </button>
             </div>
           </section>
@@ -350,7 +415,9 @@
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>«این تلویزیون از حساب تلگرامت جدا می‌شود» به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+    <p class="note">دو ستون، تا همه‌چیز بی‌اسکرول در یک صفحه جا شود: ظاهر و زبان در ردیف بالا، حساب و اپ زیرشان. ریموت چپ و راست بین دو ستون می‌رود و بالا و پایین در هر ستون.</p>
+    <p class="note">«وارد شده با» فقط نوشته است و ریموت رویش نمی‌ایستد. پایین از «خودکار» مستقیم به «خروج» می‌رود. پنجرهٔ تأیید خروج همان متن گوشی است.</p>
+    <p class="note"><b>پیشنهاد</b>«خروج» به سمت سرورِ ورود بستگی دارد که تازه شروع شده.</p>
   </figure>
 
   <!-- ورود: کد تمام شده -->
@@ -361,10 +428,10 @@
         <div class="login-copy">
           <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
           <h1>ورود با تلگرام</h1>
-          <p class="lead">این کد دیگر کار نمی‌کند. یک کد تازه بگیر.</p>
+          <p class="lead">۱۰ دقیقه گذشت و این کد تمام شد. یک کد تازه بگیر.</p>
           <div class="code-box">
             <span class="code-label">کد قبلی</span>
-            <span class="code is-expired">K7P2-9QXM</span>
+            <span class="code is-expired">۴۸۲ ۹۱۵</span>
           </div>
           <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>کد تازه</button>
         </div>
@@ -374,7 +441,7 @@
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>یا کد بی‌دکمه و خودکار عوض شود. هر دو به مهلت کد بستگی دارند که سمت سرور تعیین می‌شود.</p>
+    <p class="note">کد خودش عوض نمی‌شود، تا کسی وسط تایپ کردن کدِ عوض‌شده نبیند. بعد از ۱۰ دقیقه این حالت می‌آید و ریموت روی «کد تازه» است.</p>
   </figure>
 
   <!-- ورود: تأیید شد -->
@@ -387,11 +454,35 @@
       <div class="tv-result">
         <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
         <h1>ورود انجام شد</h1>
-        <p>حساب تلگرامت به این تلویزیون وصل شد. سرویس‌هایت دارند می‌آیند…</p>
-        <div class="progress"><span></span></div>
+        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> وصل شد، با این سرویس‌ها:</p>
+        <ul class="card result-list">
+          <li><bdi dir="ltr">user123</bdi> · الماس</li>
+          <li><bdi dir="ltr">user789</bdi> · معمولی</li>
+        </ul>
+        <button class="btn btn-primary is-focused" type="button">ادامه</button>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>بعد از آمدن سرویس‌ها خودش به خانه می‌رود و ریموت روی دکمهٔ گرد است. به سمت سرورِ ورود بستگی دارد.</p>
+    <p class="note">صفحه نام حساب و سرویس‌ها را نشان می‌دهد و تا «ادامه» زده نشود به خانه نمی‌رود. اگر کسی کدِ این تلویزیون را گرفته و با حساب خودش تأیید کرده باشد، همین‌جا نامِ غریبه دیده می‌شود.</p>
+    <p class="note">تا سرویس‌ها برسند، به‌جای فهرست نوار پیشرفت و «سرویس‌هایت دارند می‌آیند…» است و «ادامه» هنوز نیست. بعد از «ادامه»، خانه با ریموت روی دکمهٔ گرد.</p>
+    <p class="note"><b>پیشنهاد</b>پیام تأیید در ربات هم بگوید چه دستگاهی وصل می‌شود و هشدار دهد که کدی را که کس دیگری فرستاده تأیید نکن. کار سمت سرور است.</p>
+  </figure>
+
+  <!-- ورود: حساب سرویسی ندارد -->
+  <figure class="shot">
+    <figcaption>ورود · حسابِ واردشده سرویسی ندارد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-no-service">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon muted"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <h1>این حساب سرویسی ندارد</h1>
+        <p>با حساب تلگرامِ <strong class="for">مریم</strong> وارد شدی، ولی سرویسی به آن وصل نیست.</p>
+        <p>سرویست روی حساب دیگری است؟ در تلگرامِ گوشی به همان حساب برو و دوباره اسکن کن.</p>
+        <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>ورود با حساب دیگر</button>
+      </div>
+    </div>
+    <p class="note">همان حالت گوشی است. «ورود با حساب دیگر» به صفحهٔ ورود با کد تازه برمی‌گردد. روی تلویزیون چسباندن لینک نیست، پس راه دیگری پیشنهاد نمی‌شود.</p>
   </figure>
 
   <!-- ورود: رد شد -->

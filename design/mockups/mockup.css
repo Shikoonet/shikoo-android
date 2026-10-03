@@ -24,6 +24,7 @@
  *  ۱۷. سربرگ دوخطی ..... .svc-titles .svc-line .svc-sub (زمان به‌روزرسانی) + دکمهٔ به‌روزرسانی در .svc-head
  *  ۱۸. سربرگ فهرست ..... .list-head ؛ .search + .is-active ؛ .list-caption
  *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
+ *  ۲۰. نام ربات ......... .code-bot (زیر کد ورود) ؛ فهرست نتیجه: .result-list ؛ دایرهٔ خنثی: .hero-icon.muted
  *  پینگِ در حال سنجش: .ping.is-pending ؛ برچسب «تازه»: .chip-outline ؛ قاب اسکرول‌شدهٔ گوشی: .scroll-view
  *  فوکوس ریموت روی هر جزء: .is-focused
  */
@@ -212,7 +213,7 @@ ul { list-style: none; }
 .now.is-none > .icon { color: var(--color-danger); }
 
 /* ۱۰. کنترل تکه‌ای */
-.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
 .segmented button { block-size: var(--size-button); border-radius: var(--radius-sm); text-align: center; font-weight: var(--font-weight-medium); color: var(--color-text-muted); }
 .segmented [aria-checked="true"] { background: var(--color-surface); color: var(--color-text); font-weight: var(--font-weight-bold); box-shadow: var(--shadow-card); }
 
@@ -264,6 +265,8 @@ ul { list-style: none; }
 .code-label { font-size: var(--text-body); color: var(--color-text-muted); }
 .code { direction: ltr; unicode-bidi: isolate; font-size: var(--text-code); font-weight: var(--font-weight-black); letter-spacing: var(--tracking-code); line-height: var(--leading-tight); }
 .code.is-expired { color: var(--color-text-muted); text-decoration: line-through; }
+.code-bot { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.code-bot .icon { color: var(--color-telegram); }
 .fine { font-size: var(--text-body-sm); color: var(--color-text-muted); }
 
 /* ۱۵. نتیجه (تأیید شد / رد شد) */
@@ -271,6 +274,8 @@ ul { list-style: none; }
 .hero-icon .icon { --size-icon: calc(var(--size-hero-icon) * 0.5); stroke-width: var(--icon-stroke-strong); }
 .hero-icon.positive { background: var(--color-positive-soft); color: var(--color-positive); }
 .hero-icon.danger { background: var(--color-danger-soft); color: var(--color-danger); }
+.hero-icon.muted { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.result-list { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) var(--space-8); font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
 .progress { inline-size: calc(var(--size-pane) / 2); block-size: var(--size-bar); border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
 .progress > span { display: block; inline-size: 40%; block-size: 100%; border-radius: inherit; background: var(--color-primary); }
 
@@ -339,11 +344,18 @@ ul { list-style: none; }
 
 /* ورود گوشی، و ورود بدون تلگرام */
 .login { flex: 1; display: flex; flex-direction: column; padding: 0 var(--space-6) var(--space-8); }
-.login-brand { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); }
+.login-brand { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); text-align: center; }
 .login-brand .mark { --size-mark: var(--size-mark-lg); }
 .login-brand .word { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); margin-top: var(--space-2); }
 .login-brand .sub { color: var(--color-text-muted); font-size: var(--text-body-sm); }
+.login-brand .sub strong { color: var(--color-text); }
 .login .btn-telegram { --size-button: var(--size-button-lg); inline-size: 100%; }
+.login .btn-outline { --size-button: var(--size-touch); inline-size: 100%; margin-top: var(--space-4); }
+.login .notice { margin-block: 0 var(--space-4); }
+.login .login-note + .notice { margin-block-start: var(--space-4); }
+.login .notice + .btn-outline { margin-top: 0; }
+.login-parts .btn-outline { --size-button: var(--size-touch); inline-size: 100%; }
+.login-parts .notice { margin-top: 0; }
 .login-note { margin-top: var(--space-3); text-align: center; font-size: var(--text-body-sm); color: var(--color-text-muted); }
 .alt-login { flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-2) var(--space-6) var(--space-10); text-align: center; }
 .alt-login .lead { line-height: var(--leading-body); }
@@ -399,10 +411,12 @@ ul { list-style: none; }
 .tv-result { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); text-align: center; }
 .tv-result h1 { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); }
 .tv-result p { max-inline-size: var(--size-dialog); font-size: var(--text-title); line-height: var(--leading-body); color: var(--color-text-muted); }
+.tv-result strong { color: var(--color-text); }
+.tv-result p, .login-brand .sub { text-wrap: balance; }
 
 /* تنظیمات تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
 .tv-settings { flex: 1; min-block-size: 0; display: flex; justify-content: center; margin-top: var(--space-3); }
-.tv-settings .settings { inline-size: var(--size-pane); padding: 0; gap: var(--space-4); }
+.tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0; gap: var(--space-6) var(--space-10); }
 .tv .dialog p { font-size: var(--text-body); }
 
 /* صفحه‌های نمونهٔ اجزا (نه صفحهٔ اپ؛ حاشیهٔ امن ندارند) */

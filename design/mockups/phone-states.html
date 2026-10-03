@@ -15,7 +15,7 @@
 
 <header class="sheet-head">
   <h1>شیکو · حالت‌های گوشی</h1>
-  <p>اتصال و خطا، سرویسِ تمام‌شده، فهرست بلند، خروج، ورود بدون تلگرام و انواع کارت سرویس.</p>
+  <p>اتصال و خطا، سرویسِ تمام‌شده، فهرست بلند، خروج، ورود و چسباندن لینک، و انواع کارت سرویس.</p>
   <nav class="sheet-nav">
     <a href="phone.html">گوشی</a>
     <a href="phone-states.html" aria-current="page">حالت‌های گوشی</a>
@@ -235,11 +235,22 @@
           </div>
         </section>
         <section>
+          <h3 class="group-title">زبان</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="true">فارسی</button>
+            <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+          </div>
+        </section>
+        <section>
           <h3 class="group-title">حساب</h3>
           <div class="card">
+            <div class="row">
+              <svg class="icon"><use href="#i-plane"/></svg>
+              <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرام</small></span>
+            </div>
             <button class="row danger" type="button">
               <svg class="icon"><use href="#i-logout"/></svg>
-              <span class="t"><span>خروج</span><small>این گوشی از حساب تلگرامت جدا می‌شود</small></span>
+              <span class="t"><span>خروج</span><small>این دستگاه از حساب تلگرامت جدا می‌شود؛ سرویس‌هایت دست نمی‌خورند.</small></span>
             </button>
           </div>
         </section>
@@ -257,7 +268,7 @@
       <div class="scrim">
         <div class="dialog" role="alertdialog" aria-labelledby="logout-title">
           <h2 id="logout-title">از حساب خارج می‌شوی؟</h2>
-          <p>اتصال قطع می‌شود و این گوشی از حساب تلگرامت جدا می‌شود. برای برگشتن، دوباره با تلگرام وارد شو.</p>
+          <p>اتصال قطع می‌شود و این دستگاه از حساب تلگرامت جدا می‌شود. سرویس‌هایت دست نمی‌خورند؛ هر وقت خواستی، دوباره با تلگرام وارد شو.</p>
           <div class="dialog-actions">
             <button class="btn btn-text" type="button">انصراف</button>
             <button class="btn btn-danger" type="button">خروج</button>
@@ -266,28 +277,177 @@
       </div>
       <div class="gesture"></div>
     </div>
-    <p class="note"><b>پیشنهاد</b>جدا کردن دستگاه از حساب کارِ سرور است و سمت سرورِ ورود هنوز ساخته نشده. اگر سرور نتواند، «خروج» فقط اطلاعات همین گوشی را پاک می‌کند.</p>
+    <p class="note"><b>پیشنهاد</b>جدا کردن دستگاه از حساب کارِ سرور است و سمت سرورِ ورود تازه شروع شده. اگر سرور نتواند، «خروج» فقط اطلاعات همین گوشی را پاک می‌کند.</p>
   </figure>
 
-  <!-- ورود بدون تلگرام -->
+  <!-- تنظیمات: سرویس با لینک چسبانده شده، هنوز بی‌ورود تلگرامی -->
   <figure class="shot">
-    <figcaption>ورود بدون تلگرام روی این گوشی</figcaption>
+    <figcaption>تنظیمات · با لینک چسبانده‌شده، پیش از ورود تلگرامی</figcaption>
+    <div class="phone" data-frame="phone-settings-pasted">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>تنظیمات</h2>
+      </div>
+      <div class="settings">
+        <section>
+          <h3 class="group-title">ظاهر</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="false">روشن</button>
+            <button type="button" role="radio" aria-checked="false">تیره</button>
+            <button type="button" role="radio" aria-checked="true">خودکار</button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">زبان</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="true">فارسی</button>
+            <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">حساب</h3>
+          <div class="card">
+            <button class="row" type="button">
+              <svg class="icon"><use href="#i-plane"/></svg>
+              <span class="t"><span>ورود با تلگرام</span><small>هنوز وارد نشده‌ای. با ورود، همهٔ سرویس‌هایت خودکار می‌آیند.</small></span>
+            </button>
+            <button class="row" type="button">
+              <svg class="icon"><use href="#i-paste"/></svg>
+              <span class="t"><span>چسباندن لینک دیگر</span><small>برای سرویس دیگری که داری</small></span>
+            </button>
+            <button class="row danger" type="button">
+              <svg class="icon"><use href="#i-logout"/></svg>
+              <span class="t"><span>خروج</span><small>سرویس‌ها از این دستگاه پاک می‌شوند.</small></span>
+            </button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">اپ</h3>
+          <div class="card">
+            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۰</span></div>
+            <button class="row" type="button">
+              <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
+              <svg class="icon"><use href="#i-chevron-fwd"/></svg>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">وقتی سرویس‌ها فقط با چسباندن لینک آمده‌اند، حسابی در کار نیست؛ پس «خروج» یعنی پاک کردن سرویس‌ها از همین دستگاه. پنجرهٔ تأییدش همان شکل قبلی است با این متن: «سرویس‌ها از این گوشی پاک شوند؟» و «اتصال قطع می‌شود و سرویس‌ها از این دستگاه پاک می‌شوند. خودِ سرویس‌ها سر جایشان‌اند؛ با همان لینک یا با تلگرام برمی‌گردند.» دکمه‌ها: «انصراف» و «پاک کردن».</p>
+    <p class="note"><b>پیشنهاد</b>«چسباندن لینک دیگر» برای کسی است که بیش از یک سرویس دارد و هنوز نمی‌تواند با تلگرام وارد شود؛ خانه دکمهٔ افزودن ندارد. بعد از ورود تلگرامی این ردیف می‌رود.</p>
+    <p class="note"><b>پیشنهاد</b>بعد از ورود با تلگرام، سرویس‌های چسبانده‌شده می‌مانند و سرویس‌های حساب کنارشان می‌آیند؛ سرویسِ تکراری یکی می‌شود. این برای مشتری نماینده مهم است که لینکش شاید به حساب تلگرامش وصل نباشد.</p>
+    <p class="note">تلویزیون این حالت را ندارد، چون آن‌جا چسباندن نیست.</p>
+  </figure>
+
+  <!-- برگشت از تلگرام بی‌تأیید -->
+  <figure class="shot">
+    <figcaption>ورود · برگشت از تلگرام بی‌تأیید</figcaption>
+    <div class="phone" data-frame="phone-login-waiting">
+      <div class="statusbar"><span>۱۲:۴۱</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="mark">ش</span>
+          <span class="word">شیکو</span>
+          <span class="sub">مخصوص مشتری‌های شیکو</span>
+        </div>
+        <p class="notice msg"><svg class="icon"><use href="#i-spin"/></svg><span><strong>هنوز «تأیید» نرسیده.</strong> اگر تلگرامت فقط با فیلترشکن باز می‌شود، اول آن را روشن کن، بعد دوباره تلگرام را باز کن.</span></p>
+        <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>باز کردن دوبارهٔ تلگرام</button>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
+        <button class="btn-link" type="button">از دستگاه دیگری تأیید کن</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">کاربر تلگرام را باز کرد و بی‌آن‌که «تأیید» بزند به اپ برگشت. اپ همان کد را نگه می‌دارد و هنوز منتظر است؛ اگر «تأیید» حالا برسد، خودش به خانه می‌رود.</p>
+    <p class="note">راهنما دو راه می‌دهد: روشن کردن فیلترشکنِ دیگر برای خودِ تلگرام، یا تأیید از دستگاه دیگر (قاب بعدی). «باز کردن دوبارهٔ تلگرام» همان کد را دوباره می‌فرستد، نه کد تازه.</p>
+    <p class="note">چرخندهٔ کنار پیام یعنی اپ هنوز منتظر است. اگر کد تمام شد، پیام می‌شود «این کد تمام شد.» و دکمهٔ آبی «ورود با تلگرام» با کد تازه.</p>
+  </figure>
+
+  <!-- تأیید از دستگاه دیگر -->
+  <figure class="shot">
+    <figcaption>ورود · تأیید از دستگاه دیگر</figcaption>
     <div class="phone" data-frame="phone-login-no-telegram">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar sub">
         <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
-        <h2>ورود بدون تلگرام</h2>
+        <h2>تأیید از دستگاه دیگر</h2>
       </div>
       <div class="alt-login">
-        <p class="lead">با گوشی یا کامپیوتری که تلگرام دارد، این QR را اسکن کن و در ربات شیکو «تأیید» را بزن.</p>
+        <p class="lead">گوشی دیگری با تلگرام داری؟ این کد تصویری را با دوربینش اسکن کن.</p>
         <div class="qr-tile sm"><svg class="qr" data-seed="77031" role="img" aria-label="QR نمونه"></svg></div>
-        <p class="fine">یا این کد را در ربات شیکو بفرست:</p>
-        <div class="code-box"><span class="code">K7P2-9QXM</span></div>
-        <p class="fine">بعد از تأیید، این صفحه خودش به خانه می‌رود.</p>
+        <p class="lead">تلگرامت روی کامپیوتر است؟ این کد را برای ربات شیکو بفرست:</p>
+        <div class="code-box">
+          <span class="code">۴۸۲ ۹۱۵</span>
+          <span class="code-bot"><svg class="icon"><use href="#i-plane"/></svg><bdi dir="ltr">@shikoonet_bot</bdi></span>
+        </div>
+        <p class="fine">کد ۱۰ دقیقه کار می‌کند. بعد از «تأیید» در ربات، این صفحه خودش به خانه می‌رود.</p>
       </div>
       <div class="gesture"></div>
     </div>
-    <p class="note"><b>پیشنهاد</b>کل این صفحه پیشنهاد است: همان کد و کد تصویریِ تلویزیون، برای گوشی‌ای که تلگرام ندارد. به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+    <p class="note">کامپیوتر کد تصویری نمی‌خواند، پس برای کامپیوتر کد و نام ربات نوشته شده. کد ۶ رقمِ فارسی است، بی‌حرف لاتین، در دو تکهٔ سه‌رقمی تا راحت خوانده و تایپ شود.</p>
+    <p class="note"><b>پیشنهاد</b>ربات کد را با رقم فارسی یا انگلیسی، و با فاصله یا بی‌فاصله، بپذیرد. کار سمت سرور است.</p>
+    <p class="note">کد تصویری همان پیوندِ «ورود با تلگرام» است. اگر کد تمام شد، مثل تلویزیون کد تصویری کم‌رنگ می‌شود و دکمهٔ «کد تازه» می‌آید.</p>
+  </figure>
+
+  <!-- حساب تلگرام سرویسی ندارد -->
+  <figure class="shot">
+    <figcaption>ورود · حسابِ واردشده سرویسی ندارد</figcaption>
+    <div class="phone" data-frame="phone-login-no-service">
+      <div class="statusbar"><span>۱۲:۴۲</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-alert"/></svg></span>
+          <span class="word">این حساب سرویسی ندارد</span>
+          <span class="sub">با حساب تلگرامِ <strong>مریم</strong> وارد شدی، ولی هیچ سرویس شیکو به آن وصل نیست.</span>
+        </div>
+        <p class="notice msg"><svg class="icon"><use href="#i-plane"/></svg><span>سرویست روی حساب تلگرام دیگری است؟ اول در خودِ تلگرام به همان حساب برو، بعد «ورود با حساب دیگر» را بزن.</span></p>
+        <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>ورود با حساب دیگر</button>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-logout"/></svg>خروج</button>
+        <button class="btn-link" type="button">فکر می‌کنی اشتباه شده؟ از پشتیبانی بپرس</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">نام همان نامِ نمایشیِ حسابی است که «تأیید» زد، تا کاربر ببیند کدام حساب بود. تلگرام پیوند را در حسابی باز می‌کند که الان در آن است؛ برای همین راهنما می‌گوید اول در تلگرام حساب را عوض کن.</p>
+    <p class="note">«خروج» به صفحهٔ اول ورود برمی‌گردد. مشتری نماینده که لینکش به حساب تلگرامش وصل نیست، از همان‌جا «چسباندن لینک اشتراک» را می‌زند. «پشتیبانی» گفتگو با پشتیبانی شیکو در تلگرام را باز می‌کند.</p>
+  </figure>
+
+  <!-- چسباندن: لینک شیکو نیست -->
+  <figure class="shot">
+    <figcaption>چسباندن لینک · این لینک شیکو نیست</figcaption>
+    <div class="phone" data-frame="phone-paste-error">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="mark">ش</span>
+          <span class="word">شیکو</span>
+          <span class="sub">مخصوص مشتری‌های شیکو</span>
+        </div>
+        <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>ورود با تلگرام</button>
+        <p class="login-note">تلگرام باز می‌شود؛ در ربات شیکو «تأیید» را بزن.</p>
+        <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک شیکو نیست.</strong> فقط لینک اشتراکی که ربات شیکو داده کار می‌کند.</span></p>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
+        <button class="btn-link" type="button">تلگرام روی این گوشی نیست؟</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">پیام خطا درست بالای دکمه‌ای است که آن را ساخت. تا چسباندنِ بعدی یا رفتن به تلگرام می‌ماند. چیزی که چسبانده شد هیچ‌جا نشان داده نمی‌شود.</p>
+    <p class="note">«شیکو نیست» را خودِ اپ از نشانیِ لینک می‌فهمد، بی‌اینترنت. سه خطای دیگر در قاب بعدی‌اند.</p>
+  </figure>
+
+  <!-- چسباندن: همهٔ پیام‌ها -->
+  <figure class="shot">
+    <figcaption>چسباندن لینک · دکمه در حال بررسی، و چهار پیام خطا</figcaption>
+    <div class="cards-stack login-parts" data-frame="phone-cards-paste">
+      <button class="btn btn-outline" type="button" aria-busy="true"><svg class="icon"><use href="#i-spin"/></svg>در حال بررسی لینک…</button>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>کلیپ‌بورد خالی است.</strong> لینک اشتراک را از ربات شیکو کپی کن، بعد دوباره بزن.</span></p>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک شیکو نیست.</strong> فقط لینک اشتراکی که ربات شیکو داده کار می‌کند.</span></p>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک باطل شده یا منقضی است.</strong> لینک تازه را از «سرویس‌های من» در ربات بگیر، یا با تلگرام وارد شو.</span></p>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>اینترنت وصل نیست.</strong> اینترنت گوشی را بررسی کن و دوباره بزن.</span></p>
+    </div>
+    <p class="note">از بالا: دکمه تا جواب سرور، کلیپ‌بورد خالی، لینک غیرشیکو، لینکی که سرور دیگر نمی‌شناسد، و بی‌اینترنت. همه جای پیام قاب قبلی می‌آیند.</p>
+    <p class="note">سرویسی که فقط اعتبار یا حجمش تمام شده، باطل حساب نمی‌شود: اضافه می‌شود و خانه «تمدید» را نشان می‌دهد. «باطل شده یا منقضی» فقط برای لینکی است که سرور دیگر جواب نمی‌دهد.</p>
+    <p class="note"><b>پیشنهاد</b>اگر نشانی اشتراک از ایران بی‌فیلترشکن باز نشود، «اینترنت وصل نیست» گمراه‌کننده است. این‌که اپ این دو را از هم جدا کند، با برنامه‌نویس است.</p>
   </figure>
 
   <!-- آینده: چند نوع اتصال (هنوز تصمیم نیست) -->
@@ -371,7 +531,7 @@
             <div class="card">
               <button class="row danger" type="button">
                 <svg class="icon"><use href="#i-logout"/></svg>
-                <span class="t"><span>خروج</span><small>این گوشی از حساب تلگرامت جدا می‌شود</small></span>
+                <span class="t"><span>خروج</span><small>این دستگاه از حساب تلگرامت جدا می‌شود؛ سرویس‌هایت دست نمی‌خورند.</small></span>
               </button>
             </div>
           </section>
