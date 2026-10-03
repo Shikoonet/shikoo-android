@@ -692,4 +692,23 @@ void main() {
     expect(await _press(tester, _down), 'پشتیبانی');
     expect(await _press(tester, _towardPower), 'تنظیمات');
   });
+
+  testWidgets('the phone with no service has a plain support button', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: [],
+      ),
+    );
+    final support = tester.widget<ShikooButton>(
+      find.widgetWithText(ShikooButton, 'پشتیبانی'),
+    );
+    expect(support.icon, isNull);
+  });
 }

@@ -97,7 +97,7 @@ class ServiceCard extends StatelessWidget {
                   padding: inset.copyWith(top: Space.s3, bottom: Space.s2),
                   child: ShikooButton(
                     label: l.support,
-                    icon: ShikooIcon.qr,
+                    icon: state.isTV ? ShikooIcon.qr : null,
                     onPressed: () => openLink(
                       context,
                       isTV: state.isTV,
