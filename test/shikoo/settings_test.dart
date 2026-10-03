@@ -2,6 +2,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/services.dart';
@@ -182,6 +183,28 @@ void main() {
     expect(await _press(tester, down), 'خروج');
     expect(await _press(tester, left), 'درباره');
     expect(await _press(tester, right), 'خروج');
+  });
+
+  testWidgets('English mirrors the log-out and forward icons', (tester) async {
+    final container = await _pumpSettings(tester, _Controller());
+    double mirrored(ShikooIcon icon) => tester
+        .widget<Transform>(
+          find
+              .ancestor(
+                of: find.byWidgetPredicate(
+                  (w) => w is SvgIcon && w.icon == icon,
+                ),
+                matching: find.byType(Transform),
+              )
+              .first,
+        )
+        .transform
+        .storage[0];
+    expect(mirrored(ShikooIcon.logout), 1);
+    await container.read(shikooLookProvider.notifier).setLanguage('en');
+    await tester.pumpAndSettle();
+    expect(mirrored(ShikooIcon.logout), -1);
+    expect(mirrored(ShikooIcon.chevronFwd), -1);
   });
 
   test(

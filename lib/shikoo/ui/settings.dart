@@ -442,6 +442,8 @@ class _Row extends StatelessWidget {
       borderRadius: BorderRadius.circular(Radii.md),
     );
     final ink = danger ? t.c.danger : t.c.text;
+    // The icons are drawn for Persian; English mirrors them, as `.flip-ltr`.
+    final ltr = Directionality.of(context) == TextDirection.ltr;
     final icon = this.icon;
     final subtitle = this.subtitle;
     final value = this.value;
@@ -460,7 +462,14 @@ class _Row extends StatelessWidget {
         spacing: Space.s3,
         children: [
           if (icon != null)
-            SvgIcon(icon, size: s.icon, color: danger ? ink : t.c.textMuted),
+            Transform.flip(
+              flipX: ltr,
+              child: SvgIcon(
+                icon,
+                size: s.icon,
+                color: danger ? ink : t.c.textMuted,
+              ),
+            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,7 +484,7 @@ class _Row extends StatelessWidget {
             Text(value, style: t.text(s.body, color: t.c.textMuted)),
           if (forward)
             Transform.flip(
-              flipX: Directionality.of(context) == TextDirection.ltr,
+              flipX: ltr,
               child: SvgIcon(
                 ShikooIcon.chevronFwd,
                 size: s.icon,
