@@ -106,7 +106,8 @@ void main() {
       'dark',
     );
 
-    expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'English');
+    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'فارسی');
+    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'English');
     await _press(tester, LogicalKeyboardKey.select);
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Appearance'), findsOneWidget);
@@ -129,7 +130,6 @@ void main() {
     await _pumpSettings(tester, controller);
     expect(find.text('۰.۸.۹۸'), findsOneWidget);
 
-    await _press(tester, LogicalKeyboardKey.arrowDown);
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'خروج');
     expect(await _press(tester, LogicalKeyboardKey.select), 'انصراف');
     expect(find.text('سرویس‌ها پاک شوند؟'), findsOneWidget);
@@ -147,10 +147,8 @@ void main() {
     tester,
   ) async {
     await _pumpSettings(tester, _Controller());
-    for (var i = 0; i < 3; i++) {
-      await _press(tester, LogicalKeyboardKey.arrowDown);
-    }
-    expect(_focused(), 'درباره');
+    await _press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
     await _press(tester, LogicalKeyboardKey.select);
     expect(find.textContaining('GPL-3.0'), findsOneWidget);
     expect(find.textContaining('FlClash'), findsOneWidget);
@@ -160,6 +158,26 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(_focused(), 'درباره');
+  });
+
+  testWidgets('on the TV two columns hold everything, and the remote crosses '
+      'them', (tester) async {
+    final container = await _pumpSettings(tester, _Controller());
+    for (final language in ['fa', 'en']) {
+      await container.read(shikooLookProvider.notifier).setLanguage(language);
+      await tester.pumpAndSettle();
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scroll.position.maxScrollExtent, 0, reason: language);
+    }
+    await container.read(shikooLookProvider.notifier).setLanguage('fa');
+    await tester.pumpAndSettle();
+    const left = LogicalKeyboardKey.arrowLeft;
+    const right = LogicalKeyboardKey.arrowRight;
+    const down = LogicalKeyboardKey.arrowDown;
+    expect(_focused(), 'خودکار');
+    expect(await _press(tester, down), 'خروج');
+    expect(await _press(tester, left), 'درباره');
+    expect(await _press(tester, right), 'خروج');
   });
 
   test(

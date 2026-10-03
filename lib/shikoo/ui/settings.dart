@@ -18,7 +18,8 @@ void openSettings(BuildContext context) => unawaited(
   ),
 );
 
-/// Frame `tv-settings`. The language group has no frame yet; it copies the appearance one.
+/// Frames `tv-settings-pre-login` and `phone-settings-pasted`: on the TV two columns, so
+/// nothing scrolls.
 class ShikooSettings extends ConsumerWidget {
   const ShikooSettings({super.key});
 
@@ -28,70 +29,85 @@ class ShikooSettings extends ConsumerWidget {
     final look = ref.watch(shikooLookProvider);
     final setLook = ref.read(shikooLookProvider.notifier);
     final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
+    final groups = [
+      _Group(
+        title: l.appearance,
+        child: Segmented(
+          autofocus: true,
+          selected: look.theme,
+          options: {
+            ThemeMode.light: l.themeLight,
+            ThemeMode.dark: l.themeDark,
+            ThemeMode.system: l.themeAuto,
+          },
+          onSelect: (theme) => unawaited(setLook.setTheme(theme)),
+        ),
+      ),
+      _Group(
+        title: l.language,
+        child: Segmented(
+          selected: look.language,
+          options: {'fa': l.languageFa, 'en': l.languageEn},
+          onSelect: (language) => unawaited(setLook.setLanguage(language)),
+        ),
+      ),
+      _Group(
+        title: l.account,
+        child: _Card(
+          rows: [
+            _Row(
+              icon: ShikooIcon.logout,
+              danger: true,
+              title: l.logout,
+              subtitle: isTV ? l.logoutHelpTv : l.logoutHelpTouch,
+              onPressed: () => unawaited(_logOut(context, ref, isTV)),
+            ),
+          ],
+        ),
+      ),
+      _Group(
+        title: l.appSection,
+        child: _Card(
+          rows: [
+            _Row(
+              title: l.version,
+              value: _version(context, ref.watch(shikooVersionProvider)),
+            ),
+            _Row(
+              title: l.about,
+              subtitle: l.aboutSummary,
+              forward: true,
+              onPressed: () => unawaited(
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(builder: (_) => const ShikooAbout()),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
     return _Page(
       title: l.settings,
       isTV: isTV,
-      children: [
-        _Group(
-          title: l.appearance,
-          child: Segmented(
-            autofocus: true,
-            selected: look.theme,
-            options: {
-              ThemeMode.light: l.themeLight,
-              ThemeMode.dark: l.themeDark,
-              ThemeMode.system: l.themeAuto,
-            },
-            onSelect: (theme) => unawaited(setLook.setTheme(theme)),
-          ),
-        ),
-        _Group(
-          title: l.language,
-          child: Segmented(
-            selected: look.language,
-            options: {'fa': l.languageFa, 'en': l.languageEn},
-            onSelect: (language) => unawaited(setLook.setLanguage(language)),
-          ),
-        ),
-        _Group(
-          title: l.account,
-          child: _Card(
-            rows: [
-              _Row(
-                icon: ShikooIcon.logout,
-                danger: true,
-                title: l.logout,
-                subtitle: isTV ? l.logoutHelpTv : l.logoutHelpTouch,
-                onPressed: () => unawaited(_logOut(context, ref, isTV)),
-              ),
-            ],
-          ),
-        ),
-        _Group(
-          title: l.appSection,
-          child: _Card(
-            rows: [
-              _Row(
-                title: l.version,
-                value: _version(context, ref.watch(shikooVersionProvider)),
-              ),
-              _Row(
-                title: l.about,
-                subtitle: l.aboutSummary,
-                forward: true,
-                onPressed: () => unawaited(
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ShikooAbout(),
-                    ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s6,
+        children: isTV
+            ? [
+                for (var i = 0; i < groups.length; i += 2)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: Space.s10,
+                    children: [
+                      Expanded(child: groups[i]),
+                      Expanded(child: groups[i + 1]),
+                    ],
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+              ]
+            : groups,
+      ),
     );
   }
 
@@ -142,7 +158,7 @@ class ShikooSettings extends ConsumerWidget {
   }
 }
 
-/// No frame yet: the licence, the credits and where the source comes from.
+/// Frame `tv-about`: the licence, the credits and where the source comes from.
 class ShikooAbout extends ConsumerWidget {
   const ShikooAbout({super.key});
 
@@ -151,35 +167,39 @@ class ShikooAbout extends ConsumerWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final body = t.text(t.s.body, height: Leading.body);
+    final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
     return _Page(
       title: l.about,
-      isTV: ref.watch(shikooStateProvider.select((state) => state.isTV)),
-      children: [
-        _Card(
-          rows: [
-            Padding(
-              padding: const EdgeInsets.all(Space.s4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: Space.s2,
-                children: [
-                  Text(
-                    '${l.appTitle} ${_version(context, ref.watch(shikooVersionProvider))}',
-                    style: t.text(t.s.title, weight: FontWeight.w700),
-                  ),
-                  Text(l.aboutFree, style: body),
-                  Text(l.aboutBasedOn, style: body),
-                  Text(l.aboutSource, style: body),
-                  Text(
-                    l.aboutLicense,
-                    style: body.copyWith(color: t.c.textMuted),
-                  ),
-                ],
+      isTV: isTV,
+      child: Center(
+        child: SizedBox(
+          width: isTV ? t.s.pane : double.infinity,
+          child: _Card(
+            rows: [
+              Padding(
+                padding: const EdgeInsets.all(Space.s4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: Space.s2,
+                  children: [
+                    Text(
+                      '${l.appTitle} ${_version(context, ref.watch(shikooVersionProvider))}',
+                      style: t.text(t.s.title, weight: FontWeight.w700),
+                    ),
+                    Text(l.aboutFree, style: body),
+                    Text(l.aboutBasedOn, style: body),
+                    Text(l.aboutSource, style: body),
+                    Text(
+                      l.aboutLicense,
+                      style: body.copyWith(color: t.c.textMuted),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -192,18 +212,13 @@ String _version(BuildContext context, String version) => version
     })
     .join('.');
 
-/// `.tv-top` with `.tv-title` and `.tv-hint`, over `.tv-settings .settings`; on the phone, a
-/// full-width `.settings`.
+/// `.tv-top` with `.tv-title` and `.tv-hint` over the page; the phone has no hint.
 class _Page extends StatelessWidget {
-  const _Page({
-    required this.title,
-    required this.isTV,
-    required this.children,
-  });
+  const _Page({required this.title, required this.isTV, required this.child});
 
   final String title;
   final bool isTV;
-  final List<Widget> children;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -242,19 +257,10 @@ class _Page extends StatelessWidget {
                   ),
                   const SizedBox(height: Space.s3),
                   Expanded(
-                    // Keeps the focus ring of the last row in view.
+                    // Only for large text; the padding keeps the last focus ring in view.
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.only(bottom: Space.s2),
-                      child: Center(
-                        child: SizedBox(
-                          width: isTV ? s.pane : double.infinity,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            spacing: isTV ? Space.s4 : Space.s6,
-                            children: children,
-                          ),
-                        ),
-                      ),
+                      child: child,
                     ),
                   ),
                 ],
