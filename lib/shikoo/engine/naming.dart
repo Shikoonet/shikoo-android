@@ -21,20 +21,23 @@ const _countryWords = {
 final _flagEmoji = RegExp('[\u{1F1E6}-\u{1F1FF}]{2}', unicode: true);
 final _wordBreak = RegExp(r'[^\p{L}]+', unicode: true);
 
-/// ISO 3166 code from a flag emoji in the name, else from a Persian or English country word,
-/// also at the end of a run-together word as in the panel's `shikoonetturkey`.
+// ponytail: the panel's WireGuard names (shikoonetturkey); another run-together prefix goes here.
+final _panelPrefix = RegExp('^shikoonet');
+
+/// ISO 3166 code from a flag emoji in the name, else from a Persian or English country word.
 String? countryOf(String name) {
   final flag = _flagEmoji.firstMatch(name)?[0];
   if (flag != null) {
     return String.fromCharCodes(flag.runes.map((r) => r - 0x1F1A5));
   }
   final lower = name.toLowerCase();
-  final words = lower.split(_wordBreak).toSet();
+  final words = {
+    for (final word in lower.split(_wordBreak))
+      word.replaceFirst(_panelPrefix, ''),
+  };
   for (final MapEntry(key: code, value: names) in _countryWords.entries) {
     if (names.any(
-      (n) => n.contains(' ')
-          ? lower.contains(n)
-          : words.any((word) => word.endsWith(n)),
+      (n) => n.contains(' ') ? lower.contains(n) : words.contains(n),
     )) {
       return code;
     }

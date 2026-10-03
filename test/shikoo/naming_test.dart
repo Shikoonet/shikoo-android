@@ -15,6 +15,9 @@ void main() {
     expect(countryOf('shikoonetgermany'), 'DE');
     expect(countryOf('shikoonetusa'), 'US');
     expect(countryOf('Jerusalem'), isNull);
+    expect(countryOf('Medusa 1'), isNull);
+    expect(countryOf('Tuk Tuk'), isNull);
+    expect(countryOf('Belarussia'), isNull);
   });
 
   test('withoutFlags drops flag emoji only', () {
