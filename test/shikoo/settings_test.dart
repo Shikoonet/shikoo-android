@@ -181,8 +181,18 @@ void main() {
     const down = LogicalKeyboardKey.arrowDown;
     expect(_focused(), 'خودکار');
     expect(await _press(tester, down), 'خروج');
+    expect(
+      await _press(tester, down),
+      'خروج',
+      reason: 'not into the app column',
+    );
     expect(await _press(tester, left), 'درباره');
     expect(await _press(tester, right), 'خروج');
+    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'تیره');
+    expect(await _press(tester, left), 'خودکار');
+    expect(await _press(tester, left), 'فارسی');
+    expect(await _press(tester, down), 'درباره');
+    expect(await _press(tester, down), 'درباره');
   });
 
   testWidgets('English mirrors the log-out and forward icons', (tester) async {
