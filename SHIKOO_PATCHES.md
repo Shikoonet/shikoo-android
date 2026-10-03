@@ -13,6 +13,7 @@
 | ۶ | `android/common/src/main/java/com/follow/clash/common/GlobalState.kt` | importهای Firebase رفت. `setCrashlytics` کاری نمی‌کند و `didCrashOnPreviousExecution()` همیشه `false` می‌دهد. | صدازننده‌ها (`ServiceStateHost.kt`، `ServiceStateMachine.kt`، `AppPlugin.kt` و کانال Dart) و تست‌هایشان بی‌وصله بمانند. سمت Dart دست نخورد: `crashlytics` در شیکو `false` است و `bootGuard` بدون آن کاوشگر کار می‌کند. |
 | ۷ | `android/settings.gradle.kts` | یک خط دیگر: `project(":mobile_scanner").projectDir = file("shikoo/mobile_scanner")`. | اسکنر QR فلکلش (تصمیم رهبر، ۲۰۲۶-۱۰-۰۴): بخش اندرویدیِ پلاگین `mobile_scanner` با یک پلاگین خالی عوض می‌شود. پس ML Kit، کتابخانه‌های Google datatransport (که آمار ML Kit را به گوگل می‌فرستند)، کتابخانه‌های دوربین androidx و مجوز `CAMERA` داخل APK نمی‌آیند. کد Dart فلکلش (`lib/pages/scan.dart`، `lib/common/picker.dart`) و تستش دست نخوردند؛ شیکو آن صفحه‌ها را باز نمی‌کند. |
 | ۸ | `android/app/src/main/AndroidManifest.xml` | سه خط `tools:node="remove"` برای `ACCESS_COARSE_LOCATION`، `ACCESS_FINE_LOCATION` و `ACCESS_BACKGROUND_LOCATION`. | این‌ها از پلاگین `plugins/wifi_ssid` می‌آمدند، برای قاعدهٔ «Wi-Fiهای مستثنا» در صفحهٔ on-demand فلکلش. شیکو آن صفحه را ندارد، پس `excludeSSIDs` خالی می‌ماند و اپ هیچ‌وقت اجازه نمی‌خواهد. هزینه: اگر روزی آن قاعده لازم شد، `getSsid` همیشه `null` می‌دهد و درخواست اجازه بی‌پنجره رد می‌شود. |
+| ۹ | `android/common/src/main/res/values/strings.xml` | `app_name` از `FlClash` به `ShikooNet`. نسخهٔ فارسی، «شیکونت»، در فایل تازهٔ `values-fa/strings.xml` کنار آن است. | اسم اپ، تصمیم Sam (۲۰۲۶-۱۰-۰۴). همین متن برچسب اپ در منوی دستگاه، کاشی تنظیمات سریع، پنجرهٔ اجازهٔ VPN و نام نشست VPN (`VpnService.kt:125`) است. `service_channel_name` («FlClash Service»، نام کانال اعلان) و `applicationId` دست نخوردند. |
 
 ## نکته‌ها
 
@@ -60,6 +61,7 @@ bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 | `assets/fonts/Vazirmatn-OFL.txt` | متن مجوز OFL، همراه فونت. |
 | `test/shikoo/` | تست‌های شیکو: مرز import لایهٔ UI، و منطق وضعیت اتصال. |
 | `android/shikoo/mobile_scanner/` (`build.gradle.kts` و `MobileScannerPlugin.java`) | پلاگین خالیِ جایگزین `mobile_scanner` روی اندروید (وصلهٔ ۷). هم‌نام کلاسی است که `GeneratedPluginRegistrant` ثبت می‌کند. |
+| `android/common/src/main/res/values-fa/strings.xml` | اسم فارسی اپ، «شیکونت»، برای دستگاهی که زبانش فارسی است (وصلهٔ ۹). |
 
 **منبع فونت:** `rastikerdar/vazirmatn` تگ `v33.003`، مسیر `fonts/ttf/`. شناسهٔ گیتِ هر فایل با API گیت‌هاب یکی بود.
 
