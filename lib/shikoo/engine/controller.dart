@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
@@ -401,6 +402,13 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
       () async => service?.getRunTime(),
 );
 
+// ponytail: FlClash's IP lookups, which the panel's rules send to the selected server; a rule
+// sending them DIRECT would vouch for a dead server.
+final trafficPassesProvider = Provider<Future<bool> Function()>(
+  (_) =>
+      () async => (await request.checkIp()).data != null,
+);
+
 /// Polls [runTime] until native reports a running tunnel. Flutter's own run state is set
 /// optimistically before the service starts (engine map section 4), so only native is proof.
 /// Time while [paused], as under Android's VPN consent dialog, does not count.
@@ -778,13 +786,18 @@ class ShikooController {
     _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
   }
 
+  /// WireGuard's pings fail now and then while it carries traffic, so a silent selected server
+  /// on a running tunnel gets one real request, and its time counts as the answer.
   Future<int?> _probe(String url, String name) async {
+    int? ms;
     try {
-      final delay = await _ref.read(coreHandlerProvider).getDelay(url, name);
-      return delay?.value;
-    } catch (_) {
-      return null;
-    }
+      ms = (await _ref.read(coreHandlerProvider).getDelay(url, name))?.value;
+    } catch (_) {}
+    if ((ms ?? 0) > 0 || name != _validSelection() || !_running) return ms;
+    if (await _nativeRunTime() == null) return ms;
+    final took = Stopwatch()..start();
+    if (!await _ref.read(trafficPassesProvider)()) return ms;
+    return math.max(took.elapsedMilliseconds, 1);
   }
 
   void onForeground() {
