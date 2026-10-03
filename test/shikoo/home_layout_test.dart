@@ -676,4 +676,20 @@ void main() {
       ShikooLinks.support,
     );
   });
+
+  testWidgets('once the services are removed, the remote leaves support '
+      'for settings', (tester) async {
+    _tvScreen(tester);
+    final holder = await _pumpTvHome(tester, _tv(ShikooConnection.off));
+    await _focus(tester, 'تنظیمات');
+    holder.value = const ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: true,
+      servers: [],
+    );
+    await tester.pumpAndSettle();
+    expect(await _press(tester, _down), 'پشتیبانی');
+    expect(await _press(tester, _towardPower), 'تنظیمات');
+  });
 }

@@ -67,6 +67,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   }
 }
 
+/// A node keeps the context of a widget that is gone, as the power button once the services
+/// are removed.
+bool _onScreen(FocusNode? node) => node?.context?.mounted ?? false;
+
 /// Toward the card is the selected server, or the first one while none is chosen.
 class _PowerKeys extends StatelessWidget {
   const _PowerKeys({required this.row, required this.child});
@@ -84,7 +88,7 @@ class _PowerKeys extends StatelessWidget {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
             final row = this.row;
-            if (intent.direction == towardCard && row?.context != null) {
+            if (intent.direction == towardCard && _onScreen(row)) {
               row!.requestFocus();
             } else if (intent.direction != TraversalDirection.down) {
               primaryFocus?.focusInDirection(intent.direction);
@@ -128,7 +132,7 @@ class _CardKeys extends StatelessWidget {
             }
             if (intent.direction == towardPower &&
                 from != focus.renew &&
-                power.context != null) {
+                _onScreen(power)) {
               power.requestFocus();
             } else {
               from?.focusInDirection(intent.direction);
