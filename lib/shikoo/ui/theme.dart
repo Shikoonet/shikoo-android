@@ -306,6 +306,7 @@ class ShikooTheme extends ThemeExtension<ShikooTheme> {
     fontWeight: weight,
     color: color ?? c.text,
     height: height,
+    letterSpacing: 0,
     fontFeatures: tabular ? const [FontFeature.tabularFigures()] : null,
   );
 

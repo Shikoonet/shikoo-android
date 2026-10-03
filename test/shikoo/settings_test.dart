@@ -195,6 +195,19 @@ void main() {
     expect(await _press(tester, down), 'درباره');
   });
 
+  testWidgets('Latin text keeps the font spacing, as the frames', (
+    tester,
+  ) async {
+    await _pumpSettings(tester, _Controller());
+    final english = tester.widget<RichText>(
+      find.descendant(
+        of: find.text('English'),
+        matching: find.byType(RichText),
+      ),
+    );
+    expect(english.text.style?.letterSpacing, 0);
+  });
+
   testWidgets('English mirrors the log-out and forward icons', (tester) async {
     final container = await _pumpSettings(tester, _Controller());
     double mirrored(ShikooIcon icon) => tester
