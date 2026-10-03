@@ -557,9 +557,15 @@ class ShikooController {
     final running = _running;
     final waiting = _ref.read(_intentProvider).waiting;
     final pinging = _pinging || _again;
+    // Connect pressed while finding takes this round's first answer, not the round before's best;
+    // with the tunnel up the old best beats the core's fallback, row 1.
+    final pending = running
+        ? const <String>{}
+        : _ref.read(_roundProvider).pending;
+    int? ping(String name) => pending.contains(name) ? null : _ping(name);
     final best = pickNow(
       names: names,
-      ping: _ping,
+      ping: ping,
       pinging: pinging,
       urgent: running || waiting,
     );
@@ -577,7 +583,7 @@ class ShikooController {
           removed: removed,
           replacement: best,
           moved: running,
-          fastest: names.every((name) => _ping(name) != null),
+          fastest: names.every((name) => ping(name) != null),
         ),
       );
     }

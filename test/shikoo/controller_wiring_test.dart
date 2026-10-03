@@ -49,11 +49,43 @@ class _Setup extends SetupAction {
 
 const _version = 'V3.7.9 🆔 : (user123) 📊 (67 GB) ⏰ (23)';
 
+({ProviderContainer container, _Core core, _Proxies proxies, _Setup setup})
+_home() {
+  SharedPreferences.setMockInitialValues({});
+  final core = _Core();
+  final profile = Profile.normal(url: 'https://panel.invalid/sub');
+  final proxies = _Proxies();
+  final setup = _Setup();
+  final container = ProviderContainer(
+    overrides: [
+      profilesProvider.overrideWith(() => TestProfiles([profile])),
+      proxiesActionProvider.overrideWith(() => proxies),
+      setupActionProvider.overrideWith(() => setup),
+      coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
+    ],
+  );
+  addTearDown(container.dispose);
+  container.read(currentProfileIdProvider.notifier).value = profile.id;
+  container.read(groupsProvider.notifier).value = [
+    const Group(
+      type: GroupType.Selector,
+      name: 'PROXY',
+      hidden: false,
+      all: [
+        Proxy(name: _version, type: 'Vless'),
+        Proxy(name: 'آلمان ۱', type: 'Vless'),
+        Proxy(name: 'هلند ۱', type: 'Vless'),
+      ],
+    ),
+  ];
+  container.listen(shikooStateProvider, (_, _) {});
+  return (container: container, core: core, proxies: proxies, setup: setup);
+}
+
 void main() {
   test('connect before any answer waits, then starts on the first server that '
       'answered, never row 1', () async {
-    SharedPreferences.setMockInitialValues({});
-    final core = _Core();
+    final (:container, :core, :proxies, :setup) = _home();
     final netherlands = Completer<void>();
     when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
       final name = call.positionalArguments[1] as String;
@@ -61,32 +93,6 @@ void main() {
       await netherlands.future;
       return Delay(name: name, url: '', value: 90);
     });
-    final profile = Profile.normal(url: 'https://panel.invalid/sub');
-    final proxies = _Proxies();
-    final setup = _Setup();
-    final container = ProviderContainer(
-      overrides: [
-        profilesProvider.overrideWith(() => TestProfiles([profile])),
-        proxiesActionProvider.overrideWith(() => proxies),
-        setupActionProvider.overrideWith(() => setup),
-        coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
-      ],
-    );
-    addTearDown(container.dispose);
-    container.read(currentProfileIdProvider.notifier).value = profile.id;
-    container.read(groupsProvider.notifier).value = [
-      const Group(
-        type: GroupType.Selector,
-        name: 'PROXY',
-        hidden: false,
-        all: [
-          Proxy(name: _version, type: 'Vless'),
-          Proxy(name: 'آلمان ۱', type: 'Vless'),
-          Proxy(name: 'هلند ۱', type: 'Vless'),
-        ],
-      ),
-    ];
-    container.listen(shikooStateProvider, (_, _) {});
     final controller = container.read(shikooControllerProvider);
     await pumpEventQueue();
 
@@ -104,4 +110,47 @@ void main() {
     // Stops the tunnel wait, which no native service would ever end here.
     await controller.disconnect();
   });
+
+  test(
+    'connect during a round waits for its answers, not the round before',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      var round = 1;
+      final answers = Completer<void>();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        if (round == 2) await answers.future;
+        final germanyUp = round == 1 && name == 'آلمان ۱';
+        final netherlandsUp = round == 2 && name == 'هلند ۱';
+        return Delay(
+          name: name,
+          url: '',
+          value: germanyUp ? 50 : (netherlandsUp ? 90 : -1),
+        );
+      });
+      final controller = container.read(shikooControllerProvider);
+      await controller.pingAll();
+      expect(proxies.picked, ['آلمان ۱']);
+
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'سرور حذف‌شده');
+      round = 2;
+      unawaited(controller.pingAll());
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(
+        setup.runs,
+        isEmpty,
+        reason: 'آلمان ۱ answered last round and may be down now',
+      );
+
+      answers.complete();
+      await pumpEventQueue();
+      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+      expect(setup.runs, [true]);
+
+      await controller.disconnect();
+    },
+  );
 }
