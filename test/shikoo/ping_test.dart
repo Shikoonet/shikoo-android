@@ -134,11 +134,11 @@ void main() {
   });
 
   group('never connects blind to the first row', () {
-    Pick pick(
+    String? pick(
       Map<String, int> pings, {
       required bool pinging,
       required bool urgent,
-    }) => choose(
+    }) => pickNow(
       names: _panel,
       ping: (n) => pings[n],
       pinging: pinging,
@@ -148,51 +148,56 @@ void main() {
     test(
       'first install, or the selected server removed: wait for the round',
       () {
-        expect(pick(const {}, pinging: true, urgent: false), isA<PickWait>());
+        expect(pick(const {}, pinging: true, urgent: false), isNull);
         expect(
           pick(const {'هلند ۱': 90}, pinging: true, urgent: false),
-          isA<PickWait>(),
+          isNull,
           reason: 'not connected: the fastest is chosen when the round ends',
         );
-        final done = pick(
-          const {_version: -1, 'آلمان ۲': 140, 'هلند ۱': 90, 'انگلیس': -1},
-          pinging: false,
-          urgent: false,
+        expect(
+          pick(
+            const {_version: -1, 'آلمان ۲': 140, 'هلند ۱': 90, 'انگلیس': -1},
+            pinging: false,
+            urgent: false,
+          ),
+          'هلند ۱',
         );
-        expect((done as PickServer).name, 'هلند ۱');
       },
     );
 
     test(
       'connected when the selected server was removed: the fastest at once',
       () {
-        final now = pick(
-          const {'آلمان ۲': 140, 'آمریکا ۲': 75},
-          pinging: true,
-          urgent: true,
+        expect(
+          pick(
+            const {'آلمان ۲': 140, 'آمریکا ۲': 75},
+            pinging: true,
+            urgent: true,
+          ),
+          'آمریکا ۲',
         );
-        expect((now as PickServer).name, 'آمریکا ۲');
       },
     );
 
     test(
       'app run again while connected, no pings yet: the first that answers',
       () {
-        expect(pick(const {}, pinging: true, urgent: true), isA<PickWait>());
-        final first = pick(
-          const {_version: -1, 'انگلیس': 210},
-          pinging: true,
-          urgent: true,
+        expect(pick(const {}, pinging: true, urgent: true), isNull);
+        expect(
+          pick(
+            const {_version: -1, 'انگلیس': 210},
+            pinging: true,
+            urgent: true,
+          ),
+          'انگلیس',
         );
-        expect((first as PickServer).name, 'انگلیس');
       },
     );
 
-    test('every server silent: none, never the first row', () {
+    test('every server silent: nothing, never the first row', () {
       final silent = {for (final name in _panel) name: -1};
-      expect(pick(silent, pinging: false, urgent: true), isA<PickNone>());
-      expect(pick(silent, pinging: false, urgent: false), isA<PickNone>());
-      expect(pick(silent, pinging: true, urgent: true), isA<PickWait>());
+      expect(pick(silent, pinging: false, urgent: true), isNull);
+      expect(pick(silent, pinging: false, urgent: false), isNull);
     });
   });
 

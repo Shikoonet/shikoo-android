@@ -375,35 +375,12 @@ SubscriptionInfo _subscriptionInfo(String? header) {
 
 /// Never the core's fallback, row 1 (the version row in a real subscription): with the tunnel
 /// up or connect pressed, the first server that answers; otherwise the fastest at round end.
-sealed class Pick {
-  const Pick();
-}
-
-class PickServer extends Pick {
-  const PickServer(this.name);
-
-  final String name;
-}
-
-class PickWait extends Pick {
-  const PickWait();
-}
-
-class PickNone extends Pick {
-  const PickNone();
-}
-
-Pick choose({
+String? pickNow({
   required List<String> names,
   required int? Function(String name) ping,
   required bool pinging,
   required bool urgent,
-}) {
-  if (pinging && !urgent) return const PickWait();
-  final best = fastest(names, ping);
-  if (best != null) return PickServer(best);
-  return pinging ? const PickWait() : const PickNone();
-}
+}) => pinging && !urgent ? null : fastest(names, ping);
 
 class ShikooController {
   // Microtasks: Riverpod forbids writing other providers while this one is being built.
@@ -541,31 +518,25 @@ class ShikooController {
     if (names.isEmpty) return;
     final running = _ref.read(runTimeProvider) != null;
     final waiting = _ref.read(_intentProvider).waiting;
-    final pick = choose(
+    final pinging = _pinging || _again;
+    final best = pickNow(
       names: names,
       ping: _ping,
-      pinging: _pinging || _again,
+      pinging: pinging,
       urgent: running || waiting,
     );
-    switch (pick) {
-      case PickWait():
-        return;
-      case PickNone():
-        if (waiting) _set(const _Intent(error: ShikooError.noServer));
-      case PickServer(:final name):
-        final removed = _removed;
-        _removed = null;
-        // changeProxy writes the selection before it awaits, so a second call sees it.
-        unawaited(selectServer(name));
-        if (removed != null) {
-          _notice(
-            SelectedReplaced(
-              removed: removed,
-              replacement: name,
-              moved: running,
-            ),
-          );
-        }
+    if (best == null) {
+      if (!pinging && waiting) _set(const _Intent(error: ShikooError.noServer));
+      return;
+    }
+    final removed = _removed;
+    _removed = null;
+    // changeProxy writes the selection before it awaits, so a second call sees it.
+    unawaited(selectServer(best));
+    if (removed != null) {
+      _notice(
+        SelectedReplaced(removed: removed, replacement: best, moved: running),
+      );
     }
   }
 

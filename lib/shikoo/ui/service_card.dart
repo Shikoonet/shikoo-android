@@ -20,6 +20,7 @@ const _gib = 1024 * 1024 * 1024;
 class CardFocus {
   final renew = FocusNode();
   final pingAll = FocusNode();
+  // ponytail: a removed server's node lives until the page goes; prune if lists churn a lot.
   final _rows = <String, FocusNode>{};
 
   FocusNode row(String name) => _rows.putIfAbsent(name, FocusNode.new);
