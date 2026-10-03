@@ -109,7 +109,7 @@ class ShikooL10nFa extends ShikooL10n {
   String get loadingServers => 'در حال گرفتن فهرست سرورها…';
 
   @override
-  String get msUnit => 'ms';
+  String get msUnit => '';
 
   @override
   String get noResponse => 'بی‌پاسخ';
@@ -120,7 +120,7 @@ class ShikooL10nFa extends ShikooL10n {
         intl.NumberFormat.decimalPattern(localeName);
     final String secondsString = secondsNumberFormat.format(seconds);
 
-    return '$server تا $secondsString ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.';
+    return '$server تا $secondsString ثانیه جواب نداد. سرور دیگری را هم امتحان کن.';
   }
 
   @override

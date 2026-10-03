@@ -11,26 +11,76 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Home, laid out after `design/mockups/tv.html` (frames `tv-home-*`) and `phone.html`.
-class ShikooHome extends ConsumerWidget {
+class ShikooHome extends ConsumerStatefulWidget {
   const ShikooHome({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShikooHome> createState() => _ShikooHomeState();
+}
+
+class _ShikooHomeState extends ConsumerState<ShikooHome> {
+  final _selectedRow = FocusNode();
+
+  @override
+  void dispose() {
+    _selectedRow.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final t = ShikooTheme.of(context);
     final power = _PowerZone(state: state, controller: controller);
-    final card = ServiceCard(state: state, controller: controller);
+    final card = ServiceCard(
+      state: state,
+      controller: controller,
+      selectedRowFocus: _selectedRow,
+    );
     return Scaffold(
       backgroundColor: t.c.bg,
       body: PageFocusScope(
         child: FocusTraversalGroup(
           policy: PageTraversalPolicy(),
           child: state.isTV
-              ? _TvLayout(power: power, card: card)
+              ? _TvLayout(
+                  power: _PowerKeys(selectedRow: _selectedRow, child: power),
+                  card: card,
+                )
               : _PhoneLayout(power: power, card: card),
         ),
       ),
+    );
+  }
+}
+
+/// The power button is alone in its column: towards the card is the selected server.
+class _PowerKeys extends StatelessWidget {
+  const _PowerKeys({required this.selectedRow, required this.child});
+
+  final FocusNode selectedRow;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final towardCard = Directionality.of(context) == TextDirection.rtl
+        ? TraversalDirection.right
+        : TraversalDirection.left;
+    return Actions(
+      actions: {
+        DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
+          onInvoke: (intent) {
+            if (intent.direction == towardCard && selectedRow.context != null) {
+              selectedRow.requestFocus();
+            } else if (intent.direction != TraversalDirection.down) {
+              primaryFocus?.focusInDirection(intent.direction);
+            }
+            return null;
+          },
+        ),
+      },
+      child: child,
     );
   }
 }
@@ -259,12 +309,16 @@ class _PowerZone extends StatelessWidget {
           SizedBox(height: gap),
           NowPill(server: selected),
         ],
-        if (message != null) ...[
+        // The TV column is centred: a slot of fixed height keeps the button still.
+        if (message != null || state.isTV) ...[
           SizedBox(height: gap),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: t.s.powerRing * 1.5),
+          SizedBox(
+            width: t.s.powerRing * 1.5,
+            height: state.isTV ? _twoLines(context, t) : null,
             child: Text(
-              message,
+              message ?? '',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: t.text(
                 t.s.bodySm,
@@ -276,4 +330,7 @@ class _PowerZone extends StatelessWidget {
       ],
     );
   }
+
+  static double _twoLines(BuildContext context, ShikooTheme t) =>
+      2 * MediaQuery.textScalerOf(context).scale(t.s.bodySm) * Leading.tight;
 }

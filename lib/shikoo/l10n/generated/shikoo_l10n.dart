@@ -266,7 +266,7 @@ abstract class ShikooL10n {
   /// **'Getting the server list…'**
   String get loadingServers;
 
-  /// No description provided for @msUnit.
+  /// Unit after a ping. Empty where pings are written without one, as in Persian.
   ///
   /// In en, this message translates to:
   /// **'ms'**
@@ -281,7 +281,7 @@ abstract class ShikooL10n {
   /// No description provided for @errorConnect.
   ///
   /// In en, this message translates to:
-  /// **'{server} didn\'t answer within {seconds} seconds. Try again, or pick another server.'**
+  /// **'{server} didn\'t answer in {seconds} seconds. Try another server too.'**
   String errorConnect(String server, int seconds);
 
   /// No description provided for @errorServer.

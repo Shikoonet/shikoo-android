@@ -38,11 +38,13 @@ class Pressable extends StatefulWidget {
     required this.shape,
     required this.builder,
     this.autofocus = false,
+    this.focusNode,
   });
 
   final VoidCallback onPressed;
   final OutlinedBorder shape;
   final bool autofocus;
+  final FocusNode? focusNode;
   final Widget Function(BuildContext context, bool focused) builder;
 
   @override
@@ -52,12 +54,25 @@ class Pressable extends StatefulWidget {
 class _PressableState extends State<Pressable> {
   bool _focused = false;
 
+  /// Traversal reveals only the widget, cutting the ring drawn outside it in a scrolled column.
+  void _revealWithRing(bool focused) {
+    if (!focused) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final box = mounted ? context.findRenderObject() : null;
+      if (box is RenderBox && box.attached) {
+        box.showOnScreen(rect: (Offset.zero & box.size).inflate(Space.s2));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     const gap = ShikooSizes.focusRingOffset;
     return FocusableActionDetector(
       autofocus: widget.autofocus,
+      focusNode: widget.focusNode,
+      onFocusChange: _revealWithRing,
       onShowFocusHighlight: (value) => setState(() => _focused = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -172,19 +187,26 @@ class ShikooButton extends StatelessWidget {
     return Pressable(
       shape: RoundedSuperellipseBorder(borderRadius: radius),
       onPressed: onPressed,
+      // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
       builder: (context, focused) => Container(
         height: t.s.button,
         padding: const EdgeInsets.symmetric(horizontal: Space.s4),
         decoration: ShapeDecoration(
           color: primary ? t.c.primary : (focused ? t.c.focusBg : null),
           shadows: focused ? t.c.raisedShadow : null,
-          shape: RoundedSuperellipseBorder(
-            borderRadius: radius,
-            side: primary
-                ? BorderSide.none
-                : BorderSide(color: t.c.outline, width: t.s.borderControl),
-          ),
+          shape: RoundedSuperellipseBorder(borderRadius: radius),
         ),
+        foregroundDecoration: primary || focused
+            ? null
+            : ShapeDecoration(
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: radius,
+                  side: BorderSide(
+                    color: t.c.outline,
+                    width: t.s.borderControl,
+                  ),
+                ),
+              ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -266,8 +288,8 @@ class _PowerButtonState extends State<PowerButton>
   );
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _sync();
   }
 
@@ -278,10 +300,13 @@ class _PowerButtonState extends State<PowerButton>
   }
 
   void _sync() {
-    if (widget.connection == ShikooConnection.connecting) {
-      if (!_spin.isAnimating) _spin.repeat();
-    } else {
+    final spin =
+        widget.connection == ShikooConnection.connecting &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!spin) {
       _spin.stop();
+    } else if (!_spin.isAnimating) {
+      _spin.repeat();
     }
   }
 
@@ -340,15 +365,6 @@ class _PowerButtonState extends State<PowerButton>
               ),
             ),
           ),
-          if (conn == ShikooConnection.connecting)
-            Positioned.fill(
-              child: RotationTransition(
-                turns: _spin,
-                child: CustomPaint(
-                  painter: _ArcPainter(track: c.border, head: c.primary),
-                ),
-              ),
-            ),
           Pressable(
             autofocus: true,
             shape: const CircleBorder(),
@@ -406,6 +422,17 @@ class _PowerButtonState extends State<PowerButton>
               ),
             ),
           ),
+          if (conn == ShikooConnection.connecting)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RotationTransition(
+                  turns: _spin,
+                  child: CustomPaint(
+                    painter: _ArcPainter(track: c.border, head: c.primary),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -441,7 +468,6 @@ class _ArcPainter extends CustomPainter {
   bool shouldRepaint(_ArcPainter old) => old.track != track || old.head != head;
 }
 
-/// `.ping`: a coloured dot and `۸۴ ms`, or `بی‌پاسخ`; a quiet ellipsis while testing.
 class Ping extends StatelessWidget {
   const Ping({super.key, required this.server});
 
@@ -480,11 +506,11 @@ class Ping extends StatelessWidget {
               : TextSpan(
                   children: [
                     TextSpan(text: localNumber(context, ping)),
-                    const TextSpan(text: ' '),
-                    TextSpan(
-                      text: l.msUnit,
-                      style: TextStyle(fontSize: t.s.caption),
-                    ),
+                    if (l.msUnit.isNotEmpty)
+                      TextSpan(
+                        text: ' ${l.msUnit}',
+                        style: TextStyle(fontSize: t.s.caption),
+                      ),
                   ],
                 ),
           style: t.text(
@@ -505,11 +531,13 @@ class ServerRow extends StatelessWidget {
     required this.server,
     required this.selected,
     required this.onPressed,
+    this.focusNode,
   });
 
   final ShikooServer server;
   final bool selected;
   final VoidCallback onPressed;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -519,6 +547,7 @@ class ServerRow extends StatelessWidget {
     );
     return Pressable(
       shape: shape,
+      focusNode: focusNode,
       onPressed: onPressed,
       builder: (context, focused) => Container(
         constraints: BoxConstraints(minHeight: t.s.row),

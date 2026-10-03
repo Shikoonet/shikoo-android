@@ -40,8 +40,9 @@
   "noService": "No service yet",
   "loadingServers": "Getting the server list…",
   "msUnit": "ms",
+  "@msUnit": {"description": "Unit after a ping. Empty where pings are written without one, as in Persian."},
   "noResponse": "No response",
-  "errorConnect": "{server} didn't answer within {seconds} seconds. Try again, or pick another server.",
+  "errorConnect": "{server} didn't answer in {seconds} seconds. Try another server too.",
   "@errorConnect": {
     "placeholders": {
       "server": {"type": "String"},

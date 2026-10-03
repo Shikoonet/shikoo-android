@@ -1,5 +1,4 @@
-/// Gregorian to Solar Hijri (Jalali), the arithmetic of jdf.scr.ir's `gregorian_to_jalali`.
-/// No package in the dependency tree does this; intl only formats the Gregorian calendar.
+/// Solar Hijri date, after jdf.scr.ir's `gregorian_to_jalali`; intl has no Jalali calendar.
 ({int year, int month, int day}) toJalali(DateTime date) {
   const monthStarts = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
   final gy = date.year;

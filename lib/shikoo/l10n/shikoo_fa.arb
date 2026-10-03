@@ -28,9 +28,9 @@
   "tvHint": "دکمهٔ وسطِ ریموت را بزن تا وصل شوی",
   "noService": "هنوز سرویسی اضافه نشده",
   "loadingServers": "در حال گرفتن فهرست سرورها…",
-  "msUnit": "ms",
+  "msUnit": "",
   "noResponse": "بی‌پاسخ",
-  "errorConnect": "{server} تا {seconds} ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.",
+  "errorConnect": "{server} تا {seconds} ثانیه جواب نداد. سرور دیگری را هم امتحان کن.",
   "errorServer": "سرور عوض نشد.",
   "errorAdd": "سرویس اضافه نشد.",
   "initError": "اپ باز نشد."

@@ -14,10 +14,16 @@ const _gib = 1024 * 1024 * 1024;
 /// `.card.svc` with its servers, as in `tv.html`: name and status, volume and validity, the
 /// panel's announcement, renew and support, then the server list.
 class ServiceCard extends StatelessWidget {
-  const ServiceCard({super.key, required this.state, required this.controller});
+  const ServiceCard({
+    super.key,
+    required this.state,
+    required this.controller,
+    this.selectedRowFocus,
+  });
 
   final ShikooState state;
   final ShikooController controller;
+  final FocusNode? selectedRowFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +97,11 @@ class ServiceCard extends StatelessWidget {
                     Space.s2,
                     0,
                   ),
-                  child: _Servers(state: state, controller: controller),
+                  child: _Servers(
+                    state: state,
+                    controller: controller,
+                    selectedRowFocus: selectedRowFocus,
+                  ),
                 ),
               ],
       ),
@@ -139,8 +149,9 @@ class _Usage extends StatelessWidget {
     final used = service.usedBytes;
     final ratio = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
     final expire = service.expire;
-    Widget row(List<Widget> children) => Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    Widget row(List<Widget> children) => Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      runSpacing: Space.s1,
       children: children,
     );
     return Padding(
@@ -280,10 +291,15 @@ class _Notice extends StatelessWidget {
 }
 
 class _Servers extends StatelessWidget {
-  const _Servers({required this.state, required this.controller});
+  const _Servers({
+    required this.state,
+    required this.controller,
+    required this.selectedRowFocus,
+  });
 
   final ShikooState state;
   final ShikooController controller;
+  final FocusNode? selectedRowFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -304,6 +320,7 @@ class _Servers extends StatelessWidget {
           ServerRow(
             server: server,
             selected: server.name == state.selected,
+            focusNode: server.name == state.selected ? selectedRowFocus : null,
             onPressed: () => unawaited(controller.selectServer(server.name)),
           ),
       ],
