@@ -234,6 +234,11 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String selectedMovedFirst(String name) {
+    return 'اتصال همان لحظه به «$name» رفت.';
+  }
+
+  @override
   String get findingBest => 'در حال یافتن بهترین سرور…';
 
   @override

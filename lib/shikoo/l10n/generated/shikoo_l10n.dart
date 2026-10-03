@@ -416,6 +416,12 @@ abstract class ShikooL10n {
   /// **'The connection moved to the fastest server, “{name}”, right away.'**
   String selectedMoved(String name);
 
+  /// No description provided for @selectedMovedFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection moved to “{name}” right away.'**
+  String selectedMovedFirst(String name);
+
   /// No description provided for @findingBest.
   ///
   /// In en, this message translates to:

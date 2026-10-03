@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:fl_clash/common/task_pool.dart';
 
 /// One at a time let a dead server hold the rest for 8 s; FlClash's 16 gave false timeouts.
@@ -37,37 +38,16 @@ Future<void> pingServers(
   await pass(await pass(names, last: false), last: true);
 }
 
-List<String> sortByPing(List<String> panel, int? Function(String name) ping) {
-  int key(String name) {
-    final ms = ping(name);
-    return ms != null && ms > 0 ? ms : 1 << 30;
-  }
+int _sortKey(int? ms) => ms != null && ms > 0 ? ms : 1 << 30;
 
-  final indexed = [for (var i = 0; i < panel.length; i++) (i, panel[i])];
-  indexed.sort((a, b) {
-    final byPing = key(a.$2).compareTo(key(b.$2));
-    return byPing != 0 ? byPing : a.$1.compareTo(b.$1);
-  });
-  return [for (final (_, name) in indexed) name];
-}
+/// `sortedBy` is a stable merge sort: ties and the servers without an answer keep panel order.
+List<String> sortByPing(List<String> panel, int? Function(String name) ping) =>
+    panel.sortedBy((name) => _sortKey(ping(name)));
 
-String? fastest(List<String> panel, int? Function(String name) ping) {
-  final sorted = sortByPing(panel, ping);
-  if (sorted.isEmpty) return null;
-  final ms = ping(sorted.first);
-  return ms != null && ms > 0 ? sorted.first : null;
-}
+String? fastest(List<String> panel, int? Function(String name) ping) =>
+    minBy(panel.where((name) => (ping(name) ?? 0) > 0), (name) => ping(name)!);
 
-List<String> keepOrder(List<String> order, List<String> panel) {
-  final present = panel.toSet();
-  final kept = [
-    for (final name in order)
-      if (present.contains(name)) name,
-  ];
-  final known = kept.toSet();
-  return [
-    ...kept,
-    for (final name in panel)
-      if (!known.contains(name)) name,
-  ];
-}
+List<String> keepOrder(List<String> order, List<String> panel) => [
+  ...order.where(panel.contains),
+  ...panel.where((name) => !order.contains(name)),
+];

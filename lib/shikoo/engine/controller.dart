@@ -103,6 +103,7 @@ class SelectedReplaced extends ShikooNotice {
     required this.removed,
     required this.replacement,
     required this.moved,
+    this.fastest = true,
   });
 
   final String removed;
@@ -110,6 +111,8 @@ class SelectedReplaced extends ShikooNotice {
 
   /// The tunnel was up, so traffic moved at once.
   final bool moved;
+
+  final bool fastest;
 }
 
 /// Only for an update the user asked for; an automatic one just says so under the name.
@@ -196,6 +199,9 @@ final _orderProvider = _cell<List<String>>(const []);
 final _pingsProvider = _cell<Map<String, int>>(const {});
 final _refreshProvider = _cell(ShikooRefresh.idle);
 final _noticeProvider = _cell<ShikooNotice?>(null);
+
+/// Native's run start until FlClash's own run time arrives, seconds after a run again.
+final _nativeStartProvider = _cell<DateTime?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
 typedef _Extras = ({String? announce, String? supportUrl});
@@ -288,6 +294,7 @@ ShikooPick derivePick({
 
 final shikooStateProvider = Provider<ShikooState>((ref) {
   final runTime = ref.watch(runTimeProvider);
+  final nativeStart = ref.watch(_nativeStartProvider);
   final intent = ref.watch(_intentProvider);
   final profile = ref.watch(currentProfileProvider);
   final extras = ref.watch(_extrasProvider)[profile?.id];
@@ -313,10 +320,12 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   return ShikooState(
     connection: deriveConnection(
       connecting: intent.connecting,
-      running: runTime != null,
+      running: runTime != null || nativeStart != null,
       error: intent.error,
     ),
-    connectedFor: Duration(milliseconds: runTime ?? 0),
+    connectedFor: runTime == null && nativeStart != null
+        ? DateTime.now().difference(nativeStart)
+        : Duration(milliseconds: runTime ?? 0),
     isTV: system.isTV,
     service: profile == null
         ? null
@@ -410,14 +419,22 @@ class ShikooController {
       fireImmediately: true,
     );
     _ref.listen(runTimeProvider.select((time) => time != null), (_, running) {
-      if (running) scheduleMicrotask(_reconcile);
+      if (!running) return;
+      scheduleMicrotask(() {
+        _nativeStart(null);
+        _reconcile();
+      });
     });
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
+    scheduleMicrotask(() async {
+      final start = await service?.getRunTime();
+      if (start == null || _ref.read(runTimeProvider) != null) return;
+      _nativeStart(start);
+    });
   }
 
   final Ref _ref;
   int _attempt = 0;
-  bool _pinging = false;
   Set<String> _roundNames = const {};
   bool _again = false;
   DateTime? _lastRound;
@@ -434,6 +451,15 @@ class ShikooController {
   Group? get _group => _ref.read(currentGroupsStateProvider).value.firstOrNull;
 
   void _set(_Intent intent) => _ref.read(_intentProvider.notifier).set(intent);
+
+  void _nativeStart(DateTime? start) =>
+      _ref.read(_nativeStartProvider.notifier).set(start);
+
+  bool get _pinging => _ref.read(_roundProvider).total > 0;
+
+  bool get _running =>
+      _ref.read(runTimeProvider) != null ||
+      _ref.read(_nativeStartProvider) != null;
 
   void _notice(ShikooNotice? notice) =>
       _ref.read(_noticeProvider.notifier).set(notice);
@@ -498,6 +524,7 @@ class ShikooController {
 
   Future<void> disconnect() async {
     _attempt++;
+    _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
   }
@@ -527,7 +554,7 @@ class ShikooController {
     if (group == null || _validSelection() != null) return;
     final names = _names(group);
     if (names.isEmpty) return;
-    final running = _ref.read(runTimeProvider) != null;
+    final running = _running;
     final waiting = _ref.read(_intentProvider).waiting;
     final pinging = _pinging || _again;
     final best = pickNow(
@@ -546,7 +573,12 @@ class ShikooController {
     unawaited(selectServer(best));
     if (removed != null) {
       _notice(
-        SelectedReplaced(removed: removed, replacement: best, moved: running),
+        SelectedReplaced(
+          removed: removed,
+          replacement: best,
+          moved: running,
+          fastest: names.every((name) => _ping(name) != null),
+        ),
       );
     }
   }
@@ -559,7 +591,6 @@ class ShikooController {
       return;
     }
     if (group == null || names.isEmpty) return;
-    _pinging = true;
     _roundNames = names.toSet();
     final round = _ref.read(_roundProvider.notifier);
     round.set((pending: names.toSet(), total: names.length, ended: false));
@@ -579,7 +610,6 @@ class ShikooController {
         if (ms > 0) _reconcile();
       });
     } finally {
-      _pinging = false;
       _lastRound = DateTime.now();
       final current = _group;
       if (current != null) {

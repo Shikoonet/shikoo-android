@@ -270,6 +270,11 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String selectedMovedFirst(String name) {
+    return 'The connection moved to “$name” right away.';
+  }
+
+  @override
   String get findingBest => 'Finding the best server…';
 
   @override

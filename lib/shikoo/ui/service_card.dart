@@ -233,12 +233,20 @@ class _Message extends StatelessWidget {
         l.updateFailedTitle,
         isTV ? l.updateFailedTv : l.updateFailedTouch,
       ),
-      SelectedReplaced(:final removed, :final replacement, :final moved) => (
-        l.selectedRemoved(withoutFlags(removed)),
-        moved
-            ? l.selectedMoved(withoutFlags(replacement))
-            : l.selectedReplaced(withoutFlags(replacement)),
-      ),
+      SelectedReplaced(
+        :final removed,
+        :final replacement,
+        :final moved,
+        :final fastest,
+      ) =>
+        (
+          l.selectedRemoved(withoutFlags(removed)),
+          !fastest
+              ? l.selectedMovedFirst(withoutFlags(replacement))
+              : moved
+              ? l.selectedMoved(withoutFlags(replacement))
+              : l.selectedReplaced(withoutFlags(replacement)),
+        ),
       ServersChanged(:final added, :final removed) => (
         [
           if (added > 0) l.serversAdded(added),

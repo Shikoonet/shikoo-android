@@ -53,6 +53,7 @@
   "selectedRemoved": "«{name}» دیگر در اشتراکت نیست.",
   "selectedReplaced": "سریع‌ترین سرور، «{name}»، جایش انتخاب شد.",
   "selectedMoved": "اتصال همان لحظه به سریع‌ترین سرور، «{name}»، رفت.",
+  "selectedMovedFirst": "اتصال همان لحظه به «{name}» رفت.",
   "findingBest": "در حال یافتن بهترین سرور…",
   "connectsToFirst": "اولین سروری که جواب بدهد، وصل می‌شوی.",
   "noServerAnswered": "هیچ سروری جواب نداد",
