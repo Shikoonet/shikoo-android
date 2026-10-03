@@ -498,6 +498,7 @@ class _ServerListState extends State<_ServerList> {
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
+      includeSemantics: false,
       onFocusChange: (inside) {
         if (inside) Scrollable.ensureVisible(context);
       },
@@ -564,6 +565,7 @@ class _ServerListState extends State<_ServerList> {
                 : Focus(
                     canRequestFocus: false,
                     skipTraversal: true,
+                    includeSemantics: false,
                     onFocusChange: (inside) =>
                         setState(() => _held = inside ? shown : null),
                     child: Column(
