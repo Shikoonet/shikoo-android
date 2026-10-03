@@ -414,10 +414,14 @@ ul { list-style: none; }
 .tv-result strong { color: var(--color-text); }
 .tv-result p, .login-brand .sub { text-wrap: balance; }
 
-/* تنظیمات تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
+/* تنظیمات و «درباره»ی تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
 .tv-settings { flex: 1; min-block-size: 0; display: flex; justify-content: center; margin-top: var(--space-3); }
 .tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0; gap: var(--space-6) var(--space-10); }
 .tv .dialog p { font-size: var(--text-body); }
+.about { inline-size: var(--size-pane); align-self: start; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-6); line-height: var(--leading-body); }
+.about h3 { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.about .muted { color: var(--color-text-muted); }
+[dir="ltr"] .flip-ltr { scale: -1 1; }
 
 /* صفحه‌های نمونهٔ اجزا (نه صفحهٔ اپ؛ حاشیهٔ امن ندارند) */
 .tv.spec-frame { padding-inline: var(--space-6); }
