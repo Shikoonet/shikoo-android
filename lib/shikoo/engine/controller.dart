@@ -391,6 +391,12 @@ final shikooControllerProvider = Provider<ShikooController>(
   ShikooController.new,
 );
 
+/// The tunnel's start as native reports it, null while it is down or still asking for consent.
+final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
+  (_) =>
+      () async => service?.getRunTime(),
+);
+
 /// Polls [runTime] until native reports a running tunnel. Flutter's own run state is set
 /// optimistically before the service starts (engine map section 4), so only native is proof.
 /// Time while [paused], as under Android's VPN consent dialog, does not count.
@@ -457,7 +463,6 @@ class ShikooController {
       scheduleMicrotask(() {
         _nativeStart(null);
         _reconcile();
-        unawaited(_checkSelected());
       });
     });
     app?.onVpnConsent = onVpnConsent;
@@ -473,7 +478,7 @@ class ShikooController {
       };
     });
     scheduleMicrotask(() async {
-      final start = await service?.getRunTime();
+      final start = await _nativeRunTime();
       if (start == null || _ref.read(runTimeProvider) != null) return;
       _nativeStart(start);
     });
@@ -521,6 +526,8 @@ class ShikooController {
       ),
     );
   }
+
+  Future<DateTime?> _nativeRunTime() => _ref.read(nativeRunTimeProvider)();
 
   void _nativeStart(DateTime? start) =>
       _ref.read(_nativeStartProvider.notifier).set(start);
@@ -577,7 +584,7 @@ class ShikooController {
     final up =
         started &&
         await waitForTunnel(
-          () async => service?.getRunTime(),
+          _nativeRunTime,
           timeout: connectTimeout,
           stillWanted: () => attempt == _attempt,
           paused: () => !foreground,
@@ -585,6 +592,7 @@ class ShikooController {
     if (attempt != _attempt) return;
     if (up) {
       _set(const _Intent());
+      unawaited(_checkSelected());
       return;
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
@@ -731,7 +739,7 @@ class ShikooController {
             .set(sortByPing(_names(current), _ping));
       }
       round.set((pending: const <String>{}, total: 0, ended: true));
-      _replaceSilentPick();
+      unawaited(_replaceSilentPick());
       _reconcile();
       if (_again) {
         _again = false;
@@ -751,14 +759,17 @@ class ShikooController {
     if (group == null || chosen == null || _pinging) return;
     final url = _testUrl(group);
     await pingServers([chosen], (name) => _probe(url, name), _setPing);
-    _replaceSilentPick();
+    await _replaceSilentPick();
   }
 
-  void _replaceSilentPick() {
+  Future<void> _replaceSilentPick() async {
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
     if (ms == null || ms > 0) return;
+    // Flutter says running from the press on; a probe under the consent dialog proves nothing.
+    if (_running && await _nativeRunTime() == null) return;
+    if (_validSelection() != chosen) return;
     final best = fastest(_names(_group), _ping);
     if (best == null) return;
     _pickedByApp(best);

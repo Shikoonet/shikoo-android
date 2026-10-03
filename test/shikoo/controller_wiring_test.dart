@@ -49,6 +49,9 @@ class _Profiles extends ProfilesAction {
 class _Setup extends SetupAction {
   final runs = <bool>[];
 
+  /// What native reports as the tunnel's start; null is a tunnel not up yet.
+  DateTime? tunnel;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
@@ -72,6 +75,7 @@ _home() {
       profilesActionProvider.overrideWith(_Profiles.new),
       setupActionProvider.overrideWith(() => setup),
       coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
+      nativeRunTimeProvider.overrideWithValue(() async => setup.tunnel),
     ],
   );
   addTearDown(container.dispose);
@@ -176,9 +180,11 @@ void main() {
     await controller.pingAll();
     expect(proxies.picked, ['آلمان ۱']);
     container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
 
     pings['آلمان ۱'] = -1;
     await controller.pingAll();
+    await pumpEventQueue();
     expect(proxies.picked, [
       'آلمان ۱',
       'هلند ۱',
@@ -348,26 +354,58 @@ void main() {
     },
   );
 
-  test("the tunnel coming up on the app's own silent pick moves it", () async {
-    final (:container, :core, :proxies, :setup) = _home();
-    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
-    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-      final name = call.positionalArguments[1] as String;
-      return Delay(name: name, url: '', value: pings[name] ?? -1);
-    });
-    container.read(shikooControllerProvider);
-    await pumpEventQueue();
-    expect(proxies.picked, ['آلمان ۱']);
+  test(
+    "the tunnel really up, the app's own silent pick moves at once",
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      expect(proxies.picked, ['آلمان ۱']);
 
-    pings['آلمان ۱'] = -1;
-    container.read(runTimeProvider.notifier).value = 1;
-    await pumpEventQueue();
-    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
-    expect(
-      container.read(shikooStateProvider).notice,
-      isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
-    );
-  });
+      pings['آلمان ۱'] = -1;
+      // FlClash marks the run at the press, before Android's consent dialog.
+      container.read(runTimeProvider.notifier).value = 1;
+      setup.tunnel = DateTime(2026);
+      await controller.connect();
+      await pumpEventQueue();
+      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+      expect(
+        container.read(shikooStateProvider).notice,
+        isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
+      );
+    },
+  );
+
+  test(
+    "under the consent dialog the app's silent pick stays: no tunnel, no proof",
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      container.read(runTimeProvider.notifier).value = 1;
+
+      pings['آلمان ۱'] = -1;
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(proxies.picked, ['آلمان ۱']);
+      expect(container.read(shikooStateProvider).notice, isNull);
+
+      setup.tunnel = DateTime(2026);
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+    },
+  );
 
   test('a refused VPN consent stops connecting and says so', () async {
     final (:container, :core, :proxies, :setup) = _home();
