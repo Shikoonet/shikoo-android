@@ -82,8 +82,6 @@ class ShikooService {
 
   final DateTime? updatedAt;
 
-  String get renewLink => ShikooLinks.renew;
-
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
   ShikooServiceStatus statusAt(DateTime now) {

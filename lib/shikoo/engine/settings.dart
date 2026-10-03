@@ -4,10 +4,8 @@ import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract final class ShikooLinks {
-  static const bot = 'https://t.me/shikoonet_bot';
-
   // ponytail: the services list; rnw_<id> once Telegram sign-in gives the bot's service id.
-  static const renew = '$bot?start=renew';
+  static const renew = 'https://t.me/shikoonet_bot?start=renew';
   static const support = 'https://t.me/admiinturbo';
 }
 

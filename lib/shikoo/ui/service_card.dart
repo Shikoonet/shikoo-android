@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
@@ -122,7 +123,7 @@ class ServiceCard extends StatelessWidget {
                           onPressed: () => openLink(
                             context,
                             isTV: state.isTV,
-                            link: service.renewLink,
+                            link: ShikooLinks.renew,
                             title: l.renewTitle,
                             help: l.renewHelp,
                             service: service.name,
