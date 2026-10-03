@@ -348,10 +348,10 @@ class ShikooL10nFa extends ShikooL10n {
   String get logout => 'خروج';
 
   @override
-  String get logoutHelpTv => 'سرویس‌ها از این تلویزیون پاک می‌شوند';
+  String get logoutHelpTv => 'سرویس‌ها از این تلویزیون پاک می‌شوند.';
 
   @override
-  String get logoutHelpTouch => 'سرویس‌ها از این گوشی پاک می‌شوند';
+  String get logoutHelpTouch => 'سرویس‌ها از این گوشی پاک می‌شوند.';
 
   @override
   String get logoutTitle => 'سرویس‌ها پاک شوند؟';

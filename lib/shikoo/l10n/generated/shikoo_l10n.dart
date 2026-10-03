@@ -611,13 +611,13 @@ abstract class ShikooL10n {
   /// No description provided for @logoutHelpTv.
   ///
   /// In en, this message translates to:
-  /// **'Removes the services from this TV'**
+  /// **'Removes the services from this TV.'**
   String get logoutHelpTv;
 
   /// No description provided for @logoutHelpTouch.
   ///
   /// In en, this message translates to:
-  /// **'Removes the services from this phone'**
+  /// **'Removes the services from this phone.'**
   String get logoutHelpTouch;
 
   /// No description provided for @logoutTitle.

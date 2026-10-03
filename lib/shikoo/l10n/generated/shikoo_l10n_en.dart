@@ -385,10 +385,10 @@ class ShikooL10nEn extends ShikooL10n {
   String get logout => 'Log out';
 
   @override
-  String get logoutHelpTv => 'Removes the services from this TV';
+  String get logoutHelpTv => 'Removes the services from this TV.';
 
   @override
-  String get logoutHelpTouch => 'Removes the services from this phone';
+  String get logoutHelpTouch => 'Removes the services from this phone.';
 
   @override
   String get logoutTitle => 'Remove the services?';

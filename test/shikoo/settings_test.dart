@@ -129,6 +129,7 @@ void main() {
     when(controller.forgetServices).thenAnswer((_) async {});
     await _pumpSettings(tester, controller);
     expect(find.text('۰.۸.۹۸'), findsOneWidget);
+    expect(find.text('سرویس‌ها از این تلویزیون پاک می‌شوند.'), findsOneWidget);
 
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'خروج');
     expect(await _press(tester, LogicalKeyboardKey.select), 'انصراف');
