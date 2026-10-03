@@ -239,6 +239,16 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String selectedSilent(String name) {
+    return '«$name» جواب نداد.';
+  }
+
+  @override
+  String selectedMovedTo(String name) {
+    return 'اتصال به «$name» رفت.';
+  }
+
+  @override
   String get findingBest => 'در حال یافتن بهترین سرور…';
 
   @override

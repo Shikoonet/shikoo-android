@@ -115,6 +115,13 @@ class SelectedReplaced extends ShikooNotice {
   final bool fastest;
 }
 
+class SilentReplaced extends ShikooNotice {
+  const SilentReplaced({required this.silent, required this.replacement});
+
+  final String silent;
+  final String replacement;
+}
+
 /// Only for an update the user asked for; an automatic one just says so under the name.
 class RefreshFailed extends ShikooNotice {
   const RefreshFailed();
@@ -427,6 +434,12 @@ class ShikooController {
     });
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(() async {
+      final stored = (await SharedPreferences.getInstance()).getString(
+        _appPickKey,
+      );
+      _appPick ??= stored;
+    });
+    scheduleMicrotask(() async {
       final start = await service?.getRunTime();
       if (start == null || _ref.read(runTimeProvider) != null) return;
       _nativeStart(start);
@@ -434,6 +447,10 @@ class ShikooController {
   }
 
   final Ref _ref;
+  static const _appPickKey = 'shikoo.appPick';
+
+  /// The server the app chose itself, kept across runs: only this one is replaced when silent.
+  String? _appPick;
   int _attempt = 0;
   Set<String> _roundNames = const {};
   bool _again = false;
@@ -451,6 +468,17 @@ class ShikooController {
   Group? get _group => _ref.read(currentGroupsStateProvider).value.firstOrNull;
 
   void _set(_Intent intent) => _ref.read(_intentProvider.notifier).set(intent);
+
+  void _pickedByApp(String? name) {
+    _appPick = name;
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (prefs) => name == null
+            ? prefs.remove(_appPickKey)
+            : prefs.setString(_appPickKey, name),
+      ),
+    );
+  }
 
   void _nativeStart(DateTime? start) =>
       _ref.read(_nativeStartProvider.notifier).set(start);
@@ -529,7 +557,13 @@ class ShikooController {
     await _setup.setRunning(false);
   }
 
-  Future<void> selectServer(String name) async {
+  /// The user's choice, which the app never replaces.
+  Future<void> selectServer(String name) {
+    _pickedByApp(null);
+    return _choose(name);
+  }
+
+  Future<void> _choose(String name) async {
     final group = _group;
     if (group == null) return;
     await _proxies.changeProxy(groupName: group.name, proxyName: name);
@@ -575,15 +609,16 @@ class ShikooController {
     }
     final removed = _removed;
     _removed = null;
+    _pickedByApp(best);
     // changeProxy writes the selection before it awaits, so a second call sees it.
-    unawaited(selectServer(best));
+    unawaited(_choose(best));
     if (removed != null) {
       _notice(
         SelectedReplaced(
           removed: removed,
           replacement: best,
           moved: running,
-          fastest: names.every((name) => ping(name) != null),
+          fastest: !pinging && names.every((name) => ping(name) != null),
         ),
       );
     }
@@ -613,7 +648,12 @@ class ShikooController {
           total: now.total,
           ended: false,
         ));
-        if (ms > 0) _reconcile();
+        if (ms > 0) {
+          if (_ref.read(_intentProvider).error == ShikooError.noServer) {
+            _set(const _Intent());
+          }
+          _reconcile();
+        }
       });
     } finally {
       _lastRound = DateTime.now();
@@ -624,12 +664,25 @@ class ShikooController {
             .set(sortByPing(_names(current), _ping));
       }
       round.set((pending: const <String>{}, total: 0, ended: true));
+      _replaceSilentPick();
       _reconcile();
       if (_again) {
         _again = false;
         unawaited(pingAll());
       }
     }
+  }
+
+  void _replaceSilentPick() {
+    final chosen = _validSelection();
+    if (chosen == null || chosen != _appPick) return;
+    final ms = _ping(chosen);
+    if (ms == null || ms > 0) return;
+    final best = fastest(_names(_group), _ping);
+    if (best == null) return;
+    _pickedByApp(best);
+    unawaited(_choose(best));
+    _notice(SilentReplaced(silent: chosen, replacement: best));
   }
 
   Future<int?> _probe(String url, String name) async {

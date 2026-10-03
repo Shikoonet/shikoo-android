@@ -422,6 +422,18 @@ abstract class ShikooL10n {
   /// **'The connection moved to “{name}” right away.'**
   String selectedMovedFirst(String name);
 
+  /// No description provided for @selectedSilent.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” did not answer.'**
+  String selectedSilent(String name);
+
+  /// No description provided for @selectedMovedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection moved to “{name}”.'**
+  String selectedMovedTo(String name);
+
   /// No description provided for @findingBest.
   ///
   /// In en, this message translates to:

@@ -153,4 +153,80 @@ void main() {
       await controller.disconnect();
     },
   );
+
+  test('connected, a silent pick of the app gives way at round end; the '
+      "user's own stays", () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.pingAll();
+    expect(proxies.picked, ['آلمان ۱']);
+    container.read(runTimeProvider.notifier).value = 1;
+
+    pings['آلمان ۱'] = -1;
+    await controller.pingAll();
+    expect(proxies.picked, [
+      'آلمان ۱',
+      'هلند ۱',
+    ], reason: 'the app had picked it');
+    expect(container.read(shikooStateProvider).notice, isA<SilentReplaced>());
+
+    // The user picks the very server the app had picked: from now on it is theirs.
+    await controller.selectServer('هلند ۱');
+    pings
+      ..['هلند ۱'] = -1
+      ..['آلمان ۱'] = 50;
+    await controller.pingAll();
+    expect(proxies.picked, ['آلمان ۱', 'هلند ۱', 'هلند ۱']);
+    expect(setup.runs, isEmpty);
+  });
+
+  test('a live answer ends "no server answered" without connecting', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    var alive = false;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      final up = alive && name == 'هلند ۱';
+      return Delay(name: name, url: '', value: up ? 90 : -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    container
+        .read(profilesActionProvider.notifier)
+        .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [Proxy(name: 'آلمان ۱', type: 'Vless')],
+      ),
+    ];
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).lastError, ShikooError.noServer);
+
+    // The panel brings the selected server back, and this time it answers.
+    alive = true;
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(state.lastError, isNull);
+    expect(state.connection, ShikooConnection.off);
+    expect(state.selected, 'هلند ۱');
+    expect(setup.runs, isEmpty, reason: 'connecting stays with the user');
+  });
 }
