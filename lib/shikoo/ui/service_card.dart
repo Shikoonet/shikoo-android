@@ -78,12 +78,20 @@ class ServiceCard extends StatelessWidget {
                 ),
               ]
             : [
-                Padding(
-                  padding: inset,
-                  child: _Head(
-                    service: service,
-                    refresh: state.refresh,
-                    onRefresh: () => unawaited(controller.refreshService()),
+                Focus(
+                  canRequestFocus: false,
+                  skipTraversal: true,
+                  includeSemantics: false,
+                  onFocusChange: (inside) {
+                    if (inside) Scrollable.maybeOf(context)?.position.jumpTo(0);
+                  },
+                  child: Padding(
+                    padding: inset,
+                    child: _Head(
+                      service: service,
+                      refresh: state.refresh,
+                      onRefresh: () => unawaited(controller.refreshService()),
+                    ),
                   ),
                 ),
                 if (notice != null)
@@ -203,7 +211,7 @@ class _Head extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: Space.s3),
+        const SizedBox(width: Space.s2),
         ShikooButton(
           label: l.refresh,
           icon: ShikooIcon.refresh,

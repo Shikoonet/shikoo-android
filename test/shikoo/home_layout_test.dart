@@ -354,6 +354,24 @@ void main() {
     expect(find.textContaining('دکمهٔ وسط را دوباره بزن'), findsOneWidget);
   });
 
+  testWidgets(
+    "a short card starts where a long one does, at the design's 79dp",
+    (tester) async {
+      _tvScreen(tester);
+      for (final servers in [_longList, _longList.take(2).toList()]) {
+        await _pumpTvHome(
+          tester,
+          _tv(ShikooConnection.off, servers: servers, selected: 'سرور 1'),
+        );
+        expect(
+          tester.getTopLeft(find.byType(ServiceCard)).dy,
+          79,
+          reason: '${servers.length} servers',
+        );
+      }
+    },
+  );
+
   testWidgets('on ping-all or a row, the list head goes to the top', (
     tester,
   ) async {
@@ -376,6 +394,15 @@ void main() {
     expect(headTop(), lessThan(Space.s4 * 2 + Space.s2));
     expect(await _press(tester, _down), 'سرور 1');
     expect(headTop(), lessThan(Space.s4 * 2 + Space.s2));
+
+    await _focus(tester, 'سرور 12');
+    await _focus(tester, 'به‌روزرسانی');
+    expect(
+      tester.getTopLeft(find.byType(ServiceCard)).dy -
+          tester.getTopLeft(column).dy,
+      Space.s2,
+      reason: 'back on the update button, the column is at its very top',
+    );
   });
 
   testWidgets('the update names what changed', (tester) async {

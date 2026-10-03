@@ -240,6 +240,7 @@ class _TvColumnState extends State<_TvColumn> {
     return LayoutBuilder(
       builder: (context, box) => OverflowBox(
         maxWidth: box.maxWidth + 2 * Space.s2,
+        minHeight: box.maxHeight + 2 * Space.s2,
         maxHeight: box.maxHeight + 2 * Space.s2,
         child: ShaderMask(
           blendMode: BlendMode.dstIn,
