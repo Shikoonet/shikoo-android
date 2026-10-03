@@ -510,6 +510,11 @@ void main() {
     await _focus(tester, 'پشتیبانی');
     await _press(tester, _ok);
     expect(qr(), ShikooLinks.support, reason: 'the panel sends a bare t.me');
+    expect(
+      find.text('user123 · الماس', findRichText: true),
+      findsNWidgets(2),
+      reason: 'the card and the line under the QR',
+    );
     expect(await _press(tester, _ok), 'پشتیبانی', reason: 'Close');
 
     await _pumpTvHome(
