@@ -110,5 +110,10 @@
   "@measuring": {"description": "Accessibility label of a ping that has not answered yet."},
   "searchServers": "Search servers",
   "searchNoMatch": "No server with that name",
-  "clearSearch": "Clear search"
+  "clearSearch": "Clear search",
+  "renewTitle": "Renew on your phone",
+  "renewHelp": "Scan with your phone's camera; the Shikoo bot opens your services for renewal.",
+  "supportTitle": "Support on your phone",
+  "supportHelp": "Scan with your phone's camera to chat with Shikoo support on Telegram.",
+  "close": "Close"
 }

@@ -60,6 +60,8 @@ class ShikooColors {
     required this.warning,
     required this.danger,
     required this.dangerSoft,
+    required this.onDanger,
+    required this.scrim,
     required this.cardShadow,
     required this.raisedShadow,
   });
@@ -82,6 +84,8 @@ class ShikooColors {
   final Color warning;
   final Color danger;
   final Color dangerSoft;
+  final Color onDanger;
+  final Color scrim;
   final List<BoxShadow> cardShadow;
   final List<BoxShadow> raisedShadow;
 
@@ -104,6 +108,8 @@ class ShikooColors {
     warning: Color(0xFFA15C07),
     danger: Color(0xFFB42318),
     dangerSoft: Color(0xFFFCEBE9),
+    onDanger: Color(0xFFFFFFFF),
+    scrim: Color(0x73141614),
     cardShadow: [
       BoxShadow(color: Color(0x0F141614), offset: Offset(0, 1), blurRadius: 2),
       BoxShadow(color: Color(0x0F141614), offset: Offset(0, 6), blurRadius: 16),
@@ -116,6 +122,10 @@ class ShikooColors {
       ),
     ],
   );
+
+  /// Dark on light in both themes: many phone cameras miss an inverted QR.
+  static const qrModule = Color(0xFF000000);
+  static const qrBg = Color(0xFFFFFFFF);
 
   static const dark = ShikooColors(
     bg: Color(0xFF121413),
@@ -136,6 +146,8 @@ class ShikooColors {
     warning: Color(0xFFF2B544),
     danger: Color(0xFFF47A70),
     dangerSoft: Color(0xFF3A1D1A),
+    onDanger: Color(0xFF2A0F0C),
+    scrim: Color(0xA6000000),
     cardShadow: [
       BoxShadow(color: Color(0x80000000), offset: Offset(0, 1), blurRadius: 2),
       BoxShadow(color: Color(0x4D000000), offset: Offset(0, 6), blurRadius: 16),
@@ -174,6 +186,8 @@ class ShikooSizes {
     required this.safeX,
     required this.safeY,
     required this.pane,
+    required this.dialog,
+    required this.dialogText,
   });
 
   final double caption;
@@ -196,6 +210,8 @@ class ShikooSizes {
   final double safeX;
   final double safeY;
   final double pane;
+  final double dialog;
+  final double dialogText;
 
   static const phone = ShikooSizes(
     caption: 12,
@@ -218,6 +234,8 @@ class ShikooSizes {
     safeX: 16,
     safeY: 0,
     pane: 0,
+    dialog: 340,
+    dialogText: 13,
   );
 
   static const tv = ShikooSizes(
@@ -241,6 +259,8 @@ class ShikooSizes {
     safeX: 48,
     safeY: 27,
     pane: 500,
+    dialog: 560,
+    dialogText: 16,
   );
 
   static const touch = 48.0;
@@ -251,6 +271,7 @@ class ShikooSizes {
   static const focusRingWidth = 3.0;
   static const focusRingOffset = 2.0;
   static const scrollThumb = 4.0;
+  static const qrSm = 200.0;
   static const fade = 24.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;

@@ -523,6 +523,36 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Clear search'**
   String get clearSearch;
+
+  /// No description provided for @renewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew on your phone'**
+  String get renewTitle;
+
+  /// No description provided for @renewHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone\'s camera; the Shikoo bot opens your services for renewal.'**
+  String get renewHelp;
+
+  /// No description provided for @supportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support on your phone'**
+  String get supportTitle;
+
+  /// No description provided for @supportHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone\'s camera to chat with Shikoo support on Telegram.'**
+  String get supportHelp;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

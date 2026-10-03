@@ -9,6 +9,7 @@ import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -74,6 +75,10 @@ class ShikooService {
   final String? supportUrl;
 
   final DateTime? updatedAt;
+
+  String get renewLink => ShikooLinks.renew;
+
+  String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
   ShikooServiceStatus statusAt(DateTime now) {
     if (expire != null && !expire!.isAfter(now)) {

@@ -1,5 +1,7 @@
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -34,6 +36,7 @@ ShikooState _tv(
   ShikooNotice? notice,
   DateTime? expire,
   DateTime? updatedAt,
+  String? supportUrl,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -43,6 +46,7 @@ ShikooState _tv(
     usedBytes: 33 << 30,
     totalBytes: 100 << 30,
     expire: expire,
+    supportUrl: supportUrl,
     updatedAt: updatedAt ?? DateTime.now(),
   ),
   servers: servers,
@@ -148,6 +152,7 @@ const _up = LogicalKeyboardKey.arrowUp;
 const _down = LogicalKeyboardKey.arrowDown;
 const _towardPower = LogicalKeyboardKey.arrowLeft;
 const _towardCard = LogicalKeyboardKey.arrowRight;
+const _ok = LogicalKeyboardKey.select;
 
 void main() {
   testWidgets('the TV power button sits at 269dp, with or without a server', (
@@ -467,5 +472,39 @@ void main() {
     expect(find.text('Valid until Oct 26, 2026'), findsOneWidget);
     await _pumpTvHome(tester, _tv(ShikooConnection.off, expire: expire));
     expect(find.text('اعتبار تا ۴ آبان ۱۴۰۵'), findsOneWidget);
+  });
+
+  testWidgets('renew and support show a QR for the phone; Back closes it', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    String? qr() =>
+        tester.widgetList<QrTile>(find.byType(QrTile)).firstOrNull?.data;
+
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.on, supportUrl: 'https://t.me/'),
+    );
+    await _focus(tester, 'تمدید');
+    expect(await _press(tester, _ok), 'بستن');
+    expect(find.text('تمدید با گوشی'), findsOneWidget);
+    expect(qr(), ShikooLinks.renew);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(qr(), isNull);
+    expect(_focused(), 'تمدید');
+
+    await _focus(tester, 'پشتیبانی');
+    await _press(tester, _ok);
+    expect(qr(), ShikooLinks.support, reason: 'the panel sends a bare t.me');
+    expect(await _press(tester, _ok), 'پشتیبانی', reason: 'Close');
+
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.on, supportUrl: 'https://t.me/shikoo_help'),
+    );
+    await _focus(tester, 'پشتیبانی');
+    await _press(tester, _ok);
+    expect(qr(), 'https://t.me/shikoo_help');
   });
 }

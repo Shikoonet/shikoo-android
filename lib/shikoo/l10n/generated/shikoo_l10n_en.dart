@@ -341,4 +341,21 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get clearSearch => 'Clear search';
+
+  @override
+  String get renewTitle => 'Renew on your phone';
+
+  @override
+  String get renewHelp =>
+      'Scan with your phone\'s camera; the Shikoo bot opens your services for renewal.';
+
+  @override
+  String get supportTitle => 'Support on your phone';
+
+  @override
+  String get supportHelp =>
+      'Scan with your phone\'s camera to chat with Shikoo support on Telegram.';
+
+  @override
+  String get close => 'Close';
 }

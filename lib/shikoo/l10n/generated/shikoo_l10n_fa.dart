@@ -304,4 +304,21 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get clearSearch => 'پاک کردن جست‌وجو';
+
+  @override
+  String get renewTitle => 'تمدید با گوشی';
+
+  @override
+  String get renewHelp =>
+      'با دوربین گوشی اسکن کن؛ ربات شیکو سرویس‌هایت را برای تمدید باز می‌کند.';
+
+  @override
+  String get supportTitle => 'پشتیبانی با گوشی';
+
+  @override
+  String get supportHelp =>
+      'با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکو در تلگرام باز شود.';
+
+  @override
+  String get close => 'بستن';
 }

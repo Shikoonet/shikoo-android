@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -112,14 +113,20 @@ class ServiceCard extends StatelessWidget {
                   padding: inset.copyWith(top: Space.s3),
                   child: Row(
                     children: [
-                      // The QR screens behind these two come in the next round.
                       Expanded(
                         child: ShikooButton(
                           label: l.renew,
                           icon: ShikooIcon.qr,
                           primary: true,
                           focusNode: focus.renew,
-                          onPressed: () {},
+                          onPressed: () => openLink(
+                            context,
+                            isTV: state.isTV,
+                            link: service.renewLink,
+                            title: l.renewTitle,
+                            help: l.renewHelp,
+                            service: service.name,
+                          ),
                         ),
                       ),
                       const SizedBox(width: Space.s2),
@@ -127,7 +134,14 @@ class ServiceCard extends StatelessWidget {
                         child: ShikooButton(
                           label: l.support,
                           icon: ShikooIcon.qr,
-                          onPressed: () {},
+                          onPressed: () => openLink(
+                            context,
+                            isTV: state.isTV,
+                            link: service.supportLink,
+                            title: l.supportTitle,
+                            help: l.supportHelp,
+                            service: service.name,
+                          ),
                         ),
                       ),
                     ],

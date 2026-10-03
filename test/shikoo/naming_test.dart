@@ -1,4 +1,5 @@
 import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -23,5 +24,19 @@ void main() {
     expect(headerText('base64:@@'), isNull);
     expect(headerText('  '), isNull);
     expect(headerText(null), isNull);
+  });
+
+  test('usableLink drops a bare t.me and anything that is not a web link', () {
+    expect(usableLink('https://t.me/'), isNull);
+    expect(usableLink('https://t.me'), isNull);
+    expect(usableLink('javascript:alert(1)'), isNull);
+    expect(usableLink('t.me/x'), isNull);
+    expect(usableLink(null), isNull);
+    expect(usableLink('https://t.me/${'x' * 600}'), isNull);
+    expect(usableLink('https://t.me/shikoo_help'), 'https://t.me/shikoo_help');
+    expect(
+      usableLink('https://shikoo.example/help'),
+      'https://shikoo.example/help',
+    );
   });
 }

@@ -204,32 +204,39 @@ class _SpinnerState extends State<Spinner> with SingleTickerProviderStateMixin {
   );
 }
 
-/// `.btn-primary` and `.btn-outline`, an icon before the label; [busy] spins it.
+/// `.btn-primary`, `.btn-danger` and `.btn-outline`, an icon before the label; [busy] spins it.
 class ShikooButton extends StatelessWidget {
   const ShikooButton({
     super.key,
     required this.label,
-    required this.icon,
     required this.onPressed,
+    this.icon,
     this.primary = false,
+    this.danger = false,
     this.busy = false,
+    this.autofocus = false,
     this.focusNode,
   });
 
   final String label;
-  final ShikooIcon icon;
+  final ShikooIcon? icon;
   final VoidCallback onPressed;
   final bool primary;
+  final bool danger;
   final bool busy;
+  final bool autofocus;
   final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final radius = BorderRadius.circular(Radii.md);
-    final fg = primary ? t.c.onPrimary : t.c.text;
+    final fg = primary ? t.c.onPrimary : (danger ? t.c.onDanger : t.c.text);
+    final fill = primary ? t.c.primary : (danger ? t.c.danger : null);
+    final icon = this.icon;
     return Pressable(
       shape: RoundedSuperellipseBorder(borderRadius: radius),
+      autofocus: autofocus,
       focusNode: focusNode,
       onPressed: onPressed,
       // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
@@ -237,11 +244,11 @@ class ShikooButton extends StatelessWidget {
         height: t.s.button,
         padding: const EdgeInsets.symmetric(horizontal: Space.s4),
         decoration: ShapeDecoration(
-          color: primary ? t.c.primary : (focused ? t.c.focusBg : null),
+          color: fill ?? (focused ? t.c.focusBg : null),
           shadows: focused ? t.c.raisedShadow : null,
           shape: RoundedSuperellipseBorder(borderRadius: radius),
         ),
-        foregroundDecoration: primary || focused
+        foregroundDecoration: fill != null || focused
             ? null
             : ShapeDecoration(
                 shape: RoundedSuperellipseBorder(
@@ -258,9 +265,9 @@ class ShikooButton extends StatelessWidget {
           children: [
             if (busy)
               Spinner(size: t.s.icon, color: fg)
-            else
+            else if (icon != null)
               SvgIcon(icon, size: t.s.icon, color: fg),
-            const SizedBox(width: Space.s2),
+            if (busy || icon != null) const SizedBox(width: Space.s2),
             Text(
               label,
               maxLines: 1,
