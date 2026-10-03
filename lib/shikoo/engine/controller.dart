@@ -450,9 +450,13 @@ class ShikooController {
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(() async {
       final stored = (await SharedPreferences.getInstance()).getString(
-        _appPickKey,
+        _appPicksKey,
       );
-      _appPick ??= stored;
+      if (stored == null) return;
+      _appPicks = {
+        ...(jsonDecode(stored) as Map<String, dynamic>).cast<String, String>(),
+        ..._appPicks,
+      };
     });
     scheduleMicrotask(() async {
       final start = await service?.getRunTime();
@@ -462,10 +466,10 @@ class ShikooController {
   }
 
   final Ref _ref;
-  static const _appPickKey = 'shikoo.appPick';
+  static const _appPicksKey = 'shikoo.appPicks';
 
-  /// The server the app chose itself, kept across runs: only this one is replaced when silent.
-  String? _appPick;
+  /// By profile id, the server the app chose itself: only these are replaced when silent.
+  Map<String, String> _appPicks = const {};
   int _attempt = 0;
   Set<String> _roundNames = const {};
   bool _again = false;
@@ -484,13 +488,20 @@ class ShikooController {
 
   void _set(_Intent intent) => _ref.read(_intentProvider.notifier).set(intent);
 
+  String get _service => '${_ref.read(currentProfileIdProvider)}';
+
+  String? get _appPick => _appPicks[_service];
+
   void _pickedByApp(String? name) {
-    _appPick = name;
+    final others = {..._appPicks}..remove(_service);
+    _savePicks(name == null ? others : {...others, _service: name});
+  }
+
+  void _savePicks(Map<String, String> picks) {
+    _appPicks = picks;
     unawaited(
       SharedPreferences.getInstance().then(
-        (prefs) => name == null
-            ? prefs.remove(_appPickKey)
-            : prefs.setString(_appPickKey, name),
+        (prefs) => prefs.setString(_appPicksKey, jsonEncode(picks)),
       ),
     );
   }
@@ -578,7 +589,7 @@ class ShikooController {
       await profiles.deleteProfile(profile.id);
     }
     await _ref.read(_extrasProvider.notifier).clear();
-    _pickedByApp(null);
+    _savePicks(const {});
     _notice(null);
     _ref.read(_pingsProvider.notifier).set(const {});
     _ref.read(_orderProvider.notifier).set(const []);
