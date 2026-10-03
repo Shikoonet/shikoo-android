@@ -470,7 +470,10 @@ class ShikooController {
   }
 
   Future<void> connect() async {
-    if (_validSelection() != null || _names(_group).isEmpty) return _start();
+    if (_validSelection() != null ||
+        _ref.read(currentProfileProvider) == null) {
+      return _start();
+    }
     _set(const _Intent(connecting: true, waiting: true));
     if (!_pinging) unawaited(pingAll());
     _reconcile();
