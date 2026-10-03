@@ -264,6 +264,11 @@
    - **از ویندوز** همیشه `wsl.exe -d Ubuntu --exec bash -c '…'` بزن، نه `--`.
    - **WSL در حالت NAT اینترنت ندارد.**
      - یک پل روی `127.0.0.1:10808` داخل WSL، اتصال‌ها را به پروکسی ویندوز می‌رساند. پل روشن می‌ماند. خاموش کردن: `winproxy_stop`.
+   - **ساعت WSL می‌پرید:**
+     - `systemd-timesyncd` بی‌اینترنت با هم‌گام‌سازی خود WSL دعوا داشت، و ساعت هر حدود ۲ ثانیه ۱۴ ثانیه جلو و عقب می‌رفت.
+     - نتیجه‌اش شکست‌های «Clock moved backwards» در تست‌های FlClash بود.
+     - ۲۰۲۶-۱۰-۰۴ با `systemctl disable --now systemd-timesyncd` خاموش شد. در ۲۰ ثانیه سنجش، دیگر هیچ پرشی دیده نشد.
+     - روی نصب تازه هم همین را بزن.
    - **ارسال Crashlytics هنگام ساخت** با init script گریدل خاموش است. سورس FlClash دست نخورده.
    - APKهای debug (`com.follow.clash.dev`) در `D:\dev\shikoo-spike\apk\wsl-build\` هستند، با `SHA256SUMS`. ساخت‌ها بایت‌به‌بایت تکرارپذیر نیستند.
    - **وقتی ریپو ساخته شد:** `.gitattributes` با `*.sh text eol=lf` لازم است.
