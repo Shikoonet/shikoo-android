@@ -533,4 +533,29 @@ void main() {
       expect(container.read(shikooStateProvider).selectedServer?.ping, -1);
     },
   );
+
+  test('nothing is measured at the press, under the consent dialog; the '
+      'selected server is once native reports the tunnel', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: name == 'آلمان ۱' ? 50 : 90);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    probes.clear();
+
+    container.read(runTimeProvider.notifier).value = 1;
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    expect(probes, isEmpty);
+
+    setup.tunnel = DateTime(2026);
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    await pumpEventQueue();
+    expect(probes, ['آلمان ۱']);
+    await controller.disconnect();
+  });
 }
