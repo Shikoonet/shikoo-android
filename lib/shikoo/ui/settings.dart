@@ -484,7 +484,10 @@ class _Row extends StatelessWidget {
             ),
           ),
           if (value != null)
-            Text(value, style: t.text(s.body, color: t.c.textMuted)),
+            Text(
+              value,
+              style: t.text(s.body, color: t.c.textMuted, height: Leading.body),
+            ),
           if (forward)
             Transform.flip(
               flipX: ltr,
