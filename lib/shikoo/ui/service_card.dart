@@ -452,7 +452,7 @@ class _Bar extends StatelessWidget {
   }
 }
 
-/// `.notice`: the panel's announcement, on one line.
+/// `.notice`: the panel's announcement, every line of it.
 class _Notice extends StatelessWidget {
   const _Notice({required this.text});
 
@@ -474,14 +474,25 @@ class _Notice extends StatelessWidget {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SvgIcon(ShikooIcon.bell, size: t.s.iconSm, color: t.c.textMuted),
+          Padding(
+            padding: EdgeInsets.only(
+              top: (t.s.bodySm * Leading.snug - t.s.iconSm) / 2,
+            ),
+            child: SvgIcon(
+              ShikooIcon.bell,
+              size: t.s.iconSm,
+              color: t.c.textMuted,
+            ),
+          ),
           const SizedBox(width: Space.s2),
           Expanded(
             child: nameText(
               context,
               text,
               t.text(t.s.bodySm, height: Leading.snug),
+              maxLines: null,
             ),
           ),
         ],

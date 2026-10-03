@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +38,7 @@ ShikooState _tv(
   DateTime? expire,
   DateTime? updatedAt,
   String? supportUrl,
+  String? announce,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -47,6 +49,7 @@ ShikooState _tv(
     totalBytes: 100 << 30,
     expire: expire,
     supportUrl: supportUrl,
+    announce: announce,
     updatedAt: updatedAt ?? DateTime.now(),
   ),
   servers: servers,
@@ -506,5 +509,15 @@ void main() {
     await _focus(tester, 'پشتیبانی');
     await _press(tester, _ok);
     expect(qr(), 'https://t.me/shikoo_help');
+  });
+
+  testWidgets("the panel's announcement shows every line", (tester) async {
+    _tvScreen(tester);
+    const announce =
+        'آخرین نسخه کانفیگ: V3.7.9\nاگر نسخه شما پایین‌تر است، به‌روزرسانی کنید.';
+    await _pumpTvHome(tester, _tv(ShikooConnection.off, announce: announce));
+    final text = tester.renderObject<RenderParagraph>(find.text(announce));
+    expect(text.didExceedMaxLines, isFalse);
+    expect(text.size.height, greaterThan(text.preferredLineHeight * 1.5));
   });
 }

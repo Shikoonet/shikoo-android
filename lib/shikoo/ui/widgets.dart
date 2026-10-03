@@ -16,10 +16,15 @@ String localNumber(BuildContext context, num value, [String pattern = '0']) =>
 
 /// A name from the subscription keeps its own script's direction, so `آلمان ۲` stays whole in
 /// the English layout, while it still lines up with the UI's start edge.
-Text nameText(BuildContext context, String name, TextStyle style) => Text(
+Text nameText(
+  BuildContext context,
+  String name,
+  TextStyle style, {
+  int? maxLines = 1,
+}) => Text(
   name,
-  maxLines: 1,
-  overflow: TextOverflow.ellipsis,
+  maxLines: maxLines,
+  overflow: maxLines == null ? null : TextOverflow.ellipsis,
   style: style,
   textDirection: Bidi.detectRtlDirectionality(name)
       ? TextDirection.rtl
