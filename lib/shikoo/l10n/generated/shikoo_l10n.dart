@@ -689,13 +689,13 @@ abstract class ShikooL10n {
   /// No description provided for @vpnRefused.
   ///
   /// In en, this message translates to:
-  /// **'VPN permission wasn\'t given.\nConnect again and allow it in Android\'s window.'**
+  /// **'Permission to connect wasn\'t given.\nConnect again and allow it in Android\'s window.'**
   String get vpnRefused;
 
   /// No description provided for @vpnMissing.
   ///
   /// In en, this message translates to:
-  /// **'This device has no VPN permission window.\nAsk Support.'**
+  /// **'This device doesn\'t show Android\'s permission window.\nAsk Support.'**
   String get vpnMissing;
 
   /// No description provided for @logoutTitleTv.

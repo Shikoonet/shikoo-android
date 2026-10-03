@@ -181,8 +181,31 @@ void main() {
     const down = LogicalKeyboardKey.arrowDown;
     expect(_focused(), 'خودکار');
     expect(await _press(tester, down), 'خروج');
+    expect(
+      await _press(tester, down),
+      'خروج',
+      reason: 'not into the app column',
+    );
     expect(await _press(tester, left), 'درباره');
     expect(await _press(tester, right), 'خروج');
+    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'تیره');
+    expect(await _press(tester, left), 'خودکار');
+    expect(await _press(tester, left), 'فارسی');
+    expect(await _press(tester, down), 'درباره');
+    expect(await _press(tester, down), 'درباره');
+  });
+
+  testWidgets('Latin text keeps the font spacing, as the frames', (
+    tester,
+  ) async {
+    await _pumpSettings(tester, _Controller());
+    final english = tester.widget<RichText>(
+      find.descendant(
+        of: find.text('English'),
+        matching: find.byType(RichText),
+      ),
+    );
+    expect(english.text.style?.letterSpacing, 0);
   });
 
   testWidgets('English mirrors the log-out and forward icons', (tester) async {
@@ -207,17 +230,28 @@ void main() {
     expect(mirrored(ShikooIcon.chevronFwd), -1);
   });
 
-  test(
-    'the status bar icons are dark on the light theme, light on the dark',
-    () {
-      expect(
-        shikooSystemUi(Brightness.light).statusBarIconBrightness,
-        Brightness.dark,
+  testWidgets('the status bar follows the app theme, not FlClash setting', (
+    tester,
+  ) async {
+    for (final (mode, icons) in [
+      (ThemeMode.light, Brightness.dark),
+      (ThemeMode.dark, Brightness.light),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          themeMode: mode,
+          theme: shikooThemeData(Brightness.light, tv: false),
+          darkTheme: shikooThemeData(Brightness.dark, tv: false),
+          // FlClash's ThemeManager, on its default dark theme.
+          builder: (context, child) => AnnotatedRegion(
+            value: SystemUiOverlayStyle.light,
+            child: ShikooSystemUi(child: child!),
+          ),
+          home: const Scaffold(),
+        ),
       );
-      expect(
-        shikooSystemUi(Brightness.dark).statusBarIconBrightness,
-        Brightness.light,
-      );
-    },
-  );
+      await tester.pumpAndSettle();
+      expect(SystemChrome.latestStyle?.statusBarIconBrightness, icons);
+    }
+  });
 }

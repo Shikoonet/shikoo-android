@@ -67,6 +67,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   }
 }
 
+/// A node keeps the context of its widget after the widget is gone.
+bool _onScreen(FocusNode? node) => node?.context?.mounted ?? false;
+
 /// Toward the card is the selected server, or the first one while none is chosen.
 class _PowerKeys extends StatelessWidget {
   const _PowerKeys({required this.row, required this.child});
@@ -84,7 +87,7 @@ class _PowerKeys extends StatelessWidget {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
             final row = this.row;
-            if (intent.direction == towardCard && row?.context != null) {
+            if (intent.direction == towardCard && _onScreen(row)) {
               row!.requestFocus();
             } else if (intent.direction != TraversalDirection.down) {
               primaryFocus?.focusInDirection(intent.direction);
@@ -128,7 +131,7 @@ class _CardKeys extends StatelessWidget {
             }
             if (intent.direction == towardPower &&
                 from != focus.renew &&
-                power.context != null) {
+                _onScreen(power)) {
               power.requestFocus();
             } else {
               from?.focusInDirection(intent.direction);
@@ -369,8 +372,7 @@ class _PowerZone extends StatelessWidget {
     final gap = state.isTV ? Space.s4 : Space.s3;
     if (state.service == null) {
       return Padding(
-        // Frame tv-home-no-service keeps the gaps of the absent pill and message rows.
-        padding: EdgeInsets.only(bottom: state.isTV ? Space.s4 : 0),
+        padding: EdgeInsets.only(bottom: state.isTV ? gap : 0),
         child: PowerButton(
           connection: ShikooConnection.off,
           connectedFor: Duration.zero,

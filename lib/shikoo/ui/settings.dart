@@ -91,23 +91,23 @@ class ShikooSettings extends ConsumerWidget {
     return _Page(
       title: l.settings,
       isTV: isTV,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.s6,
-        children: isTV
-            ? [
-                for (var i = 0; i < groups.length; i += 2)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: Space.s10,
-                    children: [
-                      Expanded(child: groups[i]),
-                      Expanded(child: groups[i + 1]),
-                    ],
+      child: isTV
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: Space.s10,
+              children: [
+                for (final first in [0, 1])
+                  Expanded(
+                    child: _Column(
+                      children: [
+                        for (var i = first; i < groups.length; i += 2)
+                          groups[i],
+                      ],
+                    ),
                   ),
-              ]
-            : groups,
-      ),
+              ],
+            )
+          : _Column(children: groups),
     );
   }
 
@@ -276,6 +276,38 @@ class _Page extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// The frame's remote order: up and down stay in a column, left and right cross to the other.
+class _Column extends StatelessWidget {
+  const _Column({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => FocusScope(
+    child: FocusTraversalGroup(
+      policy: _ColumnPolicy(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s6,
+        children: children,
+      ),
+    ),
+  );
+}
+
+class _ColumnPolicy extends ReadingOrderTraversalPolicy {
+  @override
+  bool inDirection(FocusNode currentNode, TraversalDirection direction) {
+    currentNode.nearestScope!.directionalTraversalEdgeBehavior =
+        switch (direction) {
+          TraversalDirection.up ||
+          TraversalDirection.down => TraversalEdgeBehavior.stop,
+          _ => TraversalEdgeBehavior.parentScope,
+        };
+    return super.inDirection(currentNode, direction);
   }
 }
 

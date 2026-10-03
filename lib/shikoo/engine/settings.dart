@@ -35,7 +35,6 @@ class ShikooLookNotifier extends Notifier<ShikooLook> {
   ShikooLook build() =>
       (theme: ThemeMode.system, language: shikooDefaultLanguage);
 
-  /// Before the first frame, so the app never opens in the wrong theme or language.
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     state = (

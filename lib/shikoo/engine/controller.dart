@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
@@ -224,8 +225,7 @@ final _pingsProvider = _cell<Map<String, int>>(const {});
 final _refreshProvider = _cell(ShikooRefresh.idle);
 final _noticeProvider = _cell<ShikooNotice?>(null);
 
-/// The tunnel's real start. FlClash's own run time starts at the press, so it also counts the
-/// consent dialog, and it arrives seconds late after the app is opened again.
+/// The tunnel's real start; FlClash's run time starts at the press, before the consent dialog.
 final _nativeStartProvider = _cell<DateTime?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
@@ -395,15 +395,19 @@ final shikooControllerProvider = Provider<ShikooController>(
   ShikooController.new,
 );
 
-/// The tunnel's start as native reports it, null while it is down or still asking for consent.
 final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
   (_) =>
       () async => service?.getRunTime(),
 );
 
+// ponytail: trusts the panel's rules to send FlClash's IP lookups to the selected server.
+final trafficPassesProvider = Provider<Future<bool> Function()>(
+  (_) =>
+      () async => (await request.checkIp()).data != null,
+);
+
 /// Polls [runTime] until native reports a running tunnel. Flutter's own run state is set
 /// optimistically before the service starts (engine map section 4), so only native is proof.
-/// Time while [paused], as under Android's VPN consent dialog, does not count.
 Future<DateTime?> waitForTunnel(
   Future<DateTime?> Function() runTime, {
   required Duration timeout,
@@ -472,9 +476,9 @@ class ShikooController {
         _appPicksKey,
       );
       if (stored == null) return;
-      _appPicks = {
+      _appPickByService = {
         ...(jsonDecode(stored) as Map<String, dynamic>).cast<String, String>(),
-        ..._appPicks,
+        ..._appPickByService,
       };
     });
     scheduleMicrotask(() async {
@@ -489,8 +493,7 @@ class ShikooController {
   bool foreground = true;
   static const _appPicksKey = 'shikoo.appPicks';
 
-  /// By profile id, the server the app chose itself: only these are replaced when silent.
-  Map<String, String> _appPicks = const {};
+  Map<String, String> _appPickByService = const {};
   int _attempt = 0;
   Set<String> _roundNames = const {};
   bool _again = false;
@@ -511,15 +514,15 @@ class ShikooController {
 
   String get _service => '${_ref.read(currentProfileIdProvider)}';
 
-  String? get _appPick => _appPicks[_service];
+  String? get _appPick => _appPickByService[_service];
 
   void _pickedByApp(String? name) {
-    final others = {..._appPicks}..remove(_service);
+    final others = {..._appPickByService}..remove(_service);
     _savePicks(name == null ? others : {...others, _service: name});
   }
 
   void _savePicks(Map<String, String> picks) {
-    _appPicks = picks;
+    _appPickByService = picks;
     unawaited(
       SharedPreferences.getInstance().then(
         (prefs) => prefs.setString(_appPicksKey, jsonEncode(picks)),
@@ -600,7 +603,6 @@ class ShikooController {
     await _setup.setRunning(false);
   }
 
-  /// From AppPlugin: `refused`, or `missing` on a device without the consent dialog.
   void onVpnConsent(String result) {
     if (!_ref.read(_intentProvider).connecting) return;
     _attempt++;
@@ -621,7 +623,6 @@ class ShikooController {
     await _setup.setRunning(false);
   }
 
-  /// "Log out" until sign-in with Telegram exists: this device forgets every service.
   Future<void> forgetServices() async {
     await disconnect();
     final profiles = _ref.read(profilesActionProvider.notifier);
@@ -638,6 +639,10 @@ class ShikooController {
   /// The user's choice, which the app never replaces.
   Future<void> selectServer(String name) async {
     _pickedByApp(null);
+    if (_ref.read(_noticeProvider)
+        case SilentReplaced() || SelectedReplaced()) {
+      _notice(null);
+    }
     await _choose(name);
     await _checkSelected();
   }
@@ -778,13 +783,17 @@ class ShikooController {
     _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
   }
 
+  /// WireGuard pings can fail while it carries traffic, so real traffic decides for the selection.
   Future<int?> _probe(String url, String name) async {
+    int? ms;
     try {
-      final delay = await _ref.read(coreHandlerProvider).getDelay(url, name);
-      return delay?.value;
-    } catch (_) {
-      return null;
-    }
+      ms = (await _ref.read(coreHandlerProvider).getDelay(url, name))?.value;
+    } catch (_) {}
+    if ((ms ?? 0) > 0 || name != _validSelection() || !_running) return ms;
+    if (await _nativeRunTime() == null) return ms;
+    final took = Stopwatch()..start();
+    if (!await _ref.read(trafficPassesProvider)()) return ms;
+    return math.max(took.elapsedMilliseconds, 1);
   }
 
   void onForeground() {

@@ -306,6 +306,7 @@ class ShikooTheme extends ThemeExtension<ShikooTheme> {
     fontWeight: weight,
     color: color ?? c.text,
     height: height,
+    letterSpacing: 0,
     fontFeatures: tabular ? const [FontFeature.tabularFigures()] : null,
   );
 
@@ -317,20 +318,30 @@ class ShikooTheme extends ThemeExtension<ShikooTheme> {
       t < 0.5 || other == null ? this : other;
 }
 
-/// Status and navigation bar icons for the app's own theme; FlClash's ThemeManager follows
-/// FlClash's theme setting, dark by default.
-SystemUiOverlayStyle shikooSystemUi(Brightness brightness) {
-  final icons = brightness == Brightness.light
-      ? Brightness.dark
-      : Brightness.light;
-  return SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: icons,
-    statusBarBrightness: brightness,
-    systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarIconBrightness: icons,
-    systemNavigationBarContrastEnforced: false,
-  );
+/// FlClash's ThemeManager sets the bar icons from FlClash's own theme, dark by default.
+class ShikooSystemUi extends StatelessWidget {
+  const ShikooSystemUi({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final icons = brightness == Brightness.light
+        ? Brightness.dark
+        : Brightness.light;
+    return AnnotatedRegion(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: icons,
+        statusBarBrightness: brightness,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: icons,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: child,
+    );
+  }
 }
 
 ThemeData shikooThemeData(Brightness brightness, {required bool tv}) {

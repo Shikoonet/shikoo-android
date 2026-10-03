@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -509,6 +510,11 @@ void main() {
     await _focus(tester, 'پشتیبانی');
     await _press(tester, _ok);
     expect(qr(), ShikooLinks.support, reason: 'the panel sends a bare t.me');
+    expect(
+      find.text('user123 · الماس', findRichText: true),
+      findsNWidgets(2),
+      reason: 'the card and the line under the QR',
+    );
     expect(await _press(tester, _ok), 'پشتیبانی', reason: 'Close');
 
     await _pumpTvHome(
@@ -596,6 +602,14 @@ void main() {
       _tv(ShikooConnection.error, error: ShikooError.vpnMissing),
     );
     expect(find.textContaining('پنجرهٔ اجازهٔ اتصال را ندارد'), findsOneWidget);
+
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.error, error: ShikooError.vpnRefused),
+      locale: 'en',
+    );
+    expect(find.textContaining('Permission to connect'), findsOneWidget);
+    expect(find.textContaining('VPN'), findsNothing);
   });
 
   testWidgets('a dialog is as wide as the design, however short its text', (
@@ -674,6 +688,68 @@ void main() {
     expect(
       tester.widget<QrTile>(find.byType(QrTile)).data,
       ShikooLinks.support,
+    );
+  });
+
+  testWidgets('once the services are removed, the remote leaves support '
+      'for settings', (tester) async {
+    _tvScreen(tester);
+    final holder = await _pumpTvHome(tester, _tv(ShikooConnection.off));
+    await _focus(tester, 'تنظیمات');
+    holder.value = const ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: true,
+      servers: [],
+    );
+    await tester.pumpAndSettle();
+    expect(await _press(tester, _down), 'پشتیبانی');
+    expect(await _press(tester, _towardPower), 'تنظیمات');
+  });
+
+  testWidgets('the phone with no service has a plain support button', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: [],
+      ),
+    );
+    final support = tester.widget<ShikooButton>(
+      find.widgetWithText(ShikooButton, 'پشتیبانی'),
+    );
+    expect(support.icon, isNull);
+  });
+
+  testWidgets('a server with no known country keeps the flag space, empty', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.off,
+        servers: const [
+          ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
+          ShikooServer(name: 'WireGuard 3', type: 'WireGuard', ping: 90),
+        ],
+        selected: 'آلمان ۲',
+      ),
+    );
+    Finder flagOf(String name) => find.descendant(
+      of: find.ancestor(of: find.text(name), matching: find.byType(ServerRow)),
+      matching: find.byType(Flag),
+    );
+    final blank = flagOf('WireGuard 3');
+    expect(tester.getSize(blank), tester.getSize(flagOf('آلمان ۲')));
+    expect(
+      find.descendant(of: blank, matching: find.byType(DecoratedBox)),
+      findsNothing,
     );
   });
 }
