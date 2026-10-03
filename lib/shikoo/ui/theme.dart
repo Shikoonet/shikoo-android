@@ -313,6 +313,22 @@ class ShikooTheme extends ThemeExtension<ShikooTheme> {
       t < 0.5 || other == null ? this : other;
 }
 
+/// Status and navigation bar icons for the app's own theme; FlClash's ThemeManager follows
+/// FlClash's theme setting, dark by default.
+SystemUiOverlayStyle shikooSystemUi(Brightness brightness) {
+  final icons = brightness == Brightness.light
+      ? Brightness.dark
+      : Brightness.light;
+  return SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: icons,
+    statusBarBrightness: brightness,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarIconBrightness: icons,
+    systemNavigationBarContrastEnforced: false,
+  );
+}
+
 ThemeData shikooThemeData(Brightness brightness, {required bool tv}) {
   final c = brightness == Brightness.light
       ? ShikooColors.light

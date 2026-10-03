@@ -144,7 +144,10 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
             child: buildManagerStack(
               isDesktop: false,
               onConnectivityChanged: _onConnectivityChanged,
-              child: child!,
+              child: AnnotatedRegion(
+                value: shikooSystemUi(Theme.of(context).brightness),
+                child: child!,
+              ),
             ),
           ),
         );

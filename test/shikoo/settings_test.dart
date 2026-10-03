@@ -161,4 +161,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(_focused(), 'درباره');
   });
+
+  test(
+    'the status bar icons are dark on the light theme, light on the dark',
+    () {
+      expect(
+        shikooSystemUi(Brightness.light).statusBarIconBrightness,
+        Brightness.dark,
+      );
+      expect(
+        shikooSystemUi(Brightness.dark).statusBarIconBrightness,
+        Brightness.light,
+      );
+    },
+  );
 }
