@@ -67,8 +67,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   }
 }
 
-/// A node keeps the context of a widget that is gone, as the power button once the services
-/// are removed.
+/// A node keeps the context of its widget after the widget is gone.
 bool _onScreen(FocusNode? node) => node?.context?.mounted ?? false;
 
 /// Toward the card is the selected server, or the first one while none is chosen.
@@ -373,8 +372,7 @@ class _PowerZone extends StatelessWidget {
     final gap = state.isTV ? Space.s4 : Space.s3;
     if (state.service == null) {
       return Padding(
-        // Frame tv-home-no-service keeps the gaps of the absent pill and message rows.
-        padding: EdgeInsets.only(bottom: state.isTV ? Space.s4 : 0),
+        padding: EdgeInsets.only(bottom: state.isTV ? gap : 0),
         child: PowerButton(
           connection: ShikooConnection.off,
           connectedFor: Duration.zero,
