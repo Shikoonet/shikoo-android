@@ -180,10 +180,13 @@ class ShikooAbout extends ConsumerWidget {
           child: _Card(
             rows: [
               Padding(
-                padding: const EdgeInsets.all(Space.s4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.s6,
+                  vertical: Space.s4,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: Space.s2,
+                  spacing: Space.s3,
                   children: [
                     Text(
                       '${l.appTitle} ${_version(context, ref.watch(shikooVersionProvider))}',
