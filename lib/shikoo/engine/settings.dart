@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 abstract final class ShikooLinks {
   static const bot = 'https://t.me/shikoonet_bot';
 
-  // The customer's own services; the bot's link to one service, rnw_<id>, needs a bot row id.
+  // ponytail: the services list; rnw_<id> once Telegram sign-in gives the bot's service id.
   static const renew = '$bot?start=renew';
   static const support = 'https://t.me/admiinturbo';
 }
