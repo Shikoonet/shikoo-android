@@ -11,6 +11,10 @@ void main() {
     expect(countryOf('UK'), 'GB');
     expect(countryOf('Ukraine'), isNull);
     expect(countryOf('WireGuard 3'), isNull);
+    expect(countryOf('shikoonetturkey'), 'TR');
+    expect(countryOf('shikoonetgermany'), 'DE');
+    expect(countryOf('shikoonetusa'), 'US');
+    expect(countryOf('Jerusalem'), isNull);
   });
 
   test('withoutFlags drops flag emoji only', () {
