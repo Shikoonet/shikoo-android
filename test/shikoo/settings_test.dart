@@ -154,7 +154,10 @@ void main() {
     expect(find.textContaining('GPL-3.0'), findsOneWidget);
     expect(find.textContaining('FlClash'), findsOneWidget);
     expect(find.textContaining('mihomo'), findsOneWidget);
-    expect(find.textContaining('«پشتیبانی»'), findsOneWidget);
+    expect(
+      find.text('کد منبعِ همین نسخه را می‌توانی از «پشتیبانی» بگیری.'),
+      findsOneWidget,
+    );
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();

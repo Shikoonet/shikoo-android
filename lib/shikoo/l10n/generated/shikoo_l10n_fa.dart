@@ -386,7 +386,8 @@ class ShikooL10nFa extends ShikooL10n {
       'شیکو بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.';
 
   @override
-  String get aboutSource => 'سورس همین نسخه را می‌توانی از «پشتیبانی» بگیری.';
+  String get aboutSource =>
+      'کد منبعِ همین نسخه را می‌توانی از «پشتیبانی» بگیری.';
 
   @override
   String get aboutLicense => 'متن مجوز: gnu.org/licenses/gpl-3.0';
