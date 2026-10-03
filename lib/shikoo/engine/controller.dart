@@ -445,6 +445,7 @@ class ShikooController {
       scheduleMicrotask(() {
         _nativeStart(null);
         _reconcile();
+        unawaited(_checkSelected());
       });
     });
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
@@ -596,9 +597,10 @@ class ShikooController {
   }
 
   /// The user's choice, which the app never replaces.
-  Future<void> selectServer(String name) {
+  Future<void> selectServer(String name) async {
     _pickedByApp(null);
-    return _choose(name);
+    await _choose(name);
+    await _checkSelected();
   }
 
   Future<void> _choose(String name) async {
@@ -676,10 +678,7 @@ class ShikooController {
     final url = _testUrl(group);
     try {
       await pingServers(names, (name) => _probe(url, name), (name, ms) {
-        _ref.read(_pingsProvider.notifier).set({
-          ..._ref.read(_pingsProvider),
-          name: ms,
-        });
+        _setPing(name, ms);
         final now = _ref.read(_roundProvider);
         round.set((
           pending: {...now.pending}..remove(name),
@@ -709,6 +708,20 @@ class ShikooController {
         unawaited(pingAll());
       }
     }
+  }
+
+  void _setPing(String name, int ms) => _ref.read(_pingsProvider.notifier).set({
+    ..._ref.read(_pingsProvider),
+    name: ms,
+  });
+
+  Future<void> _checkSelected() async {
+    final group = _group;
+    final chosen = _validSelection();
+    if (group == null || chosen == null || _pinging) return;
+    final url = _testUrl(group);
+    await pingServers([chosen], (name) => _probe(url, name), _setPing);
+    _replaceSilentPick();
   }
 
   void _replaceSilentPick() {

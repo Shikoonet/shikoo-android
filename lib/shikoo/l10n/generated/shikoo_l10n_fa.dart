@@ -393,4 +393,9 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutLicense => 'متن مجوز: gnu.org/licenses/gpl-3.0';
+
+  @override
+  String selectedDown(String name) {
+    return '«$name» جواب نمی‌دهد.\nسرور دیگری را از فهرست انتخاب کن.';
+  }
 }

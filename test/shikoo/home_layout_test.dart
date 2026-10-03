@@ -544,4 +544,28 @@ void main() {
       expect(find.text('«فنلاند ۲» جواب نداد. $second'), findsOneWidget);
     }
   });
+
+  testWidgets('connected to a silent server, the button is not green alone', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.on,
+        servers: const [
+          ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
+          ShikooServer(name: 'shikoonetturkey', type: 'WireGuard', ping: -1),
+        ],
+        selected: 'shikoonetturkey',
+      ),
+    );
+    expect(find.text('وصل'), findsOneWidget);
+    final warning = find.textContaining('«shikoonetturkey» جواب نمی‌دهد.');
+    expect(warning, findsOneWidget);
+    expect(tester.widget<Text>(warning).style?.color, ShikooColors.dark.danger);
+
+    await _pumpTvHome(tester, _tv(ShikooConnection.off, selected: 'آلمان ۲'));
+    expect(find.textContaining('جواب نمی‌دهد'), findsNothing);
+  });
 }

@@ -319,4 +319,53 @@ void main() {
     expect(container.read(shikooStateProvider).selected, 'آلمان ۱');
     expect(proxies.picked, hasLength(3), reason: "the user's own stays");
   });
+
+  test(
+    'connected, a silent server picked by hand is measured and kept',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+
+      pings['هلند ۱'] = -1;
+      await controller.selectServer('هلند ۱');
+      final state = container.read(shikooStateProvider);
+      expect(state.selected, 'هلند ۱');
+      expect(
+        state.selectedServer?.ping,
+        -1,
+        reason: 'measured, not the old 90',
+      );
+      expect(state.notice, isNull);
+      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+    },
+  );
+
+  test("the tunnel coming up on the app's own silent pick moves it", () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    expect(proxies.picked, ['آلمان ۱']);
+
+    pings['آلمان ۱'] = -1;
+    container.read(runTimeProvider.notifier).value = 1;
+    await pumpEventQueue();
+    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+    expect(
+      container.read(shikooStateProvider).notice,
+      isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
+    );
+  });
 }

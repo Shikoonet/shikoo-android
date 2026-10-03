@@ -358,6 +358,8 @@ class _PowerZone extends StatelessWidget {
     final l = ShikooL10n.of(context);
     final selected = state.selectedServer;
     final gap = state.isTV ? Space.s4 : Space.s3;
+    final silent =
+        state.connection == ShikooConnection.on && (selected?.ping ?? 0) < 0;
     final message = switch (state.lastError) {
       ShikooError.connectTimeout => l.errorConnect(
         selected?.label ?? '',
@@ -368,6 +370,7 @@ class _PowerZone extends StatelessWidget {
       ShikooError.serverChange => l.errorServer,
       ShikooError.addService => l.errorAdd,
       null when state.waiting => l.connectsToFirst,
+      null when silent => l.selectedDown(selected!.label),
       null =>
         state.isTV &&
                 state.connection == ShikooConnection.off &&
@@ -416,7 +419,9 @@ class _PowerZone extends StatelessWidget {
               textAlign: TextAlign.center,
               style: t.text(
                 t.s.bodySm,
-                color: state.lastError == null ? t.c.textMuted : t.c.danger,
+                color: state.lastError == null && !silent
+                    ? t.c.textMuted
+                    : t.c.danger,
               ),
             ),
           ),

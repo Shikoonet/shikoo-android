@@ -691,6 +691,12 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'License text: gnu.org/licenses/gpl-3.0'**
   String get aboutLicense;
+
+  /// Under the power button while connected to a server the user picked that does not answer.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” isn\'t answering.\nPick another server from the list.'**
+  String selectedDown(String name);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

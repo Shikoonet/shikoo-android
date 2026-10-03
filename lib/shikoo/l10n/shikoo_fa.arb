@@ -98,5 +98,6 @@
   "aboutFree": "شیکو نرم‌افزار آزاد است و با مجوز GPL-3.0 منتشر می‌شود.",
   "aboutBasedOn": "بر پایهٔ FlClash (از chen08209) و هستهٔ اتصال mihomo (از MetaCubeX) ساخته شده است؛ سپاس از سازندگان هر دو.",
   "aboutSource": "سورس همین نسخه را می‌توانی از «پشتیبانی» بگیری.",
-  "aboutLicense": "متن مجوز: gnu.org/licenses/gpl-3.0"
+  "aboutLicense": "متن مجوز: gnu.org/licenses/gpl-3.0",
+  "selectedDown": "«{name}» جواب نمی‌دهد.\nسرور دیگری را از فهرست انتخاب کن."
 }

@@ -431,4 +431,9 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get aboutLicense => 'License text: gnu.org/licenses/gpl-3.0';
+
+  @override
+  String selectedDown(String name) {
+    return '“$name” isn\'t answering.\nPick another server from the list.';
+  }
 }

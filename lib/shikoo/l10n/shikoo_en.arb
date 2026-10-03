@@ -140,5 +140,10 @@
   "aboutFree": "Shikoo is free software, released under the GPL-3.0 license.",
   "aboutBasedOn": "It is built on FlClash (by chen08209), and its connection core is mihomo (by MetaCubeX). Thanks to the makers of both.",
   "aboutSource": "You can get the source code of this version from Support.",
-  "aboutLicense": "License text: gnu.org/licenses/gpl-3.0"
+  "aboutLicense": "License text: gnu.org/licenses/gpl-3.0",
+  "selectedDown": "“{name}” isn't answering.\nPick another server from the list.",
+  "@selectedDown": {
+    "description": "Under the power button while connected to a server the user picked that does not answer.",
+    "placeholders": {"name": {"type": "String"}}
+  }
 }
