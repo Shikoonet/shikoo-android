@@ -206,6 +206,10 @@ ul { list-style: none; }
   border-radius: var(--radius-full); background: var(--color-surface); box-shadow: var(--shadow-card);
   font-weight: var(--font-weight-medium); line-height: var(--leading-tight);
 }
+/* هنوز سروری انتخاب نشده (.is-finding)، یا هیچ سروری جواب نداد (.is-none) */
+.now > .icon { --size-icon: var(--size-icon-sm); color: var(--color-text-muted); }
+.now.is-finding { color: var(--color-text-muted); }
+.now.is-none > .icon { color: var(--color-danger); }
 
 /* ۱۰. کنترل تکه‌ای */
 .segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
