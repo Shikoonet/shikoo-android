@@ -126,7 +126,7 @@ class ShikooL10nEn extends ShikooL10n {
         intl.NumberFormat.decimalPattern(localeName);
     final String secondsString = secondsNumberFormat.format(seconds);
 
-    return '$server didn\'t answer in $secondsString seconds. Try another server too.';
+    return '$server didn\'t answer in $secondsString seconds.\nTry another server.';
   }
 
   @override

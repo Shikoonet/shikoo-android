@@ -281,7 +281,7 @@ abstract class ShikooL10n {
   /// No description provided for @errorConnect.
   ///
   /// In en, this message translates to:
-  /// **'{server} didn\'t answer in {seconds} seconds. Try another server too.'**
+  /// **'{server} didn\'t answer in {seconds} seconds.\nTry another server.'**
   String errorConnect(String server, int seconds);
 
   /// No description provided for @errorServer.

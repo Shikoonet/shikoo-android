@@ -42,7 +42,7 @@
   "msUnit": "ms",
   "@msUnit": {"description": "Unit after a ping. Empty where pings are written without one, as in Persian."},
   "noResponse": "No response",
-  "errorConnect": "{server} didn't answer in {seconds} seconds. Try another server too.",
+  "errorConnect": "{server} didn't answer in {seconds} seconds.\nTry another server.",
   "@errorConnect": {
     "placeholders": {
       "server": {"type": "String"},

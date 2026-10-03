@@ -120,7 +120,7 @@ class ShikooL10nFa extends ShikooL10n {
         intl.NumberFormat.decimalPattern(localeName);
     final String secondsString = secondsNumberFormat.format(seconds);
 
-    return '$server تا $secondsString ثانیه جواب نداد. سرور دیگری را هم امتحان کن.';
+    return '$server تا $secondsString ثانیه جواب نداد.\nسرور دیگری را امتحان کن.';
   }
 
   @override
