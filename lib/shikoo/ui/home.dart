@@ -19,11 +19,13 @@ class ShikooHome extends ConsumerStatefulWidget {
 }
 
 class _ShikooHomeState extends ConsumerState<ShikooHome> {
-  final _selectedRow = FocusNode();
+  final _card = CardFocus();
+  final _power = FocusNode();
 
   @override
   void dispose() {
-    _selectedRow.dispose();
+    _card.dispose();
+    _power.dispose();
     super.dispose();
   }
 
@@ -32,12 +34,17 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final t = ShikooTheme.of(context);
-    final power = _PowerZone(state: state, controller: controller);
+    final power = _PowerZone(
+      state: state,
+      controller: controller,
+      focusNode: _power,
+    );
     final card = ServiceCard(
       state: state,
       controller: controller,
-      selectedRowFocus: _selectedRow,
+      focus: _card,
     );
+    final towardCard = state.selected ?? state.servers.firstOrNull?.name;
     return Scaffold(
       backgroundColor: t.c.bg,
       body: PageFocusScope(
@@ -45,8 +52,11 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           policy: PageTraversalPolicy(),
           child: state.isTV
               ? _TvLayout(
-                  power: _PowerKeys(selectedRow: _selectedRow, child: power),
-                  card: card,
+                  power: _PowerKeys(
+                    row: towardCard == null ? null : _card.row(towardCard),
+                    child: power,
+                  ),
+                  card: _CardKeys(focus: _card, power: _power, child: card),
                 )
               : _PhoneLayout(power: power, card: card),
         ),
@@ -55,11 +65,11 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   }
 }
 
-/// The power button is alone in its column: towards the card is the selected server.
+/// Toward the card is the selected server, or the first one while none is chosen.
 class _PowerKeys extends StatelessWidget {
-  const _PowerKeys({required this.selectedRow, required this.child});
+  const _PowerKeys({required this.row, required this.child});
 
-  final FocusNode selectedRow;
+  final FocusNode? row;
   final Widget child;
 
   @override
@@ -71,10 +81,53 @@ class _PowerKeys extends StatelessWidget {
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
-            if (intent.direction == towardCard && selectedRow.context != null) {
-              selectedRow.requestFocus();
+            final row = this.row;
+            if (intent.direction == towardCard && row?.context != null) {
+              row!.requestFocus();
             } else if (intent.direction != TraversalDirection.down) {
               primaryFocus?.focusInDirection(intent.direction);
+            }
+            return null;
+          },
+        ),
+      },
+      child: child,
+    );
+  }
+}
+
+/// Toward the power button every card item goes there, except renew, which steps to support
+/// first; down from renew is ping-all, not the first full-width row (tv-ping.html notes).
+class _CardKeys extends StatelessWidget {
+  const _CardKeys({
+    required this.focus,
+    required this.power,
+    required this.child,
+  });
+
+  final CardFocus focus;
+  final FocusNode power;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final towardPower = Directionality.of(context) == TextDirection.rtl
+        ? TraversalDirection.left
+        : TraversalDirection.right;
+    return Actions(
+      actions: {
+        DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
+          onInvoke: (intent) {
+            final from = primaryFocus;
+            if (from == focus.renew &&
+                intent.direction == TraversalDirection.down) {
+              focus.pingAll.requestFocus();
+              return null;
+            }
+            if (intent.direction == towardPower && from != focus.renew) {
+              power.requestFocus();
+            } else {
+              from?.focusInDirection(intent.direction);
             }
             return null;
           },
@@ -286,12 +339,17 @@ class _PhoneLayout extends StatelessWidget {
   }
 }
 
-/// `.tv-power` / `.power-zone`: the button, the selected server, and a hint or an error.
+/// `.tv-power` / `.power-zone`: the button, a pill that is always there so it never moves, a hint.
 class _PowerZone extends StatelessWidget {
-  const _PowerZone({required this.state, required this.controller});
+  const _PowerZone({
+    required this.state,
+    required this.controller,
+    required this.focusNode,
+  });
 
   final ShikooState state;
   final ShikooController controller;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -304,8 +362,11 @@ class _PowerZone extends StatelessWidget {
         selected?.label ?? '',
         connectTimeout.inSeconds,
       ),
+      ShikooError.noServer =>
+        state.isTV ? l.noServerAnsweredHelpTv : l.noServerAnsweredHelpTouch,
       ShikooError.serverChange => l.errorServer,
       ShikooError.addService => l.errorAdd,
+      null when state.waiting => l.connectsToFirst,
       null =>
         state.isTV && state.connection == ShikooConnection.off
             ? l.tvHint
@@ -321,6 +382,7 @@ class _PowerZone extends StatelessWidget {
           connection: state.connection,
           connectedFor: state.connectedFor,
           isTV: state.isTV,
+          focusNode: focusNode,
           onPressed: () => unawaited(switch (state.connection) {
             ShikooConnection.off ||
             ShikooConnection.error => controller.connect(),
@@ -328,10 +390,17 @@ class _PowerZone extends StatelessWidget {
             ShikooConnection.on => controller.disconnect(),
           }),
         ),
-        if (selected != null) ...[
-          SizedBox(height: gap),
-          NowPill(server: selected),
-        ],
+        SizedBox(height: gap),
+        if (state.service == null)
+          const Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: NowPill(pick: ShikooPick.none),
+          )
+        else
+          NowPill(pick: state.pick, server: selected),
         if (message != null || slot != null) ...[
           SizedBox(height: gap),
           SizedBox(

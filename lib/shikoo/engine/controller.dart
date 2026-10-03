@@ -8,6 +8,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,9 +17,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum ShikooConnection { off, connecting, on, error }
 
-enum ShikooError { connectTimeout, serverChange, addService }
+enum ShikooError { connectTimeout, serverChange, addService, noServer }
 
 enum ShikooServiceStatus { active, expired, exhausted }
+
+enum ShikooPick { server, finding, none }
+
+enum ShikooRefresh { idle, running, failed }
 
 // ponytail: native never reports a refused VPN consent (engine map section 4), so a user
 // slower than this on the consent dialog sees "couldn't connect" and presses again.
@@ -56,6 +61,7 @@ class ShikooService {
     this.expire,
     this.announce,
     this.supportUrl,
+    this.updatedAt,
   });
 
   final String name;
@@ -66,6 +72,8 @@ class ShikooService {
   final DateTime? expire;
   final String? announce;
   final String? supportUrl;
+
+  final DateTime? updatedAt;
 
   ShikooServiceStatus statusAt(DateTime now) {
     if (expire != null && !expire!.isAfter(now)) {
@@ -78,6 +86,37 @@ class ShikooService {
   }
 }
 
+/// What the last subscription update did, shown under the service name until the next one.
+sealed class ShikooNotice {
+  const ShikooNotice();
+}
+
+class ServersChanged extends ShikooNotice {
+  const ServersChanged({required this.added, required this.removed});
+
+  final int added;
+  final List<String> removed;
+}
+
+class SelectedReplaced extends ShikooNotice {
+  const SelectedReplaced({
+    required this.removed,
+    required this.replacement,
+    required this.moved,
+  });
+
+  final String removed;
+  final String replacement;
+
+  /// The tunnel was up, so traffic moved at once.
+  final bool moved;
+}
+
+/// Only for an update the user asked for; an automatic one just says so under the name.
+class RefreshFailed extends ShikooNotice {
+  const RefreshFailed();
+}
+
 @immutable
 class ShikooState {
   const ShikooState({
@@ -88,15 +127,31 @@ class ShikooState {
     this.service,
     this.selected,
     this.lastError,
+    this.pick = ShikooPick.server,
+    this.pinging,
+    this.refresh = ShikooRefresh.idle,
+    this.notice,
+    this.waiting = false,
   });
 
   final ShikooConnection connection;
   final Duration connectedFor;
   final bool isTV;
   final ShikooService? service;
+
+  /// In display order: panel order until a ping round ends, then fastest first.
   final List<ShikooServer> servers;
+
+  /// Only a server the user or the app chose and that is still in the subscription.
   final String? selected;
   final ShikooError? lastError;
+  final ShikooPick pick;
+  final ({int done, int total})? pinging;
+  final ShikooRefresh refresh;
+  final ShikooNotice? notice;
+
+  /// Connect was pressed before a server was chosen: the first one that answers is used.
+  final bool waiting;
 
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
@@ -104,22 +159,39 @@ class ShikooState {
 
 @immutable
 class _Intent {
-  const _Intent({this.connecting = false, this.error});
+  const _Intent({this.connecting = false, this.waiting = false, this.error});
 
   final bool connecting;
+  final bool waiting;
   final ShikooError? error;
 }
 
-class _IntentNotifier extends Notifier<_Intent> {
-  @override
-  _Intent build() => const _Intent();
+class _Cell<T> extends Notifier<T> {
+  _Cell(this._initial);
 
-  void set(_Intent value) => state = value;
+  final T _initial;
+
+  @override
+  T build() => _initial;
+
+  void set(T value) => state = value;
 }
 
-final _intentProvider = NotifierProvider<_IntentNotifier, _Intent>(
-  _IntentNotifier.new,
-);
+NotifierProvider<_Cell<T>, T> _cell<T>(T initial) =>
+    NotifierProvider<_Cell<T>, T>(() => _Cell(initial));
+
+final _intentProvider = _cell(const _Intent());
+
+typedef _Round = ({Set<String> pending, int total, bool ended});
+
+final _roundProvider = _cell<_Round>((
+  pending: const <String>{},
+  total: 0,
+  ended: false,
+));
+final _orderProvider = _cell<List<String>>(const []);
+final _refreshProvider = _cell(ShikooRefresh.idle);
+final _noticeProvider = _cell<ShikooNotice?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
 typedef _Extras = ({String? announce, String? supportUrl});
@@ -168,6 +240,15 @@ const _notServers = {
   'Dns',
 };
 
+/// Groups ("Fastest", Fallback, LoadBalance) are not servers: the app finds the fastest itself.
+bool isServer(String type) =>
+    !_notServers.contains(type) && !GroupTypeExtension.valueList.contains(type);
+
+List<Proxy> _serversOf(Group? group) => [
+  for (final proxy in group?.all ?? const <Proxy>[])
+    if (isServer(proxy.type)) proxy,
+];
+
 Group? _mainGroup(Ref ref) =>
     ref.watch(currentGroupsStateProvider).value.firstOrNull;
 
@@ -178,8 +259,21 @@ ShikooConnection deriveConnection({
 }) {
   if (connecting) return ShikooConnection.connecting;
   if (running) return ShikooConnection.on;
-  if (error == ShikooError.connectTimeout) return ShikooConnection.error;
+  if (error == ShikooError.connectTimeout || error == ShikooError.noServer) {
+    return ShikooConnection.error;
+  }
   return ShikooConnection.off;
+}
+
+ShikooPick derivePick({
+  required bool selected,
+  required bool pinging,
+  required bool roundEnded,
+  required bool anyAnswer,
+}) {
+  if (selected) return ShikooPick.server;
+  if (pinging || !roundEnded || anyAnswer) return ShikooPick.finding;
+  return ShikooPick.none;
 }
 
 final shikooStateProvider = Provider<ShikooState>((ref) {
@@ -189,23 +283,26 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final extras = ref.watch(_extrasProvider)[profile?.id];
   final info = profile?.subscriptionInfo;
   final group = _mainGroup(ref);
-  final servers = <ShikooServer>[
-    for (final proxy in group?.all ?? const <Proxy>[])
-      if (!_notServers.contains(proxy.type))
-        ShikooServer(
-          name: proxy.name,
-          type: proxy.type,
-          ping: ref.watch(
-            delayProvider(proxyName: proxy.name, testUrl: group!.testUrl),
-          ),
-          testing: ref.watch(
-            delayTestPendingProvider(
-              proxyName: proxy.name,
-              testUrl: group.testUrl,
-            ),
-          ),
-        ),
+  final round = ref.watch(_roundProvider);
+  final testUrl = ref.watch(realTestUrlProvider(group?.testUrl));
+  final delays = ref.watch(
+    delayDataSourceProvider.select((map) => map[testUrl]),
+  );
+  final byName = {for (final proxy in _serversOf(group)) proxy.name: proxy};
+  final chosen = group == null
+      ? null
+      : ref.watch(selectedMapProvider)[group.name];
+  final selected = byName.containsKey(chosen) ? chosen : null;
+  final servers = [
+    for (final name in keepOrder(ref.watch(_orderProvider), [...byName.keys]))
+      ShikooServer(
+        name: name,
+        type: byName[name]!.type,
+        ping: round.pending.contains(name) ? null : delays?[name],
+        testing: round.pending.contains(name),
+      ),
   ];
+  final pinging = round.total > 0;
   return ShikooState(
     connection: deriveConnection(
       connecting: intent.connecting,
@@ -225,12 +322,23 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
                 : null,
             announce: extras?.announce,
             supportUrl: extras?.supportUrl,
+            updatedAt: profile.lastUpdateDate,
           ),
     servers: servers,
-    selected: group == null
-        ? null
-        : ref.watch(selectedProxyNameProvider(group.name)),
+    selected: selected,
     lastError: intent.error,
+    pick: derivePick(
+      selected: selected != null,
+      pinging: pinging,
+      roundEnded: round.ended,
+      anyAnswer: servers.any((server) => (server.ping ?? 0) > 0),
+    ),
+    pinging: pinging
+        ? (done: round.total - round.pending.length, total: round.total)
+        : null,
+    refresh: ref.watch(_refreshProvider),
+    notice: ref.watch(_noticeProvider),
+    waiting: intent.waiting,
   );
 });
 
@@ -264,6 +372,38 @@ SubscriptionInfo _subscriptionInfo(String? header) {
   }
 }
 
+/// Never the core's fallback, row 1 (the version row in a real subscription): with the tunnel
+/// up or connect pressed, the first server that answers; otherwise the fastest at round end.
+sealed class Pick {
+  const Pick();
+}
+
+class PickServer extends Pick {
+  const PickServer(this.name);
+
+  final String name;
+}
+
+class PickWait extends Pick {
+  const PickWait();
+}
+
+class PickNone extends Pick {
+  const PickNone();
+}
+
+Pick choose({
+  required List<String> names,
+  required int? Function(String name) ping,
+  required bool pinging,
+  required bool urgent,
+}) {
+  if (pinging && !urgent) return const PickWait();
+  final best = fastest(names, ping);
+  if (best != null) return PickServer(best);
+  return pinging ? const PickWait() : const PickNone();
+}
+
 class ShikooController {
   // Microtasks: Riverpod forbids writing other providers while this one is being built.
   ShikooController(this._ref) {
@@ -278,18 +418,29 @@ class ShikooController {
     }, fireImmediately: true);
     _ref.listen(
       shikooStateProvider.select(
-        (s) => s.servers.map((e) => e.name).join('\n'),
+        (s) => (s.servers.map((e) => e.name).toList()..sort()).join('\n'),
       ),
       (previous, names) {
         if (names.isNotEmpty && names != previous) scheduleMicrotask(pingAll);
       },
       fireImmediately: true,
     );
+    _ref.listen(runTimeProvider.select((time) => time != null), (_, running) {
+      if (running) scheduleMicrotask(_reconcile);
+    });
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
   }
 
   final Ref _ref;
   int _attempt = 0;
+  bool _pinging = false;
+  bool _again = false;
+  DateTime? _lastRound;
+
+  /// The selection an update just took away, for the notice that names it.
+  String? _removed;
+  Future<void>? _refreshing;
+  bool _manualRefresh = false;
 
   SetupAction get _setup => _ref.read(setupActionProvider.notifier);
 
@@ -299,7 +450,33 @@ class ShikooController {
 
   void _set(_Intent intent) => _ref.read(_intentProvider.notifier).set(intent);
 
+  void _notice(ShikooNotice? notice) =>
+      _ref.read(_noticeProvider.notifier).set(notice);
+
+  List<String> _names(Group? group) => [
+    for (final proxy in _serversOf(group)) proxy.name,
+  ];
+
+  String _testUrl(Group group) => _ref.read(realTestUrlProvider(group.testUrl));
+
+  int? _ping(Group group, String name) =>
+      _ref.read(delayDataSourceProvider)[_testUrl(group)]?[name];
+
+  String? _validSelection() {
+    final group = _group;
+    if (group == null) return null;
+    final chosen = _ref.read(selectedMapProvider)[group.name];
+    return _names(group).contains(chosen) ? chosen : null;
+  }
+
   Future<void> connect() async {
+    if (_validSelection() != null || _names(_group).isEmpty) return _start();
+    _set(const _Intent(connecting: true, waiting: true));
+    if (!_pinging) unawaited(pingAll());
+    _reconcile();
+  }
+
+  Future<void> _start() async {
     final attempt = ++_attempt;
     _set(const _Intent(connecting: true));
     bool started;
@@ -340,53 +517,195 @@ class ShikooController {
     _proxies.updateGroupsDebounce();
     final applied = _ref.read(selectedProxyNameProvider(group.name)) == name;
     final intent = _ref.read(_intentProvider);
+    if (applied && intent.waiting) {
+      unawaited(_start());
+      return;
+    }
     _set(
       _Intent(
         connecting: intent.connecting,
+        waiting: intent.waiting,
         error: applied ? null : ShikooError.serverChange,
       ),
     );
   }
 
-  /// One at a time: engine map section 3 suspects parallel probes of the spike's false timeouts.
-  Future<void> pingAll() async {
+  void _reconcile() {
     final group = _group;
-    if (group == null) return;
-    for (final proxy in group.all) {
-      if (_notServers.contains(proxy.type)) continue;
-      await _proxies.proxyDelayTest(proxy, group.testUrl);
+    if (group == null || _validSelection() != null) return;
+    final names = _names(group);
+    if (names.isEmpty) return;
+    final running = _ref.read(runTimeProvider) != null;
+    final waiting = _ref.read(_intentProvider).waiting;
+    final pick = choose(
+      names: names,
+      ping: (name) => _ping(group, name),
+      pinging: _pinging || _again,
+      urgent: running || waiting,
+    );
+    switch (pick) {
+      case PickWait():
+        return;
+      case PickNone():
+        if (waiting) _set(const _Intent(error: ShikooError.noServer));
+      case PickServer(:final name):
+        final removed = _removed;
+        _removed = null;
+        // changeProxy writes the selection before it awaits, so a second call sees it.
+        unawaited(selectServer(name));
+        if (removed != null) {
+          _notice(
+            SelectedReplaced(
+              removed: removed,
+              replacement: name,
+              moved: running,
+            ),
+          );
+        }
     }
+  }
+
+  Future<void> pingAll() async {
+    if (_pinging) {
+      _again = true;
+      return;
+    }
+    final group = _group;
+    final names = _names(group);
+    if (group == null || names.isEmpty) return;
+    _pinging = true;
+    final round = _ref.read(_roundProvider.notifier);
+    round.set((pending: names.toSet(), total: names.length, ended: false));
+    final url = _testUrl(group);
+    try {
+      await pingServers(names, (name) => _probe(url, name), (name, ms) {
+        if (ms < 0) _proxies.setDelay(Delay(name: name, url: url, value: -1));
+        final now = _ref.read(_roundProvider);
+        round.set((
+          pending: {...now.pending}..remove(name),
+          total: now.total,
+          ended: false,
+        ));
+        if (ms > 0) _reconcile();
+      });
+    } finally {
+      _pinging = false;
+      _lastRound = DateTime.now();
+      final current = _group;
+      if (current != null) {
+        _ref
+            .read(_orderProvider.notifier)
+            .set(sortByPing(_names(current), (name) => _ping(current, name)));
+      }
+      round.set((pending: const <String>{}, total: 0, ended: true));
+      _reconcile();
+      if (_again) {
+        _again = false;
+        unawaited(pingAll());
+      }
+    }
+  }
+
+  Future<int?> _probe(String url, String name) async {
+    try {
+      final delay = await _ref.read(coreHandlerProvider).getDelay(url, name);
+      if (delay != null) _proxies.setDelay(delay);
+      return delay?.value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void onForeground() {
+    final now = DateTime.now();
+    if (!_pinging && isDue(_lastRound, now, pingEvery)) unawaited(pingAll());
+    final updated = _ref.read(currentProfileProvider)?.lastUpdateDate;
+    if (isDue(updated, now, refreshEvery)) {
+      unawaited(refreshService(manual: false));
+    }
+  }
+
+  /// One update at a time; a press during an automatic one makes its failure visible.
+  Future<void> refreshService({bool manual = true}) {
+    _manualRefresh |= manual;
+    return _refreshing ??= _refresh().whenComplete(() {
+      _refreshing = null;
+      _manualRefresh = false;
+    });
+  }
+
+  Future<void> _refresh() async {
+    final profile = _ref.read(currentProfileProvider);
+    if (profile == null || profile.url.isEmpty) return;
+    final status = _ref.read(_refreshProvider.notifier);
+    status.set(ShikooRefresh.running);
+    _notice(null);
+    final before = _names(_group);
+    final had = _validSelection();
+    try {
+      await _download(profile.url, profile.label);
+      if (!await _setup.applyProfile(silence: true)) {
+        throw StateError('apply');
+      }
+    } catch (_) {
+      status.set(ShikooRefresh.failed);
+      if (_manualRefresh) _notice(const RefreshFailed());
+      return;
+    }
+    status.set(ShikooRefresh.idle);
+    final after = _names(_group);
+    final removed = [
+      for (final name in before)
+        if (!after.contains(name)) name,
+    ];
+    final added = after.where((name) => !before.contains(name)).length;
+    if (had != null && removed.contains(had)) {
+      _removed = had;
+    } else if (added > 0 || removed.isNotEmpty) {
+      _notice(ServersChanged(added: added, removed: removed));
+    }
+    _reconcile();
   }
 
   /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
   /// The url holds the customer's token: never log it, nor the error, which can quote it.
+  Future<Profile> _download(String url, String label) async {
+    final response = await request
+        .getFileResponseForUrl(url)
+        .timeout(const Duration(seconds: 30));
+    final header = response.headers.value;
+    final existing = _ref
+        .read(profilesProvider)
+        .firstWhereOrNull((profile) => profile.url == url);
+    final profile = await (existing ?? Profile.normal(url: url))
+        .copyWith(
+          label: label,
+          // FlClash's own daily update would race this one and drop the headers kept below.
+          autoUpdate: false,
+          subscriptionInfo: _subscriptionInfo(header('subscription-userinfo')),
+        )
+        .saveFile(
+          response.data ?? Uint8List(0),
+          validate: (path) =>
+              _ref.read(coreHandlerProvider).validateConfig(path),
+        );
+    _ref.read(profilesActionProvider.notifier).putProfile(profile);
+    await _ref.read(_extrasProvider.notifier).put(profile.id, (
+      announce: headerText(header('announce')),
+      supportUrl: headerText(header('support-url')),
+    ));
+    return profile;
+  }
+
   Future<void> addService(String url, String label) async {
     try {
-      final response = await request
-          .getFileResponseForUrl(url)
-          .timeout(const Duration(seconds: 30));
-      final header = response.headers.value;
-      final existing = _ref
-          .read(profilesProvider)
-          .firstWhereOrNull((profile) => profile.url == url);
-      final profile = await (existing ?? Profile.normal(url: url))
-          .copyWith(
-            label: label,
-            subscriptionInfo: _subscriptionInfo(
-              header('subscription-userinfo'),
-            ),
-          )
-          .saveFile(
-            response.data ?? Uint8List(0),
-            validate: (path) =>
-                _ref.read(coreHandlerProvider).validateConfig(path),
-          );
-      _ref.read(profilesActionProvider.notifier).putProfile(profile);
-      _ref.read(currentProfileIdProvider.notifier).value = profile.id;
-      await _ref.read(_extrasProvider.notifier).put(profile.id, (
-        announce: headerText(header('announce')),
-        supportUrl: headerText(header('support-url')),
-      ));
+      final profile = await _download(url, label);
+      if (_ref.read(currentProfileIdProvider) == profile.id) {
+        // The core re-reads a profile only when the selection changes.
+        await _setup.applyProfile(silence: true);
+      } else {
+        _ref.read(currentProfileIdProvider.notifier).value = profile.id;
+      }
     } catch (_) {
       _set(const _Intent(error: ShikooError.addService));
     }

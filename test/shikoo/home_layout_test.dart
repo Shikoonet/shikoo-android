@@ -25,30 +25,60 @@ final _longList = [
 ShikooState _tv(
   ShikooConnection connection, {
   List<ShikooServer> servers = _servers,
-  String selected = 'فنلاند ۲',
+  String? selected = 'فنلاند ۲',
+  ShikooPick pick = ShikooPick.server,
+  ShikooError? error,
+  bool waiting = false,
+  ({int done, int total})? pinging,
+  ShikooRefresh refresh = ShikooRefresh.idle,
+  ShikooNotice? notice,
+  DateTime? expire,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
   isTV: true,
-  service: const ShikooService(
+  service: ShikooService(
     name: 'user123 · الماس',
     usedBytes: 33 << 30,
     totalBytes: 100 << 30,
+    expire: expire,
+    updatedAt: DateTime.now(),
   ),
   servers: servers,
   selected: selected,
-  lastError: connection == ShikooConnection.error
-      ? ShikooError.connectTimeout
-      : null,
+  pick: pick,
+  waiting: waiting,
+  pinging: pinging,
+  refresh: refresh,
+  notice: notice,
+  lastError:
+      error ??
+      (connection == ShikooConnection.error
+          ? ShikooError.connectTimeout
+          : null),
 );
 
-Future<void> _pumpTvHome(WidgetTester tester, ShikooState state) async {
+/// Swapping the state through one ProviderScope keeps focus where the remote left it.
+Future<ValueNotifier<ShikooState>> _pumpTvHome(
+  WidgetTester tester,
+  ShikooState state, {
+  String locale = 'fa',
+}) async {
+  final holder = ValueNotifier(state);
+  addTearDown(holder.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      key: ValueKey(state),
-      overrides: [shikooStateProvider.overrideWithValue(state)],
+      key: UniqueKey(),
+      overrides: [
+        shikooStateProvider.overrideWith((ref) {
+          void changed() => ref.invalidateSelf();
+          holder.addListener(changed);
+          ref.onDispose(() => holder.removeListener(changed));
+          return holder.value;
+        }),
+      ],
       child: MaterialApp(
-        locale: const Locale('fa'),
+        locale: Locale(locale),
         supportedLocales: ShikooL10n.supportedLocales,
         localizationsDelegates: const [
           ShikooL10n.delegate,
@@ -60,6 +90,7 @@ Future<void> _pumpTvHome(WidgetTester tester, ShikooState state) async {
     ),
   );
   await tester.pump();
+  return holder;
 }
 
 void _tvScreen(WidgetTester tester) {
@@ -67,7 +98,10 @@ void _tvScreen(WidgetTester tester) {
   tester.view
     ..physicalSize = const Size(1920, 1080)
     ..devicePixelRatio = 2;
+  tester.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(tester.view.reset);
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 }
 
 /// What the remote is on: a server name, `power`, or a button label.
@@ -88,43 +122,120 @@ Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
   return _focused();
 }
 
+Future<void> _focus(WidgetTester tester, String what) async {
+  final owner = what == 'power'
+      ? find.byType(PowerButton)
+      : find.ancestor(of: find.text(what), matching: find.byType(Pressable));
+  final inside = find.descendant(
+    of: owner.first,
+    matching: find.byType(GestureDetector),
+  );
+  final node = Focus.of(tester.element(inside.first));
+  // Directional traversal remembers past moves; a jump by hand must start it afresh.
+  FocusTraversalGroup.of(node.context!).invalidateScopeData(node.nearestScope!);
+  node.requestFocus();
+  await tester.pumpAndSettle();
+  expect(_focused(), what);
+}
+
+List<String> _rowOrder(WidgetTester tester) => [
+  for (final row in tester.widgetList<ServerRow>(find.byType(ServerRow)))
+    row.server.name,
+];
+
+const _up = LogicalKeyboardKey.arrowUp;
+const _down = LogicalKeyboardKey.arrowDown;
+const _towardPower = LogicalKeyboardKey.arrowLeft;
+const _towardCard = LogicalKeyboardKey.arrowRight;
+
 void main() {
-  testWidgets('the TV power button sits at 269dp in every connection state', (
+  testWidgets('the TV power button sits at 269dp, with or without a server', (
     tester,
   ) async {
     _tvScreen(tester);
-    final centres = <ShikooConnection, Offset>{};
-    for (final connection in ShikooConnection.values) {
-      await _pumpTvHome(tester, _tv(connection));
-      centres[connection] = tester.getCenter(find.byType(PowerButton));
+    final states = {
+      for (final connection in ShikooConnection.values)
+        connection.name: _tv(connection),
+      'finding': _tv(
+        ShikooConnection.off,
+        selected: null,
+        pick: ShikooPick.finding,
+      ),
+      'finding-connect': _tv(
+        ShikooConnection.connecting,
+        selected: null,
+        pick: ShikooPick.finding,
+        waiting: true,
+      ),
+      'all-failed': _tv(
+        ShikooConnection.error,
+        selected: null,
+        pick: ShikooPick.none,
+        error: ShikooError.noServer,
+      ),
+      'none-quiet': _tv(
+        ShikooConnection.off,
+        selected: null,
+        pick: ShikooPick.none,
+      ),
+    };
+    final centres = <String, Offset>{};
+    for (final MapEntry(:key, :value) in states.entries) {
+      await _pumpTvHome(tester, value);
+      centres[key] = tester.getCenter(find.byType(PowerButton));
     }
     expect(centres.values.toSet(), hasLength(1), reason: '$centres');
     expect(centres.values.first.dy, closeTo(269, 0.5));
   });
 
-  testWidgets('the remote moves between columns as laid out', (tester) async {
+  testWidgets('the remote follows the order the TV mockup sets', (
+    tester,
+  ) async {
     _tvScreen(tester);
     await _pumpTvHome(tester, _tv(ShikooConnection.off));
     expect(_focused(), 'power');
-    expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'power');
-    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'تنظیمات');
-    expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'power');
-    for (final button in ['تمدید', 'پشتیبانی']) {
-      expect(await _press(tester, LogicalKeyboardKey.arrowRight), 'فنلاند ۲');
-      expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'هلند ۱');
-      expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'فنلاند ۲');
-      expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'آلمان ۲');
-      await _press(tester, LogicalKeyboardKey.arrowUp);
-      for (final side in [
-        LogicalKeyboardKey.arrowRight,
-        LogicalKeyboardKey.arrowLeft,
-      ]) {
-        if (_focused() != button) await _press(tester, side);
-      }
-      expect(_focused(), button);
-      expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'تنظیمات');
-      expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'power');
+    final moves = [
+      ('power', _up, 'تنظیمات'),
+      ('power', _down, 'power'),
+      ('power', _towardPower, 'power'),
+      ('power', _towardCard, 'فنلاند ۲'),
+      ('تنظیمات', _down, 'power'),
+      ('به‌روزرسانی', _up, 'تنظیمات'),
+      ('به‌روزرسانی', _down, 'پشتیبانی'),
+      ('به‌روزرسانی', _towardPower, 'power'),
+      ('تمدید', _up, 'به‌روزرسانی'),
+      ('پشتیبانی', _up, 'به‌روزرسانی'),
+      ('تمدید', _down, 'پینگ همه'),
+      ('پشتیبانی', _down, 'پینگ همه'),
+      ('تمدید', _towardPower, 'پشتیبانی'),
+      ('پشتیبانی', _towardPower, 'power'),
+      ('پشتیبانی', _towardCard, 'تمدید'),
+      ('تمدید', _towardCard, 'تمدید'),
+      ('پینگ همه', _up, 'پشتیبانی'),
+      ('پینگ همه', _down, 'آلمان ۲'),
+      ('پینگ همه', _towardPower, 'power'),
+      ('آلمان ۲', _up, 'پینگ همه'),
+      ('هلند ۱', _towardPower, 'power'),
+    ];
+    final wrong = <String>[];
+    for (final (from, key, to) in moves) {
+      await _focus(tester, from);
+      final got = await _press(tester, key);
+      if (got != to) wrong.add('$from ${key.debugName} -> $got, not $to');
     }
+    expect(wrong, isEmpty);
+  });
+
+  testWidgets('with no server chosen, the remote goes to the first row', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.off, selected: null, pick: ShikooPick.finding),
+    );
+    expect(await _press(tester, _towardCard), 'آلمان ۲');
+    expect(find.text('در حال یافتن بهترین سرور…'), findsOneWidget);
   });
 
   testWidgets('the card column scrolls back up once the remote leaves it', (
@@ -143,14 +254,152 @@ void main() {
         .first;
     double offset() => tester.state<ScrollableState>(column).position.pixels;
 
-    expect(await _press(tester, LogicalKeyboardKey.arrowRight), 'سرور 1');
+    expect(await _press(tester, _towardCard), 'سرور 1');
     for (var i = 1; i < _longList.length; i++) {
-      await _press(tester, LogicalKeyboardKey.arrowDown);
+      await _press(tester, _down);
     }
     expect(_focused(), 'سرور 12');
     expect(offset(), greaterThan(0));
 
-    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'power');
+    expect(await _press(tester, _towardPower), 'power');
     expect(offset(), 0);
+  });
+
+  testWidgets('a new order waits while the remote is on the list', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    final holder = await _pumpTvHome(tester, _tv(ShikooConnection.on));
+    final before = _rowOrder(tester);
+    await _focus(tester, 'هلند ۱');
+
+    holder.value = _tv(
+      ShikooConnection.on,
+      servers: [_servers[0], _servers[2], _servers[1], _servers[3]],
+    );
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), before);
+    expect(_focused(), 'هلند ۱');
+    expect(find.textContaining('وقتی از فهرست بیرون بروی'), findsOneWidget);
+
+    expect(await _press(tester, _down), 'آمریکا ۲');
+    expect(_rowOrder(tester), before, reason: 'moving inside keeps it');
+
+    expect(await _press(tester, _towardPower), 'power');
+    expect(_rowOrder(tester), ['آلمان ۲', 'هلند ۱', 'فنلاند ۲', 'آمریکا ۲']);
+    expect(find.textContaining('سریع‌ترین بالا'), findsOneWidget);
+  });
+
+  testWidgets('a row being measured spins instead of showing its old ping', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.on,
+        servers: const [
+          ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
+          ShikooServer(name: 'هلند ۱', type: 'Vless', testing: true),
+        ],
+        selected: 'آلمان ۲',
+        pinging: (done: 4, total: 9),
+      ),
+    );
+    final measuring = find.ancestor(
+      of: find.text('هلند ۱'),
+      matching: find.byType(ServerRow),
+    );
+    expect(
+      find.descendant(of: measuring, matching: find.byType(Spinner)),
+      findsOneWidget,
+    );
+    expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
+  });
+
+  testWidgets('a failed update is red only when the user asked for it', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.off, refresh: ShikooRefresh.failed),
+    );
+    expect(find.textContaining('به‌روز نشد · فهرستِ'), findsOneWidget);
+    expect(find.textContaining('دکمهٔ وسط را دوباره بزن'), findsNothing);
+
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.off,
+        refresh: ShikooRefresh.failed,
+        notice: const RefreshFailed(),
+      ),
+    );
+    expect(find.textContaining('دکمهٔ وسط را دوباره بزن'), findsOneWidget);
+  });
+
+  testWidgets('the update names what changed', (tester) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.on,
+        selected: 'هلند ۱',
+        notice: const SelectedReplaced(
+          removed: '🇺🇸 آمریکا ۲',
+          replacement: '🇳🇱 هلند ۱',
+          moved: true,
+        ),
+      ),
+    );
+    expect(
+      find.textContaining('«آمریکا ۲» دیگر در اشتراکت نیست.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('همان لحظه'), findsOneWidget);
+
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.off,
+        notice: const ServersChanged(added: 2, removed: ['انگلیس']),
+      ),
+    );
+    expect(find.textContaining('۲ سرور تازه آمد.'), findsOneWidget);
+    expect(find.textContaining('«انگلیس» حذف شد.'), findsOneWidget);
+  });
+
+  testWidgets('every server silent: the pill says so, and the help is red', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.error,
+        selected: null,
+        pick: ShikooPick.none,
+        error: ShikooError.noServer,
+      ),
+    );
+    expect(find.text('هیچ سروری جواب نداد'), findsOneWidget);
+    expect(find.text('وصل نشد'), findsOneWidget);
+    expect(find.textContaining('اینترنت این تلویزیون'), findsOneWidget);
+  });
+
+  testWidgets('English dates are Gregorian, Persian ones Solar Hijri', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    final expire = DateTime(2026, 10, 26, 12);
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.off, expire: expire),
+      locale: 'en',
+    );
+    expect(find.text('Valid until Oct 26, 2026'), findsOneWidget);
+    await _pumpTvHome(tester, _tv(ShikooConnection.off, expire: expire));
+    expect(find.text('اعتبار تا ۴ آبان ۱۴۰۵'), findsOneWidget);
   });
 }

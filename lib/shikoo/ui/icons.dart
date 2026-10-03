@@ -18,7 +18,14 @@ enum ShikooIcon {
   ),
   qr(
     '<rect x="3.5" y="3.5" width="6" height="6" rx="1"/><rect x="14.5" y="3.5" width="6" height="6" rx="1"/><rect x="3.5" y="14.5" width="6" height="6" rx="1"/><path d="M14.5 14.5h2.5v2.5"/><path d="M20.5 14.5v.5"/><path d="M14.5 20.5h6v-2"/>',
-  );
+  ),
+  refresh(
+    '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>',
+  ),
+  gauge(
+    '<path d="M5.99 19.01A8.5 8.5 0 1 1 18.01 19.01"/><path d="M12 13l4-4"/>',
+  ),
+  spin('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>');
 
   const ShikooIcon(this.paths);
 

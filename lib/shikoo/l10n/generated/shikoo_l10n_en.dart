@@ -137,4 +137,190 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get initError => 'The app couldn\'t start.';
+
+  @override
+  String get refresh => 'Update';
+
+  @override
+  String get refreshServers => 'Update servers';
+
+  @override
+  String updatedAgo(String ago) {
+    return 'Updated · $ago';
+  }
+
+  @override
+  String get updating => 'Updating…';
+
+  @override
+  String updateFailedAgo(String ago) {
+    return 'Not updated · list from $ago';
+  }
+
+  @override
+  String get agoJustNow => 'just now';
+
+  @override
+  String agoMinutes(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString minutes ago',
+      one: '1 minute ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agoHours(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString hours ago',
+      one: '1 hour ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agoDays(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString days ago',
+      one: '1 day ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get updateFailedTitle => 'Couldn\'t update.';
+
+  @override
+  String get updateFailedTouch =>
+      'Check your internet and tap again. Until then, connect with these servers.';
+
+  @override
+  String get updateFailedTv =>
+      'Check your internet and press OK again. Until then, connect with these servers.';
+
+  @override
+  String serversAdded(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString new servers.',
+      one: '1 new server.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String serverRemoved(String name) {
+    return '“$name” was removed.';
+  }
+
+  @override
+  String serversRemoved(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString servers were removed.',
+      one: '1 server was removed.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String selectedRemoved(String name) {
+    return '“$name” is no longer in your subscription.';
+  }
+
+  @override
+  String selectedReplaced(String name) {
+    return 'The fastest server, “$name”, was picked instead.';
+  }
+
+  @override
+  String selectedMoved(String name) {
+    return 'The connection moved to the fastest server, “$name”, right away.';
+  }
+
+  @override
+  String get findingBest => 'Finding the best server…';
+
+  @override
+  String get connectsToFirst =>
+      'You\'ll connect to the first server that answers.';
+
+  @override
+  String get noServerAnswered => 'No server answered';
+
+  @override
+  String get noServerAnsweredHelpTouch =>
+      'Check this phone\'s internet.\nIf it works, ask Support.';
+
+  @override
+  String get noServerAnsweredHelpTv =>
+      'Check this TV\'s internet.\nIf it works, ask Support.';
+
+  @override
+  String get newBadge => 'New';
+
+  @override
+  String get serversTitle => 'Servers';
+
+  @override
+  String get fastestFirst => 'Fastest first';
+
+  @override
+  String get sortsOnLeave => 'Sorts when you leave the list';
+
+  @override
+  String get pingAll => 'Ping all';
+
+  @override
+  String pingProgress(int done, int total) {
+    final intl.NumberFormat doneNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String doneString = doneNumberFormat.format(done);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return 'Ping $doneString of $totalString';
+  }
+
+  @override
+  String get measuring => 'Measuring';
+
+  @override
+  String get searchServers => 'Search servers';
+
+  @override
+  String get searchNoMatch => 'No server with that name';
+
+  @override
+  String get clearSearch => 'Clear search';
 }
