@@ -49,6 +49,7 @@ class ShikooColors {
     required this.outline,
     required this.text,
     required this.textMuted,
+    required this.iconDisabled,
     required this.primary,
     required this.onPrimary,
     required this.selectedBg,
@@ -73,6 +74,7 @@ class ShikooColors {
   final Color outline;
   final Color text;
   final Color textMuted;
+  final Color iconDisabled;
   final Color primary;
   final Color onPrimary;
   final Color selectedBg;
@@ -97,6 +99,7 @@ class ShikooColors {
     outline: Color(0xFF8B8E87),
     text: Color(0xFF1A1B19),
     textMuted: Color(0xFF5C5F59),
+    iconDisabled: Color(0xFFB3B6AF),
     primary: Color(0xFF1A1B19),
     onPrimary: Color(0xFFFFFFFF),
     selectedBg: Color(0xFFEDEEEA),
@@ -135,6 +138,7 @@ class ShikooColors {
     outline: Color(0xFF737975),
     text: Color(0xFFECEEEC),
     textMuted: Color(0xFFA2A8A5),
+    iconDisabled: Color(0xFF4C5250),
     primary: Color(0xFFECEEEC),
     onPrimary: Color(0xFF121413),
     selectedBg: Color(0xFF262B29),

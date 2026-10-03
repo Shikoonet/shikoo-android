@@ -103,9 +103,6 @@ class ShikooL10nFa extends ShikooL10n {
   String get tvHint => 'دکمهٔ وسطِ ریموت را بزن تا وصل شوی';
 
   @override
-  String get noService => 'هنوز سرویسی اضافه نشده';
-
-  @override
   String get loadingServers => 'در حال گرفتن فهرست سرورها…';
 
   @override
@@ -418,4 +415,16 @@ class ShikooL10nFa extends ShikooL10n {
   String renewPickInList(String username) {
     return 'در فهرست ربات، سرویسِ $username را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.';
   }
+
+  @override
+  String get powerNoService => 'سرویسی نیست';
+
+  @override
+  String get noServiceTitleTv => 'سرویسی روی این تلویزیون نیست';
+
+  @override
+  String get noServiceTitleTouch => 'سرویسی روی این گوشی نیست';
+
+  @override
+  String get noServiceHelp => 'برای برگرداندنش از «پشتیبانی» بپرس.';
 }

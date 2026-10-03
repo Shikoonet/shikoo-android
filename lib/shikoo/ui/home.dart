@@ -53,6 +53,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           policy: PageTraversalPolicy(),
           child: state.isTV
               ? _TvLayout(
+                  noService: state.service == null,
                   power: _PowerKeys(
                     row: towardCard == null ? null : _card.row(towardCard),
                     child: power,
@@ -125,7 +126,9 @@ class _CardKeys extends StatelessWidget {
               focus.pingAll.requestFocus();
               return null;
             }
-            if (intent.direction == towardPower && from != focus.renew) {
+            if (intent.direction == towardPower &&
+                from != focus.renew &&
+                power.context != null) {
               power.requestFocus();
             } else {
               from?.focusInDirection(intent.direction);
@@ -141,8 +144,13 @@ class _CardKeys extends StatelessWidget {
 
 /// `.tv`, `.tv-top` and `.tv-home`: the card column at the start, the power button beside it.
 class _TvLayout extends StatelessWidget {
-  const _TvLayout({required this.power, required this.card});
+  const _TvLayout({
+    required this.noService,
+    required this.power,
+    required this.card,
+  });
 
+  final bool noService;
   final Widget power;
   final Widget card;
 
@@ -164,6 +172,7 @@ class _TvLayout extends StatelessWidget {
                 ShikooButton(
                   label: ShikooL10n.of(context).settings,
                   icon: ShikooIcon.gear,
+                  autofocus: noService,
                   onPressed: () => openSettings(context),
                 ),
               ],
@@ -358,6 +367,18 @@ class _PowerZone extends StatelessWidget {
     final l = ShikooL10n.of(context);
     final selected = state.selectedServer;
     final gap = state.isTV ? Space.s4 : Space.s3;
+    if (state.service == null) {
+      return Padding(
+        // Frame tv-home-no-service keeps the gaps of the absent pill and message rows.
+        padding: EdgeInsets.only(bottom: state.isTV ? Space.s4 : 0),
+        child: PowerButton(
+          connection: ShikooConnection.off,
+          connectedFor: Duration.zero,
+          isTV: state.isTV,
+          onPressed: null,
+        ),
+      );
+    }
     final silent =
         state.connection == ShikooConnection.on && (selected?.ping ?? 0) < 0;
     final message = switch (state.lastError) {
@@ -374,9 +395,7 @@ class _PowerZone extends StatelessWidget {
       null when state.waiting => l.connectsToFirst,
       null when silent => l.selectedDown(selected!.label),
       null =>
-        state.isTV &&
-                state.connection == ShikooConnection.off &&
-                state.service != null
+        state.isTV && state.connection == ShikooConnection.off
             ? l.tvHint
             : null,
     };
@@ -399,16 +418,7 @@ class _PowerZone extends StatelessWidget {
           }),
         ),
         SizedBox(height: gap),
-        if (state.service == null)
-          const Visibility(
-            visible: false,
-            maintainSize: true,
-            maintainAnimation: true,
-            maintainState: true,
-            child: NowPill(pick: ShikooPick.none),
-          )
-        else
-          NowPill(pick: state.pick, server: selected),
+        NowPill(pick: state.pick, server: selected),
         if (message != null || slot != null) ...[
           SizedBox(height: gap),
           SizedBox(

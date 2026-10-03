@@ -26,7 +26,6 @@
   "subRetryTv": "دکمهٔ وسط: دوباره",
   "subRetryTouch": "دوباره بزن",
   "tvHint": "دکمهٔ وسطِ ریموت را بزن تا وصل شوی",
-  "noService": "هنوز سرویسی اضافه نشده",
   "loadingServers": "در حال گرفتن فهرست سرورها…",
   "msUnit": "",
   "noResponse": "بی‌پاسخ",
@@ -104,5 +103,9 @@
   "logoutTitleTv": "سرویس‌ها از این تلویزیون پاک شوند؟",
   "logoutTitleTouch": "سرویس‌ها از این گوشی پاک شوند؟",
   "removeButton": "پاک کردن",
-  "renewPickInList": "در فهرست ربات، سرویسِ {username} را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین."
+  "renewPickInList": "در فهرست ربات، سرویسِ {username} را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.",
+  "powerNoService": "سرویسی نیست",
+  "noServiceTitleTv": "سرویسی روی این تلویزیون نیست",
+  "noServiceTitleTouch": "سرویسی روی این گوشی نیست",
+  "noServiceHelp": "برای برگرداندنش از «پشتیبانی» بپرس."
 }

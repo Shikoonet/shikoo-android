@@ -321,7 +321,8 @@ class StatusChip extends StatelessWidget {
   }
 }
 
-/// `.power-ring` and `.power`: off, connecting, on and couldn't-connect.
+/// `.power-ring` and `.power`: off, connecting, on and couldn't-connect; with no [onPressed],
+/// `.is-disabled`, which the remote passes by.
 class PowerButton extends StatefulWidget {
   const PowerButton({
     super.key,
@@ -335,7 +336,7 @@ class PowerButton extends StatefulWidget {
   final ShikooConnection connection;
   final Duration connectedFor;
   final bool isTV;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final FocusNode? focusNode;
 
   @override
@@ -398,7 +399,10 @@ class _PowerButtonState extends State<PowerButton>
       ShikooConnection.error => c.dangerSoft,
       _ => null,
     };
+    final onPressed = widget.onPressed;
+    final enabled = onPressed != null;
     final label = switch (conn) {
+      _ when !enabled => l.powerNoService,
       ShikooConnection.off => l.powerConnect,
       ShikooConnection.connecting => l.powerConnecting,
       ShikooConnection.on => l.powerOn,
@@ -411,6 +415,61 @@ class _PowerButtonState extends State<PowerButton>
       _ => null,
     };
     final fg = on ? c.onPositive : c.text;
+    Widget face(bool focused) => Container(
+      width: s.power,
+      height: s.power,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: !enabled ? c.surfaceSunken : (on ? c.positive : c.surface),
+        boxShadow: !enabled ? null : (focused ? c.raisedShadow : c.cardShadow),
+      ),
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: label,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgIcon(
+              error ? ShikooIcon.alert : ShikooIcon.power,
+              size: conn == ShikooConnection.off && enabled
+                  ? ShikooSizes.powerIcon
+                  : ShikooSizes.powerIconOn,
+              stroke: ShikooSizes.iconStrokeStrong,
+              color: !enabled
+                  ? c.iconDisabled
+                  : (on ? fg : (error ? c.danger : c.textMuted)),
+            ),
+            const SizedBox(height: Space.s1),
+            Text(
+              label,
+              style: t.text(
+                s.body,
+                weight: FontWeight.w700,
+                color: !enabled ? c.textMuted : (error ? c.danger : fg),
+              ),
+            ),
+            if (on) ...[
+              const SizedBox(height: Space.s1),
+              Text(
+                _clock(widget.connectedFor),
+                textDirection: TextDirection.ltr,
+                style: t.text(
+                  s.display,
+                  weight: FontWeight.w700,
+                  color: fg,
+                  tabular: true,
+                ),
+              ),
+            ],
+            if (sub != null) ...[
+              const SizedBox(height: Space.s1),
+              Text(sub, style: t.text(s.caption, color: c.textMuted)),
+            ],
+          ],
+        ),
+      ),
+    );
     return SizedBox.square(
       dimension: s.powerRing,
       child: Stack(
@@ -427,64 +486,16 @@ class _PowerButtonState extends State<PowerButton>
               ),
             ),
           ),
-          Pressable(
-            autofocus: true,
-            focusNode: widget.focusNode,
-            shape: const CircleBorder(),
-            onPressed: widget.onPressed,
-            builder: (context, focused) => Container(
-              width: s.power,
-              height: s.power,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: on ? c.positive : c.surface,
-                boxShadow: focused ? c.raisedShadow : c.cardShadow,
-              ),
-              child: Semantics(
-                button: true,
-                label: label,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgIcon(
-                      error ? ShikooIcon.alert : ShikooIcon.power,
-                      size: conn == ShikooConnection.off
-                          ? ShikooSizes.powerIcon
-                          : ShikooSizes.powerIconOn,
-                      stroke: ShikooSizes.iconStrokeStrong,
-                      color: on ? fg : (error ? c.danger : c.textMuted),
-                    ),
-                    const SizedBox(height: Space.s1),
-                    Text(
-                      label,
-                      style: t.text(
-                        s.body,
-                        weight: FontWeight.w700,
-                        color: error ? c.danger : fg,
-                      ),
-                    ),
-                    if (on) ...[
-                      const SizedBox(height: Space.s1),
-                      Text(
-                        _clock(widget.connectedFor),
-                        textDirection: TextDirection.ltr,
-                        style: t.text(
-                          s.display,
-                          weight: FontWeight.w700,
-                          color: fg,
-                          tabular: true,
-                        ),
-                      ),
-                    ],
-                    if (sub != null) ...[
-                      const SizedBox(height: Space.s1),
-                      Text(sub, style: t.text(s.caption, color: c.textMuted)),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
+          if (enabled)
+            Pressable(
+              autofocus: true,
+              focusNode: widget.focusNode,
+              shape: const CircleBorder(),
+              onPressed: onPressed,
+              builder: (context, focused) => face(focused),
+            )
+          else
+            face(false),
           if (conn == ShikooConnection.connecting)
             Positioned.fill(
               child: IgnorePointer(

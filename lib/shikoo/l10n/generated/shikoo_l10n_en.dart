@@ -109,9 +109,6 @@ class ShikooL10nEn extends ShikooL10n {
   String get tvHint => 'Press OK on the remote to connect';
 
   @override
-  String get noService => 'No service yet';
-
-  @override
   String get loadingServers => 'Getting the server list…';
 
   @override
@@ -455,4 +452,16 @@ class ShikooL10nEn extends ShikooL10n {
   String renewPickInList(String username) {
     return 'In the bot\'s list, tap the service $username; if it isn\'t there, check the next page of the list.';
   }
+
+  @override
+  String get powerNoService => 'No service';
+
+  @override
+  String get noServiceTitleTv => 'No service on this TV';
+
+  @override
+  String get noServiceTitleTouch => 'No service on this phone';
+
+  @override
+  String get noServiceHelp => 'Ask Support to bring it back.';
 }

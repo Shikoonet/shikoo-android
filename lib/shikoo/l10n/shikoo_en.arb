@@ -37,7 +37,6 @@
   "subRetryTv": "OK button: retry",
   "subRetryTouch": "Tap to retry",
   "tvHint": "Press OK on the remote to connect",
-  "noService": "No service yet",
   "loadingServers": "Getting the server list…",
   "msUnit": "ms",
   "@msUnit": {"description": "Unit after a ping. Empty where pings are written without one, as in Persian."},
@@ -154,5 +153,9 @@
   "@renewPickInList": {
     "description": "Under the renew QR. The username is shown bold; the bot's list pages and shortens names, so only the username is named.",
     "placeholders": {"username": {"type": "String"}}
-  }
+  },
+  "powerNoService": "No service",
+  "noServiceTitleTv": "No service on this TV",
+  "noServiceTitleTouch": "No service on this phone",
+  "noServiceHelp": "Ask Support to bring it back."
 }

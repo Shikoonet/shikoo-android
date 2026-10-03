@@ -634,4 +634,46 @@ void main() {
       ShikooLinks.support,
     );
   });
+
+  testWidgets('with no service the button is off-limits and settings takes the '
+      'remote', (tester) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: true,
+        servers: [],
+      ),
+    );
+    expect(find.text('سرویسی نیست'), findsOneWidget);
+    expect(find.text('سرویسی روی این تلویزیون نیست'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(PowerButton),
+        matching: find.byType(Pressable),
+      ),
+      findsNothing,
+    );
+    expect(tester.getCenter(find.byType(PowerButton)).dy, closeTo(288, 0.5));
+
+    expect(_focused(), 'تنظیمات');
+    final moves = [
+      ('تنظیمات', _down, 'پشتیبانی'),
+      ('پشتیبانی', _up, 'تنظیمات'),
+      ('تنظیمات', _towardCard, 'پشتیبانی'),
+      ('پشتیبانی', _towardPower, 'تنظیمات'),
+    ];
+    for (final (from, key, to) in moves) {
+      await _focus(tester, from);
+      expect(await _press(tester, key), to, reason: '$from ${key.debugName}');
+    }
+    await _focus(tester, 'پشتیبانی');
+    await _press(tester, _ok);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      ShikooLinks.support,
+    );
+  });
 }

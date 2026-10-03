@@ -254,12 +254,6 @@ abstract class ShikooL10n {
   /// **'Press OK on the remote to connect'**
   String get tvHint;
 
-  /// No description provided for @noService.
-  ///
-  /// In en, this message translates to:
-  /// **'No service yet'**
-  String get noService;
-
   /// No description provided for @loadingServers.
   ///
   /// In en, this message translates to:
@@ -727,6 +721,30 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'In the bot\'s list, tap the service {username}; if it isn\'t there, check the next page of the list.'**
   String renewPickInList(String username);
+
+  /// No description provided for @powerNoService.
+  ///
+  /// In en, this message translates to:
+  /// **'No service'**
+  String get powerNoService;
+
+  /// No description provided for @noServiceTitleTv.
+  ///
+  /// In en, this message translates to:
+  /// **'No service on this TV'**
+  String get noServiceTitleTv;
+
+  /// No description provided for @noServiceTitleTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'No service on this phone'**
+  String get noServiceTitleTouch;
+
+  /// No description provided for @noServiceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Support to bring it back.'**
+  String get noServiceHelp;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

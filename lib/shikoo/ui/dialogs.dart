@@ -85,25 +85,26 @@ void openLink(
         ),
         Text(help, textAlign: TextAlign.center, style: paragraph),
         QrTile(data: link),
-        Text.rich(
-          TextSpan(
-            children: [
-              for (final (i, part) in below.split(strong).indexed) ...[
-                if (i > 0)
-                  TextSpan(
-                    text: strong,
-                    style: TextStyle(
-                      color: t.c.text,
-                      fontWeight: FontWeight.w700,
+        if (below.isNotEmpty)
+          Text.rich(
+            TextSpan(
+              children: [
+                for (final (i, part) in below.split(strong).indexed) ...[
+                  if (i > 0)
+                    TextSpan(
+                      text: strong,
+                      style: TextStyle(
+                        color: t.c.text,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                TextSpan(text: part),
+                  TextSpan(text: part),
+                ],
               ],
-            ],
+            ),
+            textAlign: TextAlign.center,
+            style: paragraph,
           ),
-          textAlign: TextAlign.center,
-          style: paragraph,
-        ),
         Builder(
           builder: (context) => ShikooButton(
             label: ShikooL10n.of(context).close,

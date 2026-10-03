@@ -72,10 +72,41 @@ class ServiceCard extends StatelessWidget {
         children: service == null
             ? [
                 Padding(
-                  padding: inset.copyWith(bottom: Space.s2),
+                  padding: inset,
                   child: Text(
-                    l.noService,
-                    style: t.text(t.s.body, color: t.c.textMuted),
+                    state.isTV ? l.noServiceTitleTv : l.noServiceTitleTouch,
+                    style: t.text(
+                      t.s.title,
+                      weight: FontWeight.w700,
+                      height: Leading.snug,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: inset.copyWith(top: Space.s2),
+                  child: Text(
+                    l.noServiceHelp,
+                    style: t.text(
+                      t.s.bodySm,
+                      color: t.c.textMuted,
+                      height: Leading.body,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: inset.copyWith(top: Space.s3, bottom: Space.s2),
+                  child: ShikooButton(
+                    label: l.support,
+                    icon: ShikooIcon.qr,
+                    onPressed: () => openLink(
+                      context,
+                      isTV: state.isTV,
+                      link: ShikooLinks.support,
+                      title: l.supportTitle,
+                      help: l.supportHelp,
+                      below: '',
+                      strong: '',
+                    ),
                   ),
                 ),
               ]
