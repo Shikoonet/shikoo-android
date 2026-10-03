@@ -64,8 +64,10 @@ const BASE = `http://127.0.0.1:${server.address().port}/mockups/`;
 const PAGES = [
   { name: 'phone', width: 2300 },
   { name: 'phone-states', width: 2300 },
+  { name: 'phone-ping', width: 2300 },
   { name: 'tv', width: 2040 },
   { name: 'tv-states', width: 2040 },
+  { name: 'tv-ping', width: 2040 },
 ];
 const WEIGHTS = ['400', '500', '700', '800'];
 const problems = [];

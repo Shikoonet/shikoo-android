@@ -21,6 +21,10 @@
  *  ۱۴. کد ورود ......... .code-box .code + .is-expired
  *  ۱۵. نتیجه ........... .hero-icon + .positive | .danger ؛ .progress
  *  ۱۶. ستون اسکرول ..... .tv-col + .is-scrolled ؛ .scroll-thumb
+ *  ۱۷. سربرگ دوخطی ..... .svc-titles .svc-line .svc-sub (زمان به‌روزرسانی) + دکمهٔ به‌روزرسانی در .svc-head
+ *  ۱۸. سربرگ فهرست ..... .list-head ؛ .search + .is-active ؛ .list-caption
+ *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
+ *  پینگِ در حال سنجش: .ping.is-pending ؛ برچسب «تازه»: .chip-outline ؛ قاب اسکرول‌شدهٔ گوشی: .scroll-view
  *  فوکوس ریموت روی هر جزء: .is-focused
  */
 
@@ -85,6 +89,7 @@ ul { list-style: none; }
 .chip-positive { background: var(--color-positive-soft); color: var(--color-positive); }
 .chip-danger   { background: var(--color-danger-soft);   color: var(--color-danger); }
 .chip-muted    { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.chip-outline  { color: var(--color-text); box-shadow: inset 0 0 0 var(--border-width) var(--color-outline); }
 
 /* ۴. کارت سرویس */
 .card { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
@@ -94,7 +99,7 @@ ul { list-style: none; }
   flex: 1; min-inline-size: 0; font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.svc-head .icon { color: var(--color-text-muted); }
+.svc-head > .icon, .svc-head .icon-btn { color: var(--color-text-muted); }
 .svc-summary { margin-top: var(--space-1); padding-bottom: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .svc-summary strong { color: var(--color-text); }
 .svc-summary .warn { color: var(--color-warning); font-weight: var(--font-weight-bold); }
@@ -156,6 +161,9 @@ ul { list-style: none; }
 .ping::before { content: ""; inline-size: var(--size-dot); block-size: var(--size-dot); border-radius: 50%; background: var(--dot, var(--color-positive)); }
 .ping.ok  { --dot: var(--color-warning); }
 .ping.bad { --dot: var(--color-danger); color: var(--color-danger); }
+/* تا جواب برسد: چرخنده به‌جای نقطه و عدد؛ عدد کهنه نشان داده نمی‌شود */
+.ping.is-pending::before { display: none; }
+.ping .icon { --size-icon: var(--size-icon-sm); }
 
 /* ۸. دکمهٔ گرد: قطع، در حال اتصال، وصل، وصل نشد، غیرفعال */
 .power-ring {
@@ -268,6 +276,32 @@ ul { list-style: none; }
 .tv-col.is-scrolled { mask-image: linear-gradient(to bottom, transparent, black var(--size-fade)); }
 .scroll-thumb { position: absolute; inset-inline-end: 0; inline-size: var(--size-scroll-thumb); border-radius: var(--radius-full); background: var(--color-outline); }
 
+/* ۱۷. سربرگ دوخطی: نام و وضعیت، و زیرش زمان آخرین به‌روزرسانی؛ دکمهٔ به‌روزرسانی کنار هر دو */
+.svc-titles { flex: 1; min-inline-size: 0; }
+.svc-line { display: flex; align-items: center; gap: var(--space-2); }
+.svc-sub { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+
+/* ۱۸. سربرگ فهرست سرورها: جست‌وجو (فقط گوشی) یا عنوان (تلویزیون)، و «پینگ همه» */
+.list-head { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
+.list-head, .svc { scroll-margin-top: var(--space-3); } /* جای نمونه در قاب اسکرول‌شده */
+.list-caption { flex: 1; min-inline-size: 0; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.list-caption strong { font-size: var(--text-body); color: var(--color-text); }
+.search {
+  flex: 1; min-inline-size: 0; display: flex; align-items: center; gap: var(--space-2);
+  block-size: var(--size-button); padding-inline: var(--space-3); border-radius: var(--radius-md);
+  background: var(--color-surface-sunken); color: var(--color-text-muted); font-size: var(--text-body-sm);
+}
+.search .icon { --size-icon: var(--size-icon-sm); }
+.search.is-active { color: var(--color-text); font-size: var(--text-body); box-shadow: inset 0 0 0 var(--border-width-control) var(--color-outline); }
+.search .clear { margin-inline-start: auto; color: var(--color-text-muted); }
+
+/* ۱۹. پیام چندخطی، زیر سربرگ سرویس: نتیجهٔ به‌روزرسانی؛ .danger برای «به‌روز نشد» */
+.notice.msg { align-items: flex-start; line-height: var(--leading-body); }
+.notice.msg .icon { margin-block-start: calc((1lh - var(--size-icon)) / 2); }
+.notice.msg span { white-space: normal; text-overflow: clip; line-height: inherit; }
+.notice.danger { background: var(--color-danger-soft); }
+.notice.danger .icon, .notice.danger strong { color: var(--color-danger); }
+
 /* فوکوس ریموت (فقط تلویزیون): حلقهٔ ضخیم + سایهٔ برجسته؛ ردیف و دکمهٔ دورخط‌دار سطح روشن هم می‌گیرند */
 .is-focused {
   position: relative; z-index: 1;
@@ -313,6 +347,9 @@ ul { list-style: none; }
 
 /* خانهٔ گوشی */
 .home { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--safe-x); }
+/* خانهٔ اسکرول‌شده: نوار بالا هم با بقیه بالا می‌رود؛ موقعیتِ نمونه را mockup.js از data-scroll-to می‌گیرد */
+.scroll-view { flex: 1; min-block-size: 0; overflow: hidden; }
+.scroll-content { display: flex; flex-direction: column; translate: 0 calc(var(--scroll, 0px) * -1); }
 .power-zone { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; }
 
 /* تنظیمات (گوشی و تلویزیون) */
