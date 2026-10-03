@@ -9,13 +9,15 @@ abstract final class ShikooLinks {
   static const support = 'https://t.me/admiinturbo';
 }
 
+/// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.
 String? usableLink(String? url) {
-  final uri = url == null || url.length > 512 ? null : Uri.tryParse(url);
+  final uri = Uri.tryParse(url ?? '');
   if (uri == null || !{'https', 'http'}.contains(uri.scheme)) return null;
+  final link = uri.toString();
   final bareTelegram =
       {'t.me', 'telegram.me'}.contains(uri.host) &&
       uri.pathSegments.every((part) => part.isEmpty);
-  return uri.host.isEmpty || bareTelegram ? null : uri.toString();
+  return uri.host.isEmpty || bareTelegram || link.length > 512 ? null : link;
 }
 
 const shikooDefaultLanguage = String.fromEnvironment(

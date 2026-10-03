@@ -40,6 +40,8 @@ void main() {
     expect(usableLink('t.me/x'), isNull);
     expect(usableLink(null), isNull);
     expect(usableLink('https://t.me/${'x' * 600}'), isNull);
+    expect(usableLink('https://t.me/${'پ' * 480}'), isNull);
+    expect(usableLink('https://t.me/${'پ' * 50}'), hasLength(lessThan(513)));
     expect(usableLink('https://t.me/shikoo_help'), 'https://t.me/shikoo_help');
     expect(
       usableLink('https://shikoo.example/help'),

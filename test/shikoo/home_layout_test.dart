@@ -609,4 +609,21 @@ void main() {
     );
     expect(tester.getSize(card.first).width, ShikooSizes.tv.dialog);
   });
+
+  testWidgets('a long Persian support link still shows a QR, Shikoo support', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.on, supportUrl: 'https://t.me/${'پ' * 480}'),
+    );
+    await _focus(tester, 'پشتیبانی');
+    await _press(tester, _ok);
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      ShikooLinks.support,
+    );
+  });
 }
