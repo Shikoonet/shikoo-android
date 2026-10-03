@@ -156,7 +156,6 @@ ul { list-style: none; }
 .ping::before { content: ""; inline-size: var(--size-dot); block-size: var(--size-dot); border-radius: 50%; background: var(--dot, var(--color-positive)); }
 .ping.ok  { --dot: var(--color-warning); }
 .ping.bad { --dot: var(--color-danger); color: var(--color-danger); }
-.unit { font-size: var(--text-caption); }
 
 /* ۸. دکمهٔ گرد: قطع، در حال اتصال، وصل، وصل نشد، غیرفعال */
 .power-ring {
@@ -342,7 +341,11 @@ ul { list-style: none; }
   flex: 1; min-block-size: 0; display: grid; grid-template-columns: var(--size-pane) 1fr; grid-template-rows: minmax(0, 1fr);
   gap: var(--space-10); margin-top: var(--space-3);
 }
-.tv-power { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); }
+/* دکمه و سرورِ زیرش وسطِ ستون‌اند و با عوض شدن حالت نمی‌پرند؛ راهنما یا پیام در فضای خالیِ زیرشان آویزان است */
+.tv-power { display: grid; grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr); justify-items: center; row-gap: var(--space-4); }
+.tv-power > .power-ring { grid-row: 2; }
+.tv-power > .now { grid-row: 3; }
+.tv-power > .tv-hint, .tv-power > .power-msg { grid-row: 4; align-self: start; }
 
 /* ورود تلویزیون: متن و کد در سمت شروع، QR بزرگ در سمت دیگر */
 .tv-login { flex: 1; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--space-16); padding-inline: var(--space-8); }
