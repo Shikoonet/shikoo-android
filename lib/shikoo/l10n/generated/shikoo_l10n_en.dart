@@ -433,11 +433,11 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get vpnRefused =>
-      'VPN permission wasn\'t given.\nConnect again and allow it in Android\'s window.';
+      'Permission to connect wasn\'t given.\nConnect again and allow it in Android\'s window.';
 
   @override
   String get vpnMissing =>
-      'This device has no VPN permission window.\nAsk Support.';
+      'This device doesn\'t show Android\'s permission window.\nAsk Support.';
 
   @override
   String get logoutTitleTv => 'Remove the services from this TV?';

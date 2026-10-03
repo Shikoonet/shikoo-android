@@ -144,8 +144,8 @@
     "description": "Under the power button while connected to a server the user picked that does not answer.",
     "placeholders": {"name": {"type": "String"}}
   },
-  "vpnRefused": "VPN permission wasn't given.\nConnect again and allow it in Android's window.",
-  "vpnMissing": "This device has no VPN permission window.\nAsk Support.",
+  "vpnRefused": "Permission to connect wasn't given.\nConnect again and allow it in Android's window.",
+  "vpnMissing": "This device doesn't show Android's permission window.\nAsk Support.",
   "logoutTitleTv": "Remove the services from this TV?",
   "logoutTitleTouch": "Remove the services from this phone?",
   "removeButton": "Remove",

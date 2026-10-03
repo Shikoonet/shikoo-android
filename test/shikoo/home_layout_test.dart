@@ -597,6 +597,14 @@ void main() {
       _tv(ShikooConnection.error, error: ShikooError.vpnMissing),
     );
     expect(find.textContaining('پنجرهٔ اجازهٔ اتصال را ندارد'), findsOneWidget);
+
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.error, error: ShikooError.vpnRefused),
+      locale: 'en',
+    );
+    expect(find.textContaining('Permission to connect'), findsOneWidget);
+    expect(find.textContaining('VPN'), findsNothing);
   });
 
   testWidgets('a dialog is as wide as the design, however short its text', (
