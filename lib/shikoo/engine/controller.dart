@@ -190,6 +190,10 @@ final _roundProvider = _cell<_Round>((
   ended: false,
 ));
 final _orderProvider = _cell<List<String>>(const []);
+
+/// Our own verdicts by name. FlClash's delay table also takes the core's group health checks
+/// (a "Fastest" group with its own timeout), which repainted healthy servers as dead.
+final _pingsProvider = _cell<Map<String, int>>(const {});
 final _refreshProvider = _cell(ShikooRefresh.idle);
 final _noticeProvider = _cell<ShikooNotice?>(null);
 
@@ -284,10 +288,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final info = profile?.subscriptionInfo;
   final group = _mainGroup(ref);
   final round = ref.watch(_roundProvider);
-  final testUrl = ref.watch(realTestUrlProvider(group?.testUrl));
-  final delays = ref.watch(
-    delayDataSourceProvider.select((map) => map[testUrl]),
-  );
+  final pings = ref.watch(_pingsProvider);
   final byName = {for (final proxy in _serversOf(group)) proxy.name: proxy};
   final chosen = group == null
       ? null
@@ -298,7 +299,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       ShikooServer(
         name: name,
         type: byName[name]!.type,
-        ping: round.pending.contains(name) ? null : delays?[name],
+        ping: round.pending.contains(name) ? null : pings[name],
         testing: round.pending.contains(name),
       ),
   ];
@@ -460,8 +461,7 @@ class ShikooController {
 
   String _testUrl(Group group) => _ref.read(realTestUrlProvider(group.testUrl));
 
-  int? _ping(Group group, String name) =>
-      _ref.read(delayDataSourceProvider)[_testUrl(group)]?[name];
+  int? _ping(String name) => _ref.read(_pingsProvider)[name];
 
   String? _validSelection() {
     final group = _group;
@@ -543,7 +543,7 @@ class ShikooController {
     final waiting = _ref.read(_intentProvider).waiting;
     final pick = choose(
       names: names,
-      ping: (name) => _ping(group, name),
+      ping: _ping,
       pinging: _pinging || _again,
       urgent: running || waiting,
     );
@@ -584,7 +584,10 @@ class ShikooController {
     final url = _testUrl(group);
     try {
       await pingServers(names, (name) => _probe(url, name), (name, ms) {
-        if (ms < 0) _proxies.setDelay(Delay(name: name, url: url, value: -1));
+        _ref.read(_pingsProvider.notifier).set({
+          ..._ref.read(_pingsProvider),
+          name: ms,
+        });
         final now = _ref.read(_roundProvider);
         round.set((
           pending: {...now.pending}..remove(name),
@@ -600,7 +603,7 @@ class ShikooController {
       if (current != null) {
         _ref
             .read(_orderProvider.notifier)
-            .set(sortByPing(_names(current), (name) => _ping(current, name)));
+            .set(sortByPing(_names(current), _ping));
       }
       round.set((pending: const <String>{}, total: 0, ended: true));
       _reconcile();
@@ -614,7 +617,6 @@ class ShikooController {
   Future<int?> _probe(String url, String name) async {
     try {
       final delay = await _ref.read(coreHandlerProvider).getDelay(url, name);
-      if (delay != null) _proxies.setDelay(delay);
       return delay?.value;
     } catch (_) {
       return null;
