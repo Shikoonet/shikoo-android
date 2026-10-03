@@ -398,11 +398,11 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get vpnRefused =>
-      'اجازهٔ VPN داده نشد.\nدوباره وصل شو و در پنجرهٔ اندروید اجازه بده.';
+      'اجازهٔ اتصال داده نشد.\nدوباره وصل شو و در پنجرهٔ اندروید اجازه بده.';
 
   @override
   String get vpnMissing =>
-      'این دستگاه پنجرهٔ اجازهٔ VPN ندارد.\nاز «پشتیبانی» بپرس.';
+      'این دستگاه پنجرهٔ اجازهٔ اتصال را ندارد.\nاز «پشتیبانی» بپرس.';
 
   @override
   String get logoutTitleTv => 'سرویس‌ها از این تلویزیون پاک شوند؟';
