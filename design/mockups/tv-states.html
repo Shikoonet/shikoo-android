@@ -307,15 +307,16 @@
       <div class="scrim">
         <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-title">
           <h2 id="renew-title">تمدید با گوشی</h2>
-          <p>با دوربین گوشی اسکن کن؛ ربات شیکو فهرست سرویس‌هایت را باز می‌کند.</p>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکو فهرست تمدید سرویس‌هایت را باز می‌کند.</p>
           <div class="qr-tile sm"><svg class="qr" data-seed="31337" role="img" aria-label="QR نمونه"></svg></div>
-          <p>در فهرست، <span class="for"><bdi dir="ltr">user123</bdi> · الماس</span> را بزن.</p>
+          <p>در فهرست ربات، سرویسِ <span class="for"><bdi dir="ltr">user123</bdi></span> را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.</p>
           <button class="btn btn-outline is-focused" type="button">بستن</button>
         </div>
       </div>
     </div>
-    <p class="note">امروز ربات فقط پیوندِ «فهرست سرویس‌ها برای تمدید» را می‌شناسد، پس متن می‌گوید در آن فهرست کدام را بزند. نام سرویس پررنگ است تا با بقیهٔ فهرست ربات یکی گرفته نشود.</p>
-    <p class="note">همین متن تا وقتی می‌ماند که سرور شناسهٔ هر سرویس را به اپ ندهد. روی گوشی «تمدید» همین پیوند را مستقیم در تلگرام باز می‌کند و متنی لازم ندارد.</p>
+    <p class="note">ربات پیوندِ مستقیمِ تمدیدِ هر سرویس را از قبل دارد؛ کمبود فقط این است که اپ هنوز شناسهٔ سرویس را ندارد. تا وقتی سرور آن را به اپ ندهد، کد تصویری فهرست تمدید ربات را باز می‌کند و متن می‌گوید کدام را بزند.</p>
+    <p class="note">فهرست تمدید ربات چندصفحه‌ای است و نام‌ها را کوتاه می‌کند. پس متن فقط نام کاربری را می‌گوید، که اولِ نام است و از کوتاه شدن می‌ماند، و صفحهٔ بعد را یادآوری می‌کند.</p>
+    <p class="note">روی گوشی «تمدید» همین پیوند را مستقیم در تلگرام باز می‌کند و متنی لازم ندارد.</p>
   </figure>
 
   <!-- QR تمدید: مستقیم روی همین سرویس -->
@@ -367,7 +368,7 @@
         </div>
       </div>
     </div>
-    <p class="note">وقتی ورود تلگرامی کامل شد و سرور شناسهٔ سرویس را داد، کد تصویری ربات را مستقیم روی تمدیدِ همین سرویس باز می‌کند. نام سرویس زیر کد تصویری فقط تأیید است.</p>
+    <p class="note">وقتی سرور شناسهٔ سرویس را به اپ داد، کد تصویری همان پیوندِ مستقیمی است که ربات از قبل دارد و تمدیدِ همین سرویس را باز می‌کند. نام سرویس زیر کد تصویری فقط تأیید است.</p>
     <p class="note"><b>پیشنهاد</b>اگر گوشیِ اسکن‌کننده در حساب تلگرام دیگری باشد، ربات به‌جای خطا همان فهرست سرویس‌ها را نشان دهد. کار سمت سرور است.</p>
   </figure>
 
@@ -453,11 +454,11 @@
             <div class="card">
               <div class="row">
                 <svg class="icon"><use href="#i-plane"/></svg>
-                <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرام</small></span>
+                <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرامِ <bdi dir="ltr">@maryam_k</bdi></small></span>
               </div>
               <button class="row danger" type="button">
                 <svg class="icon"><use href="#i-logout"/></svg>
-                <span class="t"><span>خروج</span><small>این دستگاه از حساب تلگرامت جدا می‌شود؛ سرویس‌هایت دست نمی‌خورند.</small></span>
+                <span class="t"><span>خروج</span><small>سرویس‌ها از این دستگاه برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.</small></span>
               </button>
             </div>
           </section>
@@ -670,9 +671,15 @@
   <figure class="shot">
     <figcaption>ورود · کد تمام شده</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-login-expired">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+      </header>
       <div class="tv-login">
         <div class="login-copy">
-          <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
           <h1>ورود با تلگرام</h1>
           <p class="lead">۱۰ دقیقه گذشت و این کد تمام شد. یک کد تازه بگیر.</p>
           <div class="code-box">
@@ -700,17 +707,44 @@
       <div class="tv-result">
         <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
         <h1>ورود انجام شد</h1>
-        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> وصل شد، با این سرویس‌ها:</p>
+        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</p>
         <ul class="card result-list">
           <li><bdi dir="ltr">user123</bdi> · الماس</li>
           <li><bdi dir="ltr">user789</bdi> · معمولی</li>
         </ul>
-        <button class="btn btn-primary is-focused" type="button">ادامه</button>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button">ادامه</button>
+          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+        </div>
       </div>
     </div>
+    <p class="note">«این حساب من نیست» تلویزیون را از آن حساب جدا می‌کند، سرویس‌های آن حساب را روی تلویزیون نگه نمی‌دارد و به صفحهٔ ورود با کد تازه برمی‌گردد. ریموت اول روی «ادامه» است؛ چپ به «این حساب من نیست». نام کاربری کنار نام نمایشی است، چون نام نمایشی یکتا نیست؛ اگر نیست، فقط نام.</p>
     <p class="note">صفحه نام حساب و سرویس‌ها را نشان می‌دهد و تا «ادامه» زده نشود به خانه نمی‌رود. اگر کسی کدِ این تلویزیون را گرفته و با حساب خودش تأیید کرده باشد، همین‌جا نامِ غریبه دیده می‌شود.</p>
-    <p class="note">تا سرویس‌ها برسند، به‌جای فهرست نوار پیشرفت و «سرویس‌هایت دارند می‌آیند…» است و «ادامه» هنوز نیست. بعد از «ادامه»، خانه با ریموت روی دکمهٔ گرد.</p>
+    <p class="note">تا سرویس‌ها برسند، به‌جای فهرست نوار پیشرفت و «سرویس‌هایت دارند می‌آیند…» است و «ادامه» هنوز نیست، ولی «این حساب من نیست» هست. اگر تا ۲۰ ثانیه نرسیدند، قاب «سرویس‌ها نرسیدند». بعد از «ادامه»، خانه با ریموت روی دکمهٔ گرد.</p>
     <p class="note"><b>پیشنهاد</b>پیام تأیید در ربات هم بگوید چه دستگاهی وصل می‌شود و هشدار دهد که کدی را که کس دیگری فرستاده تأیید نکن. کار سمت سرور است.</p>
+  </figure>
+
+  <!-- ورود: سرویس‌ها نرسیدند -->
+  <figure class="shot">
+    <figcaption>ورود · تأیید شد ولی سرویس‌ها نرسیدند · ریموت روی «دوباره»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-services-failed">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon danger"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <h1>سرویس‌ها نرسیدند</h1>
+        <p>ورود با حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) انجام شد، ولی فهرست سرویس‌ها از سرور نرسید. اینترنت این تلویزیون را بررسی کن و دوباره امتحان کن.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">بعد از «تأیید»، اپ تا ۲۰ ثانیه منتظر فهرست سرویس‌هاست؛ بعد این قاب. ورود سر جایش است و «دوباره» فقط فهرست را دوباره می‌گیرد، نه کد تازه.</p>
+    <p class="note">ریموت اول روی «دوباره»؛ چپ به «پشتیبانی» و بعد «این حساب من نیست». گوشی همین متن را دارد، با «این گوشی».</p>
+    <p class="note"><b>پیشنهاد</b>مهلت ۲۰ ثانیه روی شبکهٔ واقعی سنجیده نشده؛ با سمت سرورِ ورود معلوم می‌شود.</p>
   </figure>
 
   <!-- ورود: حساب سرویسی ندارد -->
@@ -723,12 +757,16 @@
       <div class="tv-result">
         <span class="hero-icon muted"><svg class="icon"><use href="#i-alert"/></svg></span>
         <h1>این حساب سرویسی ندارد</h1>
-        <p>با حساب تلگرامِ <strong class="for">مریم</strong> وارد شدی، ولی سرویسی به آن وصل نیست.</p>
+        <p>با حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وارد شدی، ولی سرویسی به آن وصل نیست.</p>
         <p>سرویست روی حساب دیگری است؟ در تلگرامِ گوشی به همان حساب برو و دوباره اسکن کن.</p>
-        <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>ورود با حساب دیگر</button>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>ورود با حساب دیگر</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
       </div>
     </div>
-    <p class="note">همان حالت گوشی است. «ورود با حساب دیگر» به صفحهٔ ورود با کد تازه برمی‌گردد. روی تلویزیون چسباندن لینک نیست، پس راه دیگری پیشنهاد نمی‌شود.</p>
+    <p class="note">«پشتیبانی» همان کد تصویریِ پنجرهٔ پشتیبانیِ خانه است، برای کسی که مطمئن است سرویس دارد. ریموت اول روی «ورود با حساب دیگر».</p>
+    <p class="note">همان حالت گوشی است. «ورود با حساب دیگر» به صفحهٔ ورود با کد تازه برمی‌گردد. روی تلویزیون چسباندن لینک نیست، پس راه دیگر «پشتیبانی» است.</p>
   </figure>
 
   <!-- ورود: رد شد -->

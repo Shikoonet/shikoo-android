@@ -33,21 +33,35 @@
   <figure class="shot">
     <figcaption>ورود · کد تصویری و کد کوتاه</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-login">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+      </header>
       <div class="tv-login">
         <div class="login-copy">
-          <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
           <h1>ورود با تلگرام</h1>
           <p class="lead">با دوربین گوشی اسکن کن و «تأیید» را بزن</p>
+          <p class="fine">تلگرامت فقط با فیلترشکن باز می‌شود؟ روی گوشی روشنش کن، بعد اسکن کن.</p>
           <div class="code-box">
             <span class="code-label">تلگرامت روی کامپیوتر است؟<br>این کد را برای ربات بفرست:</span>
             <span class="code">۴۸۲ ۹۱۵</span>
             <span class="code-bot"><svg class="icon"><use href="#i-plane"/></svg><bdi dir="ltr">@shikoonet_bot</bdi></span>
+            <span class="code-warn"><svg class="icon"><use href="#i-alert"/></svg>این کد را فقط خودت در ربات بزن؛ به هیچ‌کس نده.</span>
           </div>
           <p class="fine">این کد ۱۰ دقیقه کار می‌کند.</p>
         </div>
-        <div class="qr-tile"><svg class="qr" role="img" aria-label="QR نمونه"></svg></div>
+        <div class="qr-side">
+          <div class="qr-tile"><svg class="qr" role="img" aria-label="QR نمونه"></svg></div>
+          <button class="btn btn-outline is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
       </div>
     </div>
+    <p class="note">ریموت اول روی «پشتیبانی» زیر کد تصویری است، تنها دکمهٔ صفحه، تا کسی که گیر کرده راهی داشته باشد؛ همان کد تصویریِ پنجرهٔ پشتیبانیِ خانه را نشان می‌دهد. بالا به انتخاب زبان می‌رود. کد تصویریِ ورود دکمه نیست.</p>
+    <p class="note">زبان کوچک و در گوشه است، مثل صفحهٔ ورود گوشی. راهنمای فیلترشکن زیر جملهٔ اصلی است، چون گوشیِ اسکن‌کننده باید تلگرام را باز کند.</p>
+    <p class="note">هشدارِ زیر نام ربات برای کسی است که کد را از غریبه گرفته: هر کس کد را در ربات بزند، این تلویزیون به حساب او وصل می‌شود.</p>
     <p class="note">کد تصویری ربات شیکو را روی گوشی باز می‌کند، همراه همین کد. کسی که تلگرامش روی کامپیوتر است، کد و نام ربات را کنار هم می‌بیند و کد را می‌فرستد.</p>
     <p class="note">کد ۶ رقمِ فارسی است، بی‌حرف لاتین، در دو تکهٔ سه‌رقمی تا از سه متری خوانده شود. تا روی صفحه است عوض نمی‌شود؛ بعد از ۱۰ دقیقه قاب «کد تمام شده».</p>
     <p class="note"><b>پیشنهاد</b>ربات کد را با رقم فارسی یا انگلیسی، و با فاصله یا بی‌فاصله، بپذیرد. کار سمت سرور است.</p>
