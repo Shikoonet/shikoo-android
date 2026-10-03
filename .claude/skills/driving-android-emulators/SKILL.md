@@ -15,8 +15,9 @@ description: Use when testing FlClash, Happ or the Shikoo app on the shikoo-phon
 
 ```bash
 source /d/dev/android-toolchain/env.sh
-nohup emulator -avd shikoo-tv -port 5556 -no-snapshot-save -no-boot-anim > /d/dev/shikoo-spike/emulator-tv.log 2>&1 &
+nohup emulator -avd shikoo-tv -port 5556 -no-window -no-snapshot-save -no-boot-anim > /d/dev/shikoo-spike/emulator-tv.log 2>&1 &
 # گوشی: -avd shikoo-phone -port 5554
+# -no-window: پنجره روی صفحهٔ Sam می‌آید و Sam کار تأییدنشده را نباید ببیند (۲۰۲۶-۱۰-۰۳). عکس با shot گرفته می‌شود.
 source .claude/skills/driving-android-emulators/emu.sh   # پیش‌فرض تلویزیون؛ برای گوشی: D=emulator-5554
 boot                                                      # حدود ۵۵ ثانیه
 $A install -r /d/dev/shikoo-spike/apk/FlClash-0.8.98-android-x86_64.apk
