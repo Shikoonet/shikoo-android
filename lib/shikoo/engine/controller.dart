@@ -121,10 +121,15 @@ class SelectedReplaced extends ShikooNotice {
 }
 
 class SilentReplaced extends ShikooNotice {
-  const SilentReplaced({required this.silent, required this.replacement});
+  const SilentReplaced({
+    required this.silent,
+    required this.replacement,
+    required this.moved,
+  });
 
   final String silent;
   final String replacement;
+  final bool moved;
 }
 
 /// Only for an update the user asked for; an automatic one just says so under the name.
@@ -704,7 +709,7 @@ class ShikooController {
     if (best == null) return;
     _pickedByApp(best);
     unawaited(_choose(best));
-    _notice(SilentReplaced(silent: chosen, replacement: best));
+    _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
   }
 
   Future<int?> _probe(String url, String name) async {

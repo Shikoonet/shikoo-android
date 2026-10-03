@@ -520,4 +520,28 @@ void main() {
     expect(text.didExceedMaxLines, isFalse);
     expect(text.size.height, greaterThan(text.preferredLineHeight * 1.5));
   });
+
+  testWidgets('a silent pick of the app says what took its place', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    for (final (moved, second) in [
+      (false, 'سریع‌ترین سرور، «آلمان ۲»، جایش انتخاب شد.'),
+      (true, 'اتصال همان لحظه به سریع‌ترین سرور، «آلمان ۲»، رفت.'),
+    ]) {
+      await _pumpTvHome(
+        tester,
+        _tv(
+          moved ? ShikooConnection.on : ShikooConnection.off,
+          selected: 'آلمان ۲',
+          notice: SilentReplaced(
+            silent: '🇫🇮 فنلاند ۲',
+            replacement: 'آلمان ۲',
+            moved: moved,
+          ),
+        ),
+      );
+      expect(find.text('«فنلاند ۲» جواب نداد. $second'), findsOneWidget);
+    }
+  });
 }

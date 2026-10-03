@@ -275,13 +275,8 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
-  String selectedSilent(String name) {
-    return '“$name” did not answer.';
-  }
-
-  @override
-  String selectedMovedTo(String name) {
-    return 'The connection moved to “$name”.';
+  String selectedNoAnswer(String name) {
+    return '“$name” didn\'t answer.';
   }
 
   @override

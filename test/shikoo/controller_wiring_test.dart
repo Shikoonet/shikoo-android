@@ -183,7 +183,10 @@ void main() {
       'آلمان ۱',
       'هلند ۱',
     ], reason: 'the app had picked it');
-    expect(container.read(shikooStateProvider).notice, isA<SilentReplaced>());
+    expect(
+      container.read(shikooStateProvider).notice,
+      isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
+    );
 
     // The user picks the very server the app had picked: from now on it is theirs.
     await controller.selectServer('هلند ۱');
@@ -262,6 +265,27 @@ void main() {
 
       await controller.connect();
       expect(setup.runs, [false], reason: 'nothing to connect with');
+    },
+  );
+
+  test(
+    'disconnected, a silent pick of the app is only replaced, not moved',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await controller.pingAll();
+      pings['آلمان ۱'] = -1;
+      await controller.pingAll();
+      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+      expect(
+        container.read(shikooStateProvider).notice,
+        isA<SilentReplaced>().having((n) => n.moved, 'moved', isFalse),
+      );
     },
   );
 }

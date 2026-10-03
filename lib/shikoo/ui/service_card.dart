@@ -269,9 +269,11 @@ class _Message extends StatelessWidget {
               ? l.selectedMoved(withoutFlags(replacement))
               : l.selectedReplaced(withoutFlags(replacement)),
         ),
-      SilentReplaced(:final silent, :final replacement) => (
-        l.selectedSilent(withoutFlags(silent)),
-        l.selectedMovedTo(withoutFlags(replacement)),
+      SilentReplaced(:final silent, :final replacement, :final moved) => (
+        l.selectedNoAnswer(withoutFlags(silent)),
+        moved
+            ? l.selectedMoved(withoutFlags(replacement))
+            : l.selectedReplaced(withoutFlags(replacement)),
       ),
       ServersChanged(:final added, :final removed) => (
         [

@@ -239,13 +239,8 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
-  String selectedSilent(String name) {
+  String selectedNoAnswer(String name) {
     return '«$name» جواب نداد.';
-  }
-
-  @override
-  String selectedMovedTo(String name) {
-    return 'اتصال به «$name» رفت.';
   }
 
   @override
