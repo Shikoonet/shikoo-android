@@ -27,6 +27,11 @@
   "@serversRemoved": {"placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
   "selectedRemoved": "“{name}” is no longer in your subscription.",
   "@selectedRemoved": {"placeholders": {"name": {"type": "String"}}},
+  "selectedNoAnswer": "“{name}” didn't answer.",
+  "@selectedNoAnswer": {
+    "description": "First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced when disconnected or selectedMoved when connected.",
+    "placeholders": {"name": {"type": "String"}}
+  },
   "selectedReplaced": "The fastest server, “{name}”, was picked instead.",
   "@selectedReplaced": {"placeholders": {"name": {"type": "String"}}},
   "selectedMoved": "The connection moved to the fastest server, “{name}”, right away.",

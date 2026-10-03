@@ -17,6 +17,7 @@
   "serverRemoved": "«{name}» حذف شد.",
   "serversRemoved": "{count} سرور حذف شد.",
   "selectedRemoved": "«{name}» دیگر در اشتراکت نیست.",
+  "selectedNoAnswer": "«{name}» جواب نداد.",
   "selectedReplaced": "سریع‌ترین سرور، «{name}»، جایش انتخاب شد.",
   "selectedMoved": "اتصال همان لحظه به سریع‌ترین سرور، «{name}»، رفت.",
   "selectedMovedFirst": "اتصال همان لحظه به «{name}» رفت.",
