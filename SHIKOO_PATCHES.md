@@ -9,12 +9,17 @@
 | ۲ | `pubspec.yaml`، `pubspec.lock` | وابستگی تازهٔ `qr: ^4.0.0` (با `flutter pub add qr`) | QR «تمدید» و «پشتیبانی» تلویزیون. FlClash و وابستگی‌هایش سازندهٔ QR ندارند (`mobile_scanner` فقط می‌خواند). `qr` خالص Dart است، مجوز BSD-3، و جز `meta` وابستگی ندارد. |
 | ۳ | `android/app/src/main/kotlin/com/follow/clash/plugins/AppPlugin.kt` | `startActivityForResult` پنجرهٔ اجازهٔ VPN داخل try/catch؛ اگر پنجره نبود یا کاربر رد کرد، پیام `vpnConsent` (`missing` یا `refused`) به Dart می‌رود. | باکس‌هایی که پنجرهٔ اجازه ندارند کرش نکنند، و اپ رد شدن اجازه را بفهمد. شروع سرویس خوش‌بینانه است و این خبر را به Dart نمی‌داد. |
 | ۴ | `lib/plugins/app.dart` | `onVpnConsent` و `case 'vpnConsent'` در گیرندهٔ کانال. | پیام وصلهٔ ۳ به کنترل‌گر شیکو برسد. |
+| ۵ | `android/settings.gradle.kts`، `android/app/build.gradle.kts`، `android/common/build.gradle.kts`، `android/gradle/libs.versions.toml`، `android/app/google-services.json` | افزونه‌های `com.google.gms.google-services` و `com.google.firebase.crashlytics`، وابستگی‌های `firebase-bom`، `firebase-crashlytics-ndk` و `firebase-analytics`، و نام‌هایشان در فهرست نسخه‌ها حذف شدند. `google-services.json` (پروژهٔ جای‌نگه‌دار `dev`) پاک شد. | حذف Firebase، تصمیم Sam: اپ نه Firebase را راه بیندازد، نه به آن وصل شود، نه کتابخانه‌اش را داشته باشد. ارسال `mapping.txt` هنگام ساخت هم با افزونه می‌رود. |
+| ۶ | `android/common/src/main/java/com/follow/clash/common/GlobalState.kt` | importهای Firebase رفت. `setCrashlytics` کاری نمی‌کند و `didCrashOnPreviousExecution()` همیشه `false` می‌دهد. | صدازننده‌ها (`ServiceStateHost.kt`، `ServiceStateMachine.kt`، `AppPlugin.kt` و کانال Dart) و تست‌هایشان بی‌وصله بمانند. سمت Dart دست نخورد: `crashlytics` در شیکو `false` است و `bootGuard` بدون آن کاوشگر کار می‌کند. |
 
 ## نکته‌ها
 
 - `.gitignore` خود FlClash پوشهٔ `docs/` را نادیده می‌گیرد. برای اینکه به آن دست نزنیم، یادداشت‌های شیکو با `git add -f docs/...` اضافه می‌شوند. فایل‌هایی که یک بار اضافه شده‌اند، بعد عادی دنبال می‌شوند.
 - `.gitattributes` فایل تازهٔ شیکو است، نه وصله: همهٔ متن‌ها با پایان خط LF، تا اسکریپت‌ها داخل WSL هم درست اجرا شوند.
 - `.github/workflows/build.yaml` خود FlClash با هر push اجرا می‌شود. GitHub Actions در این مخزن خاموش است تا CI خود شیکو ساخته شود.
+  آن فایل `google-services.json` را از راز `SERVICE_JSON` می‌سازد (`:280`)؛ CI شیکو این گام را نمی‌خواهد.
+- **ادغام FlClash و وصلهٔ ۵:** FlClash نسخهٔ `firebaseBom` و دو افزونه را گاهی بالا می‌برد و آن‌جا تداخل پیش می‌آید. حذف ما را نگه دار.
+- **ML Kit هنوز نام Firebase دارد:** اسکنر QR خود FlClash (`mobile_scanner`) چهار کتابخانهٔ کوچک `firebase-components`، `firebase-encoders`، `firebase-encoders-json` و `firebase-annotations` را می‌آورد، و ثبت‌کننده‌هایش در مانیفست با پیشوند `com.google.firebase.components:` نام گرفته‌اند. این‌ها Crashlytics و Analytics نیستند. رفتنشان یعنی برداشتن اسکنر QR، که تصمیم جداست.
 
 ## ساختن اپ شیکو
 
