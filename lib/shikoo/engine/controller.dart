@@ -602,7 +602,10 @@ class ShikooController {
       (previous, list) {
         final (service, names) = list;
         final switched = previous?.$1 != null && previous!.$1 != service;
-        if (switched) _quiet = true;
+        if (switched) {
+          _quiet = true;
+          scheduleMicrotask(() => _carryRefresh(previous.$1!, service));
+        }
         if (service != null && names.isNotEmpty && list != previous) {
           scheduleMicrotask(() {
             if (switched) _hide(null);
@@ -1001,6 +1004,18 @@ class ShikooController {
     return passes && carriesTraffic()
         ? math.max(took.elapsedMilliseconds, 1)
         : ms;
+  }
+
+  /// The in-use card's update state is kept apart from the others': it moves with its service.
+  void _carryRefresh(int from, int? to) {
+    final others = {..._ref.read(_othersRefreshProvider)};
+    final mine = _ref.read(_refreshProvider);
+    if (mine == ShikooRefresh.failed) others[from] = mine;
+    _ref
+        .read(_refreshProvider.notifier)
+        .set(others.remove(to) ?? ShikooRefresh.idle);
+    _ref.read(_othersRefreshProvider.notifier).set(others);
+    if (_ref.read(_noticeProvider) is RefreshFailed) _notice(null);
   }
 
   Future<void> _loadPasted() async =>

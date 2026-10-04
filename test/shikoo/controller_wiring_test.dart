@@ -1190,4 +1190,35 @@ void main() {
     expect(container.read(shikooStateProvider).service, isNull);
     expect(await pastedProfiles(), isEmpty);
   });
+
+  test("a failed update stays with its own service's card, not the next one "
+      'in use', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('$panel/file/user111/a');
+    await controller.addService('$panel/file/user222/a');
+    final [failing, ok] = _pasted(container);
+    container.read(currentProfileIdProvider.notifier).value = failing.id;
+    await pumpEventQueue();
+    _gone.add('/file/user111/a');
+    await controller.refreshService();
+    var state = container.read(shikooStateProvider);
+    expect(state.refresh, ShikooRefresh.failed);
+    expect(state.notice, isA<RefreshFailed>());
+
+    controller.selectService(ok.id);
+    await pumpEventQueue();
+    state = container.read(shikooStateProvider);
+    expect(state.refresh, ShikooRefresh.idle);
+    expect(state.notice, isNull);
+    expect(
+      state.others.firstWhere((s) => s.id == failing.id).refresh,
+      ShikooRefresh.failed,
+    );
+
+    controller.selectService(failing.id);
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).refresh, ShikooRefresh.failed);
+  });
 }
