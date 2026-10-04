@@ -632,6 +632,7 @@ class ShikooController {
   /// The selection an update just took away, for the notice that names it.
   String? _removed;
   Future<void>? _refreshing;
+  Future<void>? _refreshingDue;
   bool _manualRefresh = false;
 
   SetupAction get _setup => _ref.read(setupActionProvider.notifier);
@@ -983,19 +984,27 @@ class ShikooController {
   }
 
   void onForeground() {
+    if (!_pinging && isDue(_lastRound, DateTime.now(), pingEvery)) {
+      unawaited(pingAll());
+    }
+    unawaited(refreshDue());
+  }
+
+  /// Every service's usage and date, the one in use first; one at a time, as FlClash's own
+  /// update does.
+  Future<void> refreshDue() => _refreshingDue ??= () async {
     final now = DateTime.now();
-    if (!_pinging && isDue(_lastRound, now, pingEvery)) unawaited(pingAll());
     final current = _ref.read(currentProfileProvider);
     if (isDue(current?.lastUpdateDate, now, refreshEvery)) {
-      unawaited(refreshService(manual: false));
+      await refreshService(manual: false);
     }
-    for (final other in _ref.read(profilesProvider)) {
+    for (final other in [..._ref.read(profilesProvider)]) {
       if (other.id != current?.id &&
           isDue(other.lastUpdateDate, now, refreshEvery)) {
-        unawaited(refreshOther(other.id));
+        await refreshOther(other.id);
       }
     }
-  }
+  }().whenComplete(() => _refreshingDue = null);
 
   void selectService(int id) {
     clearNews();

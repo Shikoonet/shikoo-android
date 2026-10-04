@@ -36,6 +36,7 @@ class ShikooApp extends ConsumerStatefulWidget {
 class _ShikooAppState extends ConsumerState<ShikooApp>
     with WidgetsBindingObserver {
   StreamSubscription<Uri>? _links;
+  Timer? _due;
   bool _hadVpn = false;
   bool _attached = false;
 
@@ -65,6 +66,11 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       _attached = true;
       ref.read(shikooControllerProvider).onForeground();
       ref.read(shikooSignInProvider).onForeground();
+      // A TV is often left on the home screen for hours: its services stay as fresh as on open.
+      _due = Timer.periodic(const Duration(minutes: 1), (_) {
+        final controller = ref.read(shikooControllerProvider);
+        if (controller.foreground) unawaited(controller.refreshDue());
+      });
       if (shikooDebug) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
   }
@@ -122,6 +128,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_links?.cancel());
+    _due?.cancel();
     super.dispose();
   }
 

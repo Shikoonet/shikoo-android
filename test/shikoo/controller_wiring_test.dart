@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -139,8 +140,12 @@ _home([List<Override> more = const []]) {
 
 /// The live panel's shape: every account titled "Shi" (`U2hp`), the account in the file name
 /// (`/file/<user>/…`), in the first row only (`/row/<user>/…`), or nowhere (`/none/…`).
+var _inFlight = 0;
+var _mostInFlight = 0;
+
 Future<String> _panel(ProviderContainer container, _Core core) async {
   globalState.container = container;
+  _mostInFlight = 0;
   when(() => core.validateConfig(any())).thenAnswer((_) async => '');
   when(() => core.getConfig(any())).thenAnswer(
     (_) async => {
@@ -155,7 +160,9 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   );
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   addTearDown(() => server.close(force: true));
-  server.listen((call) {
+  server.listen((call) async {
+    _mostInFlight = math.max(_mostInFlight, ++_inFlight);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
     final [kind, ...rest] = call.uri.pathSegments;
     final user = kind == 'none' ? null : rest.first;
     call.response.headers
@@ -182,7 +189,8 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
         '  - {name: "هلند ۱", $at}',
       ].join('\n'),
     );
-    unawaited(call.response.close());
+    await call.response.close();
+    _inFlight--;
   });
   return 'http://127.0.0.1:${server.port}';
 }
@@ -1077,5 +1085,31 @@ void main() {
     controller.selectService(second.id);
     await pumpEventQueue();
     expect(held, {'PROXY': 'هلند ۱'}, reason: 'the best known, before row 1');
+  });
+
+  test('on open every service that is due is updated, one at a time', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    for (final user in ['user111', 'user222', 'user333']) {
+      await controller.addService('$panel/file/$user/a');
+    }
+    final profiles = container.read(profilesProvider.notifier);
+    final old = DateTime(2020);
+    for (final profile in container.read(profilesProvider)) {
+      profiles.put(
+        profile.copyWith(
+          lastUpdateDate: profile.url.startsWith(panel) ? old : DateTime.now(),
+        ),
+      );
+    }
+    _mostInFlight = 0;
+    controller.onForeground();
+    bool stale() => _pasted(container).any((p) => p.lastUpdateDate == old);
+    for (var i = 0; i < 200 && stale(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(stale(), isFalse);
+    expect(_mostInFlight, 1);
   });
 }
