@@ -31,7 +31,6 @@
   "noResponse": "بی‌پاسخ",
   "errorConnect": "{server} تا {seconds} ثانیه جواب نداد.\nسرور دیگری را امتحان کن.",
   "errorServer": "سرور عوض نشد.",
-  "errorAdd": "سرویس اضافه نشد.",
   "initError": "اپ باز نشد.",
   "refresh": "به‌روزرسانی",
   "refreshServers": "به‌روزرسانی سرورها",
@@ -108,5 +107,17 @@
   "powerNoService": "سرویسی نیست",
   "noServiceTitleTv": "سرویسی روی این تلویزیون نیست",
   "noServiceTitleTouch": "سرویسی روی این گوشی نیست",
-  "noServiceHelp": "برای برگرداندنش از «پشتیبانی» بپرس."
+  "noServiceHelp": "برای برگرداندنش از «پشتیبانی» بپرس.",
+  "pasteLink": "چسباندن لینک اشتراک",
+  "pasteChecking": "در حال بررسی لینک…",
+  "pasteEmptyTitle": "کلیپ‌بورد خالی است.",
+  "pasteEmptyHelp": "لینک اشتراکت را کپی کن، بعد دوباره بزن.",
+  "pasteNotShikooTitle": "این لینک شیکو نیست.",
+  "pasteNotShikooHelp": "فقط لینک اشتراک شیکو کار می‌کند؛ همان که از ربات شیکو یا نماینده‌ات گرفتی.",
+  "pasteRevokedTitle": "این لینک باطل شده یا منقضی است.",
+  "pasteRevokedHelp": "لینک تازه را از ربات شیکو یا نماینده‌ات بگیر.",
+  "pasteOfflineTitle": "اینترنت وصل نیست.",
+  "pasteOfflineHelp": "اینترنت گوشی را بررسی کن و دوباره بزن.",
+  "pasteAnother": "چسباندن لینک دیگر",
+  "pasteAnotherHelp": "برای سرویس دیگری که داری"
 }

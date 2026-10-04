@@ -380,7 +380,6 @@ class _PowerZone extends StatelessWidget {
       ShikooError.vpnRefused => l.vpnRefused,
       ShikooError.vpnMissing => l.vpnMissing,
       ShikooError.serverChange => l.errorServer,
-      ShikooError.addService => l.errorAdd,
       null when state.waiting => l.connectsToFirst,
       null when silent => l.selectedDown(selected!.label),
       null =>

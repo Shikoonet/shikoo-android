@@ -124,9 +124,6 @@ class ShikooL10nFa extends ShikooL10n {
   String get errorServer => 'سرور عوض نشد.';
 
   @override
-  String get errorAdd => 'سرویس اضافه نشد.';
-
-  @override
   String get initError => 'اپ باز نشد.';
 
   @override
@@ -430,4 +427,42 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get noServiceHelp => 'برای برگرداندنش از «پشتیبانی» بپرس.';
+
+  @override
+  String get pasteLink => 'چسباندن لینک اشتراک';
+
+  @override
+  String get pasteChecking => 'در حال بررسی لینک…';
+
+  @override
+  String get pasteEmptyTitle => 'کلیپ‌بورد خالی است.';
+
+  @override
+  String get pasteEmptyHelp => 'لینک اشتراکت را کپی کن، بعد دوباره بزن.';
+
+  @override
+  String get pasteNotShikooTitle => 'این لینک شیکو نیست.';
+
+  @override
+  String get pasteNotShikooHelp =>
+      'فقط لینک اشتراک شیکو کار می‌کند؛ همان که از ربات شیکو یا نماینده‌ات گرفتی.';
+
+  @override
+  String get pasteRevokedTitle => 'این لینک باطل شده یا منقضی است.';
+
+  @override
+  String get pasteRevokedHelp =>
+      'لینک تازه را از ربات شیکو یا نماینده‌ات بگیر.';
+
+  @override
+  String get pasteOfflineTitle => 'اینترنت وصل نیست.';
+
+  @override
+  String get pasteOfflineHelp => 'اینترنت گوشی را بررسی کن و دوباره بزن.';
+
+  @override
+  String get pasteAnother => 'چسباندن لینک دیگر';
+
+  @override
+  String get pasteAnotherHelp => 'برای سرویس دیگری که داری';
 }

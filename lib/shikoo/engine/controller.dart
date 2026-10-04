@@ -10,6 +10,7 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/foundation.dart';
@@ -23,7 +24,6 @@ enum ShikooConnection { off, connecting, on, error }
 enum ShikooError {
   connectTimeout,
   serverChange,
-  addService,
   noServer,
   vpnRefused,
   vpnMissing,
@@ -864,7 +864,7 @@ class ShikooController {
 
   /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
   /// The url holds the customer's token: never log it, nor the error, which can quote it.
-  Future<Profile> _download(String url, String label) async {
+  Future<Profile> _download(String url, [String? label]) async {
     final response = await request
         .getFileResponseForUrl(url)
         .timeout(const Duration(seconds: 30));
@@ -874,7 +874,10 @@ class ShikooController {
         .firstWhereOrNull((profile) => profile.url == url);
     final profile = await (existing ?? Profile.normal(url: url))
         .copyWith(
-          label: label,
+          label:
+              label ??
+              headerText(header('profile-title')) ??
+              Uri.parse(url).host,
           // FlClash's own daily update would race this one and drop the headers kept below.
           autoUpdate: false,
           subscriptionInfo: _subscriptionInfo(header('subscription-userinfo')),
@@ -892,7 +895,8 @@ class ShikooController {
     return profile;
   }
 
-  Future<void> addService(String url, String label) async {
+  /// Null once the service is in, named by the panel unless [label] is given.
+  Future<ShikooPasteError?> addService(String url, [String? label]) async {
     try {
       final profile = await _download(url, label);
       if (_ref.read(currentProfileIdProvider) == profile.id) {
@@ -901,8 +905,17 @@ class ShikooController {
       } else {
         _ref.read(currentProfileIdProvider.notifier).value = profile.id;
       }
-    } catch (_) {
-      _set(const _Intent(error: ShikooError.addService));
+      return null;
+    } catch (error) {
+      return addFailure(error);
     }
+  }
+
+  /// What the user pasted holds a token: nothing here shows or logs it.
+  Future<ShikooPasteError?> pasteService(String? text) async {
+    if (text == null || text.trim().isEmpty) return ShikooPasteError.empty;
+    final link = shikooLink(text);
+    if (link == null) return ShikooPasteError.notShikoo;
+    return addService(link);
   }
 }

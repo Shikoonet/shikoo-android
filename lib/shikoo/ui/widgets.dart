@@ -273,10 +273,13 @@ class ShikooButton extends StatelessWidget {
             else if (icon != null)
               SvgIcon(icon, size: t.s.icon, color: fg),
             if (busy || icon != null) const SizedBox(width: Space.s2),
-            Text(
-              label,
-              maxLines: 1,
-              style: t.text(t.s.body, weight: FontWeight.w700, color: fg),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: t.text(t.s.body, weight: FontWeight.w700, color: fg),
+              ),
             ),
           ],
         ),
@@ -328,6 +331,72 @@ class ShikooIconButton extends StatelessWidget {
                   ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// `.notice.msg`: a bold first sentence and the rest; `.danger` in red.
+class MessageBox extends StatelessWidget {
+  const MessageBox({
+    super.key,
+    required this.icon,
+    required this.strong,
+    required this.rest,
+    this.danger = false,
+  });
+
+  final ShikooIcon icon;
+  final String strong;
+  final String rest;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s3,
+        vertical: Space.s2,
+      ),
+      decoration: ShapeDecoration(
+        color: danger ? t.c.dangerSoft : t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.sm),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              top: (t.s.bodySm * Leading.body - t.s.iconSm) / 2,
+            ),
+            child: SvgIcon(
+              icon,
+              size: t.s.iconSm,
+              color: danger ? t.c.danger : t.c.textMuted,
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: strong,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: danger ? t.c.danger : t.c.text,
+                    ),
+                  ),
+                  if (rest.isNotEmpty) TextSpan(text: ' $rest'),
+                ],
+              ),
+              style: t.text(t.s.bodySm, height: Leading.body),
+            ),
+          ),
+        ],
       ),
     );
   }

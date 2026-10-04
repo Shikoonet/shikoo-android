@@ -9,6 +9,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
+import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/foundation.dart' show listEquals;
@@ -118,16 +119,31 @@ class _ServiceCardState extends State<ServiceCard> {
                 ),
                 Padding(
                   padding: inset.copyWith(top: Space.s3, bottom: Space.s2),
-                  child: ShikooButton(
-                    label: l.support,
-                    icon: state.isTV ? ShikooIcon.qr : null,
-                    onPressed: () => openLink(
-                      context,
-                      isTV: state.isTV,
-                      link: ShikooLinks.support,
-                      title: l.supportTitle,
-                      help: l.supportHelp,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: Space.s3,
+                    children: [
+                      ShikooButton(
+                        label: l.support,
+                        icon: state.isTV ? ShikooIcon.qr : null,
+                        onPressed: () => openLink(
+                          context,
+                          isTV: state.isTV,
+                          link: ShikooLinks.support,
+                          title: l.supportTitle,
+                          help: l.supportHelp,
+                        ),
+                      ),
+                      if (!state.isTV)
+                        PasteLink(
+                          builder: (context, busy, paste) => ShikooButton(
+                            label: busy ? l.pasteChecking : l.pasteLink,
+                            icon: ShikooIcon.paste,
+                            busy: busy,
+                            onPressed: paste,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ]
@@ -395,7 +411,6 @@ class _Message extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final danger = notice is RefreshFailed;
     final (strong, rest) = switch (notice) {
@@ -432,49 +447,13 @@ class _Message extends StatelessWidget {
         '',
       ),
     };
-    final ink = danger ? t.c.danger : t.c.text;
-    final style = t.text(t.s.bodySm, height: Leading.body);
-    return Container(
-      margin: const EdgeInsets.only(top: Space.s3),
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.s3,
-        vertical: Space.s2,
-      ),
-      decoration: ShapeDecoration(
-        color: danger ? t.c.dangerSoft : t.c.surfaceSunken,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Radii.sm),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              top: (t.s.bodySm * Leading.body - t.s.iconSm) / 2,
-            ),
-            child: SvgIcon(
-              danger ? ShikooIcon.alert : ShikooIcon.refresh,
-              size: t.s.iconSm,
-              color: danger ? t.c.danger : t.c.textMuted,
-            ),
-          ),
-          const SizedBox(width: Space.s2),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: strong,
-                    style: TextStyle(fontWeight: FontWeight.w700, color: ink),
-                  ),
-                  if (rest.isNotEmpty) TextSpan(text: ' $rest'),
-                ],
-              ),
-              style: style,
-            ),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s3),
+      child: MessageBox(
+        icon: danger ? ShikooIcon.alert : ShikooIcon.refresh,
+        strong: strong,
+        rest: rest,
+        danger: danger,
       ),
     );
   }

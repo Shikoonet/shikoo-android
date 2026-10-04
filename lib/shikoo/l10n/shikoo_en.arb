@@ -49,7 +49,6 @@
     }
   },
   "errorServer": "Couldn't switch the server.",
-  "errorAdd": "Couldn't add the service.",
   "initError": "The app couldn't start.",
   "refresh": "Update",
   "refreshServers": "Update servers",
@@ -158,5 +157,17 @@
   "powerNoService": "No service",
   "noServiceTitleTv": "No service on this TV",
   "noServiceTitleTouch": "No service on this phone",
-  "noServiceHelp": "Ask Support to bring it back."
+  "noServiceHelp": "Ask Support to bring it back.",
+  "pasteLink": "Paste subscription link",
+  "pasteChecking": "Checking the link…",
+  "pasteEmptyTitle": "The clipboard is empty.",
+  "pasteEmptyHelp": "Copy your subscription link, then tap again.",
+  "pasteNotShikooTitle": "This isn't a Shikoo link.",
+  "pasteNotShikooHelp": "Only a Shikoo subscription link works: the one you got from the Shikoo bot or your reseller.",
+  "pasteRevokedTitle": "This link was revoked or has expired.",
+  "pasteRevokedHelp": "Get a new link from the Shikoo bot or your reseller.",
+  "pasteOfflineTitle": "No internet connection.",
+  "pasteOfflineHelp": "Check your phone's internet and tap again.",
+  "pasteAnother": "Paste another link",
+  "pasteAnotherHelp": "For another service you have"
 }

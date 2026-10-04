@@ -10,6 +10,7 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:riverpod/riverpod.dart';
@@ -562,5 +563,17 @@ void main() {
     await pumpEventQueue();
     expect(probes, ['آلمان ۱']);
     await controller.disconnect();
+  });
+
+  test('a paste with no link, or not a Shikoo one, sends no request', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final controller = container.read(shikooControllerProvider);
+    expect(await controller.pasteService(null), ShikooPasteError.empty);
+    expect(await controller.pasteService(' \n '), ShikooPasteError.empty);
+    expect(
+      await controller.pasteService('https://example.com/sub/token'),
+      ShikooPasteError.notShikoo,
+    );
+    expect(container.read(profilesProvider), hasLength(1));
   });
 }

@@ -284,12 +284,6 @@ abstract class ShikooL10n {
   /// **'Couldn\'t switch the server.'**
   String get errorServer;
 
-  /// No description provided for @errorAdd.
-  ///
-  /// In en, this message translates to:
-  /// **'Couldn\'t add the service.'**
-  String get errorAdd;
-
   /// No description provided for @initError.
   ///
   /// In en, this message translates to:
@@ -751,6 +745,78 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Ask Support to bring it back.'**
   String get noServiceHelp;
+
+  /// No description provided for @pasteLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste subscription link'**
+  String get pasteLink;
+
+  /// No description provided for @pasteChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the link…'**
+  String get pasteChecking;
+
+  /// No description provided for @pasteEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The clipboard is empty.'**
+  String get pasteEmptyTitle;
+
+  /// No description provided for @pasteEmptyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy your subscription link, then tap again.'**
+  String get pasteEmptyHelp;
+
+  /// No description provided for @pasteNotShikooTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This isn\'t a Shikoo link.'**
+  String get pasteNotShikooTitle;
+
+  /// No description provided for @pasteNotShikooHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Only a Shikoo subscription link works: the one you got from the Shikoo bot or your reseller.'**
+  String get pasteNotShikooHelp;
+
+  /// No description provided for @pasteRevokedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This link was revoked or has expired.'**
+  String get pasteRevokedTitle;
+
+  /// No description provided for @pasteRevokedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a new link from the Shikoo bot or your reseller.'**
+  String get pasteRevokedHelp;
+
+  /// No description provided for @pasteOfflineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet connection.'**
+  String get pasteOfflineTitle;
+
+  /// No description provided for @pasteOfflineHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your phone\'s internet and tap again.'**
+  String get pasteOfflineHelp;
+
+  /// No description provided for @pasteAnother.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste another link'**
+  String get pasteAnother;
+
+  /// No description provided for @pasteAnotherHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'For another service you have'**
+  String get pasteAnotherHelp;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

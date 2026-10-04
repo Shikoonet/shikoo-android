@@ -89,9 +89,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         final url = query['url'];
         if (url == null) return;
         unawaited(
-          ref
-              .read(shikooControllerProvider)
-              .addService(url, query['name'] ?? Uri.parse(url).host),
+          ref.read(shikooControllerProvider).addService(url, query['name']),
         );
       case 'lang':
         unawaited(

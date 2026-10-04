@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
@@ -7,10 +10,21 @@ import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _Controller extends Mock implements ShikooController {}
+
+const _noService = ShikooState(
+  connection: ShikooConnection.off,
+  connectedFor: Duration.zero,
+  isTV: false,
+  servers: [],
+);
 
 const _servers = [
   ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 71),
@@ -210,5 +224,89 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ShikooSettings), findsNothing, reason: locale);
     }
+  });
+
+  testWidgets('the phone with no service reads the clipboard only on a press, '
+      'and names each failure above the button', (tester) async {
+    tester.view
+      ..physicalSize = const Size(824, 1830)
+      ..devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    var reads = 0;
+    const clip = 'https://s.4g3.uk/sub/secret-token';
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method != 'Clipboard.getData') return null;
+        reads++;
+        return {'text': clip};
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final controller = _Controller();
+    final answer = Completer<ShikooPasteError?>();
+    when(() => controller.pasteService(any())).thenAnswer((_) => answer.future);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          shikooStateProvider.overrideWithValue(_noService),
+          shikooControllerProvider.overrideWithValue(controller),
+        ],
+        child: MaterialApp(
+          locale: const Locale('fa'),
+          supportedLocales: ShikooL10n.supportedLocales,
+          localizationsDelegates: const [
+            ShikooL10n.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          theme: shikooThemeData(Brightness.light, tv: false),
+          home: const ShikooHome(),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(reads, 0);
+    expect(
+      tester.getTopLeft(find.text('پشتیبانی')).dy,
+      lessThan(tester.getTopLeft(find.text('چسباندن لینک اشتراک')).dy),
+      reason: 'paste is the second button',
+    );
+
+    await tester.tap(find.text('چسباندن لینک اشتراک'));
+    await tester.pump();
+    expect(reads, 1);
+    verify(() => controller.pasteService(clip)).called(1);
+    expect(find.text('در حال بررسی لینک…'), findsOneWidget);
+    answer.complete(ShikooPasteError.empty);
+    await tester.pump();
+
+    for (final (error, strong) in [
+      (ShikooPasteError.empty, 'کلیپ‌بورد خالی است.'),
+      (ShikooPasteError.notShikoo, 'این لینک شیکو نیست.'),
+      (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
+      (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
+    ]) {
+      when(() => controller.pasteService(any())).thenAnswer((_) async => error);
+      await tester.tap(find.text('چسباندن لینک اشتراک'));
+      await tester.pump();
+      final message = find.textContaining(strong, findRichText: true);
+      expect(message, findsOneWidget, reason: error.name);
+      expect(
+        tester.getBottomLeft(message).dy,
+        lessThan(tester.getTopLeft(find.text('چسباندن لینک اشتراک')).dy),
+        reason: 'above the button that made it',
+      );
+      expect(find.textContaining('secret-token'), findsNothing);
+    }
+
+    when(() => controller.pasteService(any())).thenAnswer((_) async => null);
+    await tester.tap(find.text('چسباندن لینک اشتراک'));
+    await tester.pump();
+    expect(find.textContaining('اینترنت وصل نیست.'), findsNothing);
   });
 }

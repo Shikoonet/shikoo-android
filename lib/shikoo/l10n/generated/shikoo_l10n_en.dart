@@ -130,9 +130,6 @@ class ShikooL10nEn extends ShikooL10n {
   String get errorServer => 'Couldn\'t switch the server.';
 
   @override
-  String get errorAdd => 'Couldn\'t add the service.';
-
-  @override
   String get initError => 'The app couldn\'t start.';
 
   @override
@@ -467,4 +464,42 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get noServiceHelp => 'Ask Support to bring it back.';
+
+  @override
+  String get pasteLink => 'Paste subscription link';
+
+  @override
+  String get pasteChecking => 'Checking the link…';
+
+  @override
+  String get pasteEmptyTitle => 'The clipboard is empty.';
+
+  @override
+  String get pasteEmptyHelp => 'Copy your subscription link, then tap again.';
+
+  @override
+  String get pasteNotShikooTitle => 'This isn\'t a Shikoo link.';
+
+  @override
+  String get pasteNotShikooHelp =>
+      'Only a Shikoo subscription link works: the one you got from the Shikoo bot or your reseller.';
+
+  @override
+  String get pasteRevokedTitle => 'This link was revoked or has expired.';
+
+  @override
+  String get pasteRevokedHelp =>
+      'Get a new link from the Shikoo bot or your reseller.';
+
+  @override
+  String get pasteOfflineTitle => 'No internet connection.';
+
+  @override
+  String get pasteOfflineHelp => 'Check your phone\'s internet and tap again.';
+
+  @override
+  String get pasteAnother => 'Paste another link';
+
+  @override
+  String get pasteAnotherHelp => 'For another service you have';
 }
