@@ -658,6 +658,19 @@ class _ServerList extends StatefulWidget {
 
 class _ServerListState extends State<_ServerList> {
   List<String>? _held;
+  final _search = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _search.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -666,9 +679,18 @@ class _ServerListState extends State<_ServerList> {
     final state = widget.state;
     final byName = {for (final server in state.servers) server.name: server};
     final order = [...byName.keys];
-    final shown = _held == null ? order : keepOrder(_held!, order);
-    void hold(bool on) => setState(() => _held = on ? shown : null);
+    final kept = _held == null ? order : keepOrder(_held!, order);
+    void hold(bool on) => setState(() => _held = on ? kept : null);
+    final shown = [
+      for (final name in kept)
+        if (serverMatches(byName[name]!.label, _search.text)) name,
+    ];
     final pinging = state.pinging;
+    final muted = t.text(t.s.bodySm, color: t.c.textMuted);
+    Widget line(String text) => Padding(
+      padding: const EdgeInsets.all(Space.s2),
+      child: Text(text, style: muted),
+    );
     // tv-ping.html: with the remote on ping-all or a row, the list head goes to the top; a
     // row it would push out of view scrolls back in by itself (Pressable).
     return Focus(
@@ -691,27 +713,29 @@ class _ServerListState extends State<_ServerList> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: l.serversTitle,
-                          style: TextStyle(
-                            fontSize: t.s.body,
-                            fontWeight: FontWeight.w700,
-                            color: t.c.text,
+                  child: state.isTV
+                      ? Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: l.serversTitle,
+                                style: TextStyle(
+                                  fontSize: t.s.body,
+                                  fontWeight: FontWeight.w700,
+                                  color: t.c.text,
+                                ),
+                              ),
+                              TextSpan(
+                                text:
+                                    ' · ${listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave}',
+                              ),
+                            ],
                           ),
-                        ),
-                        TextSpan(
-                          text:
-                              ' · ${listEquals(shown, order) ? l.fastestFirst : l.sortsOnLeave}',
-                        ),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.text(t.s.bodySm, color: t.c.textMuted),
-                  ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: muted,
+                        )
+                      : _SearchField(controller: _search),
                 ),
                 const SizedBox(width: Space.s2),
                 ShikooButton(
@@ -731,13 +755,9 @@ class _ServerListState extends State<_ServerList> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.s2),
             child: order.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(Space.s2),
-                    child: Text(
-                      l.loadingServers,
-                      style: t.text(t.s.bodySm, color: t.c.textMuted),
-                    ),
-                  )
+                ? line(l.loadingServers)
+                : shown.isEmpty
+                ? line(l.searchNoMatch)
                 : Focus(
                     canRequestFocus: false,
                     skipTraversal: true,
@@ -765,6 +785,92 @@ class _ServerListState extends State<_ServerList> {
                     ),
                   ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Persian and Arabic forms of a letter or digit, and Latin digits, find the same server.
+String _fold(String text) => text
+    .toLowerCase()
+    .replaceAll('ي', 'ی')
+    .replaceAll('ك', 'ک')
+    .replaceAll('آ', 'ا')
+    .replaceAllMapped(
+      RegExp('[۰-۹٠-٩]'),
+      (digit) => '${digit[0]!.codeUnitAt(0) & 0xF}',
+    );
+
+bool serverMatches(String label, String query) =>
+    _fold(label).contains(_fold(query.trim()));
+
+/// `.search`, phone only: the list narrows with every letter and keeps its ping order.
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final active = controller.text.isNotEmpty;
+    return Container(
+      height: t.s.button,
+      padding: EdgeInsetsDirectional.only(
+        start: Space.s3,
+        end: active ? 0 : Space.s3,
+      ),
+      decoration: ShapeDecoration(
+        color: t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+          side: active
+              ? BorderSide(color: t.c.outline, width: t.s.borderControl)
+              : BorderSide.none,
+        ),
+      ),
+      child: Row(
+        children: [
+          SvgIcon(
+            ShikooIcon.search,
+            size: t.s.iconSm,
+            color: active ? t.c.text : t.c.textMuted,
+          ),
+          const SizedBox(width: Space.s2),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              textInputAction: TextInputAction.search,
+              cursorColor: t.c.text,
+              style: t.text(t.s.body),
+              decoration: InputDecoration.collapsed(
+                hintText: l.searchServers,
+                hintStyle: t.text(t.s.bodySm, color: t.c.textMuted),
+              ),
+            ),
+          ),
+          if (active)
+            Pressable(
+              shape: const CircleBorder(),
+              onPressed: controller.clear,
+              builder: (context, _) => Semantics(
+                button: true,
+                label: l.clearSearch,
+                child: SizedBox(
+                  width: t.s.iconSm + 2 * Space.s3,
+                  height: t.s.button,
+                  child: Center(
+                    child: SvgIcon(
+                      ShikooIcon.x,
+                      size: t.s.iconSm,
+                      color: t.c.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -155,6 +156,37 @@ void main() {
     await finger.up();
     await tester.pump();
     expect(_rowOrder(tester), ['آلمان ۱', 'آلمان ۲', 'هلند ۱']);
+  });
+
+  testWidgets(
+    'search narrows the list in ping order, and the cross clears it',
+    (tester) async {
+      await _pump(tester, _phone());
+      expect(find.text('جست‌وجوی سرور'), findsOneWidget);
+      expect(find.text('سریع‌ترین بالا', findRichText: true), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'آلمان');
+      await tester.pump();
+      expect(_rowOrder(tester), ['آلمان ۲', 'آلمان ۱']);
+
+      await tester.enterText(find.byType(TextField), 'فرانسه');
+      await tester.pump();
+      expect(find.byType(ServerRow), findsNothing);
+      expect(find.text('سروری با این نام نیست'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('پاک کردن جست‌وجو'));
+      await tester.pump();
+      expect(find.byType(ServerRow), findsNWidgets(3));
+      expect(find.bySemanticsLabel('پاک کردن جست‌وجو'), findsNothing);
+    },
+  );
+
+  test('a search typed with Arabic letters or Latin digits still matches', () {
+    expect(serverMatches('آلمان ۲', 'المان 2'), isTrue);
+    expect(serverMatches('ترکیه ۱', 'تركيه'), isTrue);
+    expect(serverMatches('USA 1', 'usa'), isTrue);
+    expect(serverMatches('آلمان ۲', 'آلمان ۱'), isFalse);
+    expect(serverMatches('هلند ۱', '  '), isTrue);
   });
 
   testWidgets("the phone's settings have a back arrow, mirrored in English", (
