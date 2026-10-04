@@ -352,7 +352,10 @@ class ShikooSignIn {
   /// A newer code, a sign-out or a paste ends whatever the one before was waiting for.
   int _attempt = 0;
   DateTime? _lastSync;
-  Future<bool?>? _syncing;
+  (String?, Future<bool?>)? _syncing;
+
+  /// Profiles the running sync added that the account does not list yet.
+  final _unsaved = <int>{};
 
   ShikooApi get _api => _ref.read(shikooApiProvider);
 
@@ -365,12 +368,15 @@ class ShikooSignIn {
       _ref.read(shikooLoginProvider.notifier).set(login);
 
   Future<void> load() async {
-    final raw = (await SharedPreferences.getInstance()).getString(_key);
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
     if (raw == null) return;
-    final json = jsonDecode(raw) as Map<String, dynamic>;
-    _token = json['token'] as String;
-    _setAccount(
-      ShikooAccount(
+    final String token;
+    final ShikooAccount account;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      token = json['token'] as String;
+      account = ShikooAccount(
         who: TelegramAccount(
           name: json['name'] as String?,
           username: json['username'] as String?,
@@ -386,8 +392,13 @@ class ShikooSignIn {
               owned: s['owned'] as bool,
             ),
         ],
-      ),
-    );
+      );
+    } catch (_) {
+      await prefs.remove(_key);
+      return;
+    }
+    _token = token;
+    _setAccount(account);
   }
 
   Future<void> _save() async {
@@ -521,6 +532,7 @@ class ShikooSignIn {
     _login(null);
     await _save();
     if (token != null) unawaited(_logout(token));
+    await _undo();
     for (final service in services) {
       await _drop(service);
     }
@@ -555,8 +567,27 @@ class ShikooSignIn {
 
   /// Makes this device hold the account's services. True once done, false when the list did
   /// not come or no service could be added, null when the token stopped working.
-  Future<bool?> sync() =>
-      _syncing ??= _sync().whenComplete(() => _syncing = null);
+  /// A new account's sync waits for the old one to take back what it brought.
+  Future<bool?> sync() {
+    final token = _token;
+    if (_syncing case (final owner, final running) when owner == token) {
+      return running;
+    }
+    final previous = _syncing?.$2;
+    late final Future<bool?> run;
+    run = Future(() async {
+      try {
+        await previous;
+      } catch (_) {}
+      try {
+        return await _sync();
+      } finally {
+        if (identical(_syncing?.$2, run)) _syncing = null;
+      }
+    });
+    _syncing = (token, run);
+    return run;
+  }
 
   Future<bool?> _sync() async {
     final token = _token;
@@ -577,16 +608,15 @@ class ShikooSignIn {
     final kept = <LinkedService>[];
     var failed = false;
     for (final row in answer.services) {
+      if (token != _token) return _undo();
       final was = before.remove(row.id);
       var profileId = _existing(was?.profileId);
       var owned = was?.owned ?? true;
       final url = row.subUrl == null ? null : shikooLink(row.subUrl!);
       if (url != null && _urlOf(profileId) != url) {
         final added = await _add(url, row.label);
-        if (token != _token) {
-          if (added != null && added.owned) await _delete(added.id);
-          return null;
-        }
+        if (added != null && added.owned) _unsaved.add(added.id);
+        if (token != _token) return _undo();
         if (added == null) {
           failed = true;
         } else {
@@ -612,7 +642,7 @@ class ShikooSignIn {
     for (final gone in before.values) {
       await _drop(gone);
     }
-    if (token != _token) return null;
+    if (token != _token) return _undo();
     _setAccount(
       ShikooAccount(
         who: _account.who,
@@ -620,8 +650,18 @@ class ShikooSignIn {
         services: kept,
       ),
     );
+    _unsaved.clear();
     await _save();
     return !(failed && kept.isEmpty);
+  }
+
+  Future<bool?> _undo() async {
+    final ids = [..._unsaved];
+    _unsaved.clear();
+    for (final id in ids) {
+      if (_existing(id) != null) await _delete(id);
+    }
+    return null;
   }
 
   int? _existing(int? profileId) =>

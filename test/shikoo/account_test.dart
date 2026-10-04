@@ -176,6 +176,9 @@ class _Controller extends Mock implements ShikooController {}
 /// Holds the next delete until completed.
 Completer<void>? _deleteGate;
 
+/// Runs before the fake controller adds [url]: a test holds an add here.
+Future<void> Function(String url)? _beforeAdd;
+
 /// FlClash's own delete also clears files and the core, which a unit test has neither of.
 class _Profiles extends ProfilesAction {
   @override
@@ -208,6 +211,7 @@ Future<_Harness> _harness({
     call,
   ) async {
     final url = call.positionalArguments[0] as String;
+    await _beforeAdd?.call(url);
     if (url.contains('dead')) return null;
     final existing = container
         .read(profilesProvider)
@@ -698,6 +702,97 @@ void main() {
         expect(login?.services, ['botFirst · الماس']);
       },
     );
+
+    for (final leave in ['«این حساب من نیست»', 'signing out']) {
+      test(
+        '$leave during the first sync takes off what that sync added',
+        () async {
+          final h = await _harness();
+          h.api.services = [_service(1, 'A'), _service(2, 'B')];
+          final reachedB = Completer<void>();
+          final releaseB = Completer<void>();
+          _beforeAdd = (url) async {
+            if (!url.endsWith('/B')) return;
+            reachedB.complete();
+            await releaseB.future;
+          };
+          addTearDown(() => _beforeAdd = null);
+          await h.signIn.start();
+          h.api.codes[h.api.lastCode]!.approvedBy = (
+            name: 'Stranger',
+            username: 's',
+          );
+          await reachedB.future.timeout(const Duration(seconds: 5));
+          expect(_urls(h.container), ['https://sub.4g3.uk/A']);
+          await (leave == 'signing out'
+              ? h.signIn.signOut()
+              : h.signIn.notMine());
+          expect(_urls(h.container), isEmpty);
+          releaseB.complete();
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          expect(_urls(h.container), isEmpty);
+          expect(h.container.read(shikooAccountProvider).who, isNull);
+          expect(h.container.read(shikooLoginProvider), isNull);
+        },
+      );
+    }
+
+    test('a sign-in while the stranger sync still adds waits for it, then '
+        'brings its own services', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'A'), _service(2, 'B')];
+      final reachedB = Completer<void>();
+      final releaseB = Completer<void>();
+      _beforeAdd = (url) async {
+        if (!url.endsWith('/B')) return;
+        reachedB.complete();
+        await releaseB.future;
+      };
+      addTearDown(() => _beforeAdd = null);
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (
+        name: 'Stranger',
+        username: 's',
+      );
+      await reachedB.future.timeout(const Duration(seconds: 5));
+      await h.signIn.notMine();
+      h.api.services = [_service(3, 'C')];
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'مریم', username: 'm');
+      await _until(h.container, _at(LoginPhase.syncing));
+      releaseB.complete();
+      await _until(h.container, _at(LoginPhase.approved));
+      expect(_urls(h.container), ['https://sub.4g3.uk/C']);
+      expect(h.container.read(shikooAccountProvider).who?.name, 'مریم');
+    });
+
+    test('an account this version cannot read is signed out, and the services '
+        'stay', () async {
+      for (final stored in [
+        'not json',
+        '{"token": "t", "name": "مریم", "services": [{"id": 1, "title": "a"}]}',
+        '{"token": 7, "services": []}',
+      ]) {
+        SharedPreferences.setMockInitialValues({'shikoo.account': stored});
+        final pasted = Profile.normal(url: 'https://4g3.uk/sub/pasted');
+        final container = ProviderContainer(
+          overrides: [
+            shikooStateProvider.overrideWithValue(_state),
+            profilesProvider.overrideWith(() => TestProfiles([pasted])),
+          ],
+        );
+        addTearDown(container.dispose);
+        await container.read(shikooSignInProvider).load();
+        expect(
+          container.read(shikooAccountProvider).who,
+          isNull,
+          reason: stored,
+        );
+        expect(container.read(profilesProvider), [pasted]);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('shikoo.account'), isNull, reason: stored);
+      }
+    });
 
     test('the account and its token survive a restart', () async {
       final h = await _harness();
