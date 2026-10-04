@@ -219,6 +219,12 @@ void main() {
     expect(serverMatches('USA 1', 'usa'), isTrue);
     expect(serverMatches('آلمان ۲', 'آلمان ۱'), isFalse);
     expect(serverMatches('هلند ۱', '  '), isTrue);
+    expect(serverMatches('ترکیه ۱', 'ترکیه۱'), isTrue);
+    expect(serverMatches('آلمان ۲', 'أَلمان'.replaceAll('\u064E', '')), isTrue);
+    expect(serverMatches('ایتالیا', 'إیتالیا'), isTrue);
+    expect(serverMatches('سرور ویژه', 'سرور ويژة'), isTrue);
+    expect(serverMatches('سوئدی', 'سوئدى'), isTrue);
+    expect(serverMatches('نیم\u200Cفاصله ۱', 'نیم فاصله'), isTrue);
   });
 
   testWidgets("the phone's settings have a back arrow, mirrored in English", (

@@ -774,14 +774,17 @@ class _ServerListState extends State<_ServerList> {
   }
 }
 
-/// Persian and Arabic forms of a letter or digit, and Latin digits, find the same server.
+/// Arabic and Persian forms of a letter or digit, Latin digits, and any spacing find the
+/// same server.
 String _fold(String text) => text
     .toLowerCase()
-    .replaceAll('ي', 'ی')
-    .replaceAll('ك', 'ک')
-    .replaceAll('آ', 'ا')
+    .replaceAll(RegExp('[\u064A\u0649]'), '\u06CC')
+    .replaceAll('\u0643', '\u06A9')
+    .replaceAll(RegExp('[\u0622\u0623\u0625]'), '\u0627')
+    .replaceAll('\u0629', '\u0647')
+    .replaceAll(RegExp(r'[\s\u200C]'), '')
     .replaceAllMapped(
-      RegExp('[۰-۹٠-٩]'),
+      RegExp('[\u06F0-\u06F9\u0660-\u0669]'),
       (digit) => '${digit[0]!.codeUnitAt(0) & 0xF}',
     );
 
