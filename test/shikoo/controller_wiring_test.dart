@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -11,8 +13,10 @@ import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
+import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -64,6 +68,13 @@ class _Setup extends SetupAction {
     runs.add(running);
     return true;
   }
+
+  @override
+  Future<bool> applyProfile({
+    bool silence = false,
+    bool force = false,
+    Future<void> Function()? preloadInvoke,
+  }) async => true;
 }
 
 const _version = 'V3.7.9 🆔 : (user123) 📊 (67 GB) ⏰ (23)';
@@ -107,7 +118,69 @@ _home() {
   return (container: container, core: core, proxies: proxies, setup: setup);
 }
 
+/// The live panel's shape: every account titled "Shi" (`U2hp`), the account in the file name
+/// (`/file/<user>/…`), in the first row only (`/row/<user>/…`), or nowhere (`/none/…`).
+Future<String> _panel(ProviderContainer container, _Core core) async {
+  globalState.container = container;
+  when(() => core.validateConfig(any())).thenAnswer((_) async => '');
+  when(() => core.getConfig(any())).thenAnswer(
+    (_) async => {
+      'proxies': [
+        {'name': 'هلند ۱', 'type': 'Http'},
+      ],
+    },
+  );
+  when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+    (call) async =>
+        Delay(name: call.positionalArguments[1] as String, url: '', value: 50),
+  );
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  addTearDown(() => server.close(force: true));
+  server.listen((call) {
+    final [kind, ...rest] = call.uri.pathSegments;
+    final user = kind == 'none' ? null : rest.first;
+    call.response.headers
+      ..contentType = ContentType('text', 'yaml', charset: 'utf-8')
+      ..set('profile-title', 'base64:U2hp')
+      ..set('subscription-userinfo', 'upload=0; download=0; total=1073741824');
+    if (kind == 'file') {
+      call.response.headers.set(
+        'content-disposition',
+        'attachment; filename="$user"',
+      );
+    }
+    const at = 'type: http, server: 1.1.1.1, port: 1';
+    call.response.write(
+      [
+        'proxies:',
+        if (user != null) '  - {name: "V3.7.9 🆔 : ($user) 📊 (1 GB)", $at}',
+        '  - {name: "هلند ۱", $at}',
+      ].join('\n'),
+    );
+    unawaited(call.response.close());
+  });
+  return 'http://127.0.0.1:${server.port}';
+}
+
+List<Profile> _pasted(ProviderContainer container) => [
+  for (final profile in container.read(profilesProvider))
+    if (profile.url.startsWith('http://127.0.0.1')) profile,
+];
+
 void main() {
+  setUpAll(() {
+    final files = Directory.systemTemp.createTempSync('shikoo-wiring-');
+    AppPath.supportDirectory = AppPath.temporaryDirectory =
+        AppPath.cacheDirectory = () async => files;
+    AppPath.downloadDirectory = () async => files;
+    globalState.packageInfo = PackageInfo(
+      appName: 'FlClash',
+      packageName: 'com.follow.clash',
+      version: '0.8.98',
+      buildNumber: '1',
+    );
+  });
+
   test('connect before any answer waits, then starts on the first server that '
       'answered, never row 1', () async {
     final (:container, :core, :proxies, :setup) = _home();
@@ -843,5 +916,40 @@ void main() {
     expect(state.notice, isNull);
     expect(state.selected, 'آلمان ۱');
     expect(proxies.picked, hasLength(2));
+  });
+
+  test('two accounts the panel titles alike are two cards, each named by its '
+      'username', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    expect(await controller.addService('$panel/file/user111/a'), isNull);
+    expect(await controller.addService('$panel/row/user222/a'), isNull);
+    expect(_pasted(container).map((p) => p.label), ['user111', 'user222']);
+  });
+
+  test('an account pasted again from a new link is the same card, with the '
+      'new link', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('$panel/file/user111/a');
+    await controller.addService('$panel/file/user111/b');
+    expect(_pasted(container).map((p) => (p.label, p.url)), [
+      ('user111', '$panel/file/user111/b'),
+    ]);
+  });
+
+  test('with no username, only the same link is the same card', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('$panel/none/a');
+    await controller.addService('$panel/none/b');
+    await controller.addService('$panel/none/a');
+    expect(_pasted(container).map((p) => p.url), [
+      '$panel/none/a',
+      '$panel/none/b',
+    ]);
   });
 }

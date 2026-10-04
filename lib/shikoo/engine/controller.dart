@@ -476,17 +476,31 @@ ShikooService _serviceFrom(
   );
 }
 
-/// The panel names a service `<username> · <tier>`, and a username is its own key.
 String usernameOf(String name) => name.split(' · ').first.trim();
 
-Profile? serviceOf(List<Profile> profiles, String url, String? title) =>
+final _infoRowUser = RegExp(r'🆔[^(\n]*\(([^)\n]+)\)');
+
+/// The live panel titles every account "Shi"; the account is in the file name or first row.
+String? accountOf({String? file, String? title, required String body}) =>
+    [
+          file,
+          _infoRowUser.firstMatch(body)?[1],
+          if (title != null && title.contains(' · ')) usernameOf(title),
+        ]
+        .map((user) => user?.trim())
+        .firstWhereOrNull((user) => user?.isNotEmpty ?? false);
+
+String? serviceName(String? title, String? user) =>
+    title != null && title.contains(' · ') ? title : user ?? title;
+
+Profile? serviceOf(List<Profile> profiles, String url, String? user) =>
     profiles.firstWhereOrNull(
       (profile) => normalLink(profile.url) == normalLink(url),
     ) ??
-    (title == null
+    (user == null
         ? null
         : profiles.firstWhereOrNull(
-            (profile) => usernameOf(profile.label) == usernameOf(title),
+            (profile) => usernameOf(profile.label) == user,
           ));
 
 /// FlClash would add a Latin "(1)" to a name another service has.
@@ -1007,11 +1021,17 @@ class ShikooController {
     final header = response.headers.value;
     final body = response.data ?? Uint8List(0);
     final profiles = _ref.read(profilesProvider);
-    final title = label ?? headerText(header('profile-title'));
-    final existing = serviceOf(profiles, url, title);
+    final title = headerText(header('profile-title'));
+    final user = accountOf(
+      file: getFileNameForDisposition(header('content-disposition')),
+      title: title,
+      body: utf8.decode(body, allowMalformed: true),
+    );
+    final existing = serviceOf(profiles, url, user);
+    final name = label ?? serviceName(title, user) ?? Uri.parse(url).host;
     final draft = (existing ?? Profile.normal(url: url)).copyWith(
       url: url,
-      label: unusedName(title ?? Uri.parse(url).host, {
+      label: unusedName(name, {
         for (final other in profiles)
           if (other != existing) other.label,
       }),

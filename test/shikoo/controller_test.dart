@@ -113,20 +113,10 @@ void main() {
       url: 'https://s.4g3.uk/sub/b',
     ).copyWith(label: 'user789 · معمولی');
     final profiles = [a, b];
-    expect(
-      serviceOf(profiles, 'https://s.4g3.uk/sub/new', 'user123 · الماس'),
-      a,
-    );
-    expect(
-      serviceOf(profiles, 'https://s.4g3.uk/sub/new', 'user123 · طلایی'),
-      a,
-      reason: 'the tier changed, the username did not',
-    );
+    expect(serviceOf(profiles, 'https://s.4g3.uk/sub/new', 'user123'), a);
     expect(serviceOf(profiles, 'https://S.4g3.uk/sub/b/', null), b);
-    expect(
-      serviceOf(profiles, 'https://s.4g3.uk/sub/c', 'user456 · طلایی'),
-      isNull,
-    );
+    expect(serviceOf(profiles, 'https://s.4g3.uk/sub/c', 'user456'), isNull);
+    expect(serviceOf(profiles, 'https://s.4g3.uk/sub/c', null), isNull);
   });
 
   test('a service has ended only by usage the panel sent', () {
