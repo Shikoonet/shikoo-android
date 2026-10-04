@@ -32,7 +32,6 @@ String? shikooLink(String text, {bool debug = shikooDebug}) {
   return null;
 }
 
-/// The host in lower case and no closing slash, so one link pasted twice is one service.
 String normalLink(String link) {
   final uri = Uri.tryParse(link);
   if (uri == null) return link;
@@ -54,8 +53,7 @@ ShikooPasteError addFailure(Object error) => switch (error) {
   _ => ShikooPasteError.unavailable,
 };
 
-/// [config] as the core parsed it (`getConfig`): a server besides the panel's info rows, or a
-/// provider, whose servers come later.
+/// [config] from the core's `getConfig`; a provider counts, as its servers arrive later.
 bool configHasServers(Map<String, dynamic> config) {
   final providers = config['proxy-providers'];
   if (providers is Map && providers.isNotEmpty) return true;
