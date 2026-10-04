@@ -376,4 +376,38 @@ void main() {
       expect(find.byType(ServerRow), findsNWidgets(3));
     },
   );
+
+  testWidgets('the search lets go of focus with the keyboard or a tap '
+      'elsewhere, and settings never bring it back', (tester) async {
+    await _pump(tester, _phone());
+    bool searching() => tester
+        .widget<EditableText>(find.byType(EditableText))
+        .focusNode
+        .hasFocus;
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(searching(), isTrue);
+    await tester.tap(find.text('شیکونت'));
+    await tester.pump();
+    expect(searching(), isFalse, reason: 'a tap outside the field');
+
+    await tester.tap(find.byType(TextField));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 600);
+    await tester.pump();
+    expect(searching(), isTrue);
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pump();
+    expect(searching(), isFalse, reason: 'Back closed the keyboard');
+
+    await tester.ensureVisible(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    await tester.tap(_icon(ShikooIcon.back));
+    await tester.pumpAndSettle();
+    expect(searching(), isFalse, reason: 'back from settings');
+  });
 }

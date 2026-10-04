@@ -792,15 +792,46 @@ bool serverMatches(String label, String query) =>
     _fold(label).contains(_fold(query.trim()));
 
 /// `.search`, phone only: the list narrows with every letter and keeps its ping order.
-class _SearchField extends StatelessWidget {
+class _SearchField extends StatefulWidget {
   const _SearchField({required this.controller});
 
   final TextEditingController controller;
 
   @override
+  State<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<_SearchField>
+    with WidgetsBindingObserver {
+  final _focus = FocusNode();
+  bool _keyboard = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Scaffold hides the keyboard from its body's MediaQuery; the view still sees it.
+  @override
+  void didChangeMetrics() {
+    final keyboard = View.of(context).viewInsets.bottom > 0;
+    if (_keyboard && !keyboard) _focus.unfocus();
+    _keyboard = keyboard;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
+    final controller = widget.controller;
     final active = controller.text.isNotEmpty;
     return Container(
       height: t.s.button,
@@ -828,6 +859,8 @@ class _SearchField extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: _focus,
+              onTapOutside: (_) => _focus.unfocus(),
               textInputAction: TextInputAction.search,
               cursorColor: t.c.text,
               style: t.text(t.s.body),
