@@ -407,7 +407,10 @@ class _PowerZone extends StatelessWidget {
     final silent =
         state.connection == ShikooConnection.on && (selected?.ping ?? 0) < 0;
     final message = switch (state.lastError) {
-      _ when resting != null => l.renewToConnect,
+      _ when resting != null =>
+        state.others.any((other) => other.ended == null)
+            ? l.renewOrSwitch
+            : l.renewToConnect,
       ShikooError.connectTimeout => l.errorConnect(
         selected?.label ?? '',
         connectTimeout.inSeconds,

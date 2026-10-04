@@ -755,4 +755,49 @@ void main() {
       );
     }
   });
+
+  testWidgets('a used-up service points to another one only while that one '
+      'is active', (tester) async {
+    ShikooState besides(ShikooService other) => ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: false,
+      servers: _servers,
+      service: const ShikooService(
+        name: 'user123 · الماس',
+        usedBytes: 100,
+        totalBytes: 100,
+      ),
+      others: [other],
+    );
+    const orSwitch =
+        'با «تمدید» دوباره وصل می‌شوی، یا سرویس دیگرت را انتخاب کن.';
+
+    await _pump(
+      tester,
+      besides(
+        const ShikooService(
+          id: 7,
+          name: 'user789 · معمولی',
+          usedBytes: 0,
+          totalBytes: 0,
+        ),
+      ),
+    );
+    expect(find.text(orSwitch), findsOneWidget);
+
+    await _pump(
+      tester,
+      besides(
+        const ShikooService(
+          id: 7,
+          name: 'user789 · معمولی',
+          usedBytes: 5,
+          totalBytes: 5,
+        ),
+      ),
+    );
+    expect(find.text(orSwitch), findsNothing);
+    expect(find.text('با «تمدید» دوباره وصل می‌شوی.'), findsOneWidget);
+  });
 }
