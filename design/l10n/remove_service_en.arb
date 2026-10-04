@@ -1,0 +1,21 @@
+{
+  "@@locale": "en",
+  "pastedServicesTitle": "Services added by link",
+  "@pastedServicesTitle": {"description": "Settings section, phone only. Lists only services whose sole source on this phone is a pasted link; absent when there are none."},
+  "removeService": "Remove",
+  "removeServiceLabel": "Remove {name}",
+  "@removeServiceLabel": {
+    "description": "Screen-reader label of a row's Remove button, so each one names its service.",
+    "placeholders": {"name": {"type": "String", "example": "user123 · Diamond"}}
+  },
+  "removeServiceTitle": "Remove “{name}”?",
+  "@removeServiceTitle": {
+    "description": "{name} is “username · tier”, as on the card. Isolate the Latin username (FSI…PDI) so it doesn't reorder the Persian title.",
+    "placeholders": {"name": {"type": "String", "example": "user123 · Diamond"}}
+  },
+  "removeServiceBody": "It's removed from this phone. The service itself stays as it is and comes back with the same link.",
+  "removeServiceBodyConnected": "You'll be disconnected and this service removed from this phone. The service itself stays as it is and comes back with the same link.",
+  "@removeServiceBodyConnected": {"description": "Instead of removeServiceBody when this service is the selected one and connected or connecting."},
+  "keepService": "Keep",
+  "@keepService": {"description": "The dialog's safe button; it has the focus when the dialog opens. After a removal, the screen reader says serverRemoved with the service name."}
+}

@@ -6,7 +6,7 @@
  *
  * فهرست اجزا و حالت‌ها (کلاس‌ها):
  *   ۱. نشان ............ .brand .mark
- *   ۲. دکمه ............ .btn + .btn-primary | .btn-outline | .btn-telegram | .btn-danger | .btn-text ؛ .btn-link ؛ .icon-btn
+ *   ۲. دکمه ............ .btn + .btn-primary | .btn-outline | .btn-telegram | .btn-danger | .btn-text (+ .danger) ؛ .btn-link ؛ .icon-btn
  *   ۳. برچسب وضعیت ..... .chip + .chip-positive | .chip-danger | .chip-muted
  *   ۴. کارت سرویس ...... .card.svc ؛ باز (با .usage و .servers) یا جمع‌شده (با .svc-summary) ؛ .with-proto
  *   ۵. حجم و اعتبار .... .usage .usage-row .bar + .is-warning | .is-full ؛ نامحدود = بی‌نوار
@@ -76,6 +76,7 @@ ul { list-style: none; }
 .btn-telegram { background: var(--color-telegram); color: var(--color-on-telegram); font-size: var(--text-button-lg); }
 .btn-danger   { background: var(--color-danger); color: var(--color-on-danger); }
 .btn-text     { padding-inline: var(--space-3); }
+.btn-text.danger { color: var(--color-danger); }
 .btn-link {
   align-self: center; min-block-size: var(--size-touch); padding-inline: var(--space-3);
   font-size: var(--text-body-sm); font-weight: var(--font-weight-bold); text-decoration: underline; text-underline-offset: 0.3em;
@@ -227,6 +228,8 @@ ul { list-style: none; }
 .row .t { flex: 1; display: flex; flex-direction: column; line-height: var(--leading-tight); }
 .row small { font-size: var(--text-body-sm); color: var(--color-text-muted); line-height: var(--leading-tight); }
 .row .value { color: var(--color-text-muted); }
+/* دکمهٔ متنیِ انتهای ردیف (حذف سرویس): لمس ۴۸، ولی ردیف را بلند نمی‌کند و متنش با لبهٔ بقیهٔ ردیف‌ها هم‌تراز است */
+.row > .btn-text { --size-button: var(--size-touch); margin-block: calc(var(--space-2) * -1); margin-inline-end: calc(var(--space-3) * -1); }
 .row .icon { color: var(--color-text-muted); }
 .row.danger .t > span, .row.danger .icon { color: var(--color-danger); }
 .radio {

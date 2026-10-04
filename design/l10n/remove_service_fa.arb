@@ -1,0 +1,10 @@
+{
+  "@@locale": "fa",
+  "pastedServicesTitle": "سرویس‌های اضافه‌شده با لینک",
+  "removeService": "حذف",
+  "removeServiceLabel": "حذف {name}",
+  "removeServiceTitle": "حذف «{name}»؟",
+  "removeServiceBody": "این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.",
+  "removeServiceBodyConnected": "اتصال قطع می‌شود و این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.",
+  "keepService": "بمان"
+}
