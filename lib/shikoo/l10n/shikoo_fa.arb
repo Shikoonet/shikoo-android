@@ -1,6 +1,6 @@
 {
   "@@locale": "fa",
-  "appTitle": "شیکو",
+  "appTitle": "شیکونت",
   "brandMark": "ش",
   "settings": "تنظیمات",
   "renew": "تمدید",
@@ -93,8 +93,8 @@
   "version": "نسخه",
   "about": "درباره",
   "aboutSummary": "نرم‌افزار آزاد با مجوز GPL-3.0، بر پایهٔ FlClash و mihomo",
-  "aboutFree": "شیکو نرم‌افزار آزاد است و با مجوز GPL-3.0 منتشر می‌شود.",
-  "aboutBasedOn": "شیکو بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.",
+  "aboutFree": "شیکونت نرم‌افزار آزاد است و با مجوز GPL-3.0 منتشر می‌شود.",
+  "aboutBasedOn": "شیکونت بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.",
   "aboutSource": "کد منبعِ همین نسخه را می‌توانی از «پشتیبانی» بگیری.",
   "aboutLicense": "متن مجوز: gnu.org/licenses/gpl-3.0",
   "selectedDown": "«{name}» جواب نمی‌دهد.\nسرور دیگری را از فهرست انتخاب کن.",

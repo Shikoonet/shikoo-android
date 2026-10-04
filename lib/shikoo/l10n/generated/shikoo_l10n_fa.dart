@@ -9,7 +9,7 @@ class ShikooL10nFa extends ShikooL10n {
   ShikooL10nFa([String locale = 'fa']) : super(locale);
 
   @override
-  String get appTitle => 'شیکو';
+  String get appTitle => 'شیکونت';
 
   @override
   String get brandMark => 'ش';
@@ -376,11 +376,11 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutFree =>
-      'شیکو نرم‌افزار آزاد است و با مجوز GPL-3.0 منتشر می‌شود.';
+      'شیکونت نرم‌افزار آزاد است و با مجوز GPL-3.0 منتشر می‌شود.';
 
   @override
   String get aboutBasedOn =>
-      'شیکو بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.';
+      'شیکونت بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.';
 
   @override
   String get aboutSource =>

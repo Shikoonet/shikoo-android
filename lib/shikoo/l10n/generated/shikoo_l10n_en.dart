@@ -9,7 +9,7 @@ class ShikooL10nEn extends ShikooL10n {
   ShikooL10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Shikoo';
+  String get appTitle => 'ShikooNet';
 
   @override
   String get brandMark => 'S';
@@ -413,7 +413,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get aboutFree =>
-      'Shikoo is free software, released under the GPL-3.0 license.';
+      'ShikooNet is free software, released under the GPL-3.0 license.';
 
   @override
   String get aboutBasedOn =>

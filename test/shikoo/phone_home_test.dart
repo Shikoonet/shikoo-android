@@ -326,4 +326,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ShikooSettings), findsNothing);
   });
+
+  testWidgets('the app is called ShikooNet, شیکونت in Persian', (tester) async {
+    for (final (locale, name) in [('fa', 'شیکونت'), ('en', 'ShikooNet')]) {
+      await _pump(tester, _phone(), locale: locale);
+      expect(find.text(name), findsOneWidget, reason: locale);
+    }
+  });
 }

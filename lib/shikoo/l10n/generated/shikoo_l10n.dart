@@ -101,7 +101,7 @@ abstract class ShikooL10n {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'Shikoo'**
+  /// **'ShikooNet'**
   String get appTitle;
 
   /// No description provided for @brandMark.
@@ -659,7 +659,7 @@ abstract class ShikooL10n {
   /// No description provided for @aboutFree.
   ///
   /// In en, this message translates to:
-  /// **'Shikoo is free software, released under the GPL-3.0 license.'**
+  /// **'ShikooNet is free software, released under the GPL-3.0 license.'**
   String get aboutFree;
 
   /// No description provided for @aboutBasedOn.
