@@ -9,6 +9,7 @@ import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
@@ -17,9 +18,6 @@ import 'package:fl_clash/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
-
-/// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and `shikoo-debug://lang?code=en`.
-const _debugLinks = bool.fromEnvironment('SHIKOO_DEBUG');
 
 const _delegates = <LocalizationsDelegate<dynamic>>[
   ShikooL10n.delegate,
@@ -65,7 +63,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       await bootstrap.attach();
       _attached = true;
       ref.read(shikooControllerProvider).onForeground();
-      if (_debugLinks) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
+      if (shikooDebug) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
   }
 
@@ -80,7 +78,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
-  /// The link carries a subscription url: never print or log it.
+  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and
+  /// `shikoo-debug://lang?code=en`. The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;
     final query = uri.queryParameters;
