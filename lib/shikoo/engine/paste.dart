@@ -11,19 +11,36 @@ const shikooDebug = bool.fromEnvironment('SHIKOO_DEBUG');
 
 const _emulatorHostMachine = '10.0.2.2';
 
-final _link = RegExp(r'https?://\S+', caseSensitive: false);
+const _maxLink = 2048;
+
+final _link = RegExp(r'https?://[^\s‎‏]+', caseSensitive: false);
+final _sentenceEnd = RegExp(r'[،.,)»]+$');
 
 String? shikooLink(String text, {bool debug = shikooDebug}) {
-  final link = _link.firstMatch(text)?[0];
-  final uri = Uri.tryParse(link ?? '');
-  final host = uri?.host.toLowerCase() ?? '';
-  final ours =
-      (uri?.scheme == 'https' &&
-          shikooSubscriptionDomains.any(
-            (domain) => host == domain || host.endsWith('.$domain'),
-          )) ||
-      (debug && uri?.scheme == 'http' && host == _emulatorHostMachine);
-  return ours ? link : null;
+  for (final match in _link.allMatches(text)) {
+    final link = match[0]!.replaceFirst(_sentenceEnd, '');
+    final uri = link.length > _maxLink ? null : Uri.tryParse(link);
+    final host = uri?.host ?? '';
+    final ours =
+        (uri?.scheme == 'https' &&
+            shikooSubscriptionDomains.any(
+              (domain) => host == domain || host.endsWith('.$domain'),
+            )) ||
+        (debug && uri?.scheme == 'http' && host == _emulatorHostMachine);
+    if (ours) return normalLink(link);
+  }
+  return null;
+}
+
+/// The host in lower case and no closing slash, so one link pasted twice is one service.
+String normalLink(String link) {
+  final uri = Uri.tryParse(link);
+  if (uri == null) return link;
+  final text = uri.toString();
+  final slash = uri.path.length > 1 && uri.path.endsWith('/');
+  return slash && !uri.hasQuery && !uri.hasFragment
+      ? text.substring(0, text.length - 1)
+      : text;
 }
 
 ShikooPasteError addFailure(Object error) => switch (error) {

@@ -886,7 +886,9 @@ class ShikooController {
     final header = response.headers.value;
     final existing = _ref
         .read(profilesProvider)
-        .firstWhereOrNull((profile) => profile.url == url);
+        .firstWhereOrNull(
+          (profile) => normalLink(profile.url) == normalLink(url),
+        );
     if (refresh && existing == null) return null;
     final profile = await (existing ?? Profile.normal(url: url))
         .copyWith(

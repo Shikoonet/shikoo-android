@@ -20,10 +20,50 @@ void main() {
       for (final link in [
         'https://4g3.uk/sub/abc',
         'https://sub.4g3.uk:2096/sub/abc',
-        'HTTPS://SUB.4G3.UK/sub/abc',
       ]) {
         expect(shikooLink(link), link, reason: link);
       }
+    });
+
+    test('is one service however its host is cased or its path ends', () {
+      expect(
+        shikooLink('HTTPS://SUB.4G3.UK/sub/AbC/'),
+        'https://sub.4g3.uk/sub/AbC',
+        reason: 'the token keeps its case',
+      );
+      expect(
+        normalLink('https://Sub.4g3.uk/sub/x/'),
+        normalLink('https://sub.4g3.uk/sub/x'),
+      );
+      expect(shikooLink('https://s.4g3.uk/'), 'https://s.4g3.uk/');
+    });
+
+    test('leaves the punctuation and direction marks of a sentence behind', () {
+      for (final end in ['،', '.', ',', ')', '»', '\u200f', '\u200e', '.)']) {
+        expect(
+          shikooLink('لینکت: (https://s.4g3.uk/sub/abc$end ممنون'),
+          'https://s.4g3.uk/sub/abc',
+          reason: end,
+        );
+      }
+    });
+
+    test('is the first Shikoo link of a message, not its first link', () {
+      expect(
+        shikooLink(
+          'راهنما: https://t.me/shikoonet\nلینک: https://s.4g3.uk/sub/abc',
+        ),
+        'https://s.4g3.uk/sub/abc',
+      );
+    });
+
+    test('is never longer than 2048 characters', () {
+      final long = 'https://s.4g3.uk/sub/${'a' * 2048}';
+      expect(shikooLink(long), isNull);
+      expect(
+        shikooLink('$long https://s.4g3.uk/sub/ok'),
+        'https://s.4g3.uk/sub/ok',
+      );
     });
 
     test('is found inside a whole copied message', () {
