@@ -402,9 +402,11 @@ class _PowerZone extends StatelessWidget {
         ),
       );
     }
+    final resting = restingFor(state);
     final silent =
         state.connection == ShikooConnection.on && (selected?.ping ?? 0) < 0;
     final message = switch (state.lastError) {
+      _ when resting != null => l.renewToConnect,
       ShikooError.connectTimeout => l.errorConnect(
         selected?.label ?? '',
         connectTimeout.inSeconds,
@@ -432,15 +434,22 @@ class _PowerZone extends StatelessWidget {
           connectedFor: state.connectedFor,
           isTV: state.isTV,
           focusNode: focusNode,
-          onPressed: () => unawaited(switch (state.connection) {
-            ShikooConnection.off ||
-            ShikooConnection.error => controller.connect(),
-            ShikooConnection.connecting ||
-            ShikooConnection.on => controller.disconnect(),
-          }),
+          restingLabel: resting == ShikooServiceStatus.exhausted
+              ? l.statusExhausted
+              : l.powerExpired,
+          onPressed: resting != null
+              ? null
+              : () => unawaited(switch (state.connection) {
+                  ShikooConnection.off ||
+                  ShikooConnection.error => controller.connect(),
+                  ShikooConnection.connecting ||
+                  ShikooConnection.on => controller.disconnect(),
+                }),
         ),
-        SizedBox(height: gap),
-        NowPill(pick: state.pick, server: selected),
+        if (resting == null) ...[
+          SizedBox(height: gap),
+          NowPill(pick: state.pick, server: selected),
+        ],
         if (message != null || slot != null) ...[
           SizedBox(height: gap),
           SizedBox(
@@ -453,7 +462,7 @@ class _PowerZone extends StatelessWidget {
               textAlign: TextAlign.center,
               style: t.text(
                 t.s.bodySm,
-                color: state.lastError == null && !silent
+                color: resting != null || (state.lastError == null && !silent)
                     ? t.c.textMuted
                     : t.c.danger,
               ),

@@ -475,4 +475,24 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get pasteAnotherHelp => 'برای سرویس دیگری که داری';
+
+  @override
+  String get powerExpired => 'اعتبار تمام شده';
+
+  @override
+  String get renewToConnect => 'با «تمدید» دوباره وصل می‌شوی.';
+
+  @override
+  String get serversAfterRenew => 'فهرست سرورها بعد از تمدید برمی‌گردد.';
+
+  @override
+  String get validityEnded => 'تمام شده';
+
+  @override
+  String get summaryExhausted => 'حجمش تمام شد. با تمدید دوباره فعال می‌شود.';
+
+  @override
+  String summaryExpired(String date) {
+    return 'اعتبارش $date تمام شد. با تمدید دوباره فعال می‌شود.';
+  }
 }

@@ -122,5 +122,11 @@
   "pasteOfflineTitle": "اینترنت وصل نیست.",
   "pasteOfflineHelp": "اینترنت گوشی را بررسی کن و دوباره بزن.",
   "pasteAnother": "چسباندن لینک دیگر",
-  "pasteAnotherHelp": "برای سرویس دیگری که داری"
+  "pasteAnotherHelp": "برای سرویس دیگری که داری",
+  "powerExpired": "اعتبار تمام شده",
+  "renewToConnect": "با «تمدید» دوباره وصل می‌شوی.",
+  "serversAfterRenew": "فهرست سرورها بعد از تمدید برمی‌گردد.",
+  "validityEnded": "تمام شده",
+  "summaryExhausted": "حجمش تمام شد. با تمدید دوباره فعال می‌شود.",
+  "summaryExpired": "اعتبارش {date} تمام شد. با تمدید دوباره فعال می‌شود."
 }

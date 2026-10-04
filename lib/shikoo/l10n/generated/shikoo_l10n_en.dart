@@ -513,4 +513,25 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get pasteAnotherHelp => 'For another service you have';
+
+  @override
+  String get powerExpired => 'Expired';
+
+  @override
+  String get renewToConnect => 'Renew to connect again.';
+
+  @override
+  String get serversAfterRenew => 'The server list comes back after you renew.';
+
+  @override
+  String get validityEnded => 'Ended';
+
+  @override
+  String get summaryExhausted =>
+      'Its volume is used up. Renewing makes it active again.';
+
+  @override
+  String summaryExpired(String date) {
+    return 'It expired on $date. Renewing makes it active again.';
+  }
 }

@@ -448,6 +448,7 @@ class PowerButton extends StatefulWidget {
     required this.isTV,
     required this.onPressed,
     this.focusNode,
+    this.restingLabel,
   });
 
   final ShikooConnection connection;
@@ -455,6 +456,9 @@ class PowerButton extends StatefulWidget {
   final bool isTV;
   final VoidCallback? onPressed;
   final FocusNode? focusNode;
+
+  /// What a button with no [onPressed] says; "No service" unless given.
+  final String? restingLabel;
 
   @override
   State<PowerButton> createState() => _PowerButtonState();
@@ -519,7 +523,7 @@ class _PowerButtonState extends State<PowerButton>
     final onPressed = widget.onPressed;
     final enabled = onPressed != null;
     final label = switch (conn) {
-      _ when !enabled => l.powerNoService,
+      _ when !enabled => widget.restingLabel ?? l.powerNoService,
       ShikooConnection.off => l.powerConnect,
       ShikooConnection.connecting => l.powerConnecting,
       ShikooConnection.on => l.powerOn,

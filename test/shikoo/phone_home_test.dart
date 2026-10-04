@@ -561,4 +561,89 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     verify(() => controller.selectService(7)).called(1);
   });
+
+  testWidgets('a used-up or expired service rests the power button and asks '
+      'for renewal, on the phone and the TV', (tester) async {
+    ShikooState ended({
+      required int used,
+      DateTime? expire,
+      bool isTV = false,
+      ShikooConnection connection = ShikooConnection.off,
+      List<ShikooService> others = const [],
+    }) => ShikooState(
+      connection: connection,
+      connectedFor: Duration.zero,
+      isTV: isTV,
+      servers: _servers,
+      selected: 'آلمان ۲',
+      service: ShikooService(
+        name: 'user123 · الماس',
+        usedBytes: used << 30,
+        totalBytes: 100 << 30,
+        expire: expire ?? DateTime(2099),
+      ),
+      others: others,
+    );
+
+    await _pump(tester, ended(used: 100));
+    final power = tester.widget<PowerButton>(find.byType(PowerButton));
+    expect(power.onPressed, isNull);
+    expect(find.text('حجم تمام شده'), findsNWidgets(2), reason: 'chip, button');
+    expect(find.text('با «تمدید» دوباره وصل می‌شوی.'), findsOneWidget);
+    expect(find.byType(NowPill), findsNothing);
+    expect(find.byType(ServerRow), findsNothing);
+    expect(find.text('فهرست سرورها بعد از تمدید برمی‌گردد.'), findsOneWidget);
+    final left = find.textContaining('باقی‌مانده:', findRichText: true);
+    final spans = <TextSpan>[];
+    tester.widget<RichText>(left).text.visitChildren((span) {
+      if (span is TextSpan && (span.text ?? '').contains('۰')) spans.add(span);
+      return true;
+    });
+    expect(spans.single.style?.color, ShikooColors.light.danger);
+
+    final lastMonth = DateTime.now().subtract(const Duration(days: 30));
+    await _pump(
+      tester,
+      ended(
+        used: 58,
+        expire: lastMonth,
+        others: [
+          ShikooService(
+            id: 9,
+            name: 'user456 · طلایی',
+            usedBytes: 1,
+            totalBytes: 100,
+            expire: lastMonth,
+          ),
+        ],
+      ),
+    );
+    expect(find.text('اعتبار تمام شده'), findsOneWidget);
+    expect(find.text('تمام شده'), findsOneWidget);
+    expect(
+      find.textContaining('تمام شد. با تمدید دوباره فعال می‌شود.'),
+      findsOneWidget,
+      reason: 'the folded expired service',
+    );
+
+    await _pump(
+      tester,
+      ended(used: 58, expire: lastMonth, connection: ShikooConnection.on),
+    );
+    expect(
+      tester.widget<PowerButton>(find.byType(PowerButton)).onPressed,
+      isNotNull,
+      reason: 'a live tunnel can still be stopped',
+    );
+
+    await _pump(tester, ended(used: 100, isTV: true));
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<ShikooButton>()
+          ?.label,
+      'تمدید',
+      reason: 'tv-power-states: the remote starts on renew',
+    );
+  });
 }

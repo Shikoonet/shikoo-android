@@ -32,6 +32,19 @@ String _date(BuildContext context, ShikooL10n l, DateTime date) {
   );
 }
 
+/// Used up or past its date, and not connected: the power button rests until renewal.
+ShikooServiceStatus? restingFor(ShikooState state) {
+  final status = _ended(state.service);
+  final busy = {ShikooConnection.on, ShikooConnection.connecting};
+  return busy.contains(state.connection) ? null : status;
+}
+
+ShikooServiceStatus? _ended(ShikooService? service) {
+  if (service == null || !service.usageKnown) return null;
+  final status = service.statusAt(DateTime.now());
+  return status == ShikooServiceStatus.active ? null : status;
+}
+
 /// The card nodes the remote is sent to by hand: one per server name, so a row is found
 /// wherever it sits, and the two buttons that geometry alone would skip.
 class CardFocus {
@@ -186,7 +199,7 @@ class _ServiceCardState extends State<ServiceCard> {
                 if (service.usageKnown)
                   Padding(
                     padding: inset,
-                    child: _Usage(service: service),
+                    child: _Usage(service: service, ended: _ended(service)),
                   ),
                 if (service.announce != null)
                   Padding(
@@ -202,6 +215,7 @@ class _ServiceCardState extends State<ServiceCard> {
                           label: l.renew,
                           icon: state.isTV ? ShikooIcon.qr : null,
                           primary: true,
+                          autofocus: state.isTV && restingFor(state) != null,
                           focusNode: focus.renew,
                           onPressed: () => openLink(
                             context,
@@ -232,7 +246,20 @@ class _ServiceCardState extends State<ServiceCard> {
                     ],
                   ),
                 ),
-                _ServerList(state: state, controller: controller, focus: focus),
+                if (_ended(service) == null)
+                  _ServerList(
+                    state: state,
+                    controller: controller,
+                    focus: focus,
+                  )
+                else
+                  Padding(
+                    padding: inset.copyWith(top: Space.s3, bottom: Space.s2),
+                    child: Text(
+                      l.serversAfterRenew,
+                      style: t.text(t.s.bodySm, color: t.c.textMuted),
+                    ),
+                  ),
               ],
       ),
     );
@@ -469,6 +496,18 @@ class _Summary extends StatelessWidget {
     if (!service.usageKnown) return const SizedBox(height: Space.s2);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
+    final ended = _ended(service);
+    if (ended != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: Space.s1, bottom: Space.s2),
+        child: Text(
+          ended == ShikooServiceStatus.expired
+              ? l.summaryExpired(_date(context, l, service.expire!))
+              : l.summaryExhausted,
+          style: t.text(t.s.bodySm, color: t.c.textMuted),
+        ),
+      );
+    }
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');
     final total = service.totalBytes;
     final used = service.usedBytes;
@@ -556,9 +595,10 @@ class _Message extends StatelessWidget {
 }
 
 class _Usage extends StatelessWidget {
-  const _Usage({required this.service});
+  const _Usage({required this.service, this.ended});
 
   final ShikooService service;
+  final ShikooServiceStatus? ended;
 
   @override
   Widget build(BuildContext context) {
@@ -566,6 +606,8 @@ class _Usage extends StatelessWidget {
     final l = ShikooL10n.of(context);
     final muted = t.text(t.s.bodySm, color: t.c.textMuted);
     final strong = TextStyle(color: t.c.text, fontWeight: FontWeight.w700);
+    final danger = TextStyle(color: t.c.danger, fontWeight: FontWeight.w700);
+    final expired = ended == ShikooServiceStatus.expired;
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');
     final total = service.totalBytes;
     final used = service.usedBytes;
@@ -600,7 +642,9 @@ class _Usage extends StatelessWidget {
                     text: total > 0
                         ? l.gb(gb(math.max(total - used, 0)))
                         : l.unlimited,
-                    style: strong,
+                    style: ended == ShikooServiceStatus.exhausted
+                        ? danger
+                        : strong,
                   ),
                 ],
               ),
@@ -614,15 +658,21 @@ class _Usage extends StatelessWidget {
           if (expire != null) ...[
             const SizedBox(height: Space.s2),
             row([
-              Text(l.validUntil(_date(context, l, expire)), style: muted),
               Text(
-                l.daysLeft(
-                  math.max(
-                    0,
-                    (expire.difference(DateTime.now()).inHours / 24).ceil(),
-                  ),
-                ),
-                style: muted,
+                l.validUntil(_date(context, l, expire)),
+                style: expired ? muted.merge(danger) : muted,
+              ),
+              Text(
+                expired
+                    ? l.validityEnded
+                    : l.daysLeft(
+                        math.max(
+                          0,
+                          (expire.difference(DateTime.now()).inHours / 24)
+                              .ceil(),
+                        ),
+                      ),
+                style: expired ? muted.merge(danger) : muted,
               ),
             ]),
           ],

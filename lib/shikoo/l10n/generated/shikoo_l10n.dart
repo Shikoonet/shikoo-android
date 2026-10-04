@@ -835,6 +835,42 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'For another service you have'**
   String get pasteAnotherHelp;
+
+  /// No description provided for @powerExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get powerExpired;
+
+  /// Under the resting power button of a used-up or expired service. Proposed by the app round; the frames have only the Persian.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew to connect again.'**
+  String get renewToConnect;
+
+  /// No description provided for @serversAfterRenew.
+  ///
+  /// In en, this message translates to:
+  /// **'The server list comes back after you renew.'**
+  String get serversAfterRenew;
+
+  /// In place of the days left of an expired service.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get validityEnded;
+
+  /// No description provided for @summaryExhausted.
+  ///
+  /// In en, this message translates to:
+  /// **'Its volume is used up. Renewing makes it active again.'**
+  String get summaryExhausted;
+
+  /// No description provided for @summaryExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'It expired on {date}. Renewing makes it active again.'**
+  String summaryExpired(String date);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

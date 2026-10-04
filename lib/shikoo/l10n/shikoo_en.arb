@@ -173,5 +173,14 @@
   "pasteOfflineTitle": "No internet connection.",
   "pasteOfflineHelp": "Check your phone's internet and tap again.",
   "pasteAnother": "Paste another link",
-  "pasteAnotherHelp": "For another service you have"
+  "pasteAnotherHelp": "For another service you have",
+  "powerExpired": "Expired",
+  "renewToConnect": "Renew to connect again.",
+  "@renewToConnect": {"description": "Under the resting power button of a used-up or expired service. Proposed by the app round; the frames have only the Persian."},
+  "serversAfterRenew": "The server list comes back after you renew.",
+  "validityEnded": "Ended",
+  "@validityEnded": {"description": "In place of the days left of an expired service."},
+  "summaryExhausted": "Its volume is used up. Renewing makes it active again.",
+  "summaryExpired": "It expired on {date}. Renewing makes it active again.",
+  "@summaryExpired": {"placeholders": {"date": {"type": "String"}}}
 }
