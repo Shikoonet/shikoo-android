@@ -798,12 +798,7 @@ class ShikooController {
       });
     } finally {
       _lastRound = DateTime.now();
-      final current = _group;
-      if (current != null) {
-        _ref
-            .read(_orderProvider.notifier)
-            .set(sortByPing(_names(current), _ping));
-      }
+      _sort();
       round.set((pending: const <String>{}, total: 0, ended: true));
       unawaited(_replaceSilentPick());
       _reconcile();
@@ -825,7 +820,14 @@ class ShikooController {
     if (group == null || chosen == null || _pinging) return;
     final url = _testUrl(group);
     await pingServers([chosen], (name) => _probe(url, name), _setPing);
+    if (!_pinging) _sort();
     await _replaceSilentPick();
+  }
+
+  void _sort() {
+    final group = _group;
+    if (group == null) return;
+    _ref.read(_orderProvider.notifier).set(sortByPing(_names(group), _ping));
   }
 
   Future<void> _replaceSilentPick() async {

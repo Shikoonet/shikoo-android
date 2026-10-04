@@ -812,6 +812,18 @@ class _ServerListState extends State<_ServerList> {
     ];
     final pinging = state.pinging;
     final muted = t.text(t.s.bodySm, color: t.c.textMuted);
+    // Rows slide to a new order, so each takes one height: the row's, or its text's at a large size.
+    final extent = math.max(
+      t.s.row,
+      2 * Space.s2 +
+          math.max(
+            t.s.icon,
+            MediaQuery.textScalerOf(context).scale(t.s.body) * Leading.tight,
+          ),
+    );
+    final move = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 250);
     Widget line(String text) => Padding(
       padding: const EdgeInsets.all(Space.s2),
       child: Text(text, style: muted),
@@ -892,20 +904,32 @@ class _ServerListState extends State<_ServerList> {
                       onPointerDown: (_) => hold(true),
                       onPointerUp: (_) => hold(false),
                       onPointerCancel: (_) => hold(false),
-                      child: Column(
-                        children: [
-                          for (final name in shown)
-                            ServerRow(
-                              key: ValueKey(name),
-                              server: byName[name]!,
-                              selected: name == state.selected,
-                              isNew: byName[name]!.fresh && !state.isTV,
-                              focusNode: widget.focus.row(name),
-                              onPressed: () => unawaited(
-                                widget.controller.selectServer(name),
+                      child: SizedBox(
+                        height: extent * shown.length,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            for (final (i, name) in shown.indexed)
+                              AnimatedPositioned(
+                                key: ValueKey(name),
+                                duration: move,
+                                curve: Curves.easeOut,
+                                top: i * extent,
+                                left: 0,
+                                right: 0,
+                                height: extent,
+                                child: ServerRow(
+                                  server: byName[name]!,
+                                  selected: name == state.selected,
+                                  isNew: byName[name]!.fresh && !state.isTV,
+                                  focusNode: widget.focus.row(name),
+                                  onPressed: () => unawaited(
+                                    widget.controller.selectServer(name),
+                                  ),
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

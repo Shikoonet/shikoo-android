@@ -646,4 +646,21 @@ void main() {
       reason: 'tv-power-states: the remote starts on renew',
     );
   });
+
+  testWidgets('rows slide to a new order rather than jump', (tester) async {
+    final holder = await _pump(tester, _phone());
+    tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+    await tester.pump();
+    double top(String name) =>
+        tester.getTopLeft(find.widgetWithText(ServerRow, name)).dy;
+    final from = top('آلمان ۱');
+    final to = top('هلند ۱');
+
+    holder.value = _phone(servers: _servers.reversed.toList());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(top('آلمان ۱'), allOf(lessThan(from), greaterThan(to)));
+    await tester.pumpAndSettle();
+    expect(top('آلمان ۱'), to);
+  });
 }

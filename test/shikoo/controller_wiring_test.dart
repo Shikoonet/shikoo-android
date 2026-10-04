@@ -687,4 +687,27 @@ void main() {
       expect(state.selected, isNotNull, reason: 'measured and picked');
     },
   );
+
+  test(
+    'a server measured on its own takes its place in the order at once',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      List<String> order() => [
+        for (final server in container.read(shikooStateProvider).servers)
+          server.name,
+      ];
+      expect(order().take(2), ['آلمان ۱', 'هلند ۱']);
+
+      pings['هلند ۱'] = 10;
+      await controller.selectServer('هلند ۱');
+      expect(order().take(2), ['هلند ۱', 'آلمان ۱']);
+    },
+  );
 }
