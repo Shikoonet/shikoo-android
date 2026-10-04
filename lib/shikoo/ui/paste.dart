@@ -29,7 +29,10 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
 
   Future<void> _paste() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     String? text;
     try {
       text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;

@@ -286,8 +286,16 @@ void main() {
       expect(find.textContaining('secret-token'), findsNothing);
     }
 
-    when(() => controller.pasteService(any())).thenAnswer((_) async => null);
+    final last = Completer<ShikooPasteError?>();
+    when(() => controller.pasteService(any())).thenAnswer((_) => last.future);
     await tester.tap(find.text('چسباندن لینک اشتراک'));
+    await tester.pump();
+    expect(
+      find.textContaining('اینترنت وصل نیست.'),
+      findsNothing,
+      reason: 'the next paste clears the last refusal',
+    );
+    last.complete(null);
     await tester.pumpAndSettle();
     expect(find.textContaining('اینترنت وصل نیست.'), findsNothing);
   });
