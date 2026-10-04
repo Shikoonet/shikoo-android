@@ -396,7 +396,7 @@ class ShikooL10nEn extends ShikooL10n {
       'You\'ll be disconnected and the services removed from this phone. The services themselves stay as they are; they come back with the same link or with Telegram.';
 
   @override
-  String get cancel => 'Cancel';
+  String get cancelButton => 'Cancel';
 
   @override
   String get appSection => 'App';
@@ -539,14 +539,14 @@ class ShikooL10nEn extends ShikooL10n {
       'Try again in a bit; if it still won\'t open, ask Support.';
 
   @override
-  String get loginTagline => 'For Shikoo customers';
+  String get loginTagline => 'For ShikooNet customers';
 
   @override
   String get loginTelegram => 'Sign in with Telegram';
 
   @override
   String get loginTelegramNote =>
-      'Telegram opens; tap “Approve” in the Shikoo bot.';
+      'Telegram opens; tap “Approve” in the ShikooNet bot.';
 
   @override
   String get noTelegramHere => 'No Telegram on this phone?';
@@ -576,7 +576,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get otherDeviceComputer =>
-      'Telegram on a computer? Send this code to the Shikoo bot:';
+      'Telegram on a computer? Send this code to the ShikooNet bot:';
 
   @override
   String get codeOnlyYou =>
@@ -661,7 +661,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String noServiceBodyTouch(String account) {
-    return 'You signed in with the Telegram account $account, but no Shikoo service is linked to it.';
+    return 'You signed in with the Telegram account $account, but no ShikooNet service is linked to it.';
   }
 
   @override
@@ -735,16 +735,16 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get renewHelpDirect =>
-      'Scan with your phone\'s camera; the Shikoo bot opens the renewal page of this service.';
+      'Scan with your phone\'s camera; the ShikooNet bot opens the renewal page of this service.';
 
   @override
   String get codeFailedTitle => 'The sign-in code didn\'t arrive.';
 
   @override
-  String get openBotTitle => 'ShikooNet bot on your phone';
+  String get openBotTitleTv => 'ShikooNet bot on your phone';
 
   @override
-  String get openBotHelp =>
+  String get openBotHelpTv =>
       'Scan with your phone\'s camera to open the ShikooNet bot.';
 
   @override
@@ -779,4 +779,58 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get renewToUse => 'Renew it to use it again.';
+
+  @override
+  String get summaryExpiredNoDate => 'Expired. Renew to use it again.';
+
+  @override
+  String get summaryExpiredNoDateTv =>
+      'Expired. After renewing, press “Try again”.';
+
+  @override
+  String get summaryExhaustedTv =>
+      'Out of data. After renewing, press “Try again”.';
+
+  @override
+  String get pastedServicesTitle => 'Services added by link';
+
+  @override
+  String get removeService => 'Remove';
+
+  @override
+  String removeServiceLabel(String name) {
+    return 'Remove $name';
+  }
+
+  @override
+  String removeServiceTitle(String name) {
+    return 'Remove “$name”?';
+  }
+
+  @override
+  String get removeServiceBody =>
+      'It\'s removed from this phone. The service itself stays as it is and comes back with the same link.';
+
+  @override
+  String get removeServiceBodyConnected =>
+      'You\'ll be disconnected and this service removed from this phone. The service itself stays as it is and comes back with the same link.';
+
+  @override
+  String get chipRevoked => 'Link revoked';
+
+  @override
+  String get revokedTitle => 'This link was revoked.';
+
+  @override
+  String get revokedHelp =>
+      'Remove it, or get a new link from the bot or your reseller and paste it in Settings.';
+
+  @override
+  String errorConnectTouch(String server, int seconds) {
+    final intl.NumberFormat secondsNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String secondsString = secondsNumberFormat.format(seconds);
+
+    return '$server didn\'t answer in $secondsString seconds. Tap again, or pick another server from the list.';
+  }
 }

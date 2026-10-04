@@ -207,7 +207,7 @@ class ShikooSettings extends ConsumerWidget {
               spacing: Space.s2,
               children: [
                 ShikooButton(
-                  label: l.cancel,
+                  label: l.cancelButton,
                   autofocus: true,
                   onPressed: () => Navigator.pop(context, false),
                 ),

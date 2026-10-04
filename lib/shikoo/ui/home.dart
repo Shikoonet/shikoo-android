@@ -462,10 +462,11 @@ class _PowerZone extends StatelessWidget {
         state.others.any((other) => other.ended == null)
             ? l.renewOrSwitch
             : l.renewToConnect,
-      ShikooError.connectTimeout => l.errorConnect(
-        selected?.label ?? '',
-        connectTimeout.inSeconds,
-      ),
+      ShikooError.connectTimeout =>
+        (state.isTV ? l.errorConnect : l.errorConnectTouch)(
+          selected?.label ?? '',
+          connectTimeout.inSeconds,
+        ),
       ShikooError.noServer =>
         state.isTV ? l.noServerAnsweredHelpTv : l.noServerAnsweredHelpTouch,
       ShikooError.vpnRefused => l.vpnRefused,
@@ -654,8 +655,8 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                           context,
                           isTV: isTV,
                           link: ShikooLinks.openBot(bot),
-                          title: l.openBotTitle,
-                          help: l.openBotHelp,
+                          title: l.openBotTitleTv,
+                          help: l.openBotHelpTv,
                         ),
                 ),
               ),

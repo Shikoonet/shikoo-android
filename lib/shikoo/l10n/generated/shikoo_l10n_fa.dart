@@ -359,7 +359,7 @@ class ShikooL10nFa extends ShikooL10n {
       'اتصال قطع می‌شود و سرویس‌ها از این گوشی پاک می‌شوند. خودِ سرویس‌ها سر جایشان‌اند؛ با همان لینک یا با تلگرام برمی‌گردند.';
 
   @override
-  String get cancel => 'انصراف';
+  String get cancelButton => 'انصراف';
 
   @override
   String get appSection => 'اپ';
@@ -502,14 +502,14 @@ class ShikooL10nFa extends ShikooL10n {
       'کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.';
 
   @override
-  String get loginTagline => 'مخصوص مشتری‌های شیکو';
+  String get loginTagline => 'مخصوص مشتری‌های شیکونت';
 
   @override
   String get loginTelegram => 'ورود با تلگرام';
 
   @override
   String get loginTelegramNote =>
-      'تلگرام باز می‌شود؛ در ربات شیکو «تأیید» را بزن.';
+      'تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.';
 
   @override
   String get noTelegramHere => 'تلگرام روی این گوشی نیست؟';
@@ -539,7 +539,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get otherDeviceComputer =>
-      'تلگرامت روی کامپیوتر است؟ این کد را برای ربات شیکو بفرست:';
+      'تلگرامت روی کامپیوتر است؟ این کد را برای ربات شیکونت بفرست:';
 
   @override
   String get codeOnlyYou => 'این کد را فقط خودت در ربات بزن؛ به هیچ‌کس نده.';
@@ -623,7 +623,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String noServiceBodyTouch(String account) {
-    return 'با حساب تلگرامِ $account وارد شدی، ولی هیچ سرویس شیکو به آن وصل نیست.';
+    return 'با حساب تلگرامِ $account وارد شدی، ولی هیچ سرویس شیکونت به آن وصل نیست.';
   }
 
   @override
@@ -697,16 +697,16 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get renewHelpDirect =>
-      'با دوربین گوشی اسکن کن؛ ربات شیکو صفحهٔ تمدیدِ همین سرویس را باز می‌کند.';
+      'با دوربین گوشی اسکن کن؛ ربات شیکونت صفحهٔ تمدیدِ همین سرویس را باز می‌کند.';
 
   @override
   String get codeFailedTitle => 'کد ورود نرسید.';
 
   @override
-  String get openBotTitle => 'ربات شیکونت با گوشی';
+  String get openBotTitleTv => 'ربات شیکونت با گوشی';
 
   @override
-  String get openBotHelp => 'با دوربین گوشی اسکن کن تا ربات شیکونت باز شود.';
+  String get openBotHelpTv => 'با دوربین گوشی اسکن کن تا ربات شیکونت باز شود.';
 
   @override
   String get codeFetching => 'در حال گرفتن کد…';
@@ -739,4 +739,59 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get renewToUse => 'با «تمدید» دوباره فعال می‌شود.';
+
+  @override
+  String get summaryExpiredNoDate =>
+      'اعتبارش تمام شد. با تمدید دوباره فعال می‌شود.';
+
+  @override
+  String get summaryExpiredNoDateTv =>
+      'اعتبارش تمام شد. بعد از تمدید، «دوباره» را بزن.';
+
+  @override
+  String get summaryExhaustedTv =>
+      'حجمش تمام شد. بعد از تمدید، «دوباره» را بزن.';
+
+  @override
+  String get pastedServicesTitle => 'سرویس‌های اضافه‌شده با لینک';
+
+  @override
+  String get removeService => 'حذف';
+
+  @override
+  String removeServiceLabel(String name) {
+    return 'حذف $name';
+  }
+
+  @override
+  String removeServiceTitle(String name) {
+    return 'حذف «$name»؟';
+  }
+
+  @override
+  String get removeServiceBody =>
+      'این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.';
+
+  @override
+  String get removeServiceBodyConnected =>
+      'اتصال قطع می‌شود و این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.';
+
+  @override
+  String get chipRevoked => 'لینک باطل شده';
+
+  @override
+  String get revokedTitle => 'این لینک باطل شده.';
+
+  @override
+  String get revokedHelp =>
+      'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» بچسبان.';
+
+  @override
+  String errorConnectTouch(String server, int seconds) {
+    final intl.NumberFormat secondsNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String secondsString = secondsNumberFormat.format(seconds);
+
+    return '$server تا $secondsString ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.';
+  }
 }

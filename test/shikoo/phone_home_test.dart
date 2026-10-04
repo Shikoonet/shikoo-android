@@ -855,4 +855,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(focused(), 'تمدید', reason: 'stopped, the power button went dead');
   });
+
+  testWidgets('a server that stays silent says how long it waited, the phone '
+      'in one sentence with what to do', (tester) async {
+    ShikooState failed({required bool isTV}) => ShikooState(
+      connection: ShikooConnection.error,
+      connectedFor: Duration.zero,
+      isTV: isTV,
+      servers: _servers,
+      selected: 'آلمان ۲',
+      lastError: ShikooError.connectTimeout,
+      service: _phone().service,
+    );
+    await _pump(tester, failed(isTV: false));
+    expect(
+      find.text(
+        'آلمان ۲ تا ۳۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری '
+        'انتخاب کن.',
+      ),
+      findsOneWidget,
+    );
+    await _pump(tester, failed(isTV: true));
+    expect(
+      find.text('آلمان ۲ تا ۳۰ ثانیه جواب نداد.\nسرور دیگری را امتحان کن.'),
+      findsOneWidget,
+    );
+  });
 }

@@ -626,11 +626,11 @@ abstract class ShikooL10n {
   /// **'You\'ll be disconnected and the services removed from this phone. The services themselves stay as they are; they come back with the same link or with Telegram.'**
   String get logoutBodyTouch;
 
-  /// No description provided for @cancel.
+  /// No description provided for @cancelButton.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get cancel;
+  String get cancelButton;
 
   /// No description provided for @appSection.
   ///
@@ -881,7 +881,7 @@ abstract class ShikooL10n {
   /// No description provided for @loginTagline.
   ///
   /// In en, this message translates to:
-  /// **'For Shikoo customers'**
+  /// **'For ShikooNet customers'**
   String get loginTagline;
 
   /// No description provided for @loginTelegram.
@@ -893,7 +893,7 @@ abstract class ShikooL10n {
   /// No description provided for @loginTelegramNote.
   ///
   /// In en, this message translates to:
-  /// **'Telegram opens; tap “Approve” in the Shikoo bot.'**
+  /// **'Telegram opens; tap “Approve” in the ShikooNet bot.'**
   String get loginTelegramNote;
 
   /// No description provided for @noTelegramHere.
@@ -947,7 +947,7 @@ abstract class ShikooL10n {
   /// No description provided for @otherDeviceComputer.
   ///
   /// In en, this message translates to:
-  /// **'Telegram on a computer? Send this code to the Shikoo bot:'**
+  /// **'Telegram on a computer? Send this code to the ShikooNet bot:'**
   String get otherDeviceComputer;
 
   /// No description provided for @codeOnlyYou.
@@ -1085,7 +1085,7 @@ abstract class ShikooL10n {
   /// No description provided for @noServiceBodyTouch.
   ///
   /// In en, this message translates to:
-  /// **'You signed in with the Telegram account {account}, but no Shikoo service is linked to it.'**
+  /// **'You signed in with the Telegram account {account}, but no ShikooNet service is linked to it.'**
   String noServiceBodyTouch(String account);
 
   /// No description provided for @noServiceBodyTv.
@@ -1199,7 +1199,7 @@ abstract class ShikooL10n {
   /// No description provided for @renewHelpDirect.
   ///
   /// In en, this message translates to:
-  /// **'Scan with your phone\'s camera; the Shikoo bot opens the renewal page of this service.'**
+  /// **'Scan with your phone\'s camera; the ShikooNet bot opens the renewal page of this service.'**
   String get renewHelpDirect;
 
   /// No description provided for @codeFailedTitle.
@@ -1208,17 +1208,17 @@ abstract class ShikooL10n {
   /// **'The sign-in code didn\'t arrive.'**
   String get codeFailedTitle;
 
-  /// No description provided for @openBotTitle.
+  /// No description provided for @openBotTitleTv.
   ///
   /// In en, this message translates to:
   /// **'ShikooNet bot on your phone'**
-  String get openBotTitle;
+  String get openBotTitleTv;
 
-  /// No description provided for @openBotHelp.
+  /// No description provided for @openBotHelpTv.
   ///
   /// In en, this message translates to:
   /// **'Scan with your phone\'s camera to open the ShikooNet bot.'**
-  String get openBotHelp;
+  String get openBotHelpTv;
 
   /// No description provided for @codeFetching.
   ///
@@ -1279,6 +1279,84 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Renew it to use it again.'**
   String get renewToUse;
+
+  /// Phone: summaryExpired for a service that came from the Telegram account without its end date.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired. Renew to use it again.'**
+  String get summaryExpiredNoDate;
+
+  /// No description provided for @summaryExpiredNoDateTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired. After renewing, press “Try again”.'**
+  String get summaryExpiredNoDateTv;
+
+  /// TV: the card has Renew, Support and Try again; the TV can't tell when the renewal happened on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of data. After renewing, press “Try again”.'**
+  String get summaryExhaustedTv;
+
+  /// Settings section, phone only. Lists only services whose sole source on this phone is a pasted link; absent when there are none.
+  ///
+  /// In en, this message translates to:
+  /// **'Services added by link'**
+  String get pastedServicesTitle;
+
+  /// Each row of pastedServicesTitle, the revoked card's button, and the dialog's confirm button.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get removeService;
+
+  /// Screen-reader label of a row's Remove button, so each one names its service.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name}'**
+  String removeServiceLabel(String name);
+
+  /// {name} is “username · tier”, as on the card. Isolate the Latin username (FSI…PDI) so it doesn't reorder the Persian title.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove “{name}”?'**
+  String removeServiceTitle(String name);
+
+  /// No description provided for @removeServiceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s removed from this phone. The service itself stays as it is and comes back with the same link.'**
+  String get removeServiceBody;
+
+  /// Instead of removeServiceBody when this service is the selected one and connected or connecting.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be disconnected and this service removed from this phone. The service itself stays as it is and comes back with the same link.'**
+  String get removeServiceBodyConnected;
+
+  /// Phone, pasted services only: the chip when a refresh got 404 or 410, and the disabled round button's label when that service is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Link revoked'**
+  String get chipRevoked;
+
+  /// No description provided for @revokedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This link was revoked.'**
+  String get revokedTitle;
+
+  /// After revokedTitle in the open card's message, and alone as the folded card's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove it, or get a new link from the bot or your reseller and paste it in Settings.'**
+  String get revokedHelp;
+
+  /// Phone: errorConnect, which the TV keeps as two lines.
+  ///
+  /// In en, this message translates to:
+  /// **'{server} didn\'t answer in {seconds} seconds. Tap again, or pick another server from the list.'**
+  String errorConnectTouch(String server, int seconds);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {
