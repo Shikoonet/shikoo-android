@@ -55,7 +55,7 @@ ul { list-style: none; }
   border-radius: var(--radius-xs); outline: var(--border-width) solid var(--color-border); outline-offset: calc(var(--border-width) * -1);
 }
 
-/* ۱. نشان موقت: حرف «ش» + واژهٔ «شیکو» */
+/* ۱. نشان موقت: حرف «ش» + واژهٔ «شیکونت» */
 .brand { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-title); font-weight: var(--font-weight-black); }
 .mark {
   inline-size: var(--size-mark); block-size: var(--size-mark); flex: none;
@@ -108,6 +108,8 @@ ul { list-style: none; }
 .state-msg { margin-top: var(--space-2); font-size: var(--text-body-sm); color: var(--color-text-muted); }
 .actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); padding-bottom: var(--space-2); }
 .actions .btn { flex: 1; }
+.actions.is-stacked { flex-direction: column; gap: var(--space-3); }
+.actions.is-stacked .btn { flex: none; }
 
 /* ۵. حجم و اعتبار: مثل ربات، «مصرف شده» و «باقی‌مانده» هر دو؛ نوار به اندازهٔ مصرف پر می‌شود */
 .usage { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }

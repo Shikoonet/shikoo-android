@@ -44,6 +44,7 @@
   "noServerAnsweredHelpTouch": "Check this phone's internet.\nIf it works, ask Support.",
   "noServerAnsweredHelpTv": "Check this TV's internet.\nIf it works, ask Support.",
   "newBadge": "New",
+  "@newBadge": {"description": "Beside each server the last refresh added. It goes with the “new servers” message: when the app goes to the background or the next refresh starts."},
   "serversTitle": "Servers",
   "fastestFirst": "Fastest first",
   "sortsOnLeave": "Sorts when you leave the list",

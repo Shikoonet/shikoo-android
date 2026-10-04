@@ -9,5 +9,7 @@
   "powerNoService": "No service",
   "noServiceTitleTv": "No service on this TV",
   "noServiceTitleTouch": "No service on this phone",
-  "noServiceHelp": "Ask Support to bring it back."
+  "noServiceHelp": "Ask Support to bring it back.",
+  "@noServiceHelp": {"description": "TV only now: the phone can paste a link, so it says noServiceHelpTouch."},
+  "noServiceHelpTouch": "Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support."
 }
