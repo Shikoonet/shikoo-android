@@ -15,12 +15,14 @@ final _link = RegExp(r'https?://\S+', caseSensitive: false);
 
 String? shikooLink(String text, {bool debug = shikooDebug}) {
   final link = _link.firstMatch(text)?[0];
-  final host = Uri.tryParse(link ?? '')?.host.toLowerCase() ?? '';
+  final uri = Uri.tryParse(link ?? '');
+  final host = uri?.host.toLowerCase() ?? '';
   final ours =
-      shikooSubscriptionDomains.any(
-        (domain) => host == domain || host.endsWith('.$domain'),
-      ) ||
-      (debug && host == _emulatorHostMachine);
+      (uri?.scheme == 'https' &&
+          shikooSubscriptionDomains.any(
+            (domain) => host == domain || host.endsWith('.$domain'),
+          )) ||
+      (debug && uri?.scheme == 'http' && host == _emulatorHostMachine);
   return ours ? link : null;
 }
 

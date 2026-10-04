@@ -16,11 +16,11 @@ Future<Object> _failure(Future<void> Function() request) async {
 
 void main() {
   group('a Shikoo link', () {
-    test('is one a Shikoo panel serves, over http or https', () {
+    test('is one a Shikoo panel serves, over https', () {
       for (final link in [
         'https://4g3.uk/sub/abc',
         'https://sub.4g3.uk:2096/sub/abc',
-        'http://SUB.4G3.UK/sub/abc',
+        'HTTPS://SUB.4G3.UK/sub/abc',
       ]) {
         expect(shikooLink(link), link, reason: link);
       }
@@ -38,6 +38,7 @@ void main() {
         'https://evil4g3.uk/sub/abc',
         'https://4g3.uk.evil.com/sub/abc',
         'https://4g3.uk@evil.com/sub/abc',
+        'http://sub.4g3.uk/sub/abc',
         'vless://uuid@4g3.uk:443',
         'https://example.com/sub/abc',
         'سلام',
@@ -52,6 +53,7 @@ void main() {
         shikooLink('http://10.0.2.2:18289/sub', debug: true),
         'http://10.0.2.2:18289/sub',
       );
+      expect(shikooLink('http://4g3.uk/sub', debug: true), isNull);
     });
   });
 
