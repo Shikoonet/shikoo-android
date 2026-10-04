@@ -56,6 +56,9 @@ class _Setup extends SetupAction {
   /// Whether a real request gets through the tunnel.
   bool traffic = false;
 
+  /// Holds the traffic check open until completed.
+  Completer<void>? trafficGate;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
@@ -80,7 +83,10 @@ _home() {
       setupActionProvider.overrideWith(() => setup),
       coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
       nativeRunTimeProvider.overrideWithValue(() async => setup.tunnel),
-      trafficPassesProvider.overrideWithValue(() async => setup.traffic),
+      trafficPassesProvider.overrideWithValue(() async {
+        await setup.trafficGate?.future;
+        return setup.traffic;
+      }),
     ],
   );
   addTearDown(container.dispose);
@@ -575,5 +581,43 @@ void main() {
       ShikooPasteError.notShikoo,
     );
     expect(container.read(profilesProvider), hasLength(1));
+  });
+
+  test('a traffic check that ends after a switch or a disconnect proves '
+      'nothing for the server it began on', () async {
+    for (final interrupt in ['switch', 'disconnect']) {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      container.read(runTimeProvider.notifier).value = 1;
+      setup.tunnel = DateTime(2026);
+      await controller.selectServer('آلمان ۱');
+
+      pings['آلمان ۱'] = -1;
+      setup
+        ..traffic = true
+        ..trafficGate = Completer<void>();
+      final round = controller.pingAll();
+      await pumpEventQueue();
+      if (interrupt == 'switch') {
+        await controller.selectServer('هلند ۱');
+      } else {
+        await controller.disconnect();
+        container.read(runTimeProvider.notifier).value = null;
+      }
+      setup.trafficGate!.complete();
+      await round;
+      await pumpEventQueue();
+      final germany = container
+          .read(shikooStateProvider)
+          .servers
+          .firstWhere((server) => server.name == 'آلمان ۱');
+      expect(germany.ping, -1, reason: interrupt);
+    }
   });
 }

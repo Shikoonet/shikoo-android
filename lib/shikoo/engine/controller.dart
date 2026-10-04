@@ -797,11 +797,15 @@ class ShikooController {
     try {
       ms = (await _ref.read(coreHandlerProvider).getDelay(url, name))?.value;
     } catch (_) {}
-    if ((ms ?? 0) > 0 || name != _validSelection() || !_running) return ms;
+    bool carriesTraffic() => name == _validSelection() && _running;
+    if ((ms ?? 0) > 0 || !carriesTraffic()) return ms;
     if (await _nativeRunTime() == null) return ms;
     final took = Stopwatch()..start();
-    if (!await _ref.read(trafficPassesProvider)()) return ms;
-    return math.max(took.elapsedMilliseconds, 1);
+    final passes = await _ref.read(trafficPassesProvider)();
+    // The lookup went out through whatever carried traffic when it ended, maybe not [name].
+    return passes && carriesTraffic()
+        ? math.max(took.elapsedMilliseconds, 1)
+        : ms;
   }
 
   void onForeground() {
