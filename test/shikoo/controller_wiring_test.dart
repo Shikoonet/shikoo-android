@@ -1038,4 +1038,44 @@ void main() {
     expect(pasted.map((p) => p.url), ['$emulator/file/user111/b']);
     expect(await pastedProfiles(), {pasted.single.id});
   });
+
+  test('switching with the tunnel up, a service without a server already holds '
+      'one when the core takes it', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 40};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    when(() => core.getConfig(any())).thenAnswer(
+      (_) async => {
+        'proxies': [
+          {'name': _version, 'type': 'vless'},
+          {'name': 'آلمان ۱', 'type': 'vless'},
+          {'name': 'هلند ۱', 'type': 'vless'},
+        ],
+        'proxy-groups': [
+          {
+            'name': 'PROXY',
+            'type': 'select',
+            'proxies': [_version, 'آلمان ۱', 'هلند ۱'],
+          },
+        ],
+      },
+    );
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(second);
+    Map<String, String>? held;
+    container.listen(currentProfileIdProvider, (_, id) {
+      held = container.read(profilesProvider).getProfile(id!)?.selectedMap;
+    });
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    expect(held, {'PROXY': 'هلند ۱'}, reason: 'the best known, before row 1');
+  });
 }

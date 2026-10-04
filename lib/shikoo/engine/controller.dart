@@ -314,6 +314,26 @@ bool isServer(String type, String name) =>
 
 bool isInfoRow(String name) => _infoRowParts.any(name.contains);
 
+/// A config's first visible group, which the home lists, and its real servers.
+({String group, List<String> names})? mainGroupOf(Map<String, dynamic> config) {
+  final types = {
+    for (final proxy in config['proxies'] as List? ?? const [])
+      if (proxy is Map) '${proxy['name']}': '${proxy['type']}',
+  };
+  for (final group in config['proxy-groups'] as List? ?? const []) {
+    if (group is! Map || group['hidden'] == true) continue;
+    return (
+      group: '${group['name']}',
+      names: [
+        for (final name in group['proxies'] as List? ?? const [])
+          if (types['$name'] case final type? when isServer(type, '$name'))
+            '$name',
+      ],
+    );
+  }
+  return null;
+}
+
 List<Proxy> _serversOf(Group? group) => [
   for (final proxy in group?.all ?? const <Proxy>[])
     if (isServer(proxy.type, proxy.name)) proxy,
@@ -979,7 +999,37 @@ class ShikooController {
 
   void selectService(int id) {
     clearNews();
+    unawaited(_use(id));
+  }
+
+  Future<void> _use(int id) async {
+    if (_running) await _holdServer(id);
     _ref.read(currentProfileIdProvider.notifier).value = id;
+  }
+
+  /// With the tunnel up the core would start a service without a server on row 1, the info row.
+  Future<void> _holdServer(int id) async {
+    final profile = _ref.read(profilesProvider).getProfile(id);
+    if (profile == null) return;
+    final Map<String, dynamic> config;
+    try {
+      config = await _ref.read(coreHandlerProvider).getConfig(id);
+    } catch (_) {
+      return;
+    }
+    final main = mainGroupOf(config);
+    if (main == null || main.names.isEmpty) return;
+    if (main.names.contains(profile.selectedMap[main.group])) return;
+    final stopgap = fastest(main.names, _ping) ?? main.names.first;
+    _ref
+        .read(profilesProvider.notifier)
+        .put(
+          profile.copyWith(
+            selectedMap: {...profile.selectedMap, main.group: stopgap},
+          ),
+        );
+    _savePicks({..._appPickByService, '$id': stopgap});
+    _stopgap = stopgap;
   }
 
   Future<void> refreshOther(int id) async {
@@ -1135,7 +1185,7 @@ class ShikooController {
         // The core re-reads a profile only when the selection changes.
         await _setup.applyProfile(silence: true);
       } else if (select) {
-        _ref.read(currentProfileIdProvider.notifier).value = profile.id;
+        await _use(profile.id);
       }
       return null;
     } catch (error) {
