@@ -6,7 +6,7 @@
  *
  * فهرست اجزا و حالت‌ها (کلاس‌ها):
  *   ۱. نشان ............ .brand .mark
- *   ۲. دکمه ............ .btn + .btn-primary | .btn-outline | .btn-telegram | .btn-danger | .btn-text (+ .danger) ؛ .btn-link ؛ .icon-btn
+ *   ۲. دکمه ............ .btn + .btn-primary | .btn-outline | .btn-telegram | .btn-danger | .btn-text ؛ .danger روی دکمهٔ متنی یا دورخط‌دار ؛ .btn-link ؛ .icon-btn
  *   ۳. برچسب وضعیت ..... .chip + .chip-positive | .chip-danger | .chip-muted
  *   ۴. کارت سرویس ...... .card.svc ؛ باز (با .usage و .servers) یا جمع‌شده (با .svc-summary) ؛ .with-proto
  *   ۵. حجم و اعتبار .... .usage .usage-row .bar + .is-warning | .is-full ؛ نامحدود = بی‌نوار
@@ -76,7 +76,7 @@ ul { list-style: none; }
 .btn-telegram { background: var(--color-telegram); color: var(--color-on-telegram); font-size: var(--text-button-lg); }
 .btn-danger   { background: var(--color-danger); color: var(--color-on-danger); }
 .btn-text     { padding-inline: var(--space-3); }
-.btn-text.danger { color: var(--color-danger); }
+.btn.danger { color: var(--color-danger); } /* دکمهٔ متنی یا دورخط‌دارِ «حذف»؛ لبهٔ دورخط‌دار خنثی می‌ماند */
 .btn-link {
   align-self: center; min-block-size: var(--size-touch); padding-inline: var(--space-3);
   font-size: var(--text-body-sm); font-weight: var(--font-weight-bold); text-decoration: underline; text-underline-offset: 0.3em;
