@@ -175,50 +175,52 @@ class ShikooSettings extends ConsumerWidget {
     bool isTV,
     bool signedIn,
   ) async {
-    final t = ShikooTheme.of(context);
-    final l = ShikooL10n.of(context);
     final sure = await showShikooDialog<bool>(
       context,
-      children: [
-        Text(
-          signedIn
-              ? l.logoutSignedInTitle
-              : (isTV ? l.logoutTitleTv : l.logoutTitleTouch),
-          style: t.text(t.s.title, weight: FontWeight.w700),
-        ),
-        Text(
-          switch ((signedIn, isTV)) {
-            (true, true) => l.logoutSignedInBodyTv,
-            (true, false) => l.logoutSignedInBodyTouch,
-            (false, true) => l.logoutBodyTv,
-            (false, false) => l.logoutBodyTouch,
-          },
-          style: t.text(
-            t.s.dialogText,
-            color: t.c.textMuted,
-            height: Leading.body,
+      children: (context) {
+        final t = ShikooTheme.of(context);
+        final l = ShikooL10n.of(context);
+        return [
+          Text(
+            signedIn
+                ? l.logoutSignedInTitle
+                : (isTV ? l.logoutTitleTv : l.logoutTitleTouch),
+            style: t.text(t.s.title, weight: FontWeight.w700),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: Space.s2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            spacing: Space.s2,
-            children: [
-              ShikooButton(
-                label: l.cancel,
-                autofocus: true,
-                onPressed: () => Navigator.pop(context, false),
-              ),
-              ShikooButton(
-                label: signedIn ? l.logout : l.removeButton,
-                danger: true,
-                onPressed: () => Navigator.pop(context, true),
-              ),
-            ],
+          Text(
+            switch ((signedIn, isTV)) {
+              (true, true) => l.logoutSignedInBodyTv,
+              (true, false) => l.logoutSignedInBodyTouch,
+              (false, true) => l.logoutBodyTv,
+              (false, false) => l.logoutBodyTouch,
+            },
+            style: t.text(
+              t.s.dialogText,
+              color: t.c.textMuted,
+              height: Leading.body,
+            ),
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              spacing: Space.s2,
+              children: [
+                ShikooButton(
+                  label: l.cancel,
+                  autofocus: true,
+                  onPressed: () => Navigator.pop(context, false),
+                ),
+                ShikooButton(
+                  label: signedIn ? l.logout : l.removeButton,
+                  danger: true,
+                  onPressed: () => Navigator.pop(context, true),
+                ),
+              ],
+            ),
+          ),
+        ];
+      },
     );
     if (sure != true || !context.mounted) return;
     await ref.read(shikooSignInProvider).signOut();
