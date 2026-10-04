@@ -438,12 +438,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     style: lead,
                   ),
                   _Qr(login: login),
-                  Text(
-                    l.otherDeviceComputer,
-                    textAlign: TextAlign.center,
-                    style: lead,
-                  ),
-                  if (phase != LoginPhase.startFailed) _CodeBox(login: login),
+                  if (phase != LoginPhase.startFailed) ...[
+                    Text(
+                      l.otherDeviceComputer,
+                      textAlign: TextAlign.center,
+                      style: lead,
+                    ),
+                    _CodeBox(login: login),
+                  ],
                   if (phase == LoginPhase.startFailed ||
                       phase == LoginPhase.expired)
                     ShikooButton(

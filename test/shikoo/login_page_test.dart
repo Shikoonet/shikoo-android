@@ -248,7 +248,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('کد ورود نرسید.', findRichText: true), findsOne);
     expect(
-      find.text('تلگرام باز می‌شود؛ در ربات شیکو «تأیید» را بزن.'),
+      find.text('تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.'),
       findsNothing,
     );
     expect(find.widgetWithText(ShikooButton, 'دوباره'), findsNothing);
@@ -331,5 +331,26 @@ void main() {
       tester.widget<QrTile>(find.byType(QrTile)).data,
       'https://t.me/Test_Shikoo_bot?start=rnw_41',
     );
+  });
+
+  testWidgets('while a code comes the way without Telegram greys out too; a '
+      'code that did not come takes the line about sending it', (tester) async {
+    final container = await _pump(
+      tester,
+      tv: false,
+      login: const ShikooLogin(LoginPhase.starting),
+    );
+    final link = tester.widget<Text>(find.text('تلگرام روی این گوشی نیست؟'));
+    expect(link.style?.color, ShikooColors.light.textMuted);
+
+    container.read(shikooLoginProvider.notifier).set(null);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تلگرام روی این گوشی نیست؟'));
+    container
+        .read(shikooLoginProvider.notifier)
+        .set(const ShikooLogin(LoginPhase.startFailed));
+    await tester.pumpAndSettle();
+    expect(find.text('کد ورود نرسید'), findsOneWidget);
+    expect(find.textContaining('این کد را برای ربات'), findsNothing);
   });
 }
