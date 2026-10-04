@@ -904,8 +904,7 @@ class ShikooController {
           validate: (path) =>
               _ref.read(coreHandlerProvider).validateConfig(path),
         );
-    // ponytail: a refresh that lost its service meanwhile leaves the just-saved config file
-    // behind, as FlClash's own update can; delete it if orphan files ever add up.
+    // ponytail: its just-saved config file stays behind, as with FlClash's own update.
     if (refresh &&
         !_ref.read(profilesProvider).any((p) => p.id == profile.id)) {
       return null;
