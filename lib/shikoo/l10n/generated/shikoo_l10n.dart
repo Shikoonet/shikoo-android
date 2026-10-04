@@ -1097,7 +1097,7 @@ abstract class ShikooL10n {
   /// No description provided for @logoutHelpSignedInTouch.
   ///
   /// In en, this message translates to:
-  /// **'Removes the services from this device; your subscriptions stay as they are.'**
+  /// **'Removes this account\'s services from this device; your subscriptions stay as they are.'**
   String get logoutHelpSignedInTouch;
 
   /// No description provided for @logoutHelpSignedInTv.
@@ -1115,7 +1115,7 @@ abstract class ShikooL10n {
   /// No description provided for @logoutSignedInBodyTouch.
   ///
   /// In en, this message translates to:
-  /// **'You\'ll be disconnected, this device will be unlinked from your Telegram account and the services removed from it. Your subscriptions stay as they are; sign in with Telegram again whenever you like.'**
+  /// **'You\'ll be disconnected, this device will be unlinked from your Telegram account and this account\'s services removed from it. A service you added by pasting its link stays. Your subscriptions stay as they are; sign in with Telegram again whenever you like.'**
   String get logoutSignedInBodyTouch;
 
   /// No description provided for @logoutSignedInBodyTv.

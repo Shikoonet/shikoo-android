@@ -674,7 +674,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get logoutHelpSignedInTouch =>
-      'Removes the services from this device; your subscriptions stay as they are.';
+      'Removes this account\'s services from this device; your subscriptions stay as they are.';
 
   @override
   String get logoutHelpSignedInTv =>
@@ -685,7 +685,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get logoutSignedInBodyTouch =>
-      'You\'ll be disconnected, this device will be unlinked from your Telegram account and the services removed from it. Your subscriptions stay as they are; sign in with Telegram again whenever you like.';
+      'You\'ll be disconnected, this device will be unlinked from your Telegram account and this account\'s services removed from it. A service you added by pasting its link stays. Your subscriptions stay as they are; sign in with Telegram again whenever you like.';
 
   @override
   String get logoutSignedInBodyTv =>
