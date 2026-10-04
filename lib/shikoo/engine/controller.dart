@@ -76,6 +76,7 @@ class ShikooService {
     this.supportUrl,
     this.updatedAt,
     this.usageKnown = true,
+    this.refresh = ShikooRefresh.idle,
   });
 
   /// FlClash's profile id.
@@ -92,6 +93,9 @@ class ShikooService {
   final DateTime? updatedAt;
 
   final bool usageKnown;
+
+  /// Of a service other than the current one; the current one's is [ShikooState.refresh].
+  final ShikooRefresh refresh;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -170,6 +174,7 @@ class ShikooState {
     this.refresh = ShikooRefresh.idle,
     this.notice,
     this.waiting = false,
+    this.others = const [],
   });
 
   final ShikooConnection connection;
@@ -190,6 +195,8 @@ class ShikooState {
 
   /// Connect was pressed before a server was chosen: the first one that answers is used.
   final bool waiting;
+
+  final List<ShikooService> others;
 
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
@@ -233,6 +240,7 @@ final _orderProvider = _cell<List<String>>(const []);
 /// (a "Fastest" group with its own timeout), which repainted healthy servers as dead.
 final _pingsProvider = _cell<Map<String, int>>(const {});
 final _refreshProvider = _cell(ShikooRefresh.idle);
+final _othersRefreshProvider = _cell<Map<int, ShikooRefresh>>(const {});
 final _freshProvider = _cell<Set<String>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
 
@@ -343,8 +351,26 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final nativeStart = ref.watch(_nativeStartProvider);
   final intent = ref.watch(_intentProvider);
   final profile = ref.watch(currentProfileProvider);
-  final extras = ref.watch(_extrasProvider)[profile?.id];
-  final info = profile?.subscriptionInfo;
+  final extras = ref.watch(_extrasProvider);
+  final refreshing = ref.watch(_othersRefreshProvider);
+  ShikooService serviceOf(Profile profile) {
+    final info = profile.subscriptionInfo;
+    return ShikooService(
+      id: profile.id,
+      name: profile.label,
+      usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
+      totalBytes: info?.total ?? 0,
+      expire: (info?.expire ?? 0) > 0
+          ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
+          : null,
+      announce: extras[profile.id]?.announce,
+      supportUrl: extras[profile.id]?.supportUrl,
+      updatedAt: profile.lastUpdateDate,
+      usageKnown: info != null,
+      refresh: refreshing[profile.id] ?? ShikooRefresh.idle,
+    );
+  }
+
   final group = _mainGroup(ref);
   final round = ref.watch(_roundProvider);
   final pings = ref.watch(_pingsProvider);
@@ -375,21 +401,11 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
         ? DateTime.now().difference(nativeStart)
         : Duration(milliseconds: runTime ?? 0),
     isTV: system.isTV,
-    service: profile == null
-        ? null
-        : ShikooService(
-            id: profile.id,
-            name: profile.label,
-            usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
-            totalBytes: info?.total ?? 0,
-            expire: (info?.expire ?? 0) > 0
-                ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
-                : null,
-            announce: extras?.announce,
-            supportUrl: extras?.supportUrl,
-            updatedAt: profile.lastUpdateDate,
-            usageKnown: info != null,
-          ),
+    service: profile == null ? null : serviceOf(profile),
+    others: [
+      for (final other in ref.watch(profilesProvider))
+        if (other.id != profile?.id) serviceOf(other),
+    ],
     servers: servers,
     selected: selected,
     lastError: intent.error,
@@ -676,6 +692,7 @@ class ShikooController {
     _ref.read(_pingsProvider.notifier).set(const {});
     _ref.read(_orderProvider.notifier).set(const []);
     _ref.read(_freshProvider.notifier).set(const {});
+    _ref.read(_othersRefreshProvider.notifier).set(const {});
   }
 
   /// The user's choice, which the app never replaces.
@@ -846,9 +863,39 @@ class ShikooController {
   void onForeground() {
     final now = DateTime.now();
     if (!_pinging && isDue(_lastRound, now, pingEvery)) unawaited(pingAll());
-    final updated = _ref.read(currentProfileProvider)?.lastUpdateDate;
-    if (isDue(updated, now, refreshEvery)) {
+    final current = _ref.read(currentProfileProvider);
+    if (isDue(current?.lastUpdateDate, now, refreshEvery)) {
       unawaited(refreshService(manual: false));
+    }
+    for (final other in _ref.read(profilesProvider)) {
+      if (other.id != current?.id &&
+          isDue(other.lastUpdateDate, now, refreshEvery)) {
+        unawaited(refreshOther(other.id));
+      }
+    }
+  }
+
+  void selectService(int id) {
+    clearNews();
+    _ref.read(currentProfileIdProvider.notifier).value = id;
+  }
+
+  Future<void> refreshOther(int id) async {
+    final profile = _ref.read(profilesProvider).getProfile(id);
+    void mark(ShikooRefresh state) => _ref
+        .read(_othersRefreshProvider.notifier)
+        .set({..._ref.read(_othersRefreshProvider), id: state});
+    if (profile == null ||
+        profile.url.isEmpty ||
+        _ref.read(_othersRefreshProvider)[id] == ShikooRefresh.running) {
+      return;
+    }
+    mark(ShikooRefresh.running);
+    try {
+      await _download(profile.url, label: profile.label);
+      mark(ShikooRefresh.idle);
+    } catch (_) {
+      mark(ShikooRefresh.failed);
     }
   }
 

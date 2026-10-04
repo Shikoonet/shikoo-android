@@ -656,4 +656,35 @@ void main() {
     container.read(currentProfileIdProvider.notifier).value = measured.id;
     expect(container.read(shikooStateProvider).service!.usageKnown, isTrue);
   });
+
+  test(
+    'every service is listed, and choosing another one puts it in use',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 50,
+        ),
+      );
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      final first = container.read(currentProfileIdProvider)!;
+      final second = Profile.normal(
+        url: 'https://panel.invalid/second',
+      ).copyWith(label: 'user456 · طلایی');
+      container.read(profilesProvider.notifier).put(second);
+      var state = container.read(shikooStateProvider);
+      expect(state.service!.id, first);
+      expect(state.others.map((s) => s.name), ['user456 · طلایی']);
+
+      controller.selectService(second.id);
+      await pumpEventQueue();
+      state = container.read(shikooStateProvider);
+      expect(state.service!.id, second.id);
+      expect(state.others.map((s) => s.id), [first]);
+      expect(state.selected, isNotNull, reason: 'measured and picked');
+    },
+  );
 }

@@ -22,12 +22,21 @@ class ShikooHome extends ConsumerStatefulWidget {
 class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _card = CardFocus();
   final _power = FocusNode();
+  final _scroll = ScrollController();
 
   @override
   void dispose() {
     _card.dispose();
     _power.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  /// phone-home-long: the chosen service opens at the top, under the power button.
+  void _use(ShikooController controller, int service) {
+    controller.selectService(service);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    _power.requestFocus();
   }
 
   @override
@@ -40,10 +49,26 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       controller: controller,
       focusNode: _power,
     );
-    final card = ServiceCard(
-      state: state,
-      controller: controller,
-      focus: _card,
+    final card = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: Space.s3,
+      children: [
+        ServiceCard(
+          key: ValueKey(state.service?.id),
+          state: state,
+          controller: controller,
+          focus: _card,
+        ),
+        for (final other in state.others)
+          FoldedServiceCard(
+            key: ValueKey(other.id),
+            service: other,
+            refresh: other.refresh,
+            isTV: state.isTV,
+            onOpen: () => _use(controller, other.id),
+            onRefresh: () => unawaited(controller.refreshOther(other.id)),
+          ),
+      ],
     );
     final towardCard = state.selected ?? state.servers.firstOrNull?.name;
     return Scaffold(
@@ -60,7 +85,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   ),
                   card: _CardKeys(focus: _card, power: _power, child: card),
                 )
-              : _PhoneLayout(power: power, card: card),
+              : _PhoneLayout(power: power, card: card, scroll: _scroll),
         ),
       ),
     );
@@ -290,10 +315,15 @@ class _TvColumnState extends State<_TvColumn> {
 
 /// `.appbar` and `.home`, which scroll as one (`.scroll-view` in phone-ping.html).
 class _PhoneLayout extends StatelessWidget {
-  const _PhoneLayout({required this.power, required this.card});
+  const _PhoneLayout({
+    required this.power,
+    required this.card,
+    required this.scroll,
+  });
 
   final Widget power;
   final Widget card;
+  final ScrollController scroll;
 
   @override
   Widget build(BuildContext context) {
@@ -301,6 +331,7 @@ class _PhoneLayout extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
+        controller: scroll,
         padding: EdgeInsets.only(
           bottom: Space.s6 + MediaQuery.paddingOf(context).bottom,
         ),

@@ -478,4 +478,87 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ServerRow), findsNWidgets(3), reason: 'the name');
   });
+
+  testWidgets('other services fold under the one in use, and a tap on one '
+      'puts it in use', (tester) async {
+    final controller = _Controller();
+    final state = _phone();
+    await _pump(
+      tester,
+      ShikooState(
+        connection: state.connection,
+        connectedFor: state.connectedFor,
+        isTV: false,
+        servers: state.servers,
+        selected: state.selected,
+        service: state.service,
+        others: [
+          ShikooService(
+            id: 7,
+            name: 'user789 · معمولی',
+            usedBytes: (49.8 * (1 << 30)).round(),
+            totalBytes: 50 << 30,
+            expire: DateTime(2026, 12, 1, 12),
+          ),
+        ],
+      ),
+      controller: controller,
+    );
+    expect(find.byType(FoldedServiceCard), findsOneWidget);
+    final folded = find.text('user789 · معمولی');
+    expect(
+      tester.getTopLeft(folded).dy,
+      greaterThan(tester.getBottomLeft(find.byType(ServerRow).last).dy),
+    );
+    await tester.ensureVisible(folded);
+    await tester.tap(folded);
+    verify(() => controller.selectService(7)).called(1);
+  });
+
+  testWidgets('on the TV another service is one remote item under the list, '
+      'and OK puts it in use', (tester) async {
+    final controller = _Controller();
+    final state = _phone(isTV: true);
+    await _pump(
+      tester,
+      ShikooState(
+        connection: state.connection,
+        connectedFor: state.connectedFor,
+        isTV: true,
+        servers: state.servers,
+        selected: state.selected,
+        service: state.service,
+        others: const [
+          ShikooService(
+            id: 7,
+            name: 'user789 · معمولی',
+            usedBytes: 0,
+            totalBytes: 0,
+          ),
+        ],
+      ),
+      controller: controller,
+    );
+    Focus.of(
+      tester.element(
+        find
+            .descendant(
+              of: find.widgetWithText(ServerRow, 'آلمان ۱'),
+              matching: find.byType(GestureDetector),
+            )
+            .first,
+      ),
+    ).requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<FoldedServiceCard>(),
+      isNotNull,
+    );
+    expect(find.text('تازه'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    verify(() => controller.selectService(7)).called(1);
+  });
 }
