@@ -35,5 +35,12 @@
   "summaryExhausted": "Out of data. Renew to use it again.",
   "@summaryExhausted": {"description": "The folded card's summary line, instead of usage and date."},
   "summaryExpired": "Expired on {date}. Renew to use it again.",
-  "@summaryExpired": {"description": "The folded card's summary line. {date} is the end date, Gregorian in English.", "placeholders": {"date": {"type": "String", "example": "Sep 27, 2026"}}}
+  "@summaryExpired": {"description": "The folded card's summary line. {date} is the end date, Gregorian in English.", "placeholders": {"date": {"type": "String", "example": "Sep 27, 2026"}}},
+  "summaryExpiredNoDate": "Expired. Renew to use it again.",
+  "@summaryExpiredNoDate": {"description": "Phone: summaryExpired for a service that came from the Telegram account without its end date."},
+  "summaryExpiredNoDateTv": "Expired. After renewing, press “Try again”.",
+  "summaryExhaustedTv": "Out of data. After renewing, press “Try again”.",
+  "@summaryExhaustedTv": {"description": "TV: the card has Renew, Support and Try again; the TV can't tell when the renewal happened on the phone."},
+  "openBotTitleTv": "ShikooNet bot on your phone",
+  "openBotHelpTv": "Scan with your phone's camera to open the ShikooNet bot."
 }

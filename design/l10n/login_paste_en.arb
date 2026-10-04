@@ -99,5 +99,6 @@
   "codeFailedLeadTv": "The sign-in code didn't come from the server. Check this TV's internet and try again.",
   "pasteUnavailableTitle": "Couldn't open the link right now.",
   "@pasteUnavailableTitle": {"description": "A server error (5xx), an empty answer, or a web page instead of a subscription. Only 404 and 410 say pasteRevokedTitle. Says nothing about a “server”: customers read that as the servers in the list."},
-  "pasteUnavailableHelp": "Try again in a bit; if it still won't open, ask Support."
+  "pasteUnavailableHelp": "Try again in a bit; if it still won't open, ask Support.",
+  "supportHelpTv": "Scan with your phone's camera to open a chat with ShikooNet support in Telegram."
 }
