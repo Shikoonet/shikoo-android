@@ -10,6 +10,7 @@ import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -736,5 +737,22 @@ void main() {
     expect(left()?.color, isNot(ShikooColors.light.warning));
     await _pump(tester, using(90));
     expect(left()?.color, ShikooColors.light.warning);
+  });
+
+  testWidgets('a service name leads with its username in either language', (
+    tester,
+  ) async {
+    for (final (locale, direction) in [
+      ('fa', TextDirection.rtl),
+      ('en', TextDirection.ltr),
+    ]) {
+      await _pump(tester, _phone(), locale: locale);
+      final title = find.text('user123 · الماس');
+      expect(
+        tester.renderObject<RenderParagraph>(title).textDirection,
+        direction,
+        reason: locale,
+      );
+    }
   });
 }

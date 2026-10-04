@@ -289,17 +289,7 @@ class FoldedServiceCard extends StatelessWidget {
         ? Row(
             spacing: Space.s2,
             children: [
-              Expanded(
-                child: nameText(
-                  context,
-                  service.name,
-                  t.text(
-                    t.s.title,
-                    weight: FontWeight.w700,
-                    height: Leading.snug,
-                  ),
-                ),
-              ),
+              Expanded(child: _serviceName(service, t)),
               if (service.usageKnown)
                 StatusChip(status: service.statusAt(DateTime.now())),
               SvgIcon(
@@ -354,6 +344,14 @@ class FoldedServiceCard extends StatelessWidget {
   }
 }
 
+/// Unlike a server name, in the UI's direction: the username leads in both languages.
+Text _serviceName(ShikooService service, ShikooTheme t) => Text(
+  service.name,
+  maxLines: 1,
+  overflow: TextOverflow.ellipsis,
+  style: t.text(t.s.title, weight: FontWeight.w700, height: Leading.snug),
+);
+
 String agoText(ShikooL10n l, Duration ago) {
   if (ago.inMinutes < 1) return l.agoJustNow;
   if (ago.inHours < 1) return l.agoMinutes(ago.inMinutes);
@@ -406,17 +404,7 @@ class _Head extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(
-                    child: nameText(
-                      context,
-                      service.name,
-                      t.text(
-                        t.s.title,
-                        weight: FontWeight.w700,
-                        height: Leading.snug,
-                      ),
-                    ),
-                  ),
+                  Expanded(child: _serviceName(service, t)),
                   if (service.usageKnown) ...[
                     const SizedBox(width: Space.s2),
                     StatusChip(status: service.statusAt(DateTime.now())),
