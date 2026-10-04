@@ -93,4 +93,14 @@ void main() {
       expect(calls, 2);
     });
   });
+
+  test('a name another service has gets a Persian number, never "(1)"', () {
+    expect(unusedName('user123 · الماس', {}), 'user123 · الماس');
+    expect(
+      unusedName('user123 · الماس', {'user123 · الماس'}),
+      'user123 · الماس ۲',
+    );
+    final taken = {'a', for (var n = 2; n < 10; n++) 'a ${'۰۱۲۳۴۵۶۷۸۹'[n]}'};
+    expect(unusedName('a', taken), 'a ۱۰');
+  });
 }

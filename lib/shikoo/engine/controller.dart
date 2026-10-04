@@ -451,6 +451,16 @@ bool _ended(SubscriptionInfo? info) =>
             info.expire * 1000 <= DateTime.now().millisecondsSinceEpoch) ||
         (info.total > 0 && info.upload + info.download >= info.total));
 
+/// FlClash would add a Latin "(1)" to a name another service has.
+String unusedName(String name, Set<String> taken) {
+  var unused = name;
+  for (var n = 2; taken.contains(unused); n++) {
+    unused =
+        '$name ${String.fromCharCodes(n.toString().codeUnits.map((c) => c + 0x06C0))}';
+  }
+  return unused;
+}
+
 String _sorted(Iterable<String> names) => (names.toList()..sort()).join('\n');
 
 SubscriptionInfo? _subscriptionInfo(String? header) {
@@ -908,17 +918,19 @@ class ShikooController {
         !hasServers(utf8.decode(body, allowMalformed: true))) {
       throw const FormatException('no servers');
     }
-    final existing = _ref
-        .read(profilesProvider)
-        .firstWhereOrNull(
-          (profile) => normalLink(profile.url) == normalLink(url),
-        );
+    final profiles = _ref.read(profilesProvider);
+    final existing = profiles.firstWhereOrNull(
+      (profile) => normalLink(profile.url) == normalLink(url),
+    );
     final profile = await (existing ?? Profile.normal(url: url))
         .copyWith(
-          label:
-              label ??
-              headerText(header('profile-title')) ??
-              Uri.parse(url).host,
+          label: unusedName(
+            label ?? headerText(header('profile-title')) ?? Uri.parse(url).host,
+            {
+              for (final other in profiles)
+                if (other != existing) other.label,
+            },
+          ),
           // FlClash's own daily update would race this one and drop the headers kept below.
           autoUpdate: false,
           subscriptionInfo: info,
