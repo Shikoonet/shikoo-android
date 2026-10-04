@@ -15,7 +15,7 @@
 
 <header class="sheet-head">
   <h1>شیکونت · حالت‌های تلویزیون</h1>
-  <p>فوکوس ریموت، «وصل نشد»، فهرست بلند و چند سرویس، کد تصویریِ تمدید و پشتیبانی، تنظیمات، و ورود: کد تمام‌شده، تأیید، حساب بی‌سرویس، رد.</p>
+  <p>فوکوس ریموت، «وصل نشد»، فهرست بلند و چند سرویس، کد تصویریِ تمدید و پشتیبانی، سرویسِ بی‌لینک، تنظیمات، و ورود: در حال گرفتن کد، کد نرسید، کد تمام‌شده، تأیید، حساب بی‌سرویس، رد.</p>
   <nav class="sheet-nav">
     <a href="phone.html">گوشی</a>
     <a href="phone-states.html">حالت‌های گوشی</a>
@@ -631,6 +631,46 @@
     <p class="note">وقتی ورود تلگرامی ساخته شد، این صفحه کنار می‌رود و صفحهٔ ورود جایش می‌آید.</p>
   </figure>
 
+  <!-- خانه: تنها سرویس هنوز لینک ندارد -->
+  <figure class="shot">
+    <figcaption>خانه · سرویس هنوز لینک ندارد · ریموت روی «ربات شیکو»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-no-link">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name">الماس ۱ ماهه ۱۰ گیگ</h2>
+                <span class="chip chip-muted">بدون لینک</span>
+              </header>
+              <p class="state-msg">یک بار از ربات سرویس را باز کن، بعد «دوباره» را بزن.</p>
+              <div class="actions">
+                <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>ربات شیکو</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">بدون لینک</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="note">همان کارتِ «بدون لینک» گوشی (قاب «کارت‌های دیگر سرویس»)، وقتی تنها سرویسِ تلویزیون است. نام سرویس مثل بقیهٔ کارت‌هاست: نام کاربری · رده، و اگر حساب هنوز نیست، نام پلن.</p>
+    <p class="note">ریموت اول روی «ربات شیکو» است، چون کارِ همین صفحه گرفتن لینک است؛ چپ به «دوباره»، بالا به «تنظیمات». دکمهٔ گرد غیرفعال است و ریموت رویش نمی‌ایستد.</p>
+    <p class="note">«ربات شیکو» کد تصویریِ ربات را در پنجره‌ای مثل «پشتیبانی» نشان می‌دهد؛ با «بستن» ریموت به «ربات شیکو» برمی‌گردد. «دوباره» فهرست سرویس‌ها را دوباره می‌گیرد و تا جواب، چرخنده روی خودش است. اگر لینک آمد، این کارت کارتِ معمولی سرویس می‌شود و ریموت روی دکمهٔ گرد می‌رود؛ اگر نیامد، همین قاب می‌ماند و ریموت روی «دوباره».</p>
+    <p class="note"><b>پیشنهاد</b>گوشی «دوباره» نمی‌خواهد: وقتی کاربر از تلگرام به اپ برمی‌گردد، اپ یک بار خودش فهرست را می‌گیرد.</p>
+  </figure>
+
   <!-- تنظیمات تلویزیون به انگلیسی -->
   <figure class="shot">
     <figcaption>تنظیمات · زبان انگلیسی، چپ‌به‌راست · ریموت روی همان گزینه</figcaption>
@@ -731,7 +771,74 @@
         </div>
       </div>
     </div>
-    <p class="note">کد خودش عوض نمی‌شود، تا کسی وسط تایپ کردن کدِ عوض‌شده نبیند. بعد از ۱۰ دقیقه این حالت می‌آید و ریموت روی «کد تازه» است.</p>
+    <p class="note">کد خودش عوض نمی‌شود، تا کسی وسط تایپ کردن کدِ عوض‌شده نبیند. بعد از ۱۰ دقیقه این حالت می‌آید و ریموت روی «کد تازه» است، هر جا که پیش‌تر بود، حتی روی انتخاب زبان.</p>
+    <p class="note">با «کد تازه» قاب «در حال گرفتن کد» می‌آید و بعد قاب «ورود»؛ ریموت روی «پشتیبانی» است، مثل بار اول.</p>
+  </figure>
+
+  <!-- ورود: کد هنوز نرسیده -->
+  <figure class="shot">
+    <figcaption>ورود · در حال گرفتن کد · ریموت روی «پشتیبانی»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-loading">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+      </header>
+      <div class="tv-login">
+        <div class="login-copy">
+          <h1>ورود با تلگرام</h1>
+          <p class="lead">با دوربین گوشی اسکن کن و «تأیید» را بزن</p>
+          <p class="fine">تلگرامت فقط با فیلترشکن باز می‌شود؟ روی گوشی روشنش کن، بعد اسکن کن.</p>
+          <div class="code-box">
+            <span class="code-label">تلگرامت روی کامپیوتر است؟<br>این کد را برای ربات بفرست:</span>
+            <span class="code is-pending" aria-hidden="true">۰۰۰ ۰۰۰</span>
+            <span class="code-bot"><svg class="icon"><use href="#i-plane"/></svg><bdi dir="ltr">@shikoonet_bot</bdi></span>
+            <span class="code-warn"><svg class="icon"><use href="#i-alert"/></svg>این کد را فقط خودت در ربات بزن؛ به هیچ‌کس نده.</span>
+          </div>
+          <p class="fine">این کد ۱۰ دقیقه کار می‌کند.</p>
+        </div>
+        <div class="qr-side">
+          <div class="qr-tile is-empty">
+            <span class="qr" aria-hidden="true"></span>
+            <div class="qr-overlay"><svg class="icon"><use href="#i-spin"/></svg>در حال گرفتن کد…</div>
+          </div>
+          <button class="btn btn-outline is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">همان قاب «ورود» است، فقط کد هنوز نرسیده: جای کد تصویری خالی است با چرخندهٔ گردان، و جای کدِ شش‌رقمی یک نوار خاکستریِ هم‌اندازه، تا با رسیدن کد چیزی جابه‌جا نشود. ریموت از اول روی «پشتیبانی» است و با رسیدن کد همان‌جا می‌ماند.</p>
+    <p class="note"><b>پیشنهاد</b>اگر تا ۲۰ ثانیه کد نرسید، قاب بعدی. مثل مهلت «سرویس‌ها نرسیدند»، روی شبکهٔ واقعی سنجیده نشده.</p>
+  </figure>
+
+  <!-- ورود: کد نرسید -->
+  <figure class="shot">
+    <figcaption>ورود · کد ورود نرسید · ریموت روی «دوباره»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-code-failed">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+      </header>
+      <div class="tv-login">
+        <div class="login-copy">
+          <h1>ورود با تلگرام</h1>
+          <p class="lead">کد ورود از سرور نرسید. اینترنت این تلویزیون را بررسی کن و دوباره امتحان کن.</p>
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+        </div>
+        <div class="qr-side">
+          <div class="qr-tile is-empty">
+            <span class="qr" aria-hidden="true"></span>
+            <div class="qr-overlay"><svg class="icon"><use href="#i-alert"/></svg>کد ورود نرسید</div>
+          </div>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">شکلِ قاب «کد تمام شده» است، ولی کدی نیامده که خط بخورد. ریموت روی «دوباره» است، هر جا که پیش‌تر بود؛ چپ به «پشتیبانی». «دوباره» همان قاب «در حال گرفتن کد» را می‌آورد.</p>
   </figure>
 
   <!-- ورود: تأیید شد -->

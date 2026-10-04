@@ -11,5 +11,12 @@
   "noServiceTitleTouch": "No service on this phone",
   "noServiceHelp": "Ask Support to bring it back.",
   "@noServiceHelp": {"description": "TV only now: the phone can paste a link, so it says noServiceHelpTouch."},
-  "noServiceHelpTouch": "Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support."
+  "noServiceHelpTouch": "Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support.",
+  "noLinkChip": "No link",
+  "@noLinkChip": {"description": "Chip on a service that has no subscription link yet, and the label of the disabled round button when it is the only service."},
+  "noLinkHelpTouch": "Open this service once in the bot",
+  "noLinkHelpTv": "Open this service once in the bot, then press “Try again”.",
+  "openBotTouch": "Open the bot",
+  "openBotTv": "Shikoo bot",
+  "@openBotTv": {"description": "TV button: shows the bot's QR code for the phone camera, like Support."}
 }

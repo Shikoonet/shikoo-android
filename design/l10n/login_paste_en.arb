@@ -91,5 +91,10 @@
   "renewHelpList": "Scan with your phone's camera; the Shikoo bot opens the renewal list of your services.",
   "renewPickInList": "In the bot's list, tap the service {username}; if it isn't there, check the next page of the list.",
   "@renewPickInList": {"placeholders": {"username": {"type": "String", "example": "user123"}}},
-  "renewHelpDirect": "Scan with your phone's camera; the Shikoo bot opens the renewal page of this service."
+  "renewHelpDirect": "Scan with your phone's camera; the Shikoo bot opens the renewal page of this service.",
+  "codeFetching": "Getting a code…",
+  "codeFailedTitle": "The sign-in code didn't arrive.",
+  "codeFailedHelpTouch": "Check your phone's internet and tap again.",
+  "codeFailedOverlay": "No sign-in code",
+  "codeFailedLeadTv": "The sign-in code didn't come from the server. Check this TV's internet and try again."
 }
