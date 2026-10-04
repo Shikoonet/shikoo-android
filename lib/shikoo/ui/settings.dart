@@ -477,7 +477,7 @@ class Segmented<T> extends StatelessWidget {
                       height: small ? null : t.s.button,
                       padding: small
                           ? const EdgeInsets.symmetric(
-                              horizontal: Space.s6,
+                              horizontal: Space.s4,
                               vertical: Space.s1,
                             )
                           : null,
