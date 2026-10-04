@@ -52,8 +52,11 @@
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
@@ -65,6 +68,10 @@
           <div class="actions">
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
           </div>
           <ul class="servers">
             <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
@@ -79,7 +86,7 @@
       <div class="gesture"></div>
     </div>
     <p class="note">«وصل» فقط وقتی نشان داده می‌شود که موتور اتصال را واقعاً تأیید کرده باشد؛ تا آن موقع همین حالت می‌ماند.</p>
-    <p class="note"><b>پیشنهاد</b>اگر تا ۲۰ ثانیه وصل نشد، به «وصل نشد» می‌رود (قاب بعدی). عدد ۲۰ ثانیه حدس است و باید روی شبکهٔ واقعی سنجیده شود.</p>
+    <p class="note">اگر تا ۳۰ ثانیه وصل نشد، به «وصل نشد» می‌رود (قاب بعدی). ۳۰ ثانیه مهلتِ خودِ اپ است، مثل تلویزیون؛ روی شبکهٔ واقعی سنجیده نشده.</p>
   </figure>
 
   <!-- خطای اتصال -->
@@ -100,12 +107,15 @@
               <span class="power-sub">دوباره بزن</span>
             </button>
           </div>
-          <p class="power-msg danger">آلمان ۲ تا ۲۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.</p>
+          <p class="power-msg danger">آلمان ۲ تا ۳۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.</p>
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
@@ -117,6 +127,10 @@
           <div class="actions">
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
           </div>
           <ul class="servers">
             <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
@@ -131,7 +145,7 @@
       <div class="gesture"></div>
     </div>
     <p class="note">دکمهٔ گرد حالا یعنی «دوباره». پینگِ سرورِ انتخاب‌شده هم «بی‌پاسخ» می‌شود تا علت دیده شود.</p>
-    <p class="note"><b>پیشنهاد</b>«۲۰ ثانیه» در متن این قاب حدس است؛ مهلت واقعی باید روی شبکهٔ واقعی سنجیده و تعیین شود.</p>
+    <p class="note">عدد پیام همان مهلت اپ است (۳۰ ثانیه)؛ اگر مهلت عوض شد، این عدد هم با آن عوض می‌شود.</p>
   </figure>
 
   <!-- حجم تمام شده -->
@@ -151,7 +165,7 @@
               <span class="power-label">حجم تمام شده</span>
             </div>
           </div>
-          <p class="power-msg">با «تمدید» دوباره وصل می‌شوی.</p>
+          <p class="power-msg">با «تمدید» دوباره وصل می‌شوی،<br>یا سرویس دیگرت را انتخاب کن.</p>
         </section>
         <article class="card svc">
           <header class="svc-head">
@@ -174,12 +188,23 @@
           </div>
           <p class="state-msg">فهرست سرورها بعد از تمدید برمی‌گردد.</p>
         </article>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-down"/></svg>
+          </header>
+          <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+        </article>
       </div>
       <div class="gesture"></div>
     </div>
     <p class="note">نوار مثل ربات به اندازهٔ مصرف پر می‌شود و «۱۰۰٪» فقط برای حجمی است که واقعاً تمام شده.</p>
     <p class="note">سربرگ همان سربرگ کارت فعال است. دکمهٔ به‌روزرسانی این‌جا لازم‌تر است: مشتری در ربات تمدید می‌کند و برمی‌گردد، و به‌روزرسانیِ خودکار تا ۱۰ دقیقه نمی‌آید. اطلاعیهٔ پنل هم می‌ماند، چون شاید دربارهٔ همین تمدید باشد.</p>
-    <p class="note"><b>پیشنهاد</b>اگر سرویس فعال دیگری روی گوشی هست، پیام زیر دکمه این می‌شود: «با «تمدید» دوباره وصل می‌شوی، یا سرویس دیگرت را انتخاب کن.» تا مشتری‌ای که دو سرویس دارد، برای وصل شدن پول تمدید ندهد.</p>
+    <p class="note">این قاب سرویس فعال دیگری هم دارد، پس پیام زیر دکمه دو خطِ ثابت است: «با «تمدید» دوباره وصل می‌شوی،» و «یا سرویس دیگرت را انتخاب کن.»، تا مشتری‌ای که دو سرویس دارد برای وصل شدن پول تمدید ندهد. بی سرویس دیگر، فقط خط اول می‌آید (قاب بعدی). شکستنِ خودکار روی تلویزیون «کن.» را تنها به خط دوم می‌فرستاد.</p>
   </figure>
 
   <!-- اعتبار تمام شده -->
@@ -693,7 +718,7 @@
       <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>لینک الان باز نشد.</strong> کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.</span></p>
     </div>
     <p class="note">از بالا: دکمه تا جواب سرور، کلیپ‌بورد خالی، لینک غیرشیکونت، لینکی که سرور دیگر نمی‌شناسد، بی‌اینترنت، و جوابی که خوانده نشد. همه جای پیام قاب قبلی می‌آیند.</p>
-    <p class="note">«باطل شده یا منقضی» فقط وقتی است که سرور صریح بگوید این لینک را نمی‌شناسد (۴۰۴ یا ۴۱۰). خطای سرور (۵۰۰ به بالا)، جواب خالی، یا صفحهٔ وب به‌جای اشتراک «لینک الان باز نشد» است: اپ نمی‌داند لینک خراب است، پس نباید بگوید باطل شده. صفحهٔ وب ممکن است صفحهٔ ورودِ وای‌فایِ هتل یا صفحهٔ فیلتر باشد. «سرور» در متن نمی‌آید، چون مشتری آن را با سرورهای فهرست یکی می‌گیرد.</p>
+    <p class="note">«باطل شده یا منقضی» فقط وقتی است که سرور صریح بگوید این لینک را نمی‌شناسد (۴۰۴ یا ۴۱۰). خطای سرور (۵۰۰ به بالا)، جواب خالی، صفحهٔ وب به‌جای اشتراک، یا اشتراکی که فقط ردیف‌های غیرسرور دارد و حجم و اعتبارش هم تمام نشده، «لینک الان باز نشد» است: اپ نمی‌داند لینک خراب است، پس نباید بگوید باطل شده. صفحهٔ وب ممکن است صفحهٔ ورودِ وای‌فایِ هتل یا صفحهٔ فیلتر باشد. «سرور» در متن نمی‌آید، چون مشتری آن را با سرورهای فهرست یکی می‌گیرد.</p>
     <p class="note">لینکِ سرویسی که از قبل روی گوشی است، کارت دوم نمی‌سازد: نام کاربری در پنل یکتاست، پس همان کارت لینک تازه را می‌گیرد و باز می‌شود. لینک تازه کار کرده، پس لینک قبلی همان است که باطل شده.</p>
     <p class="note">سرویسی که فقط اعتبار یا حجمش تمام شده، باطل حساب نمی‌شود: اضافه می‌شود و خانه «تمدید» را نشان می‌دهد. «باطل شده یا منقضی» فقط برای لینکی است که سرور دیگر جواب نمی‌دهد.</p>
     <p class="note"><b>پیشنهاد</b>اگر نشانی اشتراک از ایران بی‌فیلترشکن باز نشود، «اینترنت وصل نیست» گمراه‌کننده است. این‌که اپ این دو را از هم جدا کند، با برنامه‌نویس است.</p>
