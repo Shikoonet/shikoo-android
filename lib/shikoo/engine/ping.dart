@@ -9,7 +9,6 @@ const refreshEvery = Duration(minutes: 10);
 bool isDue(DateTime? last, DateTime now, Duration every) =>
     last == null || now.difference(last) >= every;
 
-/// A server is tested again only after every first test, and reported -1 after both failed.
 Future<void> pingServers(
   List<String> names,
   Future<int?> Function(String name) probe,

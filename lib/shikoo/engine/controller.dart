@@ -108,6 +108,11 @@ class ShikooService {
     }
     return ShikooServiceStatus.active;
   }
+
+  ShikooServiceStatus? get ended {
+    final status = statusAt(DateTime.now());
+    return usageKnown && status != ShikooServiceStatus.active ? status : null;
+  }
 }
 
 /// What the last subscription update did, shown under the service name until the next one.
@@ -351,23 +356,11 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final profile = ref.watch(currentProfileProvider);
   final extras = ref.watch(_extrasProvider);
   final refreshing = ref.watch(_othersRefreshProvider);
-  ShikooService serviceOf(Profile profile) {
-    final info = profile.subscriptionInfo;
-    return ShikooService(
-      id: profile.id,
-      name: profile.label,
-      usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
-      totalBytes: info?.total ?? 0,
-      expire: (info?.expire ?? 0) > 0
-          ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
-          : null,
-      announce: extras[profile.id]?.announce,
-      supportUrl: extras[profile.id]?.supportUrl,
-      updatedAt: profile.lastUpdateDate,
-      usageKnown: info != null,
-      refresh: refreshing[profile.id] ?? ShikooRefresh.idle,
-    );
-  }
+  ShikooService of(Profile profile) => _serviceFrom(
+    profile,
+    extras: extras[profile.id],
+    refresh: refreshing[profile.id] ?? ShikooRefresh.idle,
+  );
 
   final group = _mainGroup(ref);
   final round = ref.watch(_roundProvider);
@@ -402,10 +395,10 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
         ? DateTime.now().difference(nativeStart)
         : Duration(milliseconds: runTime ?? 0),
     isTV: system.isTV,
-    service: profile == null ? null : serviceOf(profile),
+    service: profile == null ? null : of(profile),
     others: [
       for (final other in ref.watch(profilesProvider))
-        if (other.id != profile?.id) serviceOf(other),
+        if (other.id != profile?.id) of(other),
     ],
     servers: servers,
     selected: selected,
@@ -461,12 +454,27 @@ Future<DateTime?> waitForTunnel(
 
 bool _never() => false;
 
-/// Used up or past its date: a panel may send such a service with no servers until renewal.
-bool _ended(SubscriptionInfo? info) =>
-    info != null &&
-    ((info.expire > 0 &&
-            info.expire * 1000 <= DateTime.now().millisecondsSinceEpoch) ||
-        (info.total > 0 && info.upload + info.download >= info.total));
+ShikooService _serviceFrom(
+  Profile profile, {
+  _Extras? extras,
+  ShikooRefresh refresh = ShikooRefresh.idle,
+}) {
+  final info = profile.subscriptionInfo;
+  return ShikooService(
+    id: profile.id,
+    name: profile.label,
+    usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
+    totalBytes: info?.total ?? 0,
+    expire: (info?.expire ?? 0) > 0
+        ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
+        : null,
+    announce: extras?.announce,
+    supportUrl: extras?.supportUrl,
+    updatedAt: profile.lastUpdateDate,
+    usageKnown: info != null,
+    refresh: refresh,
+  );
+}
 
 /// The panel names a service `<username> · <tier>`, and a username is its own key.
 String usernameOf(String name) => name.split(' · ').first.trim();
@@ -998,23 +1006,24 @@ class ShikooController {
         .timeout(const Duration(seconds: 30));
     final header = response.headers.value;
     final body = response.data ?? Uint8List(0);
-    final info = _subscriptionInfo(header('subscription-userinfo'));
-    if (needsServers && !_ended(info)) await _needServers(body);
     final profiles = _ref.read(profilesProvider);
     final title = label ?? headerText(header('profile-title'));
     final existing = serviceOf(profiles, url, title);
-    final profile = await (existing ?? Profile.normal(url: url))
-        .copyWith(
-          url: url,
-          label: unusedName(title ?? Uri.parse(url).host, {
-            for (final other in profiles)
-              if (other != existing) other.label,
-          }),
-          // FlClash's own daily update would race this one and drop the headers kept below.
-          autoUpdate: false,
-          subscriptionInfo: info,
-        )
-        .saveFile(body, validate: _validate);
+    final draft = (existing ?? Profile.normal(url: url)).copyWith(
+      url: url,
+      label: unusedName(title ?? Uri.parse(url).host, {
+        for (final other in profiles)
+          if (other != existing) other.label,
+      }),
+      // FlClash's own daily update would race this one and drop the headers kept below.
+      autoUpdate: false,
+      subscriptionInfo: _subscriptionInfo(header('subscription-userinfo')),
+    );
+    // A panel may send a used-up or expired service with no servers until renewal.
+    if (needsServers && _serviceFrom(draft).ended == null) {
+      await _needServers(body);
+    }
+    final profile = await draft.saveFile(body, validate: _validate);
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),

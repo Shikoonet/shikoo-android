@@ -128,4 +128,23 @@ void main() {
       isNull,
     );
   });
+
+  test('a service has ended only by usage the panel sent', () {
+    ShikooService service({
+      int used = 0,
+      DateTime? expire,
+      bool known = true,
+    }) => ShikooService(
+      name: 'user123 · الماس',
+      usedBytes: used,
+      totalBytes: 10,
+      expire: expire,
+      usageKnown: known,
+    );
+    final past = DateTime.now().subtract(const Duration(days: 1));
+    expect(service().ended, isNull);
+    expect(service(used: 10).ended, ShikooServiceStatus.exhausted);
+    expect(service(expire: past).ended, ShikooServiceStatus.expired);
+    expect(service(used: 10, known: false).ended, isNull);
+  });
 }
