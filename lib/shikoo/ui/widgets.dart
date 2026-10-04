@@ -285,6 +285,54 @@ class ShikooButton extends StatelessWidget {
   }
 }
 
+/// `.icon-btn`: an icon alone in a round touch target; [label] is what a screen reader says.
+class ShikooIconButton extends StatelessWidget {
+  const ShikooIconButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.color,
+    this.busy = false,
+    this.flipInLtr = false,
+  });
+
+  final ShikooIcon icon;
+  final String label;
+  final VoidCallback onPressed;
+  final Color? color;
+  final bool busy;
+
+  /// For an arrow drawn for Persian, as `.flip-ltr`.
+  final bool flipInLtr;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final color = this.color ?? t.c.text;
+    final ltr = Directionality.of(context) == TextDirection.ltr;
+    return Pressable(
+      shape: const CircleBorder(),
+      onPressed: onPressed,
+      builder: (context, _) => Semantics(
+        button: true,
+        label: label,
+        child: SizedBox.square(
+          dimension: ShikooSizes.touch,
+          child: Center(
+            child: busy
+                ? Spinner(size: t.s.icon, color: color)
+                : Transform.flip(
+                    flipX: flipInLtr && ltr,
+                    child: SvgIcon(icon, size: t.s.icon, color: color),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// `.chip`: the service's status.
 class StatusChip extends StatelessWidget {
   const StatusChip({super.key, required this.status});
@@ -599,7 +647,8 @@ class Ping extends StatelessWidget {
   }
 }
 
-/// `.server`: flag, name, ping and tick; `.is-selected` adds the green start bar.
+/// `.server`: flag, name, ping and tick; `.is-selected` adds the green start bar, [isNew]
+/// the `.chip-outline` "new" after the name.
 class ServerRow extends StatelessWidget {
   const ServerRow({
     super.key,
@@ -607,12 +656,14 @@ class ServerRow extends StatelessWidget {
     required this.selected,
     required this.onPressed,
     this.focusNode,
+    this.isNew = false,
   });
 
   final ShikooServer server;
   final bool selected;
   final VoidCallback onPressed;
   final FocusNode? focusNode;
+  final bool isNew;
 
   @override
   Widget build(BuildContext context) {
@@ -641,13 +692,42 @@ class ServerRow extends StatelessWidget {
                   Flag(country: server.country),
                   const SizedBox(width: Space.s3),
                   Expanded(
-                    child: nameText(
-                      context,
-                      server.label,
-                      t.text(
-                        t.s.body,
-                        weight: selected ? FontWeight.w700 : FontWeight.w500,
-                      ),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: nameText(
+                            context,
+                            server.label,
+                            t.text(
+                              t.s.body,
+                              weight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        if (isNew) ...[
+                          const SizedBox(width: Space.s2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Space.s3,
+                              vertical: Space.s1,
+                            ),
+                            decoration: ShapeDecoration(
+                              shape: StadiumBorder(
+                                side: BorderSide(color: t.c.outline),
+                              ),
+                            ),
+                            child: Text(
+                              ShikooL10n.of(context).newBadge,
+                              style: t.text(
+                                t.s.caption,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(width: Space.s3),

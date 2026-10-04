@@ -44,6 +44,7 @@ class ShikooServer {
     required this.type,
     this.ping,
     this.testing = false,
+    this.fresh = false,
   });
 
   final String name;
@@ -54,6 +55,9 @@ class ShikooServer {
   /// Milliseconds; null = not tested yet, -1 = no answer.
   final int? ping;
   final bool testing;
+
+  /// Came with an update since the app started.
+  final bool fresh;
 
   String get label => withoutFlags(name);
 
@@ -223,6 +227,7 @@ final _orderProvider = _cell<List<String>>(const []);
 /// (a "Fastest" group with its own timeout), which repainted healthy servers as dead.
 final _pingsProvider = _cell<Map<String, int>>(const {});
 final _refreshProvider = _cell(ShikooRefresh.idle);
+final _freshProvider = _cell<Set<String>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
 
 /// The tunnel's real start; FlClash's run time starts at the press, before the consent dialog.
@@ -335,6 +340,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final group = _mainGroup(ref);
   final round = ref.watch(_roundProvider);
   final pings = ref.watch(_pingsProvider);
+  final fresh = ref.watch(_freshProvider);
   final byName = {for (final proxy in _serversOf(group)) proxy.name: proxy};
   final chosen = group == null
       ? null
@@ -347,6 +353,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
         type: byName[name]!.type,
         ping: round.pending.contains(name) ? null : pings[name],
         testing: round.pending.contains(name),
+        fresh: fresh.contains(name),
       ),
   ];
   final pinging = round.total > 0;
@@ -634,6 +641,7 @@ class ShikooController {
     _notice(null);
     _ref.read(_pingsProvider.notifier).set(const {});
     _ref.read(_orderProvider.notifier).set(const []);
+    _ref.read(_freshProvider.notifier).set(const {});
   }
 
   /// The user's choice, which the app never replaces.
@@ -839,14 +847,18 @@ class ShikooController {
       for (final name in before)
         if (!after.contains(name)) name,
     ];
-    final added = after.where((name) => !before.contains(name)).length;
+    final added = after.where((name) => !before.contains(name)).toSet();
+    _ref.read(_freshProvider.notifier).set({
+      ..._ref.read(_freshProvider).where(after.contains),
+      ...added,
+    });
     if (had != null && removed.contains(had)) {
       _removed = had;
-    } else if (added > 0 || removed.isNotEmpty) {
-      _notice(ServersChanged(added: added, removed: removed));
+    } else if (added.isNotEmpty || removed.isNotEmpty) {
+      _notice(ServersChanged(added: added.length, removed: removed));
     }
     // Started here, not by the list listener, so a replacement waits for fresh pings.
-    if (added > 0 || removed.isNotEmpty) unawaited(pingAll());
+    if (added.isNotEmpty || removed.isNotEmpty) unawaited(pingAll());
     _reconcile();
   }
 

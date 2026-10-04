@@ -542,6 +542,12 @@ abstract class ShikooL10n {
   /// **'Close'**
   String get close;
 
+  /// No description provided for @back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
   /// No description provided for @backHintTv.
   ///
   /// In en, this message translates to:

@@ -352,6 +352,9 @@ class ShikooL10nEn extends ShikooL10n {
   String get close => 'Close';
 
   @override
+  String get back => 'Back';
+
+  @override
   String get backHintTv => 'Press Back on the remote to go back';
 
   @override

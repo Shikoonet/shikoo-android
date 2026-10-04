@@ -218,7 +218,7 @@ String _version(BuildContext context, String version) => version
     })
     .join('.');
 
-/// `.tv-top` with `.tv-title` and `.tv-hint` over the page; the phone has no hint.
+/// `.tv-top` with `.tv-title` and `.tv-hint` over the page; on the phone `.appbar.sub`.
 class _Page extends StatelessWidget {
   const _Page({required this.title, required this.isTV, required this.child});
 
@@ -230,6 +230,11 @@ class _Page extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final s = t.s;
+    final l = ShikooL10n.of(context);
+    final heading = Text(
+      title,
+      style: t.text(s.title, weight: FontWeight.w700),
+    );
     return Scaffold(
       backgroundColor: t.c.bg,
       body: SafeArea(
@@ -238,34 +243,50 @@ class _Page extends StatelessWidget {
             policy: PageTraversalPolicy(),
             child: Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: s.safeX,
+                horizontal: isTV ? s.safeX : 0,
                 vertical: s.safeY,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
+                  Container(
                     height: s.appbar,
+                    padding: isTV
+                        ? null
+                        : EdgeInsetsDirectional.only(
+                            start: Space.s1,
+                            end: s.safeX,
+                          ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          title,
-                          style: t.text(s.title, weight: FontWeight.w700),
-                        ),
-                        if (isTV)
-                          Text(
-                            ShikooL10n.of(context).backHintTv,
-                            style: t.text(s.bodySm, color: t.c.textMuted),
-                          ),
-                      ],
+                      spacing: Space.s1,
+                      children: isTV
+                          ? [
+                              heading,
+                              Text(
+                                l.backHintTv,
+                                style: t.text(s.bodySm, color: t.c.textMuted),
+                              ),
+                            ]
+                          : [
+                              ShikooIconButton(
+                                icon: ShikooIcon.back,
+                                label: l.back,
+                                flipInLtr: true,
+                                onPressed: () =>
+                                    unawaited(Navigator.maybePop(context)),
+                              ),
+                              Expanded(child: heading),
+                            ],
                     ),
                   ),
-                  const SizedBox(height: Space.s3),
+                  SizedBox(height: isTV ? Space.s3 : Space.s2),
                   Expanded(
                     // Only for large text; the padding keeps the last focus ring in view.
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: Space.s2),
+                      padding: isTV
+                          ? const EdgeInsets.only(bottom: Space.s2)
+                          : EdgeInsets.fromLTRB(s.safeX, 0, s.safeX, Space.s6),
                       child: child,
                     ),
                   ),

@@ -288,6 +288,7 @@ class _TvColumnState extends State<_TvColumn> {
   }
 }
 
+/// `.appbar` and `.home`, which scroll as one (`.scroll-view` in phone-ping.html).
 class _PhoneLayout extends StatelessWidget {
   const _PhoneLayout({required this.power, required this.card});
 
@@ -296,57 +297,43 @@ class _PhoneLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    final s = t.s;
+    final s = ShikooTheme.of(context).s;
     return SafeArea(
-      child: Column(
-        children: [
-          Container(
-            height: s.appbar,
-            padding: EdgeInsetsDirectional.only(start: s.safeX, end: Space.s1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Brand(),
-                Pressable(
-                  shape: const CircleBorder(),
-                  onPressed: () => openSettings(context),
-                  builder: (context, _) => Semantics(
-                    button: true,
-                    label: ShikooL10n.of(context).settings,
-                    child: SizedBox.square(
-                      dimension: ShikooSizes.touch,
-                      child: Center(
-                        child: SvgIcon(
-                          ShikooIcon.gear,
-                          size: s.icon,
-                          color: t.c.text,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                s.safeX,
-                Space.s2,
-                s.safeX,
-                Space.s6,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: Space.s6),
+        child: Column(
+          children: [
+            Container(
+              height: s.appbar,
+              padding: EdgeInsetsDirectional.only(
+                start: s.safeX,
+                end: Space.s1,
               ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Brand(),
+                  ShikooIconButton(
+                    icon: ShikooIcon.gear,
+                    label: ShikooL10n.of(context).settings,
+                    onPressed: () => openSettings(context),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: s.safeX),
               child: Column(
                 children: [
+                  const SizedBox(height: Space.s2),
                   power,
-                  const SizedBox(height: Space.s3),
+                  const SizedBox(height: Space.s2 + Space.s3),
                   card,
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

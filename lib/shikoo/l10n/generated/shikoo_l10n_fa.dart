@@ -315,6 +315,9 @@ class ShikooL10nFa extends ShikooL10n {
   String get close => 'بستن';
 
   @override
+  String get back => 'بازگشت';
+
+  @override
   String get backHintTv => 'برای برگشت، دکمهٔ برگشتِ ریموت را بزن';
 
   @override

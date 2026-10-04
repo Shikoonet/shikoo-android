@@ -29,6 +29,9 @@ enum ShikooIcon {
     '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 8l-4 4 4 4"/><path d="M5 12h10"/>',
   ),
   chevronFwd('<path d="M15 6l-6 6 6 6"/>'),
+  chevronUp('<path d="M6 15l6-6 6 6"/>'),
+  chevronDown('<path d="M6 9l6 6 6-6"/>'),
+  back('<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>'),
   spin('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>');
 
   const ShikooIcon(this.paths);
