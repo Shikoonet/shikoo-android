@@ -205,8 +205,11 @@
           <div class="tv-col-content mock-scroll-end">
             <article class="card svc">
               <header class="svc-head">
-                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-                <span class="chip chip-positive">فعال</span>
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
               </header>
               <div class="usage">
                 <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
@@ -263,6 +266,7 @@
     </div>
     <p class="note">ریموت پایین رفته و ستون همراهش اسکرول شده: لبهٔ بالا محو است و نشانگر اسکرول کنار ستون است. زیر سرورها، سرویس‌های دیگر جمع‌شده‌اند؛ دکمهٔ وسط هر کدام را باز می‌کند.</p>
     <p class="note">وقتی ریموت از ستون بیرون می‌رود، ستون به بالا برمی‌گردد.</p>
+    <p class="note">کارت جمع‌شده فقط نام، برچسب، فلش و خط خلاصه دارد؛ نه زمان به‌روزرسانی، نه دکمه‌اش. هر دکمهٔ اضافه یک ایستگاه دیگر برای ریموت است. به‌روزرسانی بعد از باز شدنِ کارت در دسترس است.</p>
   </figure>
 
   <!-- QR تمدید -->
@@ -307,7 +311,7 @@
       <div class="scrim">
         <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-title">
           <h2 id="renew-title">تمدید با گوشی</h2>
-          <p>با دوربین گوشی اسکن کن؛ ربات شیکو فهرست تمدید سرویس‌هایت را باز می‌کند.</p>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکونت فهرست تمدید سرویس‌هایت را باز می‌کند.</p>
           <div class="qr-tile sm"><svg class="qr" data-seed="31337" role="img" aria-label="QR نمونه"></svg></div>
           <p>در فهرست ربات، سرویسِ <span class="for"><bdi dir="ltr">user123</bdi></span> را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.</p>
           <button class="btn btn-outline is-focused" type="button">بستن</button>
@@ -361,7 +365,7 @@
       <div class="scrim">
         <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-direct-title">
           <h2 id="renew-direct-title">تمدید با گوشی</h2>
-          <p>با دوربین گوشی اسکن کن؛ ربات شیکو صفحهٔ تمدیدِ همین سرویس را باز می‌کند.</p>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکونت صفحهٔ تمدیدِ همین سرویس را باز می‌کند.</p>
           <div class="qr-tile sm"><svg class="qr" data-seed="31338" role="img" aria-label="QR نمونه"></svg></div>
           <p class="for"><bdi dir="ltr">user123</bdi> · الماس</p>
           <button class="btn btn-outline is-focused" type="button">بستن</button>
@@ -414,14 +418,14 @@
       <div class="scrim">
         <div class="dialog qr-sheet" role="dialog" aria-labelledby="support-title">
           <h2 id="support-title">پشتیبانی با گوشی</h2>
-          <p>با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکو در تلگرام باز شود.</p>
+          <p>با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکونت در تلگرام باز شود.</p>
           <div class="qr-tile sm"><svg class="qr" data-seed="90210" role="img" aria-label="QR نمونه"></svg></div>
           <p class="for"><bdi dir="ltr">user123</bdi> · الماس</p>
           <button class="btn btn-outline is-focused" type="button">بستن</button>
         </div>
       </div>
     </div>
-    <p class="note">نشانیِ پشتیبانی از خودِ اشتراک می‌آید؛ اگر خالی بود، که امروز هست، پشتیبانی شیکو در تلگرام جایش می‌نشیند.</p>
+    <p class="note">نشانیِ پشتیبانی از خودِ اشتراک می‌آید؛ اگر خالی بود، که امروز هست، پشتیبانی شیکونت در تلگرام جایش می‌نشیند.</p>
   </figure>
 
   <!-- تنظیمات تلویزیون -->
@@ -581,7 +585,7 @@
       <div class="scrim">
         <div class="dialog" role="alertdialog" aria-labelledby="tv-logout-title">
           <h2 id="tv-logout-title">سرویس‌ها از این تلویزیون پاک شوند؟</h2>
-          <p>اتصال قطع می‌شود و سرویس‌ها از این تلویزیون پاک می‌شوند. اشتراکت در ربات شیکو سر جایش می‌ماند.</p>
+          <p>اتصال قطع می‌شود و سرویس‌ها از این تلویزیون پاک می‌شوند. اشتراکت در ربات شیکونت سر جایش می‌ماند.</p>
           <div class="dialog-actions">
             <button class="btn btn-outline is-focused" type="button">انصراف</button>
             <button class="btn btn-danger" type="button">پاک کردن</button>
@@ -633,7 +637,7 @@
 
   <!-- خانه: تنها سرویس هنوز لینک ندارد -->
   <figure class="shot">
-    <figcaption>خانه · سرویس هنوز لینک ندارد · ریموت روی «ربات شیکو»</figcaption>
+    <figcaption>خانه · سرویس هنوز لینک ندارد · ریموت روی «ربات شیکونت»</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-home-no-link">
       <header class="tv-top">
         <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
@@ -649,7 +653,7 @@
               </header>
               <p class="state-msg">یک بار از ربات سرویس را باز کن، بعد «دوباره» را بزن.</p>
               <div class="actions">
-                <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>ربات شیکو</button>
+                <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>ربات شیکونت</button>
                 <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
               </div>
             </article>
@@ -666,8 +670,8 @@
       </div>
     </div>
     <p class="note">همان کارتِ «بدون لینک» گوشی (قاب «کارت‌های دیگر سرویس»)، وقتی تنها سرویسِ تلویزیون است. نام سرویس مثل بقیهٔ کارت‌هاست: نام کاربری · رده، و اگر حساب هنوز نیست، نام پلن.</p>
-    <p class="note">ریموت اول روی «ربات شیکو» است، چون کارِ همین صفحه گرفتن لینک است؛ چپ به «دوباره»، بالا به «تنظیمات». دکمهٔ گرد غیرفعال است و ریموت رویش نمی‌ایستد.</p>
-    <p class="note">«ربات شیکو» کد تصویریِ ربات را در پنجره‌ای مثل «پشتیبانی» نشان می‌دهد؛ با «بستن» ریموت به «ربات شیکو» برمی‌گردد. «دوباره» فهرست سرویس‌ها را دوباره می‌گیرد و تا جواب، چرخنده روی خودش است. اگر لینک آمد، این کارت کارتِ معمولی سرویس می‌شود و ریموت روی دکمهٔ گرد می‌رود؛ اگر نیامد، همین قاب می‌ماند و ریموت روی «دوباره».</p>
+    <p class="note">ریموت اول روی «ربات شیکونت» است، چون کارِ همین صفحه گرفتن لینک است؛ چپ به «دوباره»، بالا به «تنظیمات». دکمهٔ گرد غیرفعال است و ریموت رویش نمی‌ایستد.</p>
+    <p class="note">«ربات شیکونت» کد تصویریِ ربات را در پنجره‌ای مثل «پشتیبانی» نشان می‌دهد؛ با «بستن» ریموت به «ربات شیکونت» برمی‌گردد. «دوباره» فهرست سرویس‌ها را دوباره می‌گیرد و تا جواب، چرخنده روی خودش است. اگر لینک آمد، این کارت کارتِ معمولی سرویس می‌شود و ریموت روی دکمهٔ گرد می‌رود؛ اگر نیامد، همین قاب می‌ماند و ریموت روی «دوباره».</p>
     <p class="note"><b>پیشنهاد</b>گوشی «دوباره» نمی‌خواهد: وقتی کاربر از تلگرام به اپ برمی‌گردد، اپ یک بار خودش فهرست را می‌گیرد.</p>
   </figure>
 

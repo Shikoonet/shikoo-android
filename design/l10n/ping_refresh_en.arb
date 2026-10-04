@@ -60,5 +60,7 @@
   "@measuring": {"description": "Accessibility label of a ping that has not answered yet."},
   "searchServers": "Search servers",
   "searchNoMatch": "No server with that name",
-  "clearSearch": "Clear search"
+  "clearSearch": "Clear search",
+  "loadingServers": "Getting the server list…",
+  "@loadingServers": {"description": "Under the list of a service that was just added, until its servers arrive."}
 }

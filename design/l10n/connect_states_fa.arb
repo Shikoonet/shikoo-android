@@ -12,5 +12,14 @@
   "noLinkHelpTouch": "یک بار از ربات سرویس را باز کن",
   "noLinkHelpTv": "یک بار از ربات سرویس را باز کن، بعد «دوباره» را بزن.",
   "openBotTouch": "باز کردن ربات",
-  "openBotTv": "ربات شیکو"
+  "openBotTv": "ربات شیکونت",
+  "stateExhausted": "حجم تمام شده",
+  "powerExpired": "اعتبار تمام شده",
+  "chipExpired": "تاریخ انقضا گذشته",
+  "expiredEnded": "تمام شده",
+  "renewToConnect": "با «تمدید» دوباره وصل می‌شوی.",
+  "renewOrSwitch": "با «تمدید» دوباره وصل می‌شوی، یا سرویس دیگرت را انتخاب کن.",
+  "serversAfterRenew": "فهرست سرورها بعد از تمدید برمی‌گردد.",
+  "summaryExhausted": "حجمش تمام شد. با تمدید دوباره فعال می‌شود.",
+  "summaryExpired": "اعتبارش {date} تمام شد. با تمدید دوباره فعال می‌شود."
 }

@@ -35,5 +35,6 @@
   "measuring": "در حال سنجش",
   "searchServers": "جست‌وجوی سرور",
   "searchNoMatch": "سروری با این نام نیست",
-  "clearSearch": "پاک کردن جست‌وجو"
+  "clearSearch": "پاک کردن جست‌وجو",
+  "loadingServers": "در حال گرفتن فهرست سرورها…"
 }
