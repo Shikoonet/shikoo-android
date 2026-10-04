@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 
-enum ShikooPasteError { empty, notShikoo, revoked, serverDown, offline }
+enum ShikooPasteError { empty, notShikoo, revoked, unavailable, offline }
 
 // ponytail: only the test link's domain; needs every domain Sam names, and moves with the panel.
 const shikooSubscriptionDomains = ['4g3.uk'];
@@ -47,11 +47,12 @@ String normalLink(String link) {
 ShikooPasteError addFailure(Object error) => switch (error) {
   TimeoutException() => ShikooPasteError.offline,
   DioException(type: DioExceptionType.badResponse, :final response)
-      when (response?.statusCode ?? 0) >= 500 =>
-    ShikooPasteError.serverDown,
-  DioException(type: DioExceptionType.badResponse) => ShikooPasteError.revoked,
+      when const {404, 410}.contains(response?.statusCode) =>
+    ShikooPasteError.revoked,
+  DioException(type: DioExceptionType.badResponse) =>
+    ShikooPasteError.unavailable,
   DioException() => ShikooPasteError.offline,
-  _ => ShikooPasteError.revoked,
+  _ => ShikooPasteError.unavailable,
 };
 
 final _topLevelKey = RegExp(r'^[^\s-]', multiLine: true);

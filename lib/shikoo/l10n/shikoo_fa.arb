@@ -117,8 +117,6 @@
   "pasteNotShikooHelp": "فقط لینک اشتراک شیکونت کار می‌کند؛ همان که از ربات شیکونت یا نماینده‌ات گرفتی.",
   "pasteRevokedTitle": "این لینک باطل شده یا منقضی است.",
   "pasteRevokedHelp": "لینک تازه را از ربات شیکونت یا نماینده‌ات بگیر.",
-  "pasteServerDownTitle": "سرور شیکو الان جواب نمی‌دهد.",
-  "pasteServerDownHelp": "کمی بعد دوباره بزن.",
   "pasteOfflineTitle": "اینترنت وصل نیست.",
   "pasteOfflineHelp": "اینترنت گوشی را بررسی کن و دوباره بزن.",
   "pasteAnother": "چسباندن لینک دیگر",

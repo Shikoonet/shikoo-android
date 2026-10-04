@@ -105,12 +105,13 @@ void main() {
       response: Response(requestOptions: request, statusCode: status),
     );
 
-    test('is the link when the panel refused it, the panel when it broke, and '
-        'the network when nothing answered', () {
+    test('is the link only when the panel says it does not know it (404, 410), '
+        'the network when nothing answered, and otherwise unavailable', () {
       expect(addFailure(answered(404)), ShikooPasteError.revoked);
-      expect(addFailure(answered(403)), ShikooPasteError.revoked);
-      expect(addFailure(answered(500)), ShikooPasteError.serverDown);
-      expect(addFailure(answered(502)), ShikooPasteError.serverDown);
+      expect(addFailure(answered(410)), ShikooPasteError.revoked);
+      expect(addFailure(answered(403)), ShikooPasteError.unavailable);
+      expect(addFailure(answered(500)), ShikooPasteError.unavailable);
+      expect(addFailure(answered(503)), ShikooPasteError.unavailable);
       for (final type in [
         DioExceptionType.connectionError,
         DioExceptionType.connectionTimeout,
@@ -126,7 +127,7 @@ void main() {
       expect(addFailure(TimeoutException('')), ShikooPasteError.offline);
       expect(
         addFailure(const FormatException('no servers')),
-        ShikooPasteError.revoked,
+        ShikooPasteError.unavailable,
       );
     });
 
@@ -145,7 +146,7 @@ void main() {
       );
       expect(
         addFailure(await _failure(() => dio.get<void>('$url/boom'))),
-        ShikooPasteError.serverDown,
+        ShikooPasteError.unavailable,
       );
       await server.close(force: true);
       expect(

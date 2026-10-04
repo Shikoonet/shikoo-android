@@ -286,7 +286,7 @@ void main() {
       (ShikooPasteError.empty, 'کلیپ‌بورد خالی است.'),
       (ShikooPasteError.notShikoo, 'این لینک شیکونت نیست.'),
       (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
-      (ShikooPasteError.serverDown, 'سرور شیکو الان جواب نمی‌دهد.'),
+      (ShikooPasteError.unavailable, 'لینک الان باز نشد.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {
       when(() => controller.pasteService(any())).thenAnswer((_) async => error);
