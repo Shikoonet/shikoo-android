@@ -56,7 +56,6 @@ class ShikooServer {
   final int? ping;
   final bool testing;
 
-  /// Came with the last update, and goes with its news.
   final bool fresh;
 
   String get label => withoutFlags(name);
@@ -79,7 +78,6 @@ class ShikooService {
     this.refresh = ShikooRefresh.idle,
   });
 
-  /// FlClash's profile id.
   final int id;
   final String name;
   final int usedBytes;
@@ -995,7 +993,6 @@ class ShikooController {
     return profile;
   }
 
-  /// Null once the service is in, named by the panel unless [label] is given.
   Future<ShikooPasteError?> addService(String url, [String? label]) async {
     try {
       final profile = await _download(url, label: label, needsServers: true);
