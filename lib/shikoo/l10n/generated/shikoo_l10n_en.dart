@@ -778,9 +778,6 @@ class ShikooL10nEn extends ShikooL10n {
   String get openBotTv => 'ShikooNet bot';
 
   @override
-  String get renewToUse => 'Renew it to use it again.';
-
-  @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';
 
   @override

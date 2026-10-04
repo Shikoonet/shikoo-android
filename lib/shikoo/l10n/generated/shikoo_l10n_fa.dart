@@ -738,9 +738,6 @@ class ShikooL10nFa extends ShikooL10n {
   String get openBotTv => 'ربات شیکونت';
 
   @override
-  String get renewToUse => 'با «تمدید» دوباره فعال می‌شود.';
-
-  @override
   String get summaryExpiredNoDate =>
       'اعتبارش تمام شد. با تمدید دوباره فعال می‌شود.';
 

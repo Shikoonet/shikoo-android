@@ -1274,12 +1274,6 @@ abstract class ShikooL10n {
   /// **'ShikooNet bot'**
   String get openBotTv;
 
-  /// No description provided for @renewToUse.
-  ///
-  /// In en, this message translates to:
-  /// **'Renew it to use it again.'**
-  String get renewToUse;
-
   /// Phone: summaryExpired for a service that came from the Telegram account without its end date.
   ///
   /// In en, this message translates to:

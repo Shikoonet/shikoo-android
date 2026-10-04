@@ -238,7 +238,6 @@
   "noLinkHelpTv": "Open this service once in the bot, then press “Try again”.",
   "openBotTouch": "Open the bot",
   "openBotTv": "ShikooNet bot",
-  "renewToUse": "Renew it to use it again.",
   "summaryExpiredNoDate": "Expired. Renew to use it again.",
   "@summaryExpiredNoDate": {"description": "Phone: summaryExpired for a service that came from the Telegram account without its end date."},
   "summaryExpiredNoDateTv": "Expired. After renewing, press “Try again”.",

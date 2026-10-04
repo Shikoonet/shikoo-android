@@ -78,10 +78,13 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       focusNode: _power,
       restingLabel: switch (unlinked.firstOrNull?.status) {
         null => null,
-        'expired' => l.chipExpired,
+        'expired' => l.powerExpired,
         'exhausted' => l.stateExhausted,
         _ => l.noLinkChip,
       },
+      restingMessage: (unlinked.firstOrNull?.renews ?? false)
+          ? l.renewToConnect
+          : null,
     );
     final card = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -429,12 +432,14 @@ class _PowerZone extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     this.restingLabel,
+    this.restingMessage,
   });
 
   final ShikooState state;
   final ShikooController controller;
   final FocusNode focusNode;
   final String? restingLabel;
+  final String? restingMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -442,15 +447,28 @@ class _PowerZone extends StatelessWidget {
     final l = ShikooL10n.of(context);
     final selected = state.selectedServer;
     final gap = state.isTV ? Space.s4 : Space.s3;
+    final restingMessage = this.restingMessage;
     if (state.service == null) {
       return Padding(
         padding: EdgeInsets.only(bottom: state.isTV ? gap : 0),
-        child: PowerButton(
-          connection: ShikooConnection.off,
-          connectedFor: Duration.zero,
-          isTV: state.isTV,
-          onPressed: null,
-          restingLabel: restingLabel,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: gap,
+          children: [
+            PowerButton(
+              connection: ShikooConnection.off,
+              connectedFor: Duration.zero,
+              isTV: state.isTV,
+              onPressed: null,
+              restingLabel: restingLabel,
+            ),
+            if (restingMessage != null)
+              Text(
+                restingMessage,
+                textAlign: TextAlign.center,
+                style: t.text(t.s.bodySm, color: t.c.textMuted),
+              ),
+          ],
         ),
       );
     }
@@ -622,7 +640,14 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           ),
           const SizedBox(height: Space.s2),
           Text(
-            renews ? l.renewToUse : (isTV ? l.noLinkHelpTv : l.noLinkHelpTouch),
+            switch ((service.status, isTV)) {
+              ('expired', false) => l.summaryExpiredNoDate,
+              ('expired', true) => l.summaryExpiredNoDateTv,
+              ('exhausted', false) => l.summaryExhausted,
+              ('exhausted', true) => l.summaryExhaustedTv,
+              (_, false) => l.noLinkHelpTouch,
+              (_, true) => l.noLinkHelpTv,
+            },
             style: t.text(
               t.s.bodySm,
               color: t.c.textMuted,
@@ -660,6 +685,21 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                         ),
                 ),
               ),
+              if (renews)
+                Expanded(
+                  child: ShikooButton(
+                    label: l.support,
+                    icon: isTV ? ShikooIcon.qr : null,
+                    onPressed: () => openLink(
+                      context,
+                      isTV: isTV,
+                      link: ShikooLinks.support,
+                      title: l.supportTitle,
+                      help: l.supportHelpTv,
+                      below: service.title,
+                    ),
+                  ),
+                ),
               // The phone asks again by itself when it comes back from Telegram.
               if (isTV)
                 Expanded(

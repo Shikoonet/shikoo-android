@@ -323,7 +323,16 @@ void main() {
         ],
       ),
     );
-    expect(find.text('تاریخ انقضا گذشته'), findsNWidgets(2));
+    expect(find.text('تاریخ انقضا گذشته'), findsOneWidget, reason: 'the chip');
+    expect(find.text('اعتبار تمام شده'), findsOneWidget, reason: 'the button');
+    expect(find.text('با «تمدید» دوباره وصل می‌شوی.'), findsOneWidget);
+    expect(
+      find.text('اعتبارش تمام شد. بعد از تمدید، «دوباره» را بزن.'),
+      findsOneWidget,
+    );
+    for (final label in ['تمدید', 'پشتیبانی', 'دوباره']) {
+      expect(find.widgetWithText(ShikooButton, label), findsOneWidget);
+    }
     expect(_focusedButton(), 'تمدید');
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
@@ -352,5 +361,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('کد ورود نرسید'), findsOneWidget);
     expect(find.textContaining('این کد را برای ربات'), findsNothing);
+  });
+
+  testWidgets('on the phone a used-up service with no link has renew and '
+      'support, and no try-again', (tester) async {
+    await _pump(
+      tester,
+      tv: false,
+      account: const ShikooAccount(
+        who: _maryam,
+        services: [
+          LinkedService(id: 42, title: 'user789 · معمولی', status: 'exhausted'),
+        ],
+      ),
+    );
+    expect(find.text('حجم تمام شده'), findsNWidgets(2), reason: 'chip, button');
+    expect(
+      find.text('حجمش تمام شد. با تمدید دوباره فعال می‌شود.'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(ShikooButton, 'تمدید'), findsOneWidget);
+    expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
+    expect(find.widgetWithText(ShikooButton, 'دوباره'), findsNothing);
   });
 }
