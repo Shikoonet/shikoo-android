@@ -644,4 +644,16 @@ void main() {
     expect(state.selected, 'آلمان ۱');
     expect(proxies.picked, ['آلمان ۱', 'آلمان ۱']);
   });
+
+  test('a service the panel sent no usage header for shows no usage', () {
+    final (:container, :core, :proxies, :setup) = _home();
+    expect(container.read(shikooStateProvider).service!.usageKnown, isFalse);
+
+    final measured = Profile.normal(
+      url: 'https://panel.invalid/measured',
+    ).copyWith(subscriptionInfo: const SubscriptionInfo(total: 1 << 30));
+    container.read(profilesProvider.notifier).put(measured);
+    container.read(currentProfileIdProvider.notifier).value = measured.id;
+    expect(container.read(shikooStateProvider).service!.usageKnown, isTrue);
+  });
 }

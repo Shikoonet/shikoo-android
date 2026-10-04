@@ -180,10 +180,11 @@ class _ServiceCardState extends State<ServiceCard> {
                       padding: inset,
                       child: _Message(notice: notice, isTV: state.isTV),
                     ),
-                  Padding(
-                    padding: inset,
-                    child: _Usage(service: service),
-                  ),
+                  if (service.usageKnown)
+                    Padding(
+                      padding: inset,
+                      child: _Usage(service: service),
+                    ),
                   if (service.announce != null)
                     Padding(
                       padding: inset,
@@ -303,8 +304,10 @@ class _Head extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: Space.s2),
-                  StatusChip(status: service.statusAt(DateTime.now())),
+                  if (service.usageKnown) ...[
+                    const SizedBox(width: Space.s2),
+                    StatusChip(status: service.statusAt(DateTime.now())),
+                  ],
                 ],
               ),
               if (sub != null)
@@ -371,6 +374,7 @@ class _Summary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!service.usageKnown) return const SizedBox(height: Space.s2);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');

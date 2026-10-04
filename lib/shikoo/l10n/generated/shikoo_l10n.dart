@@ -794,6 +794,18 @@ abstract class ShikooL10n {
   /// **'Get a new link from the Shikoo bot or your reseller.'**
   String get pasteRevokedHelp;
 
+  /// Proposed by the app round, not yet in design/l10n: the panel answered with a server error (5xx), so the link may still be good.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikoo\'s server isn\'t answering right now.'**
+  String get pasteServerDownTitle;
+
+  /// No description provided for @pasteServerDownHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap again in a little while.'**
+  String get pasteServerDownHelp;
+
   /// No description provided for @pasteOfflineTitle.
   ///
   /// In en, this message translates to:

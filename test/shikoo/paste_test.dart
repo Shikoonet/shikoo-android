@@ -98,60 +98,92 @@ void main() {
   });
 
   group('a failed add', () {
-    test(
-      'is the link when the panel answered, the network when it did not',
-      () {
-        final request = RequestOptions(path: '/sub');
-        expect(
-          addFailure(
-            DioException.badResponse(
-              statusCode: 404,
-              requestOptions: request,
-              response: Response(requestOptions: request, statusCode: 404),
-            ),
-          ),
-          ShikooPasteError.revoked,
-        );
-        for (final type in [
-          DioExceptionType.connectionError,
-          DioExceptionType.connectionTimeout,
-          DioExceptionType.receiveTimeout,
-          DioExceptionType.unknown,
-        ]) {
-          expect(
-            addFailure(DioException(requestOptions: request, type: type)),
-            ShikooPasteError.offline,
-            reason: type.name,
-          );
-        }
-        expect(addFailure(TimeoutException('')), ShikooPasteError.offline);
-        expect(
-          addFailure(const FormatException('not a config')),
-          ShikooPasteError.revoked,
-        );
-      },
+    final request = RequestOptions(path: '/sub');
+    DioException answered(int status) => DioException.badResponse(
+      statusCode: status,
+      requestOptions: request,
+      response: Response(requestOptions: request, statusCode: status),
     );
 
-    test(
-      'reads a real 404 as the link and a refused port as the network',
-      () async {
-        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-        server.listen((call) {
-          call.response.statusCode = 404;
-          unawaited(call.response.close());
-        });
-        final url = 'http://127.0.0.1:${server.port}/sub';
-        final dio = Dio();
+    test('is the link when the panel refused it, the panel when it broke, and '
+        'the network when nothing answered', () {
+      expect(addFailure(answered(404)), ShikooPasteError.revoked);
+      expect(addFailure(answered(403)), ShikooPasteError.revoked);
+      expect(addFailure(answered(500)), ShikooPasteError.serverDown);
+      expect(addFailure(answered(502)), ShikooPasteError.serverDown);
+      for (final type in [
+        DioExceptionType.connectionError,
+        DioExceptionType.connectionTimeout,
+        DioExceptionType.receiveTimeout,
+        DioExceptionType.unknown,
+      ]) {
         expect(
-          addFailure(await _failure(() => dio.get<void>(url))),
-          ShikooPasteError.revoked,
-        );
-        await server.close(force: true);
-        expect(
-          addFailure(await _failure(() => dio.get<void>(url))),
+          addFailure(DioException(requestOptions: request, type: type)),
           ShikooPasteError.offline,
+          reason: type.name,
         );
-      },
-    );
+      }
+      expect(addFailure(TimeoutException('')), ShikooPasteError.offline);
+      expect(
+        addFailure(const FormatException('no servers')),
+        ShikooPasteError.revoked,
+      );
+    });
+
+    test('reads a real 404 as the link, a 500 as the panel and a refused port '
+        'as the network', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((call) {
+        call.response.statusCode = call.uri.path == '/boom' ? 500 : 404;
+        unawaited(call.response.close());
+      });
+      final url = 'http://127.0.0.1:${server.port}';
+      final dio = Dio();
+      expect(
+        addFailure(await _failure(() => dio.get<void>('$url/sub'))),
+        ShikooPasteError.revoked,
+      );
+      expect(
+        addFailure(await _failure(() => dio.get<void>('$url/boom'))),
+        ShikooPasteError.serverDown,
+      );
+      await server.close(force: true);
+      expect(
+        addFailure(await _failure(() => dio.get<void>('$url/sub'))),
+        ShikooPasteError.offline,
+      );
+    });
+  });
+
+  group('a config', () {
+    test('with a server in either YAML style, or an entry whose name it '
+        'cannot read, has servers: refusing a working one costs more', () {
+      const flow =
+          'proxies:\n  - {name: "آلمان ۱", type: vless, server: a.b}\n'
+          'proxy-groups:\n  - {name: PROXY, type: select, proxies: ["آلمان ۱"]}\n';
+      const block =
+          'mixed-port: 7890\nproxies:\n- name: Germany 1\n  type: vless\n'
+          '  alpn:\n    - h2\nrules:\n- MATCH,PROXY\n';
+      const nameLater = 'proxies:\n  - type: vless\n    name: x\n';
+      for (final config in [flow, block, nameLater]) {
+        expect(hasServers(config), isTrue, reason: config);
+      }
+    });
+
+    test('that is empty, a web page, or only the info rows has none', () {
+      const infoOnly =
+          'proxies:\n  - {name: "V3.7.9 🆔 : (user123)", type: vless}\n'
+          '  - {name: "قبل از اتصال به‌روزرسانی کنید", type: vless}\n'
+          'proxy-groups:\n  - {name: PROXY, type: select}\n';
+      for (final config in [
+        '',
+        '<!doctype html><html><body>Login</body></html>',
+        'proxies:\nrules:\n  - MATCH,DIRECT\n',
+        'mixed-port: 7890\n',
+        infoOnly,
+      ]) {
+        expect(hasServers(config), isFalse, reason: config);
+      }
+    });
   });
 }

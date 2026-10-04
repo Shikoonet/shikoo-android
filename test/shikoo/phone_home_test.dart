@@ -271,6 +271,7 @@ void main() {
       (ShikooPasteError.empty, 'کلیپ‌بورد خالی است.'),
       (ShikooPasteError.notShikoo, 'این لینک شیکو نیست.'),
       (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
+      (ShikooPasteError.serverDown, 'سرور شیکو الان جواب نمی‌دهد.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {
       when(() => controller.pasteService(any())).thenAnswer((_) async => error);
@@ -341,4 +342,32 @@ void main() {
       expect(find.text(name), findsOneWidget, reason: locale);
     }
   });
+
+  testWidgets(
+    'with no usage header, no volume, validity or status is made up',
+    (tester) async {
+      final state = _phone();
+      await _pump(
+        tester,
+        ShikooState(
+          connection: state.connection,
+          connectedFor: state.connectedFor,
+          isTV: false,
+          servers: state.servers,
+          selected: state.selected,
+          service: const ShikooService(
+            name: 'user123 · الماس',
+            usedBytes: 0,
+            totalBytes: 0,
+            usageKnown: false,
+          ),
+        ),
+      );
+      expect(find.text('user123 · الماس'), findsOneWidget);
+      expect(find.text('فعال'), findsNothing);
+      expect(find.textContaining('نامحدود', findRichText: true), findsNothing);
+      expect(find.textContaining('مصرف شده', findRichText: true), findsNothing);
+      expect(find.byType(ServerRow), findsNWidgets(3));
+    },
+  );
 }

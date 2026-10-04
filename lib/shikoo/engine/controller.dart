@@ -75,6 +75,7 @@ class ShikooService {
     this.announce,
     this.supportUrl,
     this.updatedAt,
+    this.usageKnown = true,
   });
 
   /// FlClash's profile id.
@@ -89,6 +90,8 @@ class ShikooService {
   final String? supportUrl;
 
   final DateTime? updatedAt;
+
+  final bool usageKnown;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -296,7 +299,9 @@ const _infoRowParts = ['🆔', 'قبل از اتصال'];
 bool isServer(String type, String name) =>
     !_notServers.contains(type) &&
     !GroupTypeExtension.valueList.contains(type) &&
-    !_infoRowParts.any(name.contains);
+    !isInfoRow(name);
+
+bool isInfoRow(String name) => _infoRowParts.any(name.contains);
 
 List<Proxy> _serversOf(Group? group) => [
   for (final proxy in group?.all ?? const <Proxy>[])
@@ -383,6 +388,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
             announce: extras?.announce,
             supportUrl: extras?.supportUrl,
             updatedAt: profile.lastUpdateDate,
+            usageKnown: info != null,
           ),
     servers: servers,
     selected: selected,
@@ -438,9 +444,17 @@ Future<DateTime?> waitForTunnel(
 
 bool _never() => false;
 
+/// Used up or past its date: a panel may send such a service with no servers until renewal.
+bool _ended(SubscriptionInfo? info) =>
+    info != null &&
+    ((info.expire > 0 &&
+            info.expire * 1000 <= DateTime.now().millisecondsSinceEpoch) ||
+        (info.total > 0 && info.upload + info.download >= info.total));
+
 String _sorted(Iterable<String> names) => (names.toList()..sort()).join('\n');
 
-SubscriptionInfo _subscriptionInfo(String? header) {
+SubscriptionInfo? _subscriptionInfo(String? header) {
+  if (header == null) return null;
   try {
     return SubscriptionInfo.formHString(header);
   } on RangeError {
@@ -845,7 +859,7 @@ class ShikooController {
     final before = _names(_group);
     final had = _validSelection();
     try {
-      await _download(profile.url, profile.label);
+      await _download(profile.url, label: profile.label);
       if (!await _setup.applyProfile(silence: true)) {
         throw StateError('apply');
       }
@@ -878,11 +892,22 @@ class ShikooController {
 
   /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
   /// The url holds the customer's token: never log it, nor the error, which can quote it.
-  Future<Profile> _download(String url, [String? label]) async {
+  Future<Profile> _download(
+    String url, {
+    String? label,
+    bool needsServers = false,
+  }) async {
     final response = await request
         .getFileResponseForUrl(url)
         .timeout(const Duration(seconds: 30));
     final header = response.headers.value;
+    final body = response.data ?? Uint8List(0);
+    final info = _subscriptionInfo(header('subscription-userinfo'));
+    if (needsServers &&
+        !_ended(info) &&
+        !hasServers(utf8.decode(body, allowMalformed: true))) {
+      throw const FormatException('no servers');
+    }
     final existing = _ref
         .read(profilesProvider)
         .firstWhereOrNull(
@@ -896,10 +921,10 @@ class ShikooController {
               Uri.parse(url).host,
           // FlClash's own daily update would race this one and drop the headers kept below.
           autoUpdate: false,
-          subscriptionInfo: _subscriptionInfo(header('subscription-userinfo')),
+          subscriptionInfo: info,
         )
         .saveFile(
-          response.data ?? Uint8List(0),
+          body,
           validate: (path) =>
               _ref.read(coreHandlerProvider).validateConfig(path),
         );
@@ -914,7 +939,7 @@ class ShikooController {
   /// Null once the service is in, named by the panel unless [label] is given.
   Future<ShikooPasteError?> addService(String url, [String? label]) async {
     try {
-      final profile = await _download(url, label);
+      final profile = await _download(url, label: label, needsServers: true);
       if (_ref.read(currentProfileIdProvider) == profile.id) {
         // The core re-reads a profile only when the selection changes.
         await _setup.applyProfile(silence: true);

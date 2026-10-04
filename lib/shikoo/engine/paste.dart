@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:fl_clash/shikoo/engine/controller.dart';
 
-enum ShikooPasteError { empty, notShikoo, revoked, offline }
+enum ShikooPasteError { empty, notShikoo, revoked, serverDown, offline }
 
 // ponytail: only the test link's domain; needs every domain Sam names, and moves with the panel.
 const shikooSubscriptionDomains = ['4g3.uk'];
@@ -45,7 +46,25 @@ String normalLink(String link) {
 
 ShikooPasteError addFailure(Object error) => switch (error) {
   TimeoutException() => ShikooPasteError.offline,
+  DioException(type: DioExceptionType.badResponse, :final response)
+      when (response?.statusCode ?? 0) >= 500 =>
+    ShikooPasteError.serverDown,
   DioException(type: DioExceptionType.badResponse) => ShikooPasteError.revoked,
   DioException() => ShikooPasteError.offline,
   _ => ShikooPasteError.revoked,
 };
+
+final _topLevelKey = RegExp(r'^[^\s-]', multiLine: true);
+final _listItem = RegExp(r'^\s*-\s', multiLine: true);
+final _itemName = RegExp(r'''name:\s*["']?([^"',}\n]*)''');
+
+bool hasServers(String config) {
+  final start = RegExp(r'^proxies:', multiLine: true).firstMatch(config)?.end;
+  if (start == null) return false;
+  final rest = config.substring(start);
+  final section = rest.substring(0, _topLevelKey.firstMatch(rest)?.start);
+  return section
+      .split(_listItem)
+      .skip(1)
+      .any((item) => !isInfoRow(_itemName.firstMatch(item)?[1] ?? ''));
+}

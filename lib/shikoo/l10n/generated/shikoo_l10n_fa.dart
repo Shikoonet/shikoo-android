@@ -455,6 +455,12 @@ class ShikooL10nFa extends ShikooL10n {
       'لینک تازه را از ربات شیکو یا نماینده‌ات بگیر.';
 
   @override
+  String get pasteServerDownTitle => 'سرور شیکو الان جواب نمی‌دهد.';
+
+  @override
+  String get pasteServerDownHelp => 'کمی بعد دوباره بزن.';
+
+  @override
   String get pasteOfflineTitle => 'اینترنت وصل نیست.';
 
   @override

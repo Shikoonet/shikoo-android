@@ -492,6 +492,13 @@ class ShikooL10nEn extends ShikooL10n {
       'Get a new link from the Shikoo bot or your reseller.';
 
   @override
+  String get pasteServerDownTitle =>
+      'Shikoo\'s server isn\'t answering right now.';
+
+  @override
+  String get pasteServerDownHelp => 'Tap again in a little while.';
+
+  @override
   String get pasteOfflineTitle => 'No internet connection.';
 
   @override
