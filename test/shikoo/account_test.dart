@@ -7,6 +7,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -179,10 +180,16 @@ Completer<void>? _deleteGate;
 /// Runs before the fake controller adds [url]: a test holds an add here.
 Future<void> Function(String url)? _beforeAdd;
 
+bool _failNextDelete = false;
+
 /// FlClash's own delete also clears files and the core, which a unit test has neither of.
 class _Profiles extends ProfilesAction {
   @override
   Future<void> deleteProfile(int id) async {
+    if (_failNextDelete) {
+      _failNextDelete = false;
+      throw const FileSystemException('disk full');
+    }
     final gate = _deleteGate;
     _deleteGate = null;
     await gate?.future;
@@ -201,7 +208,10 @@ Future<_Harness> _harness({
   List<String>? bases,
   List<Profile> pasted = const [],
 }) async {
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({
+    if (pasted.isNotEmpty)
+      'shikoo.pasted': [for (final profile in pasted) '${profile.id}'],
+  });
   final api = _FakeAppApi();
   await api.open();
   addTearDown(api.close);
@@ -553,8 +563,6 @@ void main() {
         h.api.services = [_service(1, 'user123'), _service(2, 'user789')];
         await _signedIn(h);
         expect(_urls(h.container), hasLength(2));
-        final linked = h.container.read(shikooAccountProvider).services;
-        expect([for (final s in linked) s.owned], [false, true]);
         await h.signIn.notMine();
         expect(_urls(h.container), ['https://sub.4g3.uk/user123']);
       },
@@ -766,6 +774,104 @@ void main() {
       expect(h.container.read(shikooAccountProvider).who?.name, 'مریم');
     });
 
+    test('a sync that fails halfway leaves nothing a sign-out keeps', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'A')];
+      await _signedIn(h);
+      h.signIn.finish();
+      h.api.services = [
+        _service(2, 'B'),
+        _service(1, 'A', status: 'removed', noUrl: true),
+      ];
+      _failNextDelete = true;
+      await expectLater(h.signIn.sync(), throwsA(isA<FileSystemException>()));
+      h.api.services = [_service(2, 'B')];
+      await h.signIn.sync();
+      await h.signIn.notMine();
+      expect(_urls(h.container), isEmpty);
+    });
+
+    test('an app killed during the first sync leaves nothing a sign-out '
+        'keeps', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'A'), _service(2, 'B')];
+      final reachedB = Completer<void>();
+      _beforeAdd = (url) async {
+        if (!url.endsWith('/B')) return;
+        reachedB.complete();
+        await Completer<void>().future;
+      };
+      addTearDown(() => _beforeAdd = null);
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (
+        name: 'Stranger',
+        username: 's',
+      );
+      await reachedB.future.timeout(const Duration(seconds: 5));
+      final restarted = ProviderContainer(
+        overrides: [
+          shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
+          shikooStateProvider.overrideWithValue(_state),
+          profilesProvider.overrideWith(
+            () => TestProfiles([...h.container.read(profilesProvider)]),
+          ),
+          profilesActionProvider.overrideWith(_Profiles.new),
+        ],
+      );
+      addTearDown(restarted.dispose);
+      final signIn = restarted.read(shikooSignInProvider);
+      await signIn.load();
+      expect(_urls(restarted), ['https://sub.4g3.uk/A']);
+      expect(restarted.read(shikooAccountProvider).who?.name, 'Stranger');
+      await signIn.notMine();
+      expect(_urls(restarted), isEmpty);
+    });
+
+    test('the first start with the pasted list counts what the stored account '
+        'did not bring as pasted', () async {
+      final brought = Profile.normal(url: 'https://sub.4g3.uk/brought');
+      final adopted = Profile.normal(url: 'https://sub.4g3.uk/adopted');
+      final pasted = Profile.normal(url: 'https://4g3.uk/sub/pasted');
+      SharedPreferences.setMockInitialValues({
+        'shikoo.account': jsonEncode({
+          'token': 't',
+          'services': [
+            {
+              'id': 1,
+              'title': 'a',
+              'status': 'active',
+              'profileId': brought.id,
+              'owned': true,
+            },
+            {
+              'id': 2,
+              'title': 'b',
+              'status': 'active',
+              'profileId': adopted.id,
+              'owned': false,
+            },
+          ],
+        }),
+      });
+      final container = ProviderContainer(
+        overrides: [
+          shikooApiProvider.overrideWithValue(
+            ShikooApi(['http://127.0.0.1:9']),
+          ),
+          shikooStateProvider.overrideWithValue(_state),
+          profilesProvider.overrideWith(
+            () => TestProfiles([brought, adopted, pasted]),
+          ),
+          profilesActionProvider.overrideWith(_Profiles.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      final signIn = container.read(shikooSignInProvider);
+      await signIn.load();
+      await signIn.notMine();
+      expect(_urls(container), [adopted.url, pasted.url]);
+    });
+
     test('an account this version cannot read is signed out, and the services '
         'stay', () async {
       for (final stored in [
@@ -789,6 +895,7 @@ void main() {
           reason: stored,
         );
         expect(container.read(profilesProvider), [pasted]);
+        expect(await pastedProfiles(), {pasted.id}, reason: stored);
         final prefs = await SharedPreferences.getInstance();
         expect(prefs.getString('shikoo.account'), isNull, reason: stored);
       }

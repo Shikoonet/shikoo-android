@@ -13,6 +13,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:riverpod/misc.dart' show Override;
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,10 +67,27 @@ class _Setup extends SetupAction {
   }
 }
 
+/// The panel answers at once: a paste goes through without a network.
+class _Panel extends ShikooController {
+  _Panel(this.ref) : super(ref);
+
+  final Ref ref;
+
+  @override
+  Future<ShikooPasteError?> addService(
+    String url, [
+    String? label,
+    bool select = true,
+  ]) async {
+    ref.read(profilesProvider.notifier).put(Profile.normal(url: url));
+    return null;
+  }
+}
+
 const _version = 'V3.7.9 🆔 : (user123) 📊 (67 GB) ⏰ (23)';
 
 ({ProviderContainer container, _Core core, _Proxies proxies, _Setup setup})
-_home() {
+_home([List<Override> more = const []]) {
   SharedPreferences.setMockInitialValues({});
   final core = _Core();
   final profile = Profile.normal(url: 'https://panel.invalid/sub');
@@ -87,6 +105,7 @@ _home() {
         await setup.trafficGate?.future;
         return setup.traffic;
       }),
+      ...more,
     ],
   );
   addTearDown(container.dispose);
@@ -582,6 +601,26 @@ void main() {
     );
     expect(container.read(profilesProvider), hasLength(1));
   });
+
+  test(
+    'a paste marks its profile pasted; one the account adds is not',
+    () async {
+      final container = _home([
+        shikooControllerProvider.overrideWith(_Panel.new),
+      ]).container;
+      final controller = container.read(shikooControllerProvider);
+      expect(
+        await controller.pasteService('سرویسم: https://4g3.uk/sub/mine.'),
+        isNull,
+      );
+      await controller.addService('https://4g3.uk/sub/account');
+      final ids = {
+        for (final profile in container.read(profilesProvider))
+          profile.url: profile.id,
+      };
+      expect(await pastedProfiles(), {ids['https://4g3.uk/sub/mine']});
+    },
+  );
 
   test('a traffic check that ends after a switch or a disconnect proves '
       'nothing for the server it began on', () async {

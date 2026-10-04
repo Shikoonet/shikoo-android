@@ -942,6 +942,13 @@ class ShikooController {
     if (text == null || text.trim().isEmpty) return ShikooPasteError.empty;
     final link = shikooLink(text);
     if (link == null) return ShikooPasteError.notShikoo;
-    return addService(link);
+    final failure = await addService(link);
+    if (failure == null) {
+      await markPasted([
+        for (final profile in _ref.read(profilesProvider))
+          if (normalLink(profile.url) == normalLink(link)) profile.id,
+      ]);
+    }
+    return failure;
   }
 }

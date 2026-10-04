@@ -66,7 +66,6 @@ class LinkedService {
     required this.title,
     required this.status,
     this.profileId,
-    this.owned = true,
   });
 
   final int id;
@@ -74,9 +73,6 @@ class LinkedService {
 
   final String status;
   final int? profileId;
-
-  /// False for a pasted profile the account turned out to hold: signing out leaves it.
-  final bool owned;
 
   bool get renews => status == 'expired' || status == 'exhausted';
 }
@@ -354,9 +350,6 @@ class ShikooSignIn {
   DateTime? _lastSync;
   (String?, Future<bool?>)? _syncing;
 
-  /// Profiles the running sync added that the account does not list yet.
-  final _unsaved = <int>{};
-
   ShikooApi get _api => _ref.read(shikooApiProvider);
 
   ShikooAccount get _account => _ref.read(shikooAccountProvider);
@@ -370,35 +363,48 @@ class ShikooSignIn {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
-    if (raw == null) return;
-    final String token;
-    final ShikooAccount account;
+    ({String token, ShikooAccount account, Set<int?> brought})? stored;
     try {
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      token = json['token'] as String;
-      account = ShikooAccount(
-        who: TelegramAccount(
-          name: json['name'] as String?,
-          username: json['username'] as String?,
-        ),
-        bot: json['bot'] as String?,
-        services: [
-          for (final s in json['services'] as List)
-            LinkedService(
-              id: s['id'] as int,
-              title: s['title'] as String,
-              status: s['status'] as String,
-              profileId: s['profileId'] as int?,
-              owned: s['owned'] as bool,
+      if (raw != null) {
+        final json = jsonDecode(raw) as Map<String, dynamic>;
+        final services = json['services'] as List;
+        stored = (
+          token: json['token'] as String,
+          account: ShikooAccount(
+            who: TelegramAccount(
+              name: json['name'] as String?,
+              username: json['username'] as String?,
             ),
-        ],
-      );
+            bot: json['bot'] as String?,
+            services: [
+              for (final s in services)
+                LinkedService(
+                  id: s['id'] as int,
+                  title: s['title'] as String,
+                  status: s['status'] as String,
+                  profileId: s['profileId'] as int?,
+                ),
+            ],
+          ),
+          brought: {
+            for (final s in services)
+              if (s['owned'] != false) s['profileId'] as int?,
+          },
+        );
+      }
     } catch (_) {
       await prefs.remove(_key);
-      return;
     }
-    _token = token;
-    _setAccount(account);
+    // Versions before the pasted list: whatever the stored account did not bring was pasted.
+    if (!prefs.containsKey(shikooPastedKey)) {
+      await markPasted([
+        for (final profile in _ref.read(profilesProvider))
+          if (!(stored?.brought.contains(profile.id) ?? false)) profile.id,
+      ]);
+    }
+    if (stored == null) return;
+    _token = stored.token;
+    _setAccount(stored.account);
   }
 
   Future<void> _save() async {
@@ -423,7 +429,6 @@ class ShikooSignIn {
               'title': s.title,
               'status': s.status,
               'profileId': s.profileId,
-              'owned': s.owned,
             },
         ],
       }),
@@ -491,6 +496,8 @@ class ShikooSignIn {
   }
 
   Future<void> _approved(String token, TelegramAccount? who) async {
+    // Without the list, the next start would read this account as an older version's.
+    await markPasted(const []);
     _token = token;
     _setAccount(ShikooAccount(who: who ?? const TelegramAccount()));
     await _save();
@@ -526,15 +533,13 @@ class ShikooSignIn {
   Future<void> notMine() async {
     _attempt++;
     final token = _token;
-    final services = _account.services;
     _token = null;
     _setAccount(const ShikooAccount());
     _login(null);
     await _save();
     if (token != null) unawaited(_logout(token));
-    await _undo();
-    for (final service in services) {
-      await _drop(service);
+    for (final profile in [..._ref.read(profilesProvider)]) {
+      await _drop(profile.id);
     }
   }
 
@@ -608,23 +613,24 @@ class ShikooSignIn {
     final kept = <LinkedService>[];
     var failed = false;
     for (final row in answer.services) {
-      if (token != _token) return _undo();
+      if (token != _token) return null;
       final was = before.remove(row.id);
       var profileId = _existing(was?.profileId);
-      var owned = was?.owned ?? true;
       final url = row.subUrl == null ? null : shikooLink(row.subUrl!);
       if (url != null && _urlOf(profileId) != url) {
         final added = await _add(url, row.label);
-        if (added != null && added.owned) _unsaved.add(added.id);
-        if (token != _token) return _undo();
+        if (token != _token) {
+          await _drop(added);
+          return null;
+        }
         if (added == null) {
           failed = true;
         } else {
-          if (was != null && profileId != added.id) await _drop(was);
-          (profileId, owned) = (added.id, added.owned);
+          if (profileId != added) await _drop(profileId);
+          profileId = added;
         }
       } else if (url == null && !_shownWithoutLink.contains(row.status)) {
-        if (was != null) await _drop(was);
+        await _drop(profileId);
         continue;
       }
       if (profileId != null || url == null) {
@@ -634,15 +640,14 @@ class ShikooSignIn {
             title: row.label,
             status: row.status,
             profileId: profileId,
-            owned: owned,
           ),
         );
       }
     }
     for (final gone in before.values) {
-      await _drop(gone);
+      await _drop(gone.profileId);
     }
-    if (token != _token) return _undo();
+    if (token != _token) return null;
     _setAccount(
       ShikooAccount(
         who: _account.who,
@@ -650,18 +655,8 @@ class ShikooSignIn {
         services: kept,
       ),
     );
-    _unsaved.clear();
     await _save();
     return !(failed && kept.isEmpty);
-  }
-
-  Future<bool?> _undo() async {
-    final ids = [..._unsaved];
-    _unsaved.clear();
-    for (final id in ids) {
-      if (_existing(id) != null) await _delete(id);
-    }
-    return null;
   }
 
   int? _existing(int? profileId) =>
@@ -681,20 +676,17 @@ class ShikooSignIn {
       .firstWhereOrNull((p) => normalLink(p.url) == url)
       ?.id;
 
-  Future<({int id, bool owned})?> _add(String url, String label) async {
-    final pasted = _profileOf(url) != null;
+  Future<int?> _add(String url, String label) async {
     final failure = await _ref
         .read(shikooControllerProvider)
         .addService(url, label, false);
-    final id = failure == null ? _profileOf(url) : null;
-    return id == null ? null : (id: id, owned: !pasted);
+    return failure == null ? _profileOf(url) : null;
   }
 
-  Future<void> _drop(LinkedService service) async {
-    final id = _existing(service.profileId);
-    if (id != null && service.owned) await _delete(id);
+  Future<void> _drop(int? profileId) async {
+    final pasted = await pastedProfiles();
+    if (_existing(profileId) case final id? when !pasted.contains(id)) {
+      await _ref.read(profilesActionProvider.notifier).deleteProfile(id);
+    }
   }
-
-  Future<void> _delete(int profileId) =>
-      _ref.read(profilesActionProvider.notifier).deleteProfile(profileId);
 }
