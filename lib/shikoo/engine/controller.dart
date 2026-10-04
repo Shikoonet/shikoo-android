@@ -490,8 +490,19 @@ String? accountOf({String? file, String? title, required String body}) =>
         .map((user) => user?.trim())
         .firstWhereOrNull((user) => user?.isNotEmpty ?? false);
 
-String? serviceName(String? title, String? user) =>
-    title != null && title.contains(' · ') ? title : user ?? title;
+const _unnamedService = 'سرویس شیکونت';
+
+String serviceName(String? title, String? user) =>
+    title != null && title.contains(' · ') ? title : user ?? _unnamedService;
+
+String? _fileName(String? disposition) {
+  try {
+    return getFileNameForDisposition(disposition);
+  } on ArgumentError {
+    // A `filename*` FlClash cannot percent-decode, such as `%ZZ`.
+    return null;
+  }
+}
 
 Profile? serviceOf(List<Profile> profiles, String url, String? user) =>
     profiles.firstWhereOrNull(
@@ -1060,13 +1071,13 @@ class ShikooController {
     final profiles = _ref.read(profilesProvider);
     final title = headerText(header('profile-title'));
     final user = accountOf(
-      file: getFileNameForDisposition(header('content-disposition')),
+      file: _fileName(header('content-disposition')),
       title: title,
       body: utf8.decode(body, allowMalformed: true),
     );
     final existing = serviceOf(profiles, url, user);
     if (refresh && existing == null) return null;
-    final name = label ?? serviceName(title, user) ?? Uri.parse(url).host;
+    final name = label ?? serviceName(title, user);
     final draft = (existing ?? Profile.normal(url: url)).copyWith(
       url: url,
       label: unusedName(name, {

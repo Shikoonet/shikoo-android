@@ -168,6 +168,12 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
         'attachment; filename="$user"',
       );
     }
+    if (kind == 'bad') {
+      call.response.headers.set(
+        'content-disposition',
+        "attachment; filename*=UTF-8''%ZZ",
+      );
+    }
     const at = 'type: http, server: 1.1.1.1, port: 1';
     call.response.write(
       [
@@ -998,10 +1004,19 @@ void main() {
     await controller.addService('$panel/none/a');
     await controller.addService('$panel/none/b');
     await controller.addService('$panel/none/a');
-    expect(_pasted(container).map((p) => p.url), [
-      '$panel/none/a',
-      '$panel/none/b',
+    expect(_pasted(container).map((p) => (p.url, p.label)), [
+      ('$panel/none/a', 'سرویس شیکونت'),
+      ('$panel/none/b', 'سرویس شیکونت ۲'),
     ]);
+  });
+
+  test('a file name that will not decode is no username, not a failed '
+      'paste', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    expect(await controller.addService('$panel/bad/user333/a'), isNull);
+    expect(_pasted(container).map((p) => p.label), ['user333']);
   });
 
   test('a paste counts as pasted, also when it gives a known account its new '
