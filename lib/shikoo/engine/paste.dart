@@ -15,7 +15,7 @@ const _emulatorHostMachine = '10.0.2.2';
 const _maxLink = 2048;
 
 final _link = RegExp(r'https?://[^\s‎‏]+', caseSensitive: false);
-final _sentenceEnd = RegExp(r'[،.,)»]+$');
+final _sentenceEnd = RegExp(r'[،.,;!؟)»>]+$');
 
 String? shikooLink(String text, {bool debug = shikooDebug}) {
   for (final match in _link.allMatches(text)) {

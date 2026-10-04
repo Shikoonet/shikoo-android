@@ -39,13 +39,33 @@ void main() {
     });
 
     test('leaves the punctuation and direction marks of a sentence behind', () {
-      for (final end in ['،', '.', ',', ')', '»', '\u200f', '\u200e', '.)']) {
+      for (final end in [
+        '،',
+        '.',
+        ',',
+        ')',
+        '»',
+        '\u200f',
+        '\u200e',
+        '.)',
+        '؟',
+        '!',
+        ';',
+        '>',
+      ]) {
         expect(
           shikooLink('لینکت: (https://s.4g3.uk/sub/abc$end ممنون'),
           'https://s.4g3.uk/sub/abc',
           reason: end,
         );
       }
+    });
+
+    test('is read out of angle brackets', () {
+      expect(
+        shikooLink('<https://s.4g3.uk/sub/abc>'),
+        'https://s.4g3.uk/sub/abc',
+      );
     });
 
     test('is the first Shikoo link of a message, not its first link', () {
