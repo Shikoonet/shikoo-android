@@ -462,7 +462,8 @@ class Segmented<T> extends StatelessWidget {
         children: [
           for (final MapEntry(key: value, value: label) in options.entries)
             Flexible(
-              fit: small ? FlexFit.loose : FlexFit.tight,
+              flex: small ? 0 : 1,
+              fit: FlexFit.tight,
               child: Pressable(
                 autofocus: autofocus && value == selected,
                 shape: shape,
