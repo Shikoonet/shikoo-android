@@ -10,8 +10,8 @@
   "noServiceTitleTv": "No service on this TV",
   "noServiceTitleTouch": "No service on this phone",
   "noServiceHelp": "Ask Support to bring it back.",
-  "@noServiceHelp": {"description": "TV only now: the phone can paste a link, so it says noServiceHelpTouch."},
-  "noServiceHelpTouch": "Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support.",
+  "@noServiceHelp": {"description": "TV only now: the phone can paste a link, so it says noServiceHelpPaste."},
+  "noServiceHelpPaste": "Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support.",
   "noLinkChip": "No link",
   "@noLinkChip": {"description": "Chip on a service that has no subscription link yet, and the label of the disabled round button when it is the only service."},
   "noLinkHelpTouch": "Open this service once in the bot",
@@ -42,5 +42,12 @@
   "summaryExhaustedTv": "Out of data. After renewing, press “Try again”.",
   "@summaryExhaustedTv": {"description": "TV: the card has Renew, Support and Try again; the TV can't tell when the renewal happened on the phone."},
   "openBotTitleTv": "ShikooNet bot on your phone",
-  "openBotHelpTv": "Scan with your phone's camera to open the ShikooNet bot."
+  "openBotHelpTv": "Scan with your phone's camera to open the ShikooNet bot.",
+  "@noServiceHelpPaste": {"description": "Phone home card when no service is on the phone. Not login_paste's noServiceHelpTouch, which is the sign-in screen for an account with no service."},
+  "errorConnect": "{server} didn't answer in {seconds} seconds.\nTry another server.",
+  "@errorConnect": {"description": "TV, under the round button after the connect timeout.", "placeholders": {"server": {"type": "String"}, "seconds": {"type": "int", "format": "decimalPattern"}}},
+  "errorConnectTouch": "{server} didn't answer in {seconds} seconds. Tap again, or pick another server from the list.",
+  "@errorConnectTouch": {"description": "Phone: errorConnect as one paragraph.", "placeholders": {"server": {"type": "String"}, "seconds": {"type": "int", "format": "decimalPattern"}}},
+  "serviceUnnamed": "ShikooNet service",
+  "@serviceUnnamed": {"description": "A service's name when the panel sends no title and there is no username or plan name."}
 }
