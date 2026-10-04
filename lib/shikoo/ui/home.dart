@@ -22,12 +22,15 @@ class ShikooHome extends ConsumerStatefulWidget {
 class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _card = CardFocus();
   final _power = FocusNode();
+  final _settings = FocusNode();
   final _scroll = ScrollController();
+  (int?, bool)? _shown;
 
   @override
   void dispose() {
     _card.dispose();
     _power.dispose();
+    _settings.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -36,7 +39,21 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   void _use(ShikooController controller, int service) {
     controller.selectService(service);
     if (_scroll.hasClients) _scroll.jumpTo(0);
-    _power.requestFocus();
+  }
+
+  /// So the remote never stays on a button that just went away or went dead.
+  void _focusFirst(ShikooState state) {
+    final shown = (state.service?.id, restingFor(state) != null);
+    if (!state.isTV || shown == _shown) return;
+    _shown = shown;
+    final first = state.service == null
+        ? _settings
+        : (shown.$2 ? _card.renew : _power);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
+        first.requestFocus();
+      }
+    });
   }
 
   @override
@@ -44,6 +61,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final t = ShikooTheme.of(context);
+    _focusFirst(state);
     final power = _PowerZone(
       state: state,
       controller: controller,
@@ -79,6 +97,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           child: state.isTV
               ? _TvLayout(
                   noService: state.service == null,
+                  settings: _settings,
                   power: _PowerKeys(
                     row: towardCard == null ? null : _card.row(towardCard),
                     child: power,
@@ -175,11 +194,13 @@ class _CardKeys extends StatelessWidget {
 class _TvLayout extends StatelessWidget {
   const _TvLayout({
     required this.noService,
+    required this.settings,
     required this.power,
     required this.card,
   });
 
   final bool noService;
+  final FocusNode settings;
   final Widget power;
   final Widget card;
 
@@ -202,6 +223,7 @@ class _TvLayout extends StatelessWidget {
                   label: ShikooL10n.of(context).settings,
                   icon: ShikooIcon.gear,
                   autofocus: noService,
+                  focusNode: settings,
                   onPressed: () => openSettings(context),
                 ),
               ],

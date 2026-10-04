@@ -800,4 +800,59 @@ void main() {
     expect(find.text(orSwitch), findsNothing);
     expect(find.text('با «تمدید» دوباره وصل می‌شوی.'), findsOneWidget);
   });
+
+  testWidgets('on the TV the remote starts on the first item of whatever '
+      'the home now shows, and is never left on a dead button', (tester) async {
+    String? focused() {
+      final at = FocusManager.instance.primaryFocus?.context;
+      if (at?.findAncestorWidgetOfExactType<PowerButton>() != null) {
+        return 'power';
+      }
+      return at?.findAncestorWidgetOfExactType<ShikooButton>()?.label;
+    }
+
+    ShikooState tv(ShikooService? service, {bool on = false}) => ShikooState(
+      connection: on ? ShikooConnection.on : ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: true,
+      servers: service == null ? const [] : _servers,
+      selected: service == null ? null : 'آلمان ۲',
+      service: service,
+    );
+    const active = ShikooService(
+      id: 1,
+      name: 'user123 · الماس',
+      usedBytes: 0,
+      totalBytes: 0,
+    );
+    const usedUp = ShikooService(
+      id: 2,
+      name: 'user789 · معمولی',
+      usedBytes: 5,
+      totalBytes: 5,
+    );
+
+    final holder = await _pump(tester, tv(null));
+    await tester.pumpAndSettle();
+    expect(focused(), 'تنظیمات');
+
+    holder.value = tv(active);
+    await tester.pumpAndSettle();
+    expect(focused(), 'power', reason: 'the first service arrived');
+
+    holder.value = tv(usedUp);
+    await tester.pumpAndSettle();
+    expect(focused(), 'تمدید', reason: 'switched to a used-up service');
+
+    holder.value = tv(active);
+    await tester.pumpAndSettle();
+    expect(focused(), 'power');
+
+    holder.value = tv(usedUp, on: true);
+    await tester.pumpAndSettle();
+    expect(focused(), 'power', reason: 'a live tunnel can still be stopped');
+    holder.value = tv(usedUp);
+    await tester.pumpAndSettle();
+    expect(focused(), 'تمدید', reason: 'stopped, the power button went dead');
+  });
 }
