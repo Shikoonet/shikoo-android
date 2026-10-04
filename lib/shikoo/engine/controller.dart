@@ -74,9 +74,11 @@ class ShikooService {
     this.announce,
     this.supportUrl,
     this.updatedAt,
+    this.profileId,
   });
 
   final String name;
+  final int? profileId;
   final int usedBytes;
 
   /// 0 = no volume limit.
@@ -371,6 +373,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
         ? null
         : ShikooService(
             name: profile.label,
+            profileId: profile.id,
             usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
             totalBytes: info?.total ?? 0,
             expire: (info?.expire ?? 0) > 0
@@ -899,14 +902,19 @@ class ShikooController {
     return profile;
   }
 
-  /// Null once the service is in, named by the panel unless [label] is given.
-  Future<ShikooPasteError?> addService(String url, [String? label]) async {
+  /// Null once the service is in, named by the panel unless [label] is given. Without [select]
+  /// it becomes the current service only when there is none.
+  Future<ShikooPasteError?> addService(
+    String url, [
+    String? label,
+    bool select = true,
+  ]) async {
     try {
       final profile = await _download(url, label);
       if (_ref.read(currentProfileIdProvider) == profile.id) {
         // The core re-reads a profile only when the selection changes.
         await _setup.applyProfile(silence: true);
-      } else {
+      } else if (select) {
         _ref.read(currentProfileIdProvider.notifier).value = profile.id;
       }
       return null;

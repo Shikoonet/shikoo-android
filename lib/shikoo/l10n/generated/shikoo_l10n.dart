@@ -817,6 +817,378 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'For another service you have'**
   String get pasteAnotherHelp;
+
+  /// No description provided for @loginTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'For Shikoo customers'**
+  String get loginTagline;
+
+  /// No description provided for @loginTelegram.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Telegram'**
+  String get loginTelegram;
+
+  /// No description provided for @loginTelegramNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram opens; tap “Approve” in the Shikoo bot.'**
+  String get loginTelegramNote;
+
+  /// No description provided for @noTelegramHere.
+  ///
+  /// In en, this message translates to:
+  /// **'No Telegram on this phone?'**
+  String get noTelegramHere;
+
+  /// No description provided for @waitingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No approval yet.'**
+  String get waitingTitle;
+
+  /// No description provided for @waitingHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'If Telegram only opens with a VPN, turn that on first, then open Telegram again.'**
+  String get waitingHelp;
+
+  /// No description provided for @reopenTelegram.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Telegram again'**
+  String get reopenTelegram;
+
+  /// No description provided for @approveElsewhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve from another device'**
+  String get approveElsewhere;
+
+  /// No description provided for @codeExpiredNote.
+  ///
+  /// In en, this message translates to:
+  /// **'This code has expired.'**
+  String get codeExpiredNote;
+
+  /// No description provided for @otherDeviceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve from another device'**
+  String get otherDeviceTitle;
+
+  /// No description provided for @otherDeviceScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Have another phone with Telegram? Scan this code with its camera.'**
+  String get otherDeviceScan;
+
+  /// No description provided for @otherDeviceComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram on a computer? Send this code to the Shikoo bot:'**
+  String get otherDeviceComputer;
+
+  /// No description provided for @codeOnlyYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Only type this code in the bot yourself; never give it to anyone.'**
+  String get codeOnlyYou;
+
+  /// No description provided for @otherDeviceFine.
+  ///
+  /// In en, this message translates to:
+  /// **'The code works for 10 minutes. After you approve in the bot, this screen goes home by itself.'**
+  String get otherDeviceFine;
+
+  /// No description provided for @tvLoginLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone\'s camera and tap “Approve”'**
+  String get tvLoginLead;
+
+  /// No description provided for @tvLoginVpnHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram only opens with a VPN? Turn it on on your phone, then scan.'**
+  String get tvLoginVpnHint;
+
+  /// No description provided for @tvLoginComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram on a computer?\nSend this code to the bot:'**
+  String get tvLoginComputer;
+
+  /// No description provided for @codeLifetime.
+  ///
+  /// In en, this message translates to:
+  /// **'This code works for 10 minutes.'**
+  String get codeLifetime;
+
+  /// No description provided for @codeExpiredLead.
+  ///
+  /// In en, this message translates to:
+  /// **'10 minutes passed and this code expired. Get a new one.'**
+  String get codeExpiredLead;
+
+  /// No description provided for @previousCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous code'**
+  String get previousCode;
+
+  /// No description provided for @newCode.
+  ///
+  /// In en, this message translates to:
+  /// **'New code'**
+  String get newCode;
+
+  /// No description provided for @codeExpiredOverlay.
+  ///
+  /// In en, this message translates to:
+  /// **'This code expired'**
+  String get codeExpiredOverlay;
+
+  /// A Telegram account as shown on the result screens. Without a username, {account} is the display name alone.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} ({username})'**
+  String accountWithUsername(String name, String username);
+
+  /// No description provided for @approvedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in'**
+  String get approvedTitle;
+
+  /// No description provided for @approvedBodyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'This TV is now linked to the Telegram account {account}, with these services:'**
+  String approvedBodyTv(String account);
+
+  /// No description provided for @approvedBodyTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone is now linked to the Telegram account {account}, with these services:'**
+  String approvedBodyTouch(String account);
+
+  /// No description provided for @servicesComing.
+  ///
+  /// In en, this message translates to:
+  /// **'Your services are on their way…'**
+  String get servicesComing;
+
+  /// No description provided for @continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueButton;
+
+  /// Unlinks the device from the account that approved and goes back to sign-in with a new code.
+  ///
+  /// In en, this message translates to:
+  /// **'This isn\'t my account'**
+  String get notMyAccount;
+
+  /// No description provided for @servicesFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your services didn\'t arrive'**
+  String get servicesFailedTitle;
+
+  /// No description provided for @servicesFailedBodyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'You signed in with the Telegram account {account}, but the list of services didn\'t come from the server. Check this TV\'s internet and try again.'**
+  String servicesFailedBodyTv(String account);
+
+  /// No description provided for @servicesFailedBodyTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'You signed in with the Telegram account {account}, but the list of services didn\'t come from the server. Check this phone\'s internet and try again.'**
+  String servicesFailedBodyTouch(String account);
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get retry;
+
+  /// No description provided for @noServiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has no service'**
+  String get noServiceTitle;
+
+  /// No description provided for @noServiceBodyTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'You signed in with the Telegram account {account}, but no Shikoo service is linked to it.'**
+  String noServiceBodyTouch(String account);
+
+  /// No description provided for @noServiceBodyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'You signed in with the Telegram account {account}, but no service is linked to it.'**
+  String noServiceBodyTv(String account);
+
+  /// No description provided for @noServiceHelpTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Is your service on another Telegram account? Switch to it in Telegram first, then tap “Use another account”.'**
+  String get noServiceHelpTouch;
+
+  /// No description provided for @noServiceHelpTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Is your service on another account? Switch to it in Telegram on your phone and scan again.'**
+  String get noServiceHelpTv;
+
+  /// No description provided for @otherAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Use another account'**
+  String get otherAccount;
+
+  /// No description provided for @askSupportLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Think this is wrong? Ask Support'**
+  String get askSupportLink;
+
+  /// No description provided for @rejectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in declined'**
+  String get rejectedTitle;
+
+  /// No description provided for @rejectedBodyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'“Decline” was tapped in Telegram, so this TV isn\'t linked. If that was a mistake, try again.'**
+  String get rejectedBodyTv;
+
+  /// No description provided for @rejectedBodyTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'“Decline” was tapped in Telegram, so this phone isn\'t linked. If that was a mistake, try again.'**
+  String get rejectedBodyTouch;
+
+  /// No description provided for @signedInWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in as {name}'**
+  String signedInWith(String name);
+
+  /// No description provided for @telegramAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram account'**
+  String get telegramAccount;
+
+  /// No description provided for @telegramAccountUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram account {username}'**
+  String telegramAccountUsername(String username);
+
+  /// No description provided for @logoutHelpSignedInTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the services from this device; your subscriptions stay as they are.'**
+  String get logoutHelpSignedInTouch;
+
+  /// No description provided for @logoutHelpSignedInTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the services from this TV; your subscriptions stay as they are.'**
+  String get logoutHelpSignedInTv;
+
+  /// No description provided for @logoutSignedInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out?'**
+  String get logoutSignedInTitle;
+
+  /// No description provided for @logoutSignedInBodyTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be disconnected, this device will be unlinked from your Telegram account and the services removed from it. Your subscriptions stay as they are; sign in with Telegram again whenever you like.'**
+  String get logoutSignedInBodyTouch;
+
+  /// No description provided for @logoutSignedInBodyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be disconnected, this TV will be unlinked from your Telegram account and the services removed from it. Your subscriptions stay as they are; sign in with Telegram again whenever you like.'**
+  String get logoutSignedInBodyTv;
+
+  /// No description provided for @signInRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Telegram'**
+  String get signInRow;
+
+  /// No description provided for @signInRowHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t signed in yet. Signing in brings all your services automatically.'**
+  String get signInRowHelp;
+
+  /// No description provided for @renewHelpDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone\'s camera; the Shikoo bot opens the renewal page of this service.'**
+  String get renewHelpDirect;
+
+  /// No description provided for @codeFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No sign-in code came.'**
+  String get codeFailedTitle;
+
+  /// No description provided for @codeFailedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the internet and try again.'**
+  String get codeFailedHelp;
+
+  /// No description provided for @gettingCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting a code…'**
+  String get gettingCode;
+
+  /// A service of the account whose link the bot makes the first time it is opened there.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” isn\'t here yet.'**
+  String waitingForBot(String name);
+
+  /// No description provided for @waitingForBotHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open it once in the Shikoo bot so its link is made, then tap “Try again”.'**
+  String get waitingForBotHelp;
+
+  /// No description provided for @openBot.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikoo bot'**
+  String get openBot;
+
+  /// No description provided for @openBotTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikoo bot on your phone'**
+  String get openBotTitle;
+
+  /// No description provided for @openBotHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone\'s camera to open the Shikoo bot.'**
+  String get openBotHelp;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

@@ -119,17 +119,24 @@ void openLink(
   );
 }
 
-/// `.qr-tile.sm`.
+/// `.qr-tile.sm`, or the TV's sign-in `.qr-tile` when [large]; [over] lies on a faded code.
 class QrTile extends StatelessWidget {
-  const QrTile({super.key, required this.data});
+  const QrTile({super.key, required this.data, this.large = false, this.over});
 
   final String data;
+  final bool large;
+  final Widget? over;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final over = this.over;
+    final code = CustomPaint(
+      size: Size.square(large ? t.s.qr : ShikooSizes.qrSm),
+      painter: _QrPainter(QrImage(QrCode(payload: QrPayload.fromString(data)))),
+    );
     return Container(
-      padding: const EdgeInsets.all(Space.s4),
+      padding: EdgeInsets.all(large ? Space.s8 : Space.s4),
       decoration: ShapeDecoration(
         color: ShikooColors.qrBg,
         shadows: t.c.cardShadow,
@@ -137,12 +144,15 @@ class QrTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.lg),
         ),
       ),
-      child: CustomPaint(
-        size: const Size.square(ShikooSizes.qrSm),
-        painter: _QrPainter(
-          QrImage(QrCode(payload: QrPayload.fromString(data))),
-        ),
-      ),
+      child: over == null
+          ? code
+          : Stack(
+              alignment: Alignment.center,
+              children: [
+                Opacity(opacity: 0.1, child: code),
+                over,
+              ],
+            ),
     );
   }
 }

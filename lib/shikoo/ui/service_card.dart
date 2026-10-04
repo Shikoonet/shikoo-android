@@ -60,11 +60,17 @@ class ServiceCard extends StatefulWidget {
     required this.state,
     required this.controller,
     required this.focus,
+    this.serviceId,
+    this.bot,
   });
 
   final ShikooState state;
   final ShikooController controller;
   final CardFocus focus;
+
+  /// The bot's id for the service, once sign-in brought it: renew opens that service alone.
+  final int? serviceId;
+  final String? bot;
 
   @override
   State<ServiceCard> createState() => _ServiceCardState();
@@ -199,15 +205,24 @@ class _ServiceCardState extends State<ServiceCard> {
                             icon: state.isTV ? ShikooIcon.qr : null,
                             primary: true,
                             focusNode: focus.renew,
-                            onPressed: () => openLink(
-                              context,
-                              isTV: state.isTV,
-                              link: ShikooLinks.renew,
-                              title: l.renewTitle,
-                              help: l.renewHelp,
-                              below: l.renewPickInList(service.username),
-                              strong: service.username,
-                            ),
+                            onPressed: () => switch (widget.serviceId) {
+                              final id? => openLink(
+                                context,
+                                isTV: state.isTV,
+                                link: ShikooLinks.renewOne(id, widget.bot),
+                                title: l.renewTitle,
+                                help: l.renewHelpDirect,
+                              ),
+                              null => openLink(
+                                context,
+                                isTV: state.isTV,
+                                link: ShikooLinks.renew,
+                                title: l.renewTitle,
+                                help: l.renewHelp,
+                                below: l.renewPickInList(service.username),
+                                strong: service.username,
+                              ),
+                            },
                           ),
                         ),
                         const SizedBox(width: Space.s2),

@@ -502,4 +502,231 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get pasteAnotherHelp => 'For another service you have';
+
+  @override
+  String get loginTagline => 'For Shikoo customers';
+
+  @override
+  String get loginTelegram => 'Sign in with Telegram';
+
+  @override
+  String get loginTelegramNote =>
+      'Telegram opens; tap “Approve” in the Shikoo bot.';
+
+  @override
+  String get noTelegramHere => 'No Telegram on this phone?';
+
+  @override
+  String get waitingTitle => 'No approval yet.';
+
+  @override
+  String get waitingHelp =>
+      'If Telegram only opens with a VPN, turn that on first, then open Telegram again.';
+
+  @override
+  String get reopenTelegram => 'Open Telegram again';
+
+  @override
+  String get approveElsewhere => 'Approve from another device';
+
+  @override
+  String get codeExpiredNote => 'This code has expired.';
+
+  @override
+  String get otherDeviceTitle => 'Approve from another device';
+
+  @override
+  String get otherDeviceScan =>
+      'Have another phone with Telegram? Scan this code with its camera.';
+
+  @override
+  String get otherDeviceComputer =>
+      'Telegram on a computer? Send this code to the Shikoo bot:';
+
+  @override
+  String get codeOnlyYou =>
+      'Only type this code in the bot yourself; never give it to anyone.';
+
+  @override
+  String get otherDeviceFine =>
+      'The code works for 10 minutes. After you approve in the bot, this screen goes home by itself.';
+
+  @override
+  String get tvLoginLead => 'Scan with your phone\'s camera and tap “Approve”';
+
+  @override
+  String get tvLoginVpnHint =>
+      'Telegram only opens with a VPN? Turn it on on your phone, then scan.';
+
+  @override
+  String get tvLoginComputer =>
+      'Telegram on a computer?\nSend this code to the bot:';
+
+  @override
+  String get codeLifetime => 'This code works for 10 minutes.';
+
+  @override
+  String get codeExpiredLead =>
+      '10 minutes passed and this code expired. Get a new one.';
+
+  @override
+  String get previousCode => 'Previous code';
+
+  @override
+  String get newCode => 'New code';
+
+  @override
+  String get codeExpiredOverlay => 'This code expired';
+
+  @override
+  String accountWithUsername(String name, String username) {
+    return '$name ($username)';
+  }
+
+  @override
+  String get approvedTitle => 'Signed in';
+
+  @override
+  String approvedBodyTv(String account) {
+    return 'This TV is now linked to the Telegram account $account, with these services:';
+  }
+
+  @override
+  String approvedBodyTouch(String account) {
+    return 'This phone is now linked to the Telegram account $account, with these services:';
+  }
+
+  @override
+  String get servicesComing => 'Your services are on their way…';
+
+  @override
+  String get continueButton => 'Continue';
+
+  @override
+  String get notMyAccount => 'This isn\'t my account';
+
+  @override
+  String get servicesFailedTitle => 'Your services didn\'t arrive';
+
+  @override
+  String servicesFailedBodyTv(String account) {
+    return 'You signed in with the Telegram account $account, but the list of services didn\'t come from the server. Check this TV\'s internet and try again.';
+  }
+
+  @override
+  String servicesFailedBodyTouch(String account) {
+    return 'You signed in with the Telegram account $account, but the list of services didn\'t come from the server. Check this phone\'s internet and try again.';
+  }
+
+  @override
+  String get retry => 'Try again';
+
+  @override
+  String get noServiceTitle => 'This account has no service';
+
+  @override
+  String noServiceBodyTouch(String account) {
+    return 'You signed in with the Telegram account $account, but no Shikoo service is linked to it.';
+  }
+
+  @override
+  String noServiceBodyTv(String account) {
+    return 'You signed in with the Telegram account $account, but no service is linked to it.';
+  }
+
+  @override
+  String get noServiceHelpTouch =>
+      'Is your service on another Telegram account? Switch to it in Telegram first, then tap “Use another account”.';
+
+  @override
+  String get noServiceHelpTv =>
+      'Is your service on another account? Switch to it in Telegram on your phone and scan again.';
+
+  @override
+  String get otherAccount => 'Use another account';
+
+  @override
+  String get askSupportLink => 'Think this is wrong? Ask Support';
+
+  @override
+  String get rejectedTitle => 'Sign-in declined';
+
+  @override
+  String get rejectedBodyTv =>
+      '“Decline” was tapped in Telegram, so this TV isn\'t linked. If that was a mistake, try again.';
+
+  @override
+  String get rejectedBodyTouch =>
+      '“Decline” was tapped in Telegram, so this phone isn\'t linked. If that was a mistake, try again.';
+
+  @override
+  String signedInWith(String name) {
+    return 'Signed in as $name';
+  }
+
+  @override
+  String get telegramAccount => 'Telegram account';
+
+  @override
+  String telegramAccountUsername(String username) {
+    return 'Telegram account $username';
+  }
+
+  @override
+  String get logoutHelpSignedInTouch =>
+      'Removes the services from this device; your subscriptions stay as they are.';
+
+  @override
+  String get logoutHelpSignedInTv =>
+      'Removes the services from this TV; your subscriptions stay as they are.';
+
+  @override
+  String get logoutSignedInTitle => 'Sign out?';
+
+  @override
+  String get logoutSignedInBodyTouch =>
+      'You\'ll be disconnected, this device will be unlinked from your Telegram account and the services removed from it. Your subscriptions stay as they are; sign in with Telegram again whenever you like.';
+
+  @override
+  String get logoutSignedInBodyTv =>
+      'You\'ll be disconnected, this TV will be unlinked from your Telegram account and the services removed from it. Your subscriptions stay as they are; sign in with Telegram again whenever you like.';
+
+  @override
+  String get signInRow => 'Sign in with Telegram';
+
+  @override
+  String get signInRowHelp =>
+      'You haven\'t signed in yet. Signing in brings all your services automatically.';
+
+  @override
+  String get renewHelpDirect =>
+      'Scan with your phone\'s camera; the Shikoo bot opens the renewal page of this service.';
+
+  @override
+  String get codeFailedTitle => 'No sign-in code came.';
+
+  @override
+  String get codeFailedHelp => 'Check the internet and try again.';
+
+  @override
+  String get gettingCode => 'Getting a code…';
+
+  @override
+  String waitingForBot(String name) {
+    return '“$name” isn\'t here yet.';
+  }
+
+  @override
+  String get waitingForBotHelp =>
+      'Open it once in the Shikoo bot so its link is made, then tap “Try again”.';
+
+  @override
+  String get openBot => 'Shikoo bot';
+
+  @override
+  String get openBotTitle => 'Shikoo bot on your phone';
+
+  @override
+  String get openBotHelp =>
+      'Scan with your phone\'s camera to open the Shikoo bot.';
 }

@@ -136,35 +136,49 @@ class Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final l = ShikooL10n.of(context);
-    final mark = t.s.mark;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: mark,
-          height: mark,
-          alignment: Alignment.center,
-          padding: EdgeInsets.only(bottom: mark * 0.1),
-          decoration: ShapeDecoration(
-            color: t.c.primary,
-            shape: RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(mark * Radii.markRatio),
-            ),
-          ),
-          child: Text(
-            l.brandMark,
-            style: t.text(
-              mark * 0.56,
-              weight: FontWeight.w800,
-              color: t.c.onPrimary,
-              height: 1,
-            ),
-          ),
-        ),
+        BrandMark(size: t.s.mark),
         const SizedBox(width: Space.s2),
-        Text(l.appTitle, style: t.text(t.s.title, weight: FontWeight.w800)),
+        Text(
+          ShikooL10n.of(context).appTitle,
+          style: t.text(t.s.title, weight: FontWeight.w800),
+        ),
       ],
+    );
+  }
+}
+
+/// `.mark`: the letter «ش» on the primary colour.
+class BrandMark extends StatelessWidget {
+  const BrandMark({super.key, required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      padding: EdgeInsets.only(bottom: size * 0.1),
+      decoration: ShapeDecoration(
+        color: t.c.primary,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(size * Radii.markRatio),
+        ),
+      ),
+      child: Text(
+        ShikooL10n.of(context).brandMark,
+        style: t.text(
+          size * 0.56,
+          weight: FontWeight.w800,
+          color: t.c.onPrimary,
+          height: 1,
+        ),
+      ),
     );
   }
 }
@@ -221,6 +235,8 @@ class ShikooButton extends StatelessWidget {
     this.busy = false,
     this.autofocus = false,
     this.focusNode,
+    this.telegram = false,
+    this.height,
   });
 
   final String label;
@@ -232,12 +248,24 @@ class ShikooButton extends StatelessWidget {
   final bool autofocus;
   final FocusNode? focusNode;
 
+  /// `.btn-telegram`: Telegram's blue, taller, the label large and bold.
+  final bool telegram;
+  final double? height;
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final radius = BorderRadius.circular(Radii.md);
-    final fg = primary ? t.c.onPrimary : (danger ? t.c.onDanger : t.c.text);
-    final fill = primary ? t.c.primary : (danger ? t.c.danger : null);
+    final fg = telegram
+        ? ShikooColors.onTelegram
+        : primary
+        ? t.c.onPrimary
+        : (danger ? t.c.onDanger : t.c.text);
+    final fill = telegram
+        ? ShikooColors.telegram
+        : primary
+        ? t.c.primary
+        : (danger ? t.c.danger : null);
     final icon = this.icon;
     return Pressable(
       shape: RoundedSuperellipseBorder(borderRadius: radius),
@@ -246,7 +274,7 @@ class ShikooButton extends StatelessWidget {
       onPressed: onPressed,
       // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
       builder: (context, focused) => Container(
-        height: t.s.button,
+        height: height ?? (telegram ? ShikooSizes.buttonLg : t.s.button),
         padding: const EdgeInsets.symmetric(horizontal: Space.s4),
         decoration: ShapeDecoration(
           color: fill ?? (focused ? t.c.focusBg : null),
@@ -278,7 +306,11 @@ class ShikooButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: t.text(t.s.body, weight: FontWeight.w700, color: fg),
+                style: t.text(
+                  telegram ? ShikooSizes.buttonLgText : t.s.body,
+                  weight: FontWeight.w700,
+                  color: fg,
+                ),
               ),
             ),
           ],
@@ -383,14 +415,16 @@ class MessageBox extends StatelessWidget {
             child: Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(
-                    text: strong,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: danger ? t.c.danger : t.c.text,
+                  if (strong.isNotEmpty)
+                    TextSpan(
+                      text: strong,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: danger ? t.c.danger : t.c.text,
+                      ),
                     ),
-                  ),
-                  if (rest.isNotEmpty) TextSpan(text: ' $rest'),
+                  if (rest.isNotEmpty)
+                    TextSpan(text: strong.isEmpty ? rest : ' $rest'),
                 ],
               ),
               style: t.text(t.s.bodySm, height: Leading.body),

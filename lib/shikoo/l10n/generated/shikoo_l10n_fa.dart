@@ -465,4 +465,229 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get pasteAnotherHelp => 'برای سرویس دیگری که داری';
+
+  @override
+  String get loginTagline => 'مخصوص مشتری‌های شیکو';
+
+  @override
+  String get loginTelegram => 'ورود با تلگرام';
+
+  @override
+  String get loginTelegramNote =>
+      'تلگرام باز می‌شود؛ در ربات شیکو «تأیید» را بزن.';
+
+  @override
+  String get noTelegramHere => 'تلگرام روی این گوشی نیست؟';
+
+  @override
+  String get waitingTitle => 'هنوز «تأیید» نرسیده.';
+
+  @override
+  String get waitingHelp =>
+      'اگر تلگرامت فقط با فیلترشکن باز می‌شود، اول آن را روشن کن، بعد دوباره تلگرام را باز کن.';
+
+  @override
+  String get reopenTelegram => 'باز کردن دوبارهٔ تلگرام';
+
+  @override
+  String get approveElsewhere => 'از دستگاه دیگری تأیید کن';
+
+  @override
+  String get codeExpiredNote => 'این کد تمام شد.';
+
+  @override
+  String get otherDeviceTitle => 'تأیید از دستگاه دیگر';
+
+  @override
+  String get otherDeviceScan =>
+      'گوشی دیگری با تلگرام داری؟ این کد تصویری را با دوربینش اسکن کن.';
+
+  @override
+  String get otherDeviceComputer =>
+      'تلگرامت روی کامپیوتر است؟ این کد را برای ربات شیکو بفرست:';
+
+  @override
+  String get codeOnlyYou => 'این کد را فقط خودت در ربات بزن؛ به هیچ‌کس نده.';
+
+  @override
+  String get otherDeviceFine =>
+      'کد ۱۰ دقیقه کار می‌کند. بعد از «تأیید» در ربات، این صفحه خودش به خانه می‌رود.';
+
+  @override
+  String get tvLoginLead => 'با دوربین گوشی اسکن کن و «تأیید» را بزن';
+
+  @override
+  String get tvLoginVpnHint =>
+      'تلگرامت فقط با فیلترشکن باز می‌شود؟ روی گوشی روشنش کن، بعد اسکن کن.';
+
+  @override
+  String get tvLoginComputer =>
+      'تلگرامت روی کامپیوتر است؟\nاین کد را برای ربات بفرست:';
+
+  @override
+  String get codeLifetime => 'این کد ۱۰ دقیقه کار می‌کند.';
+
+  @override
+  String get codeExpiredLead =>
+      '۱۰ دقیقه گذشت و این کد تمام شد. یک کد تازه بگیر.';
+
+  @override
+  String get previousCode => 'کد قبلی';
+
+  @override
+  String get newCode => 'کد تازه';
+
+  @override
+  String get codeExpiredOverlay => 'این کد تمام شد';
+
+  @override
+  String accountWithUsername(String name, String username) {
+    return '$name ($username)';
+  }
+
+  @override
+  String get approvedTitle => 'ورود انجام شد';
+
+  @override
+  String approvedBodyTv(String account) {
+    return 'این تلویزیون به حساب تلگرامِ $account وصل شد، با این سرویس‌ها:';
+  }
+
+  @override
+  String approvedBodyTouch(String account) {
+    return 'این گوشی به حساب تلگرامِ $account وصل شد، با این سرویس‌ها:';
+  }
+
+  @override
+  String get servicesComing => 'سرویس‌هایت دارند می‌آیند…';
+
+  @override
+  String get continueButton => 'ادامه';
+
+  @override
+  String get notMyAccount => 'این حساب من نیست';
+
+  @override
+  String get servicesFailedTitle => 'سرویس‌ها نرسیدند';
+
+  @override
+  String servicesFailedBodyTv(String account) {
+    return 'ورود با حساب تلگرامِ $account انجام شد، ولی فهرست سرویس‌ها از سرور نرسید. اینترنت این تلویزیون را بررسی کن و دوباره امتحان کن.';
+  }
+
+  @override
+  String servicesFailedBodyTouch(String account) {
+    return 'ورود با حساب تلگرامِ $account انجام شد، ولی فهرست سرویس‌ها از سرور نرسید. اینترنت این گوشی را بررسی کن و دوباره امتحان کن.';
+  }
+
+  @override
+  String get retry => 'دوباره';
+
+  @override
+  String get noServiceTitle => 'این حساب سرویسی ندارد';
+
+  @override
+  String noServiceBodyTouch(String account) {
+    return 'با حساب تلگرامِ $account وارد شدی، ولی هیچ سرویس شیکو به آن وصل نیست.';
+  }
+
+  @override
+  String noServiceBodyTv(String account) {
+    return 'با حساب تلگرامِ $account وارد شدی، ولی سرویسی به آن وصل نیست.';
+  }
+
+  @override
+  String get noServiceHelpTouch =>
+      'سرویست روی حساب تلگرام دیگری است؟ اول در خودِ تلگرام به همان حساب برو، بعد «ورود با حساب دیگر» را بزن.';
+
+  @override
+  String get noServiceHelpTv =>
+      'سرویست روی حساب دیگری است؟ در تلگرامِ گوشی به همان حساب برو و دوباره اسکن کن.';
+
+  @override
+  String get otherAccount => 'ورود با حساب دیگر';
+
+  @override
+  String get askSupportLink => 'فکر می‌کنی اشتباه شده؟ از پشتیبانی بپرس';
+
+  @override
+  String get rejectedTitle => 'ورود رد شد';
+
+  @override
+  String get rejectedBodyTv =>
+      'در تلگرام «رد» زده شد، پس این تلویزیون وصل نشد. اگر اشتباهی بود، دوباره امتحان کن.';
+
+  @override
+  String get rejectedBodyTouch =>
+      'در تلگرام «رد» زده شد، پس این گوشی وصل نشد. اگر اشتباهی بود، دوباره امتحان کن.';
+
+  @override
+  String signedInWith(String name) {
+    return 'وارد شده با $name';
+  }
+
+  @override
+  String get telegramAccount => 'حساب تلگرام';
+
+  @override
+  String telegramAccountUsername(String username) {
+    return 'حساب تلگرامِ $username';
+  }
+
+  @override
+  String get logoutHelpSignedInTouch =>
+      'سرویس‌ها از این دستگاه برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.';
+
+  @override
+  String get logoutHelpSignedInTv =>
+      'سرویس‌ها از این تلویزیون برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.';
+
+  @override
+  String get logoutSignedInTitle => 'از حساب خارج می‌شوی؟';
+
+  @override
+  String get logoutSignedInBodyTouch =>
+      'اتصال قطع می‌شود، این دستگاه از حساب تلگرامت جدا می‌شود و سرویس‌ها از آن برداشته می‌شوند. خودِ اشتراک‌هایت سر جایشان‌اند؛ هر وقت خواستی، دوباره با تلگرام وارد شو.';
+
+  @override
+  String get logoutSignedInBodyTv =>
+      'اتصال قطع می‌شود، این تلویزیون از حساب تلگرامت جدا می‌شود و سرویس‌ها از آن برداشته می‌شوند. خودِ اشتراک‌هایت سر جایشان‌اند؛ هر وقت خواستی، دوباره با تلگرام وارد شو.';
+
+  @override
+  String get signInRow => 'ورود با تلگرام';
+
+  @override
+  String get signInRowHelp =>
+      'هنوز وارد نشده‌ای. با ورود، همهٔ سرویس‌هایت خودکار می‌آیند.';
+
+  @override
+  String get renewHelpDirect =>
+      'با دوربین گوشی اسکن کن؛ ربات شیکو صفحهٔ تمدیدِ همین سرویس را باز می‌کند.';
+
+  @override
+  String get codeFailedTitle => 'کد ورود نرسید.';
+
+  @override
+  String get codeFailedHelp => 'اینترنت را بررسی کن و دوباره بزن.';
+
+  @override
+  String get gettingCode => 'در حال گرفتن کد…';
+
+  @override
+  String waitingForBot(String name) {
+    return '«$name» هنوز این‌جا نیست.';
+  }
+
+  @override
+  String get waitingForBotHelp =>
+      'یک بار در ربات شیکو بازش کن تا لینکش ساخته شود، بعد «دوباره» را بزن.';
+
+  @override
+  String get openBot => 'ربات شیکو';
+
+  @override
+  String get openBotTitle => 'ربات شیکو با گوشی';
+
+  @override
+  String get openBotHelp => 'با دوربین گوشی اسکن کن تا ربات شیکو باز شود.';
 }

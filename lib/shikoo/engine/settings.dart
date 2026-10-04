@@ -4,10 +4,27 @@ import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract final class ShikooLinks {
-  // ponytail: the services list; rnw_<id> once Telegram sign-in gives the bot's service id.
-  static const renew = 'https://t.me/shikoonet_bot?start=renew';
+  static const bot = 'shikoonet_bot';
+  static const renew = 'https://t.me/$bot?start=renew';
   static const support = 'https://t.me/admiinturbo';
+
+  /// [bot] as the server names it, so a test bot's sign-in renews in the test bot.
+  static String renewOne(int serviceId, String? bot) =>
+      'https://t.me/${bot ?? ShikooLinks.bot}?start=rnw_$serviceId';
+
+  static String openBot(String? bot) =>
+      'https://t.me/${bot ?? ShikooLinks.bot}';
 }
+
+// ponytail: Sam picks the app API's domains; the empty second one is the backup for when the
+// first is blocked. A test build points both at one server with --dart-define=SHIKOO_API=<url>.
+const _apiBases = ['https://app.chopon.uk', ''];
+const _apiOverride = String.fromEnvironment('SHIKOO_API');
+
+final shikooApiBases = [
+  for (final base in _apiOverride.isEmpty ? _apiBases : const [_apiOverride])
+    if (base.isNotEmpty) base,
+];
 
 /// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.
 String? usableLink(String? url) {

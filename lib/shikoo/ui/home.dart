@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
@@ -34,17 +37,32 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   Widget build(BuildContext context) {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
+    final account = ref.watch(shikooAccountProvider);
     final t = ShikooTheme.of(context);
     final power = _PowerZone(
       state: state,
       controller: controller,
       focusNode: _power,
     );
-    final card = ServiceCard(
+    final waiting = account.waitingForBot.isEmpty
+        ? null
+        : _WaitingForBot(services: account.waitingForBot, bot: account.bot);
+    final service = ServiceCard(
       state: state,
       controller: controller,
       focus: _card,
+      serviceId: account.serviceOf(state.service?.profileId),
+      bot: account.bot,
     );
+    Widget card(Widget service) => waiting == null
+        ? service
+        : state.service == null
+        ? waiting
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: Space.s3,
+            children: [waiting, service],
+          );
     final towardCard = state.selected ?? state.servers.firstOrNull?.name;
     return Scaffold(
       backgroundColor: t.c.bg,
@@ -58,9 +76,11 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                     row: towardCard == null ? null : _card.row(towardCard),
                     child: power,
                   ),
-                  card: _CardKeys(focus: _card, power: _power, child: card),
+                  card: card(
+                    _CardKeys(focus: _card, power: _power, child: service),
+                  ),
                 )
-              : _PhoneLayout(power: power, card: card),
+              : _PhoneLayout(power: power, card: card(service)),
         ),
       ),
     );
@@ -432,4 +452,75 @@ class _PowerZone extends StatelessWidget {
 
   static double _twoLines(BuildContext context, ShikooTheme t) =>
       2 * MediaQuery.textScalerOf(context).scale(t.s.bodySm) * Leading.tight;
+}
+
+/// Services of the account whose link the bot makes the first time it opens them there.
+class _WaitingForBot extends ConsumerWidget {
+  const _WaitingForBot({required this.services, required this.bot});
+
+  final List<LinkedService> services;
+  final String? bot;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final isTV = ref.watch(shikooStateProvider.select((s) => s.isTV));
+    return Container(
+      padding: const EdgeInsets.all(Space.s4),
+      decoration: ShapeDecoration(
+        color: t.c.surface,
+        shadows: t.c.cardShadow,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s2,
+        children: [
+          for (final service in services)
+            Text(
+              l.waitingForBot(service.title),
+              style: t.text(t.s.title, weight: FontWeight.w700),
+            ),
+          Text(
+            l.waitingForBotHelp,
+            style: t.text(
+              t.s.bodySm,
+              color: t.c.textMuted,
+              height: Leading.body,
+            ),
+          ),
+          Row(
+            spacing: Space.s2,
+            children: [
+              Expanded(
+                child: ShikooButton(
+                  label: l.openBot,
+                  icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
+                  primary: true,
+                  onPressed: () => openLink(
+                    context,
+                    isTV: isTV,
+                    link: ShikooLinks.openBot(bot),
+                    title: l.openBotTitle,
+                    help: l.openBotHelp,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ShikooButton(
+                  label: l.retry,
+                  icon: ShikooIcon.refresh,
+                  onPressed: () =>
+                      unawaited(ref.read(shikooSignInProvider).sync()),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

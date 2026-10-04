@@ -8,10 +8,11 @@ import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
-import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/services.dart';
@@ -65,6 +66,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       await bootstrap.attach();
       _attached = true;
       ref.read(shikooControllerProvider).onForeground();
+      ref.read(shikooSignInProvider).onForeground();
       if (_debugLinks) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
   }
@@ -74,9 +76,13 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_attached) return;
-    final controller = ref.read(shikooControllerProvider)
-      ..foreground = state == AppLifecycleState.resumed;
-    if (state == AppLifecycleState.resumed) controller.onForeground();
+    final resumed = state == AppLifecycleState.resumed;
+    final controller = ref.read(shikooControllerProvider)..foreground = resumed;
+    final signIn = ref.read(shikooSignInProvider)..foreground = resumed;
+    if (resumed) {
+      controller.onForeground();
+      signIn.onForeground();
+    }
     if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
@@ -147,7 +153,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
           ),
         );
       },
-      home: const ShikooHome(),
+      home: const ShikooRoot(),
     );
   }
 }
