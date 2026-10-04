@@ -466,6 +466,10 @@ class ShikooL10nEn extends ShikooL10n {
   String get noServiceHelp => 'Ask Support to bring it back.';
 
   @override
+  String get noServiceHelpTouch =>
+      'Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support.';
+
+  @override
   String get pasteLink => 'Paste subscription link';
 
   @override

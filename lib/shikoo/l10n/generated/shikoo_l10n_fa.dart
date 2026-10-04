@@ -429,6 +429,10 @@ class ShikooL10nFa extends ShikooL10n {
   String get noServiceHelp => 'برای برگرداندنش از «پشتیبانی» بپرس.';
 
   @override
+  String get noServiceHelpTouch =>
+      'لینک اشتراکت را کپی کن، بعد «چسباندن لینک اشتراک» را بزن.\nلینک نداری؟ از «پشتیبانی» بپرس.';
+
+  @override
   String get pasteLink => 'چسباندن لینک اشتراک';
 
   @override

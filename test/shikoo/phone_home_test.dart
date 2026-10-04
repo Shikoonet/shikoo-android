@@ -260,10 +260,19 @@ void main() {
     await _pump(tester, _noService, controller: controller);
     expect(reads(), 0);
     expect(
-      tester.getTopLeft(find.text('پشتیبانی')).dy,
-      lessThan(tester.getTopLeft(find.text('چسباندن لینک اشتراک')).dy),
-      reason: 'paste is the second button',
+      tester.getTopLeft(find.text('چسباندن لینک اشتراک')).dy,
+      lessThan(tester.getTopLeft(find.text('پشتیبانی')).dy),
+      reason: 'paste leads, Support follows',
     );
+    expect(
+      tester
+          .widget<ShikooButton>(
+            find.widgetWithText(ShikooButton, 'چسباندن لینک اشتراک'),
+          )
+          .primary,
+      isTrue,
+    );
+    expect(find.textContaining('«چسباندن لینک اشتراک» را بزن'), findsOneWidget);
 
     await tester.tap(find.text('چسباندن لینک اشتراک'));
     await tester.pump();

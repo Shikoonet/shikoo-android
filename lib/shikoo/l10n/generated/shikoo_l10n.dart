@@ -746,6 +746,12 @@ abstract class ShikooL10n {
   /// **'Ask Support to bring it back.'**
   String get noServiceHelp;
 
+  /// No description provided for @noServiceHelpTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support.'**
+  String get noServiceHelpTouch;
+
   /// No description provided for @pasteLink.
   ///
   /// In en, this message translates to:

@@ -158,6 +158,7 @@
   "noServiceTitleTv": "No service on this TV",
   "noServiceTitleTouch": "No service on this phone",
   "noServiceHelp": "Ask Support to bring it back.",
+  "noServiceHelpTouch": "Copy your subscription link, then tap “Paste subscription link”.\nNo link? Ask Support.",
   "pasteLink": "Paste subscription link",
   "pasteChecking": "Checking the link…",
   "pasteEmptyTitle": "The clipboard is empty.",

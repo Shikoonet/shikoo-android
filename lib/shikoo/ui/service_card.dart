@@ -109,7 +109,7 @@ class _ServiceCardState extends State<ServiceCard> {
                 Padding(
                   padding: inset.copyWith(top: Space.s2),
                   child: Text(
-                    l.noServiceHelp,
+                    state.isTV ? l.noServiceHelp : l.noServiceHelpTouch,
                     style: t.text(
                       t.s.bodySm,
                       color: t.c.textMuted,
@@ -123,6 +123,16 @@ class _ServiceCardState extends State<ServiceCard> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     spacing: Space.s3,
                     children: [
+                      if (!state.isTV)
+                        PasteLink(
+                          builder: (context, busy, paste) => ShikooButton(
+                            label: busy ? l.pasteChecking : l.pasteLink,
+                            icon: ShikooIcon.paste,
+                            primary: true,
+                            busy: busy,
+                            onPressed: paste,
+                          ),
+                        ),
                       ShikooButton(
                         label: l.support,
                         icon: state.isTV ? ShikooIcon.qr : null,
@@ -134,15 +144,6 @@ class _ServiceCardState extends State<ServiceCard> {
                           help: l.supportHelp,
                         ),
                       ),
-                      if (!state.isTV)
-                        PasteLink(
-                          builder: (context, busy, paste) => ShikooButton(
-                            label: busy ? l.pasteChecking : l.pasteLink,
-                            icon: ShikooIcon.paste,
-                            busy: busy,
-                            onPressed: paste,
-                          ),
-                        ),
                     ],
                   ),
                 ),
