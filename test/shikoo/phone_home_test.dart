@@ -451,4 +451,31 @@ void main() {
       915,
     );
   });
+
+  testWidgets('a folded card opens with a tap anywhere but its update button', (
+    tester,
+  ) async {
+    final controller = _Controller();
+    when(controller.refreshService).thenAnswer((_) async {});
+    await _pump(tester, _phone(), controller: controller);
+    await tester.tap(_icon(ShikooIcon.chevronUp));
+    await tester.pumpAndSettle();
+    expect(find.byType(FoldedServiceCard), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('به‌روزرسانی سرورها'));
+    await tester.pumpAndSettle();
+    verify(controller.refreshService).called(1);
+    expect(find.byType(FoldedServiceCard), findsOneWidget, reason: 'update');
+
+    await tester.tap(find.textContaining('مصرف شده', findRichText: true));
+    await tester.pumpAndSettle();
+    expect(find.byType(FoldedServiceCard), findsNothing);
+    expect(find.byType(ServerRow), findsNWidgets(3));
+
+    await tester.tap(_icon(ShikooIcon.chevronUp));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('user123 · الماس'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerRow), findsNWidgets(3), reason: 'the name');
+  });
 }

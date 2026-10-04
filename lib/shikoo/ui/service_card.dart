@@ -80,8 +80,16 @@ class _ServiceCardState extends State<ServiceCard> {
     final ServiceCard(:state, :controller, :focus) = widget;
     final service = state.service;
     final notice = state.notice;
-    final open = _open || state.isTV;
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
+    if (service != null && !_open && !state.isTV) {
+      return FoldedServiceCard(
+        service: service,
+        refresh: state.refresh,
+        isTV: false,
+        onOpen: () => setState(() => _open = true),
+        onRefresh: () => unawaited(controller.refreshService()),
+      );
+    }
     return Container(
       padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
       decoration: ShapeDecoration(
@@ -165,80 +173,163 @@ class _ServiceCardState extends State<ServiceCard> {
                       refresh: state.refresh,
                       onRefresh: () => unawaited(controller.refreshService()),
                       isTV: state.isTV,
-                      open: open,
-                      onFold: () => setState(() => _open = !_open),
+                      open: true,
+                      onFold: () => setState(() => _open = false),
                     ),
                   ),
                 ),
-                if (!open)
+                if (notice != null)
                   Padding(
                     padding: inset,
-                    child: _Summary(service: service),
-                  )
-                else ...[
-                  if (notice != null)
-                    Padding(
-                      padding: inset,
-                      child: _Message(notice: notice, isTV: state.isTV),
-                    ),
-                  if (service.usageKnown)
-                    Padding(
-                      padding: inset,
-                      child: _Usage(service: service),
-                    ),
-                  if (service.announce != null)
-                    Padding(
-                      padding: inset,
-                      child: _Notice(text: service.announce!),
-                    ),
+                    child: _Message(notice: notice, isTV: state.isTV),
+                  ),
+                if (service.usageKnown)
                   Padding(
-                    padding: inset.copyWith(top: Space.s3),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ShikooButton(
-                            label: l.renew,
-                            icon: state.isTV ? ShikooIcon.qr : null,
-                            primary: true,
-                            focusNode: focus.renew,
-                            onPressed: () => openLink(
-                              context,
-                              isTV: state.isTV,
-                              link: ShikooLinks.renew,
-                              title: l.renewTitle,
-                              help: l.renewHelp,
-                              below: l.renewPickInList(service.username),
-                              strong: service.username,
-                            ),
+                    padding: inset,
+                    child: _Usage(service: service),
+                  ),
+                if (service.announce != null)
+                  Padding(
+                    padding: inset,
+                    child: _Notice(text: service.announce!),
+                  ),
+                Padding(
+                  padding: inset.copyWith(top: Space.s3),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ShikooButton(
+                          label: l.renew,
+                          icon: state.isTV ? ShikooIcon.qr : null,
+                          primary: true,
+                          focusNode: focus.renew,
+                          onPressed: () => openLink(
+                            context,
+                            isTV: state.isTV,
+                            link: ShikooLinks.renew,
+                            title: l.renewTitle,
+                            help: l.renewHelp,
+                            below: l.renewPickInList(service.username),
+                            strong: service.username,
                           ),
                         ),
-                        const SizedBox(width: Space.s2),
-                        Expanded(
-                          child: ShikooButton(
-                            label: l.support,
-                            icon: state.isTV ? ShikooIcon.qr : null,
-                            onPressed: () => openLink(
-                              context,
-                              isTV: state.isTV,
-                              link: service.supportLink,
-                              title: l.supportTitle,
-                              help: l.supportHelp,
-                              below: service.name,
-                            ),
+                      ),
+                      const SizedBox(width: Space.s2),
+                      Expanded(
+                        child: ShikooButton(
+                          label: l.support,
+                          icon: state.isTV ? ShikooIcon.qr : null,
+                          onPressed: () => openLink(
+                            context,
+                            isTV: state.isTV,
+                            link: service.supportLink,
+                            title: l.supportTitle,
+                            help: l.supportHelp,
+                            below: service.name,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  _ServerList(
-                    state: state,
-                    controller: controller,
-                    focus: focus,
-                  ),
-                ],
+                ),
+                _ServerList(state: state, controller: controller, focus: focus),
               ],
       ),
     );
+  }
+}
+
+/// A folded `.card.svc` (phone-home-long, tv-home-long): the head and `.svc-summary`. On the
+/// phone a tap anywhere but the update button opens it; on the TV the whole card is one item.
+class FoldedServiceCard extends StatelessWidget {
+  const FoldedServiceCard({
+    super.key,
+    required this.service,
+    required this.refresh,
+    required this.isTV,
+    required this.onOpen,
+    this.onRefresh,
+  });
+
+  final ShikooService service;
+  final ShikooRefresh refresh;
+  final bool isTV;
+  final VoidCallback onOpen;
+  final VoidCallback? onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    const inset = EdgeInsets.symmetric(horizontal: Space.s4);
+    final shape = RoundedSuperellipseBorder(
+      borderRadius: BorderRadius.circular(Radii.lg),
+    );
+    final head = isTV
+        ? Row(
+            spacing: Space.s2,
+            children: [
+              Expanded(
+                child: nameText(
+                  context,
+                  service.name,
+                  t.text(
+                    t.s.title,
+                    weight: FontWeight.w700,
+                    height: Leading.snug,
+                  ),
+                ),
+              ),
+              if (service.usageKnown)
+                StatusChip(status: service.statusAt(DateTime.now())),
+              SvgIcon(
+                ShikooIcon.chevronDown,
+                size: t.s.icon,
+                color: t.c.textMuted,
+              ),
+            ],
+          )
+        : _Head(
+            service: service,
+            refresh: refresh,
+            onRefresh: onRefresh ?? () {},
+            isTV: false,
+            open: false,
+            onFold: onOpen,
+          );
+    Widget card(bool focused) => Container(
+      padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
+      decoration: ShapeDecoration(
+        color: focused ? t.c.focusBg : t.c.surface,
+        shadows: focused ? t.c.raisedShadow : t.c.cardShadow,
+        shape: shape,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: isTV
+                ? inset
+                : const EdgeInsetsDirectional.only(start: Space.s4),
+            child: head,
+          ),
+          Padding(
+            padding: inset,
+            child: _Summary(service: service),
+          ),
+        ],
+      ),
+    );
+    return isTV
+        ? Pressable(
+            shape: shape,
+            onPressed: onOpen,
+            builder: (context, focused) => card(focused),
+          )
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onOpen,
+            child: card(false),
+          );
   }
 }
 
