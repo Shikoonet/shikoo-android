@@ -1076,6 +1076,7 @@ class _LinkButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final onPressed = this.onPressed;
+    final ink = onPressed == null ? t.c.textMuted : t.c.text;
     Widget text() => Container(
       constraints: const BoxConstraints(minHeight: ShikooSizes.touch),
       padding: const EdgeInsets.symmetric(horizontal: Space.s3),
@@ -1084,12 +1085,11 @@ class _LinkButton extends StatelessWidget {
         label,
         textAlign: TextAlign.center,
         style: t
-            .text(
-              t.s.bodySm,
-              weight: FontWeight.w700,
-              color: onPressed == null ? t.c.textMuted : t.c.text,
-            )
-            .copyWith(decoration: TextDecoration.underline),
+            .text(t.s.bodySm, weight: FontWeight.w700, color: ink)
+            .copyWith(
+              decoration: TextDecoration.underline,
+              decorationColor: ink,
+            ),
       ),
     );
     return Center(

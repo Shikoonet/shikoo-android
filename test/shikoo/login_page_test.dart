@@ -351,6 +351,7 @@ void main() {
     );
     final link = tester.widget<Text>(find.text('تلگرام روی این گوشی نیست؟'));
     expect(link.style?.color, ShikooColors.light.textMuted);
+    expect(link.style?.decorationColor, ShikooColors.light.textMuted);
 
     container.read(shikooLoginProvider.notifier).set(null);
     await tester.pumpAndSettle();
