@@ -240,6 +240,7 @@ final _refreshProvider = _cell(ShikooRefresh.idle);
 final _othersRefreshProvider = _cell<Map<int, ShikooRefresh>>(const {});
 final _freshProvider = _cell<Set<String>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
+final _hiddenProvider = _cell<String?>(null);
 
 /// The tunnel's real start; FlClash's run time starts at the press, before the consent dialog.
 final _nativeStartProvider = _cell<DateTime?>(null);
@@ -376,7 +377,10 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final chosen = group == null
       ? null
       : ref.watch(selectedMapProvider)[group.name];
-  final selected = byName.containsKey(chosen) ? chosen : null;
+  final selected =
+      byName.containsKey(chosen) && chosen != ref.watch(_hiddenProvider)
+      ? chosen
+      : null;
   final servers = [
     for (final name in keepOrder(ref.watch(_orderProvider), [...byName.keys]))
       ShikooServer(
@@ -499,8 +503,7 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
   }
 }
 
-/// Never the core's fallback, row 1 (the version row in a real subscription): with the tunnel
-/// up or connect pressed, the first server that answers; otherwise the fastest at round end.
+/// Never row 1, the core's fallback: with connect pressed the first answer, else the fastest.
 String? pickNow({
   required List<String> names,
   required int? Function(String name) ping,
@@ -526,8 +529,13 @@ class ShikooController {
       ),
       (previous, list) {
         final (service, names) = list;
+        final switched = previous?.$1 != null && previous!.$1 != service;
+        if (switched) _quiet = true;
         if (service != null && names.isNotEmpty && list != previous) {
-          scheduleMicrotask(pingAll);
+          scheduleMicrotask(() {
+            if (switched) _hide(null);
+            pingAll();
+          });
         }
       },
       fireImmediately: true,
@@ -564,6 +572,8 @@ class ShikooController {
   String _roundKey = '';
   bool _again = false;
   DateTime? _lastRound;
+
+  bool _quiet = false;
 
   /// The selection an update just took away, for the notice that names it.
   String? _removed;
@@ -609,6 +619,11 @@ class ShikooController {
 
   void _notice(ShikooNotice? notice) =>
       _ref.read(_noticeProvider.notifier).set(notice);
+
+  void _hide(String? name) => _ref.read(_hiddenProvider.notifier).set(name);
+
+  String get _listKey =>
+      '${_ref.read(currentProfileIdProvider)}\n${_sorted(_names(_group))}';
 
   /// News leaves with the app or the next update; a failed update stays until one succeeds.
   void clearNews() {
@@ -708,6 +723,7 @@ class ShikooController {
   /// The user's choice, which the app never replaces.
   Future<void> selectServer(String name) async {
     _pickedByApp(null);
+    _hide(null);
     if (_ref.read(_noticeProvider)
         case SilentReplaced() || SelectedReplaced()) {
       _notice(null);
@@ -744,17 +760,14 @@ class ShikooController {
     final running = _running;
     final waiting = _ref.read(_intentProvider).waiting;
     final pinging = _pinging || _again;
-    // Connect pressed while finding takes this round's first answer, not the round before's best;
-    // with the tunnel up the old best beats the core's fallback, row 1.
-    final pending = running
-        ? const <String>{}
-        : _ref.read(_roundProvider).pending;
+    // Connect pressed while finding takes this round's first answer, not the round before's best.
+    final pending = _ref.read(_roundProvider).pending;
     int? ping(String name) => pending.contains(name) ? null : _ping(name);
     final best = pickNow(
       names: names,
       ping: ping,
       pinging: pinging,
-      urgent: running || waiting,
+      urgent: waiting,
     );
     if (best == null) {
       if (!pinging && waiting) _set(const _Intent(error: ShikooError.noServer));
@@ -780,7 +793,7 @@ class ShikooController {
   Future<void> pingAll() async {
     final group = _group;
     final names = _names(group);
-    final key = '${_ref.read(currentProfileIdProvider)}\n${_sorted(names)}';
+    final key = _listKey;
     if (_pinging) {
       _again |= key != _roundKey;
       return;
@@ -792,13 +805,18 @@ class ShikooController {
     final url = _testUrl(group);
     try {
       await pingServers(names, (name) => _probe(url, name), (name, ms) {
-        _setPing(name, ms);
+        final gone = key != _listKey;
+        if (!gone) _setPing(name, ms);
         final now = _ref.read(_roundProvider);
         round.set((
           pending: {...now.pending}..remove(name),
           total: now.total,
           ended: false,
         ));
+        if (gone) return;
+        if (ms < 0 && _quiet && name == _appPick && name == _validSelection()) {
+          _hide(name);
+        }
         if (ms > 0) {
           if (_ref.read(_intentProvider).error == ShikooError.noServer) {
             _set(const _Intent());
@@ -808,13 +826,20 @@ class ShikooController {
       });
     } finally {
       _lastRound = DateTime.now();
-      _sort();
-      round.set((pending: const <String>{}, total: 0, ended: true));
-      unawaited(_replaceSilentPick());
-      _reconcile();
+      const ended = (pending: <String>{}, total: 0, ended: true);
       if (_again) {
         _again = false;
+        round.set(ended);
         unawaited(pingAll());
+      } else {
+        _sort();
+        round.set(ended);
+        final quiet = _quiet;
+        _quiet = false;
+        unawaited(
+          _replaceSilentPick(quiet: quiet).whenComplete(() => _hide(null)),
+        );
+        _reconcile();
       }
     }
   }
@@ -840,7 +865,7 @@ class ShikooController {
     _ref.read(_orderProvider.notifier).set(sortByPing(_names(group), _ping));
   }
 
-  Future<void> _replaceSilentPick() async {
+  Future<void> _replaceSilentPick({bool quiet = false}) async {
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
@@ -852,7 +877,11 @@ class ShikooController {
     if (best == null) return;
     _pickedByApp(best);
     unawaited(_choose(best));
-    _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
+    if (!quiet) {
+      _notice(
+        SilentReplaced(silent: chosen, replacement: best, moved: _running),
+      );
+    }
   }
 
   /// WireGuard pings can fail while it carries traffic, so real traffic decides for the selection.
