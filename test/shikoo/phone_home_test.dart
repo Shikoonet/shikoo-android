@@ -881,4 +881,119 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('a pasted link the panel no longer knows: its chip, the message, '
+      'remove and support, and nothing of the old usage', (tester) async {
+    final controller = _Controller();
+    when(() => controller.removeService(any())).thenAnswer((_) async {});
+    const revoked = ShikooService(
+      id: 4,
+      name: 'user456 · طلایی',
+      usedBytes: 1,
+      totalBytes: 100,
+      pasted: true,
+      revoked: true,
+    );
+    await _pump(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        selected: 'آلمان ۲',
+        service: revoked,
+        others: [revoked],
+      ),
+      controller: controller,
+    );
+    expect(
+      find.text('لینک باطل شده'),
+      findsNWidgets(3),
+      reason: 'chips, button',
+    );
+    expect(
+      find.textContaining('این لینک باطل شده.', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.textContaining('باقی‌مانده', findRichText: true), findsNothing);
+    expect(find.byType(ServerRow), findsNothing);
+    expect(find.widgetWithText(ShikooButton, 'تمدید'), findsNothing);
+    expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
+    expect(
+      find.text(
+        'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» '
+        'بچسبان.',
+      ),
+      findsOneWidget,
+      reason: 'the folded card',
+    );
+    await tester.tap(find.widgetWithText(ShikooButton, 'حذف'));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف «\u2068user456 · طلایی\u2069»؟'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ShikooButton, 'حذف').last);
+    await tester.pumpAndSettle();
+    verify(() => controller.removeService(4)).called(1);
+  });
+
+  testWidgets('Settings list only the pasted services, each with remove, and '
+      'removing the connected one says it disconnects', (tester) async {
+    final controller = _Controller();
+    when(() => controller.removeService(any())).thenAnswer((_) async {});
+    await _pump(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        selected: 'آلمان ۲',
+        service: const ShikooService(
+          id: 1,
+          name: 'user123 · الماس',
+          usedBytes: 1,
+          totalBytes: 100,
+          pasted: true,
+        ),
+        others: [
+          ShikooService(
+            id: 2,
+            name: 'user456 · طلایی',
+            usedBytes: 1,
+            totalBytes: 100,
+            expire: DateTime(2020),
+            pasted: true,
+          ),
+          const ShikooService(
+            id: 3,
+            name: 'user789 · معمولی',
+            usedBytes: 1,
+            totalBytes: 100,
+          ),
+        ],
+      ),
+      controller: controller,
+    );
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    expect(find.text('سرویس‌های اضافه‌شده با لینک'), findsOneWidget);
+    expect(find.text('user123 · الماس'), findsOneWidget);
+    expect(find.text('تاریخ انقضا گذشته'), findsOneWidget);
+    expect(find.text('user789 · معمولی'), findsNothing, reason: 'not pasted');
+    expect(find.bySemanticsLabel('حذف user123 · الماس'), findsOneWidget);
+
+    await tester.tap(find.text('حذف').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('اتصال قطع می‌شود و این سرویس'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ShikooButton, 'انصراف'));
+    await tester.pumpAndSettle();
+    verifyNever(() => controller.removeService(any()));
+
+    await tester.tap(find.text('حذف').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('این سرویس از این گوشی پاک'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ShikooButton, 'حذف'));
+    await tester.pumpAndSettle();
+    verify(() => controller.removeService(2)).called(1);
+  });
 }

@@ -31,8 +31,14 @@ class ShikooSettings extends ConsumerWidget {
     final l = ShikooL10n.of(context);
     final look = ref.watch(shikooLookProvider);
     final setLook = ref.read(shikooLookProvider.notifier);
-    final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
-    final who = ref.watch(shikooAccountProvider).who;
+    final state = ref.watch(shikooStateProvider);
+    final isTV = state.isTV;
+    final account = ref.watch(shikooAccountProvider);
+    final who = account.who;
+    final pasted = [
+      for (final service in [?state.service, ...state.others])
+        if (service.pasted && account.serviceOf(service.id) == null) service,
+    ];
     final username = who?.username;
     final shown = who?.name ?? '@${username ?? ''}';
     final groups = [
@@ -57,56 +63,80 @@ class ShikooSettings extends ConsumerWidget {
           onSelect: (language) => unawaited(setLook.setLanguage(language)),
         ),
       ),
-      _Group(
-        title: l.account,
-        child: PasteLink(
-          onAdded: () => Navigator.popUntil(context, (route) => route.isFirst),
-          builder: (context, busy, paste) => _Card(
-            rows: [
-              if (who != null)
-                _Row(
-                  icon: ShikooIcon.plane,
-                  title: l.signedInWith(shown),
-                  rich: sayWith(l.signedInWith, [
-                    TextSpan(
-                      text: shown,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ]),
-                  subtitle: username == null
-                      ? l.telegramAccount
-                      : l.telegramAccountUsername('\u2066@$username\u2069'),
-                )
-              else if (!isTV)
-                _Row(
-                  icon: ShikooIcon.plane,
-                  title: l.signInRow,
-                  subtitle: l.signInRowHelp,
-                  onPressed: () => unawaited(_signIn(context, ref, isTV)),
+      PasteLink(
+        onAdded: () => Navigator.popUntil(context, (route) => route.isFirst),
+        builder: (context, busy, paste) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.s6,
+          children: [
+            if (pasted.isNotEmpty && !isTV)
+              _Group(
+                title: l.pastedServicesTitle,
+                child: _Card(
+                  rows: [
+                    for (final service in pasted)
+                      _PastedRow(
+                        service: service,
+                        // The link being checked may be this service's new one.
+                        onRemove: busy
+                            ? null
+                            : () => unawaited(
+                                _remove(context, ref, service, state),
+                              ),
+                      ),
+                  ],
                 ),
-              if (!isTV && who == null)
-                _Row(
-                  icon: ShikooIcon.paste,
-                  busy: busy,
-                  title: l.pasteAnother,
-                  subtitle: busy ? l.pasteChecking : l.pasteAnotherHelp,
-                  onPressed: paste,
-                ),
-              _Row(
-                icon: ShikooIcon.logout,
-                danger: true,
-                title: l.logout,
-                subtitle: switch ((who != null, isTV)) {
-                  (true, true) => l.logoutHelpSignedInTv,
-                  (true, false) => l.logoutHelpSignedInTouch,
-                  (false, true) => l.logoutHelpTv,
-                  (false, false) => l.logoutHelpTouch,
-                },
-                onPressed: () =>
-                    unawaited(_logOut(context, ref, isTV, who != null)),
               ),
-            ],
-          ),
+            _Group(
+              title: l.account,
+              child: _Card(
+                rows: [
+                  if (who != null)
+                    _Row(
+                      icon: ShikooIcon.plane,
+                      title: l.signedInWith(shown),
+                      rich: sayWith(l.signedInWith, [
+                        TextSpan(
+                          text: shown,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ]),
+                      subtitle: username == null
+                          ? l.telegramAccount
+                          : l.telegramAccountUsername('\u2066@$username\u2069'),
+                    )
+                  else if (!isTV)
+                    _Row(
+                      icon: ShikooIcon.plane,
+                      title: l.signInRow,
+                      subtitle: l.signInRowHelp,
+                      onPressed: () => unawaited(_signIn(context, ref, isTV)),
+                    ),
+                  if (!isTV && who == null)
+                    _Row(
+                      icon: ShikooIcon.paste,
+                      busy: busy,
+                      title: l.pasteAnother,
+                      subtitle: busy ? l.pasteChecking : l.pasteAnotherHelp,
+                      onPressed: paste,
+                    ),
+                  _Row(
+                    icon: ShikooIcon.logout,
+                    danger: true,
+                    title: l.logout,
+                    subtitle: switch ((who != null, isTV)) {
+                      (true, true) => l.logoutHelpSignedInTv,
+                      (true, false) => l.logoutHelpSignedInTouch,
+                      (false, true) => l.logoutHelpTv,
+                      (false, false) => l.logoutHelpTouch,
+                    },
+                    onPressed: () =>
+                        unawaited(_logOut(context, ref, isTV, who != null)),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
       _Group(
@@ -153,6 +183,31 @@ class ShikooSettings extends ConsumerWidget {
             )
           : _Column(children: groups),
     );
+  }
+
+  /// The last service gone, home shows the no-service card; else Settings stay.
+  static Future<void> _remove(
+    BuildContext context,
+    WidgetRef ref,
+    ShikooService service,
+    ShikooState state,
+  ) async {
+    final removed = await confirmRemove(
+      context,
+      controller: ref.read(shikooControllerProvider),
+      service: service,
+      connected:
+          service.id == state.service?.id &&
+          {
+            ShikooConnection.on,
+            ShikooConnection.connecting,
+          }.contains(state.connection),
+    );
+    if (removed &&
+        context.mounted &&
+        ref.read(shikooStateProvider).service == null) {
+      Navigator.popUntil(context, (route) => route.isFirst);
+    }
   }
 
   /// Home comes back to sign-in; the phone goes on to Telegram.
@@ -550,6 +605,78 @@ class _Card extends StatelessWidget {
             if (i > 0) Container(height: 1, color: t.c.border),
             row,
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// phone-settings-pasted: the name over the card's chip text, and «حذف»; the row itself does
+/// nothing, so a scroll never opens the dialog.
+class _PastedRow extends StatelessWidget {
+  const _PastedRow({required this.service, required this.onRemove});
+
+  final ShikooService service;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final onRemove = this.onRemove;
+    final remove = Container(
+      constraints: const BoxConstraints(
+        minWidth: ShikooSizes.touch,
+        minHeight: ShikooSizes.touch,
+      ),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+      child: Text(
+        l.removeService,
+        style: t.text(
+          t.s.body,
+          weight: FontWeight.w700,
+          color: onRemove == null ? t.c.textMuted : t.c.danger,
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(
+        start: Space.s4,
+        end: Space.s2,
+        top: Space.s2,
+        bottom: Space.s2,
+      ),
+      child: Row(
+        spacing: Space.s3,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(service.name, style: t.text(t.s.body)),
+                Text(
+                  statusLabel(l, service.statusAt(DateTime.now())),
+                  style: t.text(t.s.bodySm, color: t.c.textMuted),
+                ),
+              ],
+            ),
+          ),
+          Semantics(
+            button: true,
+            enabled: onRemove != null,
+            label: l.removeServiceLabel(service.name),
+            excludeSemantics: true,
+            child: onRemove == null
+                ? remove
+                : Pressable(
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                    ),
+                    onPressed: onRemove,
+                    builder: (context, _) => remove,
+                  ),
+          ),
         ],
       ),
     );

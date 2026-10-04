@@ -93,6 +93,7 @@ class _ServiceCardState extends State<ServiceCard> {
     final ServiceCard(:state, :controller, :focus) = widget;
     final service = state.service;
     final notice = state.notice;
+    final revoked = service?.revoked ?? false;
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
     if (service != null && !_open && !state.isTV) {
       return FoldedServiceCard(
@@ -191,17 +192,27 @@ class _ServiceCardState extends State<ServiceCard> {
                     ),
                   ),
                 ),
-                if (notice != null)
+                if (revoked)
+                  Padding(
+                    padding: inset.copyWith(top: Space.s3),
+                    child: MessageBox(
+                      icon: ShikooIcon.alert,
+                      strong: l.revokedTitle,
+                      rest: l.revokedHelp,
+                      danger: true,
+                    ),
+                  ),
+                if (notice != null && !revoked)
                   Padding(
                     padding: inset,
                     child: _Message(notice: notice, isTV: state.isTV),
                   ),
-                if (service.usageKnown)
+                if (service.usageKnown && !revoked)
                   Padding(
                     padding: inset,
                     child: _Usage(service: service),
                   ),
-                if (service.announce != null)
+                if (service.announce != null && !revoked)
                   Padding(
                     padding: inset,
                     child: _Notice(text: service.announce!),
@@ -210,33 +221,52 @@ class _ServiceCardState extends State<ServiceCard> {
                   padding: inset.copyWith(top: Space.s3),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: ShikooButton(
-                          label: l.renew,
-                          icon: state.isTV ? ShikooIcon.qr : null,
-                          primary: true,
-                          autofocus: state.isTV && restingFor(state) != null,
-                          focusNode: focus.renew,
-                          onPressed: () => switch (widget.serviceId) {
-                            final id? => openLink(
-                              context,
-                              isTV: state.isTV,
-                              link: ShikooLinks.renewOne(id, widget.bot),
-                              title: l.renewTitle,
-                              help: l.renewHelpDirect,
+                      if (revoked)
+                        Expanded(
+                          child: ShikooButton(
+                            label: l.removeService,
+                            dangerText: true,
+                            onPressed: () => unawaited(
+                              confirmRemove(
+                                context,
+                                controller: controller,
+                                service: service,
+                                connected: {
+                                  ShikooConnection.on,
+                                  ShikooConnection.connecting,
+                                }.contains(state.connection),
+                              ),
                             ),
-                            null => openLink(
-                              context,
-                              isTV: state.isTV,
-                              link: ShikooLinks.renew,
-                              title: l.renewTitle,
-                              help: l.renewHelpList,
-                              below: l.renewPickInList(service.username),
-                              strong: service.username,
-                            ),
-                          },
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ShikooButton(
+                            label: l.renew,
+                            icon: state.isTV ? ShikooIcon.qr : null,
+                            primary: true,
+                            autofocus: state.isTV && restingFor(state) != null,
+                            focusNode: focus.renew,
+                            onPressed: () => switch (widget.serviceId) {
+                              final id? => openLink(
+                                context,
+                                isTV: state.isTV,
+                                link: ShikooLinks.renewOne(id, widget.bot),
+                                title: l.renewTitle,
+                                help: l.renewHelpDirect,
+                              ),
+                              null => openLink(
+                                context,
+                                isTV: state.isTV,
+                                link: ShikooLinks.renew,
+                                title: l.renewTitle,
+                                help: l.renewHelpList,
+                                below: l.renewPickInList(service.username),
+                                strong: service.username,
+                              ),
+                            },
+                          ),
                         ),
-                      ),
                       const SizedBox(width: Space.s2),
                       Expanded(
                         child: ShikooButton(
@@ -261,7 +291,7 @@ class _ServiceCardState extends State<ServiceCard> {
                     controller: controller,
                     focus: focus,
                   )
-                else
+                else if (!revoked)
                   Padding(
                     padding: inset.copyWith(top: Space.s3, bottom: Space.s2),
                     child: Text(
@@ -490,19 +520,22 @@ class _Summary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!service.usageKnown) return const SizedBox(height: Space.s2);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
+    if (!service.usageKnown && !service.revoked) {
+      return const SizedBox(height: Space.s2);
+    }
     final ended = service.ended;
     if (ended != null) {
       return Padding(
         padding: const EdgeInsets.only(top: Space.s1, bottom: Space.s2),
-        child: Text(
-          ended == ShikooServiceStatus.expired
-              ? l.summaryExpired(_date(context, l, service.expire!))
-              : l.summaryExhausted,
-          style: t.text(t.s.bodySm, color: t.c.textMuted),
-        ),
+        child: Text(switch (ended) {
+          ShikooServiceStatus.revoked => l.revokedHelp,
+          ShikooServiceStatus.expired => l.summaryExpired(
+            _date(context, l, service.expire!),
+          ),
+          _ => l.summaryExhausted,
+        }, style: t.text(t.s.bodySm, color: t.c.textMuted)),
       );
     }
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');

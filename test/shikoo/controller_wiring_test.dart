@@ -49,7 +49,9 @@ class _Profiles extends ProfilesAction {
   @override
   Future<void> deleteProfile(int id) async {
     await ref.read(profilesProvider.notifier).del(id);
-    ref.read(currentProfileIdProvider.notifier).value = null;
+    if (ref.read(currentProfileIdProvider) == id) {
+      ref.read(currentProfileIdProvider.notifier).value = null;
+    }
   }
 }
 
@@ -143,9 +145,13 @@ _home([List<Override> more = const []]) {
 var _inFlight = 0;
 var _mostInFlight = 0;
 
+/// Paths the panel answers 404 for, as for a link it no longer knows.
+final _gone = <String>{};
+
 Future<String> _panel(ProviderContainer container, _Core core) async {
   globalState.container = container;
   _mostInFlight = 0;
+  _gone.clear();
   when(() => core.validateConfig(any())).thenAnswer((_) async => '');
   when(() => core.getConfig(any())).thenAnswer(
     (_) async => {
@@ -163,6 +169,12 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   server.listen((call) async {
     _mostInFlight = math.max(_mostInFlight, ++_inFlight);
     await Future<void>.delayed(const Duration(milliseconds: 20));
+    if (_gone.contains(call.uri.path)) {
+      call.response.statusCode = 404;
+      await call.response.close();
+      _inFlight--;
+      return;
+    }
     final [kind, ...rest] = call.uri.pathSegments;
     final user = kind == 'none' ? null : rest.first;
     call.response.headers
@@ -1111,5 +1123,71 @@ void main() {
     }
     expect(stale(), isFalse);
     expect(_mostInFlight, 1);
+  });
+
+  test('a pasted link the panel stops knowing is revoked until an update or '
+      'a new paste of the account works again', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    final emulator = 'http://10.0.2.2:$port';
+    await controller.pasteService('$emulator/file/user111/a', debug: true);
+    await controller.addService('$emulator/file/user222/a');
+    ShikooService service(String name) {
+      final state = container.read(shikooStateProvider);
+      return [
+        state.service!,
+        ...state.others,
+      ].firstWhere((s) => s.name == name);
+    }
+
+    final pasted = service('user111');
+    _gone.addAll(['/file/user111/a', '/file/user222/a']);
+    await controller.refreshOther(pasted.id);
+    await controller.refreshService();
+    expect(service('user111').ended, ShikooServiceStatus.revoked);
+    expect(service('user222').revoked, isFalse, reason: 'not pasted');
+
+    _gone.clear();
+    await controller.refreshOther(pasted.id);
+    expect(service('user111').revoked, isFalse);
+
+    _gone.add('/file/user111/a');
+    await controller.refreshOther(pasted.id);
+    expect(service('user111').revoked, isTrue);
+    await controller.pasteService('$emulator/file/user111/b', debug: true);
+    expect(service('user111').revoked, isFalse, reason: 'its new link');
+  });
+
+  test('removing the service in use disconnects, the next card takes its '
+      'place, and nothing reconnects', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    final emulator = 'http://10.0.2.2:$port';
+    final profiles = container.read(profilesProvider.notifier);
+    await profiles.del(container.read(currentProfileIdProvider)!);
+    for (final user in ['user111', 'user222']) {
+      await controller.pasteService('$emulator/file/$user/a', debug: true);
+    }
+    final [first, second] = container.read(profilesProvider);
+    expect(container.read(currentProfileIdProvider), second.id);
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    setup.runs.clear();
+
+    await controller.removeService(second.id);
+    expect(setup.runs, [false]);
+    expect(container.read(currentProfileIdProvider), first.id);
+    expect(container.read(profilesProvider), [first]);
+    expect(await pastedProfiles(), {first.id});
+    expect(container.read(shikooStateProvider).service?.pasted, isTrue);
+    container.read(runTimeProvider.notifier).value = null;
+
+    await controller.removeService(first.id);
+    expect(setup.runs, [false], reason: 'never reconnects');
+    expect(container.read(shikooStateProvider).service, isNull);
+    expect(await pastedProfiles(), isEmpty);
   });
 }

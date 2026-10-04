@@ -29,7 +29,8 @@ enum ShikooError {
   vpnMissing,
 }
 
-enum ShikooServiceStatus { active, expired, exhausted }
+/// [revoked]: a pasted link the panel no longer knows (404 or 410).
+enum ShikooServiceStatus { active, expired, exhausted, revoked }
 
 enum ShikooPick { server, finding, none }
 
@@ -76,6 +77,8 @@ class ShikooService {
     this.updatedAt,
     this.usageKnown = true,
     this.refresh = ShikooRefresh.idle,
+    this.pasted = false,
+    this.revoked = false,
   });
 
   final int id;
@@ -95,11 +98,15 @@ class ShikooService {
   /// Of a service other than the current one; the current one's is [ShikooState.refresh].
   final ShikooRefresh refresh;
 
+  final bool pasted;
+  final bool revoked;
+
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
   String get username => usernameOf(name);
 
   ShikooServiceStatus statusAt(DateTime now) {
+    if (revoked) return ShikooServiceStatus.revoked;
     if (expire != null && !expire!.isAfter(now)) {
       return ShikooServiceStatus.expired;
     }
@@ -111,7 +118,9 @@ class ShikooService {
 
   ShikooServiceStatus? get ended {
     final status = statusAt(DateTime.now());
-    return usageKnown && status != ShikooServiceStatus.active ? status : null;
+    return (usageKnown || revoked) && status != ShikooServiceStatus.active
+        ? status
+        : null;
   }
 }
 
@@ -244,6 +253,8 @@ final _pingsProvider = _cell<Map<String, int>>(const {});
 final _refreshProvider = _cell(ShikooRefresh.idle);
 final _othersRefreshProvider = _cell<Map<int, ShikooRefresh>>(const {});
 final _freshProvider = _cell<Set<String>>(const {});
+final _pastedProvider = _cell<Set<int>>(const {});
+final _revokedProvider = _cell<Set<int>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
 final _hiddenProvider = _cell<String?>(null);
 
@@ -376,10 +387,14 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final profile = ref.watch(currentProfileProvider);
   final extras = ref.watch(_extrasProvider);
   final refreshing = ref.watch(_othersRefreshProvider);
+  final pasted = ref.watch(_pastedProvider);
+  final revoked = ref.watch(_revokedProvider);
   ShikooService of(Profile profile) => _serviceFrom(
     profile,
     extras: extras[profile.id],
     refresh: refreshing[profile.id] ?? ShikooRefresh.idle,
+    pasted: pasted.contains(profile.id),
+    revoked: revoked.contains(profile.id),
   );
 
   final group = _mainGroup(ref);
@@ -478,6 +493,8 @@ ShikooService _serviceFrom(
   Profile profile, {
   _Extras? extras,
   ShikooRefresh refresh = ShikooRefresh.idle,
+  bool pasted = false,
+  bool revoked = false,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
@@ -493,6 +510,8 @@ ShikooService _serviceFrom(
     updatedAt: profile.lastUpdateDate,
     usageKnown: info != null,
     refresh: refresh,
+    pasted: pasted,
+    revoked: revoked,
   );
 }
 
@@ -598,6 +617,7 @@ class ShikooController {
     });
     app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
+    scheduleMicrotask(_loadPasted);
     scheduleMicrotask(() async {
       final stored = (await SharedPreferences.getInstance()).getString(
         _appPicksKey,
@@ -983,7 +1003,44 @@ class ShikooController {
         : ms;
   }
 
+  Future<void> _loadPasted() async =>
+      _ref.read(_pastedProvider.notifier).set(await pastedProfiles());
+
+  void _revoked(int id, {required bool revoked}) {
+    final now = _ref.read(_revokedProvider);
+    _ref
+        .read(_revokedProvider.notifier)
+        .set(revoked ? {...now, id} : ({...now}..remove(id)));
+  }
+
+  /// Phone-only, as only a phone pastes: the account's own services leave with its next sync.
+  void _failed(int id, Object error) {
+    if (addFailure(error) == ShikooPasteError.revoked &&
+        _ref.read(_pastedProvider).contains(id)) {
+      _revoked(id, revoked: true);
+    }
+  }
+
+  /// phone-remove-confirm: the next card takes its place, and the app never reconnects by itself.
+  Future<void> removeService(int id) async {
+    if (id == _ref.read(currentProfileIdProvider)) {
+      if (_running || _ref.read(_intentProvider).connecting) await disconnect();
+      final next = _ref
+          .read(profilesProvider)
+          .firstWhereOrNull((profile) => profile.id != id);
+      if (next != null) {
+        _ref.read(currentProfileIdProvider.notifier).value = next.id;
+      }
+    }
+    await _ref.read(profilesActionProvider.notifier).deleteProfile(id);
+    await forgetPasted(id);
+    await _loadPasted();
+    _revoked(id, revoked: false);
+    _savePicks({..._appPickByService}..remove('$id'));
+  }
+
   void onForeground() {
+    unawaited(_loadPasted());
     if (!_pinging && isDue(_lastRound, DateTime.now(), pingEvery)) {
       unawaited(pingAll());
     }
@@ -1055,8 +1112,9 @@ class ShikooController {
     try {
       await _download(profile.url, label: profile.label, refresh: true);
       mark(ShikooRefresh.idle);
-    } catch (_) {
+    } catch (error) {
       mark(ShikooRefresh.failed);
+      _failed(id, error);
     }
   }
 
@@ -1090,8 +1148,9 @@ class ShikooController {
       if (!await _setup.applyProfile(silence: true)) {
         throw StateError('apply');
       }
-    } catch (_) {
+    } catch (error) {
       status.set(ShikooRefresh.failed);
+      _failed(profile.id, error);
       if (_manualRefresh) _notice(const RefreshFailed());
       return;
     }
@@ -1157,6 +1216,7 @@ class ShikooController {
         !_ref.read(profilesProvider).any((p) => p.id == profile.id)) {
       return null;
     }
+    _revoked(profile.id, revoked: false);
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
@@ -1216,6 +1276,7 @@ class ShikooController {
         for (final profile in _ref.read(profilesProvider))
           if (normalLink(profile.url) == normalLink(link)) profile.id,
       ]);
+      await _loadPasted();
     }
     return failure;
   }

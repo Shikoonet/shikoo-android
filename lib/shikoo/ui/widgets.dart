@@ -251,10 +251,14 @@ class ShikooButton extends StatelessWidget {
     this.focusNode,
     this.telegram = false,
     this.height,
+    this.dangerText = false,
   });
 
   final String label;
   final ShikooIcon? icon;
+
+  /// An outline button whose label is red, as the revoked card's «حذف».
+  final bool dangerText;
 
   /// Null greys the button out and the remote passes it by.
   final VoidCallback? onPressed;
@@ -280,7 +284,7 @@ class ShikooButton extends StatelessWidget {
         ? ShikooColors.onTelegram
         : primary
         ? t.c.onPrimary
-        : (danger ? t.c.onDanger : t.c.text);
+        : (danger ? t.c.onDanger : (dangerText ? t.c.danger : t.c.text));
     final fill = !enabled
         ? null
         : telegram
@@ -465,6 +469,14 @@ class MessageBox extends StatelessWidget {
 }
 
 /// `.chip`: the service's status.
+String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
+    switch (status) {
+      ShikooServiceStatus.active => l.statusActive,
+      ShikooServiceStatus.expired => l.chipExpired,
+      ShikooServiceStatus.exhausted => l.stateExhausted,
+      ShikooServiceStatus.revoked => l.chipRevoked,
+    };
+
 class StatusChip extends StatelessWidget {
   const StatusChip({super.key, required this.status});
 
@@ -485,11 +497,7 @@ class StatusChip extends StatelessWidget {
         shape: const StadiumBorder(),
       ),
       child: Text(
-        switch (status) {
-          ShikooServiceStatus.active => l.statusActive,
-          ShikooServiceStatus.expired => l.chipExpired,
-          ShikooServiceStatus.exhausted => l.stateExhausted,
-        },
+        statusLabel(l, status),
         style: t.text(
           t.s.caption,
           weight: FontWeight.w700,

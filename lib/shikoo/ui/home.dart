@@ -476,6 +476,7 @@ class _PowerZone extends StatelessWidget {
     final silent =
         state.connection == ShikooConnection.on && (selected?.ping ?? 0) < 0;
     final message = switch (state.lastError) {
+      _ when resting == ShikooServiceStatus.revoked => null,
       _ when resting != null =>
         state.others.any((other) => other.ended == null)
             ? l.renewOrSwitch
@@ -508,9 +509,11 @@ class _PowerZone extends StatelessWidget {
           connectedFor: state.connectedFor,
           isTV: state.isTV,
           focusNode: focusNode,
-          restingLabel: resting == ShikooServiceStatus.exhausted
-              ? l.stateExhausted
-              : l.powerExpired,
+          restingLabel: switch (resting) {
+            ShikooServiceStatus.exhausted => l.stateExhausted,
+            ShikooServiceStatus.revoked => l.chipRevoked,
+            _ => l.powerExpired,
+          },
           onPressed: resting != null
               ? null
               : () => unawaited(switch (state.connection) {

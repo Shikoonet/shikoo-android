@@ -26,6 +26,14 @@ Future<void> markPasted(Iterable<int> ids) async {
   ]);
 }
 
+Future<void> forgetPasted(int id) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setStringList(shikooPastedKey, [
+    for (final kept in prefs.getStringList(shikooPastedKey) ?? <String>[])
+      if (kept != '$id') kept,
+  ]);
+}
+
 const _emulatorHostMachine = '10.0.2.2';
 
 const _maxLink = 2048;

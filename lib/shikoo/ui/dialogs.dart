@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:qr/qr.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -195,4 +197,65 @@ class _QrPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_QrPainter old) => old.image != image;
+}
+
+/// phone-remove-confirm: «انصراف» has the focus, «حذف» is red and last. True once removed.
+Future<bool> confirmRemove(
+  BuildContext context, {
+  required ShikooController controller,
+  required ShikooService service,
+  required bool connected,
+}) async {
+  final sure = await showShikooDialog<bool>(
+    context,
+    children: (context) {
+      final t = ShikooTheme.of(context);
+      final l = ShikooL10n.of(context);
+      return [
+        Text(
+          l.removeServiceTitle('\u2068${service.name}\u2069'),
+          style: t.text(t.s.title, weight: FontWeight.w700),
+        ),
+        Text(
+          connected ? l.removeServiceBodyConnected : l.removeServiceBody,
+          style: t.text(
+            t.s.dialogText,
+            color: t.c.textMuted,
+            height: Leading.body,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            spacing: Space.s2,
+            children: [
+              ShikooButton(
+                label: l.cancelButton,
+                autofocus: true,
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              ShikooButton(
+                label: l.removeService,
+                danger: true,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
+        ),
+      ];
+    },
+  );
+  if (sure != true) return false;
+  await controller.removeService(service.id);
+  if (context.mounted) {
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        ShikooL10n.of(context).serverRemoved(service.name),
+        Directionality.of(context),
+      ),
+    );
+  }
+  return true;
 }
