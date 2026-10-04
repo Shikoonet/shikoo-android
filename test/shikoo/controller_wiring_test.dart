@@ -785,21 +785,20 @@ void main() {
   );
 
   test(
-    'after a switch with the tunnel up, a service with no server of its '
-    'own gets the fastest when the round ends, not the first to answer',
+    'after a switch with the tunnel up, a service with no server of its own '
+    'takes the best known one at once, then the fastest when the round ends',
     () async {
       final (:container, :core, :proxies, :setup) = _home();
       final germany = Completer<void>();
       var switched = false;
       when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
         final name = call.positionalArguments[1] as String;
-        if (!switched) return Delay(name: name, url: '', value: 50);
-        if (name == 'آلمان ۱') await germany.future;
-        return Delay(
-          name: name,
-          url: '',
-          value: name == 'آلمان ۱' ? 120 : 3466,
-        );
+        final netherlands = name == 'هلند ۱';
+        if (!switched) {
+          return Delay(name: name, url: '', value: netherlands ? 40 : 50);
+        }
+        if (!netherlands) await germany.future;
+        return Delay(name: name, url: '', value: netherlands ? 3466 : 120);
       });
       final controller = container.read(shikooControllerProvider);
       await pumpEventQueue();
@@ -811,15 +810,15 @@ void main() {
       switched = true;
       controller.selectService(second.id);
       await pumpEventQueue();
-      expect(container.read(shikooStateProvider).pick, ShikooPick.finding);
       expect(proxies.picked, [
-        'آلمان ۱',
-      ], reason: 'هلند ۱ answered first, slowly');
+        'هلند ۱',
+        'هلند ۱',
+      ], reason: 'at once, so traffic never sits on row 1');
 
       germany.complete();
       await pumpEventQueue();
       final state = container.read(shikooStateProvider);
-      expect(proxies.picked, ['آلمان ۱', 'آلمان ۱']);
+      expect(proxies.picked, ['هلند ۱', 'هلند ۱', 'آلمان ۱']);
       expect(state.selected, 'آلمان ۱');
       expect(state.notice, isNull);
     },

@@ -596,6 +596,7 @@ class ShikooController {
   DateTime? _lastRound;
 
   bool _quiet = false;
+  String? _stopgap;
 
   /// The selection an update just took away, for the notice that names it.
   String? _removed;
@@ -746,6 +747,7 @@ class ShikooController {
   Future<void> selectServer(String name) async {
     _pickedByApp(null);
     _hide(null);
+    _stopgap = null;
     if (_ref.read(_noticeProvider)
         case SilentReplaced() || SelectedReplaced()) {
       _notice(null);
@@ -785,12 +787,16 @@ class ShikooController {
     // Connect pressed while finding takes this round's first answer, not the round before's best.
     final pending = _ref.read(_roundProvider).pending;
     int? ping(String name) => pending.contains(name) ? null : _ping(name);
-    final best = pickNow(
+    var best = pickNow(
       names: names,
       ping: ping,
       pinging: pinging,
       urgent: waiting,
     );
+    if (best == null && running) {
+      // Until the round ends the core would carry traffic on row 1, the info row.
+      best = _stopgap = fastest(names, _ping) ?? names.first;
+    }
     if (best == null) {
       if (!pinging && waiting) _set(const _Intent(error: ShikooError.noServer));
       return;
@@ -824,6 +830,7 @@ class ShikooController {
     _roundKey = key;
     final round = _ref.read(_roundProvider.notifier);
     round.set((pending: names.toSet(), total: names.length, ended: false));
+    _reconcile();
     final url = _testUrl(group);
     try {
       await pingServers(names, (name) => _probe(url, name), (name, ms) {
@@ -856,6 +863,7 @@ class ShikooController {
       } else {
         _sort();
         round.set(ended);
+        _replaceStopgap();
         final quiet = _quiet;
         _quiet = false;
         unawaited(
@@ -863,6 +871,26 @@ class ShikooController {
         );
         _reconcile();
       }
+    }
+  }
+
+  void _replaceStopgap() {
+    final stopgap = _stopgap;
+    _stopgap = null;
+    final best = fastest(_names(_group), _ping);
+    if (stopgap == null || stopgap != _validSelection()) return;
+    if (best == null || best == stopgap) return;
+    _pickedByApp(best);
+    unawaited(_choose(best));
+    if (_ref.read(_noticeProvider) case final SelectedReplaced notice
+        when notice.replacement == stopgap) {
+      _notice(
+        SelectedReplaced(
+          removed: notice.removed,
+          replacement: best,
+          moved: notice.moved,
+        ),
+      );
     }
   }
 
