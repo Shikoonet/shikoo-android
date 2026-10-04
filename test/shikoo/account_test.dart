@@ -371,6 +371,16 @@ void main() {
       expect(h.container.read(shikooLoginProvider)?.code, isNot(code));
     });
 
+    test('a sign-in the app let go of stops asking', () async {
+      final h = await _harness();
+      h.api.life = const Duration(milliseconds: 100);
+      await h.signIn.start();
+      h.container.dispose();
+      final polls = h.api.polls;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(h.api.polls, polls);
+    });
+
     test('a code the server no longer knows starts over as expired', () async {
       final h = await _harness();
       await h.signIn.start();

@@ -329,6 +329,7 @@ const _ended = {'removed', 'disabled', 'failed'};
 
 class ShikooSignIn {
   ShikooSignIn(this._ref) {
+    _ref.onDispose(() => _attempt++);
     _ref.listen(
       shikooStateProvider.select((s) => s.refresh == ShikooRefresh.running),
       (_, running) {
