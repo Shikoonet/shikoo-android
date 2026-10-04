@@ -325,21 +325,23 @@ void main() {
     final second = Profile.normal(url: 'https://panel.invalid/second');
     container.read(profilesProvider.notifier).put(second);
     container.read(currentProfileIdProvider.notifier).value = second.id;
+    await pumpEventQueue();
     await controller.selectServer('آلمان ۱');
 
     pings['آلمان ۱'] = -1;
     container.read(currentProfileIdProvider.notifier).value = first;
-    await controller.pingAll();
+    await pumpEventQueue();
     expect(
       proxies.picked.last,
       'هلند ۱',
       reason: "the user's pick in the second left the first one the app's",
     );
 
+    final picks = proxies.picked.length;
     container.read(currentProfileIdProvider.notifier).value = second.id;
-    await controller.pingAll();
+    await pumpEventQueue();
     expect(container.read(shikooStateProvider).selected, 'آلمان ۱');
-    expect(proxies.picked, hasLength(3), reason: "the user's own stays");
+    expect(proxies.picked, hasLength(picks), reason: "the user's own stays");
   });
 
   test(
@@ -619,5 +621,27 @@ void main() {
           .firstWhere((server) => server.name == 'آلمان ۱');
       expect(germany.ping, -1, reason: interrupt);
     }
+  });
+
+  test('a second service with the same server names is measured and gets '
+      'a server of its own', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    expect(proxies.picked, ['آلمان ۱']);
+
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(second);
+    container.read(currentProfileIdProvider.notifier).value = second.id;
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(state.pick, ShikooPick.server, reason: 'not finding forever');
+    expect(state.selected, 'آلمان ۱');
+    expect(proxies.picked, ['آلمان ۱', 'آلمان ۱']);
   });
 }

@@ -67,6 +67,7 @@ class ShikooServer {
 @immutable
 class ShikooService {
   const ShikooService({
+    this.id = 0,
     required this.name,
     required this.usedBytes,
     required this.totalBytes,
@@ -76,6 +77,8 @@ class ShikooService {
     this.updatedAt,
   });
 
+  /// FlClash's profile id.
+  final int id;
   final String name;
   final int usedBytes;
 
@@ -370,6 +373,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     service: profile == null
         ? null
         : ShikooService(
+            id: profile.id,
             name: profile.label,
             usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
             totalBytes: info?.total ?? 0,
@@ -434,6 +438,8 @@ Future<DateTime?> waitForTunnel(
 
 bool _never() => false;
 
+String _sorted(Iterable<String> names) => (names.toList()..sort()).join('\n');
+
 SubscriptionInfo _subscriptionInfo(String? header) {
   try {
     return SubscriptionInfo.formHString(header);
@@ -466,10 +472,13 @@ class ShikooController {
     }, fireImmediately: true);
     _ref.listen(
       shikooStateProvider.select(
-        (s) => (s.servers.map((e) => e.name).toList()..sort()).join('\n'),
+        (s) => (s.service?.id, _sorted(s.servers.map((e) => e.name))),
       ),
-      (previous, names) {
-        if (names.isNotEmpty && names != previous) scheduleMicrotask(pingAll);
+      (previous, list) {
+        final (service, names) = list;
+        if (service != null && names.isNotEmpty && list != previous) {
+          scheduleMicrotask(pingAll);
+        }
       },
       fireImmediately: true,
     );
@@ -502,7 +511,7 @@ class ShikooController {
 
   Map<String, String> _appPickByService = const {};
   int _attempt = 0;
-  Set<String> _roundNames = const {};
+  String _roundKey = '';
   bool _again = false;
   DateTime? _lastRound;
 
@@ -719,12 +728,13 @@ class ShikooController {
   Future<void> pingAll() async {
     final group = _group;
     final names = _names(group);
+    final key = '${_ref.read(currentProfileIdProvider)}\n${_sorted(names)}';
     if (_pinging) {
-      _again |= !setEquals(names.toSet(), _roundNames);
+      _again |= key != _roundKey;
       return;
     }
     if (group == null || names.isEmpty) return;
-    _roundNames = names.toSet();
+    _roundKey = key;
     final round = _ref.read(_roundProvider.notifier);
     round.set((pending: names.toSet(), total: names.length, ended: false));
     final url = _testUrl(group);
