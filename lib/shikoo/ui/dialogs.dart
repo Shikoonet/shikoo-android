@@ -119,11 +119,12 @@ void openLink(
   );
 }
 
-/// `.qr-tile.sm`, or the TV's sign-in `.qr-tile` when [large]; [over] lies on a faded code.
+/// `.qr-tile.sm`.
 class QrTile extends StatelessWidget {
   const QrTile({super.key, required this.data, this.large = false, this.over});
 
-  final String data;
+  /// Null before there is a code: `.qr-tile.is-empty`, with only [over].
+  final String? data;
   final bool large;
   final Widget? over;
 
@@ -131,14 +132,20 @@ class QrTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final over = this.over;
-    final code = CustomPaint(
-      size: Size.square(large ? t.s.qr : ShikooSizes.qrSm),
-      painter: _QrPainter(QrImage(QrCode(payload: QrPayload.fromString(data)))),
-    );
+    final data = this.data;
+    final side = large ? t.s.qr : ShikooSizes.qrSm;
+    final code = data == null
+        ? SizedBox.square(dimension: side)
+        : CustomPaint(
+            size: Size.square(side),
+            painter: _QrPainter(
+              QrImage(QrCode(payload: QrPayload.fromString(data))),
+            ),
+          );
     return Container(
       padding: EdgeInsets.all(large ? Space.s8 : Space.s4),
       decoration: ShapeDecoration(
-        color: ShikooColors.qrBg,
+        color: data == null ? t.c.surface : ShikooColors.qrBg,
         shadows: t.c.cardShadow,
         shape: RoundedSuperellipseBorder(
           borderRadius: BorderRadius.circular(Radii.lg),

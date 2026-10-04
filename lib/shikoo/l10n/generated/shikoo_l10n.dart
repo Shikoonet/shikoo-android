@@ -1145,50 +1145,80 @@ abstract class ShikooL10n {
   /// No description provided for @codeFailedTitle.
   ///
   /// In en, this message translates to:
-  /// **'No sign-in code came.'**
+  /// **'The sign-in code didn\'t arrive.'**
   String get codeFailedTitle;
-
-  /// No description provided for @codeFailedHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'Check the internet and try again.'**
-  String get codeFailedHelp;
-
-  /// No description provided for @gettingCode.
-  ///
-  /// In en, this message translates to:
-  /// **'Getting a code…'**
-  String get gettingCode;
-
-  /// A service of the account whose link the bot makes the first time it is opened there.
-  ///
-  /// In en, this message translates to:
-  /// **'“{name}” isn\'t here yet.'**
-  String waitingForBot(String name);
-
-  /// No description provided for @waitingForBotHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'Open it once in the Shikoo bot so its link is made, then tap “Try again”.'**
-  String get waitingForBotHelp;
-
-  /// No description provided for @openBot.
-  ///
-  /// In en, this message translates to:
-  /// **'Shikoo bot'**
-  String get openBot;
 
   /// No description provided for @openBotTitle.
   ///
   /// In en, this message translates to:
-  /// **'Shikoo bot on your phone'**
+  /// **'ShikooNet bot on your phone'**
   String get openBotTitle;
 
   /// No description provided for @openBotHelp.
   ///
   /// In en, this message translates to:
-  /// **'Scan with your phone\'s camera to open the Shikoo bot.'**
+  /// **'Scan with your phone\'s camera to open the ShikooNet bot.'**
   String get openBotHelp;
+
+  /// No description provided for @codeFetching.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting a code…'**
+  String get codeFetching;
+
+  /// No description provided for @codeFailedHelpTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your phone\'s internet and tap again.'**
+  String get codeFailedHelpTouch;
+
+  /// No description provided for @codeFailedOverlay.
+  ///
+  /// In en, this message translates to:
+  /// **'No sign-in code'**
+  String get codeFailedOverlay;
+
+  /// No description provided for @codeFailedLeadTv.
+  ///
+  /// In en, this message translates to:
+  /// **'The sign-in code didn\'t come from the server. Check this TV\'s internet and try again.'**
+  String get codeFailedLeadTv;
+
+  /// No description provided for @noLinkChip.
+  ///
+  /// In en, this message translates to:
+  /// **'No link'**
+  String get noLinkChip;
+
+  /// No description provided for @noLinkHelpTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Open this service once in the bot'**
+  String get noLinkHelpTouch;
+
+  /// No description provided for @noLinkHelpTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Open this service once in the bot, then press “Try again”.'**
+  String get noLinkHelpTv;
+
+  /// No description provided for @openBotTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the bot'**
+  String get openBotTouch;
+
+  /// No description provided for @openBotTv.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet bot'**
+  String get openBotTv;
+
+  /// No description provided for @renewToUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew it to use it again.'**
+  String get renewToUse;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

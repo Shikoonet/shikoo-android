@@ -25,12 +25,26 @@ class ShikooHome extends ConsumerStatefulWidget {
 class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _card = CardFocus();
   final _power = FocusNode();
+  final _linkless = FocusNode();
+  bool? _hadService;
 
   @override
   void dispose() {
     _card.dispose();
     _power.dispose();
+    _linkless.dispose();
     super.dispose();
+  }
+
+  /// The remote follows the screen when a link comes or goes by itself: to the power button,
+  /// or to the first card without a link (`tv-home-no-link`).
+  void _follow(bool isTV, bool hasService) {
+    final had = _hadService;
+    _hadService = hasService;
+    if (!isTV || had == hasService || (had == null && hasService)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) (hasService ? _power : _linkless).requestFocus();
+    });
   }
 
   @override
@@ -39,14 +53,30 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
     final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final hasService = state.service != null;
+    _follow(state.isTV, hasService);
+    final unlinked = account.withoutLink;
     final power = _PowerZone(
       state: state,
       controller: controller,
       focusNode: _power,
+      resting: switch (unlinked.firstOrNull?.status) {
+        null => null,
+        'expired' => l.statusExpired,
+        'exhausted' => l.statusExhausted,
+        _ => l.noLinkChip,
+      },
     );
-    final waiting = account.waitingForBot.isEmpty
-        ? null
-        : _WaitingForBot(services: account.waitingForBot, bot: account.bot);
+    final linkless = [
+      for (final (i, linked) in unlinked.indexed)
+        _LinklessCard(
+          service: linked,
+          bot: account.bot,
+          isTV: state.isTV,
+          focusNode: i == 0 && !hasService ? _linkless : null,
+        ),
+    ];
     final service = ServiceCard(
       state: state,
       controller: controller,
@@ -54,14 +84,12 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       serviceId: account.serviceOf(state.service?.profileId),
       bot: account.bot,
     );
-    Widget card(Widget service) => waiting == null
+    Widget card(Widget service) => linkless.isEmpty
         ? service
-        : state.service == null
-        ? waiting
         : Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: Space.s3,
-            children: [waiting, service],
+            children: [...linkless, if (hasService) service],
           );
     final towardCard = state.selected ?? state.servers.firstOrNull?.name;
     return Scaffold(
@@ -71,7 +99,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           policy: PageTraversalPolicy(),
           child: state.isTV
               ? _TvLayout(
-                  noService: state.service == null,
+                  noService: !hasService && linkless.isEmpty,
                   power: _PowerKeys(
                     row: towardCard == null ? null : _card.row(towardCard),
                     child: power,
@@ -365,11 +393,13 @@ class _PowerZone extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.focusNode,
+    this.resting,
   });
 
   final ShikooState state;
   final ShikooController controller;
   final FocusNode focusNode;
+  final String? resting;
 
   @override
   Widget build(BuildContext context) {
@@ -385,6 +415,7 @@ class _PowerZone extends StatelessWidget {
           connectedFor: Duration.zero,
           isTV: state.isTV,
           onPressed: null,
+          restingLabel: resting,
         ),
       );
     }
@@ -454,18 +485,40 @@ class _PowerZone extends StatelessWidget {
       2 * MediaQuery.textScalerOf(context).scale(t.s.bodySm) * Leading.tight;
 }
 
-/// Services of the account whose link the bot makes the first time it opens them there.
-class _WaitingForBot extends ConsumerWidget {
-  const _WaitingForBot({required this.services, required this.bot});
+/// `tv-home-no-link` and `phone-cards-other`: a service of the account with no link here, for
+/// the bot to make or for «تمدید» to bring back.
+class _LinklessCard extends ConsumerStatefulWidget {
+  const _LinklessCard({
+    required this.service,
+    required this.bot,
+    required this.isTV,
+    this.focusNode,
+  });
 
-  final List<LinkedService> services;
+  final LinkedService service;
   final String? bot;
+  final bool isTV;
+  final FocusNode? focusNode;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_LinklessCard> createState() => _LinklessCardState();
+}
+
+class _LinklessCardState extends ConsumerState<_LinklessCard> {
+  bool _busy = false;
+
+  Future<void> _retry() async {
+    setState(() => _busy = true);
+    await ref.read(shikooSignInProvider).sync();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    final isTV = ref.watch(shikooStateProvider.select((s) => s.isTV));
+    final _LinklessCard(:service, :bot, :isTV) = widget;
+    final renews = service.renews;
     return Container(
       padding: const EdgeInsets.all(Space.s4),
       decoration: ShapeDecoration(
@@ -477,46 +530,98 @@ class _WaitingForBot extends ConsumerWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.s2,
         children: [
-          for (final service in services)
-            Text(
-              l.waitingForBot(service.title),
-              style: t.text(t.s.title, weight: FontWeight.w700),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: nameText(
+                  context,
+                  service.title,
+                  t.text(
+                    t.s.title,
+                    weight: FontWeight.w700,
+                    height: Leading.snug,
+                  ),
+                ),
+              ),
+              const SizedBox(width: Space.s2),
+              if (renews)
+                StatusChip(
+                  status: service.status == 'expired'
+                      ? ShikooServiceStatus.expired
+                      : ShikooServiceStatus.exhausted,
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.s3,
+                    vertical: Space.s1,
+                  ),
+                  decoration: ShapeDecoration(
+                    color: t.c.surfaceSunken,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text(
+                    l.noLinkChip,
+                    style: t.text(
+                      t.s.caption,
+                      weight: FontWeight.w700,
+                      color: t.c.textMuted,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: Space.s2),
           Text(
-            l.waitingForBotHelp,
+            renews ? l.renewToUse : (isTV ? l.noLinkHelpTv : l.noLinkHelpTouch),
             style: t.text(
               t.s.bodySm,
               color: t.c.textMuted,
               height: Leading.body,
             ),
           ),
+          const SizedBox(height: Space.s3),
           Row(
             spacing: Space.s2,
             children: [
               Expanded(
                 child: ShikooButton(
-                  label: l.openBot,
-                  icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
+                  label: renews
+                      ? l.renew
+                      : (isTV ? l.openBotTv : l.openBotTouch),
+                  icon: isTV
+                      ? ShikooIcon.qr
+                      : (renews ? null : ShikooIcon.plane),
                   primary: true,
-                  onPressed: () => openLink(
-                    context,
-                    isTV: isTV,
-                    link: ShikooLinks.openBot(bot),
-                    title: l.openBotTitle,
-                    help: l.openBotHelp,
+                  focusNode: widget.focusNode,
+                  onPressed: () => renews
+                      ? openLink(
+                          context,
+                          isTV: isTV,
+                          link: ShikooLinks.renewOne(service.id, bot),
+                          title: l.renewTitle,
+                          help: l.renewHelpDirect,
+                        )
+                      : openLink(
+                          context,
+                          isTV: isTV,
+                          link: ShikooLinks.openBot(bot),
+                          title: l.openBotTitle,
+                          help: l.openBotHelp,
+                        ),
+                ),
+              ),
+              // The phone asks again by itself when it comes back from Telegram.
+              if (isTV)
+                Expanded(
+                  child: ShikooButton(
+                    label: l.retry,
+                    icon: ShikooIcon.refresh,
+                    busy: _busy,
+                    onPressed: _busy ? () {} : () => unawaited(_retry()),
                   ),
                 ),
-              ),
-              Expanded(
-                child: ShikooButton(
-                  label: l.retry,
-                  icon: ShikooIcon.refresh,
-                  onPressed: () =>
-                      unawaited(ref.read(shikooSignInProvider).sync()),
-                ),
-              ),
             ],
           ),
         ],

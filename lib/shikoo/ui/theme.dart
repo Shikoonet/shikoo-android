@@ -302,7 +302,7 @@ class ShikooSizes {
   static const buttonLg = 56.0;
   static const buttonLgText = 19.0;
   static const markLg = 88.0;
-  static const codeTracking = 0.12;
+  static const codeWordSpacing = 0.12;
   static const fade = 24.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;

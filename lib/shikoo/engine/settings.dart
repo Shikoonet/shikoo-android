@@ -8,7 +8,6 @@ abstract final class ShikooLinks {
   static const renew = 'https://t.me/$bot?start=renew';
   static const support = 'https://t.me/admiinturbo';
 
-  /// [bot] as the server names it, so a test bot's sign-in renews in the test bot.
   static String renewOne(int serviceId, String? bot) =>
       'https://t.me/${bot ?? ShikooLinks.bot}?start=rnw_$serviceId';
 
@@ -16,14 +15,11 @@ abstract final class ShikooLinks {
       'https://t.me/${bot ?? ShikooLinks.bot}';
 }
 
-// ponytail: Sam picks the app API's domains; the empty second one is the backup for when the
-// first is blocked. A test build points both at one server with --dart-define=SHIKOO_API=<url>.
-const _apiBases = ['https://app.chopon.uk', ''];
+// ponytail: one address until Sam names a backup; ShikooApi tries a second one in turn.
 const _apiOverride = String.fromEnvironment('SHIKOO_API');
 
-final shikooApiBases = [
-  for (final base in _apiOverride.isEmpty ? _apiBases : const [_apiOverride])
-    if (base.isNotEmpty) base,
+const shikooApiBases = [
+  _apiOverride == '' ? 'https://app.chopon.uk' : _apiOverride,
 ];
 
 /// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.

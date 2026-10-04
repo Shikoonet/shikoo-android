@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/foundation.dart';
@@ -58,14 +59,26 @@ class ShikooLogin {
   final List<String> services;
 }
 
-/// A service of the signed-in account; [profileId] is null while the bot has not made its link.
 @immutable
 class LinkedService {
-  const LinkedService({required this.id, required this.title, this.profileId});
+  const LinkedService({
+    required this.id,
+    required this.title,
+    required this.status,
+    this.profileId,
+    this.owned = true,
+  });
 
   final int id;
   final String title;
+
+  final String status;
   final int? profileId;
+
+  /// False for a pasted profile the account turned out to hold: signing out leaves it.
+  final bool owned;
+
+  bool get renews => status == 'expired' || status == 'exhausted';
 }
 
 @immutable
@@ -77,7 +90,7 @@ class ShikooAccount {
   final String? bot;
   final List<LinkedService> services;
 
-  List<LinkedService> get waitingForBot => [
+  List<LinkedService> get withoutLink => [
     for (final service in services)
       if (service.profileId == null) service,
   ];
@@ -87,26 +100,16 @@ class ShikooAccount {
       : services.firstWhereOrNull((s) => s.profileId == profileId)?.id;
 }
 
-class _Cell<T> extends Notifier<T> {
-  _Cell(this._initial);
-
-  final T _initial;
-
-  @override
-  T build() => _initial;
-
-  void set(T value) => state = value;
-}
-
 final shikooAccountProvider =
-    NotifierProvider<_Cell<ShikooAccount>, ShikooAccount>(
-      () => _Cell(const ShikooAccount()),
+    NotifierProvider<ShikooCell<ShikooAccount>, ShikooAccount>(
+      () => ShikooCell(const ShikooAccount()),
     );
 
 /// A sign-in on screen; null before one starts and once it is done.
-final shikooLoginProvider = NotifierProvider<_Cell<ShikooLogin?>, ShikooLogin?>(
-  () => _Cell(null),
-);
+final shikooLoginProvider =
+    NotifierProvider<ShikooCell<ShikooLogin?>, ShikooLogin?>(
+      () => ShikooCell(null),
+    );
 
 final _notAllowed = RegExp(r'[^A-Za-z0-9 _()-]+');
 
@@ -134,9 +137,7 @@ final shikooDeviceProvider =
     );
 
 class ShikooApiFailure implements Exception {
-  const ShikooApiFailure(this.status);
-
-  final int? status;
+  const ShikooApiFailure();
 }
 
 class LoginCode {
@@ -153,7 +154,7 @@ class LoginCode {
   final Duration lifetime;
 }
 
-enum PollStatus { waiting, approved, gone, unknown }
+enum PollStatus { waiting, approved, refused, expired, gone, unknown }
 
 class PollAnswer {
   const PollAnswer(this.status, {this.token, this.account});
@@ -225,7 +226,7 @@ class ShikooApi {
         continue;
       }
     }
-    throw const ShikooApiFailure(null);
+    throw const ShikooApiFailure();
   }
 
   static Map<String, dynamic>? _json(Response<Object?> response) =>
@@ -245,7 +246,7 @@ class ShikooApi {
     );
     final body = _json(response);
     if (response.statusCode != 200 || body == null) {
-      throw ShikooApiFailure(response.statusCode);
+      throw const ShikooApiFailure();
     }
     return LoginCode(
       code: body['code'] as String,
@@ -287,7 +288,11 @@ class ShikooApi {
           _ => null,
         },
       ),
-      410 => const PollAnswer(PollStatus.gone),
+      410 => switch (body?['error']) {
+        'refused' => const PollAnswer(PollStatus.refused),
+        'expired' || 'used' => const PollAnswer(PollStatus.expired),
+        _ => const PollAnswer(PollStatus.gone),
+      },
       404 => const PollAnswer(PollStatus.unknown),
       _ => const PollAnswer(PollStatus.waiting),
     };
@@ -301,7 +306,7 @@ class ShikooApi {
     if (response.statusCode == 401) return null;
     final body = _json(response);
     if (response.statusCode != 200 || body == null) {
-      throw ShikooApiFailure(response.statusCode);
+      throw const ShikooApiFailure();
     }
     return (
       bot: body['bot'] as String?,
@@ -321,11 +326,8 @@ final shikooApiProvider = Provider<ShikooApi>((_) => ShikooApi(shikooApiBases));
 
 final shikooSignInProvider = Provider<ShikooSignIn>(ShikooSignIn.new);
 
-/// The link only exists where the bot shows it: a live service the bot has opened once.
-const _waitsForBot = {'active', 'on_hold'};
-
-/// Its link no longer works, so its profile goes; an expired one stays for «تمدید».
-const _ended = {'removed', 'disabled', 'failed'};
+/// Kept with no link: the bot has not made it yet, or the server holds it back until renewal.
+const _shownWithoutLink = {'active', 'on_hold', 'expired', 'exhausted'};
 
 class ShikooSignIn {
   ShikooSignIn(this._ref) {
@@ -379,7 +381,9 @@ class ShikooSignIn {
             LinkedService(
               id: s['id'] as int,
               title: s['title'] as String,
+              status: s['status'] as String,
               profileId: s['profileId'] as int?,
+              owned: s['owned'] as bool,
             ),
         ],
       ),
@@ -403,7 +407,13 @@ class ShikooSignIn {
         'bot': account.bot,
         'services': [
           for (final s in account.services)
-            {'id': s.id, 'title': s.title, 'profileId': s.profileId},
+            {
+              'id': s.id,
+              'title': s.title,
+              'status': s.status,
+              'profileId': s.profileId,
+              'owned': s.owned,
+            },
         ],
       }),
     );
@@ -453,15 +463,17 @@ class ShikooSignIn {
           continue;
         case PollStatus.approved:
           await _approved(answer.token!, answer.account);
-        // The server answers 410 alike to a refusal and to a code that ran out.
+        case PollStatus.refused:
+          end(LoginPhase.rejected);
+        case PollStatus.expired || PollStatus.unknown:
+          end(LoginPhase.expired);
+        // A server that gives no reason with its 410: the clock tells a refusal from the end.
         case PollStatus.gone:
           end(
             DateTime.now().isBefore(deadline.subtract(pollEvery))
                 ? LoginPhase.rejected
                 : LoginPhase.expired,
           );
-        case PollStatus.unknown:
-          end(LoginPhase.expired);
       }
       return;
     }
@@ -500,35 +512,29 @@ class ShikooSignIn {
     _login(null);
   }
 
-  /// Unlinks the account that approved and takes its services off this device; pasted ones stay.
   Future<void> notMine() async {
     _attempt++;
     final token = _token;
-    final linked = [
-      for (final s in _account.services)
-        if (s.profileId != null) s.profileId!,
-    ];
-    await _forget();
-    if (token != null) unawaited(_logout(token));
-    for (final id in linked) {
-      await _delete(id);
-    }
-  }
-
-  /// Settings' «خروج»: the server forgets this device and every service leaves it.
-  Future<void> signOut() async {
-    _attempt++;
-    final token = _token;
-    await _forget();
-    if (token != null) unawaited(_logout(token));
-    await _ref.read(shikooControllerProvider).forgetServices();
-  }
-
-  Future<void> _forget() async {
+    final services = _account.services;
     _token = null;
     _setAccount(const ShikooAccount());
     _login(null);
     await _save();
+    if (token != null) unawaited(_logout(token));
+    for (final service in services) {
+      await _drop(service);
+    }
+  }
+
+  Future<void> signOut() async {
+    final controller = _ref.read(shikooControllerProvider);
+    if (_token == null) {
+      _attempt++;
+      _login(null);
+      return controller.forgetServices();
+    }
+    await controller.disconnect();
+    await notMine();
   }
 
   /// Offline, the device stays in the bot's list until the customer removes it there.
@@ -538,8 +544,11 @@ class ShikooSignIn {
     } catch (_) {}
   }
 
+  /// Back from the bot, a service without a link is asked about again at once.
   void onForeground() {
-    if (_token != null && isDue(_lastSync, DateTime.now(), refreshEvery)) {
+    if (_token != null &&
+        (isDue(_lastSync, DateTime.now(), refreshEvery) ||
+            _account.withoutLink.isNotEmpty)) {
       unawaited(sync());
     }
   }
@@ -559,46 +568,51 @@ class ShikooSignIn {
     } catch (_) {
       return false;
     }
-    if (token != _token) return true;
+    if (token != _token) return null;
     if (answer == null) {
       await notMine();
       return null;
     }
-    final before = {for (final s in _account.services) s.id: s.profileId};
+    final before = {for (final s in _account.services) s.id: s};
     final kept = <LinkedService>[];
     var failed = false;
     for (final row in answer.services) {
-      var profileId = _existing(before[row.id]);
-      final url = row.subUrl;
+      final was = before.remove(row.id);
+      var profileId = _existing(was?.profileId);
+      var owned = was?.owned ?? true;
+      final url = row.subUrl == null ? null : shikooLink(row.subUrl!);
       if (url != null && _urlOf(profileId) != url) {
         final added = await _add(url, row.label);
         if (token != _token) {
-          if (added != null) await _delete(added);
-          return true;
+          if (added != null && added.owned) await _delete(added.id);
+          return null;
         }
         if (added == null) {
           failed = true;
         } else {
-          if (profileId != null && profileId != added) await _delete(profileId);
-          profileId = added;
+          if (was != null && profileId != added.id) await _drop(was);
+          (profileId, owned) = (added.id, added.owned);
         }
-      } else if (url == null && _ended.contains(row.status)) {
-        if (profileId != null) await _delete(profileId);
+      } else if (url == null && !_shownWithoutLink.contains(row.status)) {
+        if (was != null) await _drop(was);
         continue;
       }
-      if (profileId != null ||
-          (url == null && _waitsForBot.contains(row.status))) {
+      if (profileId != null || url == null) {
         kept.add(
-          LinkedService(id: row.id, title: row.label, profileId: profileId),
+          LinkedService(
+            id: row.id,
+            title: row.label,
+            status: row.status,
+            profileId: profileId,
+            owned: owned,
+          ),
         );
       }
     }
-    final listed = {for (final row in answer.services) row.id};
-    for (final MapEntry(key: id, value: profileId) in before.entries) {
-      if (!listed.contains(id) && _existing(profileId) != null) {
-        await _delete(profileId!);
-      }
+    for (final gone in before.values) {
+      await _drop(gone);
     }
+    if (token != _token) return null;
     _setAccount(
       ShikooAccount(
         who: _account.who,
@@ -615,20 +629,30 @@ class ShikooSignIn {
       ? profileId
       : null;
 
-  String? _urlOf(int? profileId) => _ref
+  String? _urlOf(int? profileId) => switch (_ref
       .read(profilesProvider)
-      .firstWhereOrNull((p) => p.id == profileId)
-      ?.url;
+      .firstWhereOrNull((p) => p.id == profileId)) {
+    final profile? => normalLink(profile.url),
+    null => null,
+  };
 
-  Future<int?> _add(String url, String label) async {
+  int? _profileOf(String url) => _ref
+      .read(profilesProvider)
+      .firstWhereOrNull((p) => normalLink(p.url) == url)
+      ?.id;
+
+  Future<({int id, bool owned})?> _add(String url, String label) async {
+    final pasted = _profileOf(url) != null;
     final failure = await _ref
         .read(shikooControllerProvider)
         .addService(url, label, false);
-    if (failure != null) return null;
-    return _ref
-        .read(profilesProvider)
-        .firstWhereOrNull((p) => p.url == url)
-        ?.id;
+    final id = failure == null ? _profileOf(url) : null;
+    return id == null ? null : (id: id, owned: !pasted);
+  }
+
+  Future<void> _drop(LinkedService service) async {
+    final id = _existing(service.profileId);
+    if (id != null && service.owned) await _delete(id);
   }
 
   Future<void> _delete(int profileId) =>

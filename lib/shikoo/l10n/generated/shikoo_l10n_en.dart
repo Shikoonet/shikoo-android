@@ -703,30 +703,45 @@ class ShikooL10nEn extends ShikooL10n {
       'Scan with your phone\'s camera; the Shikoo bot opens the renewal page of this service.';
 
   @override
-  String get codeFailedTitle => 'No sign-in code came.';
+  String get codeFailedTitle => 'The sign-in code didn\'t arrive.';
 
   @override
-  String get codeFailedHelp => 'Check the internet and try again.';
-
-  @override
-  String get gettingCode => 'Getting a code…';
-
-  @override
-  String waitingForBot(String name) {
-    return '“$name” isn\'t here yet.';
-  }
-
-  @override
-  String get waitingForBotHelp =>
-      'Open it once in the Shikoo bot so its link is made, then tap “Try again”.';
-
-  @override
-  String get openBot => 'Shikoo bot';
-
-  @override
-  String get openBotTitle => 'Shikoo bot on your phone';
+  String get openBotTitle => 'ShikooNet bot on your phone';
 
   @override
   String get openBotHelp =>
-      'Scan with your phone\'s camera to open the Shikoo bot.';
+      'Scan with your phone\'s camera to open the ShikooNet bot.';
+
+  @override
+  String get codeFetching => 'Getting a code…';
+
+  @override
+  String get codeFailedHelpTouch =>
+      'Check your phone\'s internet and tap again.';
+
+  @override
+  String get codeFailedOverlay => 'No sign-in code';
+
+  @override
+  String get codeFailedLeadTv =>
+      'The sign-in code didn\'t come from the server. Check this TV\'s internet and try again.';
+
+  @override
+  String get noLinkChip => 'No link';
+
+  @override
+  String get noLinkHelpTouch => 'Open this service once in the bot';
+
+  @override
+  String get noLinkHelpTv =>
+      'Open this service once in the bot, then press “Try again”.';
+
+  @override
+  String get openBotTouch => 'Open the bot';
+
+  @override
+  String get openBotTv => 'ShikooNet bot';
+
+  @override
+  String get renewToUse => 'Renew it to use it again.';
 }

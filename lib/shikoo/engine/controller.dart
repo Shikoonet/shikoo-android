@@ -200,8 +200,8 @@ class _Intent {
   final ShikooError? error;
 }
 
-class _Cell<T> extends Notifier<T> {
-  _Cell(this._initial);
+class ShikooCell<T> extends Notifier<T> {
+  ShikooCell(this._initial);
 
   final T _initial;
 
@@ -211,8 +211,8 @@ class _Cell<T> extends Notifier<T> {
   void set(T value) => state = value;
 }
 
-NotifierProvider<_Cell<T>, T> _cell<T>(T initial) =>
-    NotifierProvider<_Cell<T>, T>(() => _Cell(initial));
+NotifierProvider<ShikooCell<T>, T> _cell<T>(T initial) =>
+    NotifierProvider<ShikooCell<T>, T>(() => ShikooCell(initial));
 
 final _intentProvider = _cell(const _Intent());
 
@@ -874,7 +874,6 @@ class ShikooController {
 
   /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
   /// The url holds the customer's token: never log it, nor the error, which can quote it.
-  /// With [refresh], a service removed meanwhile (sign-out, sync) is not brought back: null.
   Future<Profile?> _download(
     String url, [
     String? label,
@@ -905,6 +904,8 @@ class ShikooController {
           validate: (path) =>
               _ref.read(coreHandlerProvider).validateConfig(path),
         );
+    // ponytail: a refresh that lost its service meanwhile leaves the just-saved config file
+    // behind, as FlClash's own update can; delete it if orphan files ever add up.
     if (refresh &&
         !_ref.read(profilesProvider).any((p) => p.id == profile.id)) {
       return null;
@@ -917,8 +918,7 @@ class ShikooController {
     return profile;
   }
 
-  /// Null once the service is in, named by the panel unless [label] is given. Without [select]
-  /// it becomes the current service only when there is none.
+  /// Null once the service is in, named by the panel unless [label] is given.
   Future<ShikooPasteError?> addService(
     String url, [
     String? label,

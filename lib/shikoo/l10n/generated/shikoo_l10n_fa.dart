@@ -668,26 +668,40 @@ class ShikooL10nFa extends ShikooL10n {
   String get codeFailedTitle => 'کد ورود نرسید.';
 
   @override
-  String get codeFailedHelp => 'اینترنت را بررسی کن و دوباره بزن.';
+  String get openBotTitle => 'ربات شیکونت با گوشی';
 
   @override
-  String get gettingCode => 'در حال گرفتن کد…';
+  String get openBotHelp => 'با دوربین گوشی اسکن کن تا ربات شیکونت باز شود.';
 
   @override
-  String waitingForBot(String name) {
-    return '«$name» هنوز این‌جا نیست.';
-  }
+  String get codeFetching => 'در حال گرفتن کد…';
 
   @override
-  String get waitingForBotHelp =>
-      'یک بار در ربات شیکو بازش کن تا لینکش ساخته شود، بعد «دوباره» را بزن.';
+  String get codeFailedHelpTouch => 'اینترنت گوشی را بررسی کن و دوباره بزن.';
 
   @override
-  String get openBot => 'ربات شیکو';
+  String get codeFailedOverlay => 'کد ورود نرسید';
 
   @override
-  String get openBotTitle => 'ربات شیکو با گوشی';
+  String get codeFailedLeadTv =>
+      'کد ورود از سرور نرسید. اینترنت این تلویزیون را بررسی کن و دوباره امتحان کن.';
 
   @override
-  String get openBotHelp => 'با دوربین گوشی اسکن کن تا ربات شیکو باز شود.';
+  String get noLinkChip => 'بدون لینک';
+
+  @override
+  String get noLinkHelpTouch => 'یک بار از ربات سرویس را باز کن';
+
+  @override
+  String get noLinkHelpTv =>
+      'یک بار از ربات سرویس را باز کن، بعد «دوباره» را بزن.';
+
+  @override
+  String get openBotTouch => 'باز کردن ربات';
+
+  @override
+  String get openBotTv => 'ربات شیکونت';
+
+  @override
+  String get renewToUse => 'با «تمدید» دوباره فعال می‌شود.';
 }

@@ -26,6 +26,9 @@ class _Code {
   ({String? name, String? username})? approvedBy;
   bool refused = false;
   bool used = false;
+
+  /// What a server with shikoo-platform #687 says in its 410; merged main says `gone`.
+  String? reason;
 }
 
 /// shikoo-platform's app door as `apps/ingest-worker/test/app-login.test.ts` pins it.
@@ -112,7 +115,7 @@ class _FakeAppApi {
         if (code.used ||
             code.refused ||
             !DateTime.now().isBefore(code.expires)) {
-          return reply(410, {'ok': false, 'error': 'gone'});
+          return reply(410, {'ok': false, 'error': code.reason ?? 'gone'});
         }
         final who = code.approvedBy;
         if (who == null) return reply(202, {'ok': true, 'status': 'waiting'});
@@ -158,7 +161,7 @@ Map<String, Object?> _service(
   'location': 'الماس',
   'status': status,
   'expires_at': null,
-  'sub_url': noUrl ? null : (url ?? 'https://sub.example/$title'),
+  'sub_url': noUrl ? null : (url ?? 'https://sub.4g3.uk/$title'),
 };
 
 const _state = ShikooState(
@@ -170,10 +173,16 @@ const _state = ShikooState(
 
 class _Controller extends Mock implements ShikooController {}
 
+/// Holds the next delete until completed.
+Completer<void>? _deleteGate;
+
 /// FlClash's own delete also clears files and the core, which a unit test has neither of.
 class _Profiles extends ProfilesAction {
   @override
   Future<void> deleteProfile(int id) async {
+    final gate = _deleteGate;
+    _deleteGate = null;
+    await gate?.future;
     await ref.read(profilesProvider.notifier).del(id);
   }
 }
@@ -215,6 +224,7 @@ Future<_Harness> _harness({
         );
     return null;
   });
+  when(controller.disconnect).thenAnswer((_) async {});
   when(controller.forgetServices).thenAnswer((_) async {
     for (final profile in [...container.read(profilesProvider)]) {
       await container.read(profilesProvider.notifier).del(profile.id);
@@ -287,6 +297,10 @@ void main() {
         ('samsung', 'SM-G991B (S21_Ultra)'): 'samsung SM-G991B (S21_Ultra)',
         ('سامسونگ', 'a+b@c/d:e'): 'a b c d e',
         ('Google', 'sdk_gphone64_x86_64'): 'Google sdk_gphone64_x86_64',
+        ('Google', 'Pixel 😀 7'): 'Google Pixel 7',
+        ('Xiaomi', '小米盒子4'): 'Xiaomi 4',
+        ('😀', '🔥🔥'): 'Android phone',
+        ('小米', '盒子'): 'Android phone',
       };
       for (final MapEntry(key: (maker, model), value: name) in cases.entries) {
         final made = deviceName(maker, model, tv: false);
@@ -332,8 +346,8 @@ void main() {
       expect(approved.account?.username, 'maryam_k');
       expect(approved.services, ['user123 · الماس', 'user789 · الماس']);
       expect(_urls(h.container), [
-        'https://sub.example/user123',
-        'https://sub.example/user789',
+        'https://sub.4g3.uk/user123',
+        'https://sub.4g3.uk/user789',
       ]);
       verify(
         () => h.controller.addService(any(), 'user123 · الماس', false),
@@ -347,6 +361,26 @@ void main() {
       expect(h.container.read(shikooLoginProvider), isNull);
       expect(h.container.read(shikooAccountProvider).who?.name, 'مریم');
     });
+
+    test(
+      'the reason a newer server gives with its 410 wins over the clock',
+      () async {
+        final h = await _harness();
+        await h.signIn.start();
+        h.api.codes[h.api.lastCode]!
+          ..used = true
+          ..reason = 'used';
+        await _until(h.container, _at(LoginPhase.expired));
+        // Refused in the code's last poll interval, where the clock alone says expired.
+        h.signIn.pollEvery = const Duration(milliseconds: 100);
+        h.api.life = const Duration(milliseconds: 150);
+        await h.signIn.start();
+        h.api.codes[h.api.lastCode]!
+          ..refused = true
+          ..reason = 'refused';
+        await _until(h.container, _at(LoginPhase.rejected));
+      },
+    );
 
     test('a refusal before the code runs out reads as refused', () async {
       final h = await _harness();
@@ -488,7 +522,8 @@ void main() {
     );
 
     test(
-      'signing out from settings leaves the server and every service',
+      'signing out from settings leaves the server and takes off what the '
+      'account brought; without an account it removes what was pasted',
       () async {
         final h = await _harness(
           pasted: [Profile.normal(url: 'https://4g3.uk/sub/pasted')],
@@ -498,9 +533,104 @@ void main() {
         await h.signIn.signOut();
         await Future<void>.delayed(const Duration(milliseconds: 50));
         expect(h.api.loggedOut, hasLength(1));
+        verify(h.controller.disconnect).called(1);
+        expect(_urls(h.container), ['https://4g3.uk/sub/pasted']);
+        await h.signIn.signOut();
         expect(_urls(h.container), isEmpty);
       },
     );
+
+    test(
+      'a pasted link the account also holds stays when the account goes',
+      () async {
+        final h = await _harness(
+          pasted: [Profile.normal(url: 'https://sub.4g3.uk/user123')],
+        );
+        h.api.services = [_service(1, 'user123'), _service(2, 'user789')];
+        await _signedIn(h);
+        expect(_urls(h.container), hasLength(2));
+        final linked = h.container.read(shikooAccountProvider).services;
+        expect([for (final s in linked) s.owned], [false, true]);
+        await h.signIn.notMine();
+        expect(_urls(h.container), ['https://sub.4g3.uk/user123']);
+      },
+    );
+
+    test(
+      'a sign-out while a sync takes services off leaves no account behind',
+      () async {
+        final h = await _harness();
+        h.api.services = [_service(1, 'stays'), _service(2, 'leaves')];
+        await _signedIn(h);
+        h.signIn.finish();
+        h.api.services = [_service(1, 'stays')];
+        final gate = _deleteGate = Completer<void>();
+        final syncing = h.signIn.sync();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await h.signIn.signOut();
+        gate.complete();
+        await syncing;
+        final account = h.container.read(shikooAccountProvider);
+        expect(account.who, isNull);
+        expect(account.services, isEmpty);
+        expect(_urls(h.container), isEmpty);
+      },
+    );
+
+    test(
+      'an expired or used-up service with no link still comes, to renew',
+      () async {
+        final h = await _harness();
+        h.api.services = [
+          _service(51, 'user555', status: 'expired', noUrl: true),
+          _service(52, 'user666', status: 'exhausted', noUrl: true),
+        ];
+        final login = await _signedIn(h);
+        expect(login?.phase, LoginPhase.approved);
+        expect(login?.services, ['user555 · الماس', 'user666 · الماس']);
+        final unlinked = h.container.read(shikooAccountProvider).withoutLink;
+        expect([for (final s in unlinked) s.renews], [true, true]);
+        verifyNever(() => h.controller.addService(any(), any(), any()));
+      },
+    );
+
+    test(
+      'renewed, a service without a link gets one on the next sync',
+      () async {
+        final h = await _harness();
+        h.api.services = [
+          _service(41, 'user123', status: 'expired', noUrl: true),
+          _service(42, 'user789'),
+        ];
+        await _signedIn(h);
+        expect(_urls(h.container), ['https://sub.4g3.uk/user789']);
+        h.api.services = [_service(41, 'user123'), _service(42, 'user789')];
+        expect(await h.signIn.sync(), isTrue);
+        expect(_urls(h.container), hasLength(2));
+        expect(h.container.read(shikooAccountProvider).withoutLink, isEmpty);
+      },
+    );
+
+    test('a link the paste would refuse never reaches the device: it counts as '
+        'none', () async {
+      final h = await _harness();
+      h.api.services = [
+        _service(1, 'plain', url: 'http://sub.4g3.uk/plain'),
+        _service(2, 'foreign', url: 'https://evil.example/sub/x'),
+        _service(3, 'empty', url: ''),
+        _service(4, 'long', url: 'https://sub.4g3.uk/${'a' * 5000}'),
+      ];
+      expect((await _signedIn(h))?.phase, LoginPhase.approved);
+      verifyNever(() => h.controller.addService(any(), any(), any()));
+      expect(_urls(h.container), isEmpty);
+      expect(
+        [
+          for (final s in h.container.read(shikooAccountProvider).withoutLink)
+            s.id,
+        ],
+        [1, 2, 3, 4],
+      );
+    });
 
     test('a token that stopped working signs this device out', () async {
       final h = await _harness();
@@ -528,7 +658,7 @@ void main() {
         _service(1, 'stays'),
         _service(2, 'expires', status: 'expired', noUrl: true),
         _service(3, 'removed', status: 'removed', noUrl: true),
-        _service(5, 'relinked', url: 'https://sub.example/new-link'),
+        _service(5, 'relinked', url: 'https://sub.4g3.uk/new-link'),
         _service(6, 'botFirst', noUrl: true),
         _service(7, 'fresh'),
       ];
@@ -536,14 +666,14 @@ void main() {
       expect(
         _urls(h.container),
         unorderedEquals([
-          'https://sub.example/stays',
-          'https://sub.example/expires',
-          'https://sub.example/new-link',
-          'https://sub.example/fresh',
+          'https://sub.4g3.uk/stays',
+          'https://sub.4g3.uk/expires',
+          'https://sub.4g3.uk/new-link',
+          'https://sub.4g3.uk/fresh',
         ]),
       );
       final account = h.container.read(shikooAccountProvider);
-      expect(account.waitingForBot.map((s) => s.title), ['botFirst · الماس']);
+      expect(account.withoutLink.map((s) => s.title), ['botFirst · الماس']);
       expect(account.bot, 'Test_Shikoo_bot');
       final expired = h.container
           .read(profilesProvider)
@@ -554,7 +684,7 @@ void main() {
     test('a link that would not load is not a service, and alone fails the '
         'sign-in', () async {
       final h = await _harness();
-      h.api.services = [_service(1, 'gone', url: 'https://sub.example/dead')];
+      h.api.services = [_service(1, 'gone', url: 'https://sub.4g3.uk/dead')];
       expect((await _signedIn(h))?.phase, LoginPhase.servicesFailed);
     });
 

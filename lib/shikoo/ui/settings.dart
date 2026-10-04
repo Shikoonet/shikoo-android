@@ -34,6 +34,7 @@ class ShikooSettings extends ConsumerWidget {
     final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
     final who = ref.watch(shikooAccountProvider).who;
     final username = who?.username;
+    final shown = who?.name ?? '@${username ?? ''}';
     final groups = [
       _Group(
         title: l.appearance,
@@ -65,7 +66,13 @@ class ShikooSettings extends ConsumerWidget {
               if (who != null)
                 _Row(
                   icon: ShikooIcon.plane,
-                  title: l.signedInWith(who.name ?? '@${username ?? ''}'),
+                  title: l.signedInWith(shown),
+                  rich: sayWith(l.signedInWith, [
+                    TextSpan(
+                      text: shown,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ]),
                   subtitle: username == null
                       ? l.telegramAccount
                       : l.telegramAccountUsername('\u2066@$username\u2069'),
@@ -545,6 +552,7 @@ class _Card extends StatelessWidget {
 class _Row extends StatelessWidget {
   const _Row({
     required this.title,
+    this.rich,
     this.subtitle,
     this.value,
     this.icon,
@@ -555,6 +563,9 @@ class _Row extends StatelessWidget {
   });
 
   final String title;
+
+  /// The title with bold parts.
+  final List<InlineSpan>? rich;
   final String? subtitle;
   final String? value;
   final ShikooIcon? icon;
@@ -605,7 +616,13 @@ class _Row extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: t.text(s.body, color: ink)),
+                if (rich case final rich?)
+                  Text.rich(
+                    TextSpan(children: rich),
+                    style: t.text(s.body, color: ink),
+                  )
+                else
+                  Text(title, style: t.text(s.body, color: ink)),
                 if (subtitle != null)
                   Text(subtitle, style: t.text(s.bodySm, color: t.c.textMuted)),
               ],
