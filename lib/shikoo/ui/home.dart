@@ -150,7 +150,8 @@ class _CardKeys extends StatelessWidget {
           onInvoke: (intent) {
             final from = primaryFocus;
             if (from == focus.renew &&
-                intent.direction == TraversalDirection.down) {
+                intent.direction == TraversalDirection.down &&
+                _onScreen(focus.pingAll)) {
               focus.pingAll.requestFocus();
               return null;
             }

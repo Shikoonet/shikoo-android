@@ -663,4 +663,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(top('آلمان ۱'), to);
   });
+
+  testWidgets('on the TV, down from renew of a used-up service reaches the '
+      'services under it', (tester) async {
+    final controller = _Controller();
+    await _pump(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: true,
+        servers: _servers,
+        service: ShikooService(
+          name: 'user246 · طلایی',
+          usedBytes: 100,
+          totalBytes: 100,
+        ),
+        others: [
+          ShikooService(
+            id: 7,
+            name: 'user789 · معمولی',
+            usedBytes: 0,
+            totalBytes: 0,
+          ),
+        ],
+      ),
+      controller: controller,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<ShikooButton>()
+          ?.label,
+      'تمدید',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<FoldedServiceCard>(),
+      isNotNull,
+    );
+  });
 }
