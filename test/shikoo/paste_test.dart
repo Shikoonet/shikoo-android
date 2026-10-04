@@ -61,6 +61,13 @@ void main() {
       }
     });
 
+    test('pasted over http is taken over https, which carries the token', () {
+      expect(
+        shikooLink('http://sub.4g3.uk/sub/AbC'),
+        'https://sub.4g3.uk/sub/AbC',
+      );
+    });
+
     test('is read out of angle brackets', () {
       expect(
         shikooLink('<https://s.4g3.uk/sub/abc>'),
@@ -98,7 +105,6 @@ void main() {
         'https://evil4g3.uk/sub/abc',
         'https://4g3.uk.evil.com/sub/abc',
         'https://4g3.uk@evil.com/sub/abc',
-        'http://sub.4g3.uk/sub/abc',
         'vless://uuid@4g3.uk:443',
         'https://example.com/sub/abc',
         'سلام',
@@ -113,7 +119,10 @@ void main() {
         shikooLink('http://10.0.2.2:18289/sub', debug: true),
         'http://10.0.2.2:18289/sub',
       );
-      expect(shikooLink('http://4g3.uk/sub', debug: true), isNull);
+      expect(
+        shikooLink('http://4g3.uk/sub', debug: true),
+        'https://4g3.uk/sub',
+      );
     });
   });
 

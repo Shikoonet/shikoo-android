@@ -21,14 +21,13 @@ String? shikooLink(String text, {bool debug = shikooDebug}) {
   for (final match in _link.allMatches(text)) {
     final link = match[0]!.replaceFirst(_sentenceEnd, '');
     final uri = link.length > _maxLink ? null : Uri.tryParse(link);
-    final host = uri?.host ?? '';
-    final ours =
-        (uri?.scheme == 'https' &&
-            shikooSubscriptionDomains.any(
-              (domain) => host == domain || host.endsWith('.$domain'),
-            )) ||
-        (debug && uri?.scheme == 'http' && host == _emulatorHostMachine);
-    if (ours) return normalLink(link);
+    if (uri == null || !const {'http', 'https'}.contains(uri.scheme)) continue;
+    if (debug && uri.host == _emulatorHostMachine) return normalLink(link);
+    if (shikooSubscriptionDomains.any(
+      (domain) => uri.host == domain || uri.host.endsWith('.$domain'),
+    )) {
+      return normalLink(uri.replace(scheme: 'https').toString());
+    }
   }
   return null;
 }
