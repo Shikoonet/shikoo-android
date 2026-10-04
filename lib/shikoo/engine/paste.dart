@@ -55,17 +55,15 @@ ShikooPasteError addFailure(Object error) => switch (error) {
   _ => ShikooPasteError.unavailable,
 };
 
-final _topLevelKey = RegExp(r'^[^\s-]', multiLine: true);
-final _listItem = RegExp(r'^\s*-\s', multiLine: true);
-final _itemName = RegExp(r'''name:\s*["']?([^"',}\n]*)''');
-
-bool hasServers(String config) {
-  final start = RegExp(r'^proxies:', multiLine: true).firstMatch(config)?.end;
-  if (start == null) return false;
-  final rest = config.substring(start);
-  final section = rest.substring(0, _topLevelKey.firstMatch(rest)?.start);
-  return section
-      .split(_listItem)
-      .skip(1)
-      .any((item) => !isInfoRow(_itemName.firstMatch(item)?[1] ?? ''));
+/// [config] as the core parsed it (`getConfig`): a server besides the panel's info rows, or a
+/// provider, whose servers come later.
+bool configHasServers(Map<String, dynamic> config) {
+  final providers = config['proxy-providers'];
+  if (providers is Map && providers.isNotEmpty) return true;
+  final proxies = config['proxies'];
+  return proxies is List &&
+      proxies.any(
+        (proxy) =>
+            proxy is! Map || isServer('${proxy['type']}', '${proxy['name']}'),
+      );
 }

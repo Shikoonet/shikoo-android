@@ -156,34 +156,49 @@ void main() {
     });
   });
 
-  group('a config', () {
-    test('with a server in either YAML style, or an entry whose name it '
-        'cannot read, has servers: refusing a working one costs more', () {
-      const flow =
-          'proxies:\n  - {name: "آلمان ۱", type: vless, server: a.b}\n'
-          'proxy-groups:\n  - {name: PROXY, type: select, proxies: ["آلمان ۱"]}\n';
-      const block =
-          'mixed-port: 7890\nproxies:\n- name: Germany 1\n  type: vless\n'
-          '  alpn:\n    - h2\nrules:\n- MATCH,PROXY\n';
-      const nameLater = 'proxies:\n  - type: vless\n    name: x\n';
-      for (final config in [flow, block, nameLater]) {
-        expect(hasServers(config), isTrue, reason: config);
-      }
+  group('a config the core parsed', () {
+    Map<String, dynamic> server(String name) => {
+      'name': name,
+      'type': 'vless',
+      'server': '1.2.3.4',
+      'port': 443,
+      'alpn': ['h2', 'http/1.1'],
+    };
+
+    test('has servers with one real server among the info rows', () {
+      expect(
+        configHasServers({
+          'proxies': [server('V3.7.9 🆔 : (user123)'), server('DE 1')],
+        }),
+        isTrue,
+      );
     });
 
-    test('that is empty, a web page, or only the info rows has none', () {
-      const infoOnly =
-          'proxies:\n  - {name: "V3.7.9 🆔 : (user123)", type: vless}\n'
-          '  - {name: "قبل از اتصال به‌روزرسانی کنید", type: vless}\n'
-          'proxy-groups:\n  - {name: PROXY, type: select}\n';
-      for (final config in [
-        '',
-        '<!doctype html><html><body>Login</body></html>',
-        'proxies:\nrules:\n  - MATCH,DIRECT\n',
-        'mixed-port: 7890\n',
-        infoOnly,
+    test('has servers, unsure, when they come from a provider', () {
+      expect(
+        configHasServers({
+          'proxies': <Object>[],
+          'proxy-providers': {
+            'p': {'type': 'http', 'url': 'https://x'},
+          },
+        }),
+        isTrue,
+      );
+    });
+
+    test('has none when empty or only the info rows, nested lists or not', () {
+      for (final config in <Map<String, dynamic>>[
+        {},
+        {'proxies': null},
+        {'proxies': <Object>[]},
+        {
+          'proxies': [
+            server('V3.7.9 🆔 test'),
+            server('قبل از اتصال به‌روزرسانی کنید'),
+          ],
+        },
       ]) {
-        expect(hasServers(config), isFalse, reason: config);
+        expect(configHasServers(config), isFalse, reason: '$config');
       }
     });
   });

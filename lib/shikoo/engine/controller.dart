@@ -958,11 +958,7 @@ class ShikooController {
     final header = response.headers.value;
     final body = response.data ?? Uint8List(0);
     final info = _subscriptionInfo(header('subscription-userinfo'));
-    if (needsServers &&
-        !_ended(info) &&
-        !hasServers(utf8.decode(body, allowMalformed: true))) {
-      throw const FormatException('no servers');
-    }
+    if (needsServers && !_ended(info)) await _needServers(body);
     final profiles = _ref.read(profilesProvider);
     final existing = profiles.firstWhereOrNull(
       (profile) => normalLink(profile.url) == normalLink(url),
@@ -980,17 +976,31 @@ class ShikooController {
           autoUpdate: false,
           subscriptionInfo: info,
         )
-        .saveFile(
-          body,
-          validate: (path) =>
-              _ref.read(coreHandlerProvider).validateConfig(path),
-        );
+        .saveFile(body, validate: _validate);
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
       supportUrl: headerText(header('support-url')),
     ));
     return profile;
+  }
+
+  Future<String> _validate(String path) =>
+      _ref.read(coreHandlerProvider).validateConfig(path);
+
+  Future<void> _needServers(Uint8List body) async {
+    final probe = await Profile.normal().saveFile(body, validate: _validate);
+    Map<String, dynamic>? config;
+    try {
+      config = await _ref.read(coreHandlerProvider).getConfig(probe.id);
+    } catch (_) {
+      // ponytail: a core that cannot answer is unsure, and unsure lets the service in.
+    } finally {
+      await (await probe.file).safeDelete();
+    }
+    if (config != null && !configHasServers(config)) {
+      throw const FormatException('no servers');
+    }
   }
 
   Future<ShikooPasteError?> addService(String url, [String? label]) async {
