@@ -97,8 +97,7 @@ class ShikooService {
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
-  /// The name is `<username> · <tier>`, as in the bot's "my services".
-  String get username => name.split(' · ').first;
+  String get username => usernameOf(name);
 
   ShikooServiceStatus statusAt(DateTime now) {
     if (expire != null && !expire!.isAfter(now)) {
@@ -464,6 +463,19 @@ bool _ended(SubscriptionInfo? info) =>
     ((info.expire > 0 &&
             info.expire * 1000 <= DateTime.now().millisecondsSinceEpoch) ||
         (info.total > 0 && info.upload + info.download >= info.total));
+
+/// The panel names a service `<username> · <tier>`, and a username is its own key.
+String usernameOf(String name) => name.split(' · ').first.trim();
+
+Profile? serviceOf(List<Profile> profiles, String url, String? title) =>
+    profiles.firstWhereOrNull(
+      (profile) => normalLink(profile.url) == normalLink(url),
+    ) ??
+    (title == null
+        ? null
+        : profiles.firstWhereOrNull(
+            (profile) => usernameOf(profile.label) == usernameOf(title),
+          ));
 
 /// FlClash would add a Latin "(1)" to a name another service has.
 String unusedName(String name, Set<String> taken) {
@@ -960,18 +972,15 @@ class ShikooController {
     final info = _subscriptionInfo(header('subscription-userinfo'));
     if (needsServers && !_ended(info)) await _needServers(body);
     final profiles = _ref.read(profilesProvider);
-    final existing = profiles.firstWhereOrNull(
-      (profile) => normalLink(profile.url) == normalLink(url),
-    );
+    final title = label ?? headerText(header('profile-title'));
+    final existing = serviceOf(profiles, url, title);
     final profile = await (existing ?? Profile.normal(url: url))
         .copyWith(
-          label: unusedName(
-            label ?? headerText(header('profile-title')) ?? Uri.parse(url).host,
-            {
-              for (final other in profiles)
-                if (other != existing) other.label,
-            },
-          ),
+          url: url,
+          label: unusedName(title ?? Uri.parse(url).host, {
+            for (final other in profiles)
+              if (other != existing) other.label,
+          }),
           // FlClash's own daily update would race this one and drop the headers kept below.
           autoUpdate: false,
           subscriptionInfo: info,

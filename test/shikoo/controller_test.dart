@@ -1,3 +1,4 @@
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -102,5 +103,29 @@ void main() {
     );
     final taken = {'a', for (var n = 2; n < 10; n++) 'a ${'۰۱۲۳۴۵۶۷۸۹'[n]}'};
     expect(unusedName('a', taken), 'a ۱۰');
+  });
+
+  test('a link with a known username is that service\'s new link', () {
+    final a = Profile.normal(
+      url: 'https://s.4g3.uk/sub/old',
+    ).copyWith(label: 'user123 · الماس');
+    final b = Profile.normal(
+      url: 'https://s.4g3.uk/sub/b',
+    ).copyWith(label: 'user789 · معمولی');
+    final profiles = [a, b];
+    expect(
+      serviceOf(profiles, 'https://s.4g3.uk/sub/new', 'user123 · الماس'),
+      a,
+    );
+    expect(
+      serviceOf(profiles, 'https://s.4g3.uk/sub/new', 'user123 · طلایی'),
+      a,
+      reason: 'the tier changed, the username did not',
+    );
+    expect(serviceOf(profiles, 'https://S.4g3.uk/sub/b/', null), b);
+    expect(
+      serviceOf(profiles, 'https://s.4g3.uk/sub/c', 'user456 · طلایی'),
+      isNull,
+    );
   });
 }
