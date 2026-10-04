@@ -55,6 +55,7 @@ Future<ValueNotifier<ShikooState>> _pump(
   WidgetTester tester,
   ShikooState state, {
   String locale = 'fa',
+  ShikooController? controller,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -71,6 +72,8 @@ Future<ValueNotifier<ShikooState>> _pump(
       key: UniqueKey(),
       overrides: [
         shikooVersionProvider.overrideWithValue('1.0.0'),
+        if (controller != null)
+          shikooControllerProvider.overrideWithValue(controller),
         shikooStateProvider.overrideWith((ref) {
           void changed() => ref.invalidateSelf();
           holder.addListener(changed);
@@ -92,6 +95,21 @@ Future<ValueNotifier<ShikooState>> _pump(
   );
   await tester.pump();
   return holder;
+}
+
+/// How many times the app read the clipboard, which holds [text].
+ValueGetter<int> _clipboard(WidgetTester tester, String text) {
+  var reads = 0;
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method != 'Clipboard.getData') return null;
+    reads++;
+    return {'text': text};
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return () => reads;
 }
 
 Finder _icon(ShikooIcon icon) =>
@@ -228,49 +246,13 @@ void main() {
 
   testWidgets('the phone with no service reads the clipboard only on a press, '
       'and names each failure above the button', (tester) async {
-    tester.view
-      ..physicalSize = const Size(824, 1830)
-      ..devicePixelRatio = 2;
-    addTearDown(tester.view.reset);
-    var reads = 0;
     const clip = 'https://s.4g3.uk/sub/secret-token';
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method != 'Clipboard.getData') return null;
-        reads++;
-        return {'text': clip};
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
+    final reads = _clipboard(tester, clip);
     final controller = _Controller();
     final answer = Completer<ShikooPasteError?>();
     when(() => controller.pasteService(any())).thenAnswer((_) => answer.future);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          shikooStateProvider.overrideWithValue(_noService),
-          shikooControllerProvider.overrideWithValue(controller),
-        ],
-        child: MaterialApp(
-          locale: const Locale('fa'),
-          supportedLocales: ShikooL10n.supportedLocales,
-          localizationsDelegates: const [
-            ShikooL10n.delegate,
-            ...GlobalMaterialLocalizations.delegates,
-          ],
-          theme: shikooThemeData(Brightness.light, tv: false),
-          home: const ShikooHome(),
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(reads, 0);
+    await _pump(tester, _noService, controller: controller);
+    expect(reads(), 0);
     expect(
       tester.getTopLeft(find.text('پشتیبانی')).dy,
       lessThan(tester.getTopLeft(find.text('چسباندن لینک اشتراک')).dy),
@@ -279,11 +261,11 @@ void main() {
 
     await tester.tap(find.text('چسباندن لینک اشتراک'));
     await tester.pump();
-    expect(reads, 1);
+    expect(reads(), 1);
     verify(() => controller.pasteService(clip)).called(1);
     expect(find.text('در حال بررسی لینک…'), findsOneWidget);
     answer.complete(ShikooPasteError.empty);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     for (final (error, strong) in [
       (ShikooPasteError.empty, 'کلیپ‌بورد خالی است.'),
@@ -293,7 +275,7 @@ void main() {
     ]) {
       when(() => controller.pasteService(any())).thenAnswer((_) async => error);
       await tester.tap(find.text('چسباندن لینک اشتراک'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       final message = find.textContaining(strong, findRichText: true);
       expect(message, findsOneWidget, reason: error.name);
       expect(
@@ -306,7 +288,42 @@ void main() {
 
     when(() => controller.pasteService(any())).thenAnswer((_) async => null);
     await tester.tap(find.text('چسباندن لینک اشتراک'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.textContaining('اینترنت وصل نیست.'), findsNothing);
+  });
+
+  testWidgets("the phone's settings paste another link above log out, show a "
+      'refusal over the card, and go home once it is in', (tester) async {
+    _clipboard(tester, 'https://example.com/sub/x');
+    final controller = _Controller();
+    when(
+      () => controller.pasteService(any()),
+    ).thenAnswer((_) async => ShikooPasteError.notShikoo);
+    await _pump(tester, _phone(), controller: controller);
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    final paste = find.text('چسباندن لینک دیگر');
+    expect(find.text('برای سرویس دیگری که داری'), findsOneWidget);
+    expect(
+      tester.getTopLeft(paste).dy,
+      lessThan(tester.getTopLeft(find.text('خروج')).dy),
+    );
+
+    await tester.tap(paste);
+    await tester.pump();
+    final refusal = find.textContaining(
+      'این لینک شیکو نیست.',
+      findRichText: true,
+    );
+    expect(refusal, findsOneWidget);
+    expect(
+      tester.getBottomLeft(refusal).dy,
+      lessThan(tester.getTopLeft(paste).dy),
+    );
+
+    when(() => controller.pasteService(any())).thenAnswer((_) async => null);
+    await tester.tap(paste);
+    await tester.pumpAndSettle();
+    expect(find.byType(ShikooSettings), findsNothing);
   });
 }

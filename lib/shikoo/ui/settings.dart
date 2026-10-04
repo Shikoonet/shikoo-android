@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,16 +54,27 @@ class ShikooSettings extends ConsumerWidget {
       ),
       _Group(
         title: l.account,
-        child: _Card(
-          rows: [
-            _Row(
-              icon: ShikooIcon.logout,
-              danger: true,
-              title: l.logout,
-              subtitle: isTV ? l.logoutHelpTv : l.logoutHelpTouch,
-              onPressed: () => unawaited(_logOut(context, ref, isTV)),
-            ),
-          ],
+        child: PasteLink(
+          onAdded: () => Navigator.popUntil(context, (route) => route.isFirst),
+          builder: (context, busy, paste) => _Card(
+            rows: [
+              if (!isTV)
+                _Row(
+                  icon: ShikooIcon.paste,
+                  busy: busy,
+                  title: l.pasteAnother,
+                  subtitle: busy ? l.pasteChecking : l.pasteAnotherHelp,
+                  onPressed: paste,
+                ),
+              _Row(
+                icon: ShikooIcon.logout,
+                danger: true,
+                title: l.logout,
+                subtitle: isTV ? l.logoutHelpTv : l.logoutHelpTouch,
+                onPressed: () => unawaited(_logOut(context, ref, isTV)),
+              ),
+            ],
+          ),
         ),
       ),
       _Group(
@@ -479,6 +491,7 @@ class _Row extends StatelessWidget {
     this.icon,
     this.forward = false,
     this.danger = false,
+    this.busy = false,
     this.onPressed,
   });
 
@@ -488,6 +501,7 @@ class _Row extends StatelessWidget {
   final ShikooIcon? icon;
   final bool forward;
   final bool danger;
+  final bool busy;
   final VoidCallback? onPressed;
 
   @override
@@ -517,7 +531,9 @@ class _Row extends StatelessWidget {
       child: Row(
         spacing: Space.s3,
         children: [
-          if (icon != null)
+          if (busy)
+            Spinner(size: s.icon, color: t.c.textMuted)
+          else if (icon != null)
             Transform.flip(
               flipX: ltr,
               child: SvgIcon(
