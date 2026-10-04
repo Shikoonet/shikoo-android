@@ -512,11 +512,11 @@ abstract class ShikooL10n {
   /// **'Renew on your phone'**
   String get renewTitle;
 
-  /// No description provided for @renewHelp.
+  /// No description provided for @renewHelpList.
   ///
   /// In en, this message translates to:
   /// **'Scan with your phone\'s camera; the ShikooNet bot opens the renewal list of your services.'**
-  String get renewHelp;
+  String get renewHelpList;
 
   /// No description provided for @supportTitle.
   ///
@@ -524,11 +524,11 @@ abstract class ShikooL10n {
   /// **'Support on your phone'**
   String get supportTitle;
 
-  /// No description provided for @supportHelp.
+  /// No description provided for @supportHelpTv.
   ///
   /// In en, this message translates to:
-  /// **'Scan with your phone\'s camera to chat with ShikooNet support on Telegram.'**
-  String get supportHelp;
+  /// **'Scan with your phone\'s camera to open a chat with ShikooNet support in Telegram.'**
+  String get supportHelpTv;
 
   /// No description provided for @close.
   ///
@@ -860,10 +860,10 @@ abstract class ShikooL10n {
   /// **'Expired on {date}. Renew to use it again.'**
   String summaryExpired(String date);
 
-  /// Instead of renewToConnect when another active service is on this device.
+  /// Instead of renewToConnect when another active service is on this device. The line break is fixed so neither line wraps alone under the round button, phone or TV.
   ///
   /// In en, this message translates to:
-  /// **'Renew to connect again, or pick your other service.'**
+  /// **'Renew to connect again,\nor pick your other service.'**
   String get renewOrSwitch;
 
   /// A server error (5xx), an empty answer, or a web page instead of a subscription. Only 404 and 410 say pasteRevokedTitle. Says nothing about a “server”: customers read that as the servers in the list.

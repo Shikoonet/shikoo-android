@@ -335,15 +335,15 @@ class ShikooL10nEn extends ShikooL10n {
   String get renewTitle => 'Renew on your phone';
 
   @override
-  String get renewHelp =>
+  String get renewHelpList =>
       'Scan with your phone\'s camera; the ShikooNet bot opens the renewal list of your services.';
 
   @override
   String get supportTitle => 'Support on your phone';
 
   @override
-  String get supportHelp =>
-      'Scan with your phone\'s camera to chat with ShikooNet support on Telegram.';
+  String get supportHelpTv =>
+      'Scan with your phone\'s camera to open a chat with ShikooNet support in Telegram.';
 
   @override
   String get close => 'Close';
@@ -529,7 +529,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get renewOrSwitch =>
-      'Renew to connect again, or pick your other service.';
+      'Renew to connect again,\nor pick your other service.';
 
   @override
   String get pasteUnavailableTitle => 'Couldn\'t open the link right now.';

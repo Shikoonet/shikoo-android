@@ -298,14 +298,14 @@ class ShikooL10nFa extends ShikooL10n {
   String get renewTitle => 'تمدید با گوشی';
 
   @override
-  String get renewHelp =>
+  String get renewHelpList =>
       'با دوربین گوشی اسکن کن؛ ربات شیکونت فهرست تمدید سرویس‌هایت را باز می‌کند.';
 
   @override
   String get supportTitle => 'پشتیبانی با گوشی';
 
   @override
-  String get supportHelp =>
+  String get supportHelpTv =>
       'با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکونت در تلگرام باز شود.';
 
   @override
@@ -492,7 +492,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get renewOrSwitch =>
-      'با «تمدید» دوباره وصل می‌شوی، یا سرویس دیگرت را انتخاب کن.';
+      'با «تمدید» دوباره وصل می‌شوی،\nیا سرویس دیگرت را انتخاب کن.';
 
   @override
   String get pasteUnavailableTitle => 'لینک الان باز نشد.';
