@@ -56,7 +56,7 @@ class ShikooServer {
   final int? ping;
   final bool testing;
 
-  /// Came with an update since the app started.
+  /// Came with the last update, and goes with its news.
   final bool fresh;
 
   String get label => withoutFlags(name);
@@ -587,6 +587,7 @@ class ShikooController {
   /// News leaves with the app or the next update; a failed update stays until one succeeds.
   void clearNews() {
     if (_ref.read(_noticeProvider) is! RefreshFailed) _notice(null);
+    _ref.read(_freshProvider.notifier).set(const {});
   }
 
   List<String> _names(Group? group) => [
@@ -886,10 +887,7 @@ class ShikooController {
         if (!after.contains(name)) name,
     ];
     final added = after.where((name) => !before.contains(name)).toSet();
-    _ref.read(_freshProvider.notifier).set({
-      ..._ref.read(_freshProvider).where(after.contains),
-      ...added,
-    });
+    _ref.read(_freshProvider.notifier).set(added);
     if (had != null && removed.contains(had)) {
       _removed = had;
     } else if (added.isNotEmpty || removed.isNotEmpty) {
