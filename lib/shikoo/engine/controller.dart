@@ -838,7 +838,10 @@ class ShikooController {
     final before = _names(_group);
     final had = _validSelection();
     try {
-      await _download(profile.url, profile.label);
+      if (await _download(profile.url, profile.label, true) == null) {
+        status.set(ShikooRefresh.idle);
+        return;
+      }
       if (!await _setup.applyProfile(silence: true)) {
         throw StateError('apply');
       }
@@ -871,7 +874,12 @@ class ShikooController {
 
   /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
   /// The url holds the customer's token: never log it, nor the error, which can quote it.
-  Future<Profile> _download(String url, [String? label]) async {
+  /// With [refresh], a service removed meanwhile (sign-out, sync) is not brought back: null.
+  Future<Profile?> _download(
+    String url, [
+    String? label,
+    bool refresh = false,
+  ]) async {
     final response = await request
         .getFileResponseForUrl(url)
         .timeout(const Duration(seconds: 30));
@@ -879,6 +887,7 @@ class ShikooController {
     final existing = _ref
         .read(profilesProvider)
         .firstWhereOrNull((profile) => profile.url == url);
+    if (refresh && existing == null) return null;
     final profile = await (existing ?? Profile.normal(url: url))
         .copyWith(
           label:
@@ -894,6 +903,10 @@ class ShikooController {
           validate: (path) =>
               _ref.read(coreHandlerProvider).validateConfig(path),
         );
+    if (refresh &&
+        !_ref.read(profilesProvider).any((p) => p.id == profile.id)) {
+      return null;
+    }
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
@@ -910,7 +923,7 @@ class ShikooController {
     bool select = true,
   ]) async {
     try {
-      final profile = await _download(url, label);
+      final profile = (await _download(url, label))!;
       if (_ref.read(currentProfileIdProvider) == profile.id) {
         // The core re-reads a profile only when the selection changes.
         await _setup.applyProfile(silence: true);
