@@ -705,4 +705,36 @@ void main() {
       isNotNull,
     );
   });
+
+  testWidgets('from 90% used, what is left turns amber', (tester) async {
+    TextStyle? left() {
+      TextStyle? style;
+      final rich = find.textContaining('باقی‌مانده:', findRichText: true);
+      tester.widget<RichText>(rich).text.visitChildren((span) {
+        if (span is TextSpan && (span.text ?? '').contains('گیگ')) {
+          style = span.style;
+        }
+        return true;
+      });
+      return style;
+    }
+
+    ShikooState using(int used) => ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: false,
+      servers: _servers,
+      selected: 'آلمان ۲',
+      service: ShikooService(
+        name: 'user123 · الماس',
+        usedBytes: used << 30,
+        totalBytes: 100 << 30,
+      ),
+    );
+
+    await _pump(tester, using(89));
+    expect(left()?.color, isNot(ShikooColors.light.warning));
+    await _pump(tester, using(90));
+    expect(left()?.color, ShikooColors.light.warning);
+  });
 }

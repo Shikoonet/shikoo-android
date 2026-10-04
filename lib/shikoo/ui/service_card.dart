@@ -600,6 +600,7 @@ class _Usage extends StatelessWidget {
     final muted = t.text(t.s.bodySm, color: t.c.textMuted);
     final strong = TextStyle(color: t.c.text, fontWeight: FontWeight.w700);
     final danger = TextStyle(color: t.c.danger, fontWeight: FontWeight.w700);
+    final warning = TextStyle(color: t.c.warning, fontWeight: FontWeight.w700);
     final ended = service.ended;
     final expired = ended == ShikooServiceStatus.expired;
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');
@@ -638,7 +639,7 @@ class _Usage extends StatelessWidget {
                         : l.unlimited,
                     style: ended == ShikooServiceStatus.exhausted
                         ? danger
-                        : strong,
+                        : (ratio >= _nearlyUsed ? warning : strong),
                   ),
                 ],
               ),
