@@ -67,11 +67,17 @@ class ServiceCard extends StatefulWidget {
     required this.state,
     required this.controller,
     required this.focus,
+    this.serviceId,
+    this.bot,
   });
 
   final ShikooState state;
   final ShikooController controller;
   final CardFocus focus;
+
+  /// The bot's id for the service, once sign-in brought it: renew opens that service alone.
+  final int? serviceId;
+  final String? bot;
 
   @override
   State<ServiceCard> createState() => _ServiceCardState();
@@ -124,7 +130,7 @@ class _ServiceCardState extends State<ServiceCard> {
                 Padding(
                   padding: inset.copyWith(top: Space.s2),
                   child: Text(
-                    state.isTV ? l.noServiceHelp : l.noServiceHelpTouch,
+                    state.isTV ? l.noServiceHelp : l.noServiceHelpPaste,
                     style: t.text(
                       t.s.bodySm,
                       color: t.c.textMuted,
@@ -211,15 +217,24 @@ class _ServiceCardState extends State<ServiceCard> {
                           primary: true,
                           autofocus: state.isTV && restingFor(state) != null,
                           focusNode: focus.renew,
-                          onPressed: () => openLink(
-                            context,
-                            isTV: state.isTV,
-                            link: ShikooLinks.renew,
-                            title: l.renewTitle,
-                            help: l.renewHelpList,
-                            below: l.renewPickInList(service.username),
-                            strong: service.username,
-                          ),
+                          onPressed: () => switch (widget.serviceId) {
+                            final id? => openLink(
+                              context,
+                              isTV: state.isTV,
+                              link: ShikooLinks.renewOne(id, widget.bot),
+                              title: l.renewTitle,
+                              help: l.renewHelpDirect,
+                            ),
+                            null => openLink(
+                              context,
+                              isTV: state.isTV,
+                              link: ShikooLinks.renew,
+                              title: l.renewTitle,
+                              help: l.renewHelpList,
+                              below: l.renewPickInList(service.username),
+                              strong: service.username,
+                            ),
+                          },
                         ),
                       ),
                       const SizedBox(width: Space.s2),

@@ -213,8 +213,8 @@ class _Intent {
   final ShikooError? error;
 }
 
-class _Cell<T> extends Notifier<T> {
-  _Cell(this._initial);
+class ShikooCell<T> extends Notifier<T> {
+  ShikooCell(this._initial);
 
   final T _initial;
 
@@ -224,8 +224,8 @@ class _Cell<T> extends Notifier<T> {
   void set(T value) => state = value;
 }
 
-NotifierProvider<_Cell<T>, T> _cell<T>(T initial) =>
-    NotifierProvider<_Cell<T>, T>(() => _Cell(initial));
+NotifierProvider<ShikooCell<T>, T> _cell<T>(T initial) =>
+    NotifierProvider<ShikooCell<T>, T>(() => ShikooCell(initial));
 
 final _intentProvider = _cell(const _Intent());
 
@@ -983,7 +983,7 @@ class ShikooController {
     }
     mark(ShikooRefresh.running);
     try {
-      await _download(profile.url, label: profile.label);
+      await _download(profile.url, label: profile.label, refresh: true);
       mark(ShikooRefresh.idle);
     } catch (_) {
       mark(ShikooRefresh.failed);
@@ -1008,7 +1008,15 @@ class ShikooController {
     final before = _names(_group);
     final had = _validSelection();
     try {
-      await _download(profile.url, label: profile.label);
+      final fresh = await _download(
+        profile.url,
+        label: profile.label,
+        refresh: true,
+      );
+      if (fresh == null) {
+        status.set(ShikooRefresh.idle);
+        return;
+      }
       if (!await _setup.applyProfile(silence: true)) {
         throw StateError('apply');
       }
@@ -1038,10 +1046,11 @@ class ShikooController {
 
   /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
   /// The url holds the customer's token: never log it, nor the error, which can quote it.
-  Future<Profile> _download(
+  Future<Profile?> _download(
     String url, {
     String? label,
     bool needsServers = false,
+    bool refresh = false,
   }) async {
     final response = await request
         .getFileResponseForUrl(url)
@@ -1056,6 +1065,7 @@ class ShikooController {
       body: utf8.decode(body, allowMalformed: true),
     );
     final existing = serviceOf(profiles, url, user);
+    if (refresh && existing == null) return null;
     final name = label ?? serviceName(title, user) ?? Uri.parse(url).host;
     final draft = (existing ?? Profile.normal(url: url)).copyWith(
       url: url,
@@ -1072,6 +1082,11 @@ class ShikooController {
       await _needServers(body);
     }
     final profile = await draft.saveFile(body, validate: _validate);
+    // ponytail: its just-saved config file stays behind, as with FlClash's own update.
+    if (refresh &&
+        !_ref.read(profilesProvider).any((p) => p.id == profile.id)) {
+      return null;
+    }
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
@@ -1098,13 +1113,17 @@ class ShikooController {
     }
   }
 
-  Future<ShikooPasteError?> addService(String url, [String? label]) async {
+  Future<ShikooPasteError?> addService(
+    String url, [
+    String? label,
+    bool select = true,
+  ]) async {
     try {
-      final profile = await _download(url, label: label, needsServers: true);
+      final profile = (await _download(url, label: label, needsServers: true))!;
       if (_ref.read(currentProfileIdProvider) == profile.id) {
         // The core re-reads a profile only when the selection changes.
         await _setup.applyProfile(silence: true);
-      } else {
+      } else if (select) {
         _ref.read(currentProfileIdProvider.notifier).value = profile.id;
       }
       return null;
@@ -1114,10 +1133,20 @@ class ShikooController {
   }
 
   /// What the user pasted holds a token: nothing here shows or logs it.
-  Future<ShikooPasteError?> pasteService(String? text) async {
+  Future<ShikooPasteError?> pasteService(
+    String? text, {
+    bool debug = shikooDebug,
+  }) async {
     if (text == null || text.trim().isEmpty) return ShikooPasteError.empty;
-    final link = shikooLink(text);
+    final link = shikooLink(text, debug: debug);
     if (link == null) return ShikooPasteError.notShikoo;
-    return addService(link);
+    final failure = await addService(link);
+    if (failure == null) {
+      await markPasted([
+        for (final profile in _ref.read(profilesProvider))
+          if (normalLink(profile.url) == normalLink(link)) profile.id,
+      ]);
+    }
+    return failure;
   }
 }

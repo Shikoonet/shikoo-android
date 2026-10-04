@@ -7,6 +7,20 @@ import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:intl/intl.dart' show Bidi, NumberFormat;
 import 'package:material_ui/material_ui.dart';
 
+const _slot = '\u{E000}';
+
+/// [message] with [part] at its placeholder, which [_slot] marks: no translation holds it.
+List<InlineSpan> sayWith(
+  String Function(String part) message,
+  List<InlineSpan> part,
+) {
+  final pieces = message(_slot).split(_slot);
+  return [
+    TextSpan(text: pieces.first),
+    if (pieces.length > 1) ...[...part, TextSpan(text: pieces[1])],
+  ];
+}
+
 /// Numbers in the UI language: Persian digits under `fa`.
 String localNumber(BuildContext context, num value, [String pattern = '0']) =>
     NumberFormat(
@@ -136,35 +150,49 @@ class Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final l = ShikooL10n.of(context);
-    final mark = t.s.mark;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: mark,
-          height: mark,
-          alignment: Alignment.center,
-          padding: EdgeInsets.only(bottom: mark * 0.1),
-          decoration: ShapeDecoration(
-            color: t.c.primary,
-            shape: RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(mark * Radii.markRatio),
-            ),
-          ),
-          child: Text(
-            l.brandMark,
-            style: t.text(
-              mark * 0.56,
-              weight: FontWeight.w800,
-              color: t.c.onPrimary,
-              height: 1,
-            ),
-          ),
-        ),
+        BrandMark(size: t.s.mark),
         const SizedBox(width: Space.s2),
-        Text(l.appTitle, style: t.text(t.s.title, weight: FontWeight.w800)),
+        Text(
+          ShikooL10n.of(context).appTitle,
+          style: t.text(t.s.title, weight: FontWeight.w800),
+        ),
       ],
+    );
+  }
+}
+
+/// `.mark`: the letter «ش» on the primary colour.
+class BrandMark extends StatelessWidget {
+  const BrandMark({super.key, required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      padding: EdgeInsets.only(bottom: size * 0.1),
+      decoration: ShapeDecoration(
+        color: t.c.primary,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(size * Radii.markRatio),
+        ),
+      ),
+      child: Text(
+        ShikooL10n.of(context).brandMark,
+        style: t.text(
+          size * 0.56,
+          weight: FontWeight.w800,
+          color: t.c.onPrimary,
+          height: 1,
+        ),
+      ),
     );
   }
 }
@@ -221,69 +249,101 @@ class ShikooButton extends StatelessWidget {
     this.busy = false,
     this.autofocus = false,
     this.focusNode,
+    this.telegram = false,
+    this.height,
   });
 
   final String label;
   final ShikooIcon? icon;
-  final VoidCallback onPressed;
+
+  /// Null greys the button out and the remote passes it by.
+  final VoidCallback? onPressed;
   final bool primary;
   final bool danger;
   final bool busy;
   final bool autofocus;
   final FocusNode? focusNode;
 
+  /// `.btn-telegram`: Telegram's blue, taller, the label large and bold.
+  final bool telegram;
+  final double? height;
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final radius = BorderRadius.circular(Radii.md);
-    final fg = primary ? t.c.onPrimary : (danger ? t.c.onDanger : t.c.text);
-    final fill = primary ? t.c.primary : (danger ? t.c.danger : null);
+    final onPressed = this.onPressed;
+    final enabled = onPressed != null;
+    final fg = !enabled
+        ? t.c.textMuted
+        : telegram
+        ? ShikooColors.onTelegram
+        : primary
+        ? t.c.onPrimary
+        : (danger ? t.c.onDanger : t.c.text);
+    final fill = !enabled
+        ? null
+        : telegram
+        ? ShikooColors.telegram
+        : primary
+        ? t.c.primary
+        : (danger ? t.c.danger : null);
     final icon = this.icon;
+    // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
+    Widget face(bool focused) => Container(
+      height: height ?? (telegram ? ShikooSizes.buttonLg : t.s.button),
+      padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+      decoration: ShapeDecoration(
+        color: fill ?? (focused ? t.c.focusBg : null),
+        shadows: focused ? t.c.raisedShadow : null,
+        shape: RoundedSuperellipseBorder(borderRadius: radius),
+      ),
+      foregroundDecoration: fill != null || focused
+          ? null
+          : ShapeDecoration(
+              shape: RoundedSuperellipseBorder(
+                borderRadius: radius,
+                side: BorderSide(
+                  color: enabled ? t.c.outline : t.c.border,
+                  width: t.s.borderControl,
+                ),
+              ),
+            ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (busy)
+            Spinner(size: t.s.icon, color: fg)
+          else if (icon != null)
+            SvgIcon(
+              icon,
+              size: t.s.icon,
+              color: enabled ? fg : t.c.iconDisabled,
+            ),
+          if (busy || icon != null) const SizedBox(width: Space.s2),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: t.text(
+                telegram ? ShikooSizes.buttonLgText : t.s.body,
+                weight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!enabled) return face(false);
     return Pressable(
       shape: RoundedSuperellipseBorder(borderRadius: radius),
       autofocus: autofocus,
       focusNode: focusNode,
       onPressed: onPressed,
-      // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
-      builder: (context, focused) => Container(
-        height: t.s.button,
-        padding: const EdgeInsets.symmetric(horizontal: Space.s4),
-        decoration: ShapeDecoration(
-          color: fill ?? (focused ? t.c.focusBg : null),
-          shadows: focused ? t.c.raisedShadow : null,
-          shape: RoundedSuperellipseBorder(borderRadius: radius),
-        ),
-        foregroundDecoration: fill != null || focused
-            ? null
-            : ShapeDecoration(
-                shape: RoundedSuperellipseBorder(
-                  borderRadius: radius,
-                  side: BorderSide(
-                    color: t.c.outline,
-                    width: t.s.borderControl,
-                  ),
-                ),
-              ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (busy)
-              Spinner(size: t.s.icon, color: fg)
-            else if (icon != null)
-              SvgIcon(icon, size: t.s.icon, color: fg),
-            if (busy || icon != null) const SizedBox(width: Space.s2),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: t.text(t.s.body, weight: FontWeight.w700, color: fg),
-              ),
-            ),
-          ],
-        ),
-      ),
+      builder: (context, focused) => face(focused),
     );
   }
 }
@@ -383,14 +443,16 @@ class MessageBox extends StatelessWidget {
             child: Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(
-                    text: strong,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: danger ? t.c.danger : t.c.text,
+                  if (strong.isNotEmpty)
+                    TextSpan(
+                      text: strong,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: danger ? t.c.danger : t.c.text,
+                      ),
                     ),
-                  ),
-                  if (rest.isNotEmpty) TextSpan(text: ' $rest'),
+                  if (rest.isNotEmpty)
+                    TextSpan(text: strong.isEmpty ? rest : ' $rest'),
                 ],
               ),
               style: t.text(t.s.bodySm, height: Leading.body),

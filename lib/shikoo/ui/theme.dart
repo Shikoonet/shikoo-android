@@ -22,7 +22,9 @@ abstract final class Space {
   static const s3 = 12.0;
   static const s4 = 16.0;
   static const s6 = 24.0;
+  static const s8 = 32.0;
   static const s10 = 40.0;
+  static const s16 = 64.0;
 }
 
 abstract final class Radii {
@@ -129,6 +131,11 @@ class ShikooColors {
   /// Dark on light in both themes: many phone cameras miss an inverted QR.
   static const qrModule = Color(0xFF000000);
   static const qrBg = Color(0xFFFFFFFF);
+  static const onQrBg = Color(0xFF1A1B19);
+
+  /// Telegram's own blue, not Shikoo's, in both themes.
+  static const telegram = Color(0xFF229ED9);
+  static const onTelegram = Color(0xFFFFFFFF);
 
   static const dark = ShikooColors(
     bg: Color(0xFF121413),
@@ -192,6 +199,10 @@ class ShikooSizes {
     required this.pane,
     required this.dialog,
     required this.dialogText,
+    required this.headline,
+    required this.code,
+    required this.heroIcon,
+    required this.qr,
   });
 
   final double caption;
@@ -216,6 +227,10 @@ class ShikooSizes {
   final double pane;
   final double dialog;
   final double dialogText;
+  final double headline;
+  final double code;
+  final double heroIcon;
+  final double qr;
 
   static const phone = ShikooSizes(
     caption: 12,
@@ -240,6 +255,10 @@ class ShikooSizes {
     pane: 0,
     dialog: 340,
     dialogText: 13,
+    headline: 24,
+    code: 28,
+    heroIcon: 64,
+    qr: 200,
   );
 
   static const tv = ShikooSizes(
@@ -265,6 +284,10 @@ class ShikooSizes {
     pane: 500,
     dialog: 560,
     dialogText: 16,
+    headline: 28,
+    code: 40,
+    heroIcon: 96,
+    qr: 300,
   );
 
   static const touch = 48.0;
@@ -276,6 +299,10 @@ class ShikooSizes {
   static const focusRingOffset = 2.0;
   static const scrollThumb = 4.0;
   static const qrSm = 200.0;
+  static const buttonLg = 56.0;
+  static const buttonLgText = 19.0;
+  static const markLg = 88.0;
+  static const codeWordSpacing = 0.12;
   static const fade = 24.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;

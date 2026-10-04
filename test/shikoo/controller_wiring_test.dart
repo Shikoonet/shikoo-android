@@ -17,6 +17,7 @@ import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:riverpod/misc.dart' show Override;
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -77,10 +78,27 @@ class _Setup extends SetupAction {
   }) async => true;
 }
 
+/// The panel answers at once: a paste goes through without a network.
+class _Panel extends ShikooController {
+  _Panel(this.ref) : super(ref);
+
+  final Ref ref;
+
+  @override
+  Future<ShikooPasteError?> addService(
+    String url, [
+    String? label,
+    bool select = true,
+  ]) async {
+    ref.read(profilesProvider.notifier).put(Profile.normal(url: url));
+    return null;
+  }
+}
+
 const _version = 'V3.7.9 🆔 : (user123) 📊 (67 GB) ⏰ (23)';
 
 ({ProviderContainer container, _Core core, _Proxies proxies, _Setup setup})
-_home() {
+_home([List<Override> more = const []]) {
   SharedPreferences.setMockInitialValues({});
   final core = _Core();
   final profile = Profile.normal(url: 'https://panel.invalid/sub');
@@ -98,6 +116,7 @@ _home() {
         await setup.trafficGate?.future;
         return setup.traffic;
       }),
+      ...more,
     ],
   );
   addTearDown(container.dispose);
@@ -162,6 +181,18 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   return 'http://127.0.0.1:${server.port}';
 }
 
+/// The emulator's name for the computer, 10.0.2.2, reaches the test's panel. Set before any
+/// request: FlClash's client is made once and kept.
+class _EmulatorHost extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) =>
+      super.createHttpClient(context)
+        ..connectionFactory = (uri, _, _) => Socket.startConnect(
+          uri.host == '10.0.2.2' ? InternetAddress.loopbackIPv4 : uri.host,
+          uri.port,
+        );
+}
+
 List<Profile> _pasted(ProviderContainer container) => [
   for (final profile in container.read(profilesProvider))
     if (profile.url.startsWith('http://127.0.0.1')) profile,
@@ -169,6 +200,7 @@ List<Profile> _pasted(ProviderContainer container) => [
 
 void main() {
   setUpAll(() {
+    HttpOverrides.global = _EmulatorHost();
     final files = Directory.systemTemp.createTempSync('shikoo-wiring-');
     AppPath.supportDirectory = AppPath.temporaryDirectory =
         AppPath.cacheDirectory = () async => files;
@@ -658,6 +690,26 @@ void main() {
     expect(container.read(profilesProvider), hasLength(1));
   });
 
+  test(
+    'a paste marks its profile pasted; one the account adds is not',
+    () async {
+      final container = _home([
+        shikooControllerProvider.overrideWith(_Panel.new),
+      ]).container;
+      final controller = container.read(shikooControllerProvider);
+      expect(
+        await controller.pasteService('سرویسم: https://4g3.uk/sub/mine.'),
+        isNull,
+      );
+      await controller.addService('https://4g3.uk/sub/account');
+      final ids = {
+        for (final profile in container.read(profilesProvider))
+          profile.url: profile.id,
+      };
+      expect(await pastedProfiles(), {ids['https://4g3.uk/sub/mine']});
+    },
+  );
+
   test('a traffic check that ends after a switch or a disconnect proves '
       'nothing for the server it began on', () async {
     for (final interrupt in ['switch', 'disconnect']) {
@@ -950,5 +1002,25 @@ void main() {
       '$panel/none/a',
       '$panel/none/b',
     ]);
+  });
+
+  test('a paste counts as pasted, also when it gives a known account its new '
+      'link', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    final emulator = 'http://10.0.2.2:$port';
+    for (final link in ['file/user111/a', 'file/user111/b']) {
+      expect(
+        await controller.pasteService('$emulator/$link', debug: true),
+        isNull,
+      );
+    }
+    final pasted = [
+      for (final profile in container.read(profilesProvider))
+        if (profile.url.startsWith(emulator)) profile,
+    ];
+    expect(pasted.map((p) => p.url), ['$emulator/file/user111/b']);
+    expect(await pastedProfiles(), {pasted.single.id});
   });
 }

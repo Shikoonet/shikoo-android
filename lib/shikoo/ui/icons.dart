@@ -37,6 +37,9 @@ enum ShikooIcon {
   paste(
     '<rect x="5" y="4.5" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/>',
   ),
+  plane(
+    '<path d="M21 3.5L3 10.8l6.8 2.6L12.5 20.5z"/><path d="M9.8 13.4L21 3.5"/>',
+  ),
   spin('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>');
 
   const ShikooIcon(this.paths);

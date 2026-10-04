@@ -145,6 +145,23 @@ void main() {
     expect(find.text('سرویس‌ها از این تلویزیون پاک شوند؟'), findsNothing);
   });
 
+  testWidgets('an open log-out dialog turns dark with the system', (
+    tester,
+  ) async {
+    await _pumpSettings(tester, _Controller());
+    await _press(tester, LogicalKeyboardKey.arrowDown);
+    await _press(tester, LogicalKeyboardKey.select);
+    Color? title() => tester
+        .widget<Text>(find.text('سرویس‌ها از این تلویزیون پاک شوند؟'))
+        .style
+        ?.color;
+    expect(title(), ShikooColors.light.text);
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await tester.pumpAndSettle();
+    expect(title(), ShikooColors.dark.text);
+  });
+
   testWidgets('About names the licence, both upstreams and the source', (
     tester,
   ) async {

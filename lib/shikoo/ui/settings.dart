@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -11,6 +12,7 @@ import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void openSettings(BuildContext context) => unawaited(
   Navigator.push(
@@ -30,6 +32,9 @@ class ShikooSettings extends ConsumerWidget {
     final look = ref.watch(shikooLookProvider);
     final setLook = ref.read(shikooLookProvider.notifier);
     final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
+    final who = ref.watch(shikooAccountProvider).who;
+    final username = who?.username;
+    final shown = who?.name ?? '@${username ?? ''}';
     final groups = [
       _Group(
         title: l.appearance,
@@ -58,7 +63,28 @@ class ShikooSettings extends ConsumerWidget {
           onAdded: () => Navigator.popUntil(context, (route) => route.isFirst),
           builder: (context, busy, paste) => _Card(
             rows: [
-              if (!isTV)
+              if (who != null)
+                _Row(
+                  icon: ShikooIcon.plane,
+                  title: l.signedInWith(shown),
+                  rich: sayWith(l.signedInWith, [
+                    TextSpan(
+                      text: shown,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ]),
+                  subtitle: username == null
+                      ? l.telegramAccount
+                      : l.telegramAccountUsername('\u2066@$username\u2069'),
+                )
+              else if (!isTV)
+                _Row(
+                  icon: ShikooIcon.plane,
+                  title: l.signInRow,
+                  subtitle: l.signInRowHelp,
+                  onPressed: () => unawaited(_signIn(context, ref, isTV)),
+                ),
+              if (!isTV && who == null)
                 _Row(
                   icon: ShikooIcon.paste,
                   busy: busy,
@@ -70,8 +96,14 @@ class ShikooSettings extends ConsumerWidget {
                 icon: ShikooIcon.logout,
                 danger: true,
                 title: l.logout,
-                subtitle: isTV ? l.logoutHelpTv : l.logoutHelpTouch,
-                onPressed: () => unawaited(_logOut(context, ref, isTV)),
+                subtitle: switch ((who != null, isTV)) {
+                  (true, true) => l.logoutHelpSignedInTv,
+                  (true, false) => l.logoutHelpSignedInTouch,
+                  (false, true) => l.logoutHelpTv,
+                  (false, false) => l.logoutHelpTouch,
+                },
+                onPressed: () =>
+                    unawaited(_logOut(context, ref, isTV, who != null)),
               ),
             ],
           ),
@@ -123,52 +155,75 @@ class ShikooSettings extends ConsumerWidget {
     );
   }
 
-  /// Until sign-in with Telegram exists, leaving only forgets this device's services.
-  static Future<void> _logOut(
+  /// Home comes back to sign-in; the phone goes on to Telegram.
+  static Future<void> _signIn(
     BuildContext context,
     WidgetRef ref,
     bool isTV,
   ) async {
-    final t = ShikooTheme.of(context);
-    final l = ShikooL10n.of(context);
+    final signIn = ref.read(shikooSignInProvider);
+    Navigator.popUntil(context, (route) => route.isFirst);
+    final link = await signIn.start();
+    if (link == null || isTV) return;
+    await launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+  }
+
+  /// Signed in, the device leaves the account too; with pasted links only, they are removed.
+  static Future<void> _logOut(
+    BuildContext context,
+    WidgetRef ref,
+    bool isTV,
+    bool signedIn,
+  ) async {
     final sure = await showShikooDialog<bool>(
       context,
-      children: [
-        Text(
-          isTV ? l.logoutTitleTv : l.logoutTitleTouch,
-          style: t.text(t.s.title, weight: FontWeight.w700),
-        ),
-        Text(
-          isTV ? l.logoutBodyTv : l.logoutBodyTouch,
-          style: t.text(
-            t.s.dialogText,
-            color: t.c.textMuted,
-            height: Leading.body,
+      children: (context) {
+        final t = ShikooTheme.of(context);
+        final l = ShikooL10n.of(context);
+        return [
+          Text(
+            signedIn
+                ? l.logoutSignedInTitle
+                : (isTV ? l.logoutTitleTv : l.logoutTitleTouch),
+            style: t.text(t.s.title, weight: FontWeight.w700),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: Space.s2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            spacing: Space.s2,
-            children: [
-              ShikooButton(
-                label: l.cancel,
-                autofocus: true,
-                onPressed: () => Navigator.pop(context, false),
-              ),
-              ShikooButton(
-                label: l.removeButton,
-                danger: true,
-                onPressed: () => Navigator.pop(context, true),
-              ),
-            ],
+          Text(
+            switch ((signedIn, isTV)) {
+              (true, true) => l.logoutSignedInBodyTv,
+              (true, false) => l.logoutSignedInBodyTouch,
+              (false, true) => l.logoutBodyTv,
+              (false, false) => l.logoutBodyTouch,
+            },
+            style: t.text(
+              t.s.dialogText,
+              color: t.c.textMuted,
+              height: Leading.body,
+            ),
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              spacing: Space.s2,
+              children: [
+                ShikooButton(
+                  label: l.cancel,
+                  autofocus: true,
+                  onPressed: () => Navigator.pop(context, false),
+                ),
+                ShikooButton(
+                  label: signedIn ? l.logout : l.removeButton,
+                  danger: true,
+                  onPressed: () => Navigator.pop(context, true),
+                ),
+              ],
+            ),
+          ),
+        ];
+      },
     );
     if (sure != true || !context.mounted) return;
-    await ref.read(shikooControllerProvider).forgetServices();
+    await ref.read(shikooSignInProvider).signOut();
     if (context.mounted) Navigator.popUntil(context, (route) => route.isFirst);
   }
 }
@@ -389,6 +444,7 @@ class Segmented<T> extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.autofocus = false,
+    this.small = false,
   });
 
   final Map<T, String> options;
@@ -397,6 +453,9 @@ class Segmented<T> extends StatelessWidget {
 
   /// Lands the remote on the chosen option.
   final bool autofocus;
+
+  /// `.segmented.sm`: the sign-in screens' language switch in a corner.
+  final bool small;
 
   @override
   Widget build(BuildContext context) {
@@ -413,10 +472,13 @@ class Segmented<T> extends StatelessWidget {
         ),
       ),
       child: Row(
+        mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
         spacing: Space.s1,
         children: [
           for (final MapEntry(key: value, value: label) in options.entries)
-            Expanded(
+            Flexible(
+              flex: small ? 0 : 1,
+              fit: FlexFit.tight,
               child: Pressable(
                 autofocus: autofocus && value == selected,
                 shape: shape,
@@ -427,7 +489,13 @@ class Segmented<T> extends StatelessWidget {
                     selected: chosen,
                     button: true,
                     child: Container(
-                      height: t.s.button,
+                      height: small ? null : t.s.button,
+                      padding: small
+                          ? const EdgeInsets.symmetric(
+                              horizontal: Space.s4,
+                              vertical: Space.s1,
+                            )
+                          : null,
                       alignment: Alignment.center,
                       decoration: ShapeDecoration(
                         color: focused
@@ -442,7 +510,7 @@ class Segmented<T> extends StatelessWidget {
                         label,
                         maxLines: 1,
                         style: t.text(
-                          t.s.body,
+                          small ? t.s.bodySm : t.s.body,
                           weight: chosen ? FontWeight.w700 : FontWeight.w500,
                           color: chosen ? t.c.text : t.c.textMuted,
                         ),
@@ -492,6 +560,7 @@ class _Card extends StatelessWidget {
 class _Row extends StatelessWidget {
   const _Row({
     required this.title,
+    this.rich,
     this.subtitle,
     this.value,
     this.icon,
@@ -502,6 +571,9 @@ class _Row extends StatelessWidget {
   });
 
   final String title;
+
+  /// The title with bold parts.
+  final List<InlineSpan>? rich;
   final String? subtitle;
   final String? value;
   final ShikooIcon? icon;
@@ -552,7 +624,13 @@ class _Row extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: t.text(s.body, color: ink)),
+                if (rich case final rich?)
+                  Text.rich(
+                    TextSpan(children: rich),
+                    style: t.text(s.body, color: ink),
+                  )
+                else
+                  Text(title, style: t.text(s.body, color: ink)),
                 if (subtitle != null)
                   Text(subtitle, style: t.text(s.bodySm, color: t.c.textMuted)),
               ],

@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
@@ -23,14 +26,16 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _card = CardFocus();
   final _power = FocusNode();
   final _settings = FocusNode();
+  final _linkless = FocusNode();
   final _scroll = ScrollController();
-  (int?, bool)? _shown;
+  (int?, bool, bool)? _shown;
 
   @override
   void dispose() {
     _card.dispose();
     _power.dispose();
     _settings.dispose();
+    _linkless.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -42,13 +47,14 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   }
 
   /// So the remote never stays on a button that just went away or went dead.
-  void _focusFirst(ShikooState state) {
-    final shown = (state.service?.id, restingFor(state) != null);
+  void _focusFirst(ShikooState state, {required bool linkless}) {
+    final service = state.service;
+    final shown = (service?.id, restingFor(state) != null, linkless);
     if (!state.isTV || shown == _shown) return;
     _shown = shown;
-    final first = state.service == null
-        ? _settings
-        : (shown.$2 ? _card.renew : _power);
+    final first = service != null
+        ? (shown.$2 ? _card.renew : _power)
+        : (linkless ? _linkless : _settings);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
         first.requestFocus();
@@ -60,23 +66,43 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   Widget build(BuildContext context) {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
+    final account = ref.watch(shikooAccountProvider);
     final t = ShikooTheme.of(context);
-    _focusFirst(state);
+    final l = ShikooL10n.of(context);
+    final hasService = state.service != null;
+    final unlinked = account.withoutLink;
+    _focusFirst(state, linkless: !hasService && unlinked.isNotEmpty);
     final power = _PowerZone(
       state: state,
       controller: controller,
       focusNode: _power,
+      restingLabel: switch (unlinked.firstOrNull?.status) {
+        null => null,
+        'expired' => l.chipExpired,
+        'exhausted' => l.stateExhausted,
+        _ => l.noLinkChip,
+      },
     );
     final card = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.s3,
       children: [
-        ServiceCard(
-          key: ValueKey(state.service?.id),
-          state: state,
-          controller: controller,
-          focus: _card,
-        ),
+        for (final (i, linked) in unlinked.indexed)
+          _LinklessCard(
+            service: linked,
+            bot: account.bot,
+            isTV: state.isTV,
+            focusNode: i == 0 && !hasService ? _linkless : null,
+          ),
+        if (hasService || unlinked.isEmpty)
+          ServiceCard(
+            key: ValueKey(state.service?.id),
+            state: state,
+            controller: controller,
+            focus: _card,
+            serviceId: account.serviceOf(state.service?.id),
+            bot: account.bot,
+          ),
         for (final other in state.others)
           FoldedServiceCard(
             key: ValueKey(other.id),
@@ -96,7 +122,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           policy: PageTraversalPolicy(),
           child: state.isTV
               ? _TvLayout(
-                  noService: state.service == null,
+                  noService: !hasService && unlinked.isEmpty,
                   settings: _settings,
                   power: _PowerKeys(
                     row: towardCard == null ? null : _card.row(towardCard),
@@ -402,11 +428,13 @@ class _PowerZone extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.focusNode,
+    this.restingLabel,
   });
 
   final ShikooState state;
   final ShikooController controller;
   final FocusNode focusNode;
+  final String? restingLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -422,6 +450,7 @@ class _PowerZone extends StatelessWidget {
           connectedFor: Duration.zero,
           isTV: state.isTV,
           onPressed: null,
+          restingLabel: restingLabel,
         ),
       );
     }
@@ -501,4 +530,149 @@ class _PowerZone extends StatelessWidget {
 
   static double _twoLines(BuildContext context, ShikooTheme t) =>
       2 * MediaQuery.textScalerOf(context).scale(t.s.bodySm) * Leading.tight;
+}
+
+/// `tv-home-no-link` and `phone-cards-other`: a service of the account with no link here, for
+/// the bot to make or for «تمدید» to bring back.
+class _LinklessCard extends ConsumerStatefulWidget {
+  const _LinklessCard({
+    required this.service,
+    required this.bot,
+    required this.isTV,
+    this.focusNode,
+  });
+
+  final LinkedService service;
+  final String? bot;
+  final bool isTV;
+  final FocusNode? focusNode;
+
+  @override
+  ConsumerState<_LinklessCard> createState() => _LinklessCardState();
+}
+
+class _LinklessCardState extends ConsumerState<_LinklessCard> {
+  bool _busy = false;
+
+  Future<void> _retry() async {
+    setState(() => _busy = true);
+    await ref.read(shikooSignInProvider).sync();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final _LinklessCard(:service, :bot, :isTV) = widget;
+    final renews = service.renews;
+    return Container(
+      padding: const EdgeInsets.all(Space.s4),
+      decoration: ShapeDecoration(
+        color: t.c.surface,
+        shadows: t.c.cardShadow,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: nameText(
+                  context,
+                  service.title,
+                  t.text(
+                    t.s.title,
+                    weight: FontWeight.w700,
+                    height: Leading.snug,
+                  ),
+                ),
+              ),
+              const SizedBox(width: Space.s2),
+              if (renews)
+                StatusChip(
+                  status: service.status == 'expired'
+                      ? ShikooServiceStatus.expired
+                      : ShikooServiceStatus.exhausted,
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.s3,
+                    vertical: Space.s1,
+                  ),
+                  decoration: ShapeDecoration(
+                    color: t.c.surfaceSunken,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text(
+                    l.noLinkChip,
+                    style: t.text(
+                      t.s.caption,
+                      weight: FontWeight.w700,
+                      color: t.c.textMuted,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: Space.s2),
+          Text(
+            renews ? l.renewToUse : (isTV ? l.noLinkHelpTv : l.noLinkHelpTouch),
+            style: t.text(
+              t.s.bodySm,
+              color: t.c.textMuted,
+              height: Leading.body,
+            ),
+          ),
+          const SizedBox(height: Space.s3),
+          Row(
+            spacing: Space.s2,
+            children: [
+              Expanded(
+                child: ShikooButton(
+                  label: renews
+                      ? l.renew
+                      : (isTV ? l.openBotTv : l.openBotTouch),
+                  icon: isTV
+                      ? ShikooIcon.qr
+                      : (renews ? null : ShikooIcon.plane),
+                  primary: true,
+                  focusNode: widget.focusNode,
+                  onPressed: () => renews
+                      ? openLink(
+                          context,
+                          isTV: isTV,
+                          link: ShikooLinks.renewOne(service.id, bot),
+                          title: l.renewTitle,
+                          help: l.renewHelpDirect,
+                        )
+                      : openLink(
+                          context,
+                          isTV: isTV,
+                          link: ShikooLinks.openBot(bot),
+                          title: l.openBotTitle,
+                          help: l.openBotHelp,
+                        ),
+                ),
+              ),
+              // The phone asks again by itself when it comes back from Telegram.
+              if (isTV)
+                Expanded(
+                  child: ShikooButton(
+                    label: l.retry,
+                    icon: ShikooIcon.refresh,
+                    busy: _busy,
+                    onPressed: _busy ? () {} : () => unawaited(_retry()),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

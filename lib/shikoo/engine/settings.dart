@@ -4,10 +4,23 @@ import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract final class ShikooLinks {
-  // ponytail: the services list; rnw_<id> once Telegram sign-in gives the bot's service id.
-  static const renew = 'https://t.me/shikoonet_bot?start=renew';
+  static const bot = 'shikoonet_bot';
+  static const renew = 'https://t.me/$bot?start=renew';
   static const support = 'https://t.me/admiinturbo';
+
+  static String renewOne(int serviceId, String? bot) =>
+      'https://t.me/${bot ?? ShikooLinks.bot}?start=rnw_$serviceId';
+
+  static String openBot(String? bot) =>
+      'https://t.me/${bot ?? ShikooLinks.bot}';
 }
+
+// ponytail: one address until Sam names a backup; ShikooApi tries a second one in turn.
+const _apiOverride = String.fromEnvironment('SHIKOO_API');
+
+const shikooApiBases = [
+  _apiOverride == '' ? 'https://app.chopon.uk' : _apiOverride,
+];
 
 /// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.
 String? usableLink(String? url) {

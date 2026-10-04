@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum ShikooPasteError { empty, notShikoo, revoked, unavailable, offline }
 
@@ -9,6 +10,21 @@ enum ShikooPasteError { empty, notShikoo, revoked, unavailable, offline }
 const shikooSubscriptionDomains = ['4g3.uk'];
 
 const shikooDebug = bool.fromEnvironment('SHIKOO_DEBUG');
+
+const shikooPastedKey = 'shikoo.pasted';
+
+/// The profiles the customer pasted; an account that leaves takes every other one with it.
+Future<Set<int>> pastedProfiles() async {
+  final prefs = await SharedPreferences.getInstance();
+  return {...?prefs.getStringList(shikooPastedKey)?.map(int.parse)};
+}
+
+Future<void> markPasted(Iterable<int> ids) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setStringList(shikooPastedKey, [
+    ...{...?prefs.getStringList(shikooPastedKey), for (final id in ids) '$id'},
+  ]);
+}
 
 const _emulatorHostMachine = '10.0.2.2';
 

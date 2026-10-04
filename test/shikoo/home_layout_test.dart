@@ -621,7 +621,7 @@ void main() {
       showShikooDialog<void>(
         tester.element(find.byType(ShikooHome)),
         centered: true,
-        children: const [Text('x')],
+        children: (_) => const [Text('x')],
       ),
     );
     await tester.pumpAndSettle();
