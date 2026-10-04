@@ -299,8 +299,11 @@ class _PhoneLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = ShikooTheme.of(context).s;
     return SafeArea(
+      bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: Space.s6),
+        padding: EdgeInsets.only(
+          bottom: Space.s6 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           children: [
             Container(

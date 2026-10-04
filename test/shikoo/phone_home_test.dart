@@ -410,4 +410,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(searching(), isFalse, reason: 'back from settings');
   });
+
+  testWidgets('the home and settings run on under the gesture bar, with room '
+      'to scroll the last row above it', (tester) async {
+    tester.view.padding = const FakeViewPadding(top: 48, bottom: 48);
+    await _pump(
+      tester,
+      _phone(
+        servers: [
+          for (var i = 1; i <= 12; i++)
+            ShikooServer(name: 'سرور $i', type: 'Vless', ping: 80 + i),
+        ],
+      ),
+    );
+    double bottomOf(Finder f) => tester.getBottomLeft(f.first).dy;
+    expect(bottomOf(find.byType(SingleChildScrollView)), 915);
+    final scroll = tester.widget<SingleChildScrollView>(
+      find.byType(SingleChildScrollView).first,
+    );
+    expect(scroll.padding?.vertical, Space.s6 + 24);
+
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    expect(
+      bottomOf(
+        find.descendant(
+          of: find.byType(ShikooSettings),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      ),
+      915,
+    );
+  });
 }

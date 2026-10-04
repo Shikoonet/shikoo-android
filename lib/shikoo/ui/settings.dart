@@ -250,6 +250,7 @@ class _Page extends StatelessWidget {
     return Scaffold(
       backgroundColor: t.c.bg,
       body: SafeArea(
+        bottom: isTV,
         child: PageFocusScope(
           child: FocusTraversalGroup(
             policy: PageTraversalPolicy(),
@@ -298,7 +299,12 @@ class _Page extends StatelessWidget {
                     child: SingleChildScrollView(
                       padding: isTV
                           ? const EdgeInsets.only(bottom: Space.s2)
-                          : EdgeInsets.fromLTRB(s.safeX, 0, s.safeX, Space.s6),
+                          : EdgeInsets.fromLTRB(
+                              s.safeX,
+                              0,
+                              s.safeX,
+                              Space.s6 + MediaQuery.paddingOf(context).bottom,
+                            ),
                       child: child,
                     ),
                   ),
