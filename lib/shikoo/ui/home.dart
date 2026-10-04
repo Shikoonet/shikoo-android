@@ -436,7 +436,7 @@ class _PowerZone extends StatelessWidget {
           isTV: state.isTV,
           focusNode: focusNode,
           restingLabel: resting == ShikooServiceStatus.exhausted
-              ? l.statusExhausted
+              ? l.stateExhausted
               : l.powerExpired,
           onPressed: resting != null
               ? null

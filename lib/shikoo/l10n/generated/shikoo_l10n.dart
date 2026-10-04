@@ -134,17 +134,17 @@ abstract class ShikooL10n {
   /// **'Active'**
   String get statusActive;
 
-  /// No description provided for @statusExpired.
+  /// The service chip when it is past its date.
   ///
   /// In en, this message translates to:
   /// **'Expired'**
-  String get statusExpired;
+  String get chipExpired;
 
-  /// No description provided for @statusExhausted.
+  /// The round button's label and the service chip when the data is used up.
   ///
   /// In en, this message translates to:
-  /// **'Volume used up'**
-  String get statusExhausted;
+  /// **'Out of data'**
+  String get stateExhausted;
 
   /// No description provided for @usedLabel.
   ///
@@ -515,7 +515,7 @@ abstract class ShikooL10n {
   /// No description provided for @renewHelp.
   ///
   /// In en, this message translates to:
-  /// **'Scan with your phone\'s camera; the Shikoo bot opens the renewal list of your services.'**
+  /// **'Scan with your phone\'s camera; the ShikooNet bot opens the renewal list of your services.'**
   String get renewHelp;
 
   /// No description provided for @supportTitle.
@@ -527,7 +527,7 @@ abstract class ShikooL10n {
   /// No description provided for @supportHelp.
   ///
   /// In en, this message translates to:
-  /// **'Scan with your phone\'s camera to chat with Shikoo support on Telegram.'**
+  /// **'Scan with your phone\'s camera to chat with ShikooNet support on Telegram.'**
   String get supportHelp;
 
   /// No description provided for @close.
@@ -617,7 +617,7 @@ abstract class ShikooL10n {
   /// No description provided for @logoutBodyTv.
   ///
   /// In en, this message translates to:
-  /// **'You\'ll be disconnected and the services removed from this TV. Your subscription stays as it is in the Shikoo bot.'**
+  /// **'You\'ll be disconnected and the services removed from this TV. Your subscription stays as it is in the ShikooNet bot.'**
   String get logoutBodyTv;
 
   /// No description provided for @logoutBodyTouch.
@@ -779,13 +779,13 @@ abstract class ShikooL10n {
   /// No description provided for @pasteNotShikooTitle.
   ///
   /// In en, this message translates to:
-  /// **'This isn\'t a Shikoo link.'**
+  /// **'This isn\'t a ShikooNet link.'**
   String get pasteNotShikooTitle;
 
   /// No description provided for @pasteNotShikooHelp.
   ///
   /// In en, this message translates to:
-  /// **'Only a Shikoo subscription link works: the one you got from the Shikoo bot or your reseller.'**
+  /// **'Only a ShikooNet subscription link works: the one you got from the ShikooNet bot or your reseller.'**
   String get pasteNotShikooHelp;
 
   /// No description provided for @pasteRevokedTitle.
@@ -797,7 +797,7 @@ abstract class ShikooL10n {
   /// No description provided for @pasteRevokedHelp.
   ///
   /// In en, this message translates to:
-  /// **'Get a new link from the Shikoo bot or your reseller.'**
+  /// **'Get a new link from the ShikooNet bot or your reseller.'**
   String get pasteRevokedHelp;
 
   /// Proposed by the app round, not yet in design/l10n: the panel answered with a server error (5xx), so the link may still be good.
@@ -842,7 +842,7 @@ abstract class ShikooL10n {
   /// **'Expired'**
   String get powerExpired;
 
-  /// Under the resting power button of a used-up or expired service. Proposed by the app round; the frames have only the Persian.
+  /// Under the disabled round button of an out-of-data or expired service.
   ///
   /// In en, this message translates to:
   /// **'Renew to connect again.'**
@@ -854,23 +854,41 @@ abstract class ShikooL10n {
   /// **'The server list comes back after you renew.'**
   String get serversAfterRenew;
 
-  /// In place of the days left of an expired service.
+  /// In place of the days left, beside a past end date, in the danger colour.
   ///
   /// In en, this message translates to:
   /// **'Ended'**
-  String get validityEnded;
+  String get expiredEnded;
 
   /// No description provided for @summaryExhausted.
   ///
   /// In en, this message translates to:
-  /// **'Its volume is used up. Renewing makes it active again.'**
+  /// **'Out of data. Renew to use it again.'**
   String get summaryExhausted;
 
-  /// No description provided for @summaryExpired.
+  /// The folded card's summary line. {date} is the end date, Gregorian in English.
   ///
   /// In en, this message translates to:
-  /// **'It expired on {date}. Renewing makes it active again.'**
+  /// **'Expired on {date}. Renew to use it again.'**
   String summaryExpired(String date);
+
+  /// Instead of renewToConnect when another active service is on this device.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew to connect again, or pick your other service.'**
+  String get renewOrSwitch;
+
+  /// A server error (5xx), an empty answer, or a web page instead of a subscription. Only 404 and 410 say pasteRevokedTitle. Says nothing about a “server”: customers read that as the servers in the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the link right now.'**
+  String get pasteUnavailableTitle;
+
+  /// No description provided for @pasteUnavailableHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again in a bit; if it still won\'t open, ask Support.'**
+  String get pasteUnavailableHelp;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

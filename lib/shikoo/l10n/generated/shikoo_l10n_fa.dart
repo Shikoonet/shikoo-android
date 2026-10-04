@@ -27,10 +27,10 @@ class ShikooL10nFa extends ShikooL10n {
   String get statusActive => 'فعال';
 
   @override
-  String get statusExpired => 'تاریخ انقضا گذشته';
+  String get chipExpired => 'تاریخ انقضا گذشته';
 
   @override
-  String get statusExhausted => 'حجم تمام شده';
+  String get stateExhausted => 'حجم تمام شده';
 
   @override
   String get usedLabel => 'مصرف شده:';
@@ -299,14 +299,14 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get renewHelp =>
-      'با دوربین گوشی اسکن کن؛ ربات شیکو فهرست تمدید سرویس‌هایت را باز می‌کند.';
+      'با دوربین گوشی اسکن کن؛ ربات شیکونت فهرست تمدید سرویس‌هایت را باز می‌کند.';
 
   @override
   String get supportTitle => 'پشتیبانی با گوشی';
 
   @override
   String get supportHelp =>
-      'با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکو در تلگرام باز شود.';
+      'با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکونت در تلگرام باز شود.';
 
   @override
   String get close => 'بستن';
@@ -352,7 +352,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get logoutBodyTv =>
-      'اتصال قطع می‌شود و سرویس‌ها از این تلویزیون پاک می‌شوند. اشتراکت در ربات شیکو سر جایش می‌ماند.';
+      'اتصال قطع می‌شود و سرویس‌ها از این تلویزیون پاک می‌شوند. اشتراکت در ربات شیکونت سر جایش می‌ماند.';
 
   @override
   String get logoutBodyTouch =>
@@ -445,18 +445,18 @@ class ShikooL10nFa extends ShikooL10n {
   String get pasteEmptyHelp => 'لینک اشتراکت را کپی کن، بعد دوباره بزن.';
 
   @override
-  String get pasteNotShikooTitle => 'این لینک شیکو نیست.';
+  String get pasteNotShikooTitle => 'این لینک شیکونت نیست.';
 
   @override
   String get pasteNotShikooHelp =>
-      'فقط لینک اشتراک شیکو کار می‌کند؛ همان که از ربات شیکو یا نماینده‌ات گرفتی.';
+      'فقط لینک اشتراک شیکونت کار می‌کند؛ همان که از ربات شیکونت یا نماینده‌ات گرفتی.';
 
   @override
   String get pasteRevokedTitle => 'این لینک باطل شده یا منقضی است.';
 
   @override
   String get pasteRevokedHelp =>
-      'لینک تازه را از ربات شیکو یا نماینده‌ات بگیر.';
+      'لینک تازه را از ربات شیکونت یا نماینده‌ات بگیر.';
 
   @override
   String get pasteServerDownTitle => 'سرور شیکو الان جواب نمی‌دهد.';
@@ -486,7 +486,7 @@ class ShikooL10nFa extends ShikooL10n {
   String get serversAfterRenew => 'فهرست سرورها بعد از تمدید برمی‌گردد.';
 
   @override
-  String get validityEnded => 'تمام شده';
+  String get expiredEnded => 'تمام شده';
 
   @override
   String get summaryExhausted => 'حجمش تمام شد. با تمدید دوباره فعال می‌شود.';
@@ -495,4 +495,15 @@ class ShikooL10nFa extends ShikooL10n {
   String summaryExpired(String date) {
     return 'اعتبارش $date تمام شد. با تمدید دوباره فعال می‌شود.';
   }
+
+  @override
+  String get renewOrSwitch =>
+      'با «تمدید» دوباره وصل می‌شوی، یا سرویس دیگرت را انتخاب کن.';
+
+  @override
+  String get pasteUnavailableTitle => 'لینک الان باز نشد.';
+
+  @override
+  String get pasteUnavailableHelp =>
+      'کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.';
 }

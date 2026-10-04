@@ -425,8 +425,8 @@ class StatusChip extends StatelessWidget {
       child: Text(
         switch (status) {
           ShikooServiceStatus.active => l.statusActive,
-          ShikooServiceStatus.expired => l.statusExpired,
-          ShikooServiceStatus.exhausted => l.statusExhausted,
+          ShikooServiceStatus.expired => l.chipExpired,
+          ShikooServiceStatus.exhausted => l.stateExhausted,
         },
         style: t.text(
           t.s.caption,

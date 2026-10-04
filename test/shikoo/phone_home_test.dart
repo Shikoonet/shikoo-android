@@ -284,7 +284,7 @@ void main() {
 
     for (final (error, strong) in [
       (ShikooPasteError.empty, 'کلیپ‌بورد خالی است.'),
-      (ShikooPasteError.notShikoo, 'این لینک شیکو نیست.'),
+      (ShikooPasteError.notShikoo, 'این لینک شیکونت نیست.'),
       (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
       (ShikooPasteError.serverDown, 'سرور شیکو الان جواب نمی‌دهد.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
@@ -336,7 +336,7 @@ void main() {
     await tester.tap(paste);
     await tester.pump();
     final refusal = find.textContaining(
-      'این لینک شیکو نیست.',
+      'این لینک شیکونت نیست.',
       findRichText: true,
     );
     expect(refusal, findsOneWidget);

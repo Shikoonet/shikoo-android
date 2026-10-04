@@ -664,7 +664,7 @@ class _Usage extends StatelessWidget {
               ),
               Text(
                 expired
-                    ? l.validityEnded
+                    ? l.expiredEnded
                     : l.daysLeft(
                         math.max(
                           0,

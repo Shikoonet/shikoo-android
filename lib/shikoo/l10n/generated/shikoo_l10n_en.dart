@@ -27,10 +27,10 @@ class ShikooL10nEn extends ShikooL10n {
   String get statusActive => 'Active';
 
   @override
-  String get statusExpired => 'Expired';
+  String get chipExpired => 'Expired';
 
   @override
-  String get statusExhausted => 'Volume used up';
+  String get stateExhausted => 'Out of data';
 
   @override
   String get usedLabel => 'Used:';
@@ -336,14 +336,14 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get renewHelp =>
-      'Scan with your phone\'s camera; the Shikoo bot opens the renewal list of your services.';
+      'Scan with your phone\'s camera; the ShikooNet bot opens the renewal list of your services.';
 
   @override
   String get supportTitle => 'Support on your phone';
 
   @override
   String get supportHelp =>
-      'Scan with your phone\'s camera to chat with Shikoo support on Telegram.';
+      'Scan with your phone\'s camera to chat with ShikooNet support on Telegram.';
 
   @override
   String get close => 'Close';
@@ -389,7 +389,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get logoutBodyTv =>
-      'You\'ll be disconnected and the services removed from this TV. Your subscription stays as it is in the Shikoo bot.';
+      'You\'ll be disconnected and the services removed from this TV. Your subscription stays as it is in the ShikooNet bot.';
 
   @override
   String get logoutBodyTouch =>
@@ -482,18 +482,18 @@ class ShikooL10nEn extends ShikooL10n {
   String get pasteEmptyHelp => 'Copy your subscription link, then tap again.';
 
   @override
-  String get pasteNotShikooTitle => 'This isn\'t a Shikoo link.';
+  String get pasteNotShikooTitle => 'This isn\'t a ShikooNet link.';
 
   @override
   String get pasteNotShikooHelp =>
-      'Only a Shikoo subscription link works: the one you got from the Shikoo bot or your reseller.';
+      'Only a ShikooNet subscription link works: the one you got from the ShikooNet bot or your reseller.';
 
   @override
   String get pasteRevokedTitle => 'This link was revoked or has expired.';
 
   @override
   String get pasteRevokedHelp =>
-      'Get a new link from the Shikoo bot or your reseller.';
+      'Get a new link from the ShikooNet bot or your reseller.';
 
   @override
   String get pasteServerDownTitle =>
@@ -524,14 +524,24 @@ class ShikooL10nEn extends ShikooL10n {
   String get serversAfterRenew => 'The server list comes back after you renew.';
 
   @override
-  String get validityEnded => 'Ended';
+  String get expiredEnded => 'Ended';
 
   @override
-  String get summaryExhausted =>
-      'Its volume is used up. Renewing makes it active again.';
+  String get summaryExhausted => 'Out of data. Renew to use it again.';
 
   @override
   String summaryExpired(String date) {
-    return 'It expired on $date. Renewing makes it active again.';
+    return 'Expired on $date. Renew to use it again.';
   }
+
+  @override
+  String get renewOrSwitch =>
+      'Renew to connect again, or pick your other service.';
+
+  @override
+  String get pasteUnavailableTitle => 'Couldn\'t open the link right now.';
+
+  @override
+  String get pasteUnavailableHelp =>
+      'Try again in a bit; if it still won\'t open, ask Support.';
 }
