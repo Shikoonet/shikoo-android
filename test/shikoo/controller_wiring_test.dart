@@ -1304,4 +1304,75 @@ void main() {
       await pumpEventQueue();
     },
   );
+
+  test('switching with the tunnel up keeps the saved server while the core '
+      'still shows the old service', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    Group group(List<String> names) => Group(
+      type: GroupType.Selector,
+      name: 'PROXY',
+      hidden: false,
+      all: [
+        const Proxy(name: _version, type: 'Vless'),
+        for (final name in names) Proxy(name: name, type: 'Vless'),
+      ],
+    );
+    container.read(groupsProvider.notifier).value = [
+      group(['هلند ۶']),
+    ];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      ),
+    );
+    when(() => core.getConfig(any())).thenAnswer(
+      (_) async => {
+        'proxies': [
+          {'name': _version, 'type': 'vless'},
+          {'name': 'هلند ۱', 'type': 'vless'},
+        ],
+        'proxy-groups': [
+          {
+            'name': 'PROXY',
+            'type': 'select',
+            'proxies': [_version, 'هلند ۱'],
+          },
+        ],
+      },
+    );
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    final saved = Profile.normal(
+      url: 'https://panel.invalid/user111',
+    ).copyWith(selectedMap: {'PROXY': 'هلند ۱'});
+    container.read(profilesProvider.notifier).put(saved);
+    proxies.picked.clear();
+
+    // FlClash loads the new profile into the core a frame later; until then
+    // the groups are still the old service's.
+    controller.selectService(saved.id);
+    await pumpEventQueue();
+    Map<String, String>? selection() =>
+        container.read(profilesProvider).getProfile(saved.id)?.selectedMap;
+    expect(selection(), {
+      'PROXY': 'هلند ۱',
+    }, reason: 'what setup hands the core');
+    expect(
+      proxies.picked,
+      isEmpty,
+      reason: 'no old server for the new service',
+    );
+
+    container.read(groupsProvider.notifier).value = [
+      group(['هلند ۱']),
+    ];
+    await pumpEventQueue();
+    expect(selection(), {'PROXY': 'هلند ۱'});
+    expect(proxies.picked, isEmpty);
+  });
 }

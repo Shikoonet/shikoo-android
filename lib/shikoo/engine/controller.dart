@@ -654,6 +654,8 @@ class ShikooController {
   DateTime? _lastRound;
 
   bool _quiet = false;
+  String? _awaiting;
+  DateTime _awaitingUntil = DateTime(0);
   String? _stopgap;
 
   /// The selection an update just took away, for the notice that names it.
@@ -837,7 +839,7 @@ class ShikooController {
 
   void _reconcile() {
     final group = _group;
-    if (group == null || _validSelection() != null) return;
+    if (group == null || _staleGroups || _validSelection() != null) return;
     final names = _names(group);
     if (names.isEmpty) return;
     final running = _running;
@@ -885,7 +887,7 @@ class ShikooController {
       _again |= key != _roundKey;
       return;
     }
-    if (group == null || names.isEmpty) return;
+    if (group == null || names.isEmpty || _staleGroups) return;
     _roundKey = key;
     final round = _ref.read(_roundProvider.notifier);
     round.set((pending: names.toSet(), total: names.length, ended: false));
@@ -934,6 +936,7 @@ class ShikooController {
   }
 
   void _replaceStopgap() {
+    if (_staleGroups) return;
     final stopgap = _stopgap;
     _stopgap = null;
     final best = fastest(_names(_group), _ping);
@@ -959,6 +962,7 @@ class ShikooController {
   });
 
   Future<void> _checkSelected() async {
+    if (_staleGroups) return;
     final group = _group;
     final chosen = _validSelection();
     if (group == null || chosen == null || _pinging) return;
@@ -975,6 +979,7 @@ class ShikooController {
   }
 
   Future<void> _replaceSilentPick({bool quiet = false}) async {
+    if (_staleGroups) return;
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
@@ -1048,7 +1053,7 @@ class ShikooController {
           .read(profilesProvider)
           .firstWhereOrNull((profile) => profile.id != id);
       if (next != null) {
-        _ref.read(currentProfileIdProvider.notifier).value = next.id;
+        await _use(next.id);
       }
     }
     await _ref.read(profilesActionProvider.notifier).deleteProfile(id);
@@ -1098,22 +1103,40 @@ class ShikooController {
   }
 
   Future<void> _use(int id) async {
-    if (_running) await _holdServer(id);
+    final main = await _mainGroupOf(id);
+    if (main != null && main.names.isNotEmpty) {
+      final names = _sorted(main.names);
+      if (names != _sorted(_names(_group))) {
+        _awaiting = names;
+        _awaitingUntil = DateTime.now().add(const Duration(seconds: 15));
+      }
+      if (_running) _holdServer(id, main);
+    }
     _ref.read(currentProfileIdProvider.notifier).value = id;
   }
 
-  /// With the tunnel up the core would start a service without a server on row 1, the info row.
-  Future<void> _holdServer(int id) async {
+  bool get _staleGroups {
+    final awaiting = _awaiting;
+    if (awaiting == null) return false;
+    // ponytail: a name FlClash and the config read differently would wait the 15 s out.
+    if (awaiting == _sorted(_names(_group)) ||
+        DateTime.now().isAfter(_awaitingUntil)) {
+      _awaiting = null;
+    }
+    return _awaiting != null;
+  }
+
+  Future<({String group, List<String> names})?> _mainGroupOf(int id) async {
+    try {
+      return mainGroupOf(await _ref.read(coreHandlerProvider).getConfig(id));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _holdServer(int id, ({String group, List<String> names}) main) {
     final profile = _ref.read(profilesProvider).getProfile(id);
     if (profile == null) return;
-    final Map<String, dynamic> config;
-    try {
-      config = await _ref.read(coreHandlerProvider).getConfig(id);
-    } catch (_) {
-      return;
-    }
-    final main = mainGroupOf(config);
-    if (main == null || main.names.isEmpty) return;
     if (main.names.contains(profile.selectedMap[main.group])) return;
     final stopgap = fastest(main.names, _ping) ?? main.names.first;
     _ref
