@@ -19,7 +19,7 @@ it → a person promotes exactly that artifact. Mapped to an APK:
 | Platform | Here |
 |---|---|
 | `Deploy Staging` on `workflow_run` of CI, only `conclusion == success`, `event == push`, `head_branch == main`; builds `workflow_run.head_sha`, never the default checkout | Same four conditions, same explicit sha (`shikoo-staging.yml`) |
-| Manual staging redeploy: `workflow_dispatch` with **no inputs**; resolves `main` on the server; `require-ci-run.sh` refuses unless CI passed on that sha as a push to main | Same, in one `gh run list` line instead of a 115-line script |
+| Manual staging redeploy: `workflow_dispatch` with **no inputs**; resolves `main` on the server; `require-ci-run.sh` refuses unless CI passed on that sha as a push to main | Same, in one `gh run list` line instead of a 115-line script. A dispatch from any other ref fails loudly, as the platform's does |
 | `approval-gate.sh`: the sha must be a merged PR, plus team/solo review rules | Only the first half: the sha must belong to a merged PR (one `gh api …/commits/{sha}/pulls` line). The review rules are not ported: on GitHub Free nothing enforces reviews, and Promote's owner check is the human gate |
 | Staging builds one image and records its digest in an artifact; Promote has no digest input and reads that artifact | Staging builds both APK variants and records their sha256 in a pre-release and in the run summary; Promote has no file, sha or version input and publishes the recorded production APKs after `sha256sum -c` |
 | Promote: `main` only, actor allowlist, typed `PROMOTE` choice, `environment: production` | Same. Its one input is that yes/no choice; nothing in it names what ships |
@@ -50,7 +50,8 @@ checksums, `pick-staging-run.sh`, dump attestations, the CI path classifier and 
 
 ### FlClash's own `build.yaml` stays off, with no file edit
 
-It runs on every push to every branch and on `v*` tags (Promote creates `v*` tags). Turning it off is a repository setting:
+It runs on every push to every branch and on `v*` tags. Promote creates `v*` tags, but with `GITHUB_TOKEN`, and events made
+with that token start no workflows; a `v*` tag pushed by a person would. Turning it off is a repository setting:
 
 ```bash
 gh workflow disable build.yaml -R Shikoonet/shikoo-android
@@ -104,8 +105,8 @@ one file cannot serve both testers and customers. One staging run builds both, f
 
 | | staging | production |
 |---|---|---|
-| Server | `vars.SHIKOO_STAGING_API` via `--dart-define=SHIKOO_API` | the default in the code, `https://app.chopon.uk` |
-| Bot | `vars.SHIKOO_STAGING_BOT` via `--dart-define=SHIKOO_BOT` | the default in the code, `shikoonet_bot` |
+| Server | `https://app-dev.chopon.uk` via `--dart-define=SHIKOO_API` (live, GTS certificate, reachable from Iran without a VPN) | the default in the code, `https://app.chopon.uk` |
+| Bot | `shikoodevbot` via `--dart-define=SHIKOO_BOT` (staging's `login/start` returns `t.me/shikoodevbot`) | the default in the code, `shikoonet_bot` |
 | applicationId | `<id>.dev` | `<id>` |
 | Signed with | the staging key (secret), stable across runs | the release key (secrets) |
 | ABIs | armeabi-v7a, arm64-v8a, x86_64 | armeabi-v7a, arm64-v8a |
@@ -121,7 +122,9 @@ would have to uninstall before each update. The keys are deleted at the end of t
 **Guards in the job:**
 - the code must read both `SHIKOO_API` and `SHIKOO_BOT` from the build, or the job fails: a define the code ignores would send
   testers to the production bot silently;
-- the staging server and bot must be set and must not equal the production ones;
+- the staging server and bot must not equal the production ones, compared without case, a trailing `/` or a leading `@`;
+- the staging APKs share one signer, the production APKs share another, and the two differ (`apksigner verify
+  --print-certs`): a production APK signed by the staging key, which the runner also uses as its debug key, is refused;
 - every APK passes `tools/check_apk_clean.sh`;
 - every staging APK's `libapp.so` contains the staging server and its package ends in `.dev`; no production APK has either.
   This guard exists because the probe once got it wrong: a production build came out as `com.follow.clash.dev`, debug-signed.
@@ -145,6 +148,9 @@ With no release key in the secrets yet, the job builds staging only, warns, and 
 - **Staging:** a GitHub **pre-release** `staging-<version>` in this private repository, holding all five APKs, `SHA256SUMS`
   and, in its notes, the sha256 list and the `aapt2 dump badging` lines of each APK. Testers download from there, so a tester
   needs read access to the repository.
+  Unlike the platform's run artifact, a release is editable: anyone with write access can replace an asset and
+  `SHA256SUMS` together. The run summary of the staging job keeps the original list, and Promote prints the list it checked,
+  so the two can be compared by eye; nothing compares them automatically.
 - **Production:** Promote creates the release `v<version>` (marked Latest) with the two production APKs and their
   `SHA256SUMS`. That release is the record of what customers have; Sam takes the APK from it to the bot and the channel by hand.
 
@@ -167,10 +173,14 @@ them to files and deletes the files at the end.
 | `SHIKOO_RELEASE_KEYSTORE_B64` | production: the release keystore, base64 |
 | `SHIKOO_RELEASE_STORE_PASSWORD`, `SHIKOO_RELEASE_KEY_ALIAS`, `SHIKOO_RELEASE_KEY_PASSWORD` | production |
 
-Repository variables (not secrets, they are inside the APK anyway): `SHIKOO_STAGING_API`, `SHIKOO_STAGING_BOT`.
+Repository variables, optional (not secrets, they are inside the APK anyway): `SHIKOO_STAGING_API` and `SHIKOO_STAGING_BOT`
+override the defaults `https://app-dev.chopon.uk` and `shikoodevbot` in `shikoo-staging.yml`.
 
-**The limit of GitHub Free, stated plainly.** On a private repository Free has no environment secrets and no required
-reviewers (`environment: production` is in Promote for the record and for a later plan, and does nothing today). Repository
+**The limit of GitHub Free, stated plainly.** GitHub's documentation puts environments in private repositories on Pro, Team
+and Enterprise, and required reviewers in private repositories on Enterprise only. On this Free organization there is no
+environment today (`GET …/environments` answers `total_count: 0`; shikoo-platform's answers 404), and shikoo-platform's
+deploys run with `environment:` set, so the key does not stop a job. What GitHub records for it here is not tested. So
+`environment: production` in Promote protects nothing on Free; it is there for when the plan allows rules. Repository
 secrets are readable by any workflow on any branch, so **anyone with write access to this repository can read the release key**
 by pushing a workflow. Today that is Sam, arshia and the agents working for them, and agents never push without permission.
 GitHub Team would allow environment secrets limited to `main`; required reviewers on a private repository need Enterprise.
@@ -186,9 +196,9 @@ GitHub Team would allow environment secrets limited to `main`; required reviewer
   what an update needs.
 - Settings shows versionName (`globalState.packageInfo.version`), so it will read `1.0.<n>` instead of `0.8.98`.
 - Two side effects of the version change, both in FlClash code:
-  - the subscription User-Agent (`lib/common/package.dart`) becomes `<app name>/v1.0.<n> clash-verge Platform/android`;
-    `clash-verge` stays in it. **Not yet tested against the panel.** Separate from versioning but found on the way: the app
-    name is now the label from patch 9, which on a Persian device is «شیکونت», a non-ASCII User-Agent. Not tested either.
+  - the subscription User-Agent (`lib/common/package.dart`, with the `appName` constant `'FlClash'` from
+    `lib/common/constant.dart`, not the Android label) changes only in its version: `FlClash/v0.8.98 clash-verge
+    Platform/android` becomes `FlClash/v1.0.<n> clash-verge Platform/android`. **Not yet tested against the panel.**
   - FlClash's update check compares against FlClash's GitHub releases; `1.0.<n>` is newer than any `0.8.x`, so it never offers
     an update.
 - The run number restarts if the workflow file is renamed. Do not rename it, or bump `VERSION_PREFIX` when you do.
@@ -215,7 +225,7 @@ later picks by itself.
 4. Settings ▸ Secrets and variables ▸ Actions: add the secrets and variables of §4. The staging key can be made with
    `keytool -genkeypair -keystore staging.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Shikoo Staging"`,
    then `base64 -w0 staging.keystore`. The release key is Sam's own (§8).
-5. Settings ▸ Environments: create `production`. On GitHub Free it holds no rules; it marks the deployments.
+5. Nothing for environments: on GitHub Free a private repository gets no environment rules (§4).
 6. Merge this branch (after the prerequisites in §9) and watch the first `Shikoo Staging` run.
 7. Give each tester read access to the repository, or decide another way to hand them the staging APK (§8).
 8. For every release: install the production APK from the staging pre-release on the box, sign in once, then Actions ▸
@@ -227,8 +237,6 @@ later picks by itself.
 |---|---|
 | **applicationId** of the app. Final after the first customer install. Today it is FlClash's `com.follow.clash`; changing it is one upstream edit in `android/app/build.gradle.kts` and a `SHIKOO_PATCHES.md` row | none yet; staging becomes `<id>.dev` |
 | **Where the release key is made and kept**, and who holds the backup. Losing it means every customer reinstalls | `SHIKOO_RELEASE_*` secrets |
-| **Which bot is the staging bot.** `shikoo-platform/docs/RELEASE.md` §2 says production's handle *as of 2026-08-28* was `Test_Shikoo_bot`, and the shop's bot is now `@shikoonet_bot`; confirm in the panel («پیکربندی › ربات») on staging before using `Test_Shikoo_bot` | `SHIKOO_STAGING_BOT` |
-| **The staging server address** for the app login | `SHIKOO_STAGING_API` |
 | **Who may promote** (GitHub user names) | `PROMOTE_OWNERS: Isusami,arshiajacki`, copied from the platform's `PRODUCTION_OWNERS` |
 | **How testers get the staging APK**: repository access, or for example a private Telegram group (one more step) | repository access |
 | **First version number** | `VERSION_PREFIX: '1.0'` |
@@ -251,10 +259,14 @@ In WSL, with a fresh copy of `feat/app-login` (`08e8aae`, Firebase already remov
 | The staging job's guard loop on the two arm64 APKs, then on the staging APK renamed as production | PASS, then refused: `is com.follow.clash.dev and carries the staging server 1 times` |
 | Promote's sha256 filter and `sha256sum -c`, on dummy files, then after changing one | two lines, OK; then `FAILED`, refused |
 | The CI commit-message and comment-density steps on a throwaway clone of `main` | a good subject passes and `Fixed stuff` is refused; a file with 5 comments in 30 added lines is refused (16.7 %) |
+| The signer guard (2026-10-06): production signed like staging; then production re-signed with a throwaway key made in a temp directory and deleted; then staging only | refused (`not signed by one release key of their own`); PASS; PASS |
+| The server and bot guard on `https://app-dev.chopon.uk/` + `shikoodevbot`, `https://APP.chopon.uk/`, and `@ShikooNet_Bot` | allowed as `https://app-dev.chopon.uk`; refused; refused |
 | `actionlint` 1.7.12 with `shellcheck` 0.11.0 on the three workflows | exit 0 (one `SC2012` fixed on the way) |
 | `flutter test` on 2 CPUs | 399 s, one failure: `NetworkDetection provider ignores a canceled stale check after a newer check succeeds`; the file alone passed three times (2 CPUs twice, all CPUs once), so it is a timing flake under load, in FlClash's tests |
 
 **Prerequisites before this can merge green:**
+- **The Shikoo app itself on `main`.** `main` (`f08a9fd`) has no `lib/shikoo/` at all, so `-t lib/shikoo/app/main.dart`
+  cannot build there. The app is on `feat/app` (head `e81246a`, in WSL `/root/src/shikoo-phone`) and must be merged first.
 - `tools/check_apk_clean.sh` and the Firebase removal (`chore/remove-firebase`) on `main`; the CI `apk` job and staging call it.
 - `lib/shikoo/engine/settings.dart` reading the bot from `String.fromEnvironment('SHIKOO_BOT', defaultValue: 'shikoonet_bot')`
   (flutter-engineer); staging refuses to build until it does. `SHIKOO_API` already exists on `feat/app-login`.
@@ -268,4 +280,4 @@ In WSL, with a fresh copy of `feat/app-login` (`08e8aae`, Firebase already remov
 - That the runner's preinstalled clang and libclang serve the Rust hook's bindgen. FlClash's own release job builds Android on
   `ubuntu-latest` with the same steps, which is the reason to expect it.
 - That `gh workflow disable` is kept across a FlClash merge that rewrites `build.yaml`.
-- The User-Agent change against the panel (§5).
+- The new version in the User-Agent against the panel (§5).

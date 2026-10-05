@@ -21,6 +21,8 @@ env:
   VERSION_PREFIX: '1.0'
   PRODUCTION_API: https://app.chopon.uk
   PRODUCTION_BOT: shikoonet_bot
+  STAGING_API: ${{ vars.SHIKOO_STAGING_API || 'https://app-dev.chopon.uk' }}
+  STAGING_BOT: ${{ vars.SHIKOO_STAGING_BOT || 'shikoodevbot' }}
 
 jobs:
   build:
@@ -29,23 +31,27 @@ jobs:
         && github.event.workflow_run.conclusion == 'success'
         && github.event.workflow_run.event == 'push'
         && github.event.workflow_run.head_branch == 'main')
-      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: write
       actions: read
       pull-requests: read
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
       - id: commit
         name: The commit CI passed on main, merged from a pull request
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          REF: ${{ github.ref }}
         run: |
           set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$REF" != refs/heads/main ]; then
+            echo "::error::Shikoo Staging runs from refs/heads/main; this dispatch came from $REF"
+            exit 1
+          fi
           sha=${RUN_SHA:-$(gh api "repos/$GH_REPO/commits/main" --jq .sha)}
           gh run list --workflow shikoo-ci.yml --commit "$sha" --branch main --event push --status success \
             --json databaseId --jq '.[0].databaseId' | grep -q . ||
@@ -61,8 +67,14 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: The app takes its server and bot from the build
-        run: grep -rqF "fromEnvironment('SHIKOO_API'" lib/shikoo && grep -rqF "fromEnvironment('SHIKOO_BOT'" lib/shikoo
+      - name: The app takes its server and bot from the build, and staging points away from production
+        run: |
+          set -euo pipefail
+          grep -rqF "fromEnvironment('SHIKOO_API'" lib/shikoo && grep -rqF "fromEnvironment('SHIKOO_BOT'" lib/shikoo
+          api=${STAGING_API%/} bot=${STAGING_BOT#@}
+          [ "${api,,}" != "${PRODUCTION_API,,}" ] && [ "${bot,,}" != "${PRODUCTION_BOT,,}" ] ||
+            { echo "::error::staging must not point at the production server or bot"; exit 1; }
+          printf 'API=%s\nBOT=%s\n' "$api" "$bot" >>"$GITHUB_ENV"
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -88,6 +100,7 @@ jobs:
           cache: true
 
       - uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+        id: ndk
         with:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
@@ -99,14 +112,10 @@ jobs:
       - name: Staging APKs
         env:
           STAGING_KEYSTORE_B64: ${{ secrets.SHIKOO_STAGING_KEYSTORE_B64 }}
-          API: ${{ vars.SHIKOO_STAGING_API }}
-          BOT: ${{ vars.SHIKOO_STAGING_BOT }}
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           set -euo pipefail
-          [ -n "$STAGING_KEYSTORE_B64" ] && [ -n "$API" ] && [ -n "$BOT" ] ||
-            { echo "::error::set secret SHIKOO_STAGING_KEYSTORE_B64 and variables SHIKOO_STAGING_API, SHIKOO_STAGING_BOT"; exit 1; }
-          [ "$API" != "$PRODUCTION_API" ] && [ "$BOT" != "$PRODUCTION_BOT" ] ||
-            { echo "::error::staging must not point at the production server or bot"; exit 1; }
+          [ -n "$STAGING_KEYSTORE_B64" ] || { echo "::error::set the secret SHIKOO_STAGING_KEYSTORE_B64"; exit 1; }
           mkdir -p ~/.android out
           base64 -d <<<"$STAGING_KEYSTORE_B64" >~/.android/debug.keystore
           flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm,android-arm64,android-x64 \
@@ -122,6 +131,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.SHIKOO_RELEASE_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SHIKOO_RELEASE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SHIKOO_RELEASE_KEY_PASSWORD }}
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           set -euo pipefail
           if [ -z "$KEYSTORE_B64" ]; then
@@ -141,12 +151,16 @@ jobs:
         run: rm -f android/app/keystore.jks android/local.properties ~/.android/debug.keystore
 
       - name: Check every APK, and record what was built
-        env:
-          API: ${{ vars.SHIKOO_STAGING_API }}
         run: |
           set -euo pipefail
           bash tools/check_apk_clean.sh out/*.apk
-          tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]}
+          tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]} && apksigner=${aapt2%aapt2}apksigner
+          cert() { "$apksigner" verify --print-certs "$1" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'; }
+          staging_cert=$(for apk in out/*-staging-*.apk; do cert "$apk"; done | sort -u)
+          production_cert=$(for apk in out/ShikooNet-"$VN"-a*.apk; do [ ! -e "$apk" ] || cert "$apk"; done | sort -u)
+          [ "$(wc -l <<<"$staging_cert")" -eq 1 ] || { echo "::error::staging APKs carry different signers"; exit 1; }
+          [ -z "$production_cert" ] || { [ "$(wc -l <<<"$production_cert")" -eq 1 ] && [ "$production_cert" != "$staging_cert" ]; } ||
+            { echo "::error::production APKs are not signed by one release key of their own"; exit 1; }
           for apk in out/*.apk; do
             n=$(unzip -p "$apk" 'lib/*/libapp.so' | grep -caF "$API" || true)
             pkg=$("$aapt2" dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
@@ -168,6 +182,9 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY" >out/NOTES.md
 
       - name: Staging pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release create "staging-$VN" out/*.apk out/SHA256SUMS --prerelease \
             --target "$SHA" --title "ShikooNet $VN (staging)" --notes-file out/NOTES.md

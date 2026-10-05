@@ -103,6 +103,7 @@ jobs:
           cache: true
 
       - uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+        id: ndk
         with:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
@@ -111,5 +112,7 @@ jobs:
       - run: flutter pub get
 
       - run: flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm --dart-define=APP_ENV=stable
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
 
       - run: bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
