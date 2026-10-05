@@ -1,0 +1,173 @@
+name: Shikoo Staging
+
+on:
+  workflow_run:
+    workflows: [Shikoo CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shikoo-release
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.1'
+  GO_VERSION: '1.26.4'
+  NDK_VERSION: r28c
+  VERSION_PREFIX: '1.0'
+  PRODUCTION_API: https://app.chopon.uk
+  PRODUCTION_BOT: shikoonet_bot
+
+jobs:
+  build:
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push'
+        && github.event.workflow_run.head_branch == 'main')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - id: commit
+        name: The commit CI passed on main, merged from a pull request
+        env:
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          sha=${RUN_SHA:-$(gh api "repos/$GH_REPO/commits/main" --jq .sha)}
+          gh run list --workflow shikoo-ci.yml --commit "$sha" --branch main --event push --status success \
+            --json databaseId --jq '.[0].databaseId' | grep -q . ||
+            { echo "::error::CI has not passed on $sha as a push to main"; exit 1; }
+          [ "$(gh api "repos/$GH_REPO/commits/$sha/pulls" --jq '[.[] | select(.merged_at)] | length')" -gt 0 ] ||
+            { echo "::error::$sha came from no merged pull request; a direct push to main is not released"; exit 1; }
+          echo "sha=$sha" >>"$GITHUB_OUTPUT"
+          printf 'SHA=%s\nVN=%s\n' "$sha" "$VERSION_PREFIX.$GITHUB_RUN_NUMBER" >>"$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.commit.outputs.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: The app takes its server and bot from the build
+        run: grep -rqF "fromEnvironment('SHIKOO_API'" lib/shikoo && grep -rqF "fromEnvironment('SHIKOO_BOT'" lib/shikoo
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            .dart_tool/hooks_runner
+            .dart_tool/setup_build_cache
+            libclash
+          key: native-${{ hashFiles('core/**', 'build_config.yaml', 'plugins/setup/**', 'plugins/rust_api/rust/**') }}
+          restore-keys: native-
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: true
+          link-to-sdk: true
+
+      - run: flutter pub get
+
+      # no keystore.jks yet, so FlClash's gradle signs with the debug config and adds the .dev suffix
+      - name: Staging APKs
+        env:
+          STAGING_KEYSTORE_B64: ${{ secrets.SHIKOO_STAGING_KEYSTORE_B64 }}
+          API: ${{ vars.SHIKOO_STAGING_API }}
+          BOT: ${{ vars.SHIKOO_STAGING_BOT }}
+        run: |
+          set -euo pipefail
+          [ -n "$STAGING_KEYSTORE_B64" ] && [ -n "$API" ] && [ -n "$BOT" ] ||
+            { echo "::error::set secret SHIKOO_STAGING_KEYSTORE_B64 and variables SHIKOO_STAGING_API, SHIKOO_STAGING_BOT"; exit 1; }
+          [ "$API" != "$PRODUCTION_API" ] && [ "$BOT" != "$PRODUCTION_BOT" ] ||
+            { echo "::error::staging must not point at the production server or bot"; exit 1; }
+          mkdir -p ~/.android out
+          base64 -d <<<"$STAGING_KEYSTORE_B64" >~/.android/debug.keystore
+          flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm,android-arm64,android-x64 \
+            --build-name "$VN" --build-number "$GITHUB_RUN_NUMBER" \
+            --dart-define=APP_ENV=stable --dart-define=SHIKOO_API="$API" --dart-define=SHIKOO_BOT="$BOT"
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            mv "build/app/outputs/flutter-apk/app-$abi-release.apk" "out/ShikooNet-$VN-staging-$abi.apk"
+          done
+
+      - name: Production APKs
+        env:
+          KEYSTORE_B64: ${{ secrets.SHIKOO_RELEASE_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.SHIKOO_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SHIKOO_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SHIKOO_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::no release key yet (SHIKOO_RELEASE_KEYSTORE_B64): staging only, nothing to promote"
+            exit 0
+          fi
+          base64 -d <<<"$KEYSTORE_B64" >android/app/keystore.jks
+          printf '\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" >>android/local.properties
+          flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm,android-arm64 \
+            --build-name "$VN" --build-number "$GITHUB_RUN_NUMBER" --dart-define=APP_ENV=stable
+          for abi in armeabi-v7a arm64-v8a; do
+            mv "build/app/outputs/flutter-apk/app-$abi-release.apk" "out/ShikooNet-$VN-$abi.apk"
+          done
+
+      - name: Forget the keys
+        if: always()
+        run: rm -f android/app/keystore.jks android/local.properties ~/.android/debug.keystore
+
+      - name: Check every APK, and record what was built
+        env:
+          API: ${{ vars.SHIKOO_STAGING_API }}
+        run: |
+          set -euo pipefail
+          bash tools/check_apk_clean.sh out/*.apk
+          tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]}
+          for apk in out/*.apk; do
+            n=$(unzip -p "$apk" 'lib/*/libapp.so' | grep -caF "$API" || true)
+            pkg=$("$aapt2" dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
+            case $apk in
+              *-staging-*) [ "$n" -gt 0 ] && [[ $pkg == *.dev ]] ;;
+              *) [ "$n" -eq 0 ] && [[ $pkg != *.dev ]] ;;
+            esac || { echo "::error::$apk is $pkg and carries the staging server $n times"; exit 1; }
+          done
+          (cd out && sha256sum ./*.apk | sed 's| \./| |' >SHA256SUMS)
+          {
+            echo "## ShikooNet $VN from \`$SHA\`"
+            echo '```'
+            cat out/SHA256SUMS
+            for apk in out/*.apk; do
+              echo "== ${apk#out/}"
+              "$aapt2" dump badging "$apk" | grep -E '^(package|sdkVersion|targetSdkVersion|native-code|uses-feature.*leanback)'
+            done
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY" >out/NOTES.md
+
+      - name: Staging pre-release
+        run: |
+          gh release create "staging-$VN" out/*.apk out/SHA256SUMS --prerelease \
+            --target "$SHA" --title "ShikooNet $VN (staging)" --notes-file out/NOTES.md

@@ -1,0 +1,69 @@
+name: Shikoo Promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Publish the production APKs that staging built from current main?
+        required: true
+        type: choice
+        default: 'no'
+        options: ['no', PROMOTE]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shikoo-release
+  cancel-in-progress: false
+
+env:
+  PROMOTE_OWNERS: Isusami,arshiajacki
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: From main, by an owner, on purpose
+        env:
+          REF: ${{ github.ref }}
+          CONFIRM: ${{ inputs.confirm }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          [ "$REF" = refs/heads/main ] || { echo "::error::promote runs from main, not $REF"; exit 1; }
+          [ "$CONFIRM" = PROMOTE ] || { echo "::error::choose PROMOTE to publish"; exit 1; }
+          [[ ",$PROMOTE_OWNERS," == *",$ACTOR,"* ]] || { echo "::error::@$ACTOR may not promote"; exit 1; }
+
+      - name: The production APKs staging built from current main
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+          tag=$(gh api "repos/$GH_REPO/releases?per_page=100" --jq "[.[] | select(.prerelease
+            and (.tag_name | startswith(\"staging-\")) and .target_commitish == \"$sha\")][0].tag_name // empty")
+          [ -n "$tag" ] || { echo "::error::staging has not built main ($sha)"; exit 1; }
+          [ "$(gh api "repos/$GH_REPO/commits/$tag" --jq .sha)" = "$sha" ] ||
+            { echo "::error::$tag does not point at $sha"; exit 1; }
+          vn=${tag#staging-}
+          mkdir staged out
+          gh release download "$tag" --dir staged --pattern SHA256SUMS \
+            --pattern "ShikooNet-$vn-armeabi-v7a.apk" --pattern "ShikooNet-$vn-arm64-v8a.apk"
+          grep -E " ShikooNet-$vn-(armeabi-v7a|arm64-v8a)\.apk$" staged/SHA256SUMS >out/SHA256SUMS
+          [ "$(wc -l <out/SHA256SUMS)" -eq 2 ] || { echo "::error::$tag holds no production APKs"; exit 1; }
+          (cd staged && sha256sum -c ../out/SHA256SUMS)
+          mv staged/ShikooNet-*.apk out/
+          printf 'SHA=%s\nTAG=%s\nVN=%s\n' "$sha" "$tag" "$vn" >>"$GITHUB_ENV"
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          { echo "Promoted from $TAG (commit $SHA) by @$GITHUB_ACTOR. Same bytes, no rebuild."
+            echo '```'; cat out/SHA256SUMS; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY" >notes.md
+          gh release create "v$VN" out/*.apk out/SHA256SUMS --target "$SHA" --title "ShikooNet $VN" --notes-file notes.md
