@@ -156,9 +156,10 @@ jobs:
           bash tools/check_apk_clean.sh out/*.apk
           tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]} && apksigner=${aapt2%aapt2}apksigner
           cert() { "$apksigner" verify --print-certs "$1" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'; }
+          for apk in out/*.apk; do [ -n "$(cert "$apk")" ] || { echo "::error::$apk has no signer digest"; exit 1; }; done
           staging_cert=$(for apk in out/*-staging-*.apk; do cert "$apk"; done | sort -u)
           production_cert=$(for apk in out/ShikooNet-"$VN"-a*.apk; do [ ! -e "$apk" ] || cert "$apk"; done | sort -u)
-          [ "$(wc -l <<<"$staging_cert")" -eq 1 ] || { echo "::error::staging APKs carry different signers"; exit 1; }
+          [ -n "$staging_cert" ] && [ "$(wc -l <<<"$staging_cert")" -eq 1 ] || { echo "::error::staging APKs carry different signers"; exit 1; }
           [ -z "$production_cert" ] || { [ "$(wc -l <<<"$production_cert")" -eq 1 ] && [ "$production_cert" != "$staging_cert" ]; } ||
             { echo "::error::production APKs are not signed by one release key of their own"; exit 1; }
           for apk in out/*.apk; do
