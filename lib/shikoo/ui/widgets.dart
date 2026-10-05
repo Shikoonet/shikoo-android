@@ -469,6 +469,9 @@ class MessageBox extends StatelessWidget {
 }
 
 /// `.chip`: the service's status.
+String serviceTitle(ShikooL10n l, ShikooService service) =>
+    service.name.isEmpty ? l.serviceUnnamed : service.name;
+
 String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
     switch (status) {
       ShikooServiceStatus.active => l.statusActive,

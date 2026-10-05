@@ -720,7 +720,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get logoutSignedInBodyTouch =>
-      'You\'ll be disconnected, this device will be unlinked from your Telegram account and this account\'s services removed from it. A service you added by pasting its link stays. Your subscriptions stay as they are; sign in with Telegram again whenever you like.';
+      'You\'ll be disconnected and this device unlinked from your Telegram account. This account\'s services are removed from it, but a service whose link you pasted yourself stays. Your subscriptions stay as they are.';
 
   @override
   String get logoutSignedInBodyTv =>
@@ -830,4 +830,7 @@ class ShikooL10nEn extends ShikooL10n {
 
     return '$server didn\'t answer in $secondsString seconds. Tap again, or pick another server from the list.';
   }
+
+  @override
+  String get serviceUnnamed => 'ShikooNet service';
 }

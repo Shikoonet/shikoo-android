@@ -239,6 +239,7 @@ Future<_Harness> _harness({
     return null;
   });
   when(controller.disconnect).thenAnswer((_) async {});
+  when(() => controller.renameFromPanel(any())).thenAnswer((_) async {});
   when(controller.forgetServices).thenAnswer((_) async {
     for (final profile in [...container.read(profilesProvider)]) {
       await container.read(profilesProvider.notifier).del(profile.id);
@@ -563,8 +564,10 @@ void main() {
         h.api.services = [_service(1, 'user123'), _service(2, 'user789')];
         await _signedIn(h);
         expect(_urls(h.container), hasLength(2));
+        final pasted = h.container.read(profilesProvider).first;
         await h.signIn.notMine();
         expect(_urls(h.container), ['https://sub.4g3.uk/user123']);
+        verify(() => h.controller.renameFromPanel(pasted.id)).called(1);
       },
     );
 
@@ -852,11 +855,14 @@ void main() {
           ],
         }),
       });
+      final controller = _Controller();
+      when(() => controller.renameFromPanel(any())).thenAnswer((_) async {});
       final container = ProviderContainer(
         overrides: [
           shikooApiProvider.overrideWithValue(
             ShikooApi(['http://127.0.0.1:9']),
           ),
+          shikooControllerProvider.overrideWithValue(controller),
           shikooStateProvider.overrideWithValue(_state),
           profilesProvider.overrideWith(
             () => TestProfiles([brought, adopted, pasted]),
@@ -869,6 +875,7 @@ void main() {
       await signIn.load();
       await signIn.notMine();
       expect(_urls(container), [adopted.url, pasted.url]);
+      verify(() => controller.renameFromPanel(adopted.id)).called(1);
     });
 
     test('an account this version cannot read is signed out, and the services '

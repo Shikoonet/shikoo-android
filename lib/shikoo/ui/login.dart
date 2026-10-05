@@ -455,7 +455,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       onPressed: () => unawaited(_signIn.start()),
                     ),
                   Text(
-                    l.otherDeviceFine,
+                    phase == LoginPhase.startFailed
+                        ? l.codeFailedHelpTouch
+                        : l.otherDeviceFine,
                     textAlign: TextAlign.center,
                     style: t.text(
                       s.bodySm,

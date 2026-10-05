@@ -533,6 +533,7 @@ class ShikooSignIn {
   Future<void> notMine() async {
     _attempt++;
     final token = _token;
+    final named = [for (final s in _account.services) ?s.profileId];
     _token = null;
     _setAccount(const ShikooAccount());
     _login(null);
@@ -540,6 +541,11 @@ class ShikooSignIn {
     if (token != null) unawaited(_logout(token));
     for (final profile in [..._ref.read(profilesProvider)]) {
       await _drop(profile.id);
+    }
+    for (final id in named) {
+      if (_existing(id) != null) {
+        unawaited(_ref.read(shikooControllerProvider).renameFromPanel(id));
+      }
     }
   }
 

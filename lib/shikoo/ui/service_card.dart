@@ -278,7 +278,7 @@ class _ServiceCardState extends State<ServiceCard> {
                             link: service.supportLink,
                             title: l.supportTitle,
                             help: l.supportHelpTv,
-                            below: service.name,
+                            below: serviceTitle(l, service),
                           ),
                         ),
                       ),
@@ -334,7 +334,7 @@ class FoldedServiceCard extends StatelessWidget {
         ? Row(
             spacing: Space.s2,
             children: [
-              Expanded(child: _serviceName(service, t)),
+              Expanded(child: _serviceName(context, service)),
               if (service.usageKnown)
                 StatusChip(status: service.statusAt(DateTime.now())),
               SvgIcon(
@@ -390,12 +390,15 @@ class FoldedServiceCard extends StatelessWidget {
 }
 
 /// Unlike a server name, in the UI's direction: the username leads in both languages.
-Text _serviceName(ShikooService service, ShikooTheme t) => Text(
-  service.name,
-  maxLines: 1,
-  overflow: TextOverflow.ellipsis,
-  style: t.text(t.s.title, weight: FontWeight.w700, height: Leading.snug),
-);
+Text _serviceName(BuildContext context, ShikooService service) {
+  final t = ShikooTheme.of(context);
+  return Text(
+    serviceTitle(ShikooL10n.of(context), service),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: t.text(t.s.title, weight: FontWeight.w700, height: Leading.snug),
+  );
+}
 
 String agoText(ShikooL10n l, Duration ago) {
   if (ago.inMinutes < 1) return l.agoJustNow;
@@ -433,6 +436,7 @@ class _Head extends StatelessWidget {
         : DateTime.now().difference(updatedAt);
     final ago = since == null ? null : agoText(l, since);
     final sub = switch (refresh) {
+      _ when service.revoked => l.updateFailed,
       ShikooRefresh.running => l.updating,
       ShikooRefresh.failed when since == null || since.inMinutes < 1 =>
         l.updateFailed,
@@ -449,7 +453,7 @@ class _Head extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: _serviceName(service, t)),
+                  Expanded(child: _serviceName(context, service)),
                   if (service.usageKnown) ...[
                     const SizedBox(width: Space.s2),
                     StatusChip(status: service.statusAt(DateTime.now())),
@@ -489,7 +493,7 @@ class _Head extends StatelessWidget {
             builder: (context, _) => Semantics(
               button: true,
               expanded: open,
-              label: service.name,
+              label: serviceTitle(l, service),
               child: Padding(
                 padding: const EdgeInsetsDirectional.only(
                   start: Space.s2,

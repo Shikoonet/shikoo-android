@@ -1025,8 +1025,8 @@ void main() {
     await controller.addService('$panel/none/b');
     await controller.addService('$panel/none/a');
     expect(_pasted(container).map((p) => (p.url, p.label)), [
-      ('$panel/none/a', 'سرویس شیکونت'),
-      ('$panel/none/b', 'سرویس شیکونت ۲'),
+      ('$panel/none/a', ''),
+      ('$panel/none/b', ''),
     ]);
   });
 
@@ -1221,4 +1221,87 @@ void main() {
     await pumpEventQueue();
     expect(container.read(shikooStateProvider).refresh, ShikooRefresh.failed);
   });
+
+  test('a service without a name has an empty one, also once FlClash has '
+      'put its id there', () {
+    final (:container, :core, :proxies, :setup) = _home();
+    final profile = container.read(profilesProvider).single;
+    container
+        .read(profilesProvider.notifier)
+        .put(profile.copyWith(label: '${profile.id}'));
+    expect(container.read(shikooStateProvider).service!.name, '');
+  });
+
+  test('the same username on two panels is two services', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    final other = panel.replaceFirst('127.0.0.1', 'localhost');
+    await controller.addService('$panel/file/user111/a');
+    await controller.addService('$other/file/user111/a');
+    expect(
+      [
+        for (final p in container.read(profilesProvider))
+          if (p.url.contains('/file/')) p.url,
+      ],
+      ['$panel/file/user111/a', '$other/file/user111/a'],
+    );
+  });
+
+  test('a card the account named takes the panel name back', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('$panel/file/user222/a', 'user222 · الماس');
+    final named = _pasted(container).single;
+    expect(named.label, 'user222 · الماس');
+    await controller.renameFromPanel(named.id);
+    expect(_pasted(container).single.label, 'user222');
+  });
+
+  test(
+    "the ping count is the service in use's servers, not an older round's",
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final hold = Completer<void>();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        await hold.future;
+        return Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 50,
+        );
+      });
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: 'آلمان ۱', type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+            Proxy(name: 'ترکیه ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      final controller = container.read(shikooControllerProvider);
+      unawaited(controller.pingAll());
+      await pumpEventQueue();
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: 'سوئد ۱', type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      final pinging = container.read(shikooStateProvider).pinging;
+      expect(pinging, (done: 1, total: 2), reason: 'only هلند ۱ is measured');
+      hold.complete();
+      await pumpEventQueue();
+    },
+  );
 }

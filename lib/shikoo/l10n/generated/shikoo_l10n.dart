@@ -1175,7 +1175,7 @@ abstract class ShikooL10n {
   /// No description provided for @logoutSignedInBodyTouch.
   ///
   /// In en, this message translates to:
-  /// **'You\'ll be disconnected, this device will be unlinked from your Telegram account and this account\'s services removed from it. A service you added by pasting its link stays. Your subscriptions stay as they are; sign in with Telegram again whenever you like.'**
+  /// **'You\'ll be disconnected and this device unlinked from your Telegram account. This account\'s services are removed from it, but a service whose link you pasted yourself stays. Your subscriptions stay as they are.'**
   String get logoutSignedInBodyTouch;
 
   /// No description provided for @logoutSignedInBodyTv.
@@ -1351,6 +1351,12 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'{server} didn\'t answer in {seconds} seconds. Tap again, or pick another server from the list.'**
   String errorConnectTouch(String server, int seconds);
+
+  /// A service's name when the panel sends no title and there is no username or plan name.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet service'**
+  String get serviceUnnamed;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

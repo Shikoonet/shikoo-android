@@ -445,7 +445,10 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       anyAnswer: servers.any((server) => (server.ping ?? 0) > 0),
     ),
     pinging: pinging
-        ? (done: round.total - round.pending.length, total: round.total)
+        ? (
+            done: servers.where((server) => !server.testing).length,
+            total: servers.length,
+          )
         : null,
     refresh: ref.watch(_refreshProvider),
     notice: ref.watch(_noticeProvider),
@@ -499,7 +502,7 @@ ShikooService _serviceFrom(
   final info = profile.subscriptionInfo;
   return ShikooService(
     id: profile.id,
-    name: profile.label,
+    name: profile.label == '${profile.id}' ? '' : profile.label,
     usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
     totalBytes: info?.total ?? 0,
     expire: (info?.expire ?? 0) > 0
@@ -529,10 +532,8 @@ String? accountOf({String? file, String? title, required String body}) =>
         .map((user) => user?.trim())
         .firstWhereOrNull((user) => user?.isNotEmpty ?? false);
 
-const _unnamedService = 'سرویس شیکونت';
-
 String serviceName(String? title, String? user) =>
-    title != null && title.contains(' · ') ? title : user ?? _unnamedService;
+    title != null && title.contains(' · ') ? title : user ?? '';
 
 String? _fileName(String? disposition) {
   try {
@@ -550,11 +551,14 @@ Profile? serviceOf(List<Profile> profiles, String url, String? user) =>
     (user == null
         ? null
         : profiles.firstWhereOrNull(
-            (profile) => usernameOf(profile.label) == user,
+            (profile) =>
+                usernameOf(profile.label) == user &&
+                Uri.tryParse(profile.url)?.host == Uri.tryParse(url)?.host,
           ));
 
 /// FlClash would add a Latin "(1)" to a name another service has.
 String unusedName(String name, Set<String> taken) {
+  if (name.isEmpty) return name;
   var unused = name;
   for (var n = 2; taken.contains(unused); n++) {
     unused =
@@ -1052,6 +1056,16 @@ class ShikooController {
     await _loadPasted();
     _revoked(id, revoked: false);
     _savePicks({..._appPickByService}..remove('$id'));
+  }
+
+  Future<void> renameFromPanel(int id) async {
+    final profile = _ref.read(profilesProvider).getProfile(id);
+    if (profile == null || profile.url.isEmpty) return;
+    try {
+      await _download(profile.url, refresh: true);
+    } catch (_) {
+      // ponytail: offline, the account's name stays until the next sign-out or paste.
+    }
   }
 
   void onForeground() {

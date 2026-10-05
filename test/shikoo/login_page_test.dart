@@ -362,6 +362,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('کد ورود نرسید'), findsOneWidget);
     expect(find.textContaining('این کد را برای ربات'), findsNothing);
+    expect(find.textContaining('کد ۱۰ دقیقه کار می‌کند'), findsNothing);
+    expect(find.text('اینترنت گوشی را بررسی کن و دوباره بزن.'), findsOneWidget);
   });
 
   testWidgets('on the phone a used-up service with no link has renew and '

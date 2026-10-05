@@ -221,7 +221,7 @@
   "logoutHelpSignedInTouch": "Removes this account's services from this device; your subscriptions stay as they are.",
   "logoutHelpSignedInTv": "Removes the services from this TV; your subscriptions stay as they are.",
   "logoutSignedInTitle": "Sign out?",
-  "logoutSignedInBodyTouch": "You'll be disconnected, this device will be unlinked from your Telegram account and this account's services removed from it. A service you added by pasting its link stays. Your subscriptions stay as they are; sign in with Telegram again whenever you like.",
+  "logoutSignedInBodyTouch": "You'll be disconnected and this device unlinked from your Telegram account. This account's services are removed from it, but a service whose link you pasted yourself stays. Your subscriptions stay as they are.",
   "logoutSignedInBodyTv": "You'll be disconnected, this TV will be unlinked from your Telegram account and the services removed from it. Your subscriptions stay as they are; sign in with Telegram again whenever you like.",
   "signInRow": "Sign in with Telegram",
   "signInRowHelp": "You haven't signed in yet. Signing in brings all your services automatically.",
@@ -266,5 +266,7 @@
   "revokedHelp": "Remove it, or get a new link from the bot or your reseller and paste it in Settings.",
   "@revokedHelp": {"description": "After revokedTitle in the open card's message, and alone as the folded card's summary."},
   "errorConnectTouch": "{server} didn't answer in {seconds} seconds. Tap again, or pick another server from the list.",
-  "@errorConnectTouch": {"description": "Phone: errorConnect, which the TV keeps as two lines.", "placeholders": {"server": {"type": "String"}, "seconds": {"type": "int", "format": "decimalPattern"}}}
+  "@errorConnectTouch": {"description": "Phone: errorConnect, which the TV keeps as two lines.", "placeholders": {"server": {"type": "String"}, "seconds": {"type": "int", "format": "decimalPattern"}}},
+  "serviceUnnamed": "ShikooNet service",
+  "@serviceUnnamed": {"description": "A service's name when the panel sends no title and there is no username or plan name."}
 }

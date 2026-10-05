@@ -68,6 +68,10 @@ void main() {
       );
     });
 
+    test('pasted over http with an explicit :80 loses the port too', () {
+      expect(shikooLink('http://x.4g3.uk:80/sub/a'), 'https://x.4g3.uk/sub/a');
+    });
+
     test('is read out of angle brackets', () {
       expect(
         shikooLink('<https://s.4g3.uk/sub/abc>'),

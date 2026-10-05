@@ -996,4 +996,37 @@ void main() {
     await tester.pumpAndSettle();
     verify(() => controller.removeService(2)).called(1);
   });
+
+  testWidgets('a revoked card says only «به‌روز نشد», open or folded, and a '
+      'service without a name is «سرویس شیکونت»', (tester) async {
+    final updated = DateTime.now().subtract(const Duration(minutes: 10));
+    final revoked = ShikooService(
+      id: 4,
+      name: 'user456 · طلایی',
+      usedBytes: 1,
+      totalBytes: 100,
+      updatedAt: updated,
+      refresh: ShikooRefresh.failed,
+      pasted: true,
+      revoked: true,
+    );
+    await _pump(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        refresh: ShikooRefresh.failed,
+        service: revoked,
+        others: [
+          revoked,
+          const ShikooService(id: 5, name: '', usedBytes: 1, totalBytes: 100),
+        ],
+      ),
+    );
+    expect(find.text('به‌روز نشد'), findsNWidgets(2));
+    expect(find.textContaining('پیش'), findsNothing);
+    expect(find.text('سرویس شیکونت'), findsOneWidget);
+  });
 }
