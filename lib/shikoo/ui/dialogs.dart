@@ -213,7 +213,7 @@ Future<bool> confirmRemove(
       final l = ShikooL10n.of(context);
       return [
         Text(
-          l.removeServiceTitle('\u2068${serviceTitle(l, service)}\u2069'),
+          l.removeServiceTitle('\u2068${serviceTitle(context, service)}\u2069'),
           style: t.text(t.s.title, weight: FontWeight.w700),
         ),
         Text(
@@ -252,9 +252,7 @@ Future<bool> confirmRemove(
     unawaited(
       SemanticsService.sendAnnouncement(
         View.of(context),
-        ShikooL10n.of(
-          context,
-        ).serverRemoved(serviceTitle(ShikooL10n.of(context), service)),
+        ShikooL10n.of(context).serverRemoved(serviceTitle(context, service)),
         Directionality.of(context),
       ),
     );

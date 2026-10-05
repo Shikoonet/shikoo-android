@@ -654,7 +654,7 @@ class _PastedRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(serviceTitle(l, service), style: t.text(t.s.body)),
+                Text(serviceTitle(context, service), style: t.text(t.s.body)),
                 Text(
                   statusLabel(l, service.statusAt(DateTime.now())),
                   style: t.text(t.s.bodySm, color: t.c.textMuted),
@@ -665,7 +665,7 @@ class _PastedRow extends StatelessWidget {
           Semantics(
             button: true,
             enabled: onRemove != null,
-            label: l.removeServiceLabel(serviceTitle(l, service)),
+            label: l.removeServiceLabel(serviceTitle(context, service)),
             excludeSemantics: true,
             child: onRemove == null
                 ? remove

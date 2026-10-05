@@ -469,8 +469,13 @@ class MessageBox extends StatelessWidget {
 }
 
 /// `.chip`: the service's status.
-String serviceTitle(ShikooL10n l, ShikooService service) =>
-    service.name.isEmpty ? l.serviceUnnamed : service.name;
+String serviceTitle(BuildContext context, ShikooService service) {
+  if (service.name.isNotEmpty) return service.name;
+  final l = ShikooL10n.of(context);
+  return service.number > 1
+      ? '${l.serviceUnnamed} ${localNumber(context, service.number)}'
+      : l.serviceUnnamed;
+}
 
 String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
     switch (status) {

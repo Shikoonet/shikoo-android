@@ -278,7 +278,7 @@ class _ServiceCardState extends State<ServiceCard> {
                             link: service.supportLink,
                             title: l.supportTitle,
                             help: l.supportHelpTv,
-                            below: serviceTitle(l, service),
+                            below: serviceTitle(context, service),
                           ),
                         ),
                       ),
@@ -393,7 +393,7 @@ class FoldedServiceCard extends StatelessWidget {
 Text _serviceName(BuildContext context, ShikooService service) {
   final t = ShikooTheme.of(context);
   return Text(
-    serviceTitle(ShikooL10n.of(context), service),
+    serviceTitle(context, service),
     maxLines: 1,
     overflow: TextOverflow.ellipsis,
     style: t.text(t.s.title, weight: FontWeight.w700, height: Leading.snug),
@@ -493,7 +493,7 @@ class _Head extends StatelessWidget {
             builder: (context, _) => Semantics(
               button: true,
               expanded: open,
-              label: serviceTitle(l, service),
+              label: serviceTitle(context, service),
               child: Padding(
                 padding: const EdgeInsetsDirectional.only(
                   start: Space.s2,

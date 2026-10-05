@@ -1029,4 +1029,30 @@ void main() {
     expect(find.textContaining('پیش'), findsNothing);
     expect(find.text('سرویس شیکونت'), findsOneWidget);
   });
+
+  testWidgets('a second nameless service reads «سرویس شیکونت ۲»', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        service: ShikooService(name: '', usedBytes: 1, totalBytes: 100),
+        others: [
+          ShikooService(
+            id: 2,
+            name: '',
+            usedBytes: 1,
+            totalBytes: 100,
+            number: 2,
+          ),
+        ],
+      ),
+    );
+    expect(find.text('سرویس شیکونت'), findsOneWidget);
+    expect(find.text('سرویس شیکونت ۲'), findsOneWidget);
+  });
 }

@@ -79,6 +79,7 @@ class ShikooService {
     this.refresh = ShikooRefresh.idle,
     this.pasted = false,
     this.revoked = false,
+    this.number = 1,
   });
 
   final int id;
@@ -100,6 +101,9 @@ class ShikooService {
 
   final bool pasted;
   final bool revoked;
+
+  /// Among the services without a name, 1 for the first.
+  final int number;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -389,12 +393,17 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final refreshing = ref.watch(_othersRefreshProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
+  final unnamed = [
+    for (final profile in ref.watch(profilesProvider))
+      if (_nameOf(profile).isEmpty) profile.id,
+  ];
   ShikooService of(Profile profile) => _serviceFrom(
     profile,
     extras: extras[profile.id],
     refresh: refreshing[profile.id] ?? ShikooRefresh.idle,
     pasted: pasted.contains(profile.id),
     revoked: revoked.contains(profile.id),
+    number: unnamed.indexOf(profile.id) + 1,
   );
 
   final group = _mainGroup(ref);
@@ -498,11 +507,12 @@ ShikooService _serviceFrom(
   ShikooRefresh refresh = ShikooRefresh.idle,
   bool pasted = false,
   bool revoked = false,
+  int number = 1,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
     id: profile.id,
-    name: profile.label == '${profile.id}' ? '' : profile.label,
+    name: _nameOf(profile),
     usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
     totalBytes: info?.total ?? 0,
     expire: (info?.expire ?? 0) > 0
@@ -515,8 +525,12 @@ ShikooService _serviceFrom(
     refresh: refresh,
     pasted: pasted,
     revoked: revoked,
+    number: number < 1 ? 1 : number,
   );
 }
+
+String _nameOf(Profile profile) =>
+    profile.label == '${profile.id}' ? '' : profile.label;
 
 String usernameOf(String name) => name.split(' · ').first.trim();
 
@@ -1027,6 +1041,19 @@ class ShikooController {
     if (_ref.read(_noticeProvider) is RefreshFailed) _notice(null);
   }
 
+  void _updated(int id) {
+    if (id == _ref.read(currentProfileIdProvider)) {
+      if (_ref.read(_refreshProvider) == ShikooRefresh.failed) {
+        _ref.read(_refreshProvider.notifier).set(ShikooRefresh.idle);
+      }
+      if (_ref.read(_noticeProvider) is RefreshFailed) _notice(null);
+    } else if (_ref.read(_othersRefreshProvider)[id] == ShikooRefresh.failed) {
+      _ref
+          .read(_othersRefreshProvider.notifier)
+          .set({..._ref.read(_othersRefreshProvider)}..remove(id));
+    }
+  }
+
   Future<void> _loadPasted() async =>
       _ref.read(_pastedProvider.notifier).set(await pastedProfiles());
 
@@ -1269,6 +1296,7 @@ class ShikooController {
       return null;
     }
     _revoked(profile.id, revoked: false);
+    _updated(profile.id);
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),

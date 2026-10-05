@@ -1375,4 +1375,46 @@ void main() {
     expect(selection(), {'PROXY': 'هلند ۱'});
     expect(proxies.picked, isEmpty);
   });
+
+  test(
+    'a link that loads again clears its card of «به‌روز نشد» at once',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final panel = await _panel(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await controller.addService('$panel/file/user111/a');
+      await controller.addService('$panel/file/user222/a');
+      final [first, _] = _pasted(container);
+      _gone.addAll(['/file/user111/a', '/file/user222/a']);
+      await controller.refreshService();
+      await controller.refreshOther(first.id);
+      var state = container.read(shikooStateProvider);
+      expect(state.service!.name, 'user222');
+      expect(state.refresh, ShikooRefresh.failed);
+      _gone.clear();
+      await controller.addService('$panel/file/user111/a', null, false);
+      await controller.addService('$panel/file/user222/a', null, false);
+      state = container.read(shikooStateProvider);
+      expect(state.refresh, ShikooRefresh.idle);
+      expect(
+        state.others.firstWhere((s) => s.id == first.id).refresh,
+        ShikooRefresh.idle,
+      );
+    },
+  );
+
+  test('services without a name are told apart by number', () {
+    final (:container, :core, :proxies, :setup) = _home();
+    final profiles = container.read(profilesProvider.notifier);
+    profiles
+      ..put(Profile.normal(url: 'https://panel.invalid/b'))
+      ..put(Profile.normal(url: 'https://panel.invalid/c'));
+    final state = container.read(shikooStateProvider);
+    expect(
+      [
+        for (final s in [state.service!, ...state.others]) s.number,
+      ],
+      [1, 2, 3],
+    );
+  });
 }
