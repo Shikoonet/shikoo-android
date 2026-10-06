@@ -33,6 +33,24 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
 Future<bool?>? registerShortcut(App? plugin, String language) =>
     plugin?.initShortcuts(shikooServiceTexts(Locale(language)).toggle);
 
+/// Once per install, and only after [attached]: until then the core has no config, and FlClash toasts "config is not applied".
+Future<void> lockLocalPortAfter(
+  Future<void> attached,
+  ProviderContainer container,
+) async {
+  await attached;
+  container.read(networkSettingProvider.notifier).update((s) {
+    if (s.authentication.credentials.isNotEmpty) return s;
+    return s.copyWith(
+      authentication: AuthenticationProps(
+        enable: true,
+        username: generateRandomSecret(8),
+        password: generateRandomSecret(16),
+      ),
+    );
+  });
+}
+
 class ShikooApp extends ConsumerStatefulWidget {
   const ShikooApp({super.key});
 
@@ -69,17 +87,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
               autoCheckUpdate: false,
             ),
           );
-      ref.read(networkSettingProvider.notifier).update((s) {
-        if (s.authentication.credentials.isNotEmpty) return s;
-        return s.copyWith(
-          authentication: AuthenticationProps(
-            enable: true,
-            username: generateRandomSecret(8),
-            password: generateRandomSecret(16),
-          ),
-        );
-      });
-      await bootstrap.attach();
+      await lockLocalPortAfter(bootstrap.attach(), globalState.container);
       _attached = true;
       unawaited(registerShortcut(app, ref.read(shikooLookProvider).language));
       ref.read(shikooControllerProvider).onForeground();
