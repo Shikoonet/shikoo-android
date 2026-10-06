@@ -379,6 +379,13 @@ void main() {
           89,
           reason: '${servers.length} servers',
         );
+        expect(
+          tester.getTopRight(find.byType(ServiceCard)).dx,
+          960 - ShikooSizes.tv.safeX - ShikooSizes.ring,
+          reason:
+              'the logo'
+              's edge, inside the safe area by the ring',
+        );
       }
     },
   );

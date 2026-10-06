@@ -362,16 +362,19 @@ class _TvLayout extends StatelessWidget {
           ),
           const SizedBox(height: Space.s3),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: s.pane,
-                  child: _TvColumn(child: card),
-                ),
-                const SizedBox(width: Space.s10),
-                Expanded(child: Center(child: power)),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: s.pane,
+                    child: _TvColumn(child: card),
+                  ),
+                  const SizedBox(width: Space.s10),
+                  Expanded(child: Center(child: power)),
+                ],
+              ),
             ),
           ),
         ],
@@ -456,7 +459,12 @@ class _TvColumnState extends State<_TvColumn> {
               thumbColor: t.c.outline,
               child: SingleChildScrollView(
                 controller: _scroll,
-                padding: const EdgeInsets.all(Space.s2),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s2,
+                  Space.s2,
+                  Space.s2,
+                  Space.s2 + ShikooSizes.ring,
+                ),
                 child: widget.child,
               ),
             ),
