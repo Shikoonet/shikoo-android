@@ -280,7 +280,7 @@ ul { list-style: none; }
 .fine { font-size: var(--text-body-sm); color: var(--color-text-muted); }
 
 /* ۱۵. نتیجه (تأیید شد / رد شد) */
-.hero-icon { inline-size: var(--size-hero-icon); block-size: var(--size-hero-icon); border-radius: 50%; display: grid; place-items: center; }
+.hero-icon { flex: none; inline-size: var(--size-hero-icon); block-size: var(--size-hero-icon); border-radius: 50%; display: grid; place-items: center; }
 .hero-icon .icon { --size-icon: calc(var(--size-hero-icon) * 0.5); stroke-width: var(--icon-stroke-strong); }
 .hero-icon.positive { background: var(--color-positive-soft); color: var(--color-positive); }
 .hero-icon.danger { background: var(--color-danger-soft); color: var(--color-danger); }
@@ -292,7 +292,7 @@ ul { list-style: none; }
 
 /* ۱۶. ستون اسکرولِ تلویزیون: یکجا اسکرول می‌شود؛ لبهٔ بالا محو و نشانگر کنارش */
 .tv-col { position: relative; min-block-size: 0; overflow: hidden; margin: calc(var(--space-2) * -1); padding: var(--space-2); }
-.tv-col-content { display: flex; flex-direction: column; gap: var(--space-3); translate: 0 calc(var(--scroll, 0px) * -1); }
+.tv-col-content { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: var(--ring); translate: 0 calc(var(--scroll, 0px) * -1); }
 .tv-col.is-scrolled { mask-image: linear-gradient(to bottom, transparent, black var(--size-fade)); }
 .scroll-thumb { position: absolute; inset-inline-end: 0; inline-size: var(--size-scroll-thumb); border-radius: var(--radius-full); background: var(--color-outline); }
 
@@ -403,20 +403,21 @@ ul { list-style: none; }
 
 /* قاب تلویزیون ۹۶۰×۵۴۰ dp (باکسِ ۲۴۰dpi: ۱۲۸۰×۷۲۰ dp) */
 .tv {
+  --ring: calc(var(--focus-ring-width) + var(--focus-ring-offset));
   inline-size: 960px; block-size: 540px; overflow: hidden; position: relative;
   display: flex; flex-direction: column; padding: var(--safe-y) var(--safe-x); background: var(--color-bg);
 }
 [data-tvdp="1280"] .tv { inline-size: 1280px; block-size: 720px; }
 /* اجزایی که اندازهٔ متن خودشان را ندارند، از این‌جا ارث می‌برند، نه از body گوشی */
 [data-device="tv"] { font-size: var(--text-body); }
-/* جای حلقهٔ فوکوس دور «تنظیمات»، تا داخل حاشیهٔ امن بماند */
-.tv-top { --ring: calc(var(--focus-ring-width) + var(--focus-ring-offset)); flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); block-size: calc(var(--size-appbar) + 2 * var(--ring)); padding-inline: var(--ring); }
+/* همهٔ چیدمان تلویزیون به اندازهٔ حلقهٔ فوکوس از حاشیهٔ امن تو می‌رود، تا حلقه بیرون نزند */
+.tv-top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); block-size: calc(var(--size-appbar) + 2 * var(--ring)); padding-inline: var(--ring); }
 .tv-title { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
 .tv-hint { font-size: var(--text-body-sm); color: var(--color-text-muted); line-height: var(--leading-tight); }
 
 /* خانهٔ تلویزیون: ستون کارت‌ها و سرورها در سمت شروع (راست)، دکمهٔ گرد در سمت دیگر */
 .tv-home {
-  flex: 1; min-block-size: 0; display: grid; grid-template-columns: var(--size-pane) 1fr; grid-template-rows: minmax(0, 1fr);
+  flex: 1; min-block-size: 0; padding-inline: var(--ring); display: grid; grid-template-columns: var(--size-pane) 1fr; grid-template-rows: minmax(0, 1fr);
   gap: var(--space-10); margin-top: var(--space-3);
 }
 /* دکمه و سرورِ زیرش وسطِ ستون‌اند و با عوض شدن حالت نمی‌پرند؛ راهنما یا پیام در فضای خالیِ زیرشان آویزان است */
@@ -441,7 +442,7 @@ ul { list-style: none; }
 
 /* تنظیمات و «درباره»ی تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
 .tv-settings { flex: 1; min-block-size: 0; display: flex; justify-content: center; margin-top: var(--space-3); }
-.tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0 calc(var(--focus-ring-width) + var(--focus-ring-offset)); gap: var(--space-6) var(--space-10); }
+.tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0 var(--ring); gap: var(--space-6) var(--space-10); }
 .tv .dialog p { font-size: var(--text-body); }
 .about { inline-size: var(--size-pane); align-self: start; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-6); line-height: var(--leading-body); }
 .about h3 { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }

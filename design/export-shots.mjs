@@ -12,7 +12,7 @@
 //   - فونت: برای هر وزن ۴۰۰، ۵۰۰، ۷۰۰ و ۸۰۰، تکهٔ عربیِ Vazirmatn باید status === 'loaded' باشد.
 //   - متنِ بریده (از پهلو، یا یک‌خطیِ سه‌نقطه‌دار از بالا و پایین) یا جزئی که از قاب بیرون زده.
 //   - متنِ تلویزیون کوچک‌تر از --text-caption (۱۲dp).
-//   - جزئی از قاب تلویزیون، با حلقهٔ فوکوسش، بیرون از حاشیهٔ امن (--safe-x، --safe-y). ستونِ اسکرول‌شونده و پردهٔ پشت پنجره سنجیده نمی‌شوند.
+//   - جزئی از قاب تلویزیون، با حلقهٔ فوکوسش، بیرون از حاشیهٔ امن (--safe-x، --safe-y). از ستونِ اسکرول‌شونده فقط جزءِ زیر ریموت سنجیده می‌شود؛ پردهٔ پشت پنجره سنجیده نمی‌شود.
 //   - حرف لاتین در لایهٔ ارائه (سربرگ، زیرنویس، یادداشت).
 //   - اندازهٔ هر عکسِ قاب.
 import { createServer } from 'node:http';
@@ -104,6 +104,8 @@ async function checkText(tab, label) {
     const out = [];
     for (const frame of document.querySelectorAll('[data-frame]')) {
       const box = frame.getBoundingClientRect();
+      const frameStyle = getComputedStyle(frame);
+      const sx = parseFloat(frameStyle.paddingLeft), sy = parseFloat(frameStyle.paddingTop);
       for (const el of frame.querySelectorAll('*')) {
         if (el.closest('svg')) continue;
         const r = el.getBoundingClientRect();
@@ -113,13 +115,12 @@ async function checkText(tab, label) {
         const cutTall = style.textOverflow === 'ellipsis' && el.scrollHeight > el.clientHeight;
         const outside = r.left < box.left - 1 || r.right > box.right + 1;
         const tiny = frame.dataset.device === 'tv' && el.childNodes[0]?.nodeType === 3 && el.textContent.trim() &&
-          parseFloat(style.fontSize) < parseFloat(getComputedStyle(frame).getPropertyValue('--text-caption'));
+          parseFloat(style.fontSize) < parseFloat(frameStyle.getPropertyValue('--text-caption'));
         if (clipped || cutTall || outside || tiny)
           out.push(`${frame.dataset.frame}: «${el.textContent.trim().slice(0, 30)}» ${clipped ? 'بریده شده' : cutTall ? 'از بالا یا پایین بریده' : outside ? 'بیرون از قاب' : `متن ${style.fontSize} کوچک‌تر از ۱۲dp`}`);
-        if (frame.dataset.device === 'tv' && !el.closest('.tv-col') && !el.classList.contains('scrim')) {
-          const fs = getComputedStyle(frame);
-          const sx = parseFloat(fs.paddingLeft), sy = parseFloat(fs.paddingTop);
-          const ring = el.classList.contains('is-focused') ? parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset) : 0;
+        const focused = el.classList.contains('is-focused');
+        if (frame.dataset.device === 'tv' && !el.classList.contains('scrim') && (focused || !el.closest('.tv-col'))) {
+          const ring = focused ? parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset) : 0;
           const over = Math.max(box.top + sy - (r.top - ring), (r.bottom + ring) - (box.bottom - sy), box.left + sx - (r.left - ring), (r.right + ring) - (box.right - sx));
           if (over > 0.5) out.push(`${frame.dataset.frame}: «${el.textContent.trim().slice(0, 30) || el.className}» ${over.toFixed(1)}dp بیرون از حاشیهٔ امن`);
         }
