@@ -92,8 +92,9 @@ $A install -r /d/dev/shikoo-spike/apk/FlClash-0.8.98-android-x86_64.apk
   حالت «Rule» (پیش‌فرض اپ تازه‌نصب) را نگه دار. کلیدهای اشتباه پشت یک پنجره می‌توانند حالت را عوض کنند.
 - **پنجرهٔ «Disclaimer» روی تلویزیون فوکوس نمی‌گیرد:** کلیدها به داشبورد پشتش می‌رسند و `BACK` از اپ بیرون می‌برد.
   یک بار `k DPAD_DOWN DPAD_DOWN DPAD_DOWN DPAD_RIGHT DPAD_RIGHT DPAD_CENTER` بستش. ثابت نشده که همیشه کار کند.
-- **ساخت خودمان (`com.follow.clash.dev`) کنار FlClash رسمی:** نام و نشانشان یکی است. لینک `clash://` را با `-p com.follow.clash.dev` در `am start` به اپ ما بفرست.
-  روی تلویزیون، آیکون دوم اپ ماست. با `topResumedActivity` مطمئن شو.
+- **شناسهٔ اپ ما:** از `cf8089b` به بعد `com.shikoonet.app.dev` است (ساخت با کلید debug؛ با کلید اصلی `com.shikoonet.app`). ساخت‌های قبلی `com.follow.clash.dev` بودند و کنار آن نصب می‌مانند.
+  کلاس‌ها بستهٔ جاوای FlClash را نگه داشته‌اند، پس صفحهٔ اصلی `com.shikoonet.app.dev/com.follow.clash.MainActivity` است.
+  لینک آزمایشی (فقط ساخت `SHIKOO_DEBUG`): `am start -n com.shikoonet.app.dev/com.follow.clash.MainActivity -a android.intent.action.VIEW -d 'shikoo-debug://add?url=<encoded>'`.
 - **اپ‌های فقط-ARM** (مثل Happ) نصب و باز می‌شوند، ولی هستهٔ Goشان لحظهٔ وصل شدن کرش می‌کند. اتصالشان روی امولاتور تست‌شدنی نیست.
 - **اگر اپی روی گوشی مجازی به `10.0.2.2` نرسید:** Happ این‌طور بود و علتش پیدا نشد. این راه برای گرفتن اشتراک کار کرد:
   `adb -s emulator-5554 reverse tcp:18089 tcp:18089`، و بعد آدرس `127.0.0.1` به‌جای `10.0.2.2`.
