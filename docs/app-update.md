@@ -65,7 +65,7 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 ### Pipeline (`chore/release-pipeline`)
 
 - `tools/publish_door.sh <api> <dir> <force>`: sha256 from `SHA256SUMS`, versionCodes from `aapt2 dump badging`,
-  8 MB chunks with `curl -fsS --retry 5 --retry-all-errors`, then publish with `jq`-built JSON.
+  8 MB chunks with `curl --fail-with-body --retry 5 --retry-all-errors`, then publish with `jq`-built JSON.
 - Staging: a separate job `door` after `build` (re-runnable without a rebuild): download the `-staging-` APKs from
   `staging-$VN`, `sha256sum -c`, publish to the staging door with `force=false`.
 - Promote: new input `force` (`no`/`yes`). Door step after `sha256sum -c`, before `gh release create`; if it fails,
