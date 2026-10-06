@@ -46,7 +46,8 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 - ABI from `Abi.current()`; own code from `packageInfo.buildNumber`. Offer when own < `version_code`; force when own <
   `min_version_code`. Local builds (2026091401) are never offered one.
 - UI: a card at the top of Home (phone and TV), D-pad reachable, never takes first focus from the power button. Forced:
-  a full-screen page replacing Home, its one button focused; the VPN keeps running. No system notification.
+  a full-screen page replacing Home, its one button focused (on a failed download: «دوباره» first, then «پشتیبانی»);
+  the VPN keeps running. No system notification.
 - Download only on tap: stream GET with `Range: bytes=<have>-` into `<cache>/update/<file>.part` (206 appends, 200
   restarts, complete skips), sha256 in `Isolate.run`, mismatch deletes and says so, match renames to `.apk`. Progress
   in MB and percent; resumes after a restart; old files cleaned on each check.
