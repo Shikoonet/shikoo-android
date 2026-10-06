@@ -26,6 +26,7 @@
  *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
  *  ۲۰. نام ربات ......... .code-bot (زیر کد ورود) ؛ فهرست نتیجه: .result-list ؛ دایرهٔ خنثی: .hero-icon.muted
  *  ۲۱. سرویس‌های تمام‌شده .finished + .finished-head ؛ باز: .finished-row (.t .n .s) + .btn-sm
+ *  ۲۲. نسخهٔ تازه ...... .update + .is-error ؛ .update-row (.t strong small) + دکمه ؛ .bar
  *  پینگِ در حال سنجش: .ping.is-pending ؛ برچسب «تازه»: .chip-outline ؛ قاب اسکرول‌شدهٔ گوشی: .scroll-view
  *  فوکوس ریموت روی هر جزء: .is-focused
  */
@@ -315,6 +316,14 @@ ul { list-style: none; }
 .btn-sm { --size-button: var(--size-button-sm); padding-inline: var(--space-3); font-size: var(--text-body-sm); }
 .finished-row.is-focused { margin-inline: calc(var(--space-2) * -1); padding-inline: var(--space-2); border-radius: var(--radius-md); background: var(--color-focus-bg); }
 
+/* ۲۲. نسخهٔ تازه */
+.update { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.update-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.update-row .t { flex: 1 1 12em; min-inline-size: 0; font-size: var(--text-body); display: flex; flex-direction: column; gap: var(--space-1); }
+.update-row strong { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.update-row small { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.update.is-error strong { color: var(--color-danger); }
+
 /* ۱۸. سربرگ فهرست سرورها: جست‌وجو (فقط گوشی) یا عنوان (تلویزیون)، و «پینگ همه» */
 .list-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
 .list-head, .svc { scroll-margin-top: var(--space-3); } /* جای نمونه در قاب اسکرول‌شده */
@@ -355,6 +364,7 @@ ul { list-style: none; }
 }
 .phone.tall { block-size: auto; min-block-size: 915px; padding-bottom: var(--space-6); }
 .phone.small { inline-size: 343px; block-size: 762px; }
+.cards-stack.small { inline-size: 343px; }
 .phone.small.tall { block-size: auto; min-block-size: 762px; }
 .statusbar {
   flex: none; block-size: 32px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between;

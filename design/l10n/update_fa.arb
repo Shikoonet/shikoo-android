@@ -1,0 +1,20 @@
+{
+  "@@locale": "fa",
+  "updateTitle": "نسخهٔ تازه آمده",
+  "updateVersionSize": "نسخهٔ {version}، {size} مگابایت",
+  "updateGet": "دریافت",
+  "updateDownloading": "در حال دریافت…",
+  "updateProgress": "{percent}٪، {done} از {total} مگابایت",
+  "updateReady": "آمادهٔ نصب",
+  "updateInstall": "نصب",
+  "updateClosesApp": "با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.",
+  "updateFailedTitle": "دریافت نشد.",
+  "updateFailedHelp": "اینترنت را بررسی کن و دوباره بزن؛ از همان‌جا ادامه می‌دهد.",
+  "updateBadFileTitle": "فایل سالم نرسید.",
+  "updateBadFileHelp": "دوباره بزن تا از اول دریافت شود.",
+  "updateForcedTitle": "نسخهٔ تازه لازم است",
+  "updateForcedBody": "برای ادامه، نسخهٔ {version} را دریافت و نصب کن ({size} مگابایت).",
+  "installPermissionTitle": "اجازهٔ نصب",
+  "installPermissionTouch": "در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ گوشی را بزن؛ نصب خودش شروع می‌شود.",
+  "installPermissionTv": "در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن؛ نصب خودش شروع می‌شود."
+}

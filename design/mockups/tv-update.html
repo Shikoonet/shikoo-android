@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شیکونت · به‌روزرسانی، تلویزیون</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mockup.css">
+<script src="mockup.js"></script>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>شیکونت · به‌روزرسانی، تلویزیون</h1>
+  <p>کارت نسخهٔ تازه در خانه، آمادهٔ نصب، به‌روزرسانیِ اجباری، و پنجرهٔ اجازهٔ نصب.</p>
+  <nav class="sheet-nav">
+    <a href="phone.html">گوشی</a>
+    <a href="phone-states.html">حالت‌های گوشی</a>
+    <a href="phone-ping.html">پینگ گوشی</a>
+    <a href="phone-update.html">به‌روزرسانی گوشی</a>
+    <a href="tv.html">تلویزیون</a>
+    <a href="tv-states.html">حالت‌های تلویزیون</a>
+    <a href="tv-ping.html">پینگ تلویزیون</a>
+    <a href="tv-update.html" aria-current="page">به‌روزرسانی تلویزیون</a>
+  </nav>
+  <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
+</header>
+
+<main class="board tv-board">
+
+  <figure class="shot">
+    <figcaption>خانه · نسخهٔ تازه آمده · ریموت روی دکمهٔ گرد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-update">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <section class="card update">
+              <div class="update-row"><span class="t"><strong>نسخهٔ تازه آمده</strong><small>نسخهٔ ۱.۰.۵۷، ۵۲ مگابایت</small></span><button class="btn btn-primary" type="button">دریافت</button></div>
+            </section>
+            <article class="card svc">
+              <header class="svc-head">
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، همین الان</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 24%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power">
+          <div class="power-ring">
+            <button class="power is-focused" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+          <p class="tv-hint">دکمهٔ وسطِ ریموت را بزن تا وصل شوی</p>
+        </section>
+      </div>
+    </div>
+    <p class="note">کارت سرِ ستون است و فوکوس اول را نمی‌گیرد: ریموت مثل همیشه روی دکمهٔ گرد است.</p>
+    <p class="note">رسیدن با ریموت: از «به‌روزرسانی» ِ کارت سرویس، بالا به دکمهٔ کارت نسخهٔ تازه؛ از آن، بالا به «تنظیمات»، پایین به «به‌روزرسانی»، و فلشِ رو به دکمهٔ گرد به دکمهٔ گرد.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>خانه · آمادهٔ نصب · ریموت روی «نصب»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-update-ready">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <section class="card update">
+              <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary is-focused" type="button">نصب</button></div>
+            </section>
+            <article class="card svc">
+              <header class="svc-head">
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، همین الان</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 24%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+          <p class="tv-hint">دکمهٔ وسطِ ریموت را بزن تا وصل شوی</p>
+        </section>
+      </div>
+    </div>
+    <p class="note">وقتی حالت کارت خودش عوض می‌شود (دریافت تمام شد)، ریموت اگر روی کارت بود روی دکمهٔ تازهٔ همان کارت می‌ماند: «انصراف» به «نصب». اگر جای دیگری بود، جابه‌جا نمی‌شود.</p>
+    <p class="note">بقیهٔ حالت‌ها همان کارت‌های گوشی‌اند، با اندازه‌های تلویزیون.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · ریموت روی «دریافت»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-update-forced">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+        <h1>نسخهٔ تازه لازم است</h1>
+        <p>برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</p>
+        <p>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button">دریافت</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">همان صفحهٔ گوشی، به شکل صفحه‌های نتیجهٔ تلویزیون؛ تنها دکمه‌اش فوکوس دارد. وسط دریافت، فوکوس روی «انصراف» است و بعد روی «نصب».</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · انگلیسی</figcaption>
+    <div class="tv" data-device="tv" dir="ltr" lang="en" data-frame="tv-update-forced-en">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>ShikooNet</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+        <h1>This version needs an update</h1>
+        <p>To keep using ShikooNet, download and install version 1.0.57 (52 MB).</p>
+        <p>Installing closes ShikooNet, and the connection if you're connected; open it again afterwards.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button">Download</button>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>نصب · اجازهٔ نصب · ریموت روی «ادامه»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-update-permission">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <section class="card update">
+              <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary" type="button">نصب</button></div>
+            </section>
+            <article class="card svc">
+              <header class="svc-head">
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، همین الان</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 24%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+          <p class="tv-hint">دکمهٔ وسطِ ریموت را بزن تا وصل شوی</p>
+        </section>
+      </div>
+      <div class="scrim">
+        <div class="dialog" role="alertdialog" aria-labelledby="perm-title">
+          <h2 id="perm-title">اجازهٔ نصب</h2>
+          <p>در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن؛ نصب خودش شروع می‌شود.</p>
+          <p>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-outline" type="button">انصراف</button>
+            <button class="btn btn-primary is-focused" type="button">ادامه</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">ریموت اول روی «ادامه» است، چون کارِ این پنجره همین است و چیزی پاک نمی‌کند. دکمهٔ برگشت یعنی «انصراف».</p>
+    <p class="note">تلویزیونی که صفحهٔ اجازه را ندارد، این پنجره را نمی‌بیند و مستقیم به نصب‌کننده می‌رود.</p>
+  </figure>
+
+</main>
+</body>
+</html>
