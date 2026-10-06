@@ -4,8 +4,8 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart' show CancelToken;
+import 'package:fl_clash/providers/providers.dart' show versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart' show ShikooCell;
 import 'package:fl_clash/shikoo/engine/ping.dart' show isDue;
@@ -30,9 +30,6 @@ enum UpdateError { network, checksum, noSpace, install }
 /// What Android still needs before installing: this app's own permission (8 and up), or
 /// Unknown sources for every app (7).
 enum InstallAsk { nothing, thisApp, unknownSources }
-
-Future<int> _androidSdk() async =>
-    (await DeviceInfoPlugin().androidInfo).version.sdkInt;
 
 @immutable
 class UpdateOffer {
@@ -89,9 +86,6 @@ class ShikooUpdate {
 
   @visibleForTesting
   DateTime Function() now = DateTime.now;
-
-  @visibleForTesting
-  Future<int> Function() sdk = _androidSdk;
 
   DateTime? _checked;
   Future<void>? _checking;
@@ -298,7 +292,9 @@ class ShikooUpdate {
     if (_offer?.phase != UpdatePhase.ready) return InstallAsk.nothing;
     _move(UpdatePhase.ready);
     if (!await _native('canInstall')) {
-      return await sdk() < 26 ? InstallAsk.unknownSources : InstallAsk.thisApp;
+      return _ref.read(versionProvider) < 26
+          ? InstallAsk.unknownSources
+          : InstallAsk.thisApp;
     }
     await _launch();
     return InstallAsk.nothing;

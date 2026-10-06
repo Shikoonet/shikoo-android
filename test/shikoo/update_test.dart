@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:fl_clash/providers/providers.dart' show versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:flutter/services.dart';
@@ -153,15 +154,17 @@ void main() {
     final dio = Dio(BaseOptions(validateStatus: (_) => true))
       ..httpClientAdapter = door;
     container = ProviderContainer(
-      overrides: [shikooApiProvider.overrideWithValue(ShikooApi(bases, dio))],
+      overrides: [
+        shikooApiProvider.overrideWithValue(ShikooApi(bases, dio)),
+        versionProvider.overrideWithBuild((_, _) => sdk),
+      ],
     );
     addTearDown(container.dispose);
     return container.read(shikooUpdateProvider)
       ..abi = abi
       ..installed = installed
       ..cacheDir = (() async => cache)
-      ..now = (() => clock)
-      ..sdk = (() async => sdk);
+      ..now = (() => clock);
   }
 
   UpdateOffer? offer() => container.read(shikooUpdateOfferProvider);
@@ -223,6 +226,7 @@ void main() {
       for (final elsewhere in [
         'https://elsewhere.test/dl/ShikooNet-1.0.57-arm64-v8a.apk',
         'http://door.test/dl/ShikooNet-1.0.57-arm64-v8a.apk',
+        'http://door.test:443/dl/ShikooNet-1.0.57-arm64-v8a.apk',
         'https://door.test:8443/dl/ShikooNet-1.0.57-arm64-v8a.apk',
       ]) {
         door.url = elsewhere;

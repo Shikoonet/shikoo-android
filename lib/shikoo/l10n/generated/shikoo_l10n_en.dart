@@ -985,9 +985,9 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get installPermissionLegacy =>
-      'On the next screen, turn on Unknown sources, then press Back.';
+      'On the next screen, turn on Unknown sources at the bottom of it, then press Back.';
 
   @override
   String get installPermissionLegacyTv =>
-      'On the next screen, turn on Unknown sources, then press Back on the remote.';
+      'On the next screen, turn on Unknown sources at the bottom of it, then press Back on the remote.';
 }

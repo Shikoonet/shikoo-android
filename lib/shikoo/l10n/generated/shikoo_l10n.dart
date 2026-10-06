@@ -1535,13 +1535,13 @@ abstract class ShikooL10n {
   /// Android 7 and older: the install-permission dialog's text, before the security settings page, where one Unknown sources switch covers every app.
   ///
   /// In en, this message translates to:
-  /// **'On the next screen, turn on Unknown sources, then press Back.'**
+  /// **'On the next screen, turn on Unknown sources at the bottom of it, then press Back.'**
   String get installPermissionLegacy;
 
   /// No description provided for @installPermissionLegacyTv.
   ///
   /// In en, this message translates to:
-  /// **'On the next screen, turn on Unknown sources, then press Back on the remote.'**
+  /// **'On the next screen, turn on Unknown sources at the bottom of it, then press Back on the remote.'**
   String get installPermissionLegacyTv;
 }
 
