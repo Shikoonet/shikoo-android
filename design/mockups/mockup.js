@@ -70,6 +70,7 @@ function mockScroll(view) {
   content.style.setProperty('--scroll', `${y}px`);
   view.classList.toggle('is-scrolled', y > 0);
   const thumb = view.querySelector('.scroll-thumb');
+  if (thumb) thumb.hidden = content.offsetHeight <= seen;
   if (thumb) Object.assign(thumb.style, { top: `${pad / 2 + (y * seen) / content.offsetHeight}px`, blockSize: `${(seen * seen) / content.offsetHeight}px` });
 }
 const scrollAll = () => document.querySelectorAll('[data-scroll-to]').forEach(mockScroll);
