@@ -1037,6 +1037,115 @@ void main() {
     await expectRow(1, 'user700');
   });
 
+  test('a name breaks only before «·», which goes down with the tier; a tier '
+      'or a sign-in line never breaks inside', () {
+    expect(
+      bidiName('7000123_a1f0 · اولین خرید'),
+      '\u20687000123_a1f0\u2069 ·\u00A0\u2068اولین\u00A0خرید\u2069',
+    );
+    for (final (lang, end) in [
+      ('fa', 'با\u00A0این\u00A0سرویس‌ها:'),
+      ('en', 'with\u00A0these\u00A0services:'),
+    ]) {
+      final l = lookupShikooL10n(Locale(lang));
+      expect(l.approvedBodyTv('x'), endsWith(end));
+      expect(l.approvedBodyTouch('x'), endsWith(end));
+    }
+  });
+
+  testWidgets('what is left never splits from its unit', (tester) async {
+    await _pump(tester, _phone());
+    final left = find.textContaining('باقی‌مانده:', findRichText: true);
+    final spans = <String>[];
+    tester.widget<RichText>(left).text.visitChildren((span) {
+      if (span is TextSpan && (span.text ?? '').contains('گیگ')) {
+        spans.add(span.text!);
+      }
+      return true;
+    });
+    expect(spans.single, isNot(contains(' ')));
+    expect(spans.single, contains('\u00A0'));
+  });
+
+  testWidgets('an ended service of the account counts by its status and its '
+      'expires_at; one on hold is waiting, whatever its date', (tester) async {
+    final now = DateTime.now().toUtc();
+    LinkedService linked(int id, String status, {int? daysAgo}) =>
+        LinkedService(
+          id: id,
+          title: 'acct$id · $status',
+          status: status,
+          expiresAt: daysAgo == null
+              ? null
+              : now.subtract(Duration(days: daysAgo)),
+        );
+    await _pump(
+      tester,
+      _phone(),
+      account: ShikooAccount(
+        services: [
+          linked(1, 'removed', daysAgo: 12),
+          linked(2, 'disabled', daysAgo: 3),
+          linked(3, 'failed'),
+          linked(4, 'expired', daysAgo: 40),
+          linked(5, 'on_hold', daysAgo: 400),
+          linked(6, 'exhausted', daysAgo: 1),
+        ],
+      ),
+    );
+    expect(find.textContaining('acct5'), findsOneWidget, reason: 'on hold');
+    final head = find.text('سرویس‌های تمام‌شده (۴)');
+    await tester.ensureVisible(head);
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    double top(String name) =>
+        tester.getTopLeft(find.textContaining(name).first).dy;
+    expect(
+      [top('acct6'), top('acct2'), top('acct1'), top('acct3')],
+      orderedEquals(
+        [top('acct6'), top('acct2'), top('acct1'), top('acct3')]..sort(),
+      ),
+      reason: 'by expires_at, the undated last',
+    );
+    expect(find.textContaining('acct4'), findsNothing, reason: '40 days');
+    expect(find.text('۱۲ روز پیش تمام شد'), findsOneWidget);
+    expect(find.text('حجم تمام شد'), findsOneWidget);
+    expect(find.text('اعتبارش تمام شد'), findsOneWidget);
+  });
+
+  testWidgets('a finished row opened at the end of the page scrolls itself '
+      'into view', (tester) async {
+    final now = DateTime.now();
+    await _pump(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        selected: 'آلمان ۲',
+        service: _phone().service,
+        others: [
+          for (var i = 1; i <= 4; i++)
+            ShikooService(
+              id: 10 + i,
+              name: 'user55$i · طلایی',
+              usedBytes: 1,
+              totalBytes: 100,
+              expire: now.subtract(Duration(days: i)),
+            ),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۴)');
+    await tester.ensureVisible(head);
+    await tester.pumpAndSettle();
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    final last = tester.getRect(find.textContaining('user554'));
+    expect(last.bottom, lessThanOrEqualTo(915), reason: '$last');
+  });
+
   testWidgets('with large text on a small phone nothing overflows: the round '
       'button keeps its text inside, a long name wraps and keeps its tail', (
     tester,

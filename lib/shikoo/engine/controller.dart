@@ -9,6 +9,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
@@ -119,6 +120,11 @@ class ShikooService {
     }
     return ShikooServiceStatus.active;
   }
+
+  bool get finished => const {
+    ShikooServiceStatus.exhausted,
+    ShikooServiceStatus.expired,
+  }.contains(ended);
 
   ShikooServiceStatus? get ended {
     final status = statusAt(DateTime.now());
@@ -608,18 +614,11 @@ int? serviceInstead(ShikooState state) {
   if (current?.ended == null || busy.contains(state.connection)) return null;
   final usable = state.others.firstWhereOrNull((other) => other.ended == null);
   if (usable != null) return usable.id;
-  final latest = [current!, ...state.others]
-      .where(
-        (service) => {
-          ShikooServiceStatus.exhausted,
-          ShikooServiceStatus.expired,
-        }.contains(service.ended),
-      )
-      .sortedBy<num>(
-        (service) => -(service.expire?.millisecondsSinceEpoch ?? -1),
-      )
-      .firstOrNull;
-  return latest == null || latest.id == current.id ? null : latest.id;
+  final latest = finishedOrder([
+    for (final service in [current!, ...state.others])
+      if (service.finished) finishedOf(service),
+  ], DateTime.now()).firstOrNull?.profileId;
+  return latest == current.id ? null : latest;
 }
 
 class ShikooController {

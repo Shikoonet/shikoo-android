@@ -79,7 +79,9 @@ class _PressableState extends State<Pressable> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final box = mounted ? context.findRenderObject() : null;
       if (box is RenderBox && box.attached) {
-        box.showOnScreen(rect: (Offset.zero & box.size).inflate(Space.s2));
+        box.showOnScreen(
+          rect: (Offset.zero & box.size).inflate(Space.s2 + ShikooSizes.ring),
+        );
       }
     });
   }

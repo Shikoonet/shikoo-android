@@ -3,6 +3,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -196,6 +197,54 @@ void main() {
       go.bottom + ShikooSizes.ring,
       lessThanOrEqualTo(540 - ShikooSizes.tv.safeY),
     );
+    final circle = find.ancestor(
+      of: find.byWidgetPredicate(
+        (w) => w is SvgIcon && w.icon == ShikooIcon.check,
+      ),
+      matching: find.byType(Container),
+    );
+    expect(tester.getSize(circle.first), const Size.square(64));
+    final list = tester.getRect(
+      find
+          .ancestor(
+            of: find.textContaining('5551234_2'),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect(go.top - list.bottom, closeTo(24, 0.5), reason: 'to the buttons');
+  });
+
+  testWidgets('on a small phone with large text the sign-in result shows its '
+      'four services in full and scrolls to the last, under «ادامه»', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.45;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pump(
+      tester,
+      tv: false,
+      login: const ShikooLogin(
+        LoginPhase.approved,
+        account: _maryam,
+        services: [
+          'user5551234_a1f0 · پاسارگاد',
+          'user5551234_e7f9 · پاسارگاد',
+          'user5551234_f38a · پاسارگاد',
+          'user5551234_5551234_2 · اولین خرید',
+        ],
+      ),
+    );
+    tester.view.physicalSize = const Size(686, 1524);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final last = find.textContaining('234_2');
+    await tester.ensureVisible(last);
+    await tester.pumpAndSettle();
+    final go = tester.getRect(find.widgetWithText(ShikooButton, 'ادامه'));
+    final name = tester.getRect(last);
+    expect(name.bottom, lessThanOrEqualTo(go.top), reason: '$name over $go');
+    expect(name.bottom, lessThanOrEqualTo(762));
   });
 
   testWidgets('while services come there is no «ادامه» yet', (tester) async {

@@ -659,43 +659,50 @@ void main() {
       expect(h.container.read(shikooAccountProvider).who, isNull);
     });
 
-    test('a sync adds new links, keeps an expired service for renewal and '
-        'drops what ended or left the list', () async {
-      final h = await _harness();
-      h.api.services = [
-        _service(1, 'stays'),
-        _service(2, 'expires'),
-        _service(3, 'removed'),
-        _service(4, 'leaves'),
-        _service(5, 'relinked'),
-      ];
-      await _signedIn(h);
-      h.api.services = [
-        _service(1, 'stays'),
-        _service(2, 'expires', status: 'expired', noUrl: true),
-        _service(3, 'removed', status: 'removed', noUrl: true),
-        _service(5, 'relinked', url: 'https://sub.4g3.uk/new-link'),
-        _service(6, 'botFirst', noUrl: true),
-        _service(7, 'fresh'),
-      ];
-      expect(await h.signIn.sync(), isTrue);
-      expect(
-        _urls(h.container),
-        unorderedEquals([
-          'https://sub.4g3.uk/stays',
-          'https://sub.4g3.uk/expires',
-          'https://sub.4g3.uk/new-link',
-          'https://sub.4g3.uk/fresh',
-        ]),
-      );
-      final account = h.container.read(shikooAccountProvider);
-      expect(account.withoutLink.map((s) => s.title), ['botFirst · الماس']);
-      expect(account.bot, 'Test_Shikoo_bot');
-      final expired = h.container
-          .read(profilesProvider)
-          .firstWhere((p) => p.url.endsWith('expires'));
-      expect(account.serviceOf(expired.id), 2);
-    });
+    test(
+      'a sync adds new links, keeps an expired service for renewal, keeps '
+      'a removed one without its link and drops what left the list',
+      () async {
+        final h = await _harness();
+        h.api.services = [
+          _service(1, 'stays'),
+          _service(2, 'expires'),
+          _service(3, 'removed'),
+          _service(4, 'leaves'),
+          _service(5, 'relinked'),
+        ];
+        await _signedIn(h);
+        h.api.services = [
+          _service(1, 'stays'),
+          _service(2, 'expires', status: 'expired', noUrl: true),
+          _service(3, 'removed', status: 'removed', noUrl: true),
+          _service(5, 'relinked', url: 'https://sub.4g3.uk/new-link'),
+          _service(6, 'botFirst', noUrl: true),
+          _service(7, 'fresh'),
+        ];
+        expect(await h.signIn.sync(), isTrue);
+        expect(
+          _urls(h.container),
+          unorderedEquals([
+            'https://sub.4g3.uk/stays',
+            'https://sub.4g3.uk/expires',
+            'https://sub.4g3.uk/new-link',
+            'https://sub.4g3.uk/fresh',
+          ]),
+        );
+        final account = h.container.read(shikooAccountProvider);
+        expect(account.withoutLink.map((s) => s.title), [
+          'removed · الماس',
+          'botFirst · الماس',
+        ]);
+        expect(account.withoutLink.map((s) => s.renews), [true, false]);
+        expect(account.bot, 'Test_Shikoo_bot');
+        final expired = h.container
+            .read(profilesProvider)
+            .firstWhere((p) => p.url.endsWith('expires'));
+        expect(account.serviceOf(expired.id), 2);
+      },
+    );
 
     test('a link that would not load is not a service, and alone fails the '
         'sign-in', () async {
@@ -954,6 +961,22 @@ void main() {
       apiDirectRule('http://10.0.2.2:18790', 1).rawValue,
       'IP-CIDR,10.0.2.2/32,DIRECT,no-resolve',
     );
+  });
+
+  test('a service of the account reads its end from expires_at; a broken or '
+      'missing one is no date, never an error', () {
+    DateTime? at(Object? value) => AccountServiceRow.fromJson({
+      'id': 1,
+      'title': 'user1',
+      'location': null,
+      'status': 'expired',
+      'sub_url': null,
+      'expires_at': value,
+    }).expiresAt;
+    expect(at('2026-10-13T12:00:00.000Z'), DateTime.utc(2026, 10, 13, 12));
+    expect(at(null), isNull);
+    expect(at('soon'), isNull);
+    expect(at(1760356800), isNull);
   });
 
   test('no token, poll secret or code reaches a log', () async {

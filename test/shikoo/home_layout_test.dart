@@ -837,4 +837,80 @@ void main() {
       reason: 'back on the row',
     );
   });
+
+  testWidgets('on the TV the remote reaches the last finished service with its '
+      'ring inside the safe area, and Up from the first goes to the head', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    final now = DateTime.now();
+    await _pumpTvHome(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: true,
+        servers: _longList,
+        selected: 'سرور 1',
+        service: ShikooService(
+          name: 'user123 · الماس',
+          usedBytes: 1 << 30,
+          totalBytes: 100 << 30,
+          expire: now.add(const Duration(days: 30)),
+        ),
+        others: [
+          for (var i = 1; i <= 4; i++)
+            ShikooService(
+              id: 10 + i,
+              name: 'user55$i · طلایی',
+              usedBytes: 0,
+              totalBytes: 0,
+              expire: now.subtract(Duration(days: i)),
+            ),
+        ],
+      ),
+    );
+    await _focus(tester, 'سرور 12');
+    await tester.sendKeyEvent(_down);
+    await tester.pumpAndSettle();
+    final head = find.text('سرویس‌های تمام‌شده (۴)');
+    expect(Focus.of(tester.element(head)).hasPrimaryFocus, isTrue);
+    await tester.sendKeyEvent(_ok);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(_up);
+    await tester.pumpAndSettle();
+    expect(
+      Focus.of(tester.element(head)).hasPrimaryFocus,
+      isTrue,
+      reason: 'Up from the first service is the head, not the server above',
+    );
+
+    // The verifier's path: up into the servers, then down a row at a time to the end.
+    for (final key in [...List.filled(6, _up), ...List.filled(14, _down)]) {
+      await tester.sendKeyEvent(key);
+      await tester.pumpAndSettle();
+    }
+    final ring = tester
+        .getRect(
+          find.ancestor(
+            of: find.textContaining('user554'),
+            matching: find.byType(Pressable),
+          ),
+        )
+        .inflate(ShikooSizes.ring);
+    expect(ring.bottom, lessThanOrEqualTo(540 - ShikooSizes.tv.safeY));
+
+    final column = find.byType(SingleChildScrollView).first;
+    final scroll = tester.widget<SingleChildScrollView>(column).controller!;
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final card = tester.getRect(
+      find.ancestor(of: head, matching: find.byType(Container)).last,
+    );
+    expect(
+      tester.getRect(column).bottom - card.bottom,
+      Space.s2 + ShikooSizes.ring,
+      reason: 'the column keeps room for the last ring',
+    );
+  });
 }

@@ -4,7 +4,11 @@ import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract final class ShikooLinks {
-  static const bot = 'shikoonet_bot';
+  /// staging builds name their own bot, as the release workflow checks (`shikoo-staging.yml`).
+  static const bot = String.fromEnvironment(
+    'SHIKOO_BOT',
+    defaultValue: 'shikoonet_bot',
+  );
   static const renew = 'https://t.me/$bot?start=renew';
   static const support = 'https://t.me/admiinturbo';
 

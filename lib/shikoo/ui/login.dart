@@ -376,15 +376,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       minimum: const EdgeInsets.only(bottom: Space.s8),
       child: _Fill(
         padding: const EdgeInsets.fromLTRB(Space.s6, Space.s2, Space.s6, 0),
-        children: [
-          if (language)
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: _language(),
-            ),
-          Expanded(child: Center(child: middle)),
-          ...actions,
-        ],
+        top: language
+            ? Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _language(),
+              )
+            : const SizedBox.shrink(),
+        middle: Center(child: middle),
+        bottom: actions,
       ),
     );
   }
@@ -710,10 +709,17 @@ List<InlineSpan> _account(ShikooL10n l, TelegramAccount? who) {
 
 /// Fills the screen and scrolls only when large text does not fit.
 class _Fill extends StatelessWidget {
-  const _Fill({required this.padding, required this.children});
+  const _Fill({
+    required this.padding,
+    required this.top,
+    required this.middle,
+    required this.bottom,
+  });
 
   final EdgeInsets padding;
-  final List<Widget> children;
+  final Widget top;
+  final Widget middle;
+  final List<Widget> bottom;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -723,12 +729,22 @@ class _Fill extends StatelessWidget {
         constraints: BoxConstraints(
           minHeight: box.maxHeight - padding.vertical,
         ),
-        child: IntrinsicHeight(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: Space.s4,
-            children: children,
-          ),
+        // spaceBetween, not IntrinsicHeight and Expanded: ServiceName lays out by its width.
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            top,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Space.s4),
+              child: middle,
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: Space.s4,
+              children: bottom,
+            ),
+          ],
         ),
       ),
     ),

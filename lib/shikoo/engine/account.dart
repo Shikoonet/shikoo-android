@@ -13,7 +13,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide mergeSort;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -68,15 +68,67 @@ class LinkedService {
     required this.title,
     required this.status,
     this.profileId,
+    this.expiresAt,
   });
+
+  /// The statuses of shikoo-platform's `/services` that mean ended; `on_hold` has not started.
+  static const finishedStatuses = {
+    'expired',
+    'exhausted',
+    'removed',
+    'disabled',
+    'failed',
+  };
 
   final int id;
   final String title;
 
   final String status;
   final int? profileId;
+  final DateTime? expiresAt;
 
-  bool get renews => status == 'expired' || status == 'exhausted';
+  bool get renews => finishedStatuses.contains(status);
+}
+
+const finishedMaxDays = 30;
+
+/// A row of «سرویس‌های تمام‌شده»: a service of this device ([profileId]) or of the account.
+typedef Finished = ({
+  String name,
+  bool exhausted,
+  DateTime? ended,
+  int? renewId,
+  int? profileId,
+  LinkedService? linked,
+});
+
+Finished finishedOf(ShikooService service, {String? name, int? renewId}) => (
+  name: name ?? service.name,
+  exhausted: service.ended == ShikooServiceStatus.exhausted,
+  ended: service.expire,
+  renewId: renewId,
+  profileId: service.id,
+  linked: null,
+);
+
+/// Latest end first, undated last; an end over [finishedMaxDays] ago is left out.
+List<Finished> finishedOrder(Iterable<Finished> all, DateTime now) {
+  final shown = [
+    for (final row in all)
+      if (row.ended == null ||
+          now.difference(row.ended!) <= const Duration(days: finishedMaxDays))
+        row,
+  ];
+  mergeSort(
+    shown,
+    compare: (a, b) => switch ((a.ended, b.ended)) {
+      (final x?, final y?) => y.compareTo(x),
+      (null, null) => 0,
+      (null, _) => 1,
+      (_, null) => -1,
+    },
+  );
+  return shown;
 }
 
 @immutable
@@ -168,13 +220,18 @@ class AccountServiceRow {
       title = json['title'] as String,
       location = json['location'] as String?,
       status = json['status'] as String,
-      subUrl = json['sub_url'] as String?;
+      subUrl = json['sub_url'] as String?,
+      expiresAt = switch (json['expires_at']) {
+        final String at => DateTime.tryParse(at),
+        _ => null,
+      };
 
   final int id;
   final String title;
   final String? location;
   final String status;
   final String? subUrl;
+  final DateTime? expiresAt;
 
   String get label => location == null ? title : '$title · $location';
 }
@@ -341,7 +398,7 @@ Future<void> keepApiDirect() async {
 final shikooSignInProvider = Provider<ShikooSignIn>(ShikooSignIn.new);
 
 /// Kept with no link: the bot has not made it yet, or the server holds it back until renewal.
-const _shownWithoutLink = {'active', 'on_hold', 'expired', 'exhausted'};
+const _keepsLink = {'active', 'on_hold', 'expired', 'exhausted'};
 
 class ShikooSignIn {
   ShikooSignIn(this._ref) {
@@ -401,6 +458,7 @@ class ShikooSignIn {
                   title: s['title'] as String,
                   status: s['status'] as String,
                   profileId: s['profileId'] as int?,
+                  expiresAt: DateTime.tryParse(s['expiresAt'] as String? ?? ''),
                 ),
             ],
           ),
@@ -447,6 +505,7 @@ class ShikooSignIn {
               'title': s.title,
               'status': s.status,
               'profileId': s.profileId,
+              'expiresAt': s.expiresAt?.toIso8601String(),
             },
         ],
       }),
@@ -653,9 +712,10 @@ class ShikooSignIn {
           if (profileId != added) await _drop(profileId);
           profileId = added;
         }
-      } else if (url == null && !_shownWithoutLink.contains(row.status)) {
+      } else if (url == null && !_keepsLink.contains(row.status)) {
         await _drop(profileId);
-        continue;
+        if (!LinkedService.finishedStatuses.contains(row.status)) continue;
+        profileId = null;
       }
       if (profileId != null || url == null) {
         kept.add(
@@ -664,6 +724,7 @@ class ShikooSignIn {
             title: row.label,
             status: row.status,
             profileId: profileId,
+            expiresAt: row.expiresAt,
           ),
         );
       }

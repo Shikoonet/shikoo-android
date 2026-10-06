@@ -15,40 +15,6 @@ import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-const finishedMaxDays = 30;
-
-/// A row of «سرویس‌های تمام‌شده»: a used-up or expired service of this device ([profileId]) or
-/// one of the account with no link here ([linked]).
-typedef Finished = ({
-  String name,
-  bool exhausted,
-  DateTime? ended,
-  int? renewId,
-  int? profileId,
-  LinkedService? linked,
-});
-
-/// The latest end first and those without a date last; one that ended over [finishedMaxDays]
-/// ago, used up or not, is left out.
-List<Finished> finishedOrder(Iterable<Finished> all, DateTime now) {
-  final shown = [
-    for (final row in all)
-      if (row.ended == null ||
-          now.difference(row.ended!) <= const Duration(days: finishedMaxDays))
-        row,
-  ];
-  mergeSort(
-    shown,
-    compare: (a, b) => switch ((a.ended, b.ended)) {
-      (final x?, final y?) => y.compareTo(x),
-      (null, null) => 0,
-      (null, _) => 1,
-      (_, null) => -1,
-    },
-  );
-  return shown;
-}
-
 String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   final ended = row.ended;
   if (row.exhausted) return l.finishedData;
@@ -117,27 +83,20 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final now = DateTime.now();
     final current = state.service;
     final unlinked = account.withoutLink;
-    bool done(ShikooService service) => {
-      ShikooServiceStatus.exhausted,
-      ShikooServiceStatus.expired,
-    }.contains(service.ended);
     final finished = finishedOrder([
       for (final service in [?current, ...state.others])
-        if (done(service))
-          (
+        if (service.finished)
+          finishedOf(
+            service,
             name: plainTitle(context, service),
-            exhausted: service.ended == ShikooServiceStatus.exhausted,
-            ended: service.expire,
             renewId: account.serviceOf(service.id),
-            profileId: service.id,
-            linked: null,
           ),
       for (final linked in unlinked)
         if (linked.renews)
           (
             name: linked.title,
             exhausted: linked.status == 'exhausted',
-            ended: null,
+            ended: linked.expiresAt,
             renewId: linked.id,
             profileId: null,
             linked: linked,
@@ -166,10 +125,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       state: state,
       controller: controller,
       focusNode: _power,
-      restingLabel: switch (first?.status) {
+      restingLabel: switch (first) {
         null => null,
-        'expired' => l.powerExpired,
-        'exhausted' => l.stateExhausted,
+        LinkedService(status: 'exhausted') => l.stateExhausted,
+        LinkedService(renews: true) => l.powerExpired,
         _ => l.noLinkChip,
       },
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
@@ -714,9 +673,9 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
               ServiceName(service.title),
               if (renews)
                 StatusChip(
-                  status: service.status == 'expired'
-                      ? ShikooServiceStatus.expired
-                      : ShikooServiceStatus.exhausted,
+                  status: service.status == 'exhausted'
+                      ? ShikooServiceStatus.exhausted
+                      : ShikooServiceStatus.expired,
                 )
               else
                 Container(
@@ -741,13 +700,13 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           ),
           const SizedBox(height: Space.s2),
           Text(
-            switch ((service.status, isTV)) {
-              ('expired', false) => l.summaryExpiredNoDate,
-              ('expired', true) => l.summaryExpiredNoDateTv,
-              ('exhausted', false) => l.summaryExhausted,
-              ('exhausted', true) => l.summaryExhaustedTv,
-              (_, false) => l.noLinkHelpTouch,
-              (_, true) => l.noLinkHelpTv,
+            switch ((service.status, renews, isTV)) {
+              ('exhausted', _, false) => l.summaryExhausted,
+              ('exhausted', _, true) => l.summaryExhaustedTv,
+              (_, true, false) => l.summaryExpiredNoDate,
+              (_, true, true) => l.summaryExpiredNoDateTv,
+              (_, _, false) => l.noLinkHelpTouch,
+              (_, _, true) => l.noLinkHelpTv,
             },
             style: t.text(
               t.s.bodySm,
@@ -861,8 +820,16 @@ class _FinishedServicesState extends State<_FinishedServices> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(Scrollable.ensureVisible(context));
-      if (widget.isTV) _first.requestFocus();
+      if (widget.isTV) _jump(_first);
     });
+  }
+
+  /// Directional traversal remembers its last moves, and Up would undo the Down that came here.
+  void _jump(FocusNode node) {
+    if (node.nearestScope case final scope?) {
+      FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
+    }
+    node.requestFocus();
   }
 
   void _renew(Finished row) {
@@ -1027,7 +994,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !_open) return;
         setState(() => _open = false);
-        _head.requestFocus();
+        _jump(_head);
       },
       child: card,
     );
