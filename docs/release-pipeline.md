@@ -113,7 +113,8 @@ one file cannot serve both testers and customers. One staging run builds both, f
 | Files | `ShikooNet-<version>-staging-<abi>.apk` | `ShikooNet-<version>-<abi>.apk` |
 
 **How the variant is chosen without touching FlClash's signing logic.** `android/app/build.gradle.kts` has no flavors; the
-only Shikoo edit there is `applicationId = "com.shikoonet.app"` (`feat/app` `cf8089b`, `SHIKOO_PATCHES.md` row 11). Its
+only Shikoo edit there that touches the id or signing is `applicationId = "com.shikoonet.app"` (`SHIKOO_PATCHES.md` row
+11; the other is the Firebase removal, row 5). Its
 `release` build type already switches on whether `android/app/keystore.jks` and three `local.properties` keys exist: with
 them, the release signing config and no suffix; without them, the debug signing config and `applicationIdSuffix = ".dev"`.
 Both variants are `flutter build apk --release` (Gradle `assembleRelease`) and land in
@@ -233,7 +234,9 @@ later picks by itself.
 2. Repository ▸ Settings ▸ Actions ▸ General: allow Actions.
 3. Immediately, before any push: `gh workflow disable build.yaml -R Shikoonet/shikoo-android`.
 4. Settings ▸ Secrets and variables ▸ Actions: add the secrets and variables of §4, from the folder `make-signing-key.ps1`
-   wrote. A keystore's base64, in PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes('<file>'))`.
+   wrote. A keystore's base64, in PowerShell, with the full path (`[IO.File]` does not follow PowerShell's current folder):
+   `[Convert]::ToBase64String([IO.File]::ReadAllBytes('D:\ShikooNet-signing-key\shikoonet-staging.jks'))`, and the same
+   for `D:\ShikooNet-signing-key\shikoonet-release.jks`.
 5. Nothing for environments: on GitHub Free a private repository gets no environment rules (§4).
 6. Merge this branch (after the prerequisites in §9) and watch the first `Shikoo Staging` run.
 7. Give each tester read access to the repository, or decide another way to hand them the staging APK (§8).
@@ -256,7 +259,7 @@ later picks by itself.
 
 In WSL, with a fresh copy of `feat/app-login` (`08e8aae`, Firebase already removed) as `/root/src/ci-probe`, a fresh `HOME`
 (empty Go build cache) and `taskset -c 0,1`. The scripts were throwaway, outside the repository. That tree still had
-FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the last row checks the guard with the new id.
+FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the last two rows check the guard with the new id.
 
 | What | Result |
 |---|---|
@@ -266,19 +269,21 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
 | Same, two ABIs, as the workflow does | exit 0, 153 s: `com.follow.clash` 1007 and 2007 |
 | `libclash.so` sha256 of both variants, arm64 | identical, `b8b1a1a0…` |
 | `tools/check_apk_clean.sh` on the five APKs of the first build | `OK` five times, exit 0 |
-| The staging job's guard loop on the two arm64 APKs, then on the staging APK renamed as production | PASS, then refused: `is com.follow.clash.dev and carries the staging server 1 times` |
+| The staging job's guard loop, with the old `.dev`-suffix package check at the time, on the two arm64 APKs, then on the staging APK renamed as production | PASS, then refused: `is com.follow.clash.dev and carries the staging server 1 times` |
 | Promote's sha256 filter and `sha256sum -c`, on dummy files, then after changing one | two lines, OK; then `FAILED`, refused |
 | The CI commit-message and comment-density steps on a throwaway clone of `main` | a good subject passes and `Fixed stuff` is refused; a file with 5 comments in 30 added lines is refused (16.7 %) |
 | The signer guard (2026-10-06): production signed like staging; then production re-signed with a throwaway key made in a temp directory and deleted; then staging only | refused (`not signed by one release key of their own`); PASS; PASS |
 | The server and bot guard on `https://app-dev.chopon.uk/` + `shikoodevbot`, `https://APP.chopon.uk/`, and `@ShikooNet_Bot` | allowed as `https://app-dev.chopon.uk`; refused; refused |
 | `actionlint` 1.7.12 with `shellcheck` 0.11.0 on the three workflows | exit 0 (one `SC2012` fixed on the way) |
 | `flutter test` on 2 CPUs | 399 s, one failure: `NetworkDetection provider ignores a canceled stale check after a newer check succeeds`; the file alone passed three times (2 CPUs twice, all CPUs once), so it is a timing flake under load, in FlClash's tests |
-| The package guard, cut from the workflow, on v7a APKs from `feat/app` local builds (2026-10-06): a staging build named as staging; the same named as production; a build without the staging server named as production; FlClash's own debug APK named as staging | PASS; refused (`is com.shikoonet.app.dev and carries the staging server 1 times`); refused (`com.shikoonet.app.dev … 0 times`); refused (`com.follow.clash.dev`) |
+| The guard loop (2026-10-06), cut from the workflow at `5f8c445` (old: `.dev` suffix) and with the exact id, on v7a APKs from `feat/app` local builds: a staging build named as staging; the same named as production; a build without the staging server named as production | both: PASS; refused (`is com.shikoonet.app.dev and carries the staging server 1 times`); refused (`… 0 times`) |
+| The same two guards where only the package can tell: FlClash's official `com.follow.clash` (sha256 `9a507336…a122a`) named as production; FlClash's WSL debug build named as staging, with `API=chen08209`, a string its `libapp.so` holds 4 times | old: PASS, PASS. Exact id: refused (`is com.follow.clash and carries the staging server 0 times`); refused (`is com.follow.clash.dev and carries the staging server 4 times`) |
 
 **Prerequisites before this can merge green:**
 - **The Shikoo app itself on `main`.** `main` (`f08a9fd`) has no `lib/shikoo/` at all, so `-t lib/shikoo/app/main.dart`
-  cannot build there. The app is on `feat/app` (in WSL `/root/src/shikoo-phone`) and must be merged first, with `cf8089b`
-  (`com.shikoonet.app`): without it every staging run fails the package guard.
+  cannot build there. The app is on `feat/app` (in WSL `/root/src/shikoo-phone`) and must be merged first, with the commit that
+  sets `applicationId = "com.shikoonet.app"` (`cf8089b` in WSL on 2026-10-06, not yet on GitHub, so its hash may change):
+  without it every staging run fails the package guard.
 - `tools/check_apk_clean.sh` and the Firebase removal (`chore/remove-firebase`) on `main`; the CI `apk` job and staging call it.
 - `lib/shikoo/engine/settings.dart` reading the bot from `String.fromEnvironment('SHIKOO_BOT', defaultValue: 'shikoonet_bot')`
   (flutter-engineer); staging refuses to build until it does. `SHIKOO_API` already exists on `feat/app-login`.
