@@ -48,6 +48,10 @@
 - گراف فقط **کد** را دارد. عکس‌ها، `design/shots/` و هستهٔ `core/Clash.Meta/` در `.graphifyignore` کنار گذاشته شده‌اند.
 - هر کلون تازه: `uv tool install graphifyy`، بعد `graphify update .` و `graphify hook install` (بازسازی خودکار بعد از هر کامیت).
 - `graphify-out/` در `.git/info/exclude` است و به گیت نمی‌رود؛ `.graphifyignore` می‌رود.
+- **داخل WSL** (`~/src/shikoo-*` و worktreeهایش): `graphify` 0.9.39 در `/usr/local/bin` است (`uv` 0.9.3، `uv tool install graphifyy==0.9.39`، و پیوند به `/usr/local/bin`). ۲۰۲۶-۱۰-۰۶ نصب شد.
+  - آن‌جا `graphify hook install` **نزن**: `.gitattributes` ردیابی‌شده را عوض می‌کند و در worktree هم اجرا نمی‌شود. بعد از هر کامیت، دستی `graphify update .` بزن (حدود ۳۰ ثانیه).
+- **حد گراف برای Dart:** تعریف‌ها، importها و ارجاع به کلاس و provider را دارد، ولی صدا زدن تابع‌ها را تقریباً ندارد. برای «چه کسی صدا می‌زند» grep لازم است.
+  برای `path` معمولاً `--undirected` لازم است، و برای نام تکراری شناسهٔ کامل گره (مثل `lib_shikoo_ui_widgets_servicename`).
 
 ## قواعد کار
 
