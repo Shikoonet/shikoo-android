@@ -18,7 +18,7 @@
   "@updateBadFileTitle": {"description": "The finished file did not match the published sha256; it is deleted and the next try starts over."},
   "updateBadFileHelp": "Try again to download it from the start.",
   "updateForcedTitle": "This version needs an update",
-  "@updateForcedTitle": {"description": "Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog)."},
+  "@updateForcedTitle": {"description": "Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog). Ready to install shows Install and Support side by side, always."},
   "updateForcedBody": "To keep using ShikooNet, download and install version {version} ({size} MB).",
   "@updateForcedBody": {"placeholders": {"version": {"type": "String", "example": "1.0.57"}, "size": {"type": "int", "format": "decimalPattern"}}},
   "installPermissionTitle": "Allow installing",
@@ -29,5 +29,5 @@
   "@updateNoSpaceTitle": {"description": "Card and forced page when the file does not fit in storage. Same text on phone and TV; never mentions the internet."},
   "updateNoSpaceHelp": "Remove a few apps or files from this device and try again.",
   "updateInstallFailed": "The installer didn't open; try again or ask Support.",
-  "@updateInstallFailed": {"description": "One red line under Install, on the card and the forced page, when Android's installer did not open. Not a new state; the next Install clears it."}
+  "@updateInstallFailed": {"description": "One red line when Android's installer did not open: under Install on the card, above the buttons on the forced page. Not a new state; the next Install clears it."}
 }
