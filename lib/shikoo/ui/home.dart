@@ -849,11 +849,12 @@ class _FinishedServicesState extends State<_FinishedServices> {
 
   void _toggle() {
     setState(() => _open = !_open);
-    if (_open && widget.isTV) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _first.requestFocus(),
-      );
-    }
+    if (!_open) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(Scrollable.ensureVisible(context));
+      if (widget.isTV) _first.requestFocus();
+    });
   }
 
   void _renew(Finished row) {
