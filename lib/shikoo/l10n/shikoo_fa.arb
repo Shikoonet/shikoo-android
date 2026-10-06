@@ -215,5 +215,7 @@
   "finishedDaysAgo": "{count} روز پیش تمام شد",
   "finishedNoDate": "اعتبارش تمام شد",
   "finishedDisabled": "غیرفعال شد",
-  "approvedMoreServices": "و {count} سرویس دیگر"
+  "approvedMoreServices": "و {count} سرویس دیگر",
+  "notificationStop": "قطع اتصال",
+  "notificationStopping": "در حال قطع اتصال…"
 }

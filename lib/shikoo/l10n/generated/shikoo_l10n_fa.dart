@@ -829,4 +829,10 @@ class ShikooL10nFa extends ShikooL10n {
 
     return 'و $countString سرویس دیگر';
   }
+
+  @override
+  String get notificationStop => 'قطع اتصال';
+
+  @override
+  String get notificationStopping => 'در حال قطع اتصال…';
 }

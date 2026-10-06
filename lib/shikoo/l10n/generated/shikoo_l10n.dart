@@ -1393,6 +1393,18 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'{count, plural, =1{and 1 more service} other{and {count} more services}}'**
   String approvedMoreServices(int count);
+
+  /// The button on Android's ongoing VPN notification.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get notificationStop;
+
+  /// Android toast after the notification's button is pressed. A start from the Quick Settings tile shows powerConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnecting…'**
+  String get notificationStopping;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

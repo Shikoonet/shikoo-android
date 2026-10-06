@@ -1,6 +1,8 @@
+import 'package:fl_clash/providers/state.dart' show ServiceTexts;
+import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart' show ThemeMode;
+import 'package:material_ui/material_ui.dart' show Locale, ThemeMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract final class ShikooLinks {
@@ -82,6 +84,21 @@ class ShikooLookNotifier extends Notifier<ShikooLook> {
 final shikooLookProvider = NotifierProvider<ShikooLookNotifier, ShikooLook>(
   ShikooLookNotifier.new,
 );
+
+/// FlClash's l10n has no Persian, so the VPN notification and its toasts take these.
+ServiceTexts shikooServiceTexts(Ref ref) {
+  final locale = Locale(ref.watch(shikooLookProvider).language);
+  final l = lookupShikooL10n(
+    ShikooL10n.delegate.isSupported(locale)
+        ? locale
+        : const Locale(shikooDefaultLanguage),
+  );
+  return (
+    stop: l.notificationStop,
+    startTip: l.powerConnecting,
+    stopTip: l.notificationStopping,
+  );
+}
 
 final shikooVersionProvider = Provider<String>(
   (ref) => globalState.packageInfo.version,

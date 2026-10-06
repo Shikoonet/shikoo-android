@@ -880,4 +880,10 @@ class ShikooL10nEn extends ShikooL10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get notificationStop => 'Disconnect';
+
+  @override
+  String get notificationStopping => 'Disconnecting…';
 }
