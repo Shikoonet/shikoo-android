@@ -75,7 +75,6 @@
   --font-weight-black: 800;
 
   /* اندازهٔ متن بر اساس نقش (گوشی) */
-  /* (در بلوکِ «اندازهٔ قلم سیستم» پایین‌تر، چون با آن بزرگ می‌شوند) */
   --leading-tight: 1.35;
   --leading-body: 1.7;     /* فارسی جای بالا و پایین می‌خواهد */
   --leading-snug: 1.6;     /* یک‌خطی‌های بریده‌شونده (سه‌نقطه): حروف لاتینِ وزیرمتن، مثل نام کاربری، ۱٫۶ برابر اندازهٔ قلم بلندند */
@@ -112,7 +111,7 @@
   --size-touch: 48px;          /* کمترین هدف لمس */
   --size-appbar: 56px;         /* نوار بالای صفحه */
   --size-button: 44px;
-  --size-button-sm: 36px;      /* «تمدید» در ردیف سرویس تمام‌شده؛ جای لمسش باز هم ۴۸ است */
+  --size-button-sm: 36px;      /* جای لمسِ «تمدید»ِ ردیف تمام‌شده باز هم ۴۸ است */
   --size-button-lg: 56px;      /* «ورود با تلگرام» */
   --size-row: 56px;            /* ردیف سرور و ردیف تنظیمات */
   --size-selected-bar: 4px;    /* نوار لبهٔ ردیفِ انتخاب‌شده */
@@ -139,9 +138,7 @@
   --safe-y: 0px;
 }
 
-/* اندازهٔ قلمِ سیستم (اندروید: font_scale؛ Poco C85 آزمون اول ۱٫۴۵ بود). فقط متن بزرگ می‌شود، نه فاصله‌ها و اندازهٔ اجزا.
-   در اپ همان MediaQuery.textScaler است؛ در ماکاپ قابِ گوشیِ کوچک آن را با data-font-scale و style می‌گیرد.
-   متنِ داخل دکمهٔ گرد بیش از --text-scale-max-round بزرگ نمی‌شود، چون دایره اندازهٔ ثابت دارد. */
+/* --font-scale همان اندازهٔ قلم سیستم است (آزمون اول ۱٫۴۵). متنِ داخل دکمهٔ گرد سقف دارد، چون دایره اندازهٔ ثابت دارد. */
 :root { --font-scale: 1; --text-scale-max-round: 1.15; }
 :root, [data-font-scale] {
   --text-caption: calc(12px * var(--font-scale));    /* برچسب‌های ریز، و واحد پینگ در انگلیسی */
@@ -153,6 +150,7 @@
   --text-code: calc(28px * var(--font-scale));       /* کد ورود: ۶ رقم فارسی، مثل ۴۸۲ ۹۱۵ */
   --text-power: calc(15px * min(var(--font-scale), var(--text-scale-max-round)));   /* «اتصال»، «وصل» و … داخل دکمهٔ گرد */
   --text-display: calc(26px * min(var(--font-scale), var(--text-scale-max-round))); /* تایمر داخل دکمهٔ گرد */
+  --text-power-sub: calc(12px * min(var(--font-scale), var(--text-scale-max-round)));
 }
 
 :root[data-theme="light"] { color-scheme: light; }
@@ -167,6 +165,7 @@
   --text-headline: 28px;
   --text-display: 30px;
   --text-power: 16px;
+  --text-power-sub: 12px;
   --text-code: 40px;
 
   --border-width-control: 2px; /* ۴ پیکسل در عکس ۱۹۲۰ */
@@ -184,7 +183,7 @@
   --size-qr: 300px;            /* QR ورود */
   --size-qr-sm: 200px;         /* QR پنجرهٔ «تمدید» و «پشتیبانی» */
   --size-dialog: 560px;
-  --size-hero-icon: 64px;      /* ۹۶ با چهار سرویس در «ورود انجام شد» از ۹۶۰×۵۴۰ بیرون می‌زد */
+  --size-hero-icon: 64px;      /* ۹۶ با چهار سرویس «ورود انجام شد» را از ۵۴۰ بلندتر می‌کرد */
   --size-power: 176px;
   --size-power-ring: 224px;
   --size-bar: 6px;

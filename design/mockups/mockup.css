@@ -98,10 +98,8 @@ ul { list-style: none; }
 .card { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 .svc { padding: var(--space-4) var(--space-4) var(--space-2); }
 .svc-head { display: flex; align-items: center; gap: var(--space-2); }
-/* نام هیچ‌وقت از ته بریده نمی‌شود: اگر جا نشد، رده به خط دوم می‌رود و برچسب وضعیت زیرِ نام.
-   نام کاربری خودش نمی‌شکند؛ اگر به‌تنهایی جا نشد، از وسط کوتاه می‌شود و پنج حرف آخرش می‌ماند. */
 .svc-name { flex: 1 1 auto; min-inline-size: 0; font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
-.svc-name bdi, .finished-row .n bdi, .tier { white-space: nowrap; } /* رده‌ای مثل «اولین خرید» هم نمی‌شکند */
+.svc-name bdi, .finished-row .n bdi, .tier, .usage-row strong { white-space: nowrap; }
 .svc-head > .icon, .svc-head .icon-btn { color: var(--color-text-muted); }
 .svc-summary { margin-top: var(--space-1); padding-bottom: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .svc-summary strong { color: var(--color-text); }
@@ -182,7 +180,7 @@ ul { list-style: none; }
 }
 .power .icon { --size-icon: var(--size-power-icon); stroke-width: var(--icon-stroke-strong); color: var(--color-text-muted); }
 .power-label { font-size: var(--text-power); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
-.power-sub { font-size: var(--text-caption); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.power-sub { font-size: var(--text-power-sub); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .timer { font-size: var(--text-display); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); font-variant-numeric: tabular-nums; }
 .power-msg { max-inline-size: calc(var(--size-power-ring) * 1.5); text-align: center; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .power-msg.danger { color: var(--color-danger); }
@@ -287,7 +285,8 @@ ul { list-style: none; }
 .hero-icon.positive { background: var(--color-positive-soft); color: var(--color-positive); }
 .hero-icon.danger { background: var(--color-danger-soft); color: var(--color-danger); }
 .hero-icon.muted { background: var(--color-surface-sunken); color: var(--color-text-muted); }
-.result-list { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) var(--space-8); font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
+.result-list .more { color: var(--color-text-muted); font-weight: var(--font-weight-regular); }
+.result-list { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-8); font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
 .progress { inline-size: calc(var(--size-pane) / 2); block-size: var(--size-bar); border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
 .progress > span { display: block; inline-size: 40%; block-size: 100%; border-radius: inherit; background: var(--color-primary); }
 
@@ -302,7 +301,7 @@ ul { list-style: none; }
 .svc-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
 .svc-sub { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 
-/* ۲۱. سرویس‌های تمام‌شده: یک ردیفِ جمع‌شده ته ستون؛ باز که شود، هر سرویس یک ردیف با «تمدید» */
+/* ۲۱. سرویس‌های تمام‌شده */
 .finished { padding: 0 var(--space-4); scroll-margin-top: var(--space-3); }
 .finished-head {
   inline-size: 100%; min-block-size: var(--size-touch); display: flex; align-items: center; gap: var(--space-2);
@@ -322,7 +321,7 @@ ul { list-style: none; }
 .list-caption { flex: 1; min-inline-size: 0; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .list-caption strong { font-size: var(--text-body); color: var(--color-text); }
 .search {
-  flex: 1 1 10em; min-inline-size: 0; white-space: nowrap; /* با قلم درشت، جست‌وجو خط خودش را می‌گیرد و «پینگ همه» زیرش می‌رود */ display: flex; align-items: center; gap: var(--space-2);
+  flex: 1 1 10em; min-inline-size: 0; white-space: nowrap; display: flex; align-items: center; gap: var(--space-2);
   block-size: var(--size-button); padding-inline: var(--space-3); border-radius: var(--radius-md);
   background: var(--color-surface-sunken); color: var(--color-text-muted); font-size: var(--text-body-sm);
 }
@@ -355,7 +354,6 @@ ul { list-style: none; }
   border-radius: 36px; box-shadow: var(--shadow-raised), 0 0 0 var(--border-width) var(--color-border);
 }
 .phone.tall { block-size: auto; min-block-size: 915px; padding-bottom: var(--space-6); }
-/* گوشیِ کوچک، مثل Poco C85: ۷۲۰×۱۶۰۰ با چگالی ۳۳۶ = ۳۴۳×۷۶۲ dp. اندازهٔ قلمش را data-font-scale می‌دهد. */
 .phone.small { inline-size: 343px; block-size: 762px; }
 .phone.small.tall { block-size: auto; min-block-size: 762px; }
 .statusbar {
@@ -411,7 +409,8 @@ ul { list-style: none; }
 [data-tvdp="1280"] .tv { inline-size: 1280px; block-size: 720px; }
 /* اجزایی که اندازهٔ متن خودشان را ندارند، از این‌جا ارث می‌برند، نه از body گوشی */
 [data-device="tv"] { font-size: var(--text-body); }
-.tv-top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); block-size: var(--size-appbar); }
+/* جای حلقهٔ فوکوس دور «تنظیمات»، تا داخل حاشیهٔ امن بماند */
+.tv-top { --ring: calc(var(--focus-ring-width) + var(--focus-ring-offset)); flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); block-size: calc(var(--size-appbar) + 2 * var(--ring)); padding-inline: var(--ring); }
 .tv-title { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
 .tv-hint { font-size: var(--text-body-sm); color: var(--color-text-muted); line-height: var(--leading-tight); }
 
@@ -434,7 +433,7 @@ ul { list-style: none; }
 .qr-side { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 
 /* نتیجهٔ ورود تلویزیون */
-.tv-result { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); text-align: center; }
+.tv-result { flex: 1; min-block-size: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); text-align: center; }
 .tv-result h1 { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); }
 .tv-result p { max-inline-size: var(--size-dialog); font-size: var(--text-title); line-height: var(--leading-body); color: var(--color-text-muted); }
 .tv-result strong { color: var(--color-text); }
@@ -442,7 +441,7 @@ ul { list-style: none; }
 
 /* تنظیمات و «درباره»ی تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
 .tv-settings { flex: 1; min-block-size: 0; display: flex; justify-content: center; margin-top: var(--space-3); }
-.tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0; gap: var(--space-6) var(--space-10); }
+.tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0 calc(var(--focus-ring-width) + var(--focus-ring-offset)); gap: var(--space-6) var(--space-10); }
 .tv .dialog p { font-size: var(--text-body); }
 .about { inline-size: var(--size-pane); align-self: start; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-6); line-height: var(--leading-body); }
 .about h3 { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }

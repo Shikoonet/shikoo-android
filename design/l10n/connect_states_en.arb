@@ -49,7 +49,7 @@
   "serviceUnnamed": "ShikooNet service",
   "@serviceUnnamed": {"description": "A service's name when the panel sends no title and there is no username or plan name."},
   "finishedServices": "Finished services ({count})",
-  "@finishedServices": {"description": "The one folded row at the end of the home for every out-of-data or expired service (ended at most finishedMaxDays ago, a constant: 30). Folded on every start. Not for a revoked pasted link.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
+  "@finishedServices": {"description": "The one folded row at the end of the home for every out-of-data or expired service whose end date is at most 30 days ago (a named constant) or unknown. Sorted by end date, latest first, undated last. Folded on every start. Not for a revoked pasted link.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
   "finishedData": "Out of data",
   "@finishedData": {"description": "Second line of a row in finishedServices, beside a small Renew button."},
   "finishedToday": "Ended today",
