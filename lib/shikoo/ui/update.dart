@@ -337,8 +337,8 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
           primary: true,
           first: true,
         ),
-        if (installFailed != null)
-          button(l.support, support, icon: ShikooIcon.qr),
+        // Android's installer can open and still not install: Support keeps that from a loop.
+        button(l.support, support, icon: ShikooIcon.qr),
       ],
       _ => [
         button(
@@ -386,7 +386,7 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
         ),
       ],
       more: problem != null ? null : l.updateClosesApp,
-      below: isTV ? (notice ?? progress) : null,
+      below: isTV ? (notice ?? progress ?? installFailed) : null,
     );
     final Widget page = isTV
         ? Padding(
@@ -419,16 +419,10 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
                         spacing: Space.s6,
                         children: [
                           result,
-                          Column(
-                            spacing: Space.s3,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                spacing: Space.s2,
-                                children: actions,
-                              ),
-                              ?installFailed,
-                            ],
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: Space.s2,
+                            children: actions,
                           ),
                         ],
                       ),
@@ -449,13 +443,7 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
               ),
               top: const SizedBox.shrink(),
               middle: Center(child: result),
-              bottom: [
-                ?notice,
-                ?progress,
-                actions.first,
-                ?installFailed,
-                ...actions.skip(1),
-              ],
+              bottom: [?notice, ?progress, ?installFailed, ...actions],
             ),
           );
     return Scaffold(

@@ -390,7 +390,14 @@ void main() {
     expect(_focused(), 'انصراف');
     await _set(tester, container, _forced(_states['ready']!.$1));
     expect(find.byType(MeterBar), findsNothing);
+    expect(find.text(_installFailedLine), findsNothing);
     expect(_focused(), 'نصب');
+    expect(
+      await _press(tester, _towardPower),
+      'پشتیبانی',
+      reason:
+          'support is always second on the ready page, so nobody loops on install',
+    );
   });
 
   testWidgets('a full disk has its own words, with retry first and support', (
@@ -408,8 +415,9 @@ void main() {
     expect(await _press(tester, _towardPower), 'پشتیبانی');
   });
 
-  testWidgets('an installer that did not open leaves a red line under install; '
-      'the forced page adds support second', (tester) async {
+  testWidgets('an installer that did not open leaves a red line, under install '
+      'on the card and above the buttons on the forced page, where support is '
+      'always second', (tester) async {
     await _pump(tester, _installFailed);
     final line = _inCard(_installFailedLine);
     expect(line, findsOneWidget);
@@ -440,8 +448,11 @@ void main() {
     final install = tester.getRect(find.text('نصب'));
     final message = tester.getRect(find.text(_installFailedLine));
     final support = tester.getRect(find.text('پشتیبانی'));
-    expect(message.top, greaterThan(install.bottom));
-    expect(support.top, greaterThan(message.bottom));
+    expect(message.bottom, lessThan(install.top), reason: 'above the buttons');
+    expect(support.top, greaterThan(install.bottom));
+
+    await _pump(tester, _forced(_states['ready']!.$1), root: true);
+    expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
   });
 
   testWidgets('a forced download that failed offers support beside retry, '
