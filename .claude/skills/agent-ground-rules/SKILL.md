@@ -38,6 +38,14 @@ description: Use when working as a specialist agent on the Shikoo Android app (s
   - لایه یا انتزاعِ بی‌دلیل نساز.
   - در گزارش یک خط بنویس که چه چیزی را عمداً ساده گرفتی و سقفش کجاست.
 
+## گراف دانش (اجباری؛ Sam، ۲۰۲۶-۱۰-۰۶)
+
+- پیش از grep یا خواندن فایل‌ها، اول از گراف بپرس: `graphify query "<سؤال>"`، `graphify path "<A>" "<B>"` یا `graphify explain "<نام>"` (راهنما: بخش «گراف دانش» در `CLAUDE.md`).
+  grep و خواندن فایل فقط وقتی گراف جواب نداد، یا برای ویرایش و دیباگ خطی مشخص.
+- هر کلون و worktree گراف خودش را در `graphify-out/` ریشه‌اش دارد. کلون ویندوز با `graphify` ویندوز؛ کلون WSL و worktreeهایش با `graphify` داخل WSL.
+  اگر `graphify-out/` نبود، اول `graphify update .` بزن.
+- بعد از تغییر کد: `graphify update .`. پوشهٔ `graphify-out/` هرگز کامیت نمی‌شود.
+
 ## ماشین
 
 - در هر شل اول: `source /d/dev/android-toolchain/env.sh`
@@ -56,3 +64,5 @@ description: Use when working as a specialist agent on the Shikoo Android app (s
 3. فایل‌هایی که ساختی یا عوض کردی
 4. هنوز ثابت نشده، و خطرها
 5. سؤال برای Sam (اگر هست)
+6. **گراف و پونی‌تیل:** چه پرسش‌هایی از گراف زدی (یا چرا کار به کد نرسید)، و کدام مهارت پونی‌تیل را بار کردی.
+   بازبین گزارشی را که این خط را ندارد، یا کد نوشته و پونی‌تیل بار نکرده، رد می‌کند.

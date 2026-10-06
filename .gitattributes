@@ -3,3 +3,4 @@
 *.jpg binary
 *.ttf binary
 *.jks binary
+graphify-out/graph.json merge=graphify
