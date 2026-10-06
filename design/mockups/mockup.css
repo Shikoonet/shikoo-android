@@ -228,6 +228,9 @@ ul { list-style: none; }
 .row .t { flex: 1; display: flex; flex-direction: column; line-height: var(--leading-tight); }
 .row small { font-size: var(--text-body-sm); color: var(--color-text-muted); line-height: var(--leading-tight); }
 .row .value { color: var(--color-text-muted); }
+.row bdi { white-space: nowrap; }
+.row:has(> .value) { flex-wrap: wrap; }
+.row:has(> .value) .t { flex-basis: auto; }
 .row small.danger { color: var(--color-danger); }
 .card:not(.update) + .update { margin-top: var(--space-3); }
 /* دکمهٔ متنیِ انتهای ردیف (حذف سرویس): لمس ۴۸، ولی ردیف را بلند نمی‌کند و متنش با لبهٔ بقیهٔ ردیف‌ها هم‌تراز است */
@@ -458,6 +461,7 @@ ul { list-style: none; }
 .tv-result p, .login-brand .sub { text-wrap: balance; }
 
 /* تنظیمات و «درباره»ی تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
+.tv-settings > .tv-col { flex: 1; }
 .tv-settings { flex: 1; min-block-size: 0; display: flex; justify-content: center; margin-top: var(--space-3); }
 .tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0 var(--ring); gap: var(--space-6) var(--space-10); }
 .tv .dialog p { font-size: var(--text-body); }

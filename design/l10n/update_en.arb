@@ -36,7 +36,7 @@
   "settingsChecking": "Checking…",
   "settingsUpToDate": "You have the latest version.",
   "settingsCheckFailed": "Couldn't check; check your internet and try again.",
-  "@settingsCoreHelp": {"description": "Under the core version in Settings › App. The core ships inside the app; there is no separate core update."},
-  "@settingsCheckUpdate": {"description": "Settings › App row: runs the 6-hourly update check now. When an update is known, this row is replaced by the same update card as Home."},
+  "@settingsCoreHelp": {"description": "Under \"Core\" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from a constant in lib/shikoo/ that the upstream sync script writes when it merges a new tag. There is no separate core download."},
+  "@settingsCheckUpdate": {"description": "Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home."},
   "@settingsCheckFailed": {"description": "Red line under settingsCheckUpdate; tapping the row again retries."}
 }
