@@ -26,7 +26,7 @@
  *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
  *  ۲۰. نام ربات ......... .code-bot (زیر کد ورود) ؛ فهرست نتیجه: .result-list ؛ دایرهٔ خنثی: .hero-icon.muted
  *  ۲۱. سرویس‌های تمام‌شده .finished + .finished-head ؛ باز: .finished-row (.t .n .s) + .btn-sm
- *  ۲۲. نسخهٔ تازه ...... .update + .is-error ؛ .update-row (.t strong small) + دکمه ؛ .bar
+ *  ۲۲. نسخهٔ تازه ...... .update + .is-error ؛ .update-row (.t strong small) + دکمه ؛ .bar ؛ .update-msg ؛ صفحهٔ اجباری: .update-progress
  *  پینگِ در حال سنجش: .ping.is-pending ؛ برچسب «تازه»: .chip-outline ؛ قاب اسکرول‌شدهٔ گوشی: .scroll-view
  *  فوکوس ریموت روی هر جزء: .is-focused
  */
@@ -323,6 +323,9 @@ ul { list-style: none; }
 .update-row strong { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
 .update-row small { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .update.is-error strong { color: var(--color-danger); }
+.update-msg { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-danger); }
+.update-progress { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.tv-result .update-progress { inline-size: var(--size-dialog); }
 
 /* ۱۸. سربرگ فهرست سرورها: جست‌وجو (فقط گوشی) یا عنوان (تلویزیون)، و «پینگ همه» */
 .list-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }

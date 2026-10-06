@@ -24,5 +24,10 @@
   "installPermissionTitle": "Allow installing",
   "@installPermissionTitle": {"description": "Dialog before Android’s “install unknown apps” page, only when the permission is missing. Buttons: cancelButton and continueButton."},
   "installPermissionTouch": "On the next screen, turn on installing for “ShikooNet”, then press your phone’s Back button; the install starts by itself.",
-  "installPermissionTv": "On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself."
+  "installPermissionTv": "On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself.",
+  "updateNoSpaceTitle": "Not enough space.",
+  "@updateNoSpaceTitle": {"description": "Card and forced page when the file does not fit in storage. Same text on phone and TV; never mentions the internet."},
+  "updateNoSpaceHelp": "Remove a few apps or files from this device and try again.",
+  "updateInstallFailed": "The installer didn't open; try again or ask Support.",
+  "@updateInstallFailed": {"description": "One red line under Install, on the card and the forced page, when Android's installer did not open. Not a new state; the next Install clears it."}
 }
