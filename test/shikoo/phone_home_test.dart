@@ -379,7 +379,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('user123 · الماس'), findsOneWidget);
+      expect(find.text(bidiName('user123 · الماس')), findsOneWidget);
       expect(find.text('فعال'), findsNothing);
       expect(find.textContaining('نامحدود', findRichText: true), findsNothing);
       expect(find.textContaining('مصرف شده', findRichText: true), findsNothing);
@@ -475,7 +475,7 @@ void main() {
 
     await tester.tap(_icon(ShikooIcon.chevronUp));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('user123 · الماس'));
+    await tester.tap(find.text(bidiName('user123 · الماس')));
     await tester.pumpAndSettle();
     expect(find.byType(ServerRow), findsNWidgets(3), reason: 'the name');
   });
@@ -506,7 +506,7 @@ void main() {
       controller: controller,
     );
     expect(find.byType(FoldedServiceCard), findsOneWidget);
-    final folded = find.text('user789 · معمولی');
+    final folded = find.text(bidiName('user789 · معمولی'));
     expect(
       tester.getTopLeft(folded).dy,
       greaterThan(tester.getBottomLeft(find.byType(ServerRow).last).dy),
@@ -739,23 +739,6 @@ void main() {
     expect(left()?.color, ShikooColors.light.warning);
   });
 
-  testWidgets('a service name leads with its username in either language', (
-    tester,
-  ) async {
-    for (final (locale, direction) in [
-      ('fa', TextDirection.rtl),
-      ('en', TextDirection.ltr),
-    ]) {
-      await _pump(tester, _phone(), locale: locale);
-      final title = find.text('user123 · الماس');
-      expect(
-        tester.renderObject<RenderParagraph>(title).textDirection,
-        direction,
-        reason: locale,
-      );
-    }
-  });
-
   testWidgets('a used-up service points to another one only while that one '
       'is active', (tester) async {
     ShikooState besides(ShikooService other) => ShikooState(
@@ -930,7 +913,10 @@ void main() {
     );
     await tester.tap(find.widgetWithText(ShikooButton, 'حذف'));
     await tester.pumpAndSettle();
-    expect(find.text('حذف «\u2068user456 · طلایی\u2069»؟'), findsOneWidget);
+    expect(
+      find.text('حذف «\u2068${bidiName('user456 · طلایی')}\u2069»؟'),
+      findsOneWidget,
+    );
     await tester.tap(find.widgetWithText(ShikooButton, 'حذف').last);
     await tester.pumpAndSettle();
     verify(() => controller.removeService(4)).called(1);
@@ -977,10 +963,17 @@ void main() {
     await tester.tap(_icon(ShikooIcon.gear));
     await tester.pumpAndSettle();
     expect(find.text('سرویس‌های اضافه‌شده با لینک'), findsOneWidget);
-    expect(find.text('user123 · الماس'), findsOneWidget);
+    expect(find.text(bidiName('user123 · الماس')), findsOneWidget);
     expect(find.text('تاریخ انقضا گذشته'), findsOneWidget);
-    expect(find.text('user789 · معمولی'), findsNothing, reason: 'not pasted');
-    expect(find.bySemanticsLabel('حذف user123 · الماس'), findsOneWidget);
+    expect(
+      find.text(bidiName('user789 · معمولی')),
+      findsNothing,
+      reason: 'not pasted',
+    );
+    expect(
+      find.bySemanticsLabel('حذف ${bidiName('user123 · الماس')}'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('حذف').first);
     await tester.pumpAndSettle();
@@ -1054,5 +1047,81 @@ void main() {
     );
     expect(find.text('سرویس شیکونت'), findsOneWidget);
     expect(find.text('سرویس شیکونت ۲'), findsOneWidget);
+  });
+
+  testWidgets('a Latin name keeps its own order in Persian and English, the '
+      'username first', (tester) async {
+    double left(String inText, String part, [int nth = 0]) {
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.textContaining(inText).first,
+      );
+      final text = paragraph.text.toPlainText();
+      var i = -1;
+      for (var n = 0; n <= nth; n++) {
+        i = text.indexOf(part, i + 1);
+      }
+      expect(i, isNonNegative, reason: '$part in $text');
+      return paragraph
+          .getBoxesForSelection(
+            TextSelection(baseOffset: i, extentOffset: i + 1),
+          )
+          .first
+          .left;
+    }
+
+    const state = ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: false,
+      servers: _servers,
+      selected: 'آلمان ۲',
+      service: ShikooService(
+        name: 'e7f9 · pasargard_111713193',
+        usedBytes: 1,
+        totalBytes: 100,
+      ),
+      others: [
+        ShikooService(
+          id: 2,
+          name: 'firstbuy · 2_111713193_111713193',
+          usedBytes: 1,
+          totalBytes: 100,
+        ),
+        ShikooService(
+          id: 3,
+          name: 'user123 · الماس',
+          usedBytes: 1,
+          totalBytes: 100,
+        ),
+      ],
+    );
+    for (final locale in ['fa', 'en']) {
+      await _pump(tester, state, locale: locale);
+      tester.view.physicalSize = const Size(2400, 1830);
+      await tester.pump();
+      final rtl = locale == 'fa';
+      expect(
+        left('pasargard', 'p') < left('pasargard', '_') &&
+            left('pasargard', '_') < left('pasargard', '1'),
+        isTrue,
+        reason: '$locale: pasargard_111713193 reads left to right',
+      );
+      expect(
+        left('2_1117', '2') < left('2_1117', '_') &&
+            left('2_1117', '_') < left('2_1117', '_', 1),
+        isTrue,
+        reason: '$locale: 2_111713193_111713193 keeps its order',
+      );
+      expect(
+        left('pasargard', 'e') > left('pasargard', 'p'),
+        rtl,
+        reason: '$locale: the username leads in the reading direction',
+      );
+      expect(
+        left('user123', 'u') > left('user123', 'ا'),
+        rtl,
+        reason: '$locale: a mixed name, the username first too',
+      );
+    }
   });
 }

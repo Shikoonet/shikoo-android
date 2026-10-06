@@ -468,9 +468,11 @@ class MessageBox extends StatelessWidget {
   }
 }
 
-/// `.chip`: the service's status.
+String bidiName(String name) =>
+    name.split(' · ').map((part) => '\u2068$part\u2069').join(' · ');
+
 String serviceTitle(BuildContext context, ShikooService service) {
-  if (service.name.isNotEmpty) return service.name;
+  if (service.name.isNotEmpty) return bidiName(service.name);
   final l = ShikooL10n.of(context);
   return service.number > 1
       ? '${l.serviceUnnamed} ${localNumber(context, service.number)}'

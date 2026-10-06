@@ -261,7 +261,9 @@ class _ServiceCardState extends State<ServiceCard> {
                                 link: ShikooLinks.renew,
                                 title: l.renewTitle,
                                 help: l.renewHelpList,
-                                below: l.renewPickInList(service.username),
+                                below: l.renewPickInList(
+                                  bidiName(service.username),
+                                ),
                                 strong: service.username,
                               ),
                             },

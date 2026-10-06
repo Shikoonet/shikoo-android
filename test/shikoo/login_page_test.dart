@@ -146,7 +146,7 @@ void main() {
         services: ['user123 · الماس', 'user789 · معمولی'],
       ),
     );
-    expect(find.text('user123 · الماس'), findsOneWidget);
+    expect(find.text(bidiName('user123 · الماس')), findsOneWidget);
     expect(find.textContaining('مریم', findRichText: true), findsOneWidget);
     expect(_focusedButton(), 'ادامه');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);

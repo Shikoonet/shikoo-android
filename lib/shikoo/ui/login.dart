@@ -881,7 +881,7 @@ class _ServicesBelow extends StatelessWidget {
         children: [
           for (final title in login.services)
             Text(
-              title,
+              bidiName(title),
               textAlign: TextAlign.center,
               style: t.text(
                 t.s.title,

@@ -497,7 +497,7 @@ void main() {
     expect(qr(), ShikooLinks.renew);
     expect(
       find.text(
-        'در فهرست ربات، سرویسِ user123 را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.',
+        'در فهرست ربات، سرویسِ \u2068user123\u2069 را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.',
         findRichText: true,
       ),
       findsOneWidget,
@@ -511,7 +511,7 @@ void main() {
     await _press(tester, _ok);
     expect(qr(), ShikooLinks.support, reason: 'the panel sends a bare t.me');
     expect(
-      find.text('user123 · الماس', findRichText: true),
+      find.text(bidiName('user123 · الماس'), findRichText: true),
       findsNWidgets(2),
       reason: 'the card and the line under the QR',
     );

@@ -603,10 +603,11 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           Row(
             children: [
               Expanded(
-                child: nameText(
-                  context,
-                  service.title,
-                  t.text(
+                child: Text(
+                  bidiName(service.title),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.text(
                     t.s.title,
                     weight: FontWeight.w700,
                     height: Leading.snug,
@@ -699,7 +700,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                       link: ShikooLinks.support,
                       title: l.supportTitle,
                       help: l.supportHelpTv,
-                      below: service.title,
+                      below: bidiName(service.title),
                     ),
                   ),
                 ),
