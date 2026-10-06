@@ -213,7 +213,7 @@ Future<bool> confirmRemove(
       final l = ShikooL10n.of(context);
       return [
         Text(
-          l.removeServiceTitle('\u2068${serviceTitle(context, service)}\u2069'),
+          l.removeServiceTitle(serviceTitle(context, service)),
           style: t.text(t.s.title, weight: FontWeight.w700),
         ),
         Text(

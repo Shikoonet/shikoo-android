@@ -914,8 +914,10 @@ void main() {
     await tester.tap(find.widgetWithText(ShikooButton, 'حذف'));
     await tester.pumpAndSettle();
     expect(
-      find.text('حذف «\u2068${bidiName('user456 · طلایی')}\u2069»؟'),
+      find.text('حذف «${bidiName('user456 · طلایی')}»؟'),
       findsOneWidget,
+      reason:
+          'no isolate around the whole name, or its first part sets one direction',
     );
     await tester.tap(find.widgetWithText(ShikooButton, 'حذف').last);
     await tester.pumpAndSettle();
