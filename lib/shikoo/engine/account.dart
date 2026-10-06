@@ -406,7 +406,8 @@ class ShikooApi {
     await _call('POST', '/logout', token: token);
   }
 
-  /// Null before the first release or for another ABI; a `/dl/` path is the answering base's.
+  /// Null before the first release, for another ABI, and for a file anywhere but the door that
+  /// answered: its sha256 vouches only for that door's file.
   Future<AppRelease?> update(String abi) async {
     final response = await _call('GET', '/update');
     if (response.statusCode == 404) return null;
@@ -422,26 +423,30 @@ class ShikooApi {
       'sha256': final String sha256,
       'url': final String url,
     } when size > 0 && _sha256.hasMatch(sha256)) {
-      final at = response.requestOptions.uri.resolve(url);
-      if (at.isScheme('https') || at.isScheme('http')) {
-        return AppRelease(
-          versionName: body['version_name'] as String? ?? '',
-          versionCode: code,
-          minVersionCode: apk['min_version_code'] as int? ?? 0,
-          size: size,
-          sha256: sha256,
-          url: '$at',
-        );
+      final door = response.requestOptions.uri;
+      final at = door.resolve(url);
+      if (at.scheme != door.scheme ||
+          at.host != door.host ||
+          at.port != door.port) {
+        return null;
       }
+      return AppRelease(
+        versionName: body['version_name'] as String? ?? '',
+        versionCode: code,
+        minVersionCode: apk['min_version_code'] as int? ?? 0,
+        size: size,
+        sha256: sha256,
+        url: '$at',
+      );
     }
     throw const ShikooApiFailure();
   }
 
   Future<Response<ResponseBody>> download(
     String url,
-    int from, [
-    CancelToken? cancel,
-  ]) => _dio.get<ResponseBody>(
+    int from,
+    CancelToken cancel,
+  ) => _dio.get<ResponseBody>(
     url,
     cancelToken: cancel,
     options: Options(

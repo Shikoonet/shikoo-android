@@ -315,5 +315,8 @@
   "@updateNoSpaceTitle": {"description": "Card and forced page when the file does not fit in storage. Same text on phone and TV; never mentions the internet."},
   "updateNoSpaceHelp": "Remove a few apps or files from this device and try again.",
   "updateInstallFailed": "The installer didn't open; try again or ask Support.",
-  "@updateInstallFailed": {"description": "One red line under Install, on the card and the forced page, when Android's installer did not open. Not a new state; the next Install clears it."}
+  "@updateInstallFailed": {"description": "One red line under Install, on the card and the forced page, when Android's installer did not open. Not a new state; the next Install clears it."},
+  "installPermissionLegacy": "On the next screen, turn on Unknown sources, then press Back.",
+  "@installPermissionLegacy": {"description": "Android 7 and older: the install-permission dialog's text, before the security settings page, where one Unknown sources switch covers every app."},
+  "installPermissionLegacyTv": "On the next screen, turn on Unknown sources, then press Back on the remote."
 }

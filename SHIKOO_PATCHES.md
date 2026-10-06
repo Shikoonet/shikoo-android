@@ -68,7 +68,7 @@ bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 | `android/shikoo/mobile_scanner/` (`build.gradle.kts` و `MobileScannerPlugin.java`) | پلاگین خالیِ جایگزین `mobile_scanner` روی اندروید (وصلهٔ ۷). هم‌نام کلاسی است که `GeneratedPluginRegistrant` ثبت می‌کند. |
 | `android/common/src/main/res/values-fa/strings.xml` | اسم فارسی اپ، «شیکونت»، برای دستگاهی که زبانش فارسی است (وصلهٔ ۹). |
 | `android/app/src/main/res/values/strings.xml`، `android/app/src/main/res/values-fa/strings.xml` | نام کانال اعلان (`service_channel_name`): «ShikooNet» و «شیکونت». منابع ماژول اپ بر منابع کتابخانهٔ `common` مقدم‌اند، پس «FlClash Service» خود FlClash بی‌وصله کنار می‌رود. اندروید کانال را فقط بار اول می‌سازد (`Ext.kt:65-72`)، به زبان دستگاهِ همان لحظه. نصبی که کانالش را از قبل دارد، اسم قبلی را نگه می‌دارد تا اپ پاک و دوباره نصب شود یا داده‌اش پاک شود. |
-| `android/app/src/main/kotlin/com/follow/clash/ShikooUpdate.kt` | کانال `shikoo/update` (وصلهٔ ۱۳): `canInstall`، `openInstallSettings` و `install`. سمت Dart: `lib/shikoo/engine/update.dart`. |
+| `android/app/src/main/kotlin/com/follow/clash/ShikooUpdate.kt` | کانال `shikoo/update` (وصلهٔ ۱۳): `canInstall`، `openInstallSettings` و `install`. زیر اندروید ۸ یک کلید «منابع ناشناس» (`Settings.Secure.INSTALL_NON_MARKET_APPS`) برای همهٔ اپ‌هاست، پس صفحهٔ `ACTION_SECURITY_SETTINGS` باز می‌شود. سمت Dart: `lib/shikoo/engine/update.dart`. |
 | `android/app/src/main/res/xml/update_paths.xml` | تنها مسیری که FileProvider وصلهٔ ۱۴ می‌دهد: `<cache>/update/`. |
 
 **منبع فونت:** `rastikerdar/vazirmatn` تگ `v33.003`، مسیر `fonts/ttf/`. شناسهٔ گیتِ هر فایل با API گیت‌هاب یکی بود.

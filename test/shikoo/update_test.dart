@@ -21,6 +21,7 @@ class _Door implements HttpClientAdapter {
   int manifestStatus = 200;
   String abi = 'arm64-v8a';
   String sha = _sha;
+  String? url;
   bool ranges = true;
 
   /// The connection drops once a download reaches this byte of the file.
@@ -61,7 +62,7 @@ class _Door implements HttpClientAdapter {
                       'min_version_code': 2050,
                       'size': _apk.length,
                       'sha256': sha,
-                      'url': '/dl/ShikooNet-1.0.57-$abi.apk',
+                      'url': url ?? '/dl/ShikooNet-1.0.57-$abi.apk',
                     },
                   },
                 }
@@ -147,6 +148,7 @@ void main() {
     List<String> bases = const ['http://door.test'],
     int installed = 2051,
     String abi = 'arm64-v8a',
+    int sdk = 35,
   }) {
     final dio = Dio(BaseOptions(validateStatus: (_) => true))
       ..httpClientAdapter = door;
@@ -158,7 +160,8 @@ void main() {
       ..abi = abi
       ..installed = installed
       ..cacheDir = (() async => cache)
-      ..now = (() => clock);
+      ..now = (() => clock)
+      ..sdk = (() async => sdk);
   }
 
   UpdateOffer? offer() => container.read(shikooUpdateOfferProvider);
@@ -177,6 +180,13 @@ void main() {
 
       await start(installed: 2049).check();
       expect(offer()!.forced, isTrue);
+
+      await start(installed: 2050).check();
+      expect(
+        offer()!.forced,
+        isFalse,
+        reason: 'the minimum itself is still accepted',
+      );
     });
 
     test('a local build and the published build itself get nothing', () async {
@@ -206,6 +216,22 @@ void main() {
         offer()!.release.url,
         'https://door.test/dl/ShikooNet-1.0.57-arm64-v8a.apk',
       );
+    });
+
+    test('a file on another door, or over http from an https door, is not '
+        'offered', () async {
+      for (final elsewhere in [
+        'https://elsewhere.test/dl/ShikooNet-1.0.57-arm64-v8a.apk',
+        'http://door.test/dl/ShikooNet-1.0.57-arm64-v8a.apk',
+        'https://door.test:8443/dl/ShikooNet-1.0.57-arm64-v8a.apk',
+      ]) {
+        door.url = elsewhere;
+        await start(bases: ['https://door.test']).check();
+        expect(offer(), isNull, reason: elsewhere);
+      }
+      door.url = 'https://door.test/dl/ShikooNet-1.0.57-arm64-v8a.apk';
+      await start(bases: ['https://door.test']).check();
+      expect(offer()!.release.url, door.url);
     });
 
     test('asks once in six hours, and again soon after a failure', () async {
@@ -257,7 +283,6 @@ void main() {
       expect(phases.toSet().toList(), [
         UpdatePhase.offered,
         UpdatePhase.downloading,
-        UpdatePhase.verifying,
         UpdatePhase.ready,
       ]);
     });
@@ -368,7 +393,7 @@ void main() {
     test('asks for the permission, then installs on the way back', () async {
       canInstall = false;
       final update = await ready();
-      expect(await update.install(), isFalse);
+      expect(await update.install(), InstallAsk.thisApp);
       expect(offer()!.phase, UpdatePhase.ready);
       expect(native.map((c) => c.method), isNot(contains('install')));
 
@@ -391,7 +416,7 @@ void main() {
         canInstall = false;
         hasSettings = false;
         final update = await ready();
-        expect(await update.install(), isFalse);
+        expect(await update.install(), InstallAsk.thisApp);
         await update.allow();
         expect(native.last.method, 'install');
         expect(offer()!.error, isNull);
@@ -403,20 +428,34 @@ void main() {
       () async {
         final update = await ready();
         installerOpens = false;
-        expect(await update.install(), isTrue);
+        expect(await update.install(), InstallAsk.nothing);
         expect(offer()!.phase, UpdatePhase.ready);
         expect(offer()!.error, UpdateError.install);
 
         canInstall = false;
-        expect(await update.install(), isFalse);
+        expect(await update.install(), InstallAsk.thisApp);
         expect(offer()!.error, isNull);
       },
     );
 
+    test('Android 7 asks for Unknown sources on its security page, then '
+        'installs on the way back', () async {
+      canInstall = false;
+      final update = start(sdk: 25);
+      await update.check();
+      await update.download();
+      expect(await update.install(), InstallAsk.unknownSources);
+      await update.allow();
+      expect(native.last.method, 'openInstallSettings');
+      canInstall = true;
+      await update.onForeground();
+      expect(native.last.method, 'install');
+    });
+
     test('an apk the system cleared is downloaded again', () async {
       final update = await ready();
       await apk().delete();
-      expect(await update.install(), isTrue);
+      expect(await update.install(), InstallAsk.nothing);
       expect(offer()!.phase, UpdatePhase.offered);
       expect(native.map((c) => c.method), isNot(contains('install')));
     });

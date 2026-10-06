@@ -16,17 +16,30 @@ object ShikooUpdate {
         MethodChannel(engine.dartExecutor.binaryMessenger, "shikoo/update")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    // Below Android 8 one Unknown sources switch covers every app.
                     "canInstall" -> result.success(
-                        Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             activity.packageManager.canRequestPackageInstalls()
+                        } else {
+                            @Suppress("DEPRECATION")
+                            Settings.Secure.getInt(
+                                activity.contentResolver,
+                                Settings.Secure.INSTALL_NON_MARKET_APPS,
+                                0,
+                            ) == 1
+                        }
                     )
 
                     "openInstallSettings" -> result.success(
                         start(activity) {
-                            Intent(
-                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                "package:${activity.packageName}".toUri(),
-                            )
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                Intent(
+                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    "package:${activity.packageName}".toUri(),
+                                )
+                            } else {
+                                Intent(Settings.ACTION_SECURITY_SETTINGS)
+                            }
                         }
                     )
 

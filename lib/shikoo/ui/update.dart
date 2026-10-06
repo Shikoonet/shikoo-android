@@ -21,8 +21,7 @@ _Step _stepOf(UpdateOffer offer) => switch (offer) {
   UpdateOffer(error: UpdateError.checksum) => _Step.badFile,
   UpdateOffer(error: UpdateError.network) => _Step.failed,
   UpdateOffer(error: UpdateError.noSpace) => _Step.noSpace,
-  UpdateOffer(phase: UpdatePhase.downloading || UpdatePhase.verifying) =>
-    _Step.downloading,
+  UpdateOffer(phase: UpdatePhase.downloading) => _Step.downloading,
   UpdateOffer(phase: UpdatePhase.ready) => _Step.ready,
   _ => _Step.offered,
 };
@@ -70,7 +69,8 @@ Future<void> _install(
   ShikooUpdate update, {
   required bool isTV,
 }) async {
-  if (await update.install() || !context.mounted) return;
+  final ask = await update.install();
+  if (ask == InstallAsk.nothing || !context.mounted) return;
   final go = await showShikooDialog<bool>(
     context,
     children: (context) {
@@ -86,10 +86,12 @@ Future<void> _install(
           l.installPermissionTitle,
           style: t.text(t.s.title, weight: FontWeight.w700),
         ),
-        Text(
-          isTV ? l.installPermissionTv : l.installPermissionTouch,
-          style: paragraph,
-        ),
+        Text(switch ((ask, isTV)) {
+          (InstallAsk.unknownSources, true) => l.installPermissionLegacyTv,
+          (InstallAsk.unknownSources, false) => l.installPermissionLegacy,
+          (_, true) => l.installPermissionTv,
+          _ => l.installPermissionTouch,
+        }, style: paragraph),
         Text(l.updateClosesApp, style: paragraph),
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),

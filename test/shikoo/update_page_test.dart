@@ -131,7 +131,7 @@ Future<ProviderContainer> _pump(
   _engine = _Update();
   when(_engine.download).thenAnswer((_) async {});
   when(_engine.cancel).thenAnswer((_) async {});
-  when(_engine.install).thenAnswer((_) async => true);
+  when(_engine.install).thenAnswer((_) async => InstallAsk.nothing);
   when(_engine.allow).thenAnswer((_) async {});
   await tester.pumpWidget(
     ProviderScope(
@@ -336,7 +336,7 @@ void main() {
   testWidgets('without the permission, install explains first; on the TV the '
       'remote is on Continue, which opens Android\'s page', (tester) async {
     await _pump(tester, _states['ready']!.$1, isTV: true);
-    when(_engine.install).thenAnswer((_) async => false);
+    when(_engine.install).thenAnswer((_) async => InstallAsk.thisApp);
     await _focus(tester, 'نصب');
     await _press(tester, _ok);
     expect(find.text('اجازهٔ نصب'), findsOneWidget);
@@ -352,13 +352,37 @@ void main() {
     expect(find.text('اجازهٔ نصب'), findsNothing);
 
     await _pump(tester, _states['ready']!.$1);
-    when(_engine.install).thenAnswer((_) async => false);
+    when(_engine.install).thenAnswer((_) async => InstallAsk.thisApp);
     await tester.tap(_inCard('نصب'));
     await tester.pumpAndSettle();
     expect(find.textContaining('دکمهٔ برگشتِ گوشی'), findsOneWidget);
     await tester.tap(find.text('انصراف'));
     await tester.pumpAndSettle();
     verifyNever(_engine.allow);
+  });
+
+  testWidgets('Android 7 explains Unknown sources instead, the TV naming the '
+      'remote\'s Back', (tester) async {
+    for (final (isTV, text) in [
+      (
+        false,
+        'در صفحهٔ بعد «منابع ناشناس» را روشن کن، بعد دکمهٔ برگشت را بزن.',
+      ),
+      (
+        true,
+        'در صفحهٔ بعد «منابع ناشناس» را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.',
+      ),
+    ]) {
+      await _pump(tester, _states['ready']!.$1, isTV: isTV);
+      when(_engine.install).thenAnswer((_) async => InstallAsk.unknownSources);
+      await tester.tap(_inCard('نصب'));
+      await tester.pumpAndSettle();
+      expect(find.text(text), findsOneWidget, reason: 'TV: $isTV');
+      expect(find.textContaining('کنار «شیکونت»'), findsNothing);
+      await tester.tap(find.text('ادامه'));
+      await tester.pumpAndSettle();
+      verify(_engine.allow).called(1);
+    }
   });
 
   testWidgets('a forced update takes the whole screen, one focused button on '

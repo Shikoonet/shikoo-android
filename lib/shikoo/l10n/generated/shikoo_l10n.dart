@@ -1531,6 +1531,18 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'The installer didn\'t open; try again or ask Support.'**
   String get updateInstallFailed;
+
+  /// Android 7 and older: the install-permission dialog's text, before the security settings page, where one Unknown sources switch covers every app.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, turn on Unknown sources, then press Back.'**
+  String get installPermissionLegacy;
+
+  /// No description provided for @installPermissionLegacyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, turn on Unknown sources, then press Back on the remote.'**
+  String get installPermissionLegacyTv;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

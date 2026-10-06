@@ -982,4 +982,12 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get updateInstallFailed =>
       'The installer didn\'t open; try again or ask Support.';
+
+  @override
+  String get installPermissionLegacy =>
+      'On the next screen, turn on Unknown sources, then press Back.';
+
+  @override
+  String get installPermissionLegacyTv =>
+      'On the next screen, turn on Unknown sources, then press Back on the remote.';
 }

@@ -931,4 +931,12 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get updateInstallFailed =>
       'نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.';
+
+  @override
+  String get installPermissionLegacy =>
+      'در صفحهٔ بعد «منابع ناشناس» را روشن کن، بعد دکمهٔ برگشت را بزن.';
+
+  @override
+  String get installPermissionLegacyTv =>
+      'در صفحهٔ بعد «منابع ناشناس» را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.';
 }

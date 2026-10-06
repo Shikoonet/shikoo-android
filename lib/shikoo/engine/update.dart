@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart' show ShikooCell;
@@ -20,12 +21,18 @@ const _abiNames = {
   Abi.androidArm: 'armeabi-v7a',
   Abi.androidArm64: 'arm64-v8a',
   Abi.androidX64: 'x86_64',
-  Abi.androidIA32: 'x86',
 };
 
-enum UpdatePhase { offered, downloading, verifying, ready }
+enum UpdatePhase { offered, downloading, ready }
 
 enum UpdateError { network, checksum, noSpace, install }
+
+/// What Android still needs before installing: this app's own permission (8 and up), or
+/// Unknown sources for every app (7).
+enum InstallAsk { nothing, thisApp, unknownSources }
+
+Future<int> _androidSdk() async =>
+    (await DeviceInfoPlugin().androidInfo).version.sdkInt;
 
 @immutable
 class UpdateOffer {
@@ -82,6 +89,9 @@ class ShikooUpdate {
 
   @visibleForTesting
   DateTime Function() now = DateTime.now;
+
+  @visibleForTesting
+  Future<int> Function() sdk = _androidSdk;
 
   DateTime? _checked;
   Future<void>? _checking;
@@ -207,7 +217,6 @@ class ShikooUpdate {
       _move(UpdatePhase.downloading, received: have);
       if (have < release.size) await _fetch(release, part, have, cancel, stale);
       if (stale()) return;
-      _move(UpdatePhase.verifying);
       final digest = await _sha256Of(part.path);
       if (stale()) return;
       if (digest != release.sha256) {
@@ -284,13 +293,15 @@ class ShikooUpdate {
     await _downloading;
   }
 
-  /// False when Android must let this app install apps first: the screen explains, then [allow].
-  Future<bool> install() async {
-    if (_offer?.phase != UpdatePhase.ready) return true;
+  /// Anything but [InstallAsk.nothing]: the screen explains that, then [allow].
+  Future<InstallAsk> install() async {
+    if (_offer?.phase != UpdatePhase.ready) return InstallAsk.nothing;
     _move(UpdatePhase.ready);
-    if (!await _native('canInstall')) return false;
+    if (!await _native('canInstall')) {
+      return await sdk() < 26 ? InstallAsk.unknownSources : InstallAsk.thisApp;
+    }
     await _launch();
-    return true;
+    return InstallAsk.nothing;
   }
 
   Future<void> allow() async {
