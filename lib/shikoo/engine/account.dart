@@ -88,6 +88,9 @@ class LinkedService {
   final DateTime? expiresAt;
 
   bool get renews => finishedStatuses.contains(status);
+
+  /// Turned off by the shop, maybe before its end date: no «ended N days ago».
+  bool get disabled => const {'removed', 'disabled', 'failed'}.contains(status);
 }
 
 const finishedMaxDays = 30;
@@ -101,6 +104,9 @@ typedef Finished = ({
   int? profileId,
   LinkedService? linked,
 });
+
+DateTime? _sortEnd(Finished row) =>
+    (row.linked?.disabled ?? false) ? null : row.ended;
 
 Finished finishedOf(ShikooService service, {String? name, int? renewId}) => (
   name: name ?? service.name,
@@ -121,7 +127,7 @@ List<Finished> finishedOrder(Iterable<Finished> all, DateTime now) {
   ];
   mergeSort(
     shown,
-    compare: (a, b) => switch ((a.ended, b.ended)) {
+    compare: (a, b) => switch ((_sortEnd(a), _sortEnd(b))) {
       (final x?, final y?) => y.compareTo(x),
       (null, null) => 0,
       (null, _) => 1,

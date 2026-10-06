@@ -1382,6 +1382,12 @@ abstract class ShikooL10n {
   /// **'Expired'**
   String get finishedNoDate;
 
+  /// A service of the account the shop removed, disabled or that failed: whatever its end date, it comes last in finishedServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get finishedDisabled;
+
   /// Fourth line of the sign-in result list when there are five services or more: three names, then this, so the TV screen never grows past four lines.
   ///
   /// In en, this message translates to:

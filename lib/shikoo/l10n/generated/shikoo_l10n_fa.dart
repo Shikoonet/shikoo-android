@@ -819,6 +819,9 @@ class ShikooL10nFa extends ShikooL10n {
   String get finishedNoDate => 'اعتبارش تمام شد';
 
   @override
+  String get finishedDisabled => 'غیرفعال شد';
+
+  @override
   String approvedMoreServices(int count) {
     final intl.NumberFormat countNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);

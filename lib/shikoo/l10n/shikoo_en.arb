@@ -276,6 +276,8 @@
   "@finishedDaysAgo": {"placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
   "finishedNoDate": "Expired",
   "@finishedNoDate": {"description": "An expired service from the account whose end date is not known."},
+  "finishedDisabled": "Disabled",
+  "@finishedDisabled": {"description": "A service of the account the shop removed, disabled or that failed: whatever its end date, it comes last in finishedServices."},
   "approvedMoreServices": "{count, plural, =1{and 1 more service} other{and {count} more services}}",
   "@approvedMoreServices": {"description": "Fourth line of the sign-in result list when there are five services or more: three names, then this, so the TV screen never grows past four lines.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}}
 }

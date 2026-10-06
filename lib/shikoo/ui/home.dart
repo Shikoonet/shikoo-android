@@ -17,6 +17,7 @@ import 'package:material_ui/material_ui.dart';
 
 String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   final ended = row.ended;
+  if (row.linked?.disabled ?? false) return l.finishedDisabled;
   if (row.exhausted) return l.finishedData;
   if (ended == null) return l.finishedNoDate;
   final days = DateUtils.dateOnly(

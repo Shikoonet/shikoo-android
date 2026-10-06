@@ -864,6 +864,9 @@ class ShikooL10nEn extends ShikooL10n {
   String get finishedNoDate => 'Expired';
 
   @override
+  String get finishedDisabled => 'Disabled';
+
+  @override
   String approvedMoreServices(int count) {
     final intl.NumberFormat countNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);

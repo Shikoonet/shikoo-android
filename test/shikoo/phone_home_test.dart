@@ -1101,16 +1101,60 @@ void main() {
     double top(String name) =>
         tester.getTopLeft(find.textContaining(name).first).dy;
     expect(
-      [top('acct6'), top('acct2'), top('acct1'), top('acct3')],
+      [top('acct6'), top('acct1'), top('acct2'), top('acct3')],
       orderedEquals(
-        [top('acct6'), top('acct2'), top('acct1'), top('acct3')]..sort(),
+        [top('acct6'), top('acct1'), top('acct2'), top('acct3')]..sort(),
       ),
-      reason: 'by expires_at, the undated last',
+      reason: 'by expires_at; the turned-off as if undated, last',
     );
     expect(find.textContaining('acct4'), findsNothing, reason: '40 days');
-    expect(find.text('۱۲ روز پیش تمام شد'), findsOneWidget);
     expect(find.text('حجم تمام شد'), findsOneWidget);
-    expect(find.text('اعتبارش تمام شد'), findsOneWidget);
+    expect(find.text('غیرفعال شد'), findsNWidgets(3));
+  });
+
+  testWidgets('a service the shop turned off reads «غیرفعال شد» and comes last '
+      'whatever its date; hidden only 30 days after a past one', (
+    tester,
+  ) async {
+    final now = DateTime.now().toUtc();
+    await _pump(
+      tester,
+      _phone(),
+      account: ShikooAccount(
+        services: [
+          LinkedService(
+            id: 1,
+            title: 'acct1 · disabled',
+            status: 'disabled',
+            expiresAt: now.add(const Duration(days: 20)),
+          ),
+          LinkedService(
+            id: 2,
+            title: 'acct2 · removed',
+            status: 'removed',
+            expiresAt: now.subtract(const Duration(days: 40)),
+          ),
+          const LinkedService(id: 3, title: 'acct3 · failed', status: 'failed'),
+          LinkedService(
+            id: 4,
+            title: 'acct4 · expired',
+            status: 'expired',
+            expiresAt: now.subtract(const Duration(days: 2)),
+          ),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۳)');
+    await tester.ensureVisible(head);
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    double top(String name) =>
+        tester.getTopLeft(find.textContaining(name).first).dy;
+    expect(top('acct4'), lessThan(top('acct1')), reason: 'the turned-off last');
+    expect(find.textContaining('acct2'), findsNothing, reason: '40 days ago');
+    expect(find.textContaining('acct3'), findsOneWidget, reason: 'no date');
+    expect(find.text('غیرفعال شد'), findsNWidgets(2));
+    expect(find.text('امروز تمام شد'), findsNothing);
   });
 
   testWidgets('a finished row opened at the end of the page scrolls itself '
