@@ -223,11 +223,13 @@ ul { list-style: none; }
 
 /* ۱۱. ردیف تنظیمات (و ردیف گزینه با دایره) */
 .group-title { font-size: var(--text-body-sm); font-weight: var(--font-weight-bold); color: var(--color-text-muted); margin: 0 var(--space-2) var(--space-2); }
-.row { display: flex; align-items: center; gap: var(--space-3); inline-size: 100%; min-block-size: var(--size-row); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
+.row { display: flex; align-items: center; gap: var(--space-3); inline-size: 100%; font-size: var(--text-body); min-block-size: var(--size-row); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
 .row + .row { border-top: var(--border-width) solid var(--color-border); border-start-start-radius: 0; border-start-end-radius: 0; }
 .row .t { flex: 1; display: flex; flex-direction: column; line-height: var(--leading-tight); }
 .row small { font-size: var(--text-body-sm); color: var(--color-text-muted); line-height: var(--leading-tight); }
 .row .value { color: var(--color-text-muted); }
+.row small.danger { color: var(--color-danger); }
+.settings .update, .settings-states > section + section { margin-top: var(--space-3); }
 /* دکمهٔ متنیِ انتهای ردیف (حذف سرویس): لمس ۴۸، ولی ردیف را بلند نمی‌کند و متنش با لبهٔ بقیهٔ ردیف‌ها هم‌تراز است */
 .row > .btn-text { --size-button: var(--size-touch); margin-block: calc(var(--space-2) * -1); margin-inline-end: calc(var(--space-3) * -1); }
 .row .icon { color: var(--color-text-muted); }
