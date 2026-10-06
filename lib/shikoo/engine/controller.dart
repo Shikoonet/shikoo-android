@@ -970,10 +970,12 @@ class ShikooController {
     }
   }
 
-  void _setPing(String name, int ms) => _ref.read(_pingsProvider.notifier).set({
-    ..._ref.read(_pingsProvider),
-    name: ms,
-  });
+  void _setPing(String name, int ms) => _ref
+      .read(_pingsProvider.notifier)
+      .set(
+        {..._ref.read(_pingsProvider), name: ms}
+          ..removeWhere((_, ms) => ms == 0),
+      );
 
   Future<void> _checkSelected() async {
     if (_staleGroups) return;
@@ -1018,15 +1020,13 @@ class ShikooController {
     try {
       ms = (await _ref.read(coreHandlerProvider).getDelay(url, name))?.value;
     } catch (_) {}
+    if ((ms ?? 0) > 0) return ms;
     bool carriesTraffic() => name == _validSelection() && _running;
-    if ((ms ?? 0) > 0 || !carriesTraffic()) return ms;
-    if (await _nativeRunTime() == null) return ms;
-    final took = Stopwatch()..start();
+    if (!carriesTraffic() || await _nativeRunTime() == null) return null;
     final passes = await _ref.read(trafficPassesProvider)();
     // The lookup went out through whatever carried traffic when it ended, maybe not [name].
-    return passes && carriesTraffic()
-        ? math.max(took.elapsedMilliseconds, 1)
-        : ms;
+    // Its time is not a ping: the last real one stays, or none (0).
+    return passes && carriesTraffic() ? math.max(_ping(name) ?? 0, 0) : null;
   }
 
   /// The in-use card's update state is kept apart from the others': it moves with its service.

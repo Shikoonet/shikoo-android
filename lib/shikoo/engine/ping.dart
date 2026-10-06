@@ -9,6 +9,7 @@ const refreshEvery = Duration(minutes: 10);
 bool isDue(DateTime? last, DateTime now, Duration every) =>
     last == null || now.difference(last) >= every;
 
+/// [probe] gives milliseconds, 0 for a server that answers without one, or null or less for none.
 Future<void> pingServers(
   List<String> names,
   Future<int?> Function(String name) probe,
@@ -22,7 +23,7 @@ Future<void> pingServers(
       for (final name in batch)
         pool.run(() async {
           final ms = await probe(name);
-          if (ms != null && ms > 0) {
+          if (ms != null && ms >= 0) {
             onResult(name, ms);
           } else if (last) {
             onResult(name, -1);

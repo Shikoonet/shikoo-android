@@ -610,74 +610,68 @@ void main() {
     );
   });
 
-  test(
-    'a pick whose pings fail but whose traffic flows stays, with no warning; '
-    'when traffic fails too, it moves',
-    () async {
-      final (:container, :core, :proxies, :setup) = _home();
-      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
-      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-        final name = call.positionalArguments[1] as String;
-        return Delay(name: name, url: '', value: pings[name] ?? -1);
-      });
-      final controller = container.read(shikooControllerProvider);
-      await pumpEventQueue();
-      container.read(runTimeProvider.notifier).value = 1;
-      setup.tunnel = DateTime(2026);
+  test('a pick whose pings fail but whose traffic flows stays, with no warning '
+      'and its last real ping; when traffic fails too, it moves', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
 
-      // WireGuard on Sam's box: every ping silent, traffic fine.
-      pings['آلمان ۱'] = -1;
-      setup.traffic = true;
-      await controller.pingAll();
-      await pumpEventQueue();
-      var state = container.read(shikooStateProvider);
-      expect(proxies.picked, [
-        'آلمان ۱',
-      ], reason: 'no switch away from a working server');
-      expect(state.notice, isNull);
-      expect(
-        state.selectedServer?.ping,
-        greaterThan(0),
-        reason: 'not "no answer"',
-      );
+    // WireGuard on Sam's box: every ping silent, traffic fine.
+    pings['آلمان ۱'] = -1;
+    setup.traffic = true;
+    await controller.pingAll();
+    await pumpEventQueue();
+    var state = container.read(shikooStateProvider);
+    expect(proxies.picked, [
+      'آلمان ۱',
+    ], reason: 'no switch away from a working server');
+    expect(state.notice, isNull);
+    expect(
+      state.selectedServer?.ping,
+      50,
+      reason: 'the ping measured before, not the IP lookup\'s time',
+    );
 
-      setup.traffic = false;
-      await controller.pingAll();
-      await pumpEventQueue();
-      state = container.read(shikooStateProvider);
-      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
-      expect(state.notice, isA<SilentReplaced>());
-    },
-  );
+    setup.traffic = false;
+    await controller.pingAll();
+    await pumpEventQueue();
+    state = container.read(shikooStateProvider);
+    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+    expect(state.notice, isA<SilentReplaced>());
+  });
 
-  test(
-    'a server the user picked that carries traffic gets no warning',
-    () async {
-      final (:container, :core, :proxies, :setup) = _home();
-      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
-        (call) async => Delay(
-          name: call.positionalArguments[1] as String,
-          url: '',
-          value: -1,
-        ),
-      );
-      final controller = container.read(shikooControllerProvider);
-      await pumpEventQueue();
-      container.read(runTimeProvider.notifier).value = 1;
-      setup
-        ..tunnel = DateTime(2026)
-        ..traffic = true;
-      await controller.selectServer('هلند ۱');
-      expect(
-        container.read(shikooStateProvider).selectedServer?.ping,
-        greaterThan(0),
-      );
+  test('a server the user picked that carries traffic gets no warning, and no '
+      'number until a ping answers', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: -1,
+      ),
+    );
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup
+      ..tunnel = DateTime(2026)
+      ..traffic = true;
+    await controller.selectServer('هلند ۱');
+    final state = container.read(shikooStateProvider);
+    expect(state.selectedServer?.ping, isNull);
+    expect(state.notice, isNull);
 
-      setup.traffic = false;
-      await controller.selectServer('هلند ۱');
-      expect(container.read(shikooStateProvider).selectedServer?.ping, -1);
-    },
-  );
+    setup.traffic = false;
+    await controller.selectServer('هلند ۱');
+    expect(container.read(shikooStateProvider).selectedServer?.ping, -1);
+  });
 
   test('nothing is measured at the press, under the consent dialog; the '
       'selected server is once native reports the tunnel', () async {
