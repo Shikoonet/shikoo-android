@@ -277,7 +277,8 @@
      - ۲۰۲۶-۱۰-۰۴ با `systemctl disable --now systemd-timesyncd` خاموش شد. در ۲۰ ثانیه سنجش، دیگر هیچ پرشی دیده نشد.
      - روی نصب تازه هم همین را بزن.
    - **ارسال Crashlytics هنگام ساخت** با init script گریدل خاموش است. سورس FlClash دست نخورده.
-   - APKهای debug (`com.follow.clash.dev`) در `D:\dev\shikoo-spike\apk\wsl-build\` هستند، با `SHA256SUMS`. ساخت‌ها بایت‌به‌بایت تکرارپذیر نیستند.
+   - APKهای debug خود FlClash (`com.follow.clash.dev`) در `D:\dev\shikoo-spike\apk\wsl-build\` هستند، با `SHA256SUMS`. ساخت‌ها بایت‌به‌بایت تکرارپذیر نیستند.
+   - ساخت‌های اپ شیکو از `cf8089b` به بعد `com.shikoonet.app.dev` هستند، و با کلید اصلی `com.shikoonet.app`.
    - **وقتی ریپو ساخته شد:** `.gitattributes` با `*.sh text eol=lf` لازم است.
 3. **ساخت ریپوی private `Shikoonet/shikoo-android`** (فورک FlClash) با تایید Sam. **انجام شد ۲۰۲۶-۱۰-۰۳** (Sam گفت «بله»).
    - **چیدمان:**
