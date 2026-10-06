@@ -174,6 +174,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('on a 960x540 box the sign-in result with four long names stays '
+      'inside the safe area, «ادامه» and its focus ring too', (tester) async {
+    await _pump(
+      tester,
+      tv: true,
+      login: const ShikooLogin(
+        LoginPhase.approved,
+        account: _maryam,
+        services: [
+          'user5551234_a1f0 · پاسارگاد',
+          'user5551234_e7f9 · پاسارگاد',
+          'user5551234_f38a · پاسارگاد',
+          'user5551234_5551234_2 · اولین خرید',
+        ],
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final go = tester.getRect(find.widgetWithText(ShikooButton, 'ادامه'));
+    expect(
+      go.bottom + ShikooSizes.ring,
+      lessThanOrEqualTo(540 - ShikooSizes.tv.safeY),
+    );
+  });
+
   testWidgets('while services come there is no «ادامه» yet', (tester) async {
     await _pump(
       tester,

@@ -166,20 +166,23 @@ class ShikooSettings extends ConsumerWidget {
       title: l.settings,
       isTV: isTV,
       child: isTV
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: Space.s10,
-              children: [
-                for (final first in [0, 1])
-                  Expanded(
-                    child: _Column(
-                      children: [
-                        for (var i = first; i < groups.length; i += 2)
-                          groups[i],
-                      ],
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: Space.s10,
+                children: [
+                  for (final first in [0, 1])
+                    Expanded(
+                      child: _Column(
+                        children: [
+                          for (var i = first; i < groups.length; i += 2)
+                            groups[i],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             )
           : _Column(children: groups),
     );
@@ -373,9 +376,11 @@ class _Page extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    height: s.appbar,
+                    height: s.appbar + (isTV ? 2 * ShikooSizes.ring : 0),
                     padding: isTV
-                        ? null
+                        ? const EdgeInsets.symmetric(
+                            horizontal: ShikooSizes.ring,
+                          )
                         : EdgeInsetsDirectional.only(
                             start: Space.s1,
                             end: s.safeX,

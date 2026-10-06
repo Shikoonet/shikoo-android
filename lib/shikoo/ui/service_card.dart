@@ -674,7 +674,9 @@ class _Usage extends StatelessWidget {
                   TextSpan(text: '${l.remainingLabel} '),
                   TextSpan(
                     text: total > 0
-                        ? l.gb(gb(math.max(total - used, 0)))
+                        ? l
+                              .gb(gb(math.max(total - used, 0)))
+                              .replaceAll(' ', '\u00A0')
                         : l.unlimited,
                     style: ended == ShikooServiceStatus.exhausted
                         ? danger

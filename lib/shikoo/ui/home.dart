@@ -343,8 +343,9 @@ class _TvLayout extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: s.appbar,
+          Container(
+            height: s.appbar + 2 * ShikooSizes.ring,
+            padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

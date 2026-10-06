@@ -485,11 +485,12 @@ class MessageBox extends StatelessWidget {
   }
 }
 
-/// Each part keeps its own direction and never breaks inside; a line breaks only after « ·».
+/// Each part keeps its own direction and never breaks inside; a line breaks only before «·»,
+/// which goes down with the tier.
 String bidiName(String name) => name
     .split(' · ')
     .map((part) => '\u2068${part.replaceAll(' ', '\u00A0')}\u2069')
-    .join('\u00A0· ');
+    .join(' ·\u00A0');
 
 /// `.svc-name`: never cut at its end. A username too long for a line alone keeps its last five
 /// characters (`7000…123_2`), which tell the services of one account apart.

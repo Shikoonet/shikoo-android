@@ -485,8 +485,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: s.appbar,
+          Container(
+            height: s.appbar + 2 * ShikooSizes.ring,
+            padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [const Brand(), if (coding) _language()],
@@ -796,7 +797,7 @@ class _Result extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: tv ? s.dialog : double.infinity),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        spacing: tv ? Space.s4 : Space.s3,
+        spacing: Space.s3,
         children: [
           Container(
             width: s.heroIcon,
@@ -876,7 +877,7 @@ class _ServicesBelow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s8,
-        vertical: Space.s3,
+        vertical: Space.s2,
       ),
       decoration: ShapeDecoration(
         color: t.c.surface,
@@ -895,7 +896,10 @@ class _ServicesBelow extends StatelessWidget {
             Text(
               l.approvedMoreServices(more),
               textAlign: TextAlign.center,
-              style: style.copyWith(color: t.c.textMuted),
+              style: style.copyWith(
+                color: t.c.textMuted,
+                fontWeight: FontWeight.w400,
+              ),
             ),
         ],
       ),

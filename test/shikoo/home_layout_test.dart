@@ -161,7 +161,7 @@ const _towardCard = LogicalKeyboardKey.arrowRight;
 const _ok = LogicalKeyboardKey.select;
 
 void main() {
-  testWidgets('the TV power button sits at 269dp, with or without a server', (
+  testWidgets('the TV power button sits at 274dp, with or without a server', (
     tester,
   ) async {
     _tvScreen(tester);
@@ -197,7 +197,7 @@ void main() {
       centres[key] = tester.getCenter(find.byType(PowerButton));
     }
     expect(centres.values.toSet(), hasLength(1), reason: '$centres');
-    expect(centres.values.first.dy, closeTo(269, 0.5));
+    expect(centres.values.first.dy, closeTo(274, 0.5));
   });
 
   testWidgets('the remote follows the order the TV mockup sets', (
@@ -366,7 +366,7 @@ void main() {
   });
 
   testWidgets(
-    "a short card starts where a long one does, at the design's 79dp",
+    "a short card starts where a long one does, at the design's 89dp",
     (tester) async {
       _tvScreen(tester);
       for (final servers in [_longList, _longList.take(2).toList()]) {
@@ -376,7 +376,7 @@ void main() {
         );
         expect(
           tester.getTopLeft(find.byType(ServiceCard)).dy,
-          79,
+          89,
           reason: '${servers.length} servers',
         );
       }
@@ -670,7 +670,7 @@ void main() {
       ),
       findsNothing,
     );
-    expect(tester.getCenter(find.byType(PowerButton)).dy, closeTo(288, 0.5));
+    expect(tester.getCenter(find.byType(PowerButton)).dy, closeTo(293, 0.5));
 
     expect(_focused(), 'تنظیمات');
     final moves = [

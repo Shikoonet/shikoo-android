@@ -306,6 +306,9 @@ class ShikooSizes {
   static const selectedBar = 4.0;
   static const focusRingWidth = 3.0;
   static const focusRingOffset = 2.0;
+
+  /// Room for the focus ring, so it stays inside the TV's safe area (`.tv-top`, `.tv-settings`).
+  static const ring = focusRingWidth + focusRingOffset;
   static const scrollThumb = 4.0;
   static const qrSm = 200.0;
   static const buttonLg = 56.0;
