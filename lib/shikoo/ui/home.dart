@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
@@ -11,6 +12,7 @@ import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -79,6 +81,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
+    final update = ref.watch(shikooUpdateOfferProvider);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final now = DateTime.now();
@@ -159,6 +162,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.s3,
       children: [
+        if (update != null) UpdateCard(offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
         if (hasService || (unlinked.isEmpty && current == null))
           ServiceCard(

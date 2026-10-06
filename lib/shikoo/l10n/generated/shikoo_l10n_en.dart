@@ -889,4 +889,86 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get shortcutToggle => 'Connect / Disconnect';
+
+  @override
+  String get updateTitle => 'A new version is out';
+
+  @override
+  String updateVersionSize(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'Version $version, $sizeString MB';
+  }
+
+  @override
+  String get updateGet => 'Download';
+
+  @override
+  String get updateDownloading => 'Downloading…';
+
+  @override
+  String updateProgress(int percent, int done, int total) {
+    final intl.NumberFormat percentNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String percentString = percentNumberFormat.format(percent);
+    final intl.NumberFormat doneNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String doneString = doneNumberFormat.format(done);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return '$percentString%, $doneString of $totalString MB';
+  }
+
+  @override
+  String get updateReady => 'Ready to install';
+
+  @override
+  String get updateInstall => 'Install';
+
+  @override
+  String get updateClosesApp =>
+      'Installing closes ShikooNet, and the connection if you\'re connected; open it again afterwards.';
+
+  @override
+  String get updateDownloadFailedTitle => 'The download stopped.';
+
+  @override
+  String get updateDownloadFailedHelp =>
+      'Check your internet and try again; it picks up where it stopped.';
+
+  @override
+  String get updateBadFileTitle => 'The file arrived damaged.';
+
+  @override
+  String get updateBadFileHelp => 'Try again to download it from the start.';
+
+  @override
+  String get updateForcedTitle => 'This version needs an update';
+
+  @override
+  String updateForcedBody(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'To keep using ShikooNet, download and install version $version ($sizeString MB).';
+  }
+
+  @override
+  String get installPermissionTitle => 'Allow installing';
+
+  @override
+  String get installPermissionTouch =>
+      'On the next screen, turn on installing for “ShikooNet”, then press your phone’s Back button; the install starts by itself.';
+
+  @override
+  String get installPermissionTv =>
+      'On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself.';
 }

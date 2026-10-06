@@ -40,7 +40,10 @@ enum ShikooIcon {
   plane(
     '<path d="M21 3.5L3 10.8l6.8 2.6L12.5 20.5z"/><path d="M9.8 13.4L21 3.5"/>',
   ),
-  spin('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>');
+  spin('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>'),
+  download(
+    '<path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20h14"/>',
+  );
 
   const ShikooIcon(this.paths);
 

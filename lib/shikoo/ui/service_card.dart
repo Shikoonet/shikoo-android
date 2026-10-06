@@ -689,7 +689,7 @@ class _Usage extends StatelessWidget {
           ]),
           if (total > 0) ...[
             const SizedBox(height: Space.s2),
-            _Bar(ratio: ratio),
+            MeterBar(ratio: ratio),
           ],
           if (expire != null) ...[
             const SizedBox(height: Space.s2),
@@ -718,16 +718,19 @@ class _Usage extends StatelessWidget {
   }
 }
 
-/// `.bar`: fills from the start edge; amber from 90%, red when used up.
-class _Bar extends StatelessWidget {
-  const _Bar({required this.ratio});
+/// `.bar`: fills from the start edge; for usage, amber from 90% and red when used up.
+class MeterBar extends StatelessWidget {
+  const MeterBar({super.key, required this.ratio, this.usage = true});
 
   final double ratio;
+  final bool usage;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final fill = ratio >= 1
+    final fill = !usage
+        ? t.c.primary
+        : ratio >= 1
         ? t.c.danger
         : (ratio >= _nearlyUsed ? t.c.warning : t.c.primary);
     return Container(

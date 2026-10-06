@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
@@ -12,6 +13,7 @@ import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -24,6 +26,11 @@ class ShikooRoot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(
+      shikooUpdateOfferProvider.select((o) => o?.forced ?? false),
+    )) {
+      return const ForcedUpdatePage();
+    }
     final login = ref.watch(shikooLoginProvider);
     final account = ref.watch(shikooAccountProvider);
     final hasService = ref.watch(
@@ -304,18 +311,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.rejected => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.x,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.rejectedTitle,
           body: [TextSpan(text: l.rejectedBodyTouch)],
         ),
         [telegram(l.loginTelegram, signIn), _paste(enabled: true)],
       ),
       LoginPhase.syncing || LoginPhase.approved => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.check,
-          tone: _Tone.positive,
+          tone: ResultTone.positive,
           title: l.approvedTitle,
           body: sayWith(l.approvedBodyTouch, _account(l, account)),
           below: _ServicesBelow(login: login!),
@@ -327,9 +334,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.servicesFailed => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.servicesFailedTitle,
           body: sayWith(l.servicesFailedBodyTouch, _account(l, account)),
         ),
@@ -344,9 +351,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.noService => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.muted,
+          tone: ResultTone.muted,
           title: l.noServiceTitle,
           body: sayWith(l.noServiceBodyTouch, _account(l, account)),
         ),
@@ -374,7 +381,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }.contains(phase);
     return SafeArea(
       minimum: const EdgeInsets.only(bottom: Space.s8),
-      child: _Fill(
+      child: FillPage(
         padding: const EdgeInsets.fromLTRB(Space.s6, Space.s2, Space.s6, 0),
         top: language
             ? Align(
@@ -597,9 +604,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final support = button(l.support, _support, icon: ShikooIcon.qr);
     final (result, actions) = switch (login.phase) {
       LoginPhase.rejected => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.x,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.rejectedTitle,
           body: [TextSpan(text: l.rejectedBodyTv)],
         ),
@@ -613,9 +620,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.syncing || LoginPhase.approved => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.check,
-          tone: _Tone.positive,
+          tone: ResultTone.positive,
           title: l.approvedTitle,
           body: sayWith(l.approvedBodyTv, account),
           below: _ServicesBelow(login: login),
@@ -627,9 +634,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.servicesFailed => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.servicesFailedTitle,
           body: sayWith(l.servicesFailedBodyTv, account),
         ),
@@ -645,9 +652,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       _ => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.muted,
+          tone: ResultTone.muted,
           title: l.noServiceTitle,
           body: sayWith(l.noServiceBodyTv, account),
           more: l.noServiceHelpTv,
@@ -708,8 +715,9 @@ List<InlineSpan> _account(ShikooL10n l, TelegramAccount? who) {
 }
 
 /// Fills the screen and scrolls only when large text does not fit.
-class _Fill extends StatelessWidget {
-  const _Fill({
+class FillPage extends StatelessWidget {
+  const FillPage({
+    super.key,
     required this.padding,
     required this.top,
     required this.middle,
@@ -776,11 +784,12 @@ class _BrandBlock extends StatelessWidget {
   }
 }
 
-enum _Tone { positive, danger, muted }
+enum ResultTone { positive, danger, muted }
 
 /// `.hero-icon` over the result's title, its sentence and, after it, [below].
-class _Result extends StatelessWidget {
-  const _Result({
+class ResultBlock extends StatelessWidget {
+  const ResultBlock({
+    super.key,
     required this.icon,
     required this.tone,
     required this.title,
@@ -790,7 +799,7 @@ class _Result extends StatelessWidget {
   });
 
   final ShikooIcon icon;
-  final _Tone tone;
+  final ResultTone tone;
   final String title;
   final List<InlineSpan> body;
   final String? more;
@@ -803,9 +812,9 @@ class _Result extends StatelessWidget {
     final s = t.s;
     final tv = identical(s, ShikooSizes.tv);
     final (fill, ink) = switch (tone) {
-      _Tone.positive => (c.positiveSoft, c.positive),
-      _Tone.danger => (c.dangerSoft, c.danger),
-      _Tone.muted => (c.surfaceSunken, c.textMuted),
+      ResultTone.positive => (c.positiveSoft, c.positive),
+      ResultTone.danger => (c.dangerSoft, c.danger),
+      ResultTone.muted => (c.surfaceSunken, c.textMuted),
     };
     final paragraph = t.text(
       tv ? s.title : s.bodySm,

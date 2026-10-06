@@ -1411,6 +1411,108 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Connect / Disconnect'**
   String get shortcutToggle;
+
+  /// Card at the head of the home card list when the published versionCode is higher than this install. Reuses cancelButton, retry and continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'A new version is out'**
+  String get updateTitle;
+
+  /// No description provided for @updateVersionSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}, {size} MB'**
+  String updateVersionSize(String version, int size);
+
+  /// No description provided for @updateGet.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get updateGet;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get updateDownloading;
+
+  /// No description provided for @updateProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%, {done} of {total} MB'**
+  String updateProgress(int percent, int done, int total);
+
+  /// No description provided for @updateReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to install'**
+  String get updateReady;
+
+  /// No description provided for @updateInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get updateInstall;
+
+  /// On the ready card, the forced page and the install-permission dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing closes ShikooNet, and the connection if you\'re connected; open it again afterwards.'**
+  String get updateClosesApp;
+
+  /// No description provided for @updateDownloadFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The download stopped.'**
+  String get updateDownloadFailedTitle;
+
+  /// No description provided for @updateDownloadFailedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and try again; it picks up where it stopped.'**
+  String get updateDownloadFailedHelp;
+
+  /// The finished file did not match the published sha256; it is deleted and the next try starts over.
+  ///
+  /// In en, this message translates to:
+  /// **'The file arrived damaged.'**
+  String get updateBadFileTitle;
+
+  /// No description provided for @updateBadFileHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again to download it from the start.'**
+  String get updateBadFileHelp;
+
+  /// Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet.
+  ///
+  /// In en, this message translates to:
+  /// **'This version needs an update'**
+  String get updateForcedTitle;
+
+  /// No description provided for @updateForcedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'To keep using ShikooNet, download and install version {version} ({size} MB).'**
+  String updateForcedBody(String version, int size);
+
+  /// Dialog before Android’s “install unknown apps” page, only when the permission is missing. Buttons: cancelButton and continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow installing'**
+  String get installPermissionTitle;
+
+  /// No description provided for @installPermissionTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, turn on installing for “ShikooNet”, then press your phone’s Back button; the install starts by itself.'**
+  String get installPermissionTouch;
+
+  /// No description provided for @installPermissionTv.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself.'**
+  String get installPermissionTv;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {
