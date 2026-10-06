@@ -19,6 +19,7 @@ env:
   GO_VERSION: '1.26.4'
   NDK_VERSION: r28c
   VERSION_PREFIX: '1.0'
+  APP_ID: com.shikoonet.app
   PRODUCTION_API: https://app.chopon.uk
   PRODUCTION_BOT: shikoonet_bot
   STAGING_API: ${{ vars.SHIKOO_STAGING_API || 'https://app-dev.chopon.uk' }}
@@ -166,8 +167,8 @@ jobs:
             n=$(unzip -p "$apk" 'lib/*/libapp.so' | grep -caF "$API" || true)
             pkg=$("$aapt2" dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
             case $apk in
-              *-staging-*) [ "$n" -gt 0 ] && [[ $pkg == *.dev ]] ;;
-              *) [ "$n" -eq 0 ] && [[ $pkg != *.dev ]] ;;
+              *-staging-*) [ "$n" -gt 0 ] && [ "$pkg" = "$APP_ID.dev" ] ;;
+              *) [ "$n" -eq 0 ] && [ "$pkg" = "$APP_ID" ] ;;
             esac || { echo "::error::$apk is $pkg and carries the staging server $n times"; exit 1; }
           done
           (cd out && sha256sum ./*.apk | sed 's| \./| |' >SHA256SUMS)

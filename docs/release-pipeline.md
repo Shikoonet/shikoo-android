@@ -107,15 +107,18 @@ one file cannot serve both testers and customers. One staging run builds both, f
 |---|---|---|
 | Server | `https://app-dev.chopon.uk` via `--dart-define=SHIKOO_API` (live, GTS certificate, reachable from Iran without a VPN) | the default in the code, `https://app.chopon.uk` |
 | Bot | `shikoodevbot` via `--dart-define=SHIKOO_BOT` (staging's `login/start` returns `t.me/shikoodevbot`) | the default in the code, `shikoonet_bot` |
-| applicationId | `<id>.dev` | `<id>` |
+| applicationId | `com.shikoonet.app.dev` | `com.shikoonet.app` |
 | Signed with | the staging key (secret), stable across runs | the release key (secrets) |
 | ABIs | armeabi-v7a, arm64-v8a, x86_64 | armeabi-v7a, arm64-v8a |
 | Files | `ShikooNet-<version>-staging-<abi>.apk` | `ShikooNet-<version>-<abi>.apk` |
 
-**How the variant is chosen without editing FlClash's Gradle file.** `android/app/build.gradle.kts` already switches on
-whether `android/app/keystore.jks` and three `local.properties` keys exist: with them, the release signing config and no
-suffix; without them, the debug signing config and `applicationIdSuffix = ".dev"`. So the job builds staging first, with no
-`keystore.jks` and the staging key placed as `~/.android/debug.keystore`, then writes `keystore.jks` and builds production.
+**How the variant is chosen without touching FlClash's signing logic.** `android/app/build.gradle.kts` has no flavors; the
+only Shikoo edit there is `applicationId = "com.shikoonet.app"` (`feat/app` `cf8089b`, `SHIKOO_PATCHES.md` row 11). Its
+`release` build type already switches on whether `android/app/keystore.jks` and three `local.properties` keys exist: with
+them, the release signing config and no suffix; without them, the debug signing config and `applicationIdSuffix = ".dev"`.
+Both variants are `flutter build apk --release` (Gradle `assembleRelease`) and land in
+`build/app/outputs/flutter-apk/app-<abi>-release.apk`. So the job builds staging first, with no `keystore.jks` and the
+staging key placed as `~/.android/debug.keystore`, then writes `keystore.jks` and builds production.
 The staging key being stable matters: a fresh runner debug key would make every staging APK a different signer, and testers
 would have to uninstall before each update. The keys are deleted at the end of the job, also on failure.
 
@@ -126,8 +129,10 @@ would have to uninstall before each update. The keys are deleted at the end of t
 - the staging APKs share one signer, the production APKs share another, and the two differ (`apksigner verify
   --print-certs`): a production APK signed by the staging key, which the runner also uses as its debug key, is refused;
 - every APK passes `tools/check_apk_clean.sh`;
-- every staging APK's `libapp.so` contains the staging server and its package ends in `.dev`; no production APK has either.
-  This guard exists because the probe once got it wrong: a production build came out as `com.follow.clash.dev`, debug-signed.
+- every staging APK's `libapp.so` contains the staging server and its package is exactly `com.shikoonet.app.dev`; every
+  production APK's `libapp.so` lacks it and its package is exactly `com.shikoonet.app` (`APP_ID` in `shikoo-staging.yml`).
+  This guard exists because the probe once got it wrong: a production build came out with the `.dev` suffix, debug-signed
+  (FlClash's `com.follow.clash.dev`, before the id changed).
   The most likely cause is a `local.properties` that Flutter had written without a final newline, so the appended
   `storePassword=` joined the previous line. The job now writes a newline first; the guard catches it if that was not all.
 
@@ -169,9 +174,14 @@ them to files and deletes the files at the end.
 
 | Secret | For |
 |---|---|
-| `SHIKOO_STAGING_KEYSTORE_B64` | staging: a debug-format keystore (alias `androiddebugkey`, passwords `android`, as Android's own debug key). The file is the secret; the passwords are public by design |
-| `SHIKOO_RELEASE_KEYSTORE_B64` | production: the release keystore, base64 |
-| `SHIKOO_RELEASE_STORE_PASSWORD`, `SHIKOO_RELEASE_KEY_ALIAS`, `SHIKOO_RELEASE_KEY_PASSWORD` | production |
+| `SHIKOO_STAGING_KEYSTORE_B64` | staging: `shikoonet-staging.jks`, base64. A debug-format keystore (alias `androiddebugkey`, passwords `android`, as Android's own debug key). The file is the secret; the passwords are public by design |
+| `SHIKOO_RELEASE_KEYSTORE_B64` | production: `shikoonet-release.jks`, base64 (PKCS12) |
+| `SHIKOO_RELEASE_KEY_ALIAS` | production: `shikoonet` |
+| `SHIKOO_RELEASE_STORE_PASSWORD`, `SHIKOO_RELEASE_KEY_PASSWORD` | production: both the same value, the one in `password.txt`; a PKCS12 store has one password |
+
+Sam makes both keystores and `password.txt` with his `make-signing-key.ps1`, outside this repository. Only
+`shikoo-staging.yml` reads these secrets: the staging one in its «Staging APKs» step, the four release ones in «Production
+APKs». CI and Promote read none.
 
 Repository variables, optional (not secrets, they are inside the APK anyway): `SHIKOO_STAGING_API` and `SHIKOO_STAGING_BOT`
 override the defaults `https://app-dev.chopon.uk` and `shikoodevbot` in `shikoo-staging.yml`.
@@ -202,7 +212,7 @@ GitHub Team would allow environment secrets limited to `main`; required reviewer
   - FlClash's update check compares against FlClash's GitHub releases; `1.0.<n>` is newer than any `0.8.x`, so it never offers
     an update.
 - The run number restarts if the workflow file is renamed. Do not rename it, or bump `VERSION_PREFIX` when you do.
-- Local WSL builds keep FlClash's `2026091401`-style code and a `.dev` id signed by the WSL debug key, so they never update
+- Local WSL builds keep FlClash's `2026091401`-style code and `com.shikoonet.app.dev` signed by the WSL debug key, so they never update
   over a CI build and vice versa.
 
 ## 6. ABIs
@@ -219,12 +229,11 @@ later picks by itself.
 
 ## 7. What Sam does by hand, once
 
-1. Decide the items in §8 (at least the applicationId and where the release key lives) before the first production build.
+1. Decide the items in §8 (at least where the release key lives) before the first production build.
 2. Repository ▸ Settings ▸ Actions ▸ General: allow Actions.
 3. Immediately, before any push: `gh workflow disable build.yaml -R Shikoonet/shikoo-android`.
-4. Settings ▸ Secrets and variables ▸ Actions: add the secrets and variables of §4. The staging key can be made with
-   `keytool -genkeypair -keystore staging.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Shikoo Staging"`,
-   then `base64 -w0 staging.keystore`. The release key is Sam's own (§8).
+4. Settings ▸ Secrets and variables ▸ Actions: add the secrets and variables of §4, from the folder `make-signing-key.ps1`
+   wrote. A keystore's base64, in PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes('<file>'))`.
 5. Nothing for environments: on GitHub Free a private repository gets no environment rules (§4).
 6. Merge this branch (after the prerequisites in §9) and watch the first `Shikoo Staging` run.
 7. Give each tester read access to the repository, or decide another way to hand them the staging APK (§8).
@@ -235,7 +244,7 @@ later picks by itself.
 
 | Decision | Placeholder in the files |
 |---|---|
-| **applicationId** of the app. Final after the first customer install. Today it is FlClash's `com.follow.clash`; changing it is one upstream edit in `android/app/build.gradle.kts` and a `SHIKOO_PATCHES.md` row | none yet; staging becomes `<id>.dev` |
+| ~~**applicationId**~~ Decided 2026-10-06: `com.shikoonet.app`, staging `com.shikoonet.app.dev`. Final after the first customer install | `APP_ID` in `shikoo-staging.yml`; the id itself in `android/app/build.gradle.kts` on `feat/app` |
 | **Where the release key is made and kept**, and who holds the backup. Losing it means every customer reinstalls | `SHIKOO_RELEASE_*` secrets |
 | **Who may promote** (GitHub user names) | `PROMOTE_OWNERS: Isusami,arshiajacki`, copied from the platform's `PRODUCTION_OWNERS` |
 | **How testers get the staging APK**: repository access, or for example a private Telegram group (one more step) | repository access |
@@ -246,7 +255,8 @@ later picks by itself.
 **Run on 2026-10-05:**
 
 In WSL, with a fresh copy of `feat/app-login` (`08e8aae`, Firebase already removed) as `/root/src/ci-probe`, a fresh `HOME`
-(empty Go build cache) and `taskset -c 0,1`. The scripts were throwaway, outside the repository.
+(empty Go build cache) and `taskset -c 0,1`. The scripts were throwaway, outside the repository. That tree still had
+FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the last row checks the guard with the new id.
 
 | What | Result |
 |---|---|
@@ -263,10 +273,12 @@ In WSL, with a fresh copy of `feat/app-login` (`08e8aae`, Firebase already remov
 | The server and bot guard on `https://app-dev.chopon.uk/` + `shikoodevbot`, `https://APP.chopon.uk/`, and `@ShikooNet_Bot` | allowed as `https://app-dev.chopon.uk`; refused; refused |
 | `actionlint` 1.7.12 with `shellcheck` 0.11.0 on the three workflows | exit 0 (one `SC2012` fixed on the way) |
 | `flutter test` on 2 CPUs | 399 s, one failure: `NetworkDetection provider ignores a canceled stale check after a newer check succeeds`; the file alone passed three times (2 CPUs twice, all CPUs once), so it is a timing flake under load, in FlClash's tests |
+| The package guard, cut from the workflow, on v7a APKs from `feat/app` local builds (2026-10-06): a staging build named as staging; the same named as production; a build without the staging server named as production; FlClash's own debug APK named as staging | PASS; refused (`is com.shikoonet.app.dev and carries the staging server 1 times`); refused (`com.shikoonet.app.dev … 0 times`); refused (`com.follow.clash.dev`) |
 
 **Prerequisites before this can merge green:**
 - **The Shikoo app itself on `main`.** `main` (`f08a9fd`) has no `lib/shikoo/` at all, so `-t lib/shikoo/app/main.dart`
-  cannot build there. The app is on `feat/app` (head `e81246a`, in WSL `/root/src/shikoo-phone`) and must be merged first.
+  cannot build there. The app is on `feat/app` (in WSL `/root/src/shikoo-phone`) and must be merged first, with `cf8089b`
+  (`com.shikoonet.app`): without it every staging run fails the package guard.
 - `tools/check_apk_clean.sh` and the Firebase removal (`chore/remove-firebase`) on `main`; the CI `apk` job and staging call it.
 - `lib/shikoo/engine/settings.dart` reading the bot from `String.fromEnvironment('SHIKOO_BOT', defaultValue: 'shikoonet_bot')`
   (flutter-engineer); staging refuses to build until it does. `SHIKOO_API` already exists on `feat/app-login`.
@@ -274,7 +286,8 @@ In WSL, with a fresh copy of `feat/app-login` (`08e8aae`, Firebase already remov
 **Not proven:**
 - None of the three workflows has run on GitHub. The minutes and times above are from WSL pinned to 2 CPUs, not from a runner.
 - That two release builds with a real, different release key sign with it: the probe's "release" key was a copy of the debug
-  key, so the signer looked the same either way; only the package name showed which path Gradle took.
+  key, so the signer looked the same either way; only the package name showed which path Gradle took. Sam's keystores are
+  PKCS12 under a `.jks` name; Gradle on JDK 17 opens either format by default, but no build has signed with one yet.
 - The flaky `NetworkDetection` test may turn a 2-CPU runner red now and then; rerun the job, and report it upstream if it
   keeps happening.
 - That the runner's preinstalled clang and libclang serve the Rust hook's bindgen. FlClash's own release job builds Android on
