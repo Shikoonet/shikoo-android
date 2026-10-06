@@ -601,9 +601,33 @@ String? pickNow({
   required bool urgent,
 }) => pinging && !urgent ? null : fastest(names, ping);
 
+/// While off, a selection that cannot connect gives way to one that can, else to the last ended.
+int? serviceInstead(ShikooState state) {
+  final current = state.service;
+  final busy = {ShikooConnection.on, ShikooConnection.connecting};
+  if (current?.ended == null || busy.contains(state.connection)) return null;
+  final usable = state.others.firstWhereOrNull((other) => other.ended == null);
+  if (usable != null) return usable.id;
+  final latest = [current!, ...state.others]
+      .where(
+        (service) => {
+          ShikooServiceStatus.exhausted,
+          ShikooServiceStatus.expired,
+        }.contains(service.ended),
+      )
+      .sortedBy<num>(
+        (service) => -(service.expire?.millisecondsSinceEpoch ?? -1),
+      )
+      .firstOrNull;
+  return latest == null || latest.id == current.id ? null : latest.id;
+}
+
 class ShikooController {
   // Microtasks: Riverpod forbids writing other providers while this one is being built.
   ShikooController(this._ref) {
+    _ref.listen(shikooStateProvider.select(serviceInstead), (_, id) {
+      if (id != null) scheduleMicrotask(() => selectService(id));
+    }, fireImmediately: true);
     _ref.listen(patchClashConfigProvider.select((config) => config.mode), (
       _,
       mode,

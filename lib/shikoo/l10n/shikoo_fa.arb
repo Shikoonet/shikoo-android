@@ -127,7 +127,6 @@
   "expiredEnded": "تمام شده",
   "summaryExhausted": "حجمش تمام شد. با تمدید دوباره فعال می‌شود.",
   "summaryExpired": "اعتبارش {date} تمام شد. با تمدید دوباره فعال می‌شود.",
-  "renewOrSwitch": "با «تمدید» دوباره وصل می‌شوی،\nیا سرویس دیگرت را انتخاب کن.",
   "pasteUnavailableTitle": "لینک الان باز نشد.",
   "pasteUnavailableHelp": "کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.",
   "loginTagline": "مخصوص مشتری‌های شیکونت",
@@ -209,5 +208,11 @@
   "revokedTitle": "این لینک باطل شده.",
   "revokedHelp": "حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» بچسبان.",
   "errorConnectTouch": "{server} تا {seconds} ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.",
-  "serviceUnnamed": "سرویس شیکونت"
+  "serviceUnnamed": "سرویس شیکونت",
+  "finishedServices": "سرویس‌های تمام‌شده ({count})",
+  "finishedData": "حجم تمام شد",
+  "finishedToday": "امروز تمام شد",
+  "finishedDaysAgo": "{count} روز پیش تمام شد",
+  "finishedNoDate": "اعتبارش تمام شد",
+  "approvedMoreServices": "و {count} سرویس دیگر"
 }

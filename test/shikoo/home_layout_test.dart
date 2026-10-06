@@ -752,4 +752,75 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('on the TV the finished row is one stop: OK opens it on its '
+      'first service, OK there shows renew, Back folds it again', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    final now = DateTime.now();
+    await _pumpTvHome(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: true,
+        servers: _servers,
+        selected: 'فنلاند ۲',
+        service: ShikooService(
+          name: 'user123 · الماس',
+          usedBytes: 1 << 30,
+          totalBytes: 100 << 30,
+          expire: now.add(const Duration(days: 30)),
+        ),
+        others: [
+          ShikooService(
+            id: 2,
+            name: 'user555 · طلایی',
+            usedBytes: 0,
+            totalBytes: 0,
+            expire: now.subtract(const Duration(days: 3)),
+          ),
+          const ShikooService(
+            id: 3,
+            name: 'user666 · طلایی',
+            usedBytes: 100,
+            totalBytes: 100,
+          ),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۲)');
+    Focus.of(tester.element(head)).requestFocus();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('user555'), findsNothing);
+
+    await tester.sendKeyEvent(_ok);
+    await tester.pumpAndSettle();
+    final first = FocusManager.instance.primaryFocus!.context!;
+    expect(
+      find.descendant(
+        of: find.byElementPredicate((element) => element == first),
+        matching: find.textContaining('user555'),
+      ),
+      findsOneWidget,
+      reason: 'the latest end first, and the remote on it',
+    );
+
+    await tester.sendKeyEvent(_ok);
+    await tester.pumpAndSettle();
+    expect(tester.widget<QrTile>(find.byType(QrTile)).data, ShikooLinks.renew);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(QrTile), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('user555'), findsNothing, reason: 'folded');
+    expect(
+      Focus.of(tester.element(head)).hasPrimaryFocus,
+      isTrue,
+      reason: 'back on the row',
+    );
+  });
 }

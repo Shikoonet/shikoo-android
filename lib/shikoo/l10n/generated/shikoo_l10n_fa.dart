@@ -491,10 +491,6 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
-  String get renewOrSwitch =>
-      'با «تمدید» دوباره وصل می‌شوی،\nیا سرویس دیگرت را انتخاب کن.';
-
-  @override
   String get pasteUnavailableTitle => 'لینک الان باز نشد.';
 
   @override
@@ -794,4 +790,40 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get serviceUnnamed => 'سرویس شیکونت';
+
+  @override
+  String finishedServices(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return 'سرویس‌های تمام‌شده ($countString)';
+  }
+
+  @override
+  String get finishedData => 'حجم تمام شد';
+
+  @override
+  String get finishedToday => 'امروز تمام شد';
+
+  @override
+  String finishedDaysAgo(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString روز پیش تمام شد';
+  }
+
+  @override
+  String get finishedNoDate => 'اعتبارش تمام شد';
+
+  @override
+  String approvedMoreServices(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return 'و $countString سرویس دیگر';
+  }
 }

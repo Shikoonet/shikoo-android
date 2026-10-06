@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -57,6 +58,7 @@ Future<ValueNotifier<ShikooState>> _pump(
   ShikooState state, {
   String locale = 'fa',
   ShikooController? controller,
+  ShikooAccount? account,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -75,6 +77,8 @@ Future<ValueNotifier<ShikooState>> _pump(
         shikooVersionProvider.overrideWithValue('1.0.0'),
         if (controller != null)
           shikooControllerProvider.overrideWithValue(controller),
+        if (account != null)
+          shikooAccountProvider.overrideWith(() => ShikooCell(account)),
         shikooStateProvider.overrideWith((ref) {
           void changed() => ref.invalidateSelf();
           holder.addListener(changed);
@@ -602,7 +606,7 @@ void main() {
     });
     expect(spans.single.style?.color, ShikooColors.light.danger);
 
-    final lastMonth = DateTime.now().subtract(const Duration(days: 30));
+    final lastMonth = DateTime.now().subtract(const Duration(days: 20));
     await _pump(
       tester,
       ended(
@@ -622,9 +626,9 @@ void main() {
     expect(find.text('اعتبار تمام شده'), findsOneWidget);
     expect(find.text('تمام شده'), findsOneWidget);
     expect(
-      find.textContaining('تمام شد. با تمدید دوباره فعال می‌شود.'),
+      find.text('سرویس‌های تمام‌شده (۱)'),
       findsOneWidget,
-      reason: 'the folded expired service',
+      reason: 'the other expired service, in the finished row',
     );
 
     await _pump(
@@ -739,49 +743,288 @@ void main() {
     expect(left()?.color, ShikooColors.light.warning);
   });
 
-  testWidgets('a used-up service points to another one only while that one '
-      'is active', (tester) async {
-    ShikooState besides(ShikooService other) => ShikooState(
-      connection: ShikooConnection.off,
+  test('finished services: the latest end first and those without a date '
+      'last; gone 30 days after the end, used up or not', () {
+    final now = DateTime(2026, 10, 6, 12);
+    Finished row(String name, {bool exhausted = false, DateTime? ended}) => (
+      name: name,
+      exhausted: exhausted,
+      ended: ended,
+      renewId: null,
+      profileId: null,
+      linked: null,
+    );
+    final order = finishedOrder([
+      row('no date'),
+      row('29 days', ended: now.subtract(const Duration(days: 29))),
+      row('31 days', ended: now.subtract(const Duration(days: 31))),
+      row(
+        'used up, ends later',
+        exhausted: true,
+        ended: now.add(const Duration(days: 10)),
+      ),
+      row(
+        'used up, ended 31 days ago',
+        exhausted: true,
+        ended: now.subtract(const Duration(days: 31)),
+      ),
+      row('used up, no date', exhausted: true),
+      row('3 days', ended: now.subtract(const Duration(days: 3))),
+      row('today', ended: now.subtract(const Duration(hours: 2))),
+    ], now);
+    expect(order.map((row) => row.name), [
+      'used up, ends later',
+      'today',
+      '3 days',
+      '29 days',
+      'no date',
+      'used up, no date',
+    ]);
+    final l = lookupShikooL10n(const Locale('fa'));
+    expect(
+      [for (final row in order) finishedStatus(l, row, now)],
+      [
+        'حجم تمام شد',
+        'امروز تمام شد',
+        '۳ روز پیش تمام شد',
+        '۲۹ روز پیش تمام شد',
+        'اعتبارش تمام شد',
+        'حجم تمام شد',
+      ],
+    );
+  });
+
+  test('while off, a selection that cannot connect gives way to one that can, '
+      'or with none to the one that ended last', () {
+    final now = DateTime.now();
+    ShikooState state(
+      ShikooService current,
+      List<ShikooService> others, {
+      ShikooConnection connection = ShikooConnection.off,
+    }) => ShikooState(
+      connection: connection,
       connectedFor: Duration.zero,
       isTV: false,
-      servers: _servers,
-      service: const ShikooService(
-        name: 'user123 · الماس',
-        usedBytes: 100,
-        totalBytes: 100,
-      ),
-      others: [other],
+      servers: const [],
+      service: current,
+      others: others,
     );
-    const orSwitch =
-        'با «تمدید» دوباره وصل می‌شوی،\nیا سرویس دیگرت را انتخاب کن.';
+    const usedUp = ShikooService(
+      id: 1,
+      name: 'a',
+      usedBytes: 100,
+      totalBytes: 100,
+    );
+    const active = ShikooService(id: 2, name: 'b', usedBytes: 1, totalBytes: 9);
+    final endedLong = ShikooService(
+      id: 3,
+      name: 'c',
+      usedBytes: 0,
+      totalBytes: 0,
+      expire: now.subtract(const Duration(days: 20)),
+    );
+    final endedLately = ShikooService(
+      id: 4,
+      name: 'd',
+      usedBytes: 0,
+      totalBytes: 0,
+      expire: now.subtract(const Duration(days: 2)),
+    );
+    expect(serviceInstead(state(usedUp, [endedLately, active])), 2);
+    expect(
+      serviceInstead(state(usedUp, [active], connection: ShikooConnection.on)),
+      isNull,
+      reason: 'a live tunnel is the user\'s',
+    );
+    expect(serviceInstead(state(active, [usedUp])), isNull);
+    expect(serviceInstead(state(endedLong, [endedLately, usedUp])), 4);
+    expect(serviceInstead(state(endedLately, [endedLong, usedUp])), isNull);
+  });
 
+  testWidgets('services that connect come first, then the ones waiting on '
+      'the customer, and every finished one in one folded row at the end', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    ShikooService service(
+      int id,
+      String name, {
+      int used = 1,
+      DateTime? expire,
+      bool revoked = false,
+    }) => ShikooService(
+      id: id,
+      name: name,
+      usedBytes: used << 30,
+      totalBytes: 100 << 30,
+      expire: expire ?? now.add(const Duration(days: 20)),
+      revoked: revoked,
+      pasted: revoked,
+    );
     await _pump(
       tester,
-      besides(
-        const ShikooService(
-          id: 7,
-          name: 'user789 · معمولی',
-          usedBytes: 0,
-          totalBytes: 0,
-        ),
+      ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        selected: 'آلمان ۲',
+        service: service(1, 'user123 · الماس'),
+        others: [
+          service(9, 'user555 · طلایی', used: 100),
+          service(7, 'user789 · معمولی'),
+          service(8, 'user456 · طلایی', revoked: true),
+          service(
+            10,
+            'user666 · طلایی',
+            expire: now.subtract(const Duration(days: 3)),
+          ),
+          service(
+            11,
+            'user999 · طلایی',
+            expire: now.subtract(const Duration(days: 40)),
+          ),
+        ],
+      ),
+      account: const ShikooAccount(
+        services: [
+          LinkedService(id: 50, title: 'user777 · نقره‌ای', status: 'active'),
+          LinkedService(id: 51, title: 'user888 · برنزی', status: 'expired'),
+        ],
       ),
     );
-    expect(find.text(orSwitch), findsOneWidget);
+    double top(String text) =>
+        tester.getTopLeft(find.textContaining(text).first).dy;
+    final head = find.text('سرویس‌های تمام‌شده (۳)');
+    expect(head, findsOneWidget);
+    expect(
+      [
+        top('user123'),
+        top('user789'),
+        top('user777'),
+        top('user456'),
+        tester.getTopLeft(head).dy,
+      ],
+      orderedEquals(
+        [
+          ...[
+            top('user123'),
+            top('user789'),
+            top('user777'),
+            top('user456'),
+            tester.getTopLeft(head).dy,
+          ],
+        ]..sort(),
+      ),
+    );
+    for (final name in ['user555', 'user666', 'user888', 'user999']) {
+      expect(find.textContaining(name), findsNothing, reason: 'folded: $name');
+    }
 
+    await tester.ensureVisible(head);
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    expect(
+      [
+        for (final name in ['user555', 'user666', 'user888']) top(name),
+      ],
+      orderedEquals(
+        [
+          for (final name in ['user555', 'user666', 'user888']) top(name),
+        ]..sort(),
+      ),
+    );
+    expect(find.textContaining('user999'), findsNothing, reason: '40 days');
+    for (final status in [
+      'حجم تمام شد',
+      '۳ روز پیش تمام شد',
+      'اعتبارش تمام شد',
+    ]) {
+      expect(find.text(status), findsOneWidget);
+    }
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ShikooButton && widget.small,
+      ),
+      findsNWidgets(3),
+    );
+    expect(
+      find.text('با «تمدید» دوباره وصل می‌شوی.'),
+      findsNothing,
+      reason: 'the selected service works',
+    );
+  });
+
+  testWidgets('with large text on a small phone nothing overflows: the round '
+      'button keeps its text inside, a long name wraps and keeps its tail', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.45;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final now = DateTime.now();
     await _pump(
       tester,
-      besides(
-        const ShikooService(
-          id: 7,
-          name: 'user789 · معمولی',
-          usedBytes: 5,
-          totalBytes: 5,
+      ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: const Duration(minutes: 12, seconds: 47),
+        isTV: false,
+        servers: _servers,
+        selected: 'آلمان ۲',
+        service: ShikooService(
+          id: 1,
+          name: '7000123_7000123_2 · اولین خرید',
+          usedBytes: 12 << 30,
+          totalBytes: 50 << 30,
+          expire: now.add(const Duration(days: 67)),
+          updatedAt: now,
         ),
+        others: [
+          ShikooService(
+            id: 2,
+            name: '7000123_f38a · پاسارگاد',
+            usedBytes: 50 << 30,
+            totalBytes: 50 << 30,
+            expire: now.add(const Duration(days: 9)),
+          ),
+        ],
       ),
     );
-    expect(find.text(orSwitch), findsNothing);
-    expect(find.text('با «تمدید» دوباره وصل می‌شوی.'), findsOneWidget);
+    tester.view.physicalSize = const Size(686, 1524);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final circle = tester.getRect(
+      find
+          .descendant(
+            of: find.byType(PowerButton),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    final clock = find.text('۰۰:۱۲:۴۷');
+    final timer = tester.getRect(clock);
+    expect(
+      MediaQuery.textScalerOf(tester.element(clock)).scale(26),
+      closeTo(26 * ShikooSizes.roundTextScaleMax, 0.01),
+    );
+    expect(
+      circle.inflate(1).contains(timer.topLeft) &&
+          circle.inflate(1).contains(timer.bottomRight),
+      isTrue,
+      reason: '$timer inside $circle',
+    );
+    final name = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ServiceName),
+        matching: find.textContaining('اولین'),
+      ),
+    );
+    expect(name.overflow, isNot(TextOverflow.ellipsis));
+    expect(name.data, contains('…'));
+    expect(name.data, contains('123_2'), reason: 'the last five stay');
+    final search = tester.getRect(find.text('جست‌وجوی سرور'));
+    final pingAll = tester.getRect(find.text('پینگ همه'));
+    expect(pingAll.top, greaterThan(search.bottom), reason: 'ping-all wraps');
   });
 
   testWidgets('on the TV the remote starts on the first item of whatever '

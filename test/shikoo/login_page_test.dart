@@ -157,6 +157,23 @@ void main() {
     verify(_signInOf(container).notMine).called(1);
   });
 
+  testWidgets('on the TV five services or more show three names and how many '
+      'more, so the page never grows past four lines', (tester) async {
+    await _pump(
+      tester,
+      tv: true,
+      login: ShikooLogin(
+        LoginPhase.approved,
+        account: _maryam,
+        services: [for (var i = 1; i <= 5; i++) 'user$i · پاسارگاد'],
+      ),
+    );
+    expect(find.textContaining('user3'), findsOneWidget);
+    expect(find.textContaining('user4'), findsNothing);
+    expect(find.text('و ۲ سرویس دیگر'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('while services come there is no «ادامه» yet', (tester) async {
     await _pump(
       tester,

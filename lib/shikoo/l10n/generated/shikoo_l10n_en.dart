@@ -528,10 +528,6 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
-  String get renewOrSwitch =>
-      'Renew to connect again,\nor pick your other service.';
-
-  @override
   String get pasteUnavailableTitle => 'Couldn\'t open the link right now.';
 
   @override
@@ -833,4 +829,52 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get serviceUnnamed => 'ShikooNet service';
+
+  @override
+  String finishedServices(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return 'Finished services ($countString)';
+  }
+
+  @override
+  String get finishedData => 'Out of data';
+
+  @override
+  String get finishedToday => 'Ended today';
+
+  @override
+  String finishedDaysAgo(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ended $countString days ago',
+      one: 'Ended 1 day ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get finishedNoDate => 'Expired';
+
+  @override
+  String approvedMoreServices(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'and $countString more services',
+      one: 'and 1 more service',
+    );
+    return '$_temp0';
+  }
 }

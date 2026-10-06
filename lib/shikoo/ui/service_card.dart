@@ -336,9 +336,7 @@ class FoldedServiceCard extends StatelessWidget {
         ? Row(
             spacing: Space.s2,
             children: [
-              Expanded(child: _serviceName(context, service)),
-              if (service.usageKnown)
-                StatusChip(status: service.statusAt(DateTime.now())),
+              Expanded(child: _NameLine(service: service)),
               SvgIcon(
                 ShikooIcon.chevronDown,
                 size: t.s.icon,
@@ -391,14 +389,21 @@ class FoldedServiceCard extends StatelessWidget {
   }
 }
 
-/// Unlike a server name, in the UI's direction: the username leads in both languages.
-Text _serviceName(BuildContext context, ShikooService service) {
-  final t = ShikooTheme.of(context);
-  return Text(
-    serviceTitle(context, service),
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-    style: t.text(t.s.title, weight: FontWeight.w700, height: Leading.snug),
+/// `.svc-line`: the name, then the status; what does not fit goes down, the status first.
+class _NameLine extends StatelessWidget {
+  const _NameLine({required this.service});
+
+  final ShikooService service;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: Space.s2,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      ServiceName(plainTitle(context, service)),
+      if (service.usageKnown)
+        StatusChip(status: service.statusAt(DateTime.now())),
+    ],
   );
 }
 
@@ -453,15 +458,7 @@ class _Head extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Expanded(child: _serviceName(context, service)),
-                  if (service.usageKnown) ...[
-                    const SizedBox(width: Space.s2),
-                    StatusChip(status: service.statusAt(DateTime.now())),
-                  ],
-                ],
-              ),
+              _NameLine(service: service),
               if (sub != null)
                 Text(
                   sub,
@@ -884,46 +881,42 @@ class _ServerListState extends State<_ServerList> {
               Space.s4,
               Space.s2,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: state.isTV
-                      ? Text.rich(
+            child: _ListHead(
+              search: state.isTV
+                  ? Text.rich(
+                      TextSpan(
+                        children: [
                           TextSpan(
-                            children: [
-                              TextSpan(
-                                text: l.serversTitle,
-                                style: TextStyle(
-                                  fontSize: t.s.body,
-                                  fontWeight: FontWeight.w700,
-                                  color: t.c.text,
-                                ),
-                              ),
-                              TextSpan(
-                                text:
-                                    ' · ${listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave}',
-                              ),
-                            ],
+                            text: l.serversTitle,
+                            style: TextStyle(
+                              fontSize: t.s.body,
+                              fontWeight: FontWeight.w700,
+                              color: t.c.text,
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: muted,
-                        )
-                      : _SearchField(controller: _search),
-                ),
-                const SizedBox(width: Space.s2),
-                ShikooButton(
-                  label: pinging == null
-                      ? l.pingAll
-                      : l.pingProgress(pinging.done, pinging.total),
-                  icon: ShikooIcon.gauge,
-                  busy: pinging != null,
-                  focusNode: widget.focus.pingAll,
-                  onPressed: pinging == null
-                      ? () => unawaited(widget.controller.pingAll())
-                      : () {},
-                ),
-              ],
+                          TextSpan(
+                            text:
+                                ' · ${listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave}',
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: muted,
+                    )
+                  : _SearchField(controller: _search),
+              wrap: !state.isTV,
+              pingAll: ShikooButton(
+                label: pinging == null
+                    ? l.pingAll
+                    : l.pingProgress(pinging.done, pinging.total),
+                icon: ShikooIcon.gauge,
+                busy: pinging != null,
+                focusNode: widget.focus.pingAll,
+                onPressed: pinging == null
+                    ? () => unawaited(widget.controller.pingAll())
+                    : () {},
+              ),
             ),
           ),
           Padding(
@@ -973,6 +966,54 @@ class _ServerListState extends State<_ServerList> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// `.list-head`: at a large text size the phone's search takes its own line, as `flex: 1 1 10em`,
+/// and ping-all goes under it.
+class _ListHead extends StatelessWidget {
+  const _ListHead({
+    required this.search,
+    required this.pingAll,
+    required this.wrap,
+  });
+
+  final Widget search;
+  final Widget pingAll;
+  final bool wrap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final label = TextPainter(
+          text: TextSpan(
+            text: ShikooL10n.of(context).pingAll,
+            style: t.text(t.s.body, weight: FontWeight.w700),
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: scaler,
+        )..layout();
+        final ping = label.width + t.s.icon + 3 * Space.s4;
+        label.dispose();
+        if (!wrap || box.maxWidth - ping >= 10 * scaler.scale(t.s.bodySm)) {
+          return Row(
+            spacing: Space.s2,
+            children: [
+              Expanded(child: search),
+              pingAll,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: Space.s2,
+          children: [search, pingAll],
+        );
+      },
     );
   }
 }

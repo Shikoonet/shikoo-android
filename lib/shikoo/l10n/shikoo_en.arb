@@ -157,8 +157,6 @@
   "summaryExhausted": "Out of data. Renew to use it again.",
   "summaryExpired": "Expired on {date}. Renew to use it again.",
   "@summaryExpired": {"description": "The folded card's summary line. {date} is the end date, Gregorian in English.", "placeholders": {"date": {"type": "String", "example": "Sep 27, 2026"}}},
-  "renewOrSwitch": "Renew to connect again,\nor pick your other service.",
-  "@renewOrSwitch": {"description": "Instead of renewToConnect when another active service is on this device. The line break is fixed so neither line wraps alone under the round button, phone or TV."},
   "pasteUnavailableTitle": "Couldn't open the link right now.",
   "@pasteUnavailableTitle": {"description": "A server error (5xx), an empty answer, or a web page instead of a subscription. Only 404 and 410 say pasteRevokedTitle. Says nothing about a “server”: customers read that as the servers in the list."},
   "pasteUnavailableHelp": "Try again in a bit; if it still won't open, ask Support.",
@@ -268,5 +266,16 @@
   "errorConnectTouch": "{server} didn't answer in {seconds} seconds. Tap again, or pick another server from the list.",
   "@errorConnectTouch": {"description": "Phone: errorConnect, which the TV keeps as two lines.", "placeholders": {"server": {"type": "String"}, "seconds": {"type": "int", "format": "decimalPattern"}}},
   "serviceUnnamed": "ShikooNet service",
-  "@serviceUnnamed": {"description": "A service's name when the panel sends no title and there is no username or plan name."}
+  "@serviceUnnamed": {"description": "A service's name when the panel sends no title and there is no username or plan name."},
+  "finishedServices": "Finished services ({count})",
+  "@finishedServices": {"description": "The one folded row at the end of the home for every out-of-data or expired service (ended at most finishedMaxDays ago, a constant: 30). Folded on every start. Not for a revoked pasted link.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
+  "finishedData": "Out of data",
+  "@finishedData": {"description": "Second line of a row in finishedServices, beside a small Renew button."},
+  "finishedToday": "Ended today",
+  "finishedDaysAgo": "{count, plural, =1{Ended 1 day ago} other{Ended {count} days ago}}",
+  "@finishedDaysAgo": {"placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
+  "finishedNoDate": "Expired",
+  "@finishedNoDate": {"description": "An expired service from the account whose end date is not known."},
+  "approvedMoreServices": "{count, plural, =1{and 1 more service} other{and {count} more services}}",
+  "@approvedMoreServices": {"description": "Fourth line of the sign-in result list when there are five services or more: three names, then this, so the TV screen never grows past four lines.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}}
 }

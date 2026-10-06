@@ -860,12 +860,6 @@ abstract class ShikooL10n {
   /// **'Expired on {date}. Renew to use it again.'**
   String summaryExpired(String date);
 
-  /// Instead of renewToConnect when another active service is on this device. The line break is fixed so neither line wraps alone under the round button, phone or TV.
-  ///
-  /// In en, this message translates to:
-  /// **'Renew to connect again,\nor pick your other service.'**
-  String get renewOrSwitch;
-
   /// A server error (5xx), an empty answer, or a web page instead of a subscription. Only 404 and 410 say pasteRevokedTitle. Says nothing about a “server”: customers read that as the servers in the list.
   ///
   /// In en, this message translates to:
@@ -1357,6 +1351,42 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'ShikooNet service'**
   String get serviceUnnamed;
+
+  /// The one folded row at the end of the home for every out-of-data or expired service (ended at most finishedMaxDays ago, a constant: 30). Folded on every start. Not for a revoked pasted link.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished services ({count})'**
+  String finishedServices(int count);
+
+  /// Second line of a row in finishedServices, beside a small Renew button.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of data'**
+  String get finishedData;
+
+  /// No description provided for @finishedToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended today'**
+  String get finishedToday;
+
+  /// No description provided for @finishedDaysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Ended 1 day ago} other{Ended {count} days ago}}'**
+  String finishedDaysAgo(int count);
+
+  /// An expired service from the account whose end date is not known.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get finishedNoDate;
+
+  /// Fourth line of the sign-in result list when there are five services or more: three names, then this, so the TV screen never grows past four lines.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{and 1 more service} other{and {count} more services}}'**
+  String approvedMoreServices(int count);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

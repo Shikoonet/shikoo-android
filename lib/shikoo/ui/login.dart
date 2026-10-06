@@ -863,6 +863,16 @@ class _ServicesBelow extends StatelessWidget {
         ],
       );
     }
+    final services = login.services;
+    // tv-login-approved-many: four lines at most, so the page fits the screen of a box.
+    final more = identical(t.s, ShikooSizes.tv) && services.length > 4
+        ? services.length - 3
+        : 0;
+    final style = t.text(
+      t.s.title,
+      weight: FontWeight.w700,
+      height: Leading.snug,
+    );
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s8,
@@ -879,15 +889,13 @@ class _ServicesBelow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         spacing: Space.s1,
         children: [
-          for (final title in login.services)
+          for (final title in more > 0 ? services.take(3) : services)
+            ServiceName(title, style: style, textAlign: TextAlign.center),
+          if (more > 0)
             Text(
-              bidiName(title),
+              l.approvedMoreServices(more),
               textAlign: TextAlign.center,
-              style: t.text(
-                t.s.title,
-                weight: FontWeight.w700,
-                height: Leading.snug,
-              ),
+              style: style.copyWith(color: t.c.textMuted),
             ),
         ],
       ),

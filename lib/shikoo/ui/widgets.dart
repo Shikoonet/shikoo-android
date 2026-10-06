@@ -252,6 +252,7 @@ class ShikooButton extends StatelessWidget {
     this.telegram = false,
     this.height,
     this.dangerText = false,
+    this.small = false,
   });
 
   final String label;
@@ -271,6 +272,9 @@ class ShikooButton extends StatelessWidget {
   /// `.btn-telegram`: Telegram's blue, taller, the label large and bold.
   final bool telegram;
   final double? height;
+
+  /// `.btn-sm`, whose touch target still reaches [ShikooSizes.touch].
+  final bool small;
 
   @override
   Widget build(BuildContext context) {
@@ -295,8 +299,12 @@ class ShikooButton extends StatelessWidget {
     final icon = this.icon;
     // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
     Widget face(bool focused) => Container(
-      height: height ?? (telegram ? ShikooSizes.buttonLg : t.s.button),
-      padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+      height:
+          height ??
+          (telegram
+              ? ShikooSizes.buttonLg
+              : (small ? t.s.buttonSm : t.s.button)),
+      padding: EdgeInsets.symmetric(horizontal: small ? Space.s3 : Space.s4),
       decoration: ShapeDecoration(
         color: fill ?? (focused ? t.c.focusBg : null),
         shadows: focused ? t.c.raisedShadow : null,
@@ -322,7 +330,7 @@ class ShikooButton extends StatelessWidget {
           else if (icon != null)
             SvgIcon(
               icon,
-              size: t.s.icon,
+              size: small ? t.s.iconSm : t.s.icon,
               color: enabled ? fg : t.c.iconDisabled,
             ),
           if (busy || icon != null) const SizedBox(width: Space.s2),
@@ -332,7 +340,9 @@ class ShikooButton extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: t.text(
-                telegram ? ShikooSizes.buttonLgText : t.s.body,
+                telegram
+                    ? ShikooSizes.buttonLgText
+                    : (small ? t.s.bodySm : t.s.body),
                 weight: FontWeight.w700,
                 color: fg,
               ),
@@ -347,7 +357,14 @@ class ShikooButton extends StatelessWidget {
       autofocus: autofocus,
       focusNode: focusNode,
       onPressed: onPressed,
-      builder: (context, focused) => face(focused),
+      builder: (context, focused) => small
+          ? Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: (ShikooSizes.touch - t.s.buttonSm) / 2,
+              ),
+              child: face(focused),
+            )
+          : face(focused),
     );
   }
 }
@@ -468,11 +485,71 @@ class MessageBox extends StatelessWidget {
   }
 }
 
-String bidiName(String name) =>
-    name.split(' · ').map((part) => '\u2068$part\u2069').join(' · ');
+/// Each part keeps its own direction and never breaks inside; a line breaks only after « ·».
+String bidiName(String name) => name
+    .split(' · ')
+    .map((part) => '\u2068${part.replaceAll(' ', '\u00A0')}\u2069')
+    .join('\u00A0· ');
 
-String serviceTitle(BuildContext context, ShikooService service) {
-  if (service.name.isNotEmpty) return bidiName(service.name);
+/// `.svc-name`: never cut at its end. A username too long for a line alone keeps its last five
+/// characters (`7000…123_2`), which tell the services of one account apart.
+class ServiceName extends StatelessWidget {
+  const ServiceName(this.name, {super.key, this.style, this.textAlign});
+
+  final String name;
+  final TextStyle? style;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final style =
+        this.style ??
+        t.text(t.s.title, weight: FontWeight.w700, height: Leading.snug);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final [user, ...rest] = name.split(' · ');
+        bool fits(String text) {
+          final painter = TextPainter(
+            text: TextSpan(text: text, style: style),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width <= box.maxWidth;
+        }
+
+        var shown = user;
+        if (user.length > 6 && !fits(user)) {
+          final tail = user.substring(user.length - 5);
+          var lo = 0;
+          var hi = user.length - 6;
+          while (lo < hi) {
+            final mid = (lo + hi + 1) ~/ 2;
+            fits('${user.substring(0, mid)}…$tail') ? lo = mid : hi = mid - 1;
+          }
+          shown = '${user.substring(0, lo)}…$tail';
+        }
+        final text = [shown, ...rest].join(' · ');
+        return Text(
+          rest.isEmpty ? text : bidiName(text),
+          textAlign: textAlign,
+          style: style,
+        );
+      },
+    );
+  }
+}
+
+String serviceTitle(BuildContext context, ShikooService service) =>
+    service.name.isEmpty
+    ? plainTitle(context, service)
+    : bidiName(service.name);
+
+String plainTitle(BuildContext context, ShikooService service) {
+  if (service.name.isNotEmpty) return service.name;
   final l = ShikooL10n.of(context);
   return service.number > 1
       ? '${l.serviceUnnamed} ${localNumber(context, service.number)}'
@@ -628,46 +705,50 @@ class _PowerButtonState extends State<PowerButton>
         button: true,
         enabled: enabled,
         label: label,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgIcon(
-              error ? ShikooIcon.alert : ShikooIcon.power,
-              size: conn == ShikooConnection.off && enabled
-                  ? ShikooSizes.powerIcon
-                  : ShikooSizes.powerIconOn,
-              stroke: ShikooSizes.iconStrokeStrong,
-              color: !enabled
-                  ? c.iconDisabled
-                  : (on ? fg : (error ? c.danger : c.textMuted)),
-            ),
-            const SizedBox(height: Space.s1),
-            Text(
-              label,
-              style: t.text(
-                s.body,
-                weight: FontWeight.w700,
-                color: !enabled ? c.textMuted : (error ? c.danger : fg),
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: ShikooSizes.roundTextScaleMax,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SvgIcon(
+                error ? ShikooIcon.alert : ShikooIcon.power,
+                size: conn == ShikooConnection.off && enabled
+                    ? ShikooSizes.powerIcon
+                    : ShikooSizes.powerIconOn,
+                stroke: ShikooSizes.iconStrokeStrong,
+                color: !enabled
+                    ? c.iconDisabled
+                    : (on ? fg : (error ? c.danger : c.textMuted)),
               ),
-            ),
-            if (on) ...[
               const SizedBox(height: Space.s1),
               Text(
-                _clock(widget.connectedFor),
-                textDirection: TextDirection.ltr,
+                label,
+                textAlign: TextAlign.center,
                 style: t.text(
-                  s.display,
+                  s.body,
                   weight: FontWeight.w700,
-                  color: fg,
-                  tabular: true,
+                  color: !enabled ? c.textMuted : (error ? c.danger : fg),
                 ),
               ),
+              if (on) ...[
+                const SizedBox(height: Space.s1),
+                Text(
+                  _clock(widget.connectedFor),
+                  textDirection: TextDirection.ltr,
+                  style: t.text(
+                    s.display,
+                    weight: FontWeight.w700,
+                    color: fg,
+                    tabular: true,
+                  ),
+                ),
+              ],
+              if (sub != null) ...[
+                const SizedBox(height: Space.s1),
+                Text(sub, style: t.text(s.caption, color: c.textMuted)),
+              ],
             ],
-            if (sub != null) ...[
-              const SizedBox(height: Space.s1),
-              Text(sub, style: t.text(s.caption, color: c.textMuted)),
-            ],
-          ],
+          ),
         ),
       ),
     );

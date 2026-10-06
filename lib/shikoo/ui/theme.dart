@@ -185,6 +185,7 @@ class ShikooSizes {
     required this.appbar,
     required this.row,
     required this.button,
+    required this.buttonSm,
     required this.icon,
     required this.iconSm,
     required this.flagW,
@@ -213,6 +214,9 @@ class ShikooSizes {
   final double appbar;
   final double row;
   final double button;
+
+  /// `.btn-sm`: renew in a finished service's row; its touch target stays [touch].
+  final double buttonSm;
   final double icon;
   final double iconSm;
   final double flagW;
@@ -241,6 +245,7 @@ class ShikooSizes {
     appbar: 56,
     row: 56,
     button: 44,
+    buttonSm: 36,
     icon: 24,
     iconSm: 18,
     flagW: 27,
@@ -270,6 +275,7 @@ class ShikooSizes {
     appbar: 40,
     row: 44,
     button: 40,
+    buttonSm: 32,
     icon: 20,
     iconSm: 16,
     flagW: 30,
@@ -286,11 +292,14 @@ class ShikooSizes {
     dialogText: 16,
     headline: 28,
     code: 40,
-    heroIcon: 96,
+    heroIcon: 64,
     qr: 300,
   );
 
   static const touch = 48.0;
+
+  /// `--text-scale-max-round`: the round button's text grows no further, its circle being fixed.
+  static const roundTextScaleMax = 1.15;
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
   static const dot = 8.0;
