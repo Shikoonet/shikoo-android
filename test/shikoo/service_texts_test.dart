@@ -45,5 +45,6 @@ void main() {
       shikooServiceTexts(const Locale('en')).toggle,
       'Connect / Disconnect',
     );
+    expect(shikooServiceTexts(const Locale('xx')).toggle, 'وصل / قطع');
   });
 }

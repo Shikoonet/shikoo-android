@@ -86,9 +86,13 @@ final shikooLookProvider = NotifierProvider<ShikooLookNotifier, ShikooLook>(
 );
 
 /// FlClash's l10n has no Persian, so the VPN notification, its toasts and the launcher shortcut
-/// take these. [locale] is the one ShikooApp resolved, or null before its first frame.
+/// take these. [locale] is null before ShikooApp's first frame.
 ServiceTexts shikooServiceTexts(Locale? locale) {
-  final l = lookupShikooL10n(locale ?? const Locale(shikooDefaultLanguage));
+  final l = lookupShikooL10n(
+    locale != null && ShikooL10n.delegate.isSupported(locale)
+        ? locale
+        : const Locale(shikooDefaultLanguage),
+  );
   return (
     stop: l.notificationStop,
     startTip: l.powerConnecting,

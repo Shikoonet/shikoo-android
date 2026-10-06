@@ -9,6 +9,7 @@ import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
@@ -76,6 +77,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       });
       await bootstrap.attach();
       _attached = true;
+      final locale = Locale(ref.read(shikooLookProvider).language);
+      unawaited(app?.initShortcuts(shikooServiceTexts(locale).toggle));
       ref.read(shikooControllerProvider).onForeground();
       ref.read(shikooSignInProvider).onForeground();
       // A TV is often left on the home screen for hours: its services stay as fresh as on open.
