@@ -448,6 +448,7 @@ ul { list-style: none; }
 .tv-result h1 { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); }
 .tv-result p { max-inline-size: var(--size-dialog); font-size: var(--text-title); line-height: var(--leading-body); color: var(--color-text-muted); }
 .tv-result strong { color: var(--color-text); }
+.tv-result .notice { max-inline-size: var(--size-dialog); text-align: start; text-wrap: wrap; }
 .tv-result p, .login-brand .sub { text-wrap: balance; }
 
 /* تنظیمات و «درباره»ی تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
