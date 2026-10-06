@@ -71,7 +71,10 @@ jobs:
       - name: The app takes its server and bot from the build, and staging points away from production
         run: |
           set -euo pipefail
-          grep -rqF "fromEnvironment('SHIKOO_API'" lib/shikoo && grep -rqF "fromEnvironment('SHIKOO_BOT'" lib/shikoo
+          for key in SHIKOO_API SHIKOO_BOT; do
+            grep -rqzP "fromEnvironment\s*\(\s*'$key'" lib/shikoo ||
+              { echo "::error::lib/shikoo does not read $key from the build"; exit 1; }
+          done
           api=${STAGING_API%/} bot=${STAGING_BOT#@}
           [ "${api,,}" != "${PRODUCTION_API,,}" ] && [ "${bot,,}" != "${PRODUCTION_BOT,,}" ] ||
             { echo "::error::staging must not point at the production server or bot"; exit 1; }
