@@ -947,7 +947,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
       ),
     );
     final card = Container(
-      padding: EdgeInsets.symmetric(horizontal: isTV ? Space.s2 : Space.s4),
+      padding: EdgeInsets.symmetric(horizontal: isTV ? 0 : Space.s4),
       decoration: ShapeDecoration(
         color: focused ? t.c.focusBg : t.c.surface,
         shadows: focused ? t.c.raisedShadow : t.c.cardShadow,
@@ -960,7 +960,11 @@ class _FinishedServicesState extends State<_FinishedServices> {
         children: [
           Pressable(
             focusNode: _head,
-            shape: shape,
+            shape: isTV
+                ? RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(Radii.lg),
+                  )
+                : shape,
             onPressed: _toggle,
             builder: (context, _) => Semantics(
               button: true,
@@ -968,7 +972,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
               child: Container(
                 constraints: const BoxConstraints(minHeight: ShikooSizes.touch),
                 padding: EdgeInsets.symmetric(
-                  horizontal: isTV ? Space.s2 : 0,
+                  horizontal: isTV ? Space.s4 : 0,
                   vertical: Space.s2,
                 ),
                 child: Row(
@@ -996,13 +1000,20 @@ class _FinishedServicesState extends State<_FinishedServices> {
           ),
           if (_open)
             for (final (i, row) in widget.rows.indexed) ...[
-              Container(height: 1, color: t.c.border),
+              Container(
+                height: 1,
+                margin: EdgeInsets.symmetric(horizontal: isTV ? Space.s4 : 0),
+                color: t.c.border,
+              ),
               if (isTV)
-                Pressable(
-                  focusNode: i == 0 ? _first : null,
-                  shape: shape,
-                  onPressed: () => _renew(row),
-                  builder: (context, focused) => line(row, focused),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+                  child: Pressable(
+                    focusNode: i == 0 ? _first : null,
+                    shape: shape,
+                    onPressed: () => _renew(row),
+                    builder: (context, focused) => line(row, focused),
+                  ),
                 )
               else
                 line(row, false),

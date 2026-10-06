@@ -800,6 +800,13 @@ void main() {
     final head = find.text('سرویس‌های تمام‌شده (۲)');
     Focus.of(tester.element(head)).requestFocus();
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .getRect(find.ancestor(of: head, matching: find.byType(Pressable)))
+          .width,
+      tester.getRect(find.byType(ServiceCard)).width,
+      reason: 'the ring goes round the whole row, outside it as on a card',
+    );
     expect(find.textContaining('user555'), findsNothing);
 
     await tester.sendKeyEvent(_ok);

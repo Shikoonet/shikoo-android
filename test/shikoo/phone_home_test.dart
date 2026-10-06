@@ -955,6 +955,88 @@ void main() {
     );
   });
 
+  testWidgets('with nothing to connect, the service of the full card is never '
+      'in the finished row too, and the row counts the rest', (tester) async {
+    final now = DateTime.now();
+    ShikooService ended(
+      int id,
+      String name, {
+      DateTime? expire,
+      int used = 1,
+    }) => ShikooService(
+      id: id,
+      name: name,
+      usedBytes: used << 30,
+      totalBytes: 50 << 30,
+      expire: expire,
+    );
+    Future<void> expectRow(int count, String full) async {
+      final head = find.text('سرویس‌های تمام‌شده (${localNumberFa(count)})');
+      expect(head, findsOneWidget);
+      expect(find.textContaining(full), findsOneWidget, reason: 'folded');
+      await tester.ensureVisible(head);
+      await tester.tap(head);
+      await tester.pumpAndSettle();
+      expect(
+        find.byWidgetPredicate((w) => w is ShikooButton && w.small),
+        findsNWidgets(count),
+      );
+      expect(find.textContaining(full), findsOneWidget, reason: 'opened');
+    }
+
+    // The account of the design's frame: used up with its date still ahead,
+    // then two that expired, and one of the account with no link.
+    await _pump(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        service: ended(
+          1,
+          '7000123_f38a · پاسارگاد',
+          used: 50,
+          expire: now.add(const Duration(days: 9)),
+        ),
+        others: [
+          ended(
+            2,
+            '7000123_e7f9 · پاسارگاد',
+            expire: now.subtract(const Duration(days: 3)),
+          ),
+          ended(
+            3,
+            '7000123_7000123_2 · اولین خرید',
+            expire: now.subtract(const Duration(days: 12)),
+          ),
+        ],
+      ),
+      account: const ShikooAccount(
+        services: [
+          LinkedService(
+            id: 9,
+            title: '7000123_9c1d · پاسارگاد',
+            status: 'expired',
+          ),
+        ],
+      ),
+    );
+    await expectRow(3, 'f38a');
+
+    await _pump(
+      tester,
+      _noService,
+      account: const ShikooAccount(
+        services: [
+          LinkedService(id: 7, title: 'user700 · طلایی', status: 'exhausted'),
+          LinkedService(id: 8, title: 'user800 · طلایی', status: 'expired'),
+        ],
+      ),
+    );
+    await expectRow(1, 'user700');
+  });
+
   testWidgets('with large text on a small phone nothing overflows: the round '
       'button keeps its text inside, a long name wraps and keeps its tail', (
     tester,
@@ -1370,3 +1452,8 @@ void main() {
     }
   });
 }
+
+String localNumberFa(int n) => '$n'.replaceAllMapped(
+  RegExp('[0-9]'),
+  (digit) => String.fromCharCode(0x06F0 + int.parse(digit[0]!)),
+);

@@ -619,12 +619,12 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String approvedBodyTv(String account) {
-    return 'This TV is now linked to the Telegram account $account, with these services:';
+    return 'This TV is now linked to the Telegram account $account, with these services:';
   }
 
   @override
   String approvedBodyTouch(String account) {
-    return 'This phone is now linked to the Telegram account $account, with these services:';
+    return 'This phone is now linked to the Telegram account $account, with these services:';
   }
 
   @override

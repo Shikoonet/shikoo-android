@@ -581,12 +581,12 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String approvedBodyTv(String account) {
-    return 'این تلویزیون به حساب تلگرامِ $account وصل شد، با این سرویس‌ها:';
+    return 'این تلویزیون به حساب تلگرامِ $account وصل شد، با این سرویس‌ها:';
   }
 
   @override
   String approvedBodyTouch(String account) {
-    return 'این گوشی به حساب تلگرامِ $account وصل شد، با این سرویس‌ها:';
+    return 'این گوشی به حساب تلگرامِ $account وصل شد، با این سرویس‌ها:';
   }
 
   @override

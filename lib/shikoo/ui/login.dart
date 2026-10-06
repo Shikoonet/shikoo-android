@@ -666,10 +666,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     };
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Space.s2),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s2,
+          Space.s2,
+          Space.s2,
+          Space.s2 + Space.s2,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          spacing: Space.s4,
+          spacing: Space.s6,
           children: [
             result,
             Row(

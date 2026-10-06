@@ -1019,13 +1019,13 @@ abstract class ShikooL10n {
   /// No description provided for @approvedBodyTv.
   ///
   /// In en, this message translates to:
-  /// **'This TV is now linked to the Telegram account {account}, with these services:'**
+  /// **'This TV is now linked to the Telegram account {account}, with these services:'**
   String approvedBodyTv(String account);
 
   /// No description provided for @approvedBodyTouch.
   ///
   /// In en, this message translates to:
-  /// **'This phone is now linked to the Telegram account {account}, with these services:'**
+  /// **'This phone is now linked to the Telegram account {account}, with these services:'**
   String approvedBodyTouch(String account);
 
   /// No description provided for @servicesComing.
