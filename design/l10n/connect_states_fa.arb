@@ -18,7 +18,6 @@
   "chipExpired": "تاریخ انقضا گذشته",
   "expiredEnded": "تمام شده",
   "renewToConnect": "با «تمدید» دوباره وصل می‌شوی.",
-  "renewOrSwitch": "با «تمدید» دوباره وصل می‌شوی،\nیا سرویس دیگرت را انتخاب کن.",
   "serversAfterRenew": "فهرست سرورها بعد از تمدید برمی‌گردد.",
   "summaryExhausted": "حجمش تمام شد. با تمدید دوباره فعال می‌شود.",
   "summaryExpired": "اعتبارش {date} تمام شد. با تمدید دوباره فعال می‌شود.",
@@ -29,5 +28,10 @@
   "openBotHelpTv": "با دوربین گوشی اسکن کن تا ربات شیکونت باز شود.",
   "errorConnect": "{server} تا {seconds} ثانیه جواب نداد.\nسرور دیگری را امتحان کن.",
   "errorConnectTouch": "{server} تا {seconds} ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.",
-  "serviceUnnamed": "سرویس شیکونت"
+  "serviceUnnamed": "سرویس شیکونت",
+  "finishedServices": "سرویس‌های تمام‌شده ({count})",
+  "finishedData": "حجم تمام شد",
+  "finishedToday": "امروز تمام شد",
+  "finishedDaysAgo": "{count} روز پیش تمام شد",
+  "finishedNoDate": "اعتبارش تمام شد"
 }

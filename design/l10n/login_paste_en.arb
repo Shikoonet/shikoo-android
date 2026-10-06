@@ -100,5 +100,7 @@
   "pasteUnavailableTitle": "Couldn't open the link right now.",
   "@pasteUnavailableTitle": {"description": "A server error (5xx), an empty answer, or a web page instead of a subscription. Only 404 and 410 say pasteRevokedTitle. Says nothing about a “server”: customers read that as the servers in the list."},
   "pasteUnavailableHelp": "Try again in a bit; if it still won't open, ask Support.",
-  "supportHelpTv": "Scan with your phone's camera to open a chat with ShikooNet support in Telegram."
+  "supportHelpTv": "Scan with your phone's camera to open a chat with ShikooNet support in Telegram.",
+  "approvedMoreServices": "{count, plural, =1{and 1 more service} other{and {count} more services}}",
+  "@approvedMoreServices": {"description": "Fourth line of the sign-in result list when there are five services or more: three names, then this, so the TV screen never grows past four lines.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}}
 }

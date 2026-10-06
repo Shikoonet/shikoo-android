@@ -29,8 +29,6 @@
   "@expiredEnded": {"description": "In place of the days left, beside a past end date, in the danger colour."},
   "renewToConnect": "Renew to connect again.",
   "@renewToConnect": {"description": "Under the disabled round button of an out-of-data or expired service."},
-  "renewOrSwitch": "Renew to connect again,\nor pick your other service.",
-  "@renewOrSwitch": {"description": "Instead of renewToConnect when another active service is on this device. The line break is fixed so neither line wraps alone under the round button, phone or TV."},
   "serversAfterRenew": "The server list comes back after you renew.",
   "summaryExhausted": "Out of data. Renew to use it again.",
   "@summaryExhausted": {"description": "The folded card's summary line, instead of usage and date."},
@@ -49,5 +47,14 @@
   "errorConnectTouch": "{server} didn't answer in {seconds} seconds. Tap again, or pick another server from the list.",
   "@errorConnectTouch": {"description": "Phone: errorConnect as one paragraph.", "placeholders": {"server": {"type": "String"}, "seconds": {"type": "int", "format": "decimalPattern"}}},
   "serviceUnnamed": "ShikooNet service",
-  "@serviceUnnamed": {"description": "A service's name when the panel sends no title and there is no username or plan name."}
+  "@serviceUnnamed": {"description": "A service's name when the panel sends no title and there is no username or plan name."},
+  "finishedServices": "Finished services ({count})",
+  "@finishedServices": {"description": "The one folded row at the end of the home for every out-of-data or expired service (ended at most finishedMaxDays ago, a constant: 30). Folded on every start. Not for a revoked pasted link.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
+  "finishedData": "Out of data",
+  "@finishedData": {"description": "Second line of a row in finishedServices, beside a small Renew button."},
+  "finishedToday": "Ended today",
+  "finishedDaysAgo": "{count, plural, =1{Ended 1 day ago} other{Ended {count} days ago}}",
+  "@finishedDaysAgo": {"placeholders": {"count": {"type": "int", "format": "decimalPattern"}}},
+  "finishedNoDate": "Expired",
+  "@finishedNoDate": {"description": "An expired service from the account whose end date is not known."}
 }

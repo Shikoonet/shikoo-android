@@ -25,6 +25,7 @@
  *  ۱۸. سربرگ فهرست ..... .list-head ؛ .search + .is-active ؛ .list-caption
  *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
  *  ۲۰. نام ربات ......... .code-bot (زیر کد ورود) ؛ فهرست نتیجه: .result-list ؛ دایرهٔ خنثی: .hero-icon.muted
+ *  ۲۱. سرویس‌های تمام‌شده .finished + .finished-head ؛ باز: .finished-row (.t .n .s) + .btn-sm
  *  پینگِ در حال سنجش: .ping.is-pending ؛ برچسب «تازه»: .chip-outline ؛ قاب اسکرول‌شدهٔ گوشی: .scroll-view
  *  فوکوس ریموت روی هر جزء: .is-focused
  */
@@ -97,10 +98,10 @@ ul { list-style: none; }
 .card { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 .svc { padding: var(--space-4) var(--space-4) var(--space-2); }
 .svc-head { display: flex; align-items: center; gap: var(--space-2); }
-.svc-name {
-  flex: 1; min-inline-size: 0; font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+/* نام هیچ‌وقت از ته بریده نمی‌شود: اگر جا نشد، رده به خط دوم می‌رود و برچسب وضعیت زیرِ نام.
+   نام کاربری خودش نمی‌شکند؛ اگر به‌تنهایی جا نشد، از وسط کوتاه می‌شود و پنج حرف آخرش می‌ماند. */
+.svc-name { flex: 1 1 auto; min-inline-size: 0; font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
+.svc-name bdi, .finished-row .n bdi, .tier { white-space: nowrap; } /* رده‌ای مثل «اولین خرید» هم نمی‌شکند */
 .svc-head > .icon, .svc-head .icon-btn { color: var(--color-text-muted); }
 .svc-summary { margin-top: var(--space-1); padding-bottom: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .svc-summary strong { color: var(--color-text); }
@@ -180,7 +181,7 @@ ul { list-style: none; }
   background: var(--color-surface); box-shadow: var(--shadow-card); text-align: center;
 }
 .power .icon { --size-icon: var(--size-power-icon); stroke-width: var(--icon-stroke-strong); color: var(--color-text-muted); }
-.power-label { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.power-label { font-size: var(--text-power); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
 .power-sub { font-size: var(--text-caption); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .timer { font-size: var(--text-display); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); font-variant-numeric: tabular-nums; }
 .power-msg { max-inline-size: calc(var(--size-power-ring) * 1.5); text-align: center; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
@@ -298,16 +299,30 @@ ul { list-style: none; }
 
 /* ۱۷. سربرگ دوخطی: نام و وضعیت، و زیرش زمان آخرین به‌روزرسانی؛ دکمهٔ به‌روزرسانی کنار هر دو */
 .svc-titles { flex: 1; min-inline-size: 0; }
-.svc-line { display: flex; align-items: center; gap: var(--space-2); }
+.svc-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
 .svc-sub { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 
+/* ۲۱. سرویس‌های تمام‌شده: یک ردیفِ جمع‌شده ته ستون؛ باز که شود، هر سرویس یک ردیف با «تمدید» */
+.finished { padding: 0 var(--space-4); scroll-margin-top: var(--space-3); }
+.finished-head {
+  inline-size: 100%; min-block-size: var(--size-touch); display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); color: var(--color-text-muted); text-align: start;
+}
+.finished-head span { flex: 1; }
+.finished-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: var(--border-width) solid var(--color-border); }
+.finished-row .t { flex: 1; min-inline-size: 0; display: flex; flex-direction: column; }
+.finished-row .n { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
+.finished-row .s { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.btn-sm { --size-button: var(--size-button-sm); padding-inline: var(--space-3); font-size: var(--text-body-sm); }
+.finished-row.is-focused { margin-inline: calc(var(--space-2) * -1); padding-inline: var(--space-2); border-radius: var(--radius-md); background: var(--color-focus-bg); }
+
 /* ۱۸. سربرگ فهرست سرورها: جست‌وجو (فقط گوشی) یا عنوان (تلویزیون)، و «پینگ همه» */
-.list-head { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
+.list-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
 .list-head, .svc { scroll-margin-top: var(--space-3); } /* جای نمونه در قاب اسکرول‌شده */
 .list-caption { flex: 1; min-inline-size: 0; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .list-caption strong { font-size: var(--text-body); color: var(--color-text); }
 .search {
-  flex: 1; min-inline-size: 0; display: flex; align-items: center; gap: var(--space-2);
+  flex: 1 1 10em; min-inline-size: 0; white-space: nowrap; /* با قلم درشت، جست‌وجو خط خودش را می‌گیرد و «پینگ همه» زیرش می‌رود */ display: flex; align-items: center; gap: var(--space-2);
   block-size: var(--size-button); padding-inline: var(--space-3); border-radius: var(--radius-md);
   background: var(--color-surface-sunken); color: var(--color-text-muted); font-size: var(--text-body-sm);
 }
@@ -340,6 +355,9 @@ ul { list-style: none; }
   border-radius: 36px; box-shadow: var(--shadow-raised), 0 0 0 var(--border-width) var(--color-border);
 }
 .phone.tall { block-size: auto; min-block-size: 915px; padding-bottom: var(--space-6); }
+/* گوشیِ کوچک، مثل Poco C85: ۷۲۰×۱۶۰۰ با چگالی ۳۳۶ = ۳۴۳×۷۶۲ dp. اندازهٔ قلمش را data-font-scale می‌دهد. */
+.phone.small { inline-size: 343px; block-size: 762px; }
+.phone.small.tall { block-size: auto; min-block-size: 762px; }
 .statusbar {
   flex: none; block-size: 32px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
   font-size: 13px; font-weight: var(--font-weight-medium);
@@ -467,16 +485,13 @@ ul { list-style: none; }
   font-size: 12px; color: var(--color-text); background: var(--color-surface); box-shadow: inset 0 0 0 var(--border-width) var(--color-outline);
 }
 .tv-board .note { max-inline-size: 960px; }
-/* موقعیتِ اسکرولِ نمونه در قاب «فهرست بلند» تلویزیون. مال لایهٔ ارائه است، نه اپ:
-   در اپ این عددها از موقعیت واقعیِ اسکرول می‌آیند. ۴۰۶ = ته ستون (۸۴۰ محتوا − ۴۳۴ دید)؛ نشانگر به همان نسبت (۴۳۴²÷۸۴۰). */
-.tv-col-content.mock-scroll-end { --scroll: 406px; }
-.scroll-thumb.mock-scroll-end { top: 218px; block-size: 224px; }
 /* قاب بلند: مرزِ صفحهٔ اول (۹۱۵) کنار قاب، نه روی آن */
 .shot.tall { padding-inline-end: 72px; }
 .fold {
   position: absolute; top: calc(36px + 915px); inset-inline-end: 0; inline-size: 64px;
   border-top: 2px dashed var(--color-outline); padding-top: 4px; font-size: 12px; line-height: 18px; color: var(--color-text-muted);
 }
+.fold.small { top: calc(36px + 762px); }
 /* قاب‌های «آینده»: کادر خط‌چین و برچسب درشت، تا با طرحِ تصمیم‌شده قاطی نشوند */
 .shot.future { padding: 20px; border: 2px dashed var(--color-outline); border-radius: 48px; }
 .future-pair { display: flex; gap: 40px; align-items: flex-start; }

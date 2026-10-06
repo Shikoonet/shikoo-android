@@ -182,7 +182,7 @@ for (const file of written) {
   const size = `${head.readUInt32BE(16)}×${head.readUInt32BE(20)}`;
   const name = file.slice(FRAMES.length + 1);
   (sizes[size] ??= []).push(name);
-  const fixed = name.startsWith('tv-') ? '1920×1080' : name.includes('-long-') || name.startsWith('phone-cards') ? null : '824×1830';
+  const fixed = name.startsWith('tv-') ? '1920×1080' : name.includes('-long-') || name.startsWith('phone-cards') || name.startsWith('phone-small') ? null : '824×1830';
   if (fixed && size !== fixed) problems.push(`${name}: ${size} به‌جای ${fixed}`);
 }
 for (const [size, names] of Object.entries(sizes)) console.log(`${size}: ${names.length} عکس`);
