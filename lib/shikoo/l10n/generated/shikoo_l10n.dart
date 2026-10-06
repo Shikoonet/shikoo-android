@@ -1484,7 +1484,7 @@ abstract class ShikooL10n {
   /// **'Try again to download it from the start.'**
   String get updateBadFileHelp;
 
-  /// Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet.
+  /// Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog).
   ///
   /// In en, this message translates to:
   /// **'This version needs an update'**
@@ -1513,6 +1513,24 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself.'**
   String get installPermissionTv;
+
+  /// Card and forced page when the file does not fit in storage. Same text on phone and TV; never mentions the internet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough space.'**
+  String get updateNoSpaceTitle;
+
+  /// No description provided for @updateNoSpaceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove a few apps or files from this device and try again.'**
+  String get updateNoSpaceHelp;
+
+  /// One red line under Install, on the card and the forced page, when Android's installer did not open. Not a new state; the next Install clears it.
+  ///
+  /// In en, this message translates to:
+  /// **'The installer didn\'t open; try again or ask Support.'**
+  String get updateInstallFailed;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

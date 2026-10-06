@@ -73,7 +73,22 @@ final _states = {
     'دوباره بزن تا از اول دریافت شود.',
     'دوباره',
   ),
+  'no space': (
+    _offer(UpdatePhase.offered, received: 9000000, error: UpdateError.noSpace),
+    'جا کم است.',
+    'چند برنامه یا فایل را از این دستگاه پاک کن و دوباره بزن.',
+    'دوباره',
+  ),
 };
+
+final _installFailed = _offer(
+  UpdatePhase.ready,
+  received: _release.size,
+  error: UpdateError.install,
+);
+
+const _installFailedLine =
+    'نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.';
 
 ShikooState _state({bool isTV = false}) => ShikooState(
   connection: ShikooConnection.off,
@@ -222,7 +237,7 @@ void main() {
       final heading = tester.widget<Text>(_inCard(title));
       expect(
         heading.style!.color == danger,
-        name == 'failed' || name == 'bad file',
+        const {'failed', 'bad file', 'no space'}.contains(name),
         reason: name,
       );
       await tester.tap(_inCard(label));
@@ -275,10 +290,16 @@ void main() {
         reason: name,
       );
     }
-    for (final name in ['offered', 'downloading', 'failed']) {
+    await _pump(tester, _installFailed, size: const Size(686, 1524));
+    expect(tester.takeException(), isNull, reason: 'install failed');
+    for (final (name, offer) in [
+      for (final name in ['offered', 'downloading', 'failed', 'no space'])
+        (name, _states[name]!.$1),
+      ('install failed', _installFailed),
+    ]) {
       await _pump(
         tester,
-        _forced(_states[name]!.$1),
+        _forced(offer),
         root: true,
         size: const Size(686, 1524),
       );
@@ -362,11 +383,65 @@ void main() {
     verify(_engine.download).called(1);
 
     await _set(tester, container, _forced(_states['downloading']!.$1));
-    expect(find.text('۴۷٪، ۲۴ از ۵۲ مگابایت'), findsOneWidget);
+    expect(find.text('در حال دریافت… ۴۷٪، ۲۴ از ۵۲ مگابایت'), findsOneWidget);
     expect(find.byType(MeterBar), findsOneWidget);
+    expect(find.text('نسخهٔ تازه لازم است'), findsOneWidget);
+    expect(find.textContaining('شیکونت بسته می‌شود'), findsOneWidget);
     expect(_focused(), 'انصراف');
     await _set(tester, container, _forced(_states['ready']!.$1));
+    expect(find.byType(MeterBar), findsNothing);
     expect(_focused(), 'نصب');
+  });
+
+  testWidgets('a full disk has its own words, with retry first and support', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _forced(_states['no space']!.$1),
+      isTV: true,
+      root: true,
+    );
+    expect(find.textContaining('جا کم است.'), findsOneWidget);
+    expect(find.textContaining('اینترنت'), findsNothing);
+    expect(_focused(), 'دوباره');
+    expect(await _press(tester, _towardPower), 'پشتیبانی');
+  });
+
+  testWidgets('an installer that did not open leaves a red line under install; '
+      'the forced page adds support second', (tester) async {
+    await _pump(tester, _installFailed);
+    final line = _inCard(_installFailedLine);
+    expect(line, findsOneWidget);
+    expect(
+      tester.widget<Text>(line).style!.color,
+      ShikooTheme.of(tester.element(line)).c.danger,
+    );
+    expect(
+      tester.getRect(line).top,
+      greaterThan(tester.getRect(_inCard('نصب')).bottom),
+    );
+    expect(_inCard('پشتیبانی'), findsNothing);
+    await tester.tap(_inCard('نصب'));
+    await tester.pumpAndSettle();
+    verify(_engine.install).called(1);
+
+    await _pump(tester, _forced(_installFailed), isTV: true, root: true);
+    expect(find.text(_installFailedLine), findsOneWidget);
+    expect(_focused(), 'نصب');
+    expect(await _press(tester, _towardPower), 'پشتیبانی');
+    await _press(tester, _ok);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      'https://t.me/shikoo_panel_support',
+    );
+
+    await _pump(tester, _forced(_installFailed), root: true);
+    final install = tester.getRect(find.text('نصب'));
+    final message = tester.getRect(find.text(_installFailedLine));
+    final support = tester.getRect(find.text('پشتیبانی'));
+    expect(message.top, greaterThan(install.bottom));
+    expect(support.top, greaterThan(message.bottom));
   });
 
   testWidgets('a forced download that failed offers support beside retry, '

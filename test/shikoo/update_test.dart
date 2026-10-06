@@ -117,6 +117,7 @@ void main() {
   late List<MethodCall> native;
   late bool canInstall;
   late bool hasSettings;
+  late bool installerOpens;
 
   setUp(() async {
     door = _Door();
@@ -126,6 +127,7 @@ void main() {
     native = [];
     canInstall = true;
     hasSettings = true;
+    installerOpens = true;
     const channel = MethodChannel('shikoo/update');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -134,6 +136,7 @@ void main() {
       return switch (call.method) {
         'canInstall' => canInstall,
         'openInstallSettings' => hasSettings,
+        'install' => installerOpens,
         _ => true,
       };
     });
@@ -342,6 +345,16 @@ void main() {
       expect(offer()!.phase, UpdatePhase.ready);
       expect(apk().readAsBytesSync(), _apk);
     });
+
+    test('a full disk says so and keeps the part', () async {
+      await Link(part().path).create('/dev/full', recursive: true);
+      final update = start();
+      await update.check();
+      await update.download();
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, UpdateError.noSpace);
+      expect(Link(part().path).existsSync(), isTrue);
+    }, skip: !File('/dev/full').existsSync());
   });
 
   group('install', () {
@@ -381,6 +394,21 @@ void main() {
         expect(await update.install(), isFalse);
         await update.allow();
         expect(native.last.method, 'install');
+        expect(offer()!.error, isNull);
+      },
+    );
+
+    test(
+      'an installer that did not open says so until the next install',
+      () async {
+        final update = await ready();
+        installerOpens = false;
+        expect(await update.install(), isTrue);
+        expect(offer()!.phase, UpdatePhase.ready);
+        expect(offer()!.error, UpdateError.install);
+
+        canInstall = false;
+        expect(await update.install(), isFalse);
         expect(offer()!.error, isNull);
       },
     );

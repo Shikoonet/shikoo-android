@@ -971,4 +971,15 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get installPermissionTv =>
       'On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself.';
+
+  @override
+  String get updateNoSpaceTitle => 'Not enough space.';
+
+  @override
+  String get updateNoSpaceHelp =>
+      'Remove a few apps or files from this device and try again.';
+
+  @override
+  String get updateInstallFailed =>
+      'The installer didn\'t open; try again or ask Support.';
 }

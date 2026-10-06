@@ -287,6 +287,7 @@ class ShikooUpdate {
   /// False when Android must let this app install apps first: the screen explains, then [allow].
   Future<bool> install() async {
     if (_offer?.phase != UpdatePhase.ready) return true;
+    _move(UpdatePhase.ready);
     if (!await _native('canInstall')) return false;
     await _launch();
     return true;

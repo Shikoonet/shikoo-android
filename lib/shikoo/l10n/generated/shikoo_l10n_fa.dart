@@ -920,4 +920,15 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get installPermissionTv =>
       'در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن؛ نصب خودش شروع می‌شود.';
+
+  @override
+  String get updateNoSpaceTitle => 'جا کم است.';
+
+  @override
+  String get updateNoSpaceHelp =>
+      'چند برنامه یا فایل را از این دستگاه پاک کن و دوباره بزن.';
+
+  @override
+  String get updateInstallFailed =>
+      'نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.';
 }

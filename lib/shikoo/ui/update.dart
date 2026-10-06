@@ -14,13 +14,13 @@ import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// The five states of `phone-cards-update`, the forced page's too.
-enum _Step { offered, downloading, ready, failed, badFile }
+/// The states of `phone-cards-update`, the forced page's too.
+enum _Step { offered, downloading, ready, failed, badFile, noSpace }
 
 _Step _stepOf(UpdateOffer offer) => switch (offer) {
   UpdateOffer(error: UpdateError.checksum) => _Step.badFile,
-  UpdateOffer(error: UpdateError.network || UpdateError.noSpace) =>
-    _Step.failed,
+  UpdateOffer(error: UpdateError.network) => _Step.failed,
+  UpdateOffer(error: UpdateError.noSpace) => _Step.noSpace,
   UpdateOffer(phase: UpdatePhase.downloading || UpdatePhase.verifying) =>
     _Step.downloading,
   UpdateOffer(phase: UpdatePhase.ready) => _Step.ready,
@@ -40,6 +40,28 @@ String _progress(ShikooL10n l, UpdateOffer offer) => l.updateProgress(
   (offer.received / 1e6).floor(),
   _mb(offer.release.size),
 );
+
+/// The title and help of a download that did not end well.
+(String, String)? _problem(ShikooL10n l, _Step step) => switch (step) {
+  _Step.failed => (l.updateDownloadFailedTitle, l.updateDownloadFailedHelp),
+  _Step.badFile => (l.updateBadFileTitle, l.updateBadFileHelp),
+  _Step.noSpace => (l.updateNoSpaceTitle, l.updateNoSpaceHelp),
+  _ => null,
+};
+
+/// `.update-msg`: the installer did not open; the next «نصب» clears it.
+Widget? _installFailed(
+  ShikooTheme t,
+  ShikooL10n l,
+  UpdateOffer offer, {
+  TextAlign align = TextAlign.start,
+}) => offer.error == UpdateError.install
+    ? Text(
+        l.updateInstallFailed,
+        textAlign: align,
+        style: t.text(t.s.bodySm, color: t.c.danger),
+      )
+    : null;
 
 /// `phone-update-permission`, `tv-update-permission`: only once «نصب» found Android's permission
 /// missing; «ادامه» has the remote and opens Android's page, Back is «انصراف».
@@ -117,17 +139,20 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
     final update = ref.read(shikooUpdateProvider);
     final UpdateCard(:offer, :isTV) = widget;
     final step = _stepOf(offer);
-    final error = step == _Step.failed || step == _Step.badFile;
-    final (title, sub) = switch (step) {
-      _Step.offered => (
-        l.updateTitle,
-        l.updateVersionSize(_version(context, offer), _mb(offer.release.size)),
-      ),
-      _Step.downloading => (l.updateDownloading, _progress(l, offer)),
-      _Step.ready => (l.updateReady, l.updateClosesApp),
-      _Step.failed => (l.updateDownloadFailedTitle, l.updateDownloadFailedHelp),
-      _Step.badFile => (l.updateBadFileTitle, l.updateBadFileHelp),
-    };
+    final problem = _problem(l, step);
+    final (title, sub) =
+        problem ??
+        switch (step) {
+          _Step.offered => (
+            l.updateTitle,
+            l.updateVersionSize(
+              _version(context, offer),
+              _mb(offer.release.size),
+            ),
+          ),
+          _Step.downloading => (l.updateDownloading, _progress(l, offer)),
+          _ => (l.updateReady, l.updateClosesApp),
+        };
     final (label, primary, VoidCallback action) = switch (step) {
       _Step.offered => (l.updateGet, true, () => unawaited(update.download())),
       _Step.downloading => (
@@ -152,7 +177,7 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
             t.s.body,
             weight: FontWeight.w700,
             height: Leading.tight,
-            color: error ? t.c.danger : null,
+            color: problem != null ? t.c.danger : null,
           ),
         ),
         Text(
@@ -219,6 +244,7 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
           ),
           if (step == _Step.downloading)
             MeterBar(ratio: offer.percent / 100, usage: false),
+          ?_installFailed(t, l, offer),
         ],
       ),
     );
@@ -263,7 +289,13 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
     final update = ref.read(shikooUpdateProvider);
     final step = _stepOf(offer);
     _focusFirst(step, isTV);
-    final failed = step == _Step.failed || step == _Step.badFile;
+    final problem = _problem(l, step);
+    final installFailed = _installFailed(
+      t,
+      l,
+      offer,
+      align: isTV ? TextAlign.center : TextAlign.start,
+    );
     void support() => openLink(
       context,
       isTV: isTV,
@@ -305,6 +337,8 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
           primary: true,
           first: true,
         ),
+        if (installFailed != null)
+          button(l.support, support, icon: ShikooIcon.qr),
       ],
       _ => [
         button(
@@ -317,26 +351,22 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
         button(l.support, support, icon: ShikooIcon.qr),
       ],
     };
-    final notice = failed
-        ? MessageBox(
+    final notice = problem == null
+        ? null
+        : MessageBox(
             icon: ShikooIcon.alert,
             danger: true,
-            strong: step == _Step.badFile
-                ? l.updateBadFileTitle
-                : l.updateDownloadFailedTitle,
-            rest: step == _Step.badFile
-                ? l.updateBadFileHelp
-                : l.updateDownloadFailedHelp,
-          )
-        : null;
+            strong: problem.$1,
+            rest: problem.$2,
+          );
     final progress = step == _Step.downloading
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: Space.s2,
             children: [
               Text(
-                _progress(l, offer),
-                textAlign: TextAlign.center,
+                '${l.updateDownloading} ${_progress(l, offer)}',
+                textAlign: isTV ? TextAlign.center : TextAlign.start,
                 style: t.text(t.s.bodySm, color: t.c.textMuted),
               ),
               MeterBar(ratio: offer.percent / 100, usage: false),
@@ -355,7 +385,7 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
           ),
         ),
       ],
-      more: failed ? null : l.updateClosesApp,
+      more: problem != null ? null : l.updateClosesApp,
       below: isTV ? (notice ?? progress) : null,
     );
     final Widget page = isTV
@@ -389,10 +419,16 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
                         spacing: Space.s6,
                         children: [
                           result,
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            spacing: Space.s2,
-                            children: actions,
+                          Column(
+                            spacing: Space.s3,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: Space.s2,
+                                children: actions,
+                              ),
+                              ?installFailed,
+                            ],
                           ),
                         ],
                       ),
@@ -413,7 +449,13 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
               ),
               top: const SizedBox.shrink(),
               middle: Center(child: result),
-              bottom: [?notice, ?progress, ...actions],
+              bottom: [
+                ?notice,
+                ?progress,
+                actions.first,
+                ?installFailed,
+                ...actions.skip(1),
+              ],
             ),
           );
     return Scaffold(
