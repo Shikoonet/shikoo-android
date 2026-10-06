@@ -51,6 +51,15 @@ Future<void> lockLocalPortAfter(
   });
 }
 
+/// Without FlClash's IP-lookup card on the dashboard, FlClash never looks the IP up; Shikoo shows no IP, and the lookup went out from the customer's own address.
+AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
+  disclaimerAccepted: true,
+  crashlyticsTip: true,
+  crashlytics: false,
+  autoCheckUpdate: false,
+  dashboardWidgets: const [],
+);
+
 class ShikooApp extends ConsumerStatefulWidget {
   const ShikooApp({super.key});
 
@@ -77,16 +86,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (globalState.navigatorKey.currentContext == null) exit(0);
       // Saved only because AppStateManager is mounted by now (engine map section 1).
-      ref
-          .read(appSettingProvider.notifier)
-          .update(
-            (s) => s.copyWith(
-              disclaimerAccepted: true,
-              crashlyticsTip: true,
-              crashlytics: false,
-              autoCheckUpdate: false,
-            ),
-          );
+      ref.read(appSettingProvider.notifier).update(shikooAppSettings);
       await lockLocalPortAfter(bootstrap.attach(), globalState.container);
       _attached = true;
       unawaited(registerShortcut(app, ref.read(shikooLookProvider).language));
