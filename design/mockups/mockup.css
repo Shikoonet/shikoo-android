@@ -323,7 +323,8 @@ ul { list-style: none; }
 .update-row strong { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
 .update-row small { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .update.is-error strong { color: var(--color-danger); }
-.update-msg { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-danger); }
+.update-msg { font-size: var(--text-body-sm); line-height: var(--leading-tight); }
+.update-msg, .tv-result .update-msg { color: var(--color-danger); }
 .update-progress { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .tv-result .update-progress { inline-size: var(--size-dialog); }
 
