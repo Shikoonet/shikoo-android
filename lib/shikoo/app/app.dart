@@ -5,8 +5,10 @@ import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/application.dart';
 import 'package:fl_clash/bootstrap.dart';
+import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/l10n/l10n.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
@@ -62,6 +64,16 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
               autoCheckUpdate: false,
             ),
           );
+      ref.read(networkSettingProvider.notifier).update((s) {
+        if (s.authentication.credentials.isNotEmpty) return s;
+        return s.copyWith(
+          authentication: AuthenticationProps(
+            enable: true,
+            username: generateRandomSecret(8),
+            password: generateRandomSecret(16),
+          ),
+        );
+      });
       await bootstrap.attach();
       _attached = true;
       ref.read(shikooControllerProvider).onForeground();
