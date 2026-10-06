@@ -52,9 +52,10 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 - Download only on tap: stream GET with `Range: bytes=<have>-` into `<cache>/update/<file>.part` (206 appends, 200
   restarts, complete skips), sha256 in `Isolate.run`, mismatch deletes and says so, match renames to `.apk`. Progress
   in MB and percent; resumes after a restart; old files cleaned on each check.
-- Install: `ShikooUpdate.kt` on channel `shikoo/update`: `canInstall` (true below API 26, else
-  `canRequestPackageInstalls()`), `openInstallSettings` (`ACTION_MANAGE_UNKNOWN_APP_SOURCES` with `package:` URI; false
-  on `ActivityNotFound`), `install` (FileProvider URI, `ACTION_VIEW`, `GRANT_READ | NEW_TASK`). Manifest:
+- Install: `ShikooUpdate.kt` on channel `shikoo/update`: `canInstall` (below API 26 the global «Unknown sources»
+  switch `INSTALL_NON_MARKET_APPS`, else `canRequestPackageInstalls()`), `openInstallSettings` (below API 26
+  `ACTION_SECURITY_SETTINGS`, else `ACTION_MANAGE_UNKNOWN_APP_SOURCES` with `package:` URI; false on
+  `ActivityNotFound`), `install` (FileProvider URI, `ACTION_VIEW`, `GRANT_READ | NEW_TASK`). Manifest:
   `REQUEST_INSTALL_PACKAGES`, provider `${applicationId}.update` → `<cache-path name="update" path="update/"/>`.
   Not PackageInstaller sessions (ceiling: no silent updates).
 - HyperOS: if `canInstall` is false, one Persian explainer («turn it on, then press Back»), then the settings page; the
@@ -108,7 +109,8 @@ No code: in each panel, Content → client apps, two rows: «شیکونت — گ
   survives; download with the VPN on completes; airplane mode mid-download resumes; reconnect after update works.
 - Mi Box (Android 9, 32-bit): v7a chosen; the settings intent or its fallback works; the installer works by remote;
   enough cache for 52 MB plus the installer's copy; sha256 time on its CPU; D-pad reaches the card.
-- Android 7.1.1: FileProvider + `ACTION_VIEW` on an API 25 emulator.
+- Android 7.1.1: FileProvider + `ACTION_VIEW` on an API 25 emulator. Proven 2026-10-07 (`5481948`, offer and forced,
+  Unknown sources off → security page → Back → installer). Still open: an Android 7 TV or box.
 
 ## Risks
 
