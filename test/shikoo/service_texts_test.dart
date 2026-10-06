@@ -1,6 +1,10 @@
+import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/l10n/l10n.dart';
+import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,6 +12,8 @@ import 'package:material_ui/material_ui.dart';
 import '../helpers/test_profiles.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late ProviderContainer container;
 
   setUp(() async {
@@ -39,12 +45,20 @@ void main() {
     expect(texts().$1, 'قطع اتصال');
   });
 
-  test('the launcher shortcut is labelled in the same language', () {
-    expect(shikooServiceTexts(const Locale('fa')).toggle, 'وصل / قطع');
-    expect(
-      shikooServiceTexts(const Locale('en')).toggle,
-      'Connect / Disconnect',
-    );
-    expect(shikooServiceTexts(const Locale('xx')).toggle, 'وصل / قطع');
+  test('the launcher shortcut reaches Android in the app language', () async {
+    const channel = MethodChannel('$packageName/app');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final labels = <Object?>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'initShortcuts') labels.add(call.arguments);
+      return true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    for (final language in ['fa', 'en', 'xx']) {
+      await registerShortcut(App(), language);
+    }
+    expect(labels, ['وصل / قطع', 'Connect / Disconnect', 'وصل / قطع']);
   });
 }

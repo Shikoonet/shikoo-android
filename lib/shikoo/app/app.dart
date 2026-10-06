@@ -29,6 +29,10 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
   ...GlobalMaterialLocalizations.delegates,
 ];
 
+/// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
+Future<bool?>? registerShortcut(App? plugin, String language) =>
+    plugin?.initShortcuts(shikooServiceTexts(Locale(language)).toggle);
+
 class ShikooApp extends ConsumerStatefulWidget {
   const ShikooApp({super.key});
 
@@ -77,8 +81,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       });
       await bootstrap.attach();
       _attached = true;
-      final locale = Locale(ref.read(shikooLookProvider).language);
-      unawaited(app?.initShortcuts(shikooServiceTexts(locale).toggle));
+      unawaited(registerShortcut(app, ref.read(shikooLookProvider).language));
       ref.read(shikooControllerProvider).onForeground();
       ref.read(shikooSignInProvider).onForeground();
       // A TV is often left on the home screen for hours: its services stay as fresh as on open.
