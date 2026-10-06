@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -84,10 +85,13 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       unawaited(registerShortcut(app, ref.read(shikooLookProvider).language));
       ref.read(shikooControllerProvider).onForeground();
       ref.read(shikooSignInProvider).onForeground();
+      unawaited(ref.read(shikooUpdateProvider).onForeground());
       // A TV is often left on the home screen for hours: its services stay as fresh as on open.
       _due = Timer.periodic(const Duration(minutes: 1), (_) {
         final controller = ref.read(shikooControllerProvider);
-        if (controller.foreground) unawaited(controller.refreshDue());
+        if (!controller.foreground) return;
+        unawaited(controller.refreshDue());
+        unawaited(ref.read(shikooUpdateProvider).check());
       });
       if (shikooDebug) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
@@ -104,6 +108,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (resumed) {
       controller.onForeground();
       signIn.onForeground();
+      unawaited(ref.read(shikooUpdateProvider).onForeground());
     }
     if (state == AppLifecycleState.paused) controller.clearNews();
   }

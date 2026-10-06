@@ -242,6 +242,30 @@ class AccountServiceRow {
   String get label => location == null ? title : '$title · $location';
 }
 
+/// One ABI's build at the app door (`appRelease.ts`).
+@immutable
+class AppRelease {
+  const AppRelease({
+    required this.versionName,
+    required this.versionCode,
+    required this.minVersionCode,
+    required this.size,
+    required this.sha256,
+    required this.url,
+  });
+
+  final String versionName;
+  final int versionCode;
+
+  final int minVersionCode;
+  final int size;
+
+  final String sha256;
+  final String url;
+}
+
+final _sha256 = RegExp(r'^[0-9a-f]{64}$');
+
 class ShikooApi {
   ShikooApi(this.bases, [Dio? dio])
     : _dio =
@@ -381,6 +405,52 @@ class ShikooApi {
   Future<void> logout(String token) async {
     await _call('POST', '/logout', token: token);
   }
+
+  /// Null before the first release or for another ABI; a `/dl/` path is the answering base's.
+  Future<AppRelease?> update(String abi) async {
+    final response = await _call('GET', '/update');
+    if (response.statusCode == 404) return null;
+    final body = _json(response);
+    if (response.statusCode != 200 || body == null) {
+      throw const ShikooApiFailure();
+    }
+    final apk = (body['apks'] as Map?)?[abi];
+    if (apk == null) return null;
+    if (apk case {
+      'version_code': final int code,
+      'size': final int size,
+      'sha256': final String sha256,
+      'url': final String url,
+    } when size > 0 && _sha256.hasMatch(sha256)) {
+      final at = response.requestOptions.uri.resolve(url);
+      if (at.isScheme('https') || at.isScheme('http')) {
+        return AppRelease(
+          versionName: body['version_name'] as String? ?? '',
+          versionCode: code,
+          minVersionCode: apk['min_version_code'] as int? ?? 0,
+          size: size,
+          sha256: sha256,
+          url: '$at',
+        );
+      }
+    }
+    throw const ShikooApiFailure();
+  }
+
+  Future<Response<ResponseBody>> download(
+    String url,
+    int from,
+  ) => _dio.get<ResponseBody>(
+    url,
+    options: Options(
+      responseType: ResponseType.stream,
+      headers: {
+        // Ranges count stored bytes; HttpClient would ask for gzip and unpack it.
+        HttpHeaders.acceptEncodingHeader: 'identity',
+        if (from > 0) HttpHeaders.rangeHeader: 'bytes=$from-',
+      },
+    ),
+  );
 }
 
 final shikooApiProvider = Provider<ShikooApi>((_) => ShikooApi(shikooApiBases));
