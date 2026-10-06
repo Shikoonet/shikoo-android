@@ -32,7 +32,7 @@ class _AndroidContainerState extends ConsumerState<AndroidManager>
     }, fireImmediately: true);
     ref.listenManual(loadedLocaleProvider, (prev, next) {
       if (prev != null && prev != next) {
-        app?.initShortcuts();
+        app?.initShortcuts(serviceTexts?.call(next).toggle);
       }
     });
     ref.listenManual(sharedStateProvider, (prev, next) {

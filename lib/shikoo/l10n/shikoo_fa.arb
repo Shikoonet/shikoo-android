@@ -217,5 +217,6 @@
   "finishedDisabled": "غیرفعال شد",
   "approvedMoreServices": "و {count} سرویس دیگر",
   "notificationStop": "قطع اتصال",
-  "notificationStopping": "در حال قطع اتصال…"
+  "notificationStopping": "در حال قطع اتصال…",
+  "shortcutToggle": "وصل / قطع"
 }

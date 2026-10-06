@@ -886,4 +886,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get notificationStopping => 'Disconnecting…';
+
+  @override
+  String get shortcutToggle => 'Connect / Disconnect';
 }

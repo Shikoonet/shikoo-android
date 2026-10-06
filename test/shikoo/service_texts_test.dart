@@ -4,7 +4,6 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/test_profiles.dart';
 
@@ -12,7 +11,6 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
     await AppLocalizations.load(const Locale('en'));
     serviceTexts = shikooServiceTexts;
     container = ProviderContainer(
@@ -31,13 +29,21 @@ void main() {
     return (state.stopText, state.startTip, state.stopTip);
   }
 
-  test('the VPN notification and its toasts follow the app language', () async {
+  test('the VPN notification and its toasts follow the loaded locale', () {
     expect(texts(), ('قطع اتصال', 'در حال اتصال…', 'در حال قطع اتصال…'));
 
-    await container.read(shikooLookProvider.notifier).setLanguage('en');
+    container.read(loadedLocaleProvider.notifier).value = const Locale('en');
     expect(texts(), ('Disconnect', 'Connecting…', 'Disconnecting…'));
 
-    await container.read(shikooLookProvider.notifier).setLanguage('xx');
+    container.read(loadedLocaleProvider.notifier).value = const Locale('fa');
     expect(texts().$1, 'قطع اتصال');
+  });
+
+  test('the launcher shortcut is labelled in the same language', () {
+    expect(shikooServiceTexts(const Locale('fa')).toggle, 'وصل / قطع');
+    expect(
+      shikooServiceTexts(const Locale('en')).toggle,
+      'Connect / Disconnect',
+    );
   });
 }

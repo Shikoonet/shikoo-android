@@ -835,4 +835,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get notificationStopping => 'در حال قطع اتصال…';
+
+  @override
+  String get shortcutToggle => 'وصل / قطع';
 }

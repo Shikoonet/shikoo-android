@@ -1405,6 +1405,12 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Disconnecting…'**
   String get notificationStopping;
+
+  /// The shortcut in the menu of a long-pressed launcher icon; it connects or disconnects. Android registers it after a language change.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect / Disconnect'**
+  String get shortcutToggle;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

@@ -138,10 +138,10 @@ class App {
     return methodChannel.invokeMethod<bool>('tip', {'message': '$message'});
   }
 
-  Future<bool?> initShortcuts() async {
+  Future<bool?> initShortcuts([String? label]) async {
     return methodChannel.invokeMethod<bool>(
       'initShortcuts',
-      currentAppLocalizations.toggle,
+      label ?? currentAppLocalizations.toggle,
     );
   }
 

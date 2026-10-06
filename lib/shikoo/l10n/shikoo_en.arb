@@ -283,5 +283,7 @@
   "notificationStop": "Disconnect",
   "@notificationStop": {"description": "The button on Android's ongoing VPN notification."},
   "notificationStopping": "Disconnecting…",
-  "@notificationStopping": {"description": "Android toast after the notification's button is pressed. A start from the Quick Settings tile shows powerConnecting."}
+  "@notificationStopping": {"description": "Android toast after the notification's button is pressed. A start from the Quick Settings tile shows powerConnecting."},
+  "shortcutToggle": "Connect / Disconnect",
+  "@shortcutToggle": {"description": "The shortcut in the menu of a long-pressed launcher icon; it connects or disconnects. Android registers it after a language change."}
 }
