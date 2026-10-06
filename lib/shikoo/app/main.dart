@@ -31,6 +31,7 @@ void main() {
         await RustLib.init();
         final version = await system.init();
         final container = await bootstrap.init(version);
+        await keepApiDirect();
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooSignInProvider).load();
         HttpOverrides.global = FlClashHttpOverrides(container);

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpDate, HttpException, HttpHeaders;
+import 'dart:io' show HttpDate, HttpException, HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/common/system.dart';
+import 'package:fl_clash/database/database.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
@@ -319,6 +321,22 @@ class ShikooApi {
 }
 
 final shikooApiProvider = Provider<ShikooApi>((_) => ShikooApi(shikooApiBases));
+
+Rule apiDirectRule(String base, int id) {
+  final host = Uri.parse(base).host;
+  return Rule.parse(
+    InternetAddress.tryParse(host) == null
+        ? 'DOMAIN,$host,DIRECT'
+        : 'IP-CIDR,$host/32,DIRECT,no-resolve',
+    id: id,
+  );
+}
+
+Future<void> keepApiDirect() async {
+  for (final (i, base) in shikooApiBases.indexed) {
+    await database.rulesDao.putGlobalRule(apiDirectRule(base, 7470000 + i));
+  }
+}
 
 final shikooSignInProvider = Provider<ShikooSignIn>(ShikooSignIn.new);
 

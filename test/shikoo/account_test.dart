@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:drift/native.dart';
+import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
@@ -932,6 +934,26 @@ void main() {
         isNotNull,
       );
     });
+  });
+
+  test('the API goes direct in every profile, the rule written once', () async {
+    final before = database;
+    database = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await database.close();
+      database = before;
+    });
+    await database.profilesDao.putAll([
+      const Profile(id: 1, autoUpdateDuration: Duration.zero).toCompanion(),
+    ]);
+    await keepApiDirect();
+    await keepApiDirect();
+    final rules = await database.rulesDao.queryAddedRules(1).get();
+    expect(rules.map((rule) => rule.rawValue), ['DOMAIN,app.chopon.uk,DIRECT']);
+    expect(
+      apiDirectRule('http://10.0.2.2:18790', 1).rawValue,
+      'IP-CIDR,10.0.2.2/32,DIRECT,no-resolve',
+    );
   });
 
   test('no token, poll secret or code reaches a log', () async {
