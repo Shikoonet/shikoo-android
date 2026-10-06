@@ -439,9 +439,11 @@ class ShikooApi {
 
   Future<Response<ResponseBody>> download(
     String url,
-    int from,
-  ) => _dio.get<ResponseBody>(
+    int from, [
+    CancelToken? cancel,
+  ]) => _dio.get<ResponseBody>(
     url,
+    cancelToken: cancel,
     options: Options(
       responseType: ResponseType.stream,
       headers: {

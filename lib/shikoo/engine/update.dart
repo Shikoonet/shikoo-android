@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart' show ShikooCell;
 import 'package:fl_clash/shikoo/engine/ping.dart' show isDue;
@@ -22,8 +23,7 @@ const _abiNames = {
   Abi.androidIA32: 'x86',
 };
 
-/// [permission]: Android must let this app install apps; [ShikooUpdate.allow] opens its page.
-enum UpdatePhase { offered, downloading, verifying, ready, permission }
+enum UpdatePhase { offered, downloading, verifying, ready }
 
 enum UpdateError { network, checksum, noSpace, install }
 
@@ -86,6 +86,7 @@ class ShikooUpdate {
   DateTime? _checked;
   Future<void>? _checking;
   Future<void>? _downloading;
+  CancelToken? _cancel;
   bool _awaitingPermission = false;
 
   ShikooApi get _api => _ref.read(shikooApiProvider);
@@ -194,6 +195,7 @@ class ShikooUpdate {
     if (offer == null || offer.phase != UpdatePhase.offered) return;
     final release = offer.release;
     bool stale() => _offer?.release.sha256 != release.sha256;
+    final cancel = _cancel = CancelToken();
     final dir = await _dir();
     final part = _part(dir, release);
     try {
@@ -203,7 +205,7 @@ class ShikooUpdate {
         have = 0;
       }
       _move(UpdatePhase.downloading, received: have);
-      if (have < release.size) await _fetch(release, part, have, stale);
+      if (have < release.size) await _fetch(release, part, have, cancel, stale);
       if (stale()) return;
       _move(UpdatePhase.verifying);
       final digest = await _sha256Of(part.path);
@@ -229,7 +231,9 @@ class ShikooUpdate {
       _move(
         UpdatePhase.offered,
         received: kept,
-        error: noSpace ? UpdateError.noSpace : UpdateError.network,
+        error: cancel.isCancelled
+            ? null
+            : (noSpace ? UpdateError.noSpace : UpdateError.network),
       );
     }
   }
@@ -238,9 +242,10 @@ class ShikooUpdate {
     AppRelease release,
     File part,
     int have,
+    CancelToken cancel,
     bool Function() stale,
   ) async {
-    final response = await _api.download(release.url, have);
+    final response = await _api.download(release.url, have, cancel);
     final status = response.statusCode;
     final resumed =
         status == 206 &&
@@ -274,16 +279,21 @@ class ShikooUpdate {
     if (received < release.size) throw const ShikooApiFailure();
   }
 
-  Future<void> install() async {
-    final phase = _offer?.phase;
-    if (phase != UpdatePhase.ready && phase != UpdatePhase.permission) return;
-    if (!await _native('canInstall')) return _move(UpdatePhase.permission);
-    await _launch();
+  Future<void> cancel() async {
+    _cancel?.cancel();
+    await _downloading;
   }
 
-  /// A box without Android's page goes straight to the installer, which asks on its own.
+  /// False when Android must let this app install apps first: the screen explains, then [allow].
+  Future<bool> install() async {
+    if (_offer?.phase != UpdatePhase.ready) return true;
+    if (!await _native('canInstall')) return false;
+    await _launch();
+    return true;
+  }
+
   Future<void> allow() async {
-    if (_offer?.phase != UpdatePhase.permission) return;
+    if (_offer?.phase != UpdatePhase.ready) return;
     _awaitingPermission = true;
     if (await _native('openInstallSettings')) return;
     _awaitingPermission = false;

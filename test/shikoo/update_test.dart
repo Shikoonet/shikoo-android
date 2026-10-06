@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -24,6 +25,9 @@ class _Door implements HttpClientAdapter {
 
   /// The connection drops once a download reaches this byte of the file.
   int? dropAt;
+
+  /// A download stalls at this byte until it is cancelled.
+  int? holdAt;
 
   Iterable<RequestOptions> get downloads =>
       requests.where((r) => r.uri.path.startsWith('/dl/'));
@@ -74,7 +78,7 @@ class _Door implements HttpClientAdapter {
     ).firstMatch('${options.headers[HttpHeaders.rangeHeader] ?? ''}');
     final from = ranges && asked != null ? int.parse(asked[1]!) : 0;
     return ResponseBody(
-      _body(from),
+      _body(from, cancelFuture),
       from > 0 ? 206 : 200,
       headers: {
         if (from > 0)
@@ -85,10 +89,15 @@ class _Door implements HttpClientAdapter {
     );
   }
 
-  Stream<Uint8List> _body(int from) async* {
+  Stream<Uint8List> _body(int from, Future<void>? cancelled) async* {
     for (var at = from; at < _apk.length; at += 1000) {
       if (dropAt != null && at >= dropAt!) {
         throw const SocketException('dropped');
+      }
+      if (holdAt != null && at >= holdAt!) {
+        // Dio stops reading when cancelled and reports the cancel itself.
+        await cancelled;
+        return;
       }
       yield _apk.sublist(at, min(at + 1000, _apk.length));
     }
@@ -305,6 +314,34 @@ void main() {
       expect(offer()!.phase, UpdatePhase.ready);
       expect(offer()!.error, isNull);
     });
+
+    test('cancel stops where it is, and the next tap continues', () async {
+      door.holdAt = 6000;
+      final update = start();
+      await update.check();
+      final written = Completer<void>();
+      container.listen(shikooUpdateOfferProvider, (_, next) {
+        if (next!.received == 6000 && !written.isCompleted) written.complete();
+      });
+      final running = update.download();
+      await written.future;
+      expect(offer()!.phase, UpdatePhase.downloading);
+      await update.cancel();
+      await running;
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, isNull);
+      expect(offer()!.received, 6000);
+      expect(part().lengthSync(), 6000);
+
+      door.holdAt = null;
+      await update.download();
+      expect(
+        door.downloads.last.headers[HttpHeaders.rangeHeader],
+        'bytes=6000-',
+      );
+      expect(offer()!.phase, UpdatePhase.ready);
+      expect(apk().readAsBytesSync(), _apk);
+    });
   });
 
   group('install', () {
@@ -318,14 +355,14 @@ void main() {
     test('asks for the permission, then installs on the way back', () async {
       canInstall = false;
       final update = await ready();
-      await update.install();
-      expect(offer()!.phase, UpdatePhase.permission);
+      expect(await update.install(), isFalse);
+      expect(offer()!.phase, UpdatePhase.ready);
       expect(native.map((c) => c.method), isNot(contains('install')));
 
       await update.allow();
       expect(native.last.method, 'openInstallSettings');
       await update.onForeground();
-      expect(offer()!.phase, UpdatePhase.permission);
+      expect(native.map((c) => c.method), isNot(contains('install')));
 
       await update.allow();
       canInstall = true;
@@ -341,7 +378,7 @@ void main() {
         canInstall = false;
         hasSettings = false;
         final update = await ready();
-        await update.install();
+        expect(await update.install(), isFalse);
         await update.allow();
         expect(native.last.method, 'install');
         expect(offer()!.error, isNull);
@@ -351,7 +388,7 @@ void main() {
     test('an apk the system cleared is downloaded again', () async {
       final update = await ready();
       await apk().delete();
-      await update.install();
+      expect(await update.install(), isTrue);
       expect(offer()!.phase, UpdatePhase.offered);
       expect(native.map((c) => c.method), isNot(contains('install')));
     });
