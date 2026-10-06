@@ -10,6 +10,7 @@ tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]}
 
 work=$(mktemp -d) && trap 'rm -rf "$work"' EXIT
 (umask 077 && printf 'Authorization: Bearer %s\n' "$DOOR_TOKEN" >"$work/auth")
+# ponytail: --retry-all-errors also repeats a 401 or 422 six times, so it fails 30-40 s late; a loop on %{http_code} would stop on 4xx
 door() { curl -sS --fail-with-body --retry 5 --retry-all-errors -H @"$work/auth" "$@"; }
 
 rows=() names=()

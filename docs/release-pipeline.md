@@ -300,9 +300,10 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
 | `actionlint` 1.7.12 with `shellcheck` 0.11.0 on the three workflows | exit 0 (one `SC2012` fixed on the way) |
 | `flutter test` on 2 CPUs | 399 s, one failure: `NetworkDetection provider ignores a canceled stale check after a newer check succeeds`; the file alone passed three times (2 CPUs twice, all CPUs once), so it is a timing flake under load, in FlClash's tests |
 | The guard loop (2026-10-06), cut from the workflow at `5f8c445` (old: `.dev` suffix) and with the exact id, on v7a APKs from `feat/app` local builds: a staging build named as staging; the same named as production; a build without the staging server named as production | both: PASS; refused (`is com.shikoonet.app.dev and carries the staging server 1 times`); refused (`… 0 times`) |
-| `tools/publish_door.sh` (2026-10-06) in WSL Ubuntu 24.04 (its curl 8.5.0; jq 1.7.1, the official binary) against a throwaway door on `127.0.0.1:18797` that implements the upload contract, with two 50–52 MB staging APKs: the 16 MiB chunk of each file written and then answered 502 once | exit 0; the log shows that chunk `502` then `200` for both files; `POST /dl/publish` 200; the door's files pass `sha256sum -c` against `SHA256SUMS` |
+| `tools/publish_door.sh` (2026-10-06) in WSL Ubuntu 24.04 (its curl 8.5.0; jq 1.7.1, the official binary) against a throwaway door on `127.0.0.1:18797` that implements the upload contract, with two 50–52 MB staging APKs, sent in 8 MiB chunks; the door wrote the third chunk of each file (offset 16 MiB) and then answered 502 once | exit 0; the log shows that chunk `502` then `200` for both files; `POST /dl/publish` 200; the door's files pass `sha256sum -c` against `SHA256SUMS` |
 | The same door: an offset past the upload; one wrong hash in `SHA256SUMS`; the same release with `force=true`; a wrong token; empty `force` | `409 {"error": "offset", "size": 207}`; exit 22 after `422 {"error": "sha256", "file": …}` and `update.json` unchanged; `min_version_code` = `version_code` for both ABIs; exit 22 on `401`; `::error::force must be true or false` |
 | The token in that run: all script output, including two runs under `bash -x`, and the door's log | 0 lines each; no header file left behind |
+| The same script, unchanged, against the real door of shikoo-platform PR #700 (WP1), run by the verifier on 2026-10-06: a publish; a wrong sha256; a wrong token; a swapped ABI; a chunk sent twice | as the contract says: published; 422 with the manifest unchanged; 401; the swapped ABI case as expected; the repeated chunk harmless |
 | The same two guards where only the package can tell: FlClash's official `com.follow.clash` (sha256 `9a507336…a122a`) named as production; FlClash's WSL debug build named as staging, with `API=chen08209`, a string its `libapp.so` holds 4 times | old: PASS, PASS. Exact id: refused (`is com.follow.clash and carries the staging server 0 times`); refused (`is com.follow.clash.dev and carries the staging server 4 times`) |
 
 **Prerequisites before this can merge green:**
@@ -325,6 +326,7 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
   `ubuntu-latest` with the same steps, which is the reason to expect it.
 - That `gh workflow disable` is kept across a FlClash merge that rewrites `build.yaml`.
 - The new version in the User-Agent against the panel (§5).
-- The door itself (`docs/app-update.md`, WP1) does not exist yet; the script was run only against a throwaway stand-in of
-  its contract. Upload speed from a GitHub runner to the door's host is unmeasured. A failing request is retried five times
+- The door (`docs/app-update.md`, WP1) is shikoo-platform PR #700, not yet merged or deployed; the script met it only in the
+  verifier's run above, never on a deployed door (`app-dev.chopon.uk`, `app.chopon.uk`). Upload speed from a GitHub runner to the
+  door's host is unmeasured. A failing request is retried five times
   even when it is a 401 or 422, so such a failure takes about half a minute to show.
