@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fl_clash/enum/enum.dart' show MessageLevel;
 import 'package:fl_clash/manager/status_manager.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
@@ -177,9 +178,11 @@ Future<ProviderContainer> _pump(
           ...GlobalMaterialLocalizations.delegates,
         ],
         theme: shikooThemeData(Brightness.light, tv: device.tv),
-        // As in ShikooApp's builder, whose StatusManager lays the app out loosely.
-        builder: (context, child) =>
-            StatusManager(child: ShikooSystemUi(child: child!)),
+        // ShikooApp's builder, with only FlClash's StatusManager of its managers: it holds the
+        // app in a loose Stack and shows FlClash's messages.
+        builder: (context, child) => ShikooTvCanvas(
+          child: StatusManager(child: ShikooSystemUi(child: child!)),
+        ),
         home: home,
       ),
     ),
@@ -452,6 +455,48 @@ void main() {
       );
       final drawn = MediaQuery.sizeOf(tester.element(find.byType(ShikooHome)));
       if (drawn != canvas) faults.add('$size draws $drawn, not $canvas');
+    }
+    expect(faults, isEmpty);
+  });
+
+  testWidgets("on a TV FlClash's messages grow and shrink with the canvas, "
+      'inside its safe area', (tester) async {
+    const text = 'config is not applied';
+    final faults = <String>[];
+    Rect? design;
+    for (final size in const [
+      Size(960, 540),
+      Size(1920, 1080),
+      Size(480, 270),
+    ]) {
+      final device = (size: size, scale: 1.0, tv: true);
+      await _pump(tester, device, const ShikooHome(), state: _home(true));
+      tester
+          .state<StatusManagerState>(find.byType(StatusManager))
+          .message(text, level: MessageLevel.error);
+      await tester.pumpAndSettle();
+      final card = find.ancestor(
+        of: find.text(text),
+        matching: find.byType(Card),
+      );
+      final k = _k(device);
+      const tv = ShikooSizes.tv;
+      final safe = Rect.fromLTRB(
+        tv.safeX * k,
+        tv.safeY * k,
+        size.width - tv.safeX * k,
+        size.height - tv.safeY * k,
+      );
+      if (_cut(card.evaluate().first, safe, 0) case final cut?) {
+        faults.add('${_name(device)}: $cut');
+      }
+      final rect = tester.getRect(card);
+      final shown = (rect.topLeft / k) & (rect.size / k);
+      design ??= shown;
+      if ((shown.topLeft - design.topLeft).distance > 0.5 ||
+          (shown.bottomRight - design.bottomRight).distance > 0.5) {
+        faults.add('${_name(device)}: at $shown, not $design');
+      }
     }
     expect(faults, isEmpty);
   });
