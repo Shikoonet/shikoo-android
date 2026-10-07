@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -298,6 +300,8 @@ class ShikooSizes {
 
   static const touch = 48.0;
 
+  static const tvCanvas = Size(960, 540);
+
   /// `--text-scale-max-round`: the round button's text grows no further, its circle being fixed.
   static const roundTextScaleMax = 1.15;
   static const powerIcon = 40.0;
@@ -378,9 +382,39 @@ class ShikooSystemUi extends StatelessWidget {
         systemNavigationBarIconBrightness: icons,
         systemNavigationBarContrastEnforced: false,
       ),
-      child: child,
+      child: identical(ShikooTheme.of(context).s, ShikooSizes.tv)
+          ? _onTvCanvas(context, child)
+          : child,
     );
   }
+}
+
+/// Whatever density a TV reports, it shows the frames' layout scaled; off 16:9, with more room.
+Widget _onTvCanvas(BuildContext context, Widget child) {
+  final data = MediaQuery.of(context);
+  const canvas = ShikooSizes.tvCanvas;
+  final k = math.min(
+    data.size.width / canvas.width,
+    data.size.height / canvas.height,
+  );
+  if (k == 1 || k <= 0) return child;
+  final size = data.size / k;
+  return FittedBox(
+    child: SizedBox.fromSize(
+      size: size,
+      child: MediaQuery(
+        data: data.copyWith(
+          size: size,
+          devicePixelRatio: data.devicePixelRatio * k,
+          padding: data.padding / k,
+          viewPadding: data.viewPadding / k,
+          viewInsets: data.viewInsets / k,
+          systemGestureInsets: data.systemGestureInsets / k,
+        ),
+        child: child,
+      ),
+    ),
+  );
 }
 
 ThemeData shikooThemeData(Brightness brightness, {required bool tv}) {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -22,16 +24,43 @@ class _Update extends Mock implements ShikooUpdate {}
 
 typedef _Device = ({Size size, double scale, bool tv});
 
+/// 16:9 TVs as Android reports them in dp: 1080p at 320, 240 and 160 dpi, 720p at 240, and the
+/// smaller ones seen on the bench. The design's canvas first.
+const _tv169 = [
+  Size(960, 540),
+  Size(1280, 720),
+  Size(1920, 1080),
+  Size(1280 / 1.5, 480),
+  Size(768, 432),
+  Size(640, 360),
+  Size(480, 270),
+];
+
 /// WP7 of docs/app-diagnostics.md: each layout report from a device adds its screen here. A
 /// release build draws past an overflow without a word, so only geometry catches it.
 final _devices = <_Device>[
-  for (final size in const [Size(960, 540), Size(1280, 720), Size(1920, 1080)])
+  for (final size in _tv169.take(3))
     for (final scale in const [1.0, 1.15, 1.3])
       (size: size, scale: scale, tv: true),
+  // Taller and wider than 16:9: the canvas grows in height, then in width.
+  for (final size in [
+    ..._tv169.skip(3),
+    const Size(1024, 600),
+    const Size(2560, 1080),
+  ])
+    for (final scale in const [1.0, 1.3]) (size: size, scale: scale, tv: true),
   for (final size in const [Size(360, 800), Size(412, 915)])
     for (final scale in const [1.0, 1.45])
       (size: size, scale: scale, tv: false),
 ];
+
+/// How much larger than the canvas a TV draws it.
+double _k(_Device device) => device.tv
+    ? math.min(
+        device.size.width / ShikooSizes.tvCanvas.width,
+        device.size.height / ShikooSizes.tvCanvas.height,
+      )
+    : 1;
 
 final _l = lookupShikooL10n(const Locale('fa'));
 final _now = DateTime.now();
@@ -228,19 +257,20 @@ Future<List<String>> _faults(
   final error = tester.takeException();
   if (error != null) faults.add('$error'.split('\n').first);
   const tv = ShikooSizes.tv;
+  final k = _k(device);
   final view = device.tv
       ? Rect.fromLTRB(
-          tv.safeX,
-          tv.safeY,
-          device.size.width - tv.safeX,
-          device.size.height - tv.safeY,
+          tv.safeX * k,
+          tv.safeY * k,
+          device.size.width - tv.safeX * k,
+          device.size.height - tv.safeY * k,
         )
       : Offset.zero & device.size;
   void checkFocus() {
     final context = FocusManager.instance.primaryFocus?.context as Element?;
     if (context == null) {
       faults.add('nothing has the remote');
-    } else if (_cut(context, view, ShikooSizes.ring) case final cut?) {
+    } else if (_cut(context, view, ShikooSizes.ring * k) case final cut?) {
       faults.add('the remote is on ${_say(context)}: $cut');
     }
   }
@@ -334,6 +364,57 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await loadShikooFonts();
+  });
+
+  testWidgets('every 16:9 TV shows the 960x540 layout, only larger or '
+      'smaller; another shape gets more height or width', (tester) async {
+    final faults = <String>[];
+    for (final scale in const [1.0, 1.3]) {
+      Map<String, Rect>? design;
+      for (final size in _tv169) {
+        final device = (size: size, scale: scale, tv: true);
+        await _pump(
+          tester,
+          device,
+          const ShikooHome(),
+          state: _home(true),
+          offer: const UpdateOffer(_release),
+        );
+        final k = _k(device);
+        Rect onCanvas(Finder target) {
+          final rect = tester.getRect(target);
+          return (rect.topLeft / k) & (rect.size / k);
+        }
+
+        final shown = {
+          'power': onCanvas(find.byType(PowerButton)),
+          'update': onCanvas(_button(_l.updateGet)),
+          'settings': onCanvas(_button(_l.settings)),
+        };
+        design ??= shown;
+        for (final MapEntry(key: name, value: rect) in shown.entries) {
+          final want = design[name]!;
+          if ((rect.topLeft - want.topLeft).distance > 0.5 ||
+              (rect.bottomRight - want.bottomRight).distance > 0.5) {
+            faults.add('${_name(device)}: $name at $rect, not $want');
+          }
+        }
+      }
+    }
+    for (final (size, canvas) in const [
+      (Size(1024, 600), Size(960, 562.5)),
+      (Size(2560, 1080), Size(1280, 540)),
+    ]) {
+      await _pump(
+        tester,
+        (size: size, scale: 1.0, tv: true),
+        const ShikooHome(),
+        state: _home(true),
+      );
+      final drawn = MediaQuery.sizeOf(tester.element(find.byType(ShikooHome)));
+      if (drawn != canvas) faults.add('$size draws $drawn, not $canvas');
+    }
+    expect(faults, isEmpty);
   });
 
   const waiting = ShikooLogin(
