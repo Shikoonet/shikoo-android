@@ -347,8 +347,7 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
                 ),
               _Row(
                 title: l.about,
-                // A word joiner keeps «GPL-3.0» on one line.
-                subtitle: l.aboutSummary.replaceAll('-', '-\u2060'),
+                subtitle: l.aboutSummary,
                 forward: true,
                 onPressed: () => unawaited(
                   Navigator.push(
@@ -584,7 +583,7 @@ class _Group extends StatelessWidget {
 }
 
 /// `.segmented`: one choice of a few, the chosen one raised.
-class Segmented<T> extends StatelessWidget {
+class Segmented<T> extends StatefulWidget {
   const Segmented({
     super.key,
     required this.options,
@@ -605,69 +604,95 @@ class Segmented<T> extends StatelessWidget {
   final bool small;
 
   @override
+  State<Segmented<T>> createState() => _SegmentedState<T>();
+}
+
+class _SegmentedState<T> extends State<Segmented<T>> {
+  final _nodes = <T, FocusNode>{};
+
+  @override
+  void dispose() {
+    for (final node in _nodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final Segmented(:options, :selected, :onSelect, :autofocus, :small) =
+        widget;
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.sm),
     );
-    return Container(
-      padding: const EdgeInsets.all(Space.s1),
-      decoration: ShapeDecoration(
-        color: t.c.surfaceSunken,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Radii.md),
+    // The remote coming from another row lands on the chosen option, not the nearest one.
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (inside) {
+        if (inside) _nodes[selected]?.requestFocus();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(Space.s1),
+        decoration: ShapeDecoration(
+          color: t.c.surfaceSunken,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(Radii.md),
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
-        spacing: Space.s1,
-        children: [
-          for (final MapEntry(key: value, value: label) in options.entries)
-            Flexible(
-              flex: small ? 0 : 1,
-              fit: FlexFit.tight,
-              child: Pressable(
-                autofocus: autofocus && value == selected,
-                shape: shape,
-                onPressed: () => onSelect(value),
-                builder: (context, focused) {
-                  final chosen = value == selected;
-                  return Semantics(
-                    selected: chosen,
-                    button: true,
-                    child: Container(
-                      height: small ? null : t.s.button,
-                      padding: small
-                          ? const EdgeInsets.symmetric(
-                              horizontal: Space.s4,
-                              vertical: Space.s1,
-                            )
-                          : null,
-                      alignment: Alignment.center,
-                      decoration: ShapeDecoration(
-                        color: focused
-                            ? t.c.focusBg
-                            : (chosen ? t.c.surface : null),
-                        shadows: focused
-                            ? t.c.raisedShadow
-                            : (chosen ? t.c.cardShadow : null),
-                        shape: shape,
-                      ),
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: t.text(
-                          small ? t.s.bodySm : t.s.body,
-                          weight: chosen ? FontWeight.w700 : FontWeight.w500,
-                          color: chosen ? t.c.text : t.c.textMuted,
+        child: Row(
+          mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
+          spacing: Space.s1,
+          children: [
+            for (final MapEntry(key: value, value: label) in options.entries)
+              Flexible(
+                flex: small ? 0 : 1,
+                fit: FlexFit.tight,
+                child: Pressable(
+                  focusNode: _nodes.putIfAbsent(value, FocusNode.new),
+                  autofocus: autofocus && value == selected,
+                  shape: shape,
+                  onPressed: () => onSelect(value),
+                  builder: (context, focused) {
+                    final chosen = value == selected;
+                    return Semantics(
+                      selected: chosen,
+                      button: true,
+                      child: Container(
+                        height: small ? null : t.s.button,
+                        padding: small
+                            ? const EdgeInsets.symmetric(
+                                horizontal: Space.s4,
+                                vertical: Space.s1,
+                              )
+                            : null,
+                        alignment: Alignment.center,
+                        decoration: ShapeDecoration(
+                          color: focused
+                              ? t.c.focusBg
+                              : (chosen ? t.c.surface : null),
+                          shadows: focused
+                              ? t.c.raisedShadow
+                              : (chosen ? t.c.cardShadow : null),
+                          shape: shape,
+                        ),
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          style: t.text(
+                            small ? t.s.bodySm : t.s.body,
+                            weight: chosen ? FontWeight.w700 : FontWeight.w500,
+                            color: chosen ? t.c.text : t.c.textMuted,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -836,20 +861,6 @@ class _Row extends StatelessWidget {
           ),
       ],
     );
-    // `.row:has(> .value)` wraps: a value that does not fit goes under its label.
-    Widget beside(Widget texts, String value) => Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: Space.s3,
-      runSpacing: Space.s1,
-      children: [
-        texts,
-        Text(
-          value,
-          style: t.text(s.body, color: t.c.textMuted, height: Leading.body),
-        ),
-      ],
-    );
     Widget row(bool focused) => Container(
       constraints: BoxConstraints(minHeight: s.row),
       padding: const EdgeInsets.symmetric(
@@ -875,7 +886,28 @@ class _Row extends StatelessWidget {
                 color: danger ? ink : t.c.textMuted,
               ),
             ),
-          Expanded(child: value == null ? texts : beside(texts, value)),
+          Expanded(
+            child: value == null
+                ? texts
+                // `.row:has(> .value)` wraps: a value that does not fit goes under its label.
+                : Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: Space.s3,
+                    runSpacing: Space.s1,
+                    children: [
+                      texts,
+                      Text(
+                        value,
+                        style: t.text(
+                          s.body,
+                          color: t.c.textMuted,
+                          height: Leading.body,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
           if (forward)
             Transform.flip(
               flipX: ltr,

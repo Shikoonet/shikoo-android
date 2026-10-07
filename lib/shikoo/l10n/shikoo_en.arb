@@ -325,7 +325,7 @@
   "settingsChecking": "Checking…",
   "settingsUpToDate": "You have the latest version.",
   "settingsCheckFailed": "Couldn't check; check your internet and try again.",
-  "@settingsCoreHelp": {"description": "Under \"Core\" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from a constant in lib/shikoo/ that the upstream sync script writes when it merges a new tag. There is no separate core download."},
+  "@settingsCoreHelp": {"description": "Under \"Core\" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from the constant flclashVersion in lib/shikoo/engine/settings.dart; a test fails until it matches the version in pubspec.yaml, which each merged upstream tag raises. There is no separate core download."},
   "@settingsCheckUpdate": {"description": "Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home."},
   "@settingsCheckFailed": {"description": "Red line under settingsCheckUpdate; tapping the row again retries."}
 }

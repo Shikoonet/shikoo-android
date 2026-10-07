@@ -1550,7 +1550,7 @@ abstract class ShikooL10n {
   /// **'Core'**
   String get settingsCore;
 
-  /// Under "Core" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from a constant in lib/shikoo/ that the upstream sync script writes when it merges a new tag. There is no separate core download.
+  /// Under "Core" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from the constant flclashVersion in lib/shikoo/engine/settings.dart; a test fails until it matches the version in pubspec.yaml, which each merged upstream tag raises. There is no separate core download.
   ///
   /// In en, this message translates to:
   /// **'Updates together with the app.'**

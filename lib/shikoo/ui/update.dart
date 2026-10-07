@@ -140,6 +140,18 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
   /// Every state's button is one widget, so the remote stays on it when a download ends by
   /// itself (tv-home-update-ready) and when large text moves it under the text.
   final _button = GlobalKey();
+  bool _pressed = false;
+
+  /// A card the customer pressed stays in view as its state grows it (the bar, the red line).
+  @override
+  void didUpdateWidget(UpdateCard old) {
+    super.didUpdateWidget(old);
+    if (_pressed &&
+        (_stepOf(old.offer) != _stepOf(widget.offer) ||
+            old.offer.error != widget.offer.error)) {
+      revealWithRing(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -204,9 +216,17 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
       label: label,
       primary: primary,
       focusNode: widget.focusNode,
-      onPressed: action,
+      onPressed: () {
+        _pressed = true;
+        action();
+      },
     );
-    return RevealWhileFocused(
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (inside) {
+        if (inside) revealWithRing(context);
+      },
       child: Container(
         padding: const EdgeInsets.all(Space.s4),
         decoration: ShapeDecoration(

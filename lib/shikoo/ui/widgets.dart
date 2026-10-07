@@ -50,13 +50,21 @@ Text nameText(
 );
 
 /// Traversal reveals only the focused widget, cutting the ring drawn outside it in a scrolled
-/// column; this brings [context]'s box into view with room for the ring.
+/// column; this brings [context]'s box into view with room for the ring, and above a phone's
+/// navigation bar, which the page scrolls under.
 void revealWithRing(BuildContext context) {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final box = context.mounted ? context.findRenderObject() : null;
     if (box is RenderBox && box.attached) {
+      const room = Space.s2 + ShikooSizes.ring;
+      final below = room + MediaQuery.paddingOf(context).bottom;
       box.showOnScreen(
-        rect: (Offset.zero & box.size).inflate(Space.s2 + ShikooSizes.ring),
+        rect: Rect.fromLTRB(
+          -room,
+          -room,
+          box.size.width + room,
+          box.size.height + below,
+        ),
       );
     }
   });
@@ -69,26 +77,6 @@ void jumpFocus(BuildContext context, FocusNode node) {
     FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
   }
   node.requestFocus();
-}
-
-/// Keeps [child] in view with room for a ring while the remote is anywhere inside it, also when
-/// it grows under the remote, as a card whose state changes by itself.
-class RevealWhileFocused extends StatelessWidget {
-  const RevealWhileFocused({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Focus(
-    canRequestFocus: false,
-    skipTraversal: true,
-    child: Builder(
-      builder: (context) {
-        if (Focus.of(context).hasFocus) revealWithRing(context);
-        return child;
-      },
-    ),
-  );
 }
 
 /// A focusable, pressable surface. The remote's OK key and a tap both press it.
@@ -116,10 +104,6 @@ class Pressable extends StatefulWidget {
 class _PressableState extends State<Pressable> {
   bool _focused = false;
 
-  void _revealWithRing(bool focused) {
-    if (focused) revealWithRing(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -127,7 +111,9 @@ class _PressableState extends State<Pressable> {
     return FocusableActionDetector(
       autofocus: widget.autofocus,
       focusNode: widget.focusNode,
-      onFocusChange: _revealWithRing,
+      onFocusChange: (focused) {
+        if (focused) revealWithRing(context);
+      },
       onShowFocusHighlight: (value) => setState(() => _focused = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(

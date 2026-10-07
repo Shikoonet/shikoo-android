@@ -224,8 +224,11 @@ void main() {
     );
     expect(await _press(tester, left), 'بررسی به‌روزرسانی');
     expect(await _press(tester, right), 'خروج');
-    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'تیره');
-    expect(await _press(tester, left), 'خودکار');
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowUp),
+      'خودکار',
+      reason: 'the chosen look, not the option nearest the row',
+    );
     expect(await _press(tester, left), 'فارسی');
     expect(
       await _press(tester, down),

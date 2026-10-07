@@ -62,12 +62,15 @@ Future<ProviderContainer> _pump(
   Size? size,
   double scale = 1,
   UpdateOffer? offer,
+  double navigationBar = 0,
+  String language = 'fa',
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
     ..physicalSize =
         size ?? (isTV ? const Size(1920, 1080) : const Size(824, 1830))
-    ..devicePixelRatio = 2;
+    ..devicePixelRatio = 2
+    ..padding = FakeViewPadding(bottom: navigationBar * 2);
   tester.platformDispatcher.textScaleFactorTestValue = scale;
   tester.platformDispatcher.accessibilityFeaturesTestValue =
       const FakeAccessibilityFeatures(disableAnimations: true);
@@ -103,7 +106,7 @@ Future<ProviderContainer> _pump(
       key: UniqueKey(),
       container: container,
       child: MaterialApp(
-        locale: const Locale('fa'),
+        locale: Locale(language),
         supportedLocales: ShikooL10n.supportedLocales,
         localizationsDelegates: const [
           ShikooL10n.delegate,
@@ -153,6 +156,22 @@ Future<void> _focus(WidgetTester tester, Finder inside) async {
   node.requestFocus();
   await tester.pumpAndSettle();
 }
+
+/// A press on the card moves it, as the engine would, to a taller state.
+const _growths = [('offered', 'downloading'), ('ready', 'install failed')];
+
+void _growOnPress(ProviderContainer container, String to) {
+  void grow() =>
+      container.read(shikooUpdateOfferProvider.notifier).set(_cards[to]);
+  when(_engine.download).thenAnswer((_) async => grow());
+  when(_engine.install).thenAnswer((_) async {
+    grow();
+    return InstallAsk.nothing;
+  });
+}
+
+double _cardBottom(WidgetTester tester) =>
+    tester.getRect(find.byType(UpdateCard)).bottom;
 
 Finder _row(String title) =>
     find.ancestor(of: find.text(title), matching: find.byType(Pressable));
@@ -262,6 +281,12 @@ void main() {
       if (!isTV) continue;
       expect(_focused(), 'دریافت');
       expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'درباره');
+      expect(
+        await _press(tester, LogicalKeyboardKey.arrowUp),
+        'فارسی',
+        reason: 'the chosen language, not the option nearest the card',
+      );
+      expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'دریافت');
     }
   });
@@ -310,24 +335,54 @@ void main() {
     }
   });
 
-  testWidgets('a card that grows under the remote stays in the safe area: '
+  testWidgets('a card the remote pressed stays in the safe area as it grows: '
       'the bar of a started download, the line of a failed installer', (
     tester,
   ) async {
     const tv = ShikooSizes.tv;
-    for (final (from, to) in [
-      ('offered', 'downloading'),
-      ('ready', 'install failed'),
-    ]) {
+    for (final (from, to) in _growths) {
       final container = await _pump(tester, isTV: true, offer: _cards[from]);
+      _growOnPress(container, to);
       await _focus(tester, _cardButton);
-      container.read(shikooUpdateOfferProvider.notifier).set(_cards[to]);
-      await tester.pumpAndSettle();
+      await _press(tester, LogicalKeyboardKey.select);
+      expect(_focused(), isNot('دریافت'), reason: '$from to $to');
       expect(
         tester.getRect(find.byType(UpdateCard)).bottom,
         lessThanOrEqualTo(540 - tv.safeY + 0.5),
         reason: '$from to $to',
       );
+    }
+  });
+
+  testWidgets('on a phone the card a press found, then a press grew, stays '
+      'above the navigation bar', (tester) async {
+    for (final scale in const [1.0, 1.45]) {
+      for (final (from, to) in _growths) {
+        final why = '$from to $to, font $scale';
+        final container = await _pump(
+          tester,
+          size: const Size(720, 1600),
+          scale: scale,
+          navigationBar: 48,
+        );
+        when(_engine.checkNow).thenAnswer((_) async {
+          container.read(shikooUpdateOfferProvider.notifier).set(_cards[from]);
+          return true;
+        });
+        _growOnPress(container, to);
+        await tester.dragUntilVisible(
+          find.text(_check),
+          find.byType(SingleChildScrollView),
+          const Offset(0, -40),
+        );
+        await tester.tap(find.text(_check));
+        await tester.pumpAndSettle();
+        expect(_cardBottom(tester), lessThanOrEqualTo(800 - 48), reason: why);
+        await tester.tap(_cardButton);
+        await tester.pumpAndSettle();
+        expect(find.text('دریافت'), findsNothing, reason: why);
+        expect(_cardBottom(tester), lessThanOrEqualTo(800 - 48), reason: why);
+      }
     }
   });
 
@@ -386,4 +441,83 @@ void main() {
       expect(tester.takeException(), isNull, reason: name);
     }
   });
+
+  testWidgets('on the TV the page scrolls in its own column: room for the ring '
+      'past the pane, and once scrolled a thumb', (tester) async {
+    await _pump(
+      tester,
+      isTV: true,
+      size: const Size(1920, 1080),
+      scale: 1.3,
+      offer: _cards['install failed'],
+    );
+    RawScrollbar bar() => tester.widget(find.byType(RawScrollbar));
+    final column = tester.getRect(find.byType(TvScrollColumn));
+    expect(
+      tester.getRect(find.byType(Scrollable)),
+      column.inflate(Space.s2),
+      reason: 'a ring at the pane\x27s edge is not clipped',
+    );
+    expect(bar().thumbVisibility, isFalse);
+    await _focus(tester, _cardButton);
+    expect(
+      tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels,
+      greaterThan(0),
+    );
+    expect(bar().thumbVisibility, isTrue);
+  });
+
+  test('red text reads on every surface it sits on, the remote\x27s too: at '
+      'least 4.5:1', () {
+    double contrast(Color a, Color b) {
+      final [dark, light] = [a.computeLuminance(), b.computeLuminance()]
+        ..sort();
+      return (light + 0.05) / (dark + 0.05);
+    }
+
+    for (final c in [ShikooColors.light, ShikooColors.dark]) {
+      for (final ground in [c.bg, c.surface, c.focusBg]) {
+        expect(
+          contrast(c.danger, ground),
+          greaterThanOrEqualTo(4.5),
+          reason: '${c.danger} on $ground',
+        );
+      }
+    }
+  });
+
+  testWidgets(
+    '«GPL-3.0» under About never breaks over two lines, by Unicode\x27s '
+    'own rule (no break between a hyphen and a digit)',
+    (tester) async {
+      for (final language in ['fa', 'en']) {
+        await _pump(tester, language: language);
+        final finder = find.byWidgetPredicate(
+          (widget) => widget is Text && (widget.data?.contains('GPL') ?? false),
+        );
+        final text = tester.widget<Text>(finder);
+        final context = tester.element(finder);
+        final data = text.data!;
+        final start = data.indexOf('GPL');
+        for (final scale in const [1.0, 1.45, 2.0]) {
+          for (var width = 120.0; width <= 480; width += 1) {
+            final painter = TextPainter(
+              text: TextSpan(
+                text: data,
+                style: DefaultTextStyle.of(context).style.merge(text.style),
+              ),
+              textDirection: Directionality.of(context),
+              textScaler: TextScaler.linear(scale),
+            )..layout(maxWidth: width);
+            expect(
+              painter.getLineBoundary(TextPosition(offset: start)).end,
+              greaterThanOrEqualTo(start + 'GPL-3.0'.length),
+              reason: '$language at $width × $scale',
+            );
+            painter.dispose();
+          }
+        }
+      }
+    },
+  );
 }
