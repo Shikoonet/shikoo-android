@@ -322,6 +322,31 @@ void main() {
     },
   );
 
+  testWidgets('a refresh that fails puts its message above the card\'s '
+      'buttons and leaves the remote on the one it was on', (tester) async {
+    final wrong = <String>[];
+    for (final at in ['پشتیبانی', 'تمدید', 'پینگ همه', 'فنلاند ۲']) {
+      _tvScreen(tester);
+      final holder = await _pumpTvHome(tester, _tv(ShikooConnection.off));
+      await _focus(tester, at);
+      holder.value = _tv(ShikooConnection.off, refresh: ShikooRefresh.running);
+      await tester.pumpAndSettle();
+      holder.value = _tv(
+        ShikooConnection.off,
+        refresh: ShikooRefresh.failed,
+        notice: const RefreshFailed(),
+      );
+      await tester.pumpAndSettle();
+      final failed = _focused();
+      holder.value = _tv(ShikooConnection.off);
+      await tester.pumpAndSettle();
+      if (failed != at || _focused() != at) {
+        wrong.add('$at: $failed, then ${_focused()}');
+      }
+    }
+    expect(wrong, isEmpty);
+  });
+
   testWidgets('a new order waits while the remote is on the list', (
     tester,
   ) async {

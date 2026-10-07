@@ -219,7 +219,9 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset,
                     child: _Notice(text: service.announce!),
                   ),
+                // Unkeyed, a message appearing above rebuilt Support and the remote fell off it.
                 Padding(
+                  key: const ValueKey('actions'),
                   padding: inset.copyWith(top: Space.s3),
                   child: Row(
                     children: [
