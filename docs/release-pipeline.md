@@ -119,7 +119,10 @@ only Shikoo edit there that touches the id or signing is `applicationId = "com.s
 them, the release signing config and no suffix; without them, the debug signing config and `applicationIdSuffix = ".dev"`.
 Both variants are `flutter build apk --release` (Gradle `assembleRelease`) and land in
 `build/app/outputs/flutter-apk/app-<abi>-release.apk`. So the job builds staging first, with no `keystore.jks` and the
-staging key placed as `~/.android/debug.keystore`, then writes `keystore.jks` and builds production.
+staging key placed as `debug.keystore` in `ANDROID_USER_HOME` (`$RUNNER_TEMP/android-user`), then writes `keystore.jks` and
+builds production. Not in `~/.android`: AGP 9 reads `ANDROID_USER_HOME` first and, without it, `$XDG_CONFIG_HOME/.android`,
+which the ubuntu image sets to `~/.config`; a key written to `~/.android` is never read, and AGP signs with a fresh key of
+its own (run 37636218455).
 The staging key being stable matters: a fresh runner debug key would make every staging APK a different signer, and testers
 would have to uninstall before each update. The keys are deleted at the end of the job, also on failure.
 
@@ -127,8 +130,9 @@ would have to uninstall before each update. The keys are deleted at the end of t
 - the code must read both `SHIKOO_API` and `SHIKOO_BOT` from the build, or the job fails: a define the code ignores would send
   testers to the production bot silently;
 - the staging server and bot must not equal the production ones, compared without case, a trailing `/` or a leading `@`;
-- the staging APKs share one signer, the production APKs share another, and the two differ (`apksigner verify
-  --print-certs`): a production APK signed by the staging key, which the runner also uses as its debug key, is refused;
+- the production APKs carry exactly the release certificate `RELEASE_CERT_SHA256` (public, in `shikoo-staging.yml`), and
+  the staging APKs share one signer whose DN is `STAGING_CERT_DN`, `CN=ShikooNet Staging` (`apksigner verify
+  --print-certs`): a fresh runner debug key (`CN=Android Debug`) or the release key passing as staging is refused;
 - every APK passes `tools/check_apk_clean.sh`;
 - every staging APK's `libapp.so` contains the staging server and its package is exactly `com.shikoonet.app.dev`; every
   production APK's `libapp.so` lacks it and its package is exactly `com.shikoonet.app` (`APP_ID` in `shikoo-staging.yml`).
@@ -283,6 +287,7 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
 | The guard loop (2026-10-06), cut from the workflow at `5f8c445` (old: `.dev` suffix) and with the exact id, on v7a APKs from `feat/app` local builds: a staging build named as staging; the same named as production; a build without the staging server named as production | both: PASS; refused (`is com.shikoonet.app.dev and carries the staging server 1 times`); refused (`… 0 times`) |
 | The same two guards where only the package can tell: FlClash's official `com.follow.clash` (sha256 `9a507336…a122a`) named as production; FlClash's WSL debug build named as staging, with `API=chen08209`, a string its `libapp.so` holds 4 times | old: PASS, PASS. Exact id: refused (`is com.follow.clash and carries the staging server 0 times`); refused (`is com.follow.clash.dev and carries the staging server 4 times`) |
 | Staging run 37623319636 stopped at `has no signer digest` (2026-10-07). A fresh WSL clone of `main` `73ad42a` ran the build and check steps as written, with throwaway PKCS12 keys made like `make-signing-key.ps1`'s (release RSA 4096, alias `shikoonet`, one password) | Same failure. apksigner 37.0.0, the runner's newest build-tools, prints `V2 Signer: certificate SHA-256 digest:` where 36.0.0 printed `Signer #1 certificate …`, exit 0 and empty stderr either way. The step reading `certificate SHA-256 digest:` passes with 37.0.0 and 36.0.0, and the production digest is the throwaway release key's. An unsigned production APK is refused, with apksigner's output; production re-signed with the staging key is refused |
+| Run 37636218455 went green, but its staging APKs carry `C=US, O=Android, CN=Android Debug` (`32870d0e…`), not the staging key (2026-10-07). A fresh WSL clone of `66b730a`, the steps as written, `HOME` apart and `XDG_CONFIG_HOME=$HOME/.config` as the image's `/etc/environment` sets it, throwaway keys | `main`: the step wrote `~/.android/debug.keystore`; AGP made `~/.config/.android/debug.keystore` and signed staging with it (`CN=Android Debug`), and the old check passed. With `ANDROID_USER_HOME`: staging signed by the throwaway staging key, even with that stray key still in `~/.config/.android`. A garbage file or a keystore with another password there fails the build (`Failed to read key AndroidDebugKey`); AGP makes a key only where none exists (`createIfAbsent` in `ValidateSigningTask`, AGP 9.0.1). The new check refuses run 37636218455's staging APKs (`signed by 'C=US, O=Android, CN=Android Debug'`), passes its production APKs against `RELEASE_CERT_SHA256`, and refuses: the throwaway release key as production, the release key as staging, the staging key as production, an unsigned production APK |
 
 **Prerequisites before this can merge green:**
 - **The Shikoo app itself on `main`.** `main` (`f08a9fd`) has no `lib/shikoo/` at all, so `-t lib/shikoo/app/main.dart`
@@ -294,14 +299,12 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
   (flutter-engineer); staging refuses to build until it does. `SHIKOO_API` already exists on `feat/app-login`.
 
 **Not proven:**
-- A green staging run on GitHub. The first (37623319636) built both variants and stopped at the signer check, fixed
-  since. The minutes and times above are from WSL pinned to 2 CPUs, not from a runner.
-- That the runner signs with Sam's own release key. A WSL build of `73ad42a` signed with a throwaway PKCS12 key of the same
-  shape (2026-10-07), and the runner's production step built with the release secrets without error, but no check has
-  yet read the digest of what it signed.
+- That the runner signs staging with Sam's staging key. Run 37636218455 signed production with Sam's release key
+  (`dbf909ba…`, read from the published APKs) and staging with a fresh runner key; the first run with `ANDROID_USER_HOME`
+  shows whether the secret holds the right keystore: another password fails the build, another DN fails the check. Only
+  the staging DN is pinned, not its digest, which is known once such a run passes. The minutes and times above are from
+  WSL pinned to 2 CPUs, not from a runner.
 - The flaky `NetworkDetection` test may turn a 2-CPU runner red now and then; rerun the job, and report it upstream if it
   keeps happening.
-- That the runner's preinstalled clang and libclang serve the Rust hook's bindgen. FlClash's own release job builds Android on
-  `ubuntu-latest` with the same steps, which is the reason to expect it.
 - That `gh workflow disable` is kept across a FlClash merge that rewrites `build.yaml`.
 - The new version in the User-Agent against the panel (§5).
