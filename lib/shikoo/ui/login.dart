@@ -214,6 +214,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final l = ShikooL10n.of(context);
     return PasteLink(
       onAdded: _signIn.finish,
+      report: false,
       builder: (context, busy, paste) => ShikooButton(
         label: busy ? l.pasteChecking : l.pasteLink,
         icon: ShikooIcon.paste,

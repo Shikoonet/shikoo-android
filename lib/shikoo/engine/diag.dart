@@ -607,16 +607,17 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
 
   // ponytail: an exit record is read on one start only, so a crash known from it alone is offered then.
   void _offerCrash(SharedPreferences prefs, List<Map<Object?, Object?>> exits) {
-    final java = File('$_dir/java-crash.txt');
-    final go = File('$_home/go-crash.txt');
+    // A sent crash file is emptied in place, not deleted (send).
+    int? written(File file) =>
+        _home != null && file.existsSync() && file.lengthSync() > 0
+        ? file.lastModifiedSync().millisecondsSinceEpoch
+        : null;
     final times = [
       for (final exit in exits)
         if (_crashed.contains(AppExitReason.fromCode(exit['reason'])))
           exit['time'] as int,
-      if (_home != null && java.existsSync())
-        java.lastModifiedSync().millisecondsSinceEpoch,
-      if (_home != null && go.existsSync() && go.lengthSync() > 0)
-        go.lastModifiedSync().millisecondsSinceEpoch,
+      ?written(File('$_dir/java-crash.txt')),
+      ?written(File('$_home/go-crash.txt')),
     ];
     final newest = times.maxOrNull;
     if (newest != null && newest > (prefs.getInt(_askedCrashKey) ?? 0)) {

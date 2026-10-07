@@ -1760,28 +1760,28 @@ abstract class ShikooL10n {
   /// **'Give this code to Support.'**
   String get reportGiveCode;
 
-  /// Buttons: retry (resends the same report and images) and cancelButton. When the server refused this device's clock: clockWrongTitle and clockWrongHelp in a red message, then dateSettings (primary) and retry.
+  /// One sentence under it says why. When the server was not reached: reportFailedHelp; buttons retry (resends the same report and images) and cancelButton. When it answered without taking the report: reportFailedBusy or reportFailedRefused. When the server refused this device's clock: clockWrongTitle and clockWrongHelp in a red message, then dateSettings (primary) and retry.
   ///
   /// In en, this message translates to:
   /// **'Not sent'**
   String get reportFailedTitle;
 
-  /// No description provided for @reportFailedHelp.
+  /// No answer at all: offline, timed out, or no door reached.
   ///
   /// In en, this message translates to:
   /// **'Check your internet and try again.'**
   String get reportFailedHelp;
 
-  /// Under reportFailedTitle when the server answered 429: six reports an hour per device, or per address before sign-in, which a carrier may share among many phones.
+  /// The server answered 429: six an hour per device, six per address before sign-in (a carrier may give one address to many phones), or 600 an hour in all. So it never says who sent them. The window is fixed, so an hour is the longest wait. Buttons as reportFailedRefused.
   ///
   /// In en, this message translates to:
-  /// **'Several reports were sent in a row. Try again in an hour.'**
+  /// **'Too many reports right now. Try again in an hour.'**
   String get reportFailedBusy;
 
-  /// Under reportFailedTitle when the server answered but refused the report (400, 413, 422, 503). The app keeps every report within the server’s limits, so this should not happen.
+  /// The server answered with any other status: 400, 413, 422, 5xx, or 200 without a code. Over HTTPS only our own server or its front gives such an answer, so the fault is ours. Retry resends the very same report, so a 4xx refuses it again; hence no «try later» here. Buttons: support (primary; on a phone it opens the chat, on TV its QR dialog without the report button) and retry. No cancelButton: back leaves, as on the clock state.
   ///
   /// In en, this message translates to:
-  /// **'This report wasn’t accepted. Try again later; if it still fails, chat with Support on Telegram.'**
+  /// **'The problem is on our side. Chat with Support on Telegram.'**
   String get reportFailedRefused;
 }
 

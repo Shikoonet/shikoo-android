@@ -25,15 +25,10 @@ Future<ReportShots> takeShots(BuildContext context) async {
     context,
     listen: false,
   ).read(shikooDiagProvider);
-  Future<Uint8List?> drawn() async {
-    try {
-      return await diag.captureApp();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  final (app, screen) = await (drawn(), diag.captureScreen()).wait;
+  final (app, screen) = await (
+    diag.captureApp().catchError((_) => null),
+    diag.captureScreen(),
+  ).wait;
   return (app: app, screen: screen);
 }
 
@@ -367,6 +362,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             danger: true,
             strong: l.clockWrongTitle,
             rest: l.clockWrongHelp,
+            style: isTV ? paragraph : null,
           )
         : null;
     final (block, actions) = switch (_phase) {
@@ -439,7 +435,22 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           title: l.reportFailedTitle,
           body: [TextSpan(text: failedHelp(l, error))],
         ),
-        [retry, cancel],
+        error is ShikooApiFailure && error.status != null
+            ? [
+                button(
+                  l.support,
+                  () => _support(isTV),
+                  icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
+                  primary: true,
+                  first: true,
+                ),
+                button(
+                  l.retry,
+                  () => unawaited(_send()),
+                  icon: ShikooIcon.refresh,
+                ),
+              ]
+            : [retry, cancel],
       ),
       _ => (
         ResultBlock(
@@ -768,7 +779,6 @@ class _SwitchRow extends StatelessWidget {
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.lg),
     );
-    const pad = (ShikooSizes.switchH - ShikooSizes.switchThumb) / 2;
     return Pressable(
       shape: shape,
       onPressed: () => onChanged(!on),
@@ -791,34 +801,23 @@ class _SwitchRow extends StatelessWidget {
             spacing: Space.s3,
             children: [
               Expanded(child: Text(label, style: t.text(s.body))),
-              Container(
-                width: ShikooSizes.switchW,
-                height: ShikooSizes.switchH,
-                padding: const EdgeInsets.all(pad),
-                alignment: on
-                    ? AlignmentDirectional.centerEnd
-                    : AlignmentDirectional.centerStart,
-                decoration: ShapeDecoration(
-                  color: on ? t.c.primary : t.c.surfaceSunken,
-                  shape: const StadiumBorder(),
-                ),
-                // A foreground, as the mockup's inset box-shadow: a border would shrink the thumb.
-                foregroundDecoration: on
-                    ? null
-                    : ShapeDecoration(
-                        shape: StadiumBorder(
-                          side: BorderSide(
-                            color: t.c.outline,
-                            width: ShikooSizes.borderRadio,
-                          ),
-                        ),
-                      ),
-                child: Container(
-                  width: ShikooSizes.switchThumb,
-                  height: ShikooSizes.switchThumb,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: on ? t.c.onPrimary : t.c.textMuted,
+              ExcludeFocus(
+                child: IgnorePointer(
+                  child: Switch(
+                    value: on,
+                    onChanged: (_) {},
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    activeTrackColor: t.c.primary,
+                    activeThumbColor: t.c.onPrimary,
+                    inactiveTrackColor: t.c.surfaceSunken,
+                    inactiveThumbColor: t.c.textMuted,
+                    trackOutlineColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? Colors.transparent
+                          : t.c.outline,
+                    ),
+                    // With an icon slot the off thumb is the drawn 24dp, not Material's 16.
+                    thumbIcon: const WidgetStatePropertyAll(Icon(null)),
                   ),
                 ),
               ),

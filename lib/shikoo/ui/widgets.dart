@@ -453,6 +453,7 @@ class MessageBox extends StatelessWidget {
     required this.strong,
     required this.rest,
     this.danger = false,
+    this.style,
   });
 
   final ShikooIcon icon;
@@ -460,9 +461,13 @@ class MessageBox extends StatelessWidget {
   final String rest;
   final bool danger;
 
+  /// The rest's text; bodySm in the text colour unless given.
+  final TextStyle? style;
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final text = style ?? t.text(t.s.bodySm, height: Leading.body);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s3,
@@ -479,7 +484,7 @@ class MessageBox extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(
-              top: (t.s.bodySm * Leading.body - t.s.iconSm) / 2,
+              top: (text.fontSize! * text.height! - t.s.iconSm) / 2,
             ),
             child: SvgIcon(
               icon,
@@ -504,7 +509,7 @@ class MessageBox extends StatelessWidget {
                     TextSpan(text: strong.isEmpty ? rest : ' $rest'),
                 ],
               ),
-              style: t.text(t.s.bodySm, height: Leading.body),
+              style: text,
             ),
           ),
         ],

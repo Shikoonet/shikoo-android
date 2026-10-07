@@ -29,6 +29,7 @@ class _Controller extends Mock implements ShikooController {}
 class _Diag extends ShikooDiag {
   ShikooApiFailure? sendError;
   int built = 0;
+  int shots = 0;
 
   @override
   Future<Map<String, Object?>> report({
@@ -52,7 +53,10 @@ class _Diag extends ShikooDiag {
   Future<Uint8List?> captureApp() async => _png;
 
   @override
-  Future<Uint8List?> captureScreen() async => _png;
+  Future<Uint8List?> captureScreen() async {
+    shots++;
+    return _png;
+  }
 
   @override
   Future<Map<String, Object?>> about() async => const {
@@ -75,6 +79,9 @@ class _Door {
   final bodies = <Map<String, Object?>>[];
   final answers = <int?>[];
   bool linked = false;
+
+  /// A 200 that holds no code, as a front page or a proxy might answer.
+  bool coded = true;
 
   /// Holds every answer until completed, as a slow line does.
   Completer<void>? hold;
@@ -99,7 +106,7 @@ class _Door {
             Response(
               requestOptions: options,
               statusCode: status,
-              data: status == 200
+              data: status == 200 && coded
                   ? {'ok': true, 'code': '48219037', 'linked': linked}
                   : {'ok': false},
             ),
@@ -377,23 +384,36 @@ void main() {
       expect(off.door.bodies.single['images'], {'note': 'off'});
     });
 
-    testWidgets('what the door answers becomes one plain sentence', (
-      tester,
-    ) async {
+    testWidgets('what the door answers becomes one plain sentence: no '
+        'answer, busy, or refused, which leads with Support', (tester) async {
       final l = _l('fa');
-      for (final (status, sentence) in [
-        (null, l.reportFailedHelp),
-        (429, l.reportFailedBusy),
-        (413, l.reportFailedRefused),
-        (422, l.reportFailedRefused),
+      final unreached = [l.retry, l.cancelButton];
+      final answered = [l.support, l.retry];
+      for (final (status, coded, sentence, buttons) in [
+        (null, true, l.reportFailedHelp, unreached),
+        (429, true, l.reportFailedBusy, answered),
+        (200, false, l.reportFailedRefused, answered),
+        for (final refused in const [400, 404, 413, 422, 500, 502, 503])
+          (refused, true, l.reportFailedRefused, answered),
       ]) {
         final rig = await _pump(tester, const _Launcher());
-        rig.door.answers.add(status);
+        rig.door
+          ..answers.add(status)
+          ..coded = coded;
         await _openPreview(tester);
         await _sendNow(tester, l);
         expect(find.text(l.reportFailedTitle), findsOneWidget);
         expect(find.text(sentence), findsOneWidget, reason: '$status');
-        expect(find.text(l.retry), findsOneWidget);
+        expect(
+          [
+            for (final b in tester.widgetList<ShikooButton>(
+              find.byType(ShikooButton),
+            ))
+              b.label,
+          ],
+          buttons,
+          reason: '$status',
+        );
       }
     });
 
@@ -452,15 +472,46 @@ void main() {
       List<Map<String, Object?>> exits = const [],
     }) async {
       _quietNative(exits);
+      final door = _Door();
       final container = ProviderContainer(
-        overrides: [shikooStateProvider.overrideWithValue(_state())],
+        overrides: [
+          shikooStateProvider.overrideWithValue(_state()),
+          shikooApiProvider.overrideWithValue(
+            ShikooApi(['http://door.test'], door.dio),
+          ),
+        ],
       );
       addTearDown(container.dispose);
       final diag = _Diag();
       await diag.start(home.path);
       await diag.attach(container);
-      return (container: container, door: _Door(), diag: diag);
+      return (container: container, door: door, diag: diag);
     }
+
+    test('an empty crash file is no crash: as the app leaves one once its '
+        'report is sent', () async {
+      SharedPreferences.setMockInitialValues({});
+      final home = Directory.systemTemp.createTempSync('crash');
+      addTearDown(() => home.deleteSync(recursive: true));
+      await start(home);
+      final java = File('${home.path}/shikoo/java-crash.txt')
+        ..writeAsStringSync('');
+      expect((await start(home)).container.read(shikooCrashProvider), isNull);
+      java.deleteSync();
+      final go = File('${home.path}/go-crash.txt')..writeAsStringSync('');
+      expect((await start(home)).container.read(shikooCrashProvider), isNull);
+
+      go.writeAsStringSync('panic: x');
+      final crashed = await start(home);
+      expect(crashed.container.read(shikooCrashProvider), isNotNull);
+      await crashed.diag.crashAsked();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await crashed.diag.send(
+        await crashed.diag.report(trigger: 'crash', about: const {}),
+      );
+      expect(go.lengthSync(), 0, reason: 'sent, emptied in place');
+      expect((await start(home)).container.read(shikooCrashProvider), isNull);
+    });
 
     test('a crash file or a crash record is offered once, never again '
         'once answered', () async {
@@ -545,7 +596,8 @@ void main() {
       );
       expect(find.text(l.reportSendToSupport), findsOneWidget);
 
-      await _pump(tester, const ShikooRoot(), state: _noService);
+      // Not on the sign-in page, which offers its one report under a failed code.
+      await _pump(tester, const ShikooHome(), state: _noService);
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
         (call) async => call.method == 'Clipboard.getData'
@@ -575,6 +627,54 @@ void main() {
         state: _state(connection: ShikooConnection.error),
       );
       expect(find.text(l.reportSendShort), findsOneWidget);
+    });
+
+    testWidgets('the sign-in page offers one report, only where no code '
+        'shows: a failed paste adds none', (tester) async {
+      final l = _l('fa');
+      for (final (login, entries) in const [
+        (
+          ShikooLogin(
+            LoginPhase.waiting,
+            code: '482915',
+            botUrl: 'https://t.me/Test_Shikoo_bot?start=app_482915',
+          ),
+          0,
+        ),
+        (ShikooLogin(LoginPhase.startFailed), 1),
+      ]) {
+        final rig = await _pump(
+          tester,
+          const ShikooRoot(),
+          state: _noService,
+          login: login,
+        );
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async => call.method == 'Clipboard.getData'
+              ? {'text': 'https://example.com/not-ours'}
+              : null,
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        await tester.tap(find.text(l.pasteLink));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining(l.pasteNotShikooTitle, findRichText: true),
+          findsOneWidget,
+          reason: 'the paste did fail',
+        );
+        expect(
+          find.text(l.reportSendToSupport),
+          findsNWidgets(entries),
+          reason: '${login.phase}',
+        );
+        expect(rig.diag.shots, 0);
+      }
     });
 
     testWidgets('no report where it could not go through: a wrong clock', (
@@ -756,6 +856,46 @@ void main() {
         expect(_focused(), l.reportSendToSupport);
       });
     }
+
+    testWidgets('after the door answered, Support is first and opens chat '
+        'only, as after a sent report', (tester) async {
+      final l = _l('fa');
+      for (final status in [200, 503]) {
+        final rig = await _pump(tester, const _Launcher(), tv: true);
+        rig.door.answers.add(status);
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(_ok);
+        await tester.pumpAndSettle();
+        expect(_focused(), l.support, reason: '$status');
+        expect(_ringed(), isTrue);
+        await tester.sendKeyEvent(_ok);
+        await tester.pumpAndSettle();
+        expect(_focused(), l.close);
+        expect(find.text(l.reportSendToSupport), findsNothing);
+      }
+    });
+
+    testWidgets('on a TV the wrong-clock message is the result page\'s '
+        'paragraph: its size and colour', (tester) async {
+      final l = _l('fa');
+      final rig = await _pump(tester, const _Launcher(), tv: true);
+      rig.diag.sendError = const ShikooApiFailure(clock: true);
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(_ok);
+      await tester.pumpAndSettle();
+      final message = tester.widget<RichText>(
+        find.textContaining(l.clockWrongTitle, findRichText: true),
+      );
+      final t = ShikooTheme.of(
+        tester.element(
+          find.textContaining(l.clockWrongTitle, findRichText: true),
+        ),
+      );
+      expect(message.text.style?.fontSize, ShikooSizes.tv.title);
+      expect(message.text.style?.color, t.c.textMuted);
+    });
 
     testWidgets('a live sign-in code: its support dialog offers no report', (
       tester,

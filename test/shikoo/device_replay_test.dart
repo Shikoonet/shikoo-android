@@ -658,7 +658,13 @@ void main() {
     await send(_Sender()..linked = true);
     await check([_button(_l.close), _button(_l.support)]);
     await send(_Sender()..fail = const ShikooApiFailure(status: 429));
-    await check([find.text(_l.reportFailedBusy), _button(_l.retry)]);
+    await check([
+      find.text(_l.reportFailedBusy),
+      _button(_l.support),
+      _button(_l.retry),
+    ]);
+    await send(_Sender()..fail = const ShikooApiFailure());
+    await check([_button(_l.retry), _button(_l.cancelButton)]);
     await send(_Sender()..fail = const ShikooApiFailure(clock: true));
     await check([_button(_l.dateSettings), _button(_l.retry)]);
   });

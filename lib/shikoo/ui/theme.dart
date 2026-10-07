@@ -326,10 +326,6 @@ class ShikooSizes {
   static const markLg = 88.0;
   static const codeWordSpacing = 0.12;
   static const fade = 24.0;
-  static const switchW = 52.0;
-  static const switchH = 32.0;
-  static const switchThumb = 24.0;
-  static const borderRadio = 2.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;
 

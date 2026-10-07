@@ -1116,9 +1116,9 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get reportFailedBusy =>
-      'Several reports were sent in a row. Try again in an hour.';
+      'Too many reports right now. Try again in an hour.';
 
   @override
   String get reportFailedRefused =>
-      'This report wasn’t accepted. Try again later; if it still fails, chat with Support on Telegram.';
+      'The problem is on our side. Chat with Support on Telegram.';
 }

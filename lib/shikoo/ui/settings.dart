@@ -627,8 +627,7 @@ class ShikooDiagnose extends ConsumerWidget {
     return SubPage(
       title: l.diagTitle,
       isTV: isTV,
-      // WP5's internet check goes first, the right-hand column on a TV.
-      child: _columns([if (isTV) const SizedBox.shrink(), report], isTV: isTV),
+      child: _columns([report], isTV: isTV),
     );
   }
 }
