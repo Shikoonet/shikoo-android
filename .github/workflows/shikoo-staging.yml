@@ -192,7 +192,7 @@ jobs:
             cat out/SHA256SUMS
             for apk in out/*.apk; do
               echo "== ${apk#out/}"
-              "$aapt2" dump badging "$apk" | grep -E '^(package|sdkVersion|targetSdkVersion|native-code|uses-feature.*leanback)'
+              "$aapt2" dump badging "$apk" | grep -E '^(package|minSdkVersion|targetSdkVersion|native-code)|uses-feature.*leanback'
             done
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY" >out/NOTES.md
