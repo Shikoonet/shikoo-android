@@ -219,6 +219,7 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
       key: _button,
       label: label,
       primary: primary,
+      icon: step == _Step.clock ? ShikooIcon.refresh : null,
       focusNode: widget.focusNode,
       onPressed: () {
         _pressed = true;
@@ -244,47 +245,55 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: Space.s3,
           children: [
+            if (step == _Step.clock) texts,
             LayoutBuilder(
               builder: (context, box) {
                 final scaler = MediaQuery.textScalerOf(context);
                 final painter = TextPainter(
                   text: TextSpan(
-                    text: label,
+                    text: step == _Step.clock ? l.dateSettings : label,
                     style: t.text(t.s.body, weight: FontWeight.w700),
                   ),
                   textDirection: Directionality.of(context),
                   textScaler: scaler,
                   maxLines: 1,
                 )..layout();
-                final buttonWidth = painter.width + 2 * Space.s4;
+                final labelWidth = painter.width;
                 painter.dispose();
+                // `.update > .actions`: equal halves as Renew and Support, both whole when one won't fit.
+                if (step == _Step.clock) {
+                  const date = DateSettingsButton(primary: true);
+                  return labelWidth + t.s.icon + Space.s2 + 2 * Space.s4 <=
+                          (box.maxWidth - Space.s2) / 2
+                      ? Row(
+                          spacing: Space.s2,
+                          children: [
+                            const Expanded(child: date),
+                            Expanded(child: button),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: Space.s2,
+                          children: [date, button],
+                        );
+                }
                 // `.update-row .t` is `flex: 1 1 12em`: under 12em beside the button, it wraps.
                 final beside =
-                    box.maxWidth - Space.s3 - buttonWidth >=
+                    box.maxWidth - Space.s3 - labelWidth - 2 * Space.s4 >=
                     12 * scaler.scale(t.s.body);
-                // Under retry, on its side, so the remote's Down goes from one to the other.
-                final dateSettings = step == _Step.clock
-                    ? const DateSettingsButton()
-                    : null;
                 return beside
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        spacing: Space.s2,
+                    ? Row(
+                        spacing: Space.s3,
                         children: [
-                          Row(
-                            spacing: Space.s3,
-                            children: [
-                              Expanded(child: texts),
-                              button,
-                            ],
-                          ),
-                          ?dateSettings,
+                          Expanded(child: texts),
+                          button,
                         ],
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         spacing: Space.s2,
-                        children: [texts, button, ?dateSettings],
+                        children: [texts, button],
                       );
               },
             ),
@@ -317,7 +326,7 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
     super.dispose();
   }
 
-  /// The remote starts on the first button of each state: «دریافت», «انصراف», «نصب», «دوباره».
+  /// The remote starts on the first button of each state: «دریافت», «انصراف», «نصب», «دوباره», «تنظیمات تاریخ و ساعت».
   void _focusFirst(_Step step, bool isTV) {
     if (!isTV || step == _focused) return;
     _focused = step;
@@ -387,6 +396,21 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
         // Android's installer can open and still not install: Support keeps that from a loop.
         button(l.support, support, icon: ShikooIcon.qr),
       ],
+      _Step.clock => [
+        button(
+          l.dateSettings,
+          () => unawaited(openDateSettings()),
+          primary: true,
+          icon: ShikooIcon.gear,
+          first: true,
+        ),
+        button(
+          l.retry,
+          () => unawaited(update.download()),
+          icon: ShikooIcon.refresh,
+        ),
+        button(l.support, support, icon: ShikooIcon.qr),
+      ],
       _ => [
         button(
           l.retry,
@@ -395,12 +419,6 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
           icon: ShikooIcon.refresh,
           first: true,
         ),
-        if (step == _Step.clock)
-          button(
-            l.dateSettings,
-            () => unawaited(openDateSettings()),
-            icon: ShikooIcon.gear,
-          ),
         button(l.support, support, icon: ShikooIcon.qr),
       ],
     };

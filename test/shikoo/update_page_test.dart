@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -5,6 +7,7 @@ import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -197,6 +200,11 @@ Future<void> _focus(WidgetTester tester, String label) async {
 
 Finder _inCard(String text) =>
     find.descendant(of: find.byType(UpdateCard), matching: find.text(text));
+
+Finder _inCardButton(String label) => find.descendant(
+  of: find.byType(UpdateCard),
+  matching: find.widgetWithText(ShikooButton, label),
+);
 
 const _up = LogicalKeyboardKey.arrowUp;
 const _down = LogicalKeyboardKey.arrowDown;
@@ -506,49 +514,112 @@ void main() {
     }
   });
 
-  testWidgets('a download the device\'s clock spoiled says so on the card and '
-      'the forced page, with the date settings beside retry', (tester) async {
-    const title = 'تاریخ و ساعت دستگاهت درست نیست.';
-    const dateSettings = 'تنظیمات تاریخ و ساعت';
-    final clock = _offer(
-      UpdatePhase.offered,
-      received: 9000000,
-      error: UpdateError.clock,
-    );
-    for (final isTV in [false, true]) {
-      await _pump(tester, clock, isTV: isTV);
+  testWidgets('a download the device\'s clock spoiled says so in red over the '
+      'whole card, then date settings first and retry, equal halves only '
+      'where date settings fits half the card', (tester) async {
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    for (final (name, isTV, size, scale, beside) in const [
+      ('phone 412', false, Size(824, 1830), 1.0, false),
+      ('phone 343 font 1.45', false, Size(686, 1524), 1.45, false),
+      ('TV 960x540', true, Size(1920, 1080), 1.0, true),
+      (
+        'TV 960x540 font 1.15, half a dp short',
+        true,
+        Size(1920, 1080),
+        1.15,
+        false,
+      ),
+    ]) {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      await _pump(tester, _clock, isTV: isTV, size: size);
+      expect(tester.takeException(), isNull, reason: name);
       expect(
-        tester.widget<Text>(_inCard(title)).style!.color,
-        ShikooTheme.of(tester.element(_inCard(title))).c.danger,
-        reason: 'TV $isTV',
+        tester.widget<Text>(_inCard(_clockTitle)).style!.color,
+        ShikooTheme.of(tester.element(_inCard(_clockTitle))).c.danger,
+        reason: name,
       );
-      expect(_inCard('دریافت نشد.'), findsNothing);
+      expect(_inCard('دریافت نشد.'), findsNothing, reason: name);
+      final date = tester.widget<ShikooButton>(_inCardButton(_dateSet));
+      final retry = tester.widget<ShikooButton>(_inCardButton('دوباره'));
+      expect((date.primary, date.icon), (true, ShikooIcon.gear), reason: name);
+      expect((retry.primary, retry.icon), (false, ShikooIcon.refresh));
+      final text = tester.getRect(_inCard(_clockTitle));
+      final at = tester.getRect(_inCardButton(_dateSet));
+      final retryAt = tester.getRect(_inCardButton('دوباره'));
       expect(
-        find.descendant(
-          of: find.byType(UpdateCard),
-          matching: find.widgetWithText(ShikooButton, dateSettings),
-        ),
-        findsOneWidget,
+        text.bottom,
+        lessThan(math.min(at.top, retryAt.top)),
+        reason: name,
       );
+      expect(at.width, retryAt.width, reason: name);
+      if (beside) {
+        expect(
+          (at.top, at.left > retryAt.right),
+          (retryAt.top, true),
+          reason: name,
+        );
+      } else {
+        expect(at.bottom, lessThan(retryAt.top), reason: name);
+      }
       if (isTV) {
         await _focus(tester, 'دوباره');
-        expect(await _press(tester, _down), dateSettings);
+        final toDate = beside ? LogicalKeyboardKey.arrowRight : _up;
+        expect(await _press(tester, toDate), _dateSet, reason: name);
       }
       await tester.tap(_inCard('دوباره'));
       await tester.pumpAndSettle();
       verify(_engine.download).called(1);
+    }
+  });
 
-      await _pump(tester, _forced(clock), isTV: isTV, root: true);
-      expect(find.textContaining(title), findsOneWidget);
-      expect(find.widgetWithText(ShikooButton, dateSettings), findsOneWidget);
+  testWidgets('a forced download the clock spoiled leads with date settings, '
+      'the remote on it, then retry and support', (tester) async {
+    for (final isTV in [false, true]) {
+      await _pump(tester, _forced(_clock), isTV: isTV, root: true);
+      expect(find.textContaining(_clockTitle), findsOneWidget);
+      final labels = [_dateSet, 'دوباره', 'پشتیبانی'];
+      final buttons = [
+        for (final label in labels)
+          tester.widget<ShikooButton>(find.widgetWithText(ShikooButton, label)),
+      ];
+      expect([for (final b in buttons) b.primary], [true, false, false]);
+      expect(
+        [for (final b in buttons) b.icon],
+        isTV
+            ? [ShikooIcon.gear, ShikooIcon.refresh, ShikooIcon.qr]
+            : [null, null, null],
+      );
+      final rects = [
+        for (final label in labels)
+          tester.getRect(find.widgetWithText(ShikooButton, label)),
+      ];
+      for (final (a, b) in [(rects[0], rects[1]), (rects[1], rects[2])]) {
+        if (isTV) {
+          expect(a.left, greaterThan(b.right));
+        } else {
+          expect(a.bottom, lessThan(b.top));
+          expect(a.width, b.width);
+        }
+      }
       if (isTV) {
-        expect(_focused(), 'دوباره');
-        expect(await _press(tester, _towardPower), dateSettings);
+        expect(_focused(), _dateSet);
+        expect(await _press(tester, _towardPower), 'دوباره');
         expect(await _press(tester, _towardPower), 'پشتیبانی');
       }
+      await tester.tap(find.text('دوباره'));
+      await tester.pumpAndSettle();
+      verify(_engine.download).called(1);
     }
   });
 }
+
+const _clockTitle = 'تاریخ و ساعت دستگاهت درست نیست.';
+const _dateSet = 'تنظیمات تاریخ و ساعت';
+final _clock = _offer(
+  UpdatePhase.offered,
+  received: 9000000,
+  error: UpdateError.clock,
+);
 
 UpdateOffer _forced(UpdateOffer offer) => UpdateOffer(
   offer.release,
