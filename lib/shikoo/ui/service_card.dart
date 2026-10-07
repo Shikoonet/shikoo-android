@@ -93,6 +93,19 @@ class ServiceCard extends StatefulWidget {
 class _ServiceCardState extends State<ServiceCard> {
   bool _open = true;
 
+  /// A message leaving from above the list moves the remote's row up, under the top bar.
+  @override
+  void didUpdateWidget(ServiceCard old) {
+    super.didUpdateWidget(old);
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (widget.state.isTV &&
+        old.state.notice != null &&
+        widget.state.notice == null &&
+        focused != null) {
+      revealWithRing(focused);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);

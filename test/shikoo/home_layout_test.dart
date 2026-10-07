@@ -283,8 +283,8 @@ void main() {
   });
 
   testWidgets(
-    'a notice leaving from above the list moves the row under the '
-    'top bar, and toward the power button still goes there, not to Settings',
+    'a notice leaving from above the list keeps the row and its ring in '
+    'view, and toward the power button still goes there, not to Settings',
     (tester) async {
       ShikooState home({ShikooNotice? notice}) => _tv(
         ShikooConnection.off,
@@ -315,9 +315,15 @@ void main() {
           final row = _focused();
           holder.value = home();
           await tester.pumpAndSettle();
+          final shown = find.widgetWithText(ServerRow, 'سرور 1');
+          final view = tester.getRect(
+            find.ancestor(of: shown, matching: find.byType(Scrollable)).first,
+          );
+          final ring = tester.getRect(shown).inflate(ShikooSizes.ring);
+          final inView = ring.top >= view.top && ring.bottom <= view.bottom;
           final got = await _press(tester, rtl ? _towardPower : _towardCard);
-          if (row != 'سرور 1' || got != 'power') {
-            wrong.add('$locale, ${1920 / ratio} dp: $row, then $got');
+          if (row != 'سرور 1' || !inView || got != 'power') {
+            wrong.add('$locale, ${1920 / ratio} dp: $row $inView, then $got');
           }
         }
       }
