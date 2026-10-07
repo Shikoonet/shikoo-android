@@ -1109,6 +1109,7 @@ class ShrinkToFit extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) => FittedBox(
       fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
       child: SizedBox(width: box.maxWidth, child: child),
     ),
   );
