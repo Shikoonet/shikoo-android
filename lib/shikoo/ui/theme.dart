@@ -393,8 +393,6 @@ class ShikooSystemUi extends StatelessWidget {
   }
 }
 
-/// Whatever density a TV reports, it shows the frames' layout scaled; off 16:9, with more room.
-/// Around FlClash's managers too: StatusManager keeps its messages inside the view padding.
 class ShikooTvCanvas extends StatelessWidget {
   const ShikooTvCanvas({super.key, required this.child});
 

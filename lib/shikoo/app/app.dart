@@ -130,8 +130,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
-  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `shikoo-debug://lang?code=en`
-  /// and `shikoo-debug://crash`, a Go panic outside every recovery.
+  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `lang?code=en` and `crash`.
   /// The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;

@@ -26,8 +26,7 @@ class PasteLink extends ConsumerStatefulWidget {
   builder;
   final VoidCallback? onAdded;
 
-  /// Off on the sign-in page, whose one way to a report is «کد گرفته نشد»: elsewhere there its
-  /// pictures could hold a live code.
+  /// Off on the sign-in page, where its pictures could hold a live code.
   final bool report;
 
   @override

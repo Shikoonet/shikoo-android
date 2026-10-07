@@ -18,7 +18,6 @@ func TestSetCrashOutputKeepsAnUnrecoveredPanic(t *testing.T) {
 	}
 	home := t.TempDir()
 	child := exec.Command(os.Args[0], "-test.run=^TestSetCrashOutputKeepsAnUnrecoveredPanic$")
-	// As the API 25 emulator ran the core: no traceback level, so only the panic's first line.
 	child.Env = append(os.Environ(), "SHIKOO_CRASH_HOME="+home, "GOTRACEBACK=none")
 	if err := child.Run(); err == nil {
 		t.Fatal("the child survived its panic")

@@ -109,7 +109,6 @@ class ShikooService {
   /// Among the services without a name, 1 for the first.
   final int number;
 
-  /// The panel's account name (content-disposition or the 🆔 row), before [name] is made unique.
   final String? account;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
@@ -181,8 +180,6 @@ class SilentReplaced extends ShikooNotice {
   final bool moved;
 }
 
-/// Only for an update the user asked for, or one this device's clock failed; an automatic one
-/// just says so under the name.
 class RefreshFailed extends ShikooNotice {
   const RefreshFailed({this.clock = false});
 

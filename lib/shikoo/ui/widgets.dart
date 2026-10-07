@@ -49,9 +49,8 @@ Text nameText(
       : TextAlign.left,
 );
 
-/// Traversal reveals only the focused widget, cutting the ring drawn outside it in a scrolled
-/// column; this brings [context]'s box into view with room for the ring, and above a phone's
-/// navigation bar, which the page scrolls under.
+/// Brings [context]'s box into view with room for the ring, which traversal alone cuts in a
+/// scrolled column, and above a phone's navigation bar, which the page scrolls under.
 void revealWithRing(BuildContext context) {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final box = context.mounted ? context.findRenderObject() : null;
@@ -461,7 +460,6 @@ class MessageBox extends StatelessWidget {
   final String rest;
   final bool danger;
 
-  /// The rest's text; bodySm in the text colour unless given.
   final TextStyle? style;
 
   @override
