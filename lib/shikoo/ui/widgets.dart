@@ -275,6 +275,7 @@ class ShikooButton extends StatelessWidget {
     this.height,
     this.dangerText = false,
     this.small = false,
+    this.flat = false,
   });
 
   final String label;
@@ -297,6 +298,9 @@ class ShikooButton extends StatelessWidget {
 
   /// `.btn-sm`, whose touch target still reaches [ShikooSizes.touch].
   final bool small;
+
+  /// `.btn-text`: the label alone, as a dialog's «انصراف» under its two choices.
+  final bool flat;
 
   @override
   Widget build(BuildContext context) {
@@ -326,13 +330,15 @@ class ShikooButton extends StatelessWidget {
           (telegram
               ? ShikooSizes.buttonLg
               : (small ? t.s.buttonSm : t.s.button)),
-      padding: EdgeInsets.symmetric(horizontal: small ? Space.s3 : Space.s4),
+      padding: EdgeInsets.symmetric(
+        horizontal: small || flat ? Space.s3 : Space.s4,
+      ),
       decoration: ShapeDecoration(
         color: fill ?? (focused ? t.c.focusBg : null),
         shadows: focused ? t.c.raisedShadow : null,
         shape: RoundedSuperellipseBorder(borderRadius: radius),
       ),
-      foregroundDecoration: fill != null || focused
+      foregroundDecoration: fill != null || focused || flat
           ? null
           : ShapeDecoration(
               shape: RoundedSuperellipseBorder(
@@ -447,6 +453,7 @@ class MessageBox extends StatelessWidget {
     required this.strong,
     required this.rest,
     this.danger = false,
+    this.style,
   });
 
   final ShikooIcon icon;
@@ -454,9 +461,13 @@ class MessageBox extends StatelessWidget {
   final String rest;
   final bool danger;
 
+  /// The rest's text; bodySm in the text colour unless given.
+  final TextStyle? style;
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final text = style ?? t.text(t.s.bodySm, height: Leading.body);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s3,
@@ -473,7 +484,7 @@ class MessageBox extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(
-              top: (t.s.bodySm * Leading.body - t.s.iconSm) / 2,
+              top: (text.fontSize! * text.height! - t.s.iconSm) / 2,
             ),
             child: SvgIcon(
               icon,
@@ -498,7 +509,7 @@ class MessageBox extends StatelessWidget {
                     TextSpan(text: strong.isEmpty ? rest : ' $rest'),
                 ],
               ),
-              style: t.text(t.s.bodySm, height: Leading.body),
+              style: text,
             ),
           ),
         ],
@@ -1189,6 +1200,54 @@ class _TvScrollColumnState extends State<TvScrollColumn> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// `.btn-link`: an underlined line of text that is a button; greyed out with no [onPressed].
+class LinkButton extends StatelessWidget {
+  const LinkButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.alignment = Alignment.center,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final onPressed = this.onPressed;
+    final ink = onPressed == null ? t.c.textMuted : t.c.text;
+    Widget text() => Container(
+      constraints: const BoxConstraints(minHeight: ShikooSizes.touch),
+      padding: const EdgeInsets.symmetric(horizontal: Space.s3),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: t
+            .text(t.s.bodySm, weight: FontWeight.w700, color: ink)
+            .copyWith(
+              decoration: TextDecoration.underline,
+              decorationColor: ink,
+            ),
+      ),
+    );
+    return Align(
+      alignment: alignment,
+      child: onPressed == null
+          ? text()
+          : Pressable(
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              onPressed: onPressed,
+              builder: (context, _) => Semantics(button: true, child: text()),
+            ),
     );
   }
 }

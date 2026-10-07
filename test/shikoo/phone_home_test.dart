@@ -20,6 +20,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 class _Controller extends Mock implements ShikooController {}
 
 const _noService = ShikooState(
@@ -75,6 +77,7 @@ Future<ValueNotifier<ShikooState>> _pump(
     ProviderScope(
       key: UniqueKey(),
       overrides: [
+        noShots,
         shikooVersionProvider.overrideWithValue('1.0.0'),
         if (controller != null)
           shikooControllerProvider.overrideWithValue(controller),

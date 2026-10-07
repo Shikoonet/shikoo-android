@@ -10,6 +10,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -352,13 +353,14 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
       offer,
       align: isTV ? TextAlign.center : TextAlign.start,
     );
-    void support() => openLink(
-      context,
-      isTV: isTV,
-      link: service?.supportLink ?? ShikooLinks.support,
-      title: l.supportTitle,
-      help: l.supportHelpTv,
-      below: service == null ? null : serviceTitle(context, service),
+    void support() => unawaited(
+      openSupport(
+        context,
+        isTV: isTV,
+        link: service?.supportLink ?? ShikooLinks.support,
+        below: service == null ? null : serviceTitle(context, service),
+        trigger: 'update',
+      ),
     );
     Widget button(
       String label,

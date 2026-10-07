@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/enum/enum.dart' show MessageLevel;
@@ -5,11 +6,13 @@ import 'package:fl_clash/manager/status_manager.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -20,11 +23,39 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 class _SignIn extends Mock implements ShikooSignIn {}
 
 class _Controller extends Mock implements ShikooController {}
 
 class _Update extends Mock implements ShikooUpdate {}
+
+/// The door's answer to the next report, or none yet.
+class _Sender extends NoShots {
+  Object? fail;
+  bool linked = false;
+  bool hang = false;
+
+  @override
+  Future<Map<String, Object?>> about() async => const {};
+
+  @override
+  Future<Map<String, Object?>> report({
+    required String trigger,
+    required Map<String, Object?> about,
+    Uint8List? appImage,
+    Uint8List? screenImage,
+    bool images = true,
+  }) async => const {};
+
+  @override
+  Future<({String code, bool linked})> send(Map<String, Object?> report) {
+    if (hang) return Completer<({String code, bool linked})>().future;
+    if (fail case final error?) return Future.error(error);
+    return Future.value((code: '48219037', linked: linked));
+  }
+}
 
 typedef _Device = ({Size size, double scale, bool tv});
 
@@ -53,7 +84,8 @@ final _devices = <_Device>[
     const Size(2560, 1080),
   ])
     for (final scale in const [1.0, 1.3]) (size: size, scale: scale, tv: true),
-  for (final size in const [Size(360, 800), Size(412, 915)])
+  // 343 is the Poco C85 at its largest font.
+  for (final size in const [Size(343, 762), Size(360, 800), Size(412, 915)])
     for (final scale in const [1.0, 1.45])
       (size: size, scale: scale, tv: false),
 ];
@@ -123,6 +155,21 @@ ShikooState _home(bool tv) => ShikooState(
   ],
 );
 
+/// A failed connect, and a refresh the customer asked for that failed.
+ShikooState _failed(bool tv) {
+  final home = _home(tv);
+  return ShikooState(
+    connection: ShikooConnection.error,
+    lastError: ShikooError.connectTimeout,
+    connectedFor: Duration.zero,
+    isTV: tv,
+    service: home.service,
+    servers: home.servers,
+    selected: home.selected,
+    notice: const RefreshFailed(),
+  );
+}
+
 String _name(_Device d) =>
     '${d.tv ? 'TV' : 'phone'} ${d.size.width.round()}x${d.size.height.round()} '
     'font ${d.scale}';
@@ -136,6 +183,7 @@ Future<ProviderContainer> _pump(
   ShikooAccount account = const ShikooAccount(),
   UpdateOffer? offer,
   String language = 'fa',
+  ShikooDiag? diag,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -160,6 +208,7 @@ Future<ProviderContainer> _pump(
   when(update.checkNow).thenAnswer((_) async => null);
   final container = ProviderContainer(
     overrides: [
+      shikooDiagProvider.overrideWithValue(diag ?? NoShots()),
       shikooStateProvider.overrideWithValue(state ?? _signedOut(device.tv)),
       shikooSignInProvider.overrideWithValue(signIn),
       shikooControllerProvider.overrideWithValue(_Controller()),
@@ -663,6 +712,109 @@ void main() {
     await tester.tap(find.text(_l.logout));
     await tester.pumpAndSettle();
     await check([_button(_l.cancelButton), _button(_l.logout)]);
+  });
+
+  _everywhere('the report, from its preview to each result', (
+    tester,
+    device,
+    check,
+  ) async {
+    Future<void> send(_Sender sender) async {
+      await _pump(
+        tester,
+        device,
+        const ReportPage(trigger: 'test', shots: (app: null, screen: null)),
+        diag: sender,
+      );
+      await tester.tap(_button(_l.reportSend));
+      await tester.pumpAndSettle();
+    }
+
+    await _pump(
+      tester,
+      device,
+      const ReportPage(trigger: 'test', shots: (app: null, screen: null)),
+    );
+    await check([
+      _button(_l.reportSend),
+      _button(_l.cancelButton),
+      find.text(_l.reportImagesSwitch),
+      find.textContaining(_l.reportNeverSent, findRichText: true),
+    ]);
+    await send(_Sender()..hang = true);
+    await check([_button(_l.cancelButton)]);
+    await send(_Sender());
+    await check([
+      find.text('۴۸۲۱ ۹۰۳۷'),
+      _button(_l.support),
+      _button(_l.close),
+    ]);
+    await send(_Sender()..linked = true);
+    await check([_button(_l.close), _button(_l.support)]);
+    await send(_Sender()..fail = const ShikooApiFailure(status: 429));
+    await check([
+      find.text(_l.reportFailedBusy),
+      _button(_l.support),
+      _button(_l.retry),
+    ]);
+    await send(_Sender()..fail = const ShikooApiFailure());
+    await check([_button(_l.retry), _button(_l.cancelButton)]);
+    await send(_Sender()..fail = const ShikooApiFailure(clock: true));
+    await check([_button(_l.dateSettings), _button(_l.retry)]);
+  });
+
+  _everywhere('support, diagnostics and the crash card', (
+    tester,
+    device,
+    check,
+  ) async {
+    final container = await _pump(
+      tester,
+      device,
+      const ShikooHome(),
+      state: _failed(device.tv),
+    );
+    container.read(shikooCrashProvider.notifier).set(1);
+    await tester.pumpAndSettle();
+    await check([
+      _button(_l.reportCrashYes),
+      _button(_l.reportCrashNo),
+      _button(_l.reportSendShort),
+      find.byType(PowerButton),
+      find.text(_l.reportSendToSupport),
+    ]);
+    await tester.ensureVisible(_button(_l.support).first);
+    await tester.tap(_button(_l.support).first);
+    await tester.pumpAndSettle();
+    await check(
+      device.tv
+          ? [_button(_l.close), _button(_l.reportSendToSupport)]
+          : [
+              _button(_l.reportChatTelegram),
+              _button(_l.reportSendToSupport),
+              _button(_l.cancelButton),
+            ],
+    );
+
+    await _pump(
+      tester,
+      device,
+      const ShikooDiagnose(shots: (app: null, screen: null)),
+      state: _home(device.tv),
+    );
+    await check([_button(_l.reportSendToSupport)]);
+
+    await _pump(
+      tester,
+      device,
+      const ShikooRoot(),
+      login: const ShikooLogin(LoginPhase.startFailed),
+    );
+    await check([
+      device.tv
+          ? _button(_l.reportSendToSupport)
+          : find.text(_l.reportSendToSupport),
+    ]);
   });
 
   _everywhere('the forced update', (tester, device, check) async {

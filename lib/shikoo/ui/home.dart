@@ -4,12 +4,14 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -42,6 +44,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _power = FocusNode();
   final _settings = FocusNode();
   final _linkless = FocusNode();
+  final _crashSend = FocusNode();
+  final _crashNo = FocusNode();
+  final _report = FocusNode();
   final _scroll = ScrollController();
   (int?, bool, bool)? _shown;
 
@@ -51,6 +56,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     _power.dispose();
     _settings.dispose();
     _linkless.dispose();
+    _crashSend.dispose();
+    _crashNo.dispose();
+    _report.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -83,6 +91,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
     final update = ref.watch(shikooUpdateOfferProvider);
+    final crashed = ref.watch(shikooCrashProvider) != null;
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final now = shikooNow();
@@ -163,6 +172,17 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.s3,
       children: [
+        if (crashed) CrashCard(send: _crashSend, no: _crashNo),
+        if (state.connection == ShikooConnection.error)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: ShikooButton(
+              label: l.reportSendShort,
+              icon: ShikooIcon.report,
+              focusNode: _report,
+              onPressed: () => unawaited(openReport(context, 'connect')),
+            ),
+          ),
         if (update != null) UpdateCard(offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
         if (hasService || (unlinked.isEmpty && current == null))
@@ -194,7 +214,11 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   noService: current == null && unlinked.isEmpty,
                   settings: _settings,
                   power: _PowerKeys(
-                    row: towardCard == null ? null : _card.row(towardCard),
+                    targets: [
+                      _crashSend,
+                      _report,
+                      if (towardCard != null) _card.row(towardCard),
+                    ],
                     child: power,
                   ),
                   card: _CardKeys(focus: _card, power: _power, child: card),
@@ -235,11 +259,11 @@ FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
   return nearest;
 }
 
-/// Toward the card is the selected server, or the first one while none is chosen.
+/// Toward the card: the crash card, a failed connect's report, then the selected or first server.
 class _PowerKeys extends StatelessWidget {
-  const _PowerKeys({required this.row, required this.child});
+  const _PowerKeys({required this.targets, required this.child});
 
-  final FocusNode? row;
+  final List<FocusNode> targets;
   final Widget child;
 
   @override
@@ -251,9 +275,9 @@ class _PowerKeys extends StatelessWidget {
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
-            final row = this.row;
-            if (intent.direction == towardCard && _onScreen(row)) {
-              row!.requestFocus();
+            final target = targets.firstWhereOrNull(_onScreen);
+            if (intent.direction == towardCard && target != null) {
+              target.requestFocus();
             } else if (intent.direction != TraversalDirection.down) {
               primaryFocus?.focusInDirection(intent.direction);
             }
@@ -290,10 +314,14 @@ class _CardKeys extends StatelessWidget {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
             final from = primaryFocus;
-            if (from == focus.renew &&
-                intent.direction == TraversalDirection.down &&
-                _onScreen(focus.pingAll)) {
-              focus.pingAll.requestFocus();
+            final below = switch (from) {
+              _ when intent.direction != TraversalDirection.down => null,
+              final node when node == focus.renew => focus.pingAll,
+              final node when node == focus.refresh => focus.report,
+              _ => null,
+            };
+            if (_onScreen(below)) {
+              below!.requestFocus();
               return null;
             }
             if (intent.direction == towardPower &&
@@ -691,13 +719,13 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                   child: ShikooButton(
                     label: l.support,
                     icon: isTV ? ShikooIcon.qr : null,
-                    onPressed: () => openLink(
-                      context,
-                      isTV: isTV,
-                      link: ShikooLinks.support,
-                      title: l.supportTitle,
-                      help: l.supportHelpTv,
-                      below: bidiName(service.title),
+                    onPressed: () => unawaited(
+                      openSupport(
+                        context,
+                        isTV: isTV,
+                        below: bidiName(service.title),
+                        trigger: 'support',
+                      ),
                     ),
                   ),
                 ),

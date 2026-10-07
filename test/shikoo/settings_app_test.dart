@@ -16,6 +16,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 class _Update extends Mock implements ShikooUpdate {}
 
 class _Controller extends Mock implements ShikooController {}
@@ -85,6 +87,7 @@ Future<ProviderContainer> _pump(
   when(_engine.checkNow).thenAnswer((_) async => null);
   final container = ProviderContainer(
     overrides: [
+      noShots,
       shikooStateProvider.overrideWithValue(
         ShikooState(
           connection: ShikooConnection.off,

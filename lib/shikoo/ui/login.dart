@@ -12,6 +12,7 @@ import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
@@ -153,16 +154,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  void _support() {
-    final l = ShikooL10n.of(context);
-    openLink(
+  /// No report where a sign-in code may show: its pictures would carry the code.
+  void _support() => unawaited(
+    openSupport(
       context,
       isTV: _isTV,
-      link: ShikooLinks.support,
-      title: l.supportTitle,
-      help: l.supportHelpTv,
-    );
-  }
+      trigger: _coding.contains(widget.login?.phase) ? null : 'login',
+    ),
+  );
+
+  void _report() => unawaited(openReport(context, 'login'));
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +214,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final l = ShikooL10n.of(context);
     return PasteLink(
       onAdded: _signIn.finish,
+      report: false,
       builder: (context, busy, paste) => ShikooButton(
         label: busy ? l.pasteChecking : l.pasteLink,
         icon: ShikooIcon.paste,
@@ -254,7 +256,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           onPressed: onPressed,
         );
     void signIn() => unawaited(_telegram());
-    final elsewhere = _LinkButton(
+    final elsewhere = LinkButton(
       label: l.noTelegramHere,
       onPressed: starting ? null : _showOtherDevice,
     );
@@ -281,7 +283,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
             rest: clock ? l.clockWrongHelp : l.codeFailedHelpTouch,
           ),
-          if (clock) const DateSettingsButton(),
+          if (clock)
+            const DateSettingsButton()
+          else
+            LinkButton(label: l.reportSendToSupport, onPressed: _report),
           telegram(l.loginTelegram, signIn),
           _paste(enabled: true),
           elsewhere,
@@ -297,7 +302,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
           telegram(l.reopenTelegram, () => _open(login?.botUrl)),
           _paste(enabled: true),
-          _LinkButton(label: l.approveElsewhere, onPressed: _showOtherDevice),
+          LinkButton(label: l.approveElsewhere, onPressed: _showOtherDevice),
         ],
       ),
       LoginPhase.expired => (
@@ -375,7 +380,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             () => unawaited(_signIn.notMine()),
             icon: ShikooIcon.logout,
           ),
-          _LinkButton(label: l.askSupportLink, onPressed: _support),
+          LinkButton(label: l.askSupportLink, onPressed: _support),
         ],
       ),
     };
@@ -556,10 +561,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           : (expired ? l.codeExpiredLead : l.tvLoginLead),
                       style: t.text(s.title),
                     ),
-                    if (failed) ...[
+                    if (failed && login!.clock) ...[
                       newCode(l.retry, _retryNode),
-                      if (login!.clock) const DateSettingsButton(),
-                    ] else ...[
+                      const DateSettingsButton(),
+                    ] else if (failed)
+                      Wrap(
+                        spacing: Space.s2,
+                        runSpacing: Space.s2,
+                        children: [
+                          newCode(l.retry, _retryNode),
+                          ShikooButton(
+                            label: l.reportSendToSupport,
+                            icon: ShikooIcon.report,
+                            onPressed: _report,
+                          ),
+                        ],
+                      )
+                    else ...[
                       if (!expired) Text(l.tvLoginVpnHint, style: fine),
                       _CodeBox(
                         login: login,
@@ -813,9 +831,11 @@ class ResultBlock extends StatelessWidget {
     required this.body,
     this.more,
     this.below,
+    this.spin = false,
   });
 
   final ShikooIcon icon;
+  final bool spin;
   final ResultTone tone;
   final String title;
   final List<InlineSpan> body;
@@ -851,12 +871,14 @@ class ResultBlock extends StatelessWidget {
             height: s.heroIcon,
             decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: SvgIcon(
-              icon,
-              size: s.heroIcon / 2,
-              stroke: ShikooSizes.iconStrokeStrong,
-              color: ink,
-            ),
+            child: spin
+                ? Spinner(size: s.heroIcon / 2, color: ink)
+                : SvgIcon(
+                    icon,
+                    size: s.heroIcon / 2,
+                    stroke: ShikooSizes.iconStrokeStrong,
+                    color: ink,
+                  ),
           ),
           Padding(
             padding: EdgeInsets.only(top: tv ? 0 : Space.s2),
@@ -866,11 +888,12 @@ class ResultBlock extends StatelessWidget {
               style: t.text(s.headline, weight: FontWeight.w800),
             ),
           ),
-          Text.rich(
-            TextSpan(children: body),
-            textAlign: TextAlign.center,
-            style: paragraph,
-          ),
+          if (body.isNotEmpty)
+            Text.rich(
+              TextSpan(children: body),
+              textAlign: TextAlign.center,
+              style: paragraph,
+            ),
           if (more != null)
             Text(more, textAlign: TextAlign.center, style: paragraph),
           ?below,
@@ -1122,47 +1145,6 @@ class _CodeBox extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-/// `.btn-link`: an underlined line of text that is a button; greyed out with no [onPressed].
-class _LinkButton extends StatelessWidget {
-  const _LinkButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    final onPressed = this.onPressed;
-    final ink = onPressed == null ? t.c.textMuted : t.c.text;
-    Widget text() => Container(
-      constraints: const BoxConstraints(minHeight: ShikooSizes.touch),
-      padding: const EdgeInsets.symmetric(horizontal: Space.s3),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: t
-            .text(t.s.bodySm, weight: FontWeight.w700, color: ink)
-            .copyWith(
-              decoration: TextDecoration.underline,
-              decorationColor: ink,
-            ),
-      ),
-    );
-    return Center(
-      child: onPressed == null
-          ? text()
-          : Pressable(
-              shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.circular(Radii.sm),
-              ),
-              onPressed: onPressed,
-              builder: (context, _) => Semantics(button: true, child: text()),
-            ),
     );
   }
 }

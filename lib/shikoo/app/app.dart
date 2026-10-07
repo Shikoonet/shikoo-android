@@ -131,7 +131,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   }
 
   /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `shikoo-debug://lang?code=en`
-  /// `shikoo-debug://crash`, a Go panic outside every recovery, and `shikoo-debug://report`.
+  /// and `shikoo-debug://crash`, a Go panic outside every recovery.
   /// The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;
@@ -151,27 +151,6 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         );
       case 'crash':
         unawaited(coreController.crash());
-      case 'report':
-        unawaited(_debugReport());
-    }
-  }
-
-  Future<void> _debugReport() async {
-    try {
-      final (app, screen) = await (
-        shikooDiag.captureApp(),
-        shikooDiag.captureScreen(),
-      ).wait;
-      final report = await shikooDiag.report(
-        trigger: 'debug',
-        about: await shikooDiag.about(),
-        appImage: app,
-        screenImage: screen,
-      );
-      final sent = await shikooDiag.send(report);
-      debugPrint('report sent: code ${sent.code} linked ${sent.linked}');
-    } catch (error) {
-      debugPrint('report not sent: ${failureKind(error)}');
     }
   }
 

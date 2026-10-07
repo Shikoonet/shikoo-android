@@ -11,6 +11,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -143,34 +144,42 @@ class ShikooSettings extends ConsumerWidget {
                 ],
               ),
             ),
+            _Group(
+              title: l.support,
+              child: _Card(
+                rows: [
+                  _Row(
+                    icon: ShikooIcon.report,
+                    title: l.diagTitle,
+                    subtitle: l.diagRowHelp,
+                    forward: true,
+                    onPressed: () => unawaited(_diagnose(context)),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
       _AppGroup(isTV: isTV),
     ];
-    return _Page(
+    return SubPage(
       title: l.settings,
       isTV: isTV,
-      child: isTV
-          ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: Space.s10,
-                children: [
-                  for (final first in [0, 1])
-                    Expanded(
-                      child: _Column(
-                        children: [
-                          for (var i = first; i < groups.length; i += 2)
-                            groups[i],
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            )
-          : _Column(children: groups),
+      child: _columns(groups, isTV: isTV),
+    );
+  }
+
+  /// The pictures are of Settings, where the customer came from: the fault was seen elsewhere.
+  static Future<void> _diagnose(BuildContext context) async {
+    final shots = await takeShots(context);
+    if (!context.mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ShikooDiagnose(shots: shots),
+        settings: const RouteSettings(name: 'diagnose'),
+      ),
     );
   }
 
@@ -402,7 +411,7 @@ class ShikooAbout extends ConsumerWidget {
     final l = ShikooL10n.of(context);
     final body = t.text(t.s.body, height: Leading.body);
     final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
-    return _Page(
+    return SubPage(
       title: l.about,
       isTV: isTV,
       child: Center(
@@ -449,13 +458,21 @@ String _version(BuildContext context, String version) => version
     })
     .join('.');
 
-/// `.tv-top` with `.tv-title` and `.tv-hint` over the page; on the phone `.appbar.sub`.
-class _Page extends StatelessWidget {
-  const _Page({required this.title, required this.isTV, required this.child});
+/// `.tv-top` with `.tv-title` and `.tv-hint` over the page; on the phone `.appbar.sub`. A
+/// [child] that does not [scrolls] lays out its own room, the phone's bottom inset included.
+class SubPage extends StatelessWidget {
+  const SubPage({
+    super.key,
+    required this.title,
+    required this.isTV,
+    required this.child,
+    this.scrolls = true,
+  });
 
   final String title;
   final bool isTV;
   final Widget child;
+  final bool scrolls;
 
   @override
   Widget build(BuildContext context) {
@@ -516,7 +533,9 @@ class _Page extends StatelessWidget {
                   ),
                   SizedBox(height: isTV ? Space.s3 : Space.s2),
                   Expanded(
-                    child: isTV
+                    child: !scrolls
+                        ? child
+                        : isTV
                         ? TvScrollColumn(child: child)
                         : SingleChildScrollView(
                             padding: EdgeInsets.fromLTRB(
@@ -534,6 +553,81 @@ class _Page extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// On a TV two columns, the groups in turn, so nothing scrolls.
+Widget _columns(List<Widget> groups, {required bool isTV}) => isTV
+    ? Padding(
+        padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: Space.s10,
+          children: [
+            for (final first in [0, 1])
+              Expanded(
+                child: _Column(
+                  children: [
+                    for (var i = first; i < groups.length; i += 2) groups[i],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      )
+    : _Column(children: groups);
+
+/// Frames `phone-diagnose`, `tv-diagnose`: the report, the remote on its button.
+class ShikooDiagnose extends ConsumerWidget {
+  const ShikooDiagnose({super.key, required this.shots});
+
+  final ReportShots shots;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
+    final report = _Group(
+      title: l.diagReportGroup,
+      child: Container(
+        padding: const EdgeInsets.all(Space.s4),
+        decoration: ShapeDecoration(
+          color: t.c.surface,
+          shadows: t.c.cardShadow,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(Radii.lg),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.s3,
+          children: [
+            Text(
+              l.diagReportHelp,
+              style: t.text(
+                t.s.bodySm,
+                color: t.c.textMuted,
+                height: Leading.body,
+              ),
+            ),
+            ShikooButton(
+              label: l.reportSendToSupport,
+              icon: ShikooIcon.report,
+              primary: true,
+              autofocus: isTV,
+              onPressed: () =>
+                  unawaited(openReport(context, 'diagnose', shots)),
+            ),
+          ],
+        ),
+      ),
+    );
+    return SubPage(
+      title: l.diagTitle,
+      isTV: isTV,
+      child: _columns([report], isTV: isTV),
     );
   }
 }

@@ -1603,6 +1603,186 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Couldn\'t check; check your internet and try again.'**
   String get settingsCheckFailed;
+
+  /// Entry button under a failed login code, a failed paste, a failed manual refresh, in the TV support QR dialog, in the phone support sheet and on the Diagnostics page. Each entry first captures the screen it was pressed on, then opens the preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a report to Support'**
+  String get reportSendToSupport;
+
+  /// The same entry inside the internet-check card at the head of Home after a failed connect. Shown only when the check reached the Shikoo server.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a report'**
+  String get reportSendShort;
+
+  /// Settings row in a new «Support» group between Account and App, and the title of the page it opens. Uses the existing key support for the group title.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics and report'**
+  String get diagTitle;
+
+  /// No description provided for @diagRowHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'If the app isn\'t working right'**
+  String get diagRowHelp;
+
+  /// No description provided for @diagReportGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get diagReportGroup;
+
+  /// Above the full-width reportSendToSupport button on the Diagnostics page. The internet-check card above it has the reading's buttons plus retry.
+  ///
+  /// In en, this message translates to:
+  /// **'If the app isn\'t working right, send Support a report. You see what is sent before it goes.'**
+  String get diagReportHelp;
+
+  /// Phone only: the dialog every Support button opens, title support. Buttons: reportChatTelegram (primary), reportSendToSupport, cancelButton. TV keeps its support QR dialog with reportSendToSupport beside close.
+  ///
+  /// In en, this message translates to:
+  /// **'If the app isn\'t working right, send a report first so Support can see what happened.'**
+  String get reportSupportSheetBody;
+
+  /// No description provided for @reportChatTelegram.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat on Telegram'**
+  String get reportChatTelegram;
+
+  /// Card at the head of the Home cards, once per crash or ANR found on the next start. Above the update card if both show. Never sends by itself.
+  ///
+  /// In en, this message translates to:
+  /// **'The app closed suddenly last time.'**
+  String get reportCrashTitle;
+
+  /// No description provided for @reportCrashAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Send us a report about it?'**
+  String get reportCrashAsk;
+
+  /// Opens the preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get reportCrashYes;
+
+  /// Removes the card; the same crash is never asked about again.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get reportCrashNo;
+
+  /// Title of the preview and of the sending, sent and failed states that replace it.
+  ///
+  /// In en, this message translates to:
+  /// **'Report to Support'**
+  String get reportTitle;
+
+  /// Caption under the image the app drew itself, at the moment of the tap.
+  ///
+  /// In en, this message translates to:
+  /// **'What the app drew'**
+  String get reportImageApp;
+
+  /// Caption under the image of what the device actually put on its screen, at the same moment.
+  ///
+  /// In en, this message translates to:
+  /// **'What the screen showed'**
+  String get reportImageScreen;
+
+  /// On by default; off drops both images and shows reportImageOff over them.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the screen pictures too'**
+  String get reportImagesSwitch;
+
+  /// No description provided for @reportImageOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Not sent'**
+  String get reportImageOff;
+
+  /// No description provided for @reportWhatIsSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent: device model and settings, app version, your services’ names and data, your operator and internet status, and the app’s recent activity and errors.'**
+  String get reportWhatIsSent;
+
+  /// Bold, right after reportWhatIsSent in the same paragraph.
+  ///
+  /// In en, this message translates to:
+  /// **'Your subscription link and passwords are never sent.'**
+  String get reportNeverSent;
+
+  /// Preview: Send (focused on TV) and cancelButton; stacked and pinned to the bottom on a phone, beside the switch on TV.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get reportSend;
+
+  /// Its one button is cancelButton, which stops the send.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get reportSending;
+
+  /// No description provided for @reportSentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get reportSentTitle;
+
+  /// Signed in: the report is linked to this device's Telegram account. Buttons: close (primary) and support, which opens the chat directly.
+  ///
+  /// In en, this message translates to:
+  /// **'Support can see your report; you don\'t need to send anything.'**
+  String get reportSentLinked;
+
+  /// Not signed in: above the 8-digit code, shown large in two groups of four, e.g. 4821 9037. Buttons: support (primary, opens the chat directly) and close.
+  ///
+  /// In en, this message translates to:
+  /// **'Report code'**
+  String get reportCodeLabel;
+
+  /// Signed in: the same code, small, for when Support asks.
+  ///
+  /// In en, this message translates to:
+  /// **'Report code: {code}'**
+  String reportCodeSmall(String code);
+
+  /// No description provided for @reportGiveCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Give this code to Support.'**
+  String get reportGiveCode;
+
+  /// One sentence under it says why. When the server was not reached: reportFailedHelp; buttons retry (resends the same report and images) and cancelButton. When it answered without taking the report: reportFailedBusy or reportFailedRefused. When the server refused this device's clock: clockWrongTitle and clockWrongHelp in a red message, then dateSettings (primary) and retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Not sent'**
+  String get reportFailedTitle;
+
+  /// No answer at all: offline, timed out, or no door reached.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and try again.'**
+  String get reportFailedHelp;
+
+  /// The server answered 429: six an hour per device, six per address before sign-in (a carrier may give one address to many phones), or 600 an hour in all. So it never says who sent them. The window is fixed, so an hour is the longest wait. Buttons as reportFailedRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many reports right now. Try again in an hour.'**
+  String get reportFailedBusy;
+
+  /// The server answered with any other status: 400, 413, 422, 5xx, or 200 without a code. Over HTTPS only our own server or its front gives such an answer, so the fault is ours. Retry resends the very same report, so a 4xx refuses it again; hence no «try later» here. Buttons: support (primary; on a phone it opens the chat, on TV its QR dialog without the report button) and retry. No cancelButton: back leaves, as on the clock state.
+  ///
+  /// In en, this message translates to:
+  /// **'The problem is on our side. Chat with Support on Telegram.'**
+  String get reportFailedRefused;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

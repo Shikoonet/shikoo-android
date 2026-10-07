@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/services.dart';
@@ -14,11 +15,20 @@ import 'package:material_ui/material_ui.dart';
 /// Reads the clipboard only when pressed (frames `phone-paste-error`, `phone-cards-paste`), and
 /// shows why it failed above what [builder] draws. What was pasted is never shown.
 class PasteLink extends ConsumerStatefulWidget {
-  const PasteLink({super.key, required this.builder, this.onAdded});
+  const PasteLink({
+    super.key,
+    required this.builder,
+    this.onAdded,
+    this.report = true,
+  });
 
   final Widget Function(BuildContext context, bool busy, VoidCallback paste)
   builder;
   final VoidCallback? onAdded;
+
+  /// Off on the sign-in page, whose one way to a report is «کد گرفته نشد»: elsewhere there its
+  /// pictures could hold a live code.
+  final bool report;
 
   @override
   ConsumerState<PasteLink> createState() => _PasteLinkState();
@@ -81,7 +91,14 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
               },
             ),
           ),
-        if (error == ShikooPasteError.clock) const DateSettingsButton(),
+        if (error == ShikooPasteError.clock)
+          const DateSettingsButton()
+        else if (error != null && widget.report)
+          LinkButton(
+            label: l.reportSendToSupport,
+            onPressed: () =>
+                unawaited(openReport(context, 'paste_${error.name}')),
+          ),
         widget.builder(context, _busy, () => unawaited(_paste())),
       ],
     );

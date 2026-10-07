@@ -14,6 +14,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 class _Controller extends Mock implements ShikooController {}
 
 const _tvState = ShikooState(
@@ -36,6 +38,7 @@ Future<ProviderContainer> _pumpSettings(
   addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   final container = ProviderContainer(
     overrides: [
+      noShots,
       shikooStateProvider.overrideWithValue(_tvState),
       shikooControllerProvider.overrideWithValue(controller),
       shikooVersionProvider.overrideWithValue('0.8.98'),
@@ -217,13 +220,16 @@ void main() {
     const down = LogicalKeyboardKey.arrowDown;
     expect(_focused(), 'خودکار');
     expect(await _press(tester, down), 'خروج');
+    expect(await _press(tester, down), 'عیب‌یابی و گزارش');
     expect(
       await _press(tester, down),
-      'خروج',
+      'عیب‌یابی و گزارش',
       reason: 'not into the app column',
     );
+    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'خروج');
     expect(await _press(tester, left), 'بررسی به‌روزرسانی');
-    expect(await _press(tester, right), 'خروج');
+    expect(await _press(tester, right), 'عیب‌یابی و گزارش');
+    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'خروج');
     expect(
       await _press(tester, LogicalKeyboardKey.arrowUp),
       'خودکار',

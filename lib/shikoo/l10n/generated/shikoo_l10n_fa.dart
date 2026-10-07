@@ -971,4 +971,102 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get settingsCheckFailed =>
       'بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.';
+
+  @override
+  String get reportSendToSupport => 'ارسال گزارش به پشتیبانی';
+
+  @override
+  String get reportSendShort => 'ارسال گزارش';
+
+  @override
+  String get diagTitle => 'عیب‌یابی و گزارش';
+
+  @override
+  String get diagRowHelp => 'اگر برنامه درست کار نمی‌کند';
+
+  @override
+  String get diagReportGroup => 'گزارش';
+
+  @override
+  String get diagReportHelp =>
+      'اگر برنامه درست کار نمی‌کند، یک گزارش برای پشتیبانی بفرست. پیش از ارسال می‌بینی چه فرستاده می‌شود.';
+
+  @override
+  String get reportSupportSheetBody =>
+      'اگر برنامه درست کار نمی‌کند، اول یک گزارش بفرست تا پشتیبانی ببیند چه شده.';
+
+  @override
+  String get reportChatTelegram => 'گفتگو در تلگرام';
+
+  @override
+  String get reportCrashTitle => 'برنامه دفعهٔ قبل ناگهان بسته شد.';
+
+  @override
+  String get reportCrashAsk => 'گزارشش را برای ما بفرستیم؟';
+
+  @override
+  String get reportCrashYes => 'بفرست';
+
+  @override
+  String get reportCrashNo => 'نه';
+
+  @override
+  String get reportTitle => 'گزارش برای پشتیبانی';
+
+  @override
+  String get reportImageApp => 'آنچه برنامه کشید';
+
+  @override
+  String get reportImageScreen => 'آنچه روی صفحه بود';
+
+  @override
+  String get reportImagesSwitch => 'عکس صفحه‌ها هم فرستاده شود';
+
+  @override
+  String get reportImageOff => 'فرستاده نمی‌شود';
+
+  @override
+  String get reportWhatIsSent =>
+      'فرستاده می‌شود: مدل و تنظیمات دستگاه، نسخهٔ برنامه، نام و حجم سرویس‌هایت، اپراتور و وضعیت اینترنت، و کارهای اخیر برنامه و خطاهایش.';
+
+  @override
+  String get reportNeverSent => 'لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.';
+
+  @override
+  String get reportSend => 'ارسال';
+
+  @override
+  String get reportSending => 'در حال ارسال…';
+
+  @override
+  String get reportSentTitle => 'فرستاده شد';
+
+  @override
+  String get reportSentLinked =>
+      'پشتیبانی گزارشت را می‌بیند؛ لازم نیست چیزی بفرستی.';
+
+  @override
+  String get reportCodeLabel => 'کد گزارش';
+
+  @override
+  String reportCodeSmall(String code) {
+    return 'کد گزارش: $code';
+  }
+
+  @override
+  String get reportGiveCode => 'این کد را به پشتیبانی بده.';
+
+  @override
+  String get reportFailedTitle => 'فرستاده نشد';
+
+  @override
+  String get reportFailedHelp => 'اینترنت را بررسی کن و دوباره بزن.';
+
+  @override
+  String get reportFailedBusy =>
+      'الان گزارش‌های زیادی رسیده. یک ساعت دیگر دوباره بزن.';
+
+  @override
+  String get reportFailedRefused =>
+      'ایراد از سمت ماست. در تلگرام با پشتیبانی گفتگو کن.';
 }
