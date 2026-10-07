@@ -9,6 +9,7 @@ import 'package:collection/collection.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:fl_clash/common/boot_record.dart' show AppExitReason;
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/event.dart';
@@ -124,9 +125,144 @@ String failureKind(Object? error) => switch (error) {
   DioException(error: SocketException(:final message))
       when message.contains('host lookup') =>
     'dns',
+  DioException(type: DioExceptionType.connectionError) => 'tcp',
   ShikooApiFailure(clock: true) => 'clock',
   _ => 'failed',
 };
+
+typedef Probe = ({String result, int ms});
+typedef ProbeChecks = ({Probe domestic, Probe international, Probe door});
+
+const probeLimit = Duration(seconds: 5);
+
+/// Plain http, so a wrong clock fails neither; any answer from an Iranian site counts.
+const domesticProbes = ['http://www.aparat.com/', 'http://www.digikala.com/'];
+const internationalProbe = 'http://connectivitycheck.gstatic.com/generate_204';
+
+/// Never through FlClash's local proxy: its own 502 would pass for an Iranian site's answer.
+Future<ProbeChecks> runProbes({
+  List<String> domestic = domesticProbes,
+  String international = internationalProbe,
+  List<String> doors = shikooApiBases,
+  Duration limit = probeLimit,
+}) async {
+  final dio =
+      Dio(BaseOptions(followRedirects: false, validateStatus: (_) => true))
+        ..httpClientAdapter = IOHttpClientAdapter(
+          createHttpClient: () => HttpClient()..findProxy = (_) => 'DIRECT',
+        );
+  Future<Probe> one(String url, {String method = 'GET', int? want}) async {
+    final watch = Stopwatch()..start();
+    String result;
+    try {
+      final response = await dio
+          .request<void>(url, options: Options(method: method))
+          .timeout(limit);
+      final code = response.statusCode;
+      result = want == null || code == want ? 'ok' : 'http_$code';
+    } catch (error) {
+      result = failureKind(error);
+    }
+    return (result: result, ms: watch.elapsedMilliseconds);
+  }
+
+  Future<Probe> first(
+    List<String> urls,
+    Future<Probe> Function(String) probe,
+  ) async {
+    Probe? last;
+    for (final url in urls) {
+      last = await probe(url);
+      if (last.result == 'ok') break;
+    }
+    return last ?? (result: 'failed', ms: 0);
+  }
+
+  try {
+    final (home, abroad, door) = await (
+      first(domestic, (url) => one(url, method: 'HEAD')),
+      one(international, want: HttpStatus.noContent),
+      first(doors, (base) => one('$base/health', want: HttpStatus.ok)),
+    ).wait;
+    String said(Probe p) => '${p.result.replaceAll('_', ' ')} ${p.ms}ms';
+    shikooDiag.add(
+      'T',
+      'probe domestic ${said(home)}, international ${said(abroad)}, '
+          'door ${said(door)}',
+    );
+    return (domestic: home, international: abroad, door: door);
+  } finally {
+    dio.close(force: true);
+  }
+}
+
+Map<String, Object?> _checksOf(ProbeChecks checks) => {
+  for (final (name, probe) in [
+    ('domestic', checks.domestic),
+    ('international', checks.international),
+    ('door', checks.door),
+  ])
+    name: {'result': probe.result, 'ms': probe.ms},
+};
+
+enum ProbeReading { checking, ok, offline, noAbroad, noDoor, noServer }
+
+ProbeReading readProbes(ProbeChecks? checks, List<ShikooServer> servers) {
+  if (checks == null) return ProbeReading.checking;
+  bool ok(Probe probe) => probe.result == 'ok';
+  if (!ok(checks.door)) {
+    return ok(checks.domestic) || ok(checks.international)
+        ? ProbeReading.noDoor
+        : ProbeReading.offline;
+  }
+  if (!ok(checks.international)) return ProbeReading.noAbroad;
+  if (servers.isNotEmpty && servers.every((server) => server.ping == -1)) {
+    return ProbeReading.noServer;
+  }
+  return ProbeReading.ok;
+}
+
+/// The card after a failed connect: null without one, loading while the probes run.
+class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
+  ShikooProbes([this._probe = runProbes]);
+
+  final Future<ProbeChecks> Function() _probe;
+  int _round = 0;
+
+  /// Microtasks: Riverpod forbids writing a provider while another is being built.
+  @override
+  AsyncValue<ProbeChecks>? build() {
+    ref.listen(shikooStateProvider.select((s) => (s.connection, s.lastError)), (
+      _,
+      now,
+    ) {
+      switch (now) {
+        case (ShikooConnection.connecting, _):
+          _round++;
+          scheduleMicrotask(() => state = null);
+        case (
+          ShikooConnection.error,
+          ShikooError.connectTimeout || ShikooError.noServer,
+        ):
+          scheduleMicrotask(() => unawaited(run()));
+        default:
+      }
+    });
+    return null;
+  }
+
+  Future<void> run() async {
+    final round = ++_round;
+    state = const AsyncLoading();
+    final checks = await _probe();
+    if (round == _round) state = AsyncData(checks);
+  }
+}
+
+final shikooProbeProvider =
+    NotifierProvider<ShikooProbes, AsyncValue<ProbeChecks>?>(ShikooProbes.new);
+
+Future<void> openNetworkSettings() => ShikooDiag._invoke<bool>('netSettings');
 
 String _backendOf(String? rendererLine) =>
     switch (rendererLine?.toLowerCase()) {
@@ -889,14 +1025,16 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
         .toList();
   }
 
-  /// The whole report, cleaned and within the door's limits; [about] from [about].
+  /// The whole report, cleaned and within the door's limits; [checks] measured now unless given.
   Future<Map<String, Object?>> report({
     required String trigger,
     required Map<String, Object?> about,
     Uint8List? appImage,
     Uint8List? screenImage,
     bool images = true,
+    ProbeChecks? checks,
   }) async {
+    final probed = checks ?? await runProbes();
     _flushRepeat();
     final now = DateTime.now();
     final known = _knownNow();
@@ -918,6 +1056,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
             state.connection == ShikooConnection.off &&
             (transports?.contains('vpn') ?? false),
       },
+      'checks': _checksOf(probed),
       'services': [
         for (final service in services)
           {

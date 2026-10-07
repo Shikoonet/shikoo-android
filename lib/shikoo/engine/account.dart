@@ -507,9 +507,13 @@ Rule apiDirectRule(String base, int id) {
   );
 }
 
+/// The door, and the internet check's sites, so the check answers alike with the VPN on.
 Future<void> keepApiDirect() async {
   for (final (i, base) in shikooApiBases.indexed) {
     await database.rulesDao.putGlobalRule(apiDirectRule(base, 7470000 + i));
+  }
+  for (final (i, url) in [...domesticProbes, internationalProbe].indexed) {
+    await database.rulesDao.putGlobalRule(apiDirectRule(url, 7470100 + i));
   }
 }
 

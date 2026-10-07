@@ -1603,6 +1603,54 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Couldn\'t check; check your internet and try again.'**
   String get settingsCheckFailed;
+
+  /// The same entry inside the internet-check card at the head of Home after a failed connect. Shown only when the check reached the Shikoo server.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a report'**
+  String get reportSendShort;
+
+  /// Internet-check card while the three direct probes run (an Iranian site, a small international address, the Shikoo server). No buttons yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the internet…'**
+  String get probeChecking;
+
+  /// No description provided for @probeOk.
+  ///
+  /// In en, this message translates to:
+  /// **'The internet works and the ShikooNet server is reachable.'**
+  String get probeOk;
+
+  /// All three probes failed. One button: probeNetSettings. No report button, since a report cannot arrive.
+  ///
+  /// In en, this message translates to:
+  /// **'This device isn\'t connected to the internet.'**
+  String get probeOffline;
+
+  /// The Iranian site answered, the international address did not. The report button stays, because the Shikoo server is inside Iran.
+  ///
+  /// In en, this message translates to:
+  /// **'International internet is cut on this line. The servers are outside Iran.'**
+  String get probeNoAbroad;
+
+  /// The Shikoo server was not reached and not every probe failed. Says nothing about whose fault it is: when the domestic site failed too, the customer's own line may be the cause. One button: support. No report button, since the report goes to that server.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t reach the ShikooNet server; try again in a few minutes.'**
+  String get probeNoDoor;
+
+  /// All probes fine but every server ping failed. Buttons: reportSendShort, support, refreshServers.
+  ///
+  /// In en, this message translates to:
+  /// **'None of the servers answer.'**
+  String get probeNoServer;
+
+  /// Opens Android's wireless settings; falls back to the main settings on a TV without that page.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet settings'**
+  String get probeNetSettings;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

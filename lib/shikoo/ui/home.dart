@@ -4,12 +4,14 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -42,6 +44,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _power = FocusNode();
   final _settings = FocusNode();
   final _linkless = FocusNode();
+  final _check = FocusNode();
   final _scroll = ScrollController();
   (int?, bool, bool)? _shown;
 
@@ -51,6 +54,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     _power.dispose();
     _settings.dispose();
     _linkless.dispose();
+    _check.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -83,6 +87,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
     final update = ref.watch(shikooUpdateOfferProvider);
+    final check = ref.watch(shikooProbeProvider);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final now = shikooNow();
@@ -163,6 +168,13 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.s3,
       children: [
+        if (check != null)
+          InternetCheckCard(
+            check: check,
+            state: state,
+            controller: controller,
+            firstFocus: _check,
+          ),
         if (update != null) UpdateCard(offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
         if (hasService || (unlinked.isEmpty && current == null))
@@ -194,6 +206,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   noService: current == null && unlinked.isEmpty,
                   settings: _settings,
                   power: _PowerKeys(
+                    check: _check,
                     row: towardCard == null ? null : _card.row(towardCard),
                     child: power,
                   ),
@@ -209,10 +222,15 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 /// A node keeps the context of its widget after the widget is gone.
 bool _onScreen(FocusNode? node) => node?.context?.mounted ?? false;
 
-/// Toward the card is the selected server, or the first one while none is chosen.
+/// Toward the card: the internet check's first button, else the chosen server or the first.
 class _PowerKeys extends StatelessWidget {
-  const _PowerKeys({required this.row, required this.child});
+  const _PowerKeys({
+    required this.check,
+    required this.row,
+    required this.child,
+  });
 
+  final FocusNode check;
   final FocusNode? row;
   final Widget child;
 
@@ -225,7 +243,7 @@ class _PowerKeys extends StatelessWidget {
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
-            final row = this.row;
+            final row = _onScreen(check) ? check : this.row;
             if (intent.direction == towardCard && _onScreen(row)) {
               row!.requestFocus();
             } else if (intent.direction != TraversalDirection.down) {

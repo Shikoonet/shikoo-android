@@ -92,6 +92,12 @@ object ShikooDiag {
                 when (call.method) {
                     "screen" -> screen(activity, result)
                     "state" -> result.success(runCatching { state(activity) }.getOrNull())
+                    // A TV may lack the wireless page; the main settings always open.
+                    "netSettings" -> result.success(
+                        listOf(Settings.ACTION_WIRELESS_SETTINGS, Settings.ACTION_SETTINGS).any {
+                            runCatching { activity.startActivity(Intent(it)) }.isSuccess
+                        },
+                    )
                     "exits", "renderer", "logTail" -> GlobalState.launch(Dispatchers.IO) {
                         result.success(
                             runCatching {

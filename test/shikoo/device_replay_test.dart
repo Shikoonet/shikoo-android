@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/enum/enum.dart' show MessageLevel;
@@ -5,10 +6,12 @@ import 'package:fl_clash/manager/status_manager.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -134,6 +137,7 @@ Future<ProviderContainer> _pump(
   ShikooLogin? login,
   ShikooAccount account = const ShikooAccount(),
   UpdateOffer? offer,
+  ProbeChecks? checks,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -164,9 +168,13 @@ Future<ProviderContainer> _pump(
       shikooUpdateProvider.overrideWithValue(update),
       shikooUpdateOfferProvider.overrideWith(() => ShikooCell(offer)),
       shikooVersionProvider.overrideWithValue('1.0.57'),
+      shikooProbeProvider.overrideWith(() => ShikooProbes(() async => checks!)),
     ],
   );
   addTearDown(container.dispose);
+  if (checks != null) {
+    unawaited(container.read(shikooProbeProvider.notifier).run());
+  }
   container.read(shikooLoginProvider.notifier).set(login);
   container.read(shikooAccountProvider.notifier).set(account);
   await tester.pumpWidget(
@@ -579,4 +587,139 @@ void main() {
       await check([find.byType(ShikooButton).first, _button(_l.support)]);
     }
   });
+
+  // phone-cards-check and tv-home-error: each reading at the head of Home after a failed
+  // connect, on the Poco C85 and a large phone at font 1.45 and on TVs up to 1.3.
+  testWidgets('the internet check stays in view and apart in every reading', (
+    tester,
+  ) async {
+    final readings = <(ProbeChecks, bool, List<String>)>[
+      (_probe('ok', 'ok', 'ok'), false, [_l.probeOk]),
+      (
+        _probe('dns', 'dns', 'dns'),
+        false,
+        [_l.probeOffline, _l.probeNetSettings],
+      ),
+      (_probe('ok', 'timeout', 'ok'), false, [_l.probeNoAbroad]),
+      (_probe('ok', 'ok', 'timeout'), false, [_l.probeNoDoor, _l.support]),
+      (
+        _probe('ok', 'ok', 'ok'),
+        true,
+        [_l.probeNoServer, _l.support, _l.refreshServers],
+      ),
+    ];
+    final faults = <String>[];
+    for (final device in _checkDevices) {
+      for (final (checks, silent, texts) in readings) {
+        await _pump(
+          tester,
+          device,
+          const ShikooHome(),
+          state: _failed(device.tv, silent: silent),
+          checks: checks,
+        );
+        for (final fault in await _faults(tester, device, [
+          find.text(texts.first),
+          for (final label in texts.skip(1)) _button(label),
+          find.byType(PowerButton),
+        ])) {
+          faults.add('${_name(device)} ${texts.first}: $fault');
+        }
+      }
+    }
+    expect(faults, isEmpty);
+  });
+
+  testWidgets('its three buttons, the report one too, fit the card column', (
+    tester,
+  ) async {
+    final faults = <String>[];
+    final first = FocusNode();
+    addTearDown(first.dispose);
+    for (final device in _checkDevices) {
+      final state = _failed(device.tv, silent: true);
+      // Home's TV padding and pane, or the phone's side gutter.
+      await _pump(
+        tester,
+        device,
+        Scaffold(
+          body: SafeArea(
+            child: Builder(
+              builder: (context) {
+                final s = ShikooTheme.of(context).s;
+                return Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: s.safeX,
+                    vertical: device.tv ? s.safeY : 0,
+                  ),
+                  child: Align(
+                    alignment: AlignmentDirectional.topStart,
+                    child: SizedBox(
+                      width: device.tv ? s.pane : null,
+                      child: InternetCheckCard(
+                        check: AsyncData(_probe('ok', 'ok', 'ok')),
+                        state: state,
+                        controller: _Controller(),
+                        onReport: () {},
+                        firstFocus: first,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        state: state,
+      );
+      first.requestFocus();
+      await tester.pumpAndSettle();
+      for (final fault in await _faults(tester, device, [
+        find.text(_l.probeNoServer),
+        _button(_l.reportSendShort),
+        _button(_l.support),
+        _button(_l.refreshServers),
+      ])) {
+        faults.add('${_name(device)}: $fault');
+      }
+    }
+    expect(faults, isEmpty);
+  });
+}
+
+ProbeChecks _probe(String domestic, String international, String door) => (
+  domestic: (result: domestic, ms: 40),
+  international: (result: international, ms: 300),
+  door: (result: door, ms: 60),
+);
+
+final _checkDevices = <_Device>[
+  for (final size in const [Size(343, 760), Size(412, 915)])
+    for (final scale in const [1.0, 1.45])
+      (size: size, scale: scale, tv: false),
+  for (final scale in const [1.0, 1.15, 1.3])
+    (size: const Size(960, 540), scale: scale, tv: true),
+  for (final size in const [Size(1280, 720), Size(1920, 1080)])
+    (size: size, scale: 1.3, tv: true),
+];
+
+ShikooState _failed(bool tv, {required bool silent}) {
+  final home = _home(tv);
+  return ShikooState(
+    connection: ShikooConnection.error,
+    lastError: ShikooError.connectTimeout,
+    connectedFor: Duration.zero,
+    isTV: tv,
+    service: home.service,
+    servers: [
+      for (final server in home.servers)
+        ShikooServer(
+          name: server.name,
+          type: server.type,
+          ping: silent ? -1 : server.ping,
+        ),
+    ],
+    selected: home.selected,
+    others: home.others,
+  );
 }

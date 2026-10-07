@@ -1022,4 +1022,31 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get settingsCheckFailed =>
       'Couldn\'t check; check your internet and try again.';
+
+  @override
+  String get reportSendShort => 'Send a report';
+
+  @override
+  String get probeChecking => 'Checking the internet…';
+
+  @override
+  String get probeOk =>
+      'The internet works and the ShikooNet server is reachable.';
+
+  @override
+  String get probeOffline => 'This device isn\'t connected to the internet.';
+
+  @override
+  String get probeNoAbroad =>
+      'International internet is cut on this line. The servers are outside Iran.';
+
+  @override
+  String get probeNoDoor =>
+      'We couldn\'t reach the ShikooNet server; try again in a few minutes.';
+
+  @override
+  String get probeNoServer => 'None of the servers answer.';
+
+  @override
+  String get probeNetSettings => 'Internet settings';
 }

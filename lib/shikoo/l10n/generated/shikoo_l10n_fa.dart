@@ -971,4 +971,30 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get settingsCheckFailed =>
       'بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.';
+
+  @override
+  String get reportSendShort => 'ارسال گزارش';
+
+  @override
+  String get probeChecking => 'در حال بررسی اینترنت…';
+
+  @override
+  String get probeOk => 'اینترنت وصل است و سرور شیکونت در دسترس است.';
+
+  @override
+  String get probeOffline => 'این دستگاه به اینترنت وصل نیست.';
+
+  @override
+  String get probeNoAbroad =>
+      'اینترنت بین‌الملل روی این خط قطع است. سرورها بیرون از ایران‌اند.';
+
+  @override
+  String get probeNoDoor =>
+      'به سرور شیکونت نرسیدیم؛ چند دقیقهٔ دیگر دوباره امتحان کن.';
+
+  @override
+  String get probeNoServer => 'هیچ‌کدام از سرورها جواب نمی‌دهند.';
+
+  @override
+  String get probeNetSettings => 'تنظیمات اینترنت';
 }
