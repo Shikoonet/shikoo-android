@@ -220,9 +220,13 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
 
 ### App: the report (only when the customer taps)
 
-Entry points (phone and TV, D-pad reachable): Settings → «عیب‌یابی و گزارش»; «پشتیبانی» on Home; the login's
-«کد گرفته نشد» state; the connection-failed state; a failed «چسباندن لینک»; a failed «به‌روزرسانی اشتراک»; the
-crash card. Each first captures the screen it was pressed on.
+Entry points (phone and TV, D-pad reachable): Settings → «عیب‌یابی و گزارش» (a «پشتیبانی» group between «حساب» and
+«اپ», in every settings state); «پشتیبانی» on Home (phone: every «پشتیبانی» opens a sheet, [گفتگو در تلگرام] or
+[ارسال گزارش به پشتیبانی]; TV: the support QR dialog gains [ارسال گزارش به پشتیبانی] beside [بستن]); the login's
+«کد گرفته نشد» state; the connection-failed state (the internet-check card below); a failed «چسباندن لینک»; a failed
+manual «به‌روزرسانی سرورها»; the crash card. Each first captures the screen it was pressed on; for «پشتیبانی» that is
+the screen under the sheet or dialog, taken before it opens. Frames: `design/mockups/phone-report.html` and
+`tv-report.html`, strings in `design/l10n/report_*.arb`.
 
 | Section | Fields (nothing else; the server refuses unknown keys) |
 |---|---|
@@ -255,15 +259,21 @@ crash card. Each first captures the screen it was pressed on.
   once more at 0.5 of its size, and if still over it is dropped and `images.note` says `too_large`; if
   `jsonEncode(report)` is still over 1.4 MB, both images are dropped with the same note. One function builds the map
   from typed values; no `toJson` of FlClash objects, no preference dump.
-- **Preview**, phone 360–412 dp at font 1.45 and TV: a scrolling page. The two images in one row, each half the
-  width less the gap, at most 200 dp tall on a phone (280 dp on TV), with their names under them; then one switch
-  «عکس صفحه‌ها هم فرستاده شود» (on) that drops both; then «این‌ها فرستاده می‌شود: مدل دستگاه، اندازهٔ صفحه، وضعیت
-  اینترنت و خطاهای اخیر برنامه. لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.»; then [بفرست] and [نه], full width and
-  stacked on a phone, side by side on TV. Nothing is sent that the preview did not show.
+- **Preview**, phone 343–412 dp at font 1.45 (343 is the Poco C85) and TV 960 and 1280 dp. The two images in one
+  row, each half the width less the gap, at most 200 dp tall on a phone and 240 dp (16:9) on TV, with their names
+  «آنچه برنامه کشید» and «آنچه روی صفحه بود» under them; then one switch «عکس صفحه‌ها هم فرستاده شود» (on) that drops
+  both and marks them «فرستاده نمی‌شود»; then «فرستاده می‌شود: مدل و تنظیمات دستگاه، نسخهٔ برنامه، نام و حجم
+  سرویس‌هایت، اپراتور و وضعیت اینترنت، و خطاهای اخیر برنامه. لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.»; then
+  [ارسال] and [انصراف]. Phone: the middle scrolls and the two buttons are pinned, full width and stacked, at the
+  bottom. TV: no scroll; the switch and the two buttons share the bottom row, three remote stops, [ارسال] focused.
+  The sentence names the kinds of data, not every field; nothing outside the table above is sent.
 - Send: `ShikooApi.report()` through `_call` (failover, DIRECT, the sign-in token as Bearer when there is one), its
-  own `sendTimeout` of 60 s. Result: signed in → «فرستاده شد. پشتیبانی آن را با حساب تلگرامتان پیدا می‌کند.» and the
-  code small; not signed in → the 8-digit code large, «این کد را به پشتیبانی بدهید.» A sent report clears the crash
-  files and remembers the last exit record.
+  own `sendTimeout` of 60 s; while it runs, «در حال ارسال…» and [انصراف]. Result: signed in → «فرستاده شد»,
+  «پشتیبانی گزارشت را می‌بیند؛ لازم نیست چیزی بفرستی.» and the code small, [بستن] [پشتیبانی]; not signed in → the
+  8-digit code large in two groups of four, «این کد را به پشتیبانی بده.», [پشتیبانی] [بستن]. «پشتیبانی» there opens
+  the chat (TV: the QR dialog) without the report button. Failed → «فرستاده نشد» [دوباره] [انصراف]; «دوباره» resends
+  the same report and images. When the door refused the device's clock, the `fix/wrong-clock` message and
+  [تنظیمات تاریخ و ساعت] [دوباره]. A sent report clears the crash files and remembers the last exit record.
 
 ### App: «اصلاً اینترنت دارد؟» — three DIRECT probes
 
@@ -276,10 +286,16 @@ next to `keepApiDirect` (ids from 7470100), so the answer is the same with the V
 | international | `GET http://connectivitycheck.gstatic.com/generate_204`, expect 204 | Android's own connectivity check; tiny, plain HTTP; a non-204 means an injected page |
 | door | `GET https://<base>/health` via `ShikooApi` bases | The real path, TLS included, on the Iranian box |
 
-Reading (the sentence shown, no button unless named): all fail → «این دستگاه به اینترنت وصل نیست.» [تنظیمات
-اینترنت]; domestic ok, international fails → «اینترنت بین‌الملل روی این خط قطع است. سرورها بیرون از ایران‌اند.»;
-both ok, door fails → «به سرور شیکو نرسیدیم؛ مشکل از طرف ماست.» [پشتیبانی]; all ok but every server ping fails →
-«هیچ‌کدام از سرورها جواب نمی‌دهند.» [به‌روزرسانی اشتراک] [پشتیبانی]; domestic fails, international ok → raw kinds only.
+Reading, one card with one sentence; it is decided by the door first. While running: «در حال بررسی اینترنت…», no
+button. Door not reached: all three fail → «این دستگاه به اینترنت وصل نیست.» [تنظیمات اینترنت]; otherwise → «به سرور
+شیکونت نرسیدیم؛ مشکل از طرف ماست.» [پشتیبانی]. Door reached: international fails → «اینترنت بین‌الملل روی این خط قطع
+است. سرورها بیرون از ایران‌اند.»; every server ping fails → «هیچ‌کدام از سرورها جواب نمی‌دهند.» [به‌روزرسانی سرورها]
+[پشتیبانی]; else → «اینترنت وصل است و سرور شیکونت در دسترس است.». A domestic failure with the door reached changes
+no sentence and goes only into the report. [ارسال گزارش] is on the card exactly when the door was reached (the last
+three), since a report cannot arrive otherwise. After a failed connect the card sits at the head of Home's cards
+(TV: head of the card column, without taking focus), and the next connect removes it. On «عیب‌یابی و گزارش» the card
+has [دوباره] instead of [ارسال گزارش], and the big [ارسال گزارش به پشتیبانی] below it is hidden while the door is not
+reached, replaced by «گزارش الان نمی‌رسد. وقتی اینترنت برگشت، «دوباره» را بزن.».
 
 ### Door API (`apps/ingest-worker/src/appReport.ts`, new migration `0133_an_app_sends_a_report.sql`)
 
@@ -309,7 +325,9 @@ both ok, door fails → «به سرور شیکو نرسیدیم؛ مشکل از 
 
 Dashboard-worker `GET /api/v1/admin/app-reports?telegram_id=|code=` (list, newest 10) and `GET …/app-reports/:code`
 (full; each image as `image/png` on its own path), under `supportChats`. Admin-web: a «گزارش‌های اپ» block inside
-`SupportConversation` for that telegram id, and one code search box on «گفتگوهای پشتیبانی». A report page: a summary
+`SupportConversation` for that telegram id, and one code search box on «گفتگوهای پشتیبانی» that turns Persian and
+Arabic digits into ASCII and drops spaces, since the app shows the code in Persian digits as two groups of four. A
+report page: a summary
 card (device, screen, graphics, network and ASN, SIMs, power, clock offset, the three probes, crashes), the two
 images side by side, then the timeline and log collapsed.
 
@@ -329,13 +347,13 @@ WP1 and WP6 write in shikoo-platform, outside the Telegram sign-in exception: ea
 
 | WP | Where | Size | Depends on |
 |---|---|---|---|
-| 7 Replay (first) | new `test/shikoo/device_replay_test.dart` + `devices.json`: each layout report adds its size, ratio, text scale, TV and locale, and phones at 360 and 412 dp with font 1.45 are in from the start; home in every state, settings, login and the report preview are pumped, any overflow fails (the assert fires in tests), and each screen is written as the reference picture | S | — |
+| 7 Replay (first) | new `test/shikoo/device_replay_test.dart` + `devices.json`: each layout report adds its size, ratio, text scale, TV and locale, and phones at 343 (Poco C85), 360 and 412 dp with font 1.45 are in from the start; home in every state, settings, login and the report preview are pumped, any overflow fails (the assert fires in tests), and each screen is written as the reference picture | S | — |
 | 1 Door — **needs Sam's explicit go-ahead (rule 4)** | shikoo-platform: new `appReport.ts`, `appApi.ts` (per-path body limit), `appServer.ts`, migration `0133` + manifest, `Dockerfile` (iptoasn fetch), new `test/app-report.test.ts` (accept, unknown key 400, link in a parsed value 422 incl. `https:\/\/` and upper case, 413, a 301-char line and a 401 KB image refused, link to user, code shape and Damm, sweep, 429, ASN from a fixture TSV with no IP stored), `docs/configuration-matrix.md` | M | — |
 | 3 Android and Go | new `ShikooDiag.kt` (`shikoo/diag`: install from process start, crash handler, `events.txt`, screen and airplane receivers, «alive» below API 30, exit records with traces, SIMs, power readables, Private DNS, Data Saver, own logcat tail and the renderer line, `PixelCopy` of the Flutter surface), `FlClashApplication.kt` (one line), `ServiceBroadcastReceiver.kt` (one line, «revoked»), `MainActivity.kt` (one line, channel), new `core/shikoo_crash.go`, `core/hub.go` (one line), `SHIKOO_PATCHES.md` rows | M | — |
 | 2 Record and send | `feat/app`: new `lib/shikoo/engine/diag.dart` (ring file, sanitizer, timeline, frame summary, UI events, report map, limits, `app` image), `account.dart` (`ShikooApi.report()`; reuse the error kind `fix/wrong-clock` adds), `app.dart` (`openLogs`, core warning, hooks), `main.dart` (recorder before `bootstrap.init`, `PlatformDispatcher.onError`), new `test/shikoo/diag_test.dart` (below) | M | WP3; after `fix/wrong-clock` is merged; WP1 for end to end |
-| 4 UI | design frames first, including the phone preview at 360 dp and font 1.45 (`phone-report-preview-145`) and the TV one; `lib/shikoo/ui/report.dart` (preview, send, code), entry buttons (the seven above), crash card, arbs | M | WP2, WP3 |
+| 4 UI | design frames drawn (`design/mockups/phone-report.html`, `tv-report.html`, entries in the existing frames), including the phone preview at 343 dp and font 1.45 (`phone-report-preview-145`) and the TV one; `lib/shikoo/ui/report.dart` (preview, send, code), entry buttons (the seven above, and the phone «پشتیبانی» sheet), internet-check card, crash card, arbs (`design/l10n/report_*.arb`) | M | WP2, WP3 |
 | 5 Probes | the three probes and their sentences in `diag.dart`, DIRECT rules beside `keepApiDirect` | S | WP2 |
-| 6 Panel — **needs Sam's explicit go-ahead (rule 4)** | shikoo-platform: dashboard-worker routes + `access.ts`, admin-web block and code search | M | WP1 |
+| 6 Panel — **needs Sam's explicit go-ahead (rule 4)** | shikoo-platform: dashboard-worker routes + `access.ts`, admin-web block and code search (Persian digits and spaces normalised) | M | WP1 |
 | 8 On-device checks (later) | in «عیب‌یابی و گزارش», one plain sentence and a settings button per finding of the report: service ended, VPN permission, another VPN, Private DNS, battery optimisation, storage, memory, Data Saver, background restricted | S | WP5 |
 
 `test/shikoo/diag_test.dart`, under `flutter test` (Dart's own `RegExp`):
