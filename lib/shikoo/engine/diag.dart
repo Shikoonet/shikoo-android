@@ -135,7 +135,7 @@ String _backendOf(String? rendererLine) =>
       _ => 'unknown',
     };
 
-final _usernameShape = RegExp(r'^[A-Za-z0-9_.-]{1,64}$');
+final _usernameShape = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
 
 String? frameSummary(int frames, int slow, int build, int raster) => slow == 0
     ? null

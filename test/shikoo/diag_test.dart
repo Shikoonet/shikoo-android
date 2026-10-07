@@ -823,6 +823,9 @@ void main() {
             named(11, _liveCode),
             named(12, 'PlantedPathToken'),
             named(13, 'QueryTokenValue'),
+            named(14, 'x-shelf-1'),
+            named(15, 'vhosteight.ir'),
+            named(16, '185.199.110.153'),
           ],
         ),
       );
@@ -837,7 +840,15 @@ void main() {
 
       expect(
         [for (final s in report['services']! as List) (s as Map)['username']],
-        ['ali_2024', longest, 'clash', ...List.filled(9, '·')],
+        [
+          'ali_2024',
+          longest,
+          'clash',
+          ...List.filled(9, '·'),
+          'x-shelf-1',
+          '·',
+          '·',
+        ],
       );
       final log = (report['log']! as List).cast<String>();
       expect(log, contains(endsWith(' A service · refreshed')));
