@@ -208,6 +208,8 @@ MaterialApp bareApp(
   themeMode: look.theme,
   theme: shikooThemeData(Brightness.light, tv: system.isTV),
   darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
+  builder: (context, child) =>
+      ShikooTvCanvas(child: ShikooSystemUi(child: child!)),
   home: home,
 );
 

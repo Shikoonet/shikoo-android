@@ -1,3 +1,4 @@
+import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -425,6 +426,32 @@ void main() {
     await tester.pump();
     expect(retries, 2);
     expect(find.text('ساعت هنوز درست نیست.'), findsNothing);
+  });
+
+  testWidgets('the clock page, before the app, draws on the same TV canvas', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(2560, 1440)
+      ..devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    // bareApp's own builder, under the TV theme system.isTV would choose on a TV.
+    final app = bareApp(ClockPage(onRetry: () => false));
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: app.locale,
+        supportedLocales: app.supportedLocales,
+        localizationsDelegates: app.localizationsDelegates,
+        theme: shikooThemeData(Brightness.light, tv: true),
+        builder: app.builder,
+        home: app.home,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      MediaQuery.sizeOf(tester.element(find.byType(ClockPage))),
+      ShikooSizes.tvCanvas,
+    );
   });
 
   testWidgets('a TV whose only service has no link shows its card, the remote '
