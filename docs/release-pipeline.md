@@ -282,6 +282,7 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
 | `flutter test` on 2 CPUs | 399 s, one failure: `NetworkDetection provider ignores a canceled stale check after a newer check succeeds`; the file alone passed three times (2 CPUs twice, all CPUs once), so it is a timing flake under load, in FlClash's tests |
 | The guard loop (2026-10-06), cut from the workflow at `5f8c445` (old: `.dev` suffix) and with the exact id, on v7a APKs from `feat/app` local builds: a staging build named as staging; the same named as production; a build without the staging server named as production | both: PASS; refused (`is com.shikoonet.app.dev and carries the staging server 1 times`); refused (`… 0 times`) |
 | The same two guards where only the package can tell: FlClash's official `com.follow.clash` (sha256 `9a507336…a122a`) named as production; FlClash's WSL debug build named as staging, with `API=chen08209`, a string its `libapp.so` holds 4 times | old: PASS, PASS. Exact id: refused (`is com.follow.clash and carries the staging server 0 times`); refused (`is com.follow.clash.dev and carries the staging server 4 times`) |
+| Staging run 37623319636 stopped at `has no signer digest` (2026-10-07). A fresh WSL clone of `main` `73ad42a` ran the build and check steps as written, with throwaway PKCS12 keys made like `make-signing-key.ps1`'s (release RSA 4096, alias `shikoonet`, one password) | Same failure. apksigner 37.0.0, the runner's newest build-tools, prints `V2 Signer: certificate SHA-256 digest:` where 36.0.0 printed `Signer #1 certificate …`, exit 0 and empty stderr either way. The step reading `certificate SHA-256 digest:` passes with 37.0.0 and 36.0.0, and the production digest is the throwaway release key's. An unsigned production APK is refused, with apksigner's output; production re-signed with the staging key is refused |
 
 **Prerequisites before this can merge green:**
 - **The Shikoo app itself on `main`.** `main` (`f08a9fd`) has no `lib/shikoo/` at all, so `-t lib/shikoo/app/main.dart`
@@ -293,10 +294,11 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
   (flutter-engineer); staging refuses to build until it does. `SHIKOO_API` already exists on `feat/app-login`.
 
 **Not proven:**
-- None of the three workflows has run on GitHub. The minutes and times above are from WSL pinned to 2 CPUs, not from a runner.
-- That two release builds with a real, different release key sign with it: the probe's "release" key was a copy of the debug
-  key, so the signer looked the same either way; only the package name showed which path Gradle took. Sam's keystores are
-  PKCS12 under a `.jks` name; Gradle on JDK 17 opens either format by default, but no build has signed with one yet.
+- A green staging run on GitHub. The first (37623319636) built both variants and stopped at the signer check, fixed
+  since. The minutes and times above are from WSL pinned to 2 CPUs, not from a runner.
+- That the runner signs with Sam's own release key. A WSL build of `73ad42a` signed with a throwaway PKCS12 key of the same
+  shape (2026-10-07), and the runner's production step built with the release secrets without error, but no check has
+  yet read the digest of what it signed.
 - The flaky `NetworkDetection` test may turn a 2-CPU runner red now and then; rerun the job, and report it upstream if it
   keeps happening.
 - That the runner's preinstalled clang and libclang serve the Rust hook's bindgen. FlClash's own release job builds Android on
