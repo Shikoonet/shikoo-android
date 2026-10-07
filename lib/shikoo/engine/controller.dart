@@ -11,6 +11,7 @@ import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
@@ -1070,6 +1071,7 @@ class ShikooController {
   }
 
   void _updated(int id) {
+    shikooDiag.refreshed(id, null);
     if (id == _ref.read(currentProfileIdProvider)) {
       if (_ref.read(_refreshProvider) == ShikooRefresh.failed) {
         _ref.read(_refreshProvider.notifier).set(ShikooRefresh.idle);
@@ -1094,6 +1096,7 @@ class ShikooController {
 
   /// Phone-only, as only a phone pastes: the account's own services leave with its next sync.
   void _failed(int id, Object error) {
+    shikooDiag.refreshed(id, error);
     if (addFailure(error) == ShikooPasteError.revoked &&
         _ref.read(_pastedProvider).contains(id)) {
       _revoked(id, revoked: true);

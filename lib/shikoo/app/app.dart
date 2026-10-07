@@ -7,12 +7,15 @@ import 'package:fl_clash/application.dart';
 import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/system.dart';
+import 'package:fl_clash/core/controller.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
@@ -59,6 +62,7 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
   crashlytics: false,
   autoCheckUpdate: false,
   dashboardWidgets: const [],
+  openLogs: true,
 );
 
 class ShikooApp extends ConsumerStatefulWidget {
@@ -89,6 +93,11 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       // Saved only because AppStateManager is mounted by now (engine map section 1).
       ref.read(appSettingProvider.notifier).update(shikooAppSettings);
       await lockLocalPortAfter(bootstrap.attach(), globalState.container);
+      ref
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => c.copyWith(logLevel: LogLevel.warning));
+      unawaited(shikooDiag.attach(globalState.container));
+      shikooDiag.watchUi();
       _attached = true;
       unawaited(registerShortcut(app, ref.read(shikooLookProvider).language));
       ref.read(shikooControllerProvider).onForeground();
@@ -121,7 +130,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
-  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and `shikoo-debug://lang?code=en`.
+  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `shikoo-debug://lang?code=en`
+  /// `shikoo-debug://crash`, a Go panic outside every recovery, and `shikoo-debug://report`.
   /// The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;
@@ -139,10 +149,34 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
               .read(shikooLookProvider.notifier)
               .setLanguage(query['code'] ?? shikooDefaultLanguage),
         );
+      case 'crash':
+        unawaited(coreController.crash());
+      case 'report':
+        unawaited(_debugReport());
+    }
+  }
+
+  Future<void> _debugReport() async {
+    try {
+      final (app, screen) = await (
+        shikooDiag.captureApp(),
+        shikooDiag.captureScreen(),
+      ).wait;
+      final report = await shikooDiag.report(
+        trigger: 'debug',
+        about: await shikooDiag.about(),
+        appImage: app,
+        screenImage: screen,
+      );
+      final sent = await shikooDiag.send(report);
+      debugPrint('report sent: code ${sent.code} linked ${sent.linked}');
+    } catch (error) {
+      debugPrint('report not sent: ${failureKind(error)}');
     }
   }
 
   Future<void> _onConnectivityChanged(List<ConnectivityResult> results) async {
+    shikooDiag.network(results);
     unawaited(ref.read(systemActionProvider.notifier).updateLocalIp());
     final hasVpn = results.contains(ConnectivityResult.vpn);
     if (_hadVpn == hasVpn) ref.read(checkIpNumProvider.notifier).add();
@@ -169,6 +203,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: globalState.navigatorKey,
+      navigatorObservers: [shikooDiag.routes],
       onNavigationNotification: (_) => true,
       onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
       locale: Locale(look.language),
@@ -196,14 +231,19 @@ Widget shikooFrame(
   BuildContext context,
   Widget page, {
   required Widget Function(Widget page) managers,
-}) =>
+}) => RepaintBoundary(
+  key: shikooDiag.appKey,
+  child: NotificationListener<ScrollEndNotification>(
+    onNotification: shikooDiag.onScrollEnd,
     // ignore: deprecated_member_use
-    MaterialUiCompatibilityBridge(
+    child: MaterialUiCompatibilityBridge(
       child: IconTheme(
         data: Theme.of(context).iconTheme,
         child: ShikooTvCanvas(child: managers(ShikooSystemUi(child: page))),
       ),
-    );
+    ),
+  ),
+);
 
 MaterialApp bareApp(
   Widget home, {
