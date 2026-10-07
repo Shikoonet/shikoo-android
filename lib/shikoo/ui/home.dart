@@ -209,21 +209,14 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 /// A node keeps the context of its widget after the widget is gone.
 bool _onScreen(FocusNode? node) => node?.context?.mounted ?? false;
 
-FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
-  final box = cards.findRenderObject();
-  if (box is! RenderBox) return null;
-  final column = box.localToGlobal(Offset.zero) & box.size;
+FocusNode? _beside(FocusNode from, {required bool rtl}) {
   final at = from.rect;
   FocusNode? nearest;
   var gap = double.infinity;
   for (final node in from.nearestScope?.traversalDescendants ?? <FocusNode>[]) {
     final r = node.rect;
     final apart = rtl ? at.left - r.right : r.left - at.right;
-    if (apart >= 0 &&
-        apart < gap &&
-        r.top < at.bottom &&
-        r.bottom > at.top &&
-        column.contains(r.center)) {
+    if (apart >= 0 && apart < gap && r.top < at.bottom && r.bottom > at.top) {
       nearest = node;
       gap = apart;
     }
@@ -295,7 +288,7 @@ class _CardKeys extends StatelessWidget {
             if (intent.direction == towardPower &&
                 from != null &&
                 _onScreen(power)) {
-              (_beside(context, from, rtl: rtl) ?? power).requestFocus();
+              (_beside(from, rtl: rtl) ?? power).requestFocus();
             } else {
               from?.focusInDirection(intent.direction);
             }
