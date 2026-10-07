@@ -313,9 +313,13 @@ void main() {
         const Profile(id: 1, autoUpdateDuration: Duration.zero).toCompanion(),
       ]);
       await keepApiDirect();
-      await database.rulesDao.putGlobalRule(
+      // Rules of anyone else, on either side of Shikoo's ids.
+      for (final rule in [
         Rule.parse('DOMAIN,user.example,DIRECT'),
-      );
+        Rule.parse('DOMAIN,low.example,DIRECT', id: 1),
+      ]) {
+        await database.rulesDao.putGlobalRule(rule);
+      }
       final made = await makeRealProfileTask(
         MakeRealProfileState(
           profilesPath: '/profiles',
@@ -341,16 +345,17 @@ void main() {
         'subscription', () async {
       final rules = (await config())['rules'] as List;
       expect(
-        rules.take(5),
+        rules.take(6),
         unorderedEquals([
           'DOMAIN,app.chopon.uk,DIRECT',
           'DOMAIN,www.aparat.com,DIRECT',
           'DOMAIN,www.digikala.com,DIRECT',
           'DOMAIN,connectivitycheck.gstatic.com,DIRECT',
           'DOMAIN,user.example,DIRECT',
+          'DOMAIN,low.example,DIRECT',
         ]),
       );
-      expect(rules.skip(5), ['MATCH,PROXY']);
+      expect(rules.skip(6), ['MATCH,PROXY']);
     });
 
     test("the core finds those hosts with the device's DNS, not the panel's "
