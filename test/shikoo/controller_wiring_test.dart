@@ -1048,19 +1048,21 @@ void main() {
   test('the account name is stored with the service and read back after a '
       'restart', () async {
     final (:container, :core, :proxies, :setup) = _home();
-    final panel = await _panel(container, core);
-    await container
-        .read(shikooControllerProvider)
-        .addService('$panel/file/user111/a');
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('http://127.0.0.1:$port/file/user111/a');
+    // A second card of the account, whose label is made unique: only storage gives its account.
+    await controller.addService('http://10.0.2.2:$port/file/user111/a');
     final stored = (await SharedPreferences.getInstance()).getString(
       'shikoo.serviceExtras',
     );
-    final service = container
-        .read(profilesProvider)
-        .firstWhere((p) => p.label == 'user111');
+    final services = [
+      for (final p in container.read(profilesProvider))
+        if (p.label.startsWith('user111')) p,
+    ];
 
     final again = _home().container;
-    again.read(profilesProvider.notifier).put(service);
+    services.forEach(again.read(profilesProvider.notifier).put);
     SharedPreferences.setMockInitialValues({'shikoo.serviceExtras': stored!});
     again.read(shikooControllerProvider);
     await pumpEventQueue();
@@ -1068,7 +1070,7 @@ void main() {
     final state = again.read(shikooStateProvider);
     expect(
       [?state.service, ...state.others].map((s) => (s.name, s.account)),
-      contains(('user111', 'user111')),
+      containsAll([('user111', 'user111'), ('user111 ۲', 'user111')]),
     );
   });
 
