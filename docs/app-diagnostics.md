@@ -263,7 +263,7 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
   row, each half the width less the gap, at most 200 dp tall on a phone and 240 dp (16:9) on TV, with their names
   «آنچه برنامه کشید» and «آنچه روی صفحه بود» under them; then one switch «عکس صفحه‌ها هم فرستاده شود» (on) that drops
   both and marks them «فرستاده نمی‌شود»; then «فرستاده می‌شود: مدل و تنظیمات دستگاه، نسخهٔ برنامه، نام و حجم
-  سرویس‌هایت، اپراتور و وضعیت اینترنت، و خطاهای اخیر برنامه. لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.»; then
+  سرویس‌هایت، اپراتور و وضعیت اینترنت، و کارهای اخیر برنامه و خطاهایش. لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.»; then
   [ارسال] and [انصراف]. Phone: the middle scrolls and the two buttons are pinned, full width and stacked, at the
   bottom. TV: no scroll; the switch and the two buttons share the bottom row, three remote stops, [ارسال] focused.
   The sentence names the kinds of data, not every field; nothing outside the table above is sent.
@@ -288,7 +288,7 @@ next to `keepApiDirect` (ids from 7470100), so the answer is the same with the V
 
 Reading, one card with one sentence; it is decided by the door first. While running: «در حال بررسی اینترنت…», no
 button. Door not reached: all three fail → «این دستگاه به اینترنت وصل نیست.» [تنظیمات اینترنت]; otherwise → «به سرور
-شیکونت نرسیدیم؛ مشکل از طرف ماست.» [پشتیبانی]. Door reached: international fails → «اینترنت بین‌الملل روی این خط قطع
+شیکونت نرسیدیم؛ چند دقیقهٔ دیگر دوباره امتحان کن.» [پشتیبانی]. Door reached: international fails → «اینترنت بین‌الملل روی این خط قطع
 است. سرورها بیرون از ایران‌اند.»; every server ping fails → «هیچ‌کدام از سرورها جواب نمی‌دهند.» [به‌روزرسانی سرورها]
 [پشتیبانی]; else → «اینترنت وصل است و سرور شیکونت در دسترس است.». A domestic failure with the door reached changes
 no sentence and goes only into the report. [ارسال گزارش] is on the card exactly when the door was reached (the last
