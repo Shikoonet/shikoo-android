@@ -12,6 +12,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -510,9 +511,17 @@ Rule apiDirectRule(String base, int id) {
   );
 }
 
+/// The door, and the internet check's sites, so the check answers alike with the VPN on.
 Future<void> keepApiDirect() async {
   for (final (i, base) in shikooApiBases.indexed) {
-    await database.rulesDao.putGlobalRule(apiDirectRule(base, 7470000 + i));
+    await database.rulesDao.putGlobalRule(
+      apiDirectRule(base, shikooDirectIds + i),
+    );
+  }
+  for (final (i, url) in [...domesticProbes, internationalProbe].indexed) {
+    await database.rulesDao.putGlobalRule(
+      apiDirectRule(url, shikooDirectIds + 100 + i),
+    );
   }
 }
 

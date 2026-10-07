@@ -750,10 +750,27 @@ void main() {
     final keys = _keysOf(report);
     expect(_doorKeys, containsAll(keys));
     expect(_doorKeys.difference(keys), {
-      'checks.domestic.result', 'checks.domestic.ms',
-      'checks.international.result', 'checks.international.ms',
-      'checks.door.result', 'checks.door.ms', // the probes are WP5
       'images.note', // only when an image is dropped or switched off
+    });
+  });
+
+  test('the three probes go into the report as the door reads them', () async {
+    final h = await _harness();
+    await h.diag.start(h.home.path);
+    await h.diag.attach(h.container);
+    final report = await h.diag.report(
+      trigger: 'test',
+      about: _about,
+      checks: (
+        domestic: (result: 'ok', ms: 41),
+        international: (result: 'http_302', ms: 230),
+        door: (result: 'timeout', ms: 5003),
+      ),
+    );
+    expect(report['checks'], {
+      'domestic': {'result': 'ok', 'ms': 41},
+      'international': {'result': 'http_302', 'ms': 230},
+      'door': {'result': 'timeout', 'ms': 5003},
     });
   });
 

@@ -1048,7 +1048,12 @@ void main() {
     await keepApiDirect();
     await keepApiDirect();
     final rules = await database.rulesDao.queryAddedRules(1).get();
-    expect(rules.map((rule) => rule.rawValue), ['DOMAIN,app.chopon.uk,DIRECT']);
+    expect(rules.map((rule) => rule.rawValue), [
+      'DOMAIN,app.chopon.uk,DIRECT',
+      'DOMAIN,www.aparat.com,DIRECT',
+      'DOMAIN,www.digikala.com,DIRECT',
+      'DOMAIN,connectivitycheck.gstatic.com,DIRECT',
+    ]);
     expect(
       apiDirectRule('http://10.0.2.2:18790', 1).rawValue,
       'IP-CIDR,10.0.2.2/32,DIRECT,no-resolve',

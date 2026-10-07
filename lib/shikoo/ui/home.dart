@@ -11,6 +11,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
@@ -46,7 +47,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _linkless = FocusNode();
   final _crashSend = FocusNode();
   final _crashNo = FocusNode();
-  final _report = FocusNode();
+  final _check = FocusNode();
   final _scroll = ScrollController();
   (int?, bool, bool)? _shown;
 
@@ -58,7 +59,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     _linkless.dispose();
     _crashSend.dispose();
     _crashNo.dispose();
-    _report.dispose();
+    _check.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -92,6 +93,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final account = ref.watch(shikooAccountProvider);
     final update = ref.watch(shikooUpdateOfferProvider);
     final crashed = ref.watch(shikooCrashProvider) != null;
+    final check = ref.watch(shikooProbeProvider);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final now = shikooNow();
@@ -146,6 +148,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         _ => l.noLinkChip,
       },
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
+      checked: check != null,
     );
     FoldedServiceCard folded(ShikooService other) => FoldedServiceCard(
       key: ValueKey(other.id),
@@ -173,15 +176,17 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       spacing: Space.s3,
       children: [
         if (crashed) CrashCard(send: _crashSend, no: _crashNo),
-        if (state.connection == ShikooConnection.error)
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: ShikooButton(
+        if (check != null)
+          InternetCheckCard(
+            check: check,
+            state: state,
+            controller: controller,
+            report: (
               label: l.reportSendShort,
               icon: ShikooIcon.report,
-              focusNode: _report,
               onPressed: () => unawaited(openReport(context, 'connect')),
             ),
+            firstFocus: _check,
           ),
         if (update != null) UpdateCard(offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
@@ -216,7 +221,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   power: _PowerKeys(
                     targets: [
                       _crashSend,
-                      _report,
+                      _check,
                       if (towardCard != null) _card.row(towardCard),
                     ],
                     child: power,
@@ -259,7 +264,7 @@ FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
   return nearest;
 }
 
-/// Toward the card: the crash card, a failed connect's report, then the selected or first server.
+/// Toward the card: the crash card, the internet check, then the selected or first server.
 class _PowerKeys extends StatelessWidget {
   const _PowerKeys({required this.targets, required this.child});
 
@@ -471,6 +476,7 @@ class _PowerZone extends StatelessWidget {
     required this.focusNode,
     this.restingLabel,
     this.restingMessage,
+    this.checked = false,
   });
 
   final ShikooState state;
@@ -478,6 +484,9 @@ class _PowerZone extends StatelessWidget {
   final FocusNode focusNode;
   final String? restingLabel;
   final String? restingMessage;
+
+  /// The internet check has its card; «check this phone's internet» would contradict it.
+  final bool checked;
 
   @override
   Widget build(BuildContext context) {
@@ -521,6 +530,7 @@ class _PowerZone extends StatelessWidget {
           selected?.label ?? '',
           connectTimeout.inSeconds,
         ),
+      ShikooError.noServer when checked => null,
       ShikooError.noServer =>
         state.isTV ? l.noServerAnsweredHelpTv : l.noServerAnsweredHelpTouch,
       ShikooError.vpnRefused => l.vpnRefused,

@@ -38,6 +38,7 @@ class _Diag extends ShikooDiag {
     Uint8List? appImage,
     Uint8List? screenImage,
     bool images = true,
+    ProbeChecks? checks,
   }) {
     built++;
     return super.report(
@@ -46,6 +47,7 @@ class _Diag extends ShikooDiag {
       appImage: appImage,
       screenImage: screenImage,
       images: images,
+      checks: checks,
     );
   }
 
@@ -196,9 +198,15 @@ Future<_Rig> _pump(
       shikooDiagProvider.overrideWithValue(diag),
       shikooControllerProvider.overrideWithValue(controller),
       shikooVersionProvider.overrideWithValue('1.0.57'),
+      shikooProbeProvider.overrideWith(
+        () => ShikooProbes(() async => _reached),
+      ),
     ],
   );
   addTearDown(container.dispose);
+  if (state?.connection == ShikooConnection.error) {
+    unawaited(container.read(shikooProbeProvider.notifier).run());
+  }
   container.read(shikooLoginProvider.notifier).set(login);
   final dir = Directory.systemTemp.createTempSync('report');
   addTearDown(() => dir.deleteSync(recursive: true));
@@ -225,6 +233,12 @@ Future<_Rig> _pump(
   await tester.pumpAndSettle();
   return (container: container, door: door, diag: diag);
 }
+
+const ProbeChecks _reached = (
+  domestic: (result: 'ok', ms: 40),
+  international: (result: 'ok', ms: 300),
+  door: (result: 'ok', ms: 60),
+);
 
 /// Kotlin's half answers nothing here; unanswered, its replies would come outside fake time.
 void _quietNative([List<Map<String, Object?>> exits = const []]) {
