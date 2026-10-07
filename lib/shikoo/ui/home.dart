@@ -142,6 +142,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         _ => l.noLinkChip,
       },
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
+      checked: check != null,
     );
     FoldedServiceCard folded(ShikooService other) => FoldedServiceCard(
       key: ValueKey(other.id),
@@ -434,6 +435,7 @@ class _PowerZone extends StatelessWidget {
     required this.focusNode,
     this.restingLabel,
     this.restingMessage,
+    this.checked = false,
   });
 
   final ShikooState state;
@@ -441,6 +443,9 @@ class _PowerZone extends StatelessWidget {
   final FocusNode focusNode;
   final String? restingLabel;
   final String? restingMessage;
+
+  /// The internet check has its card; «check this phone's internet» would contradict it.
+  final bool checked;
 
   @override
   Widget build(BuildContext context) {
@@ -484,6 +489,7 @@ class _PowerZone extends StatelessWidget {
           selected?.label ?? '',
           connectTimeout.inSeconds,
         ),
+      ShikooError.noServer when checked => null,
       ShikooError.noServer =>
         state.isTV ? l.noServerAnsweredHelpTv : l.noServerAnsweredHelpTouch,
       ShikooError.vpnRefused => l.vpnRefused,

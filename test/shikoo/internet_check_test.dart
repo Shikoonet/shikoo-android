@@ -40,9 +40,13 @@ final _offline = _probe('dns', 'dns', 'dns');
 final _noAbroad = _probe('ok', 'timeout', 'ok');
 final _noDoor = _probe('ok', 'ok', 'timeout');
 
-ShikooState _failed({required bool tv, bool silent = false}) => ShikooState(
+ShikooState _failed({
+  required bool tv,
+  bool silent = false,
+  ShikooError error = ShikooError.connectTimeout,
+}) => ShikooState(
   connection: ShikooConnection.error,
-  lastError: ShikooError.connectTimeout,
+  lastError: error,
   connectedFor: Duration.zero,
   isTV: tv,
   service: ShikooService(
@@ -234,6 +238,29 @@ void main() {
     verify(controller.refreshService).called(1);
     expect(reports, 1);
   });
+
+  for (final tv in [false, true]) {
+    testWidgets(
+      '${tv ? 'TV' : 'phone'}: once the check has its card, the hint under '
+      'the button no longer says to check the internet',
+      (tester) async {
+        final l = lookupShikooL10n(const Locale('fa'));
+        final hint = tv
+            ? l.noServerAnsweredHelpTv
+            : l.noServerAnsweredHelpTouch;
+        final container = await _home(
+          tester,
+          state: _failed(tv: tv, silent: true, error: ShikooError.noServer),
+          probe: () async => _ok,
+          size: tv ? const Size(960, 540) : const Size(412, 915),
+        );
+        expect(find.text(hint), findsOneWidget);
+        await _show(container, tester);
+        expect(find.text(l.probeNoServer), findsOneWidget);
+        expect(find.text(hint), findsNothing);
+      },
+    );
+  }
 
   testWidgets('on the phone it heads the cards, under the power button', (
     tester,
