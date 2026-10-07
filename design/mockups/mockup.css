@@ -26,7 +26,7 @@
  *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
  *  ۲۰. نام ربات ......... .code-bot (زیر کد ورود) ؛ فهرست نتیجه: .result-list ؛ دایرهٔ خنثی: .hero-icon.muted
  *  ۲۱. سرویس‌های تمام‌شده .finished + .finished-head ؛ باز: .finished-row (.t .n .s) + .btn-sm
- *  ۲۲. نسخهٔ تازه ...... .update + .is-error ؛ .update-row (.t strong small) + دکمه ؛ .bar ؛ .update-msg ؛ صفحهٔ اجباری: .update-progress
+ *  ۲۲. نسخهٔ تازه ...... .update + .is-error ؛ .update-row (.t strong small) + دکمه ؛ .bar ؛ .update-msg ؛ صفحهٔ اجباری: .update-progress ؛ دو دکمه زیر متن: .update > .actions
  *  ۲۳. گزارش ........... کارت بررسی اینترنت: .card.update.check + .is-positive | .is-warning | .is-danger ؛ دکمهٔ گزارش زیر پیام: .msg-action
  *                       پیش‌نمایش: .report .report-body .report-foot ؛ .report-images (+ .is-off) .report-image .report-tile .mini (+ .is-tv) ؛ .report-note ؛ کلید: .switch در .row[role=switch]
  *  پینگِ در حال سنجش: .ping.is-pending ؛ برچسب «تازه»: .chip-outline ؛ قاب اسکرول‌شدهٔ گوشی: .scroll-view
@@ -333,6 +333,9 @@ ul { list-style: none; }
 .update-msg { font-size: var(--text-body-sm); line-height: var(--leading-tight); }
 .update-msg, .tv-result .update-msg { color: var(--color-danger); }
 .update-progress { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+/* دو دکمه زیر متن (ساعت غلط): دو نیمهٔ برابر مثل «تمدید» و «پشتیبانی»؛ اگر بلندتری در نیمه جا نشد، هر دو تمام‌پهنا زیر هم */
+.update > .actions { flex-wrap: wrap; margin-top: 0; padding-bottom: 0; }
+.update > .actions .btn { flex: 1 0 calc((100% - var(--space-2)) / 2); }
 .tv-result .update-progress { inline-size: var(--size-dialog); }
 
 /* ۲۳. گزارش به پشتیبانی */

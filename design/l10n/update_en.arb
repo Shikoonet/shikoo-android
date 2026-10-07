@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
   "updateTitle": "A new version is out",
-  "@updateTitle": {"description": "Card at the head of the home card list when the published versionCode is higher than this install. Reuses cancelButton, retry and continueButton."},
+  "@updateTitle": {"description": "Card at the head of the home card list when the published versionCode is higher than this install. Reuses cancelButton, retry and continueButton. When the download was refused for this device's clock, the card shows clockWrongTitle (red) over clockWrongHelp across its full width, then two buttons under them: dateSettings (primary) and retry, as two equal halves like Renew and Support, or both full width one under the other when dateSettings does not fit in half."},
   "updateVersionSize": "Version {version}, {size} MB",
   "@updateVersionSize": {"placeholders": {"version": {"type": "String", "example": "1.0.57"}, "size": {"type": "int", "format": "decimalPattern"}}},
   "updateGet": "Download",
@@ -18,7 +18,7 @@
   "@updateBadFileTitle": {"description": "The finished file did not match the published sha256; it is deleted and the next try starts over."},
   "updateBadFileHelp": "Try again to download it from the start.",
   "updateForcedTitle": "This version needs an update",
-  "@updateForcedTitle": {"description": "Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog). Ready to install shows Install and Support side by side, always."},
+  "@updateForcedTitle": {"description": "Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog). Ready to install shows Install and Support side by side, always. When the download was refused for this device's clock: clockWrongTitle and clockWrongHelp in the red message, then dateSettings (primary, focused on TV), retry and Support."},
   "updateForcedBody": "To keep using ShikooNet, download and install version {version} ({size} MB).",
   "@updateForcedBody": {"placeholders": {"version": {"type": "String", "example": "1.0.57"}, "size": {"type": "int", "format": "decimalPattern"}}},
   "installPermissionTitle": "Allow installing",
@@ -38,5 +38,5 @@
   "settingsCheckFailed": "Couldn't check; check your internet and try again.",
   "@settingsCoreHelp": {"description": "Under \"Core\" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from a constant in lib/shikoo/ that the upstream sync script writes when it merges a new tag. There is no separate core download."},
   "@settingsCheckUpdate": {"description": "Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home."},
-  "@settingsCheckFailed": {"description": "Red line under settingsCheckUpdate; tapping the row again retries."}
+  "@settingsCheckFailed": {"description": "Red line under settingsCheckUpdate; tapping the row again retries. When the check was refused for this device's clock, the red line is clockWrongTitle followed by clockWrongHelp, and a plain settings row dateSettings with the gear icon follows, before About."}
 }
