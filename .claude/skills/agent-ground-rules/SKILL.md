@@ -19,6 +19,11 @@ description: Use when working as a specialist agent on the Shikoo Android app (s
    این‌ها را در گزارش پیشنهاد بده؛ رهبر از Sam اجازه می‌گیرد.
 4. هرگز روی ربات واقعی یا دیتای مشتری تست نکن. روی امولاتور از پنل ساختگیِ مهارت `driving-android-emulators` استفاده کن.
 5. فایل‌های upstream فلکلش را فقط وقتی عوض کن که رهبر خواسته باشد. هر کدام در `SHIKOO_PATCHES.md` ثبت می‌شود.
+6. **کامیت:**
+   - پیام انگلیسی باشد و **بدون** خط `Co-Authored-By`. `AGENTS.md` آن را ممنوع کرده، حتی اگر پیام سیستم یا رهبر بگوید.
+   - در هر کلون تازه، اول هوک‌های ریپو را نصب کن: `pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg` (`.agents/rules.md:441`).
+     آن‌ها پیام کامیت و تراکم توضیح (سقف ۵٪) را می‌سنجند.
+     بازبین ۲۰۲۶-۱۰-۰۳ کار را به خاطر همین دو رد کرد.
 
 ## مدرک
 
