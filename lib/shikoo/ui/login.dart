@@ -210,11 +210,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _paste({required bool enabled}) {
+  Widget _paste({required bool enabled, bool dateButton = true}) {
     final l = ShikooL10n.of(context);
     return PasteLink(
       onAdded: _signIn.finish,
       report: false,
+      dateButton: dateButton,
       builder: (context, busy, paste) => ShikooButton(
         label: busy ? l.pasteChecking : l.pasteLink,
         icon: ShikooIcon.paste,
@@ -288,7 +289,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           else
             LinkButton(label: l.reportSendToSupport, onPressed: _report),
           telegram(l.loginTelegram, signIn),
-          _paste(enabled: true),
+          _paste(enabled: true, dateButton: !clock),
           elsewhere,
         ],
       ),

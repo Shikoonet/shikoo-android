@@ -49,8 +49,11 @@ class _Diag extends ShikooDiag {
     );
   }
 
+  bool drawFails = false;
+
   @override
-  Future<Uint8List?> captureApp() async => _png;
+  Future<Uint8List?> captureApp() async =>
+      drawFails ? throw StateError('no picture') : _png;
 
   @override
   Future<Uint8List?> captureScreen() async {
@@ -365,6 +368,34 @@ void main() {
       expect(find.text('4821 9037'), findsOneWidget);
     });
 
+    testWidgets('a picture the app could not draw leaves out only that one', (
+      tester,
+    ) async {
+      final l = _l('fa');
+      final rig = await _pump(tester, const _Launcher());
+      rig.diag.drawFails = true;
+      await _openPreview(tester);
+      expect(find.text(l.reportImagesSwitch), findsOneWidget);
+      await _sendNow(tester, l);
+      final images = rig.door.bodies.single['images']! as Map;
+      expect(images.keys, ['screen']);
+    });
+
+    testWidgets('the switch row is the frame\'s 56dp, on a phone and a TV', (
+      tester,
+    ) async {
+      final l = _l('fa');
+      for (final tv in [false, true]) {
+        await _pump(tester, const _Launcher(), tv: tv);
+        await _openPreview(tester);
+        final row = find.ancestor(
+          of: find.text(l.reportImagesSwitch),
+          matching: find.byType(Pressable),
+        );
+        expect(tester.getSize(row).height, 56, reason: tv ? 'TV' : 'phone');
+      }
+    });
+
     testWidgets('the pictures go along unless the switch is off', (
       tester,
     ) async {
@@ -675,6 +706,41 @@ void main() {
         );
         expect(rig.diag.shots, 0);
       }
+    });
+
+    testWidgets('the sign-in code and a paste both refused by the clock: one '
+        'date settings button', (tester) async {
+      final l = _l('fa');
+      final rig = await _pump(
+        tester,
+        const ShikooRoot(),
+        state: _noService,
+        login: const ShikooLogin(LoginPhase.startFailed, clock: true),
+      );
+      when(
+        () => rig.container.read(shikooControllerProvider).pasteService(any()),
+      ).thenAnswer((_) async => ShikooPasteError.clock);
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? {'text': 'https://example.com/not-ours'}
+            : null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      expect(find.text(l.dateSettings), findsOneWidget);
+      await tester.tap(find.text(l.pasteLink));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(l.clockWrongTitle, findRichText: true),
+        findsNWidgets(2),
+        reason: 'both presses answered',
+      );
+      expect(find.text(l.dateSettings), findsOneWidget);
     });
 
     testWidgets('no report where it could not go through: a wrong clock', (

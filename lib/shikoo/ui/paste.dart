@@ -20,6 +20,7 @@ class PasteLink extends ConsumerStatefulWidget {
     required this.builder,
     this.onAdded,
     this.report = true,
+    this.dateButton = true,
   });
 
   final Widget Function(BuildContext context, bool busy, VoidCallback paste)
@@ -29,6 +30,9 @@ class PasteLink extends ConsumerStatefulWidget {
   /// Off on the sign-in page, whose one way to a report is «کد گرفته نشد»: elsewhere there its
   /// pictures could hold a live code.
   final bool report;
+
+  /// Off where the page already shows date settings for its own clock message.
+  final bool dateButton;
 
   @override
   ConsumerState<PasteLink> createState() => _PasteLinkState();
@@ -91,9 +95,11 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
               },
             ),
           ),
-        if (error == ShikooPasteError.clock)
+        if (error == ShikooPasteError.clock && widget.dateButton)
           const DateSettingsButton()
-        else if (error != null && widget.report)
+        else if (error != null &&
+            error != ShikooPasteError.clock &&
+            widget.report)
           LinkButton(
             label: l.reportSendToSupport,
             onPressed: () =>
