@@ -1,0 +1,55 @@
+{
+  "@@locale": "en",
+  "appTitle": "Shikoo",
+  "brandMark": "S",
+  "settings": "Settings",
+  "renew": "Renew",
+  "support": "Support",
+  "statusActive": "Active",
+  "statusExpired": "Expired",
+  "statusExhausted": "Volume used up",
+  "usedLabel": "Used:",
+  "ofTotalGb": "of {total} GB",
+  "@ofTotalGb": {"placeholders": {"total": {"type": "String"}}},
+  "remainingLabel": "Left:",
+  "gb": "{amount} GB",
+  "@gb": {"placeholders": {"amount": {"type": "String"}}},
+  "unlimited": "Unlimited",
+  "validUntil": "Valid until {date}",
+  "@validUntil": {"placeholders": {"date": {"type": "String"}}},
+  "daysLeft": "{days, plural, =1{1 day left} other{{days} days left}}",
+  "@daysLeft": {"placeholders": {"days": {"type": "int", "format": "decimalPattern"}}},
+  "jalaliMonths": "Farvardin|Ordibehesht|Khordad|Tir|Mordad|Shahrivar|Mehr|Aban|Azar|Dey|Bahman|Esfand",
+  "jalaliDate": "{day} {month} {year}",
+  "@jalaliDate": {
+    "placeholders": {
+      "day": {"type": "String"},
+      "month": {"type": "String"},
+      "year": {"type": "String"}
+    }
+  },
+  "powerConnect": "Connect",
+  "powerOn": "Connected",
+  "powerConnecting": "Connecting…",
+  "powerFailed": "Couldn't connect",
+  "subCancelTv": "OK button: cancel",
+  "subCancelTouch": "Tap to cancel",
+  "subRetryTv": "OK button: retry",
+  "subRetryTouch": "Tap to retry",
+  "tvHint": "Press OK on the remote to connect",
+  "noService": "No service yet",
+  "loadingServers": "Getting the server list…",
+  "msUnit": "ms",
+  "@msUnit": {"description": "Unit after a ping. Empty where pings are written without one, as in Persian."},
+  "noResponse": "No response",
+  "errorConnect": "{server} didn't answer in {seconds} seconds.\nTry another server.",
+  "@errorConnect": {
+    "placeholders": {
+      "server": {"type": "String"},
+      "seconds": {"type": "int", "format": "decimalPattern"}
+    }
+  },
+  "errorServer": "Couldn't switch the server.",
+  "errorAdd": "Couldn't add the service.",
+  "initError": "The app couldn't start."
+}

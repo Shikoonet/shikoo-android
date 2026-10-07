@@ -13,7 +13,7 @@ Code reading and web research, 2026-10-02, revised after review; nothing was bui
 
 | Folder | May import FlClash? | Holds |
 |---|---|---|
-| `lib/shikoo/app/` (shell) | yes | The entry point (`lib/shikoo/main.dart` per map §1 lives here) and `ShikooApp`, with everything map §1 requires: `navigatorKey: globalState.navigatorKey`, `buildManagerStack(…, onConnectivityChanged)`, `bootstrap.attach()`, the `builder` wrapped in `MaterialUiCompatibilityBridge`, `SystemNavigator.setFrameworkHandlesBack(true)`, the `fa` `AppLocalizations` delegate, the settings-flag write and the 20-minute profile timer. Its root widget is a UI page. |
+| `lib/shikoo/app/` (shell) | yes | The entry point (`lib/shikoo/app/main.dart`, built with `-t`; map §1) and `ShikooApp`, with everything map §1 requires: `navigatorKey: globalState.navigatorKey`, `buildManagerStack(…, onConnectivityChanged)`, `bootstrap.attach()`, the `builder` wrapped in `MaterialUiCompatibilityBridge`, `SystemNavigator.setFrameworkHandlesBack(true)`, the `fa` `AppLocalizations` delegate, the settings-flag write and the 20-minute profile timer. Its root widget is a UI page. |
 | `lib/shikoo/engine/` (controller) | yes | `ShikooController` and `ShikooState` (below). |
 | `lib/shikoo/ui/` (screens, theme) | **no** | Pages and widgets. They read `ShikooState` and call controller actions only; they don't import the shell either. |
 

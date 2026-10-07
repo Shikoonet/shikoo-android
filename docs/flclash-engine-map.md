@@ -19,10 +19,10 @@ Paths are relative to the FlClash root. "Ours" means code we will write under `l
   - `startCore()` (`:166`), `initStatus()` (`:168`), `initProvider = true` (`:170`).
 - **Swap point: `lib/main.dart:39`.** One file, about 3 lines: `const Application()` becomes `const ShikooApp()`, `:45` gets our error screen, and one import is added.
   - Swapping only `HomePage` (`lib/application.dart:195`) is not enough, because FlClash's `MaterialApp` would remain. That means no `fa` locale and so no RTL (`:178`; `lib/l10n/l10n.dart:5122-5129`), the title "FlClash" in Android's recent apps (`:176`), FlClash's colours (`:180-191`), and the listener that installs any `clash://install-config` URL after a FlClash dialog (`:87`, `:92-119`).
-- **Zero-patch alternative: `lib/shikoo/main.dart`, built with `-t`.** It repeats `main()` (`lib/main.dart:15-57`) with `ShikooApp`.
+- **Zero-patch alternative: `lib/shikoo/app/main.dart`, built with `-t`.** It repeats `main()` (`lib/main.dart:15-57`) with `ShikooApp`.
   - Everything it calls is public: `RustLib.init`, `system.init` (`lib/common/system.dart:44`), `bootstrap` (`lib/bootstrap.dart:254`), `FlClashHttpOverrides` (`lib/common/http.dart:10`), `request.attach` (`lib/common/request.dart:19`).
-  - `setup.dart` passes flutter_distributor only `dart-define-from-file=env.json,split-per-abi` (`setup.dart:113-125,209-210`). Adding `target=lib/shikoo/main.dart` there is itself a patch, and how the distributor fork maps it is unverified.
-  - A direct build needs no patch: `flutter build apk -t lib/shikoo/main.dart --split-per-abi --dart-define=APP_ENV=stable`. The build hook still builds the Go core (`.agents/commands.md:20-26`).
+  - `setup.dart` passes flutter_distributor only `dart-define-from-file=env.json,split-per-abi` (`setup.dart:113-125,209-210`). Adding `target=lib/shikoo/app/main.dart` there is itself a patch, and how the distributor fork maps it is unverified.
+  - A direct build needs no patch: `flutter build apk -t lib/shikoo/app/main.dart --split-per-abi --dart-define=APP_ENV=stable`. The build hook still builds the Go core (`.agents/commands.md:20-26`).
   - Cost: upstream edits to `lib/main.dart` must be copied by hand. Keep top-level classes out of that file, or `test/lint/dead_file_test.dart:5,67-76` flags it.
 - **`ShikooApp` must:**
   - set `navigatorKey: globalState.navigatorKey`; the attach gate and `lib/common/dialog.dart:14` use it;
