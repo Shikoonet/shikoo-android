@@ -245,7 +245,7 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
 | power | battery saver, device idle, battery optimisation, background restricted, standby bucket |
 | vpn | our state and last `ShikooError`, another VPN up while ours is off |
 | checks | the three probes below: ok, or `dns`/`tcp`/`tls`/`timeout`/`http_<code>`, and ms |
-| services | per service: the panel's account name (content-disposition or the 🆔 row, not the label Home makes unique with « ۲»), status, days left, used/total GB, last refresh kind, minutes since update. The name passes only as `^[A-Za-z0-9_-]{1,64}$` (the platform makes `[a-z0-9_]`, shelf rows `[a-z0-9_-]`; no dot, so a host or an IPv4 address fails) and when it equals none of the secrets the app holds, a subscription link's path segments and query values included; anything else is `·`. No link, no title beyond the name |
+| services | per service: the panel's account name (`ShikooService.account`, from `accountOf`: the content-disposition filename, else the 🆔 row, else the part of profile-title before « · »; not the label Home makes unique with « ۲»), falling back to that label while `account` is empty (`service.account ?? service.username`), so a service downloaded before this build sends `·` until its next refresh; status, days left, used/total GB, last refresh kind, minutes since update. The name passes only as `^[A-Za-z0-9_-]{1,64}$` (the platform makes `[a-z0-9_]`, shelf rows `[a-z0-9_-]`; no dot, so a host or an IPv4 address fails) and when it equals none of the secrets the app holds, a subscription link's path segments and query values included; anything else is `·`. No link, no title beyond the name |
 | servers | label (`ShikooServer.label`) and ping, no address |
 | crashes | since the last sent report, ≤ 7 days: source (java, go, exit), time, reason, status, text ≤ 8192 characters after cleaning, each. Dart errors are the `E` lines |
 | log | from the ring file, up to 700 lines: the newest `E` lines first, then the newest of the rest; plus the last 100 lines of our own logcat (Kotlin's `FlClash` tag), cleaned |
@@ -387,8 +387,9 @@ TV lacks it.
 
 - Android 12 TV (the jumping one, spinner gone): the renderer line is readable by the app in a release build; the two
   images, the frame summary and the UI events show the jump; if it is layout, its numbers make WP7 fail before the fix.
-- Mi Box (Android 9, 32-bit, API 28): `coreController.crash()` in a debug build leaves `go-crash.txt` with the Go stack,
-  as on the API 35 emulator; a forced Kotlin crash leaves `java-crash.txt`, also when started from the tile with no
+- Mi Box (Android 9, 32-bit, API 28): `coreController.crash()` in a debug build leaves `go-crash.txt`; with the Go stack
+  on the API 35 emulator, but only the panic's first line (27 bytes, no stack) on the API 25 emulator, sent report or
+  not; on the Mi Box unproven. A forced Kotlin crash leaves `java-crash.txt`, also when started from the tile with no
   Activity; no exit records (below API 30) but «alive ×n» stops where the process died; the SIM fallback runs (only
   the data SIM and the default voice SIM) and, with no telephony, returns empty without throwing; both images work on
   its Mali GPU; D-pad keys and focus moves are recorded; the own-logcat tail
