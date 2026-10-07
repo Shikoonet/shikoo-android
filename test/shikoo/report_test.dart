@@ -640,7 +640,12 @@ void main() {
         const ShikooHome(),
         state: _state(connection: ShikooConnection.error),
       );
-      expect(find.text(l.reportSendShort), findsOneWidget);
+      await tester.tap(find.text(l.reportSendShort));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<ReportPage>(find.byType(ReportPage)).trigger,
+        'connect',
+      );
     });
 
     testWidgets('the sign-in page offers one report, only where no code '
