@@ -147,6 +147,7 @@ All five CLAUDE.md points are confirmed: `android/app/build.gradle.kts:7-8,110-1
 - **Theme:** `ThemeManager` clamps the text scale to 0.8–1.4 (`lib/manager/theme_manager.dart:50-56`, `lib/common/constant.dart:25-26`), makes the system bars transparent and picks the status-bar icon colours by brightness (`theme_manager.dart:19-43`).
 - **Build env:** `setup.dart` defaults to `--env pre` (`setup.dart:88-92`). Build with `--env stable` (or `--dart-define=APP_ENV=stable` for a direct build), or `AppEnvManager` shows a "PRE" banner (`lib/manager/app_manager.dart:121-127`).
 - **Delay tests in Go:** up to 50 run at once (`core/common.go:41`). A test that times out while queued returns nil, not -1 (`core/hub.go:287-291`), and Dart keeps the previous value (`lib/providers/actions/proxies.dart:306-309`).
+- **Logs keep the link:** `commonPrint.log` puts every `[APP]` line into `logsProvider` raw (`lib/common/print.dart:28-36`), and `lib/common/http.dart:24` logs each URL it fetches, subscription tokens included. The `<link>` mask in `lib/shikoo/app/main.dart` covers logcat only, so Shikoo must never use FlClash's log export (`exportLogs`); a support report has to be built from a whitelist.
 
 ## Verdict
 

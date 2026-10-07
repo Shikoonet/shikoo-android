@@ -131,4 +131,177 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get initError => 'اپ باز نشد.';
+
+  @override
+  String get refresh => 'به‌روزرسانی';
+
+  @override
+  String get refreshServers => 'به‌روزرسانی سرورها';
+
+  @override
+  String updatedAgo(String ago) {
+    return 'به‌روز شد، $ago';
+  }
+
+  @override
+  String get updateFailed => 'به‌روز نشد';
+
+  @override
+  String get updating => 'در حال به‌روزرسانی…';
+
+  @override
+  String updateFailedAgo(String ago) {
+    return 'به‌روز نشد، فهرستِ $ago';
+  }
+
+  @override
+  String get agoJustNow => 'همین الان';
+
+  @override
+  String agoMinutes(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString دقیقه پیش';
+  }
+
+  @override
+  String agoHours(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString ساعت پیش';
+  }
+
+  @override
+  String agoDays(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString روز پیش';
+  }
+
+  @override
+  String get updateFailedTitle => 'به‌روز نشد.';
+
+  @override
+  String get updateFailedTouch =>
+      'اینترنت را بررسی کن و دوباره بزن. تا آن موقع با همین سرورها وصل شو.';
+
+  @override
+  String get updateFailedTv =>
+      'اینترنت را بررسی کن و دکمهٔ وسط را دوباره بزن. تا آن موقع با همین سرورها وصل شو.';
+
+  @override
+  String serversAdded(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString سرور تازه آمد.';
+  }
+
+  @override
+  String serverRemoved(String name) {
+    return '«$name» حذف شد.';
+  }
+
+  @override
+  String serversRemoved(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString سرور حذف شد.';
+  }
+
+  @override
+  String selectedRemoved(String name) {
+    return '«$name» دیگر در اشتراکت نیست.';
+  }
+
+  @override
+  String selectedReplaced(String name) {
+    return 'سریع‌ترین سرور، «$name»، جایش انتخاب شد.';
+  }
+
+  @override
+  String selectedMoved(String name) {
+    return 'اتصال همان لحظه به سریع‌ترین سرور، «$name»، رفت.';
+  }
+
+  @override
+  String selectedMovedFirst(String name) {
+    return 'اتصال همان لحظه به «$name» رفت.';
+  }
+
+  @override
+  String selectedSilent(String name) {
+    return '«$name» جواب نداد.';
+  }
+
+  @override
+  String selectedMovedTo(String name) {
+    return 'اتصال به «$name» رفت.';
+  }
+
+  @override
+  String get findingBest => 'در حال یافتن بهترین سرور…';
+
+  @override
+  String get connectsToFirst => 'اولین سروری که جواب بدهد، وصل می‌شوی.';
+
+  @override
+  String get noServerAnswered => 'هیچ سروری جواب نداد';
+
+  @override
+  String get noServerAnsweredHelpTouch =>
+      'اینترنت این گوشی را بررسی کن.\nاگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get noServerAnsweredHelpTv =>
+      'اینترنت این تلویزیون را بررسی کن.\nاگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get newBadge => 'تازه';
+
+  @override
+  String get serversTitle => 'سرورها';
+
+  @override
+  String get fastestFirst => 'سریع‌ترین بالا';
+
+  @override
+  String get sortsOnLeave => 'وقتی از فهرست بیرون بروی، مرتب می‌شود';
+
+  @override
+  String get pingAll => 'پینگ همه';
+
+  @override
+  String pingProgress(int done, int total) {
+    final intl.NumberFormat doneNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String doneString = doneNumberFormat.format(done);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return 'پینگ $doneString از $totalString';
+  }
+
+  @override
+  String get measuring => 'در حال سنجش';
+
+  @override
+  String get searchServers => 'جست‌وجوی سرور';
+
+  @override
+  String get searchNoMatch => 'سروری با این نام نیست';
+
+  @override
+  String get clearSearch => 'پاک کردن جست‌وجو';
 }

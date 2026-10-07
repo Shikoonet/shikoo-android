@@ -41,9 +41,9 @@ class ShikooApp extends ConsumerStatefulWidget {
 class _ShikooAppState extends ConsumerState<ShikooApp>
     with WidgetsBindingObserver {
   final _locale = ValueNotifier(const Locale(_defaultLanguage));
-  Timer? _profilesTimer;
   StreamSubscription<Uri>? _links;
   bool _hadVpn = false;
+  bool _attached = false;
 
   @override
   void initState() {
@@ -68,16 +68,20 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
             ),
           );
       await bootstrap.attach();
-      _scheduleProfileUpdates();
+      _attached = true;
+      ref.read(shikooControllerProvider).onForeground();
       if (_debugLinks) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
   }
 
-  void _scheduleProfileUpdates() {
-    _profilesTimer = Timer(const Duration(minutes: 20), () async {
-      await ref.read(profilesActionProvider.notifier).autoUpdateProfiles();
-      if (mounted) _scheduleProfileUpdates();
-    });
+  /// The controller updates the subscription and pings when the app comes back; Android TV
+  /// apps are resumed far more often than started.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_attached) return;
+    final controller = ref.read(shikooControllerProvider);
+    if (state == AppLifecycleState.resumed) controller.onForeground();
+    if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
   /// The link carries a subscription url: never print or log it.
@@ -114,7 +118,6 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _profilesTimer?.cancel();
     unawaited(_links?.cancel());
     _locale.dispose();
     super.dispose();

@@ -301,6 +301,228 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'The app couldn\'t start.'**
   String get initError;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get refresh;
+
+  /// Accessibility label of the icon-only update button on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Update servers'**
+  String get refreshServers;
+
+  /// No description provided for @updatedAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated · {ago}'**
+  String updatedAgo(String ago);
+
+  /// No description provided for @updateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not updated'**
+  String get updateFailed;
+
+  /// No description provided for @updating.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating…'**
+  String get updating;
+
+  /// No description provided for @updateFailedAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'Not updated · list from {ago}'**
+  String updateFailedAgo(String ago);
+
+  /// No description provided for @agoJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get agoJustNow;
+
+  /// No description provided for @agoMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute ago} other{{count} minutes ago}}'**
+  String agoMinutes(int count);
+
+  /// No description provided for @agoHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hour ago} other{{count} hours ago}}'**
+  String agoHours(int count);
+
+  /// No description provided for @agoDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day ago} other{{count} days ago}}'**
+  String agoDays(int count);
+
+  /// No description provided for @updateFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update.'**
+  String get updateFailedTitle;
+
+  /// No description provided for @updateFailedTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and tap again. Until then, connect with these servers.'**
+  String get updateFailedTouch;
+
+  /// No description provided for @updateFailedTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and press OK again. Until then, connect with these servers.'**
+  String get updateFailedTv;
+
+  /// No description provided for @serversAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 new server.} other{{count} new servers.}}'**
+  String serversAdded(int count);
+
+  /// No description provided for @serverRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” was removed.'**
+  String serverRemoved(String name);
+
+  /// No description provided for @serversRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 server was removed.} other{{count} servers were removed.}}'**
+  String serversRemoved(int count);
+
+  /// No description provided for @selectedRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” is no longer in your subscription.'**
+  String selectedRemoved(String name);
+
+  /// No description provided for @selectedReplaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The fastest server, “{name}”, was picked instead.'**
+  String selectedReplaced(String name);
+
+  /// No description provided for @selectedMoved.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection moved to the fastest server, “{name}”, right away.'**
+  String selectedMoved(String name);
+
+  /// No description provided for @selectedMovedFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection moved to “{name}” right away.'**
+  String selectedMovedFirst(String name);
+
+  /// No description provided for @selectedSilent.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” did not answer.'**
+  String selectedSilent(String name);
+
+  /// No description provided for @selectedMovedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection moved to “{name}”.'**
+  String selectedMovedTo(String name);
+
+  /// No description provided for @findingBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding the best server…'**
+  String get findingBest;
+
+  /// No description provided for @connectsToFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll connect to the first server that answers.'**
+  String get connectsToFirst;
+
+  /// No description provided for @noServerAnswered.
+  ///
+  /// In en, this message translates to:
+  /// **'No server answered'**
+  String get noServerAnswered;
+
+  /// No description provided for @noServerAnsweredHelpTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Check this phone\'s internet.\nIf it works, ask Support.'**
+  String get noServerAnsweredHelpTouch;
+
+  /// No description provided for @noServerAnsweredHelpTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Check this TV\'s internet.\nIf it works, ask Support.'**
+  String get noServerAnsweredHelpTv;
+
+  /// No description provided for @newBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get newBadge;
+
+  /// No description provided for @serversTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Servers'**
+  String get serversTitle;
+
+  /// No description provided for @fastestFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Fastest first'**
+  String get fastestFirst;
+
+  /// No description provided for @sortsOnLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Sorts when you leave the list'**
+  String get sortsOnLeave;
+
+  /// No description provided for @pingAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Ping all'**
+  String get pingAll;
+
+  /// No description provided for @pingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Ping {done} of {total}'**
+  String pingProgress(int done, int total);
+
+  /// Accessibility label of a ping that has not answered yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Measuring'**
+  String get measuring;
+
+  /// No description provided for @searchServers.
+  ///
+  /// In en, this message translates to:
+  /// **'Search servers'**
+  String get searchServers;
+
+  /// No description provided for @searchNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No server with that name'**
+  String get searchNoMatch;
+
+  /// No description provided for @clearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get clearSearch;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

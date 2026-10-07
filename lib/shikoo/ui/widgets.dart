@@ -164,7 +164,47 @@ class Brand extends StatelessWidget {
   }
 }
 
-/// `.btn-primary` and `.btn-outline`, with an icon before the label.
+/// `.icon` turning, for work in progress (`#i-spin`); still when animations are off.
+class Spinner extends StatefulWidget {
+  const Spinner({super.key, required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  State<Spinner> createState() => _SpinnerState();
+}
+
+class _SpinnerState extends State<Spinner> with SingleTickerProviderStateMixin {
+  late final AnimationController _turns = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _turns.stop();
+    } else if (!_turns.isAnimating) {
+      _turns.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _turns.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RotationTransition(
+    turns: _turns,
+    child: SvgIcon(ShikooIcon.spin, size: widget.size, color: widget.color),
+  );
+}
+
+/// `.btn-primary` and `.btn-outline`, an icon before the label; [busy] spins it.
 class ShikooButton extends StatelessWidget {
   const ShikooButton({
     super.key,
@@ -172,12 +212,16 @@ class ShikooButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.primary = false,
+    this.busy = false,
+    this.focusNode,
   });
 
   final String label;
   final ShikooIcon icon;
   final VoidCallback onPressed;
   final bool primary;
+  final bool busy;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -186,6 +230,7 @@ class ShikooButton extends StatelessWidget {
     final fg = primary ? t.c.onPrimary : t.c.text;
     return Pressable(
       shape: RoundedSuperellipseBorder(borderRadius: radius),
+      focusNode: focusNode,
       onPressed: onPressed,
       // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
       builder: (context, focused) => Container(
@@ -211,7 +256,10 @@ class ShikooButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SvgIcon(icon, size: t.s.icon, color: fg),
+            if (busy)
+              Spinner(size: t.s.icon, color: fg)
+            else
+              SvgIcon(icon, size: t.s.icon, color: fg),
             const SizedBox(width: Space.s2),
             Text(
               label,
@@ -269,12 +317,14 @@ class PowerButton extends StatefulWidget {
     required this.connectedFor,
     required this.isTV,
     required this.onPressed,
+    this.focusNode,
   });
 
   final ShikooConnection connection;
   final Duration connectedFor;
   final bool isTV;
   final VoidCallback onPressed;
+  final FocusNode? focusNode;
 
   @override
   State<PowerButton> createState() => _PowerButtonState();
@@ -367,6 +417,7 @@ class _PowerButtonState extends State<PowerButton>
           ),
           Pressable(
             autofocus: true,
+            focusNode: widget.focusNode,
             shape: const CircleBorder(),
             onPressed: widget.onPressed,
             builder: (context, focused) => Container(
@@ -481,12 +532,13 @@ class Ping extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final ping = server.ping;
-    if (server.testing || ping == null) {
-      return Text(
-        server.testing ? '…' : '',
-        style: t.text(t.s.bodySm, color: t.c.textMuted),
+    if (server.testing) {
+      return Semantics(
+        label: l.measuring,
+        child: Spinner(size: t.s.iconSm, color: t.c.textMuted),
       );
     }
+    if (ping == null) return const SizedBox.shrink();
     final failed = ping < 0;
     final dot = failed
         ? t.c.danger
@@ -609,15 +661,27 @@ class ServerRow extends StatelessWidget {
   }
 }
 
-/// `.now`: the selected server under the power button.
+/// `.now`: the selected server under the power button; `.is-finding` while the app looks for
+/// the best one, `.is-none` when none answered.
 class NowPill extends StatelessWidget {
-  const NowPill({super.key, required this.server});
+  const NowPill({super.key, required this.pick, this.server});
 
-  final ShikooServer server;
+  final ShikooPick pick;
+  final ShikooServer? server;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final server = this.server;
+    Widget say(String text, Color color) => Flexible(
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: t.text(t.s.body, weight: FontWeight.w500, color: color),
+      ),
+    );
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s4,
@@ -630,19 +694,31 @@ class NowPill extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          Flag(country: server.country),
-          const SizedBox(width: Space.s2),
-          Flexible(
-            child: nameText(
-              context,
-              server.label,
-              t.text(t.s.body, weight: FontWeight.w500),
+        children: switch (pick) {
+          ShikooPick.server when server != null => [
+            Flag(country: server.country),
+            const SizedBox(width: Space.s2),
+            Flexible(
+              child: nameText(
+                context,
+                server.label,
+                t.text(t.s.body, weight: FontWeight.w500),
+              ),
             ),
-          ),
-          const SizedBox(width: Space.s2),
-          Ping(server: server),
-        ],
+            const SizedBox(width: Space.s2),
+            Ping(server: server),
+          ],
+          ShikooPick.none => [
+            SvgIcon(ShikooIcon.alert, size: t.s.iconSm, color: t.c.danger),
+            const SizedBox(width: Space.s2),
+            say(l.noServerAnswered, t.c.text),
+          ],
+          _ => [
+            Spinner(size: t.s.iconSm, color: t.c.textMuted),
+            const SizedBox(width: Space.s2),
+            say(l.findingBest, t.c.textMuted),
+          ],
+        },
       ),
     );
   }

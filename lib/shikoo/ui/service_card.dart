@@ -2,34 +2,59 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/foundation.dart' show listEquals;
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
 
 const _gib = 1024 * 1024 * 1024;
 
-/// `.card.svc` with its servers, as in `tv.html`: name and status, volume and validity, the
-/// panel's announcement, renew and support, then the server list.
+/// The card nodes the remote is sent to by hand: one per server name, so a row is found
+/// wherever it sits, and the two buttons that geometry alone would skip.
+class CardFocus {
+  final renew = FocusNode();
+  final pingAll = FocusNode();
+  // ponytail: a removed server's node lives until the page goes; prune if lists churn a lot.
+  final _rows = <String, FocusNode>{};
+
+  FocusNode row(String name) => _rows.putIfAbsent(name, FocusNode.new);
+
+  void dispose() {
+    renew.dispose();
+    pingAll.dispose();
+    for (final node in _rows.values) {
+      node.dispose();
+    }
+  }
+}
+
+/// `.card.svc` with its servers, as in `tv-ping.html`: name, status and the last update, the
+/// update's result, volume and validity, the panel's announcement, renew and support, then
+/// the server list.
 class ServiceCard extends StatelessWidget {
   const ServiceCard({
     super.key,
     required this.state,
     required this.controller,
-    this.selectedRowFocus,
+    required this.focus,
   });
 
   final ShikooState state;
   final ShikooController controller;
-  final FocusNode? selectedRowFocus;
+  final CardFocus focus;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final service = state.service;
+    final notice = state.notice;
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
     return Container(
       padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
@@ -53,10 +78,27 @@ class ServiceCard extends StatelessWidget {
                 ),
               ]
             : [
-                Padding(
-                  padding: inset,
-                  child: _Head(service: service),
+                Focus(
+                  canRequestFocus: false,
+                  skipTraversal: true,
+                  includeSemantics: false,
+                  onFocusChange: (inside) {
+                    if (inside) Scrollable.maybeOf(context)?.position.jumpTo(0);
+                  },
+                  child: Padding(
+                    padding: inset,
+                    child: _Head(
+                      service: service,
+                      refresh: state.refresh,
+                      onRefresh: () => unawaited(controller.refreshService()),
+                    ),
+                  ),
                 ),
+                if (notice != null)
+                  Padding(
+                    padding: inset,
+                    child: _Message(notice: notice, isTV: state.isTV),
+                  ),
                 Padding(
                   padding: inset,
                   child: _Usage(service: service),
@@ -67,7 +109,7 @@ class ServiceCard extends StatelessWidget {
                     child: _Notice(text: service.announce!),
                   ),
                 Padding(
-                  padding: inset.copyWith(top: Space.s3, bottom: Space.s2),
+                  padding: inset.copyWith(top: Space.s3),
                   child: Row(
                     children: [
                       // The QR screens behind these two come in the next round.
@@ -76,6 +118,7 @@ class ServiceCard extends StatelessWidget {
                           label: l.renew,
                           icon: ShikooIcon.qr,
                           primary: true,
+                          focusNode: focus.renew,
                           onPressed: () {},
                         ),
                       ),
@@ -90,45 +133,185 @@ class ServiceCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Space.s2,
-                    Space.s2,
-                    Space.s2,
-                    0,
-                  ),
-                  child: _Servers(
-                    state: state,
-                    controller: controller,
-                    selectedRowFocus: selectedRowFocus,
-                  ),
-                ),
+                _ServerList(state: state, controller: controller, focus: focus),
               ],
       ),
     );
   }
 }
 
+String agoText(ShikooL10n l, Duration ago) {
+  if (ago.inMinutes < 1) return l.agoJustNow;
+  if (ago.inHours < 1) return l.agoMinutes(ago.inMinutes);
+  if (ago.inDays < 1) return l.agoHours(ago.inHours);
+  return l.agoDays(ago.inDays);
+}
+
+/// `.svc-head`: `.svc-line` (name and status), `.svc-sub` (the last update) and the update
+/// button beside both.
 class _Head extends StatelessWidget {
-  const _Head({required this.service});
+  const _Head({
+    required this.service,
+    required this.refresh,
+    required this.onRefresh,
+  });
 
   final ShikooService service;
+  final ShikooRefresh refresh;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final updatedAt = service.updatedAt;
+    final since = updatedAt == null
+        ? null
+        : DateTime.now().difference(updatedAt);
+    final ago = since == null ? null : agoText(l, since);
+    final sub = switch (refresh) {
+      ShikooRefresh.running => l.updating,
+      ShikooRefresh.failed when since == null || since.inMinutes < 1 =>
+        l.updateFailed,
+      ShikooRefresh.failed => l.updateFailedAgo(ago!),
+      _ when ago != null => l.updatedAgo(ago),
+      _ => null,
+    };
+    final busy = refresh == ShikooRefresh.running;
     return Row(
       children: [
         Expanded(
-          child: nameText(
-            context,
-            service.name,
-            t.text(t.s.title, weight: FontWeight.w700, height: Leading.snug),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: nameText(
+                      context,
+                      service.name,
+                      t.text(
+                        t.s.title,
+                        weight: FontWeight.w700,
+                        height: Leading.snug,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Space.s2),
+                  StatusChip(status: service.statusAt(DateTime.now())),
+                ],
+              ),
+              if (sub != null)
+                Text(
+                  sub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.text(t.s.bodySm, color: t.c.textMuted),
+                ),
+            ],
           ),
         ),
         const SizedBox(width: Space.s2),
-        StatusChip(status: service.statusAt(DateTime.now())),
+        ShikooButton(
+          label: l.refresh,
+          icon: ShikooIcon.refresh,
+          busy: busy,
+          onPressed: busy ? () {} : onRefresh,
+        ),
       ],
+    );
+  }
+}
+
+/// `.notice.msg`: what the last update did; `.danger` when an update the user asked for
+/// failed.
+class _Message extends StatelessWidget {
+  const _Message({required this.notice, required this.isTV});
+
+  final ShikooNotice notice;
+  final bool isTV;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final danger = notice is RefreshFailed;
+    final (strong, rest) = switch (notice) {
+      RefreshFailed() => (
+        l.updateFailedTitle,
+        isTV ? l.updateFailedTv : l.updateFailedTouch,
+      ),
+      SelectedReplaced(
+        :final removed,
+        :final replacement,
+        :final moved,
+        :final fastest,
+      ) =>
+        (
+          l.selectedRemoved(withoutFlags(removed)),
+          !fastest
+              ? l.selectedMovedFirst(withoutFlags(replacement))
+              : moved
+              ? l.selectedMoved(withoutFlags(replacement))
+              : l.selectedReplaced(withoutFlags(replacement)),
+        ),
+      SilentReplaced(:final silent, :final replacement) => (
+        l.selectedSilent(withoutFlags(silent)),
+        l.selectedMovedTo(withoutFlags(replacement)),
+      ),
+      ServersChanged(:final added, :final removed) => (
+        [
+          if (added > 0) l.serversAdded(added),
+          if (removed.length == 1) l.serverRemoved(withoutFlags(removed.first)),
+          if (removed.length > 1) l.serversRemoved(removed.length),
+        ].join(' '),
+        '',
+      ),
+    };
+    final ink = danger ? t.c.danger : t.c.text;
+    final style = t.text(t.s.bodySm, height: Leading.body);
+    return Container(
+      margin: const EdgeInsets.only(top: Space.s3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s3,
+        vertical: Space.s2,
+      ),
+      decoration: ShapeDecoration(
+        color: danger ? t.c.dangerSoft : t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.sm),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              top: (t.s.bodySm * Leading.body - t.s.iconSm) / 2,
+            ),
+            child: SvgIcon(
+              danger ? ShikooIcon.alert : ShikooIcon.refresh,
+              size: t.s.iconSm,
+              color: danger ? t.c.danger : t.c.textMuted,
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: strong,
+                    style: TextStyle(fontWeight: FontWeight.w700, color: ink),
+                  ),
+                  if (rest.isNotEmpty) TextSpan(text: ' $rest'),
+                ],
+              ),
+              style: style,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -209,7 +392,10 @@ class _Usage extends StatelessWidget {
     );
   }
 
+  /// Solar Hijri in Persian, Gregorian in every other language.
   static String _date(BuildContext context, ShikooL10n l, DateTime date) {
+    final language = Localizations.localeOf(context).languageCode;
+    if (language != 'fa') return DateFormat.yMMMd(language).format(date);
     final j = toJalali(date);
     return l.jalaliDate(
       localNumber(context, j.day),
@@ -290,40 +476,127 @@ class _Notice extends StatelessWidget {
   }
 }
 
-class _Servers extends StatelessWidget {
-  const _Servers({
+/// `.list-head` and `.servers`. While the remote is on a row the order stays as it was, so
+/// the row under it never jumps; leaving the list lets the new order in.
+class _ServerList extends StatefulWidget {
+  const _ServerList({
     required this.state,
     required this.controller,
-    required this.selectedRowFocus,
+    required this.focus,
   });
 
   final ShikooState state;
   final ShikooController controller;
-  final FocusNode? selectedRowFocus;
+  final CardFocus focus;
+
+  @override
+  State<_ServerList> createState() => _ServerListState();
+}
+
+class _ServerListState extends State<_ServerList> {
+  List<String>? _held;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    if (state.servers.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(Space.s2),
-        child: Text(
-          l.loadingServers,
-          style: t.text(t.s.bodySm, color: t.c.textMuted),
-        ),
-      );
-    }
-    return Column(
-      children: [
-        for (final server in state.servers)
-          ServerRow(
-            server: server,
-            selected: server.name == state.selected,
-            focusNode: server.name == state.selected ? selectedRowFocus : null,
-            onPressed: () => unawaited(controller.selectServer(server.name)),
+    final state = widget.state;
+    final byName = {for (final server in state.servers) server.name: server};
+    final order = [...byName.keys];
+    final shown = _held == null ? order : keepOrder(_held!, order);
+    final pinging = state.pinging;
+    // tv-ping.html: with the remote on ping-all or a row, the list head goes to the top; a
+    // row it would push out of view scrolls back in by itself (Pressable).
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      includeSemantics: false,
+      onFocusChange: (inside) {
+        if (inside) Scrollable.ensureVisible(context);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.s4,
+              Space.s4,
+              Space.s4,
+              Space.s2,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: l.serversTitle,
+                          style: TextStyle(
+                            fontSize: t.s.body,
+                            fontWeight: FontWeight.w700,
+                            color: t.c.text,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              ' · ${listEquals(shown, order) ? l.fastestFirst : l.sortsOnLeave}',
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.text(t.s.bodySm, color: t.c.textMuted),
+                  ),
+                ),
+                const SizedBox(width: Space.s2),
+                ShikooButton(
+                  label: pinging == null
+                      ? l.pingAll
+                      : l.pingProgress(pinging.done, pinging.total),
+                  icon: ShikooIcon.gauge,
+                  busy: pinging != null,
+                  focusNode: widget.focus.pingAll,
+                  onPressed: pinging == null
+                      ? () => unawaited(widget.controller.pingAll())
+                      : () {},
+                ),
+              ],
+            ),
           ),
-      ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+            child: order.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(Space.s2),
+                    child: Text(
+                      l.loadingServers,
+                      style: t.text(t.s.bodySm, color: t.c.textMuted),
+                    ),
+                  )
+                : Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    includeSemantics: false,
+                    onFocusChange: (inside) =>
+                        setState(() => _held = inside ? shown : null),
+                    child: Column(
+                      children: [
+                        for (final name in shown)
+                          ServerRow(
+                            key: ValueKey(name),
+                            server: byName[name]!,
+                            selected: name == state.selected,
+                            focusNode: widget.focus.row(name),
+                            onPressed: () =>
+                                unawaited(widget.controller.selectServer(name)),
+                          ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
