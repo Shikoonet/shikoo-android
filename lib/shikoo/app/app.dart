@@ -182,10 +182,12 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         return MaterialUiCompatibilityBridge(
           child: IconTheme(
             data: Theme.of(context).iconTheme,
-            child: buildManagerStack(
-              isDesktop: false,
-              onConnectivityChanged: _onConnectivityChanged,
-              child: ShikooSystemUi(child: child!),
+            child: ShikooTvCanvas(
+              child: buildManagerStack(
+                isDesktop: false,
+                onConnectivityChanged: _onConnectivityChanged,
+                child: ShikooSystemUi(child: child!),
+              ),
             ),
           ),
         );

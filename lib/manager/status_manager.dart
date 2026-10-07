@@ -240,6 +240,8 @@ class StatusManagerState extends ConsumerState<StatusManager> {
             return Container(
               margin: EdgeInsets.only(
                 top: top + MediaQuery.viewPaddingOf(context).top + 8,
+                left: MediaQuery.viewPaddingOf(context).left,
+                right: MediaQuery.viewPaddingOf(context).right,
               ),
               child: child,
             );

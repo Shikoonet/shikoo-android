@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:fl_clash/enum/enum.dart' show MessageLevel;
+import 'package:fl_clash/manager/status_manager.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -176,8 +178,11 @@ Future<ProviderContainer> _pump(
           ...GlobalMaterialLocalizations.delegates,
         ],
         theme: shikooThemeData(Brightness.light, tv: device.tv),
-        // As ShikooApp's builder ends.
-        builder: (context, child) => ShikooSystemUi(child: child!),
+        // ShikooApp's builder, with only FlClash's StatusManager of its managers: it holds the
+        // app in a loose Stack and shows FlClash's messages.
+        builder: (context, child) => ShikooTvCanvas(
+          child: StatusManager(child: ShikooSystemUi(child: child!)),
+        ),
         home: home,
       ),
     ),
@@ -336,12 +341,15 @@ Future<List<String>> _faults(
   return faults;
 }
 
-typedef _Check = Future<void> Function(List<Finder> reach);
-
 /// One test per screen, every device in turn, so a run names every device it breaks on.
 void _everywhere(
   String screen,
-  Future<void> Function(WidgetTester tester, _Device device, _Check check) show,
+  Future<void> Function(
+    WidgetTester tester,
+    _Device device,
+    Future<void> Function(List<Finder> reach) check,
+  )
+  show,
 ) {
   testWidgets('$screen stays in view and apart on every screen', (
     tester,
@@ -366,6 +374,13 @@ void main() {
     await loadShikooFonts();
   });
 
+  const waiting = ShikooLogin(
+    LoginPhase.waiting,
+    code: '482915',
+    botUrl: 'https://t.me/Test_Shikoo_bot?start=app_482915',
+  );
+  final code = find.text('۴۸۲ ۹۱۵');
+
   testWidgets('every 16:9 TV shows the 960x540 layout, only larger or '
       'smaller; another shape gets more height or width', (tester) async {
     final faults = <String>[];
@@ -373,6 +388,15 @@ void main() {
       Map<String, Rect>? design;
       for (final size in _tv169) {
         final device = (size: size, scale: scale, tv: true);
+        final k = _k(device);
+        final shown = <String, Rect>{};
+        void measure(Map<String, Finder> targets) {
+          for (final MapEntry(key: name, value: target) in targets.entries) {
+            final rect = tester.getRect(target);
+            shown[name] = (rect.topLeft / k) & (rect.size / k);
+          }
+        }
+
         await _pump(
           tester,
           device,
@@ -380,17 +404,35 @@ void main() {
           state: _home(true),
           offer: const UpdateOffer(_release),
         );
-        final k = _k(device);
-        Rect onCanvas(Finder target) {
-          final rect = tester.getRect(target);
-          return (rect.topLeft / k) & (rect.size / k);
-        }
-
-        final shown = {
-          'power': onCanvas(find.byType(PowerButton)),
-          'update': onCanvas(_button(_l.updateGet)),
-          'settings': onCanvas(_button(_l.settings)),
-        };
+        measure({
+          'power': find.byType(PowerButton),
+          'update': _button(_l.updateGet),
+          'settings': _button(_l.settings),
+        });
+        await _pump(
+          tester,
+          device,
+          const ShikooSettings(),
+          state: _home(true),
+          account: const ShikooAccount(who: _maryam),
+        );
+        measure({
+          'about': find.text(_l.about),
+          'log out': find.text(_l.logout),
+        });
+        await _pump(tester, device, const ShikooRoot(), login: waiting);
+        measure({'code': code, 'support': _button(_l.support)});
+        await _pump(
+          tester,
+          device,
+          const ShikooRoot(),
+          login: const ShikooLogin(
+            LoginPhase.approved,
+            account: _maryam,
+            services: _names,
+          ),
+        );
+        measure({'continue': _button(_l.continueButton)});
         design ??= shown;
         for (final MapEntry(key: name, value: rect) in shown.entries) {
           final want = design[name]!;
@@ -417,12 +459,47 @@ void main() {
     expect(faults, isEmpty);
   });
 
-  const waiting = ShikooLogin(
-    LoginPhase.waiting,
-    code: '482915',
-    botUrl: 'https://t.me/Test_Shikoo_bot?start=app_482915',
-  );
-  final code = find.text('۴۸۲ ۹۱۵');
+  testWidgets("on a TV FlClash's messages grow and shrink with the canvas, "
+      'inside its safe area', (tester) async {
+    const text = 'config is not applied';
+    final faults = <String>[];
+    Rect? design;
+    for (final size in const [
+      Size(960, 540),
+      Size(1920, 1080),
+      Size(480, 270),
+    ]) {
+      final device = (size: size, scale: 1.0, tv: true);
+      await _pump(tester, device, const ShikooHome(), state: _home(true));
+      tester
+          .state<StatusManagerState>(find.byType(StatusManager))
+          .message(text, level: MessageLevel.error);
+      await tester.pumpAndSettle();
+      final card = find.ancestor(
+        of: find.text(text),
+        matching: find.byType(Card),
+      );
+      final k = _k(device);
+      const tv = ShikooSizes.tv;
+      final safe = Rect.fromLTRB(
+        tv.safeX * k,
+        tv.safeY * k,
+        size.width - tv.safeX * k,
+        size.height - tv.safeY * k,
+      );
+      if (_cut(card.evaluate().first, safe, 0) case final cut?) {
+        faults.add('${_name(device)}: $cut');
+      }
+      final rect = tester.getRect(card);
+      final shown = (rect.topLeft / k) & (rect.size / k);
+      design ??= shown;
+      if ((shown.topLeft - design.topLeft).distance > 0.5 ||
+          (shown.bottomRight - design.bottomRight).distance > 0.5) {
+        faults.add('${_name(device)}: at $shown, not $design');
+      }
+    }
+    expect(faults, isEmpty);
+  });
 
   _everywhere('the sign-in code', (tester, device, check) async {
     await _pump(tester, device, const ShikooRoot(), login: waiting);

@@ -382,39 +382,55 @@ class ShikooSystemUi extends StatelessWidget {
         systemNavigationBarIconBrightness: icons,
         systemNavigationBarContrastEnforced: false,
       ),
-      child: identical(ShikooTheme.of(context).s, ShikooSizes.tv)
-          ? _onTvCanvas(context, child)
-          : child,
+      child: child,
     );
   }
 }
 
 /// Whatever density a TV reports, it shows the frames' layout scaled; off 16:9, with more room.
-Widget _onTvCanvas(BuildContext context, Widget child) {
-  final data = MediaQuery.of(context);
-  const canvas = ShikooSizes.tvCanvas;
-  final k = math.min(
-    data.size.width / canvas.width,
-    data.size.height / canvas.height,
-  );
-  if (k == 1 || k <= 0) return child;
-  final size = data.size / k;
-  return FittedBox(
-    child: SizedBox.fromSize(
-      size: size,
-      child: MediaQuery(
-        data: data.copyWith(
+/// Around FlClash's managers too: StatusManager keeps its messages inside the view padding.
+class ShikooTvCanvas extends StatelessWidget {
+  const ShikooTvCanvas({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!identical(ShikooTheme.of(context).s, ShikooSizes.tv)) return child;
+    final data = MediaQuery.of(context);
+    const canvas = ShikooSizes.tvCanvas;
+    const safe = ShikooSizes.tv;
+    final fit = math.min(
+      data.size.width / canvas.width,
+      data.size.height / canvas.height,
+    );
+    // One tree at every size, a window of no size yet too, so the app is never built afresh.
+    final k = fit > 0 ? fit : 1.0;
+    final size = data.size / k;
+    return SizedBox.expand(
+      child: FittedBox(
+        child: SizedBox.fromSize(
           size: size,
-          devicePixelRatio: data.devicePixelRatio * k,
-          padding: data.padding / k,
-          viewPadding: data.viewPadding / k,
-          viewInsets: data.viewInsets / k,
-          systemGestureInsets: data.systemGestureInsets / k,
+          child: MediaQuery(
+            data: data.copyWith(
+              size: size,
+              devicePixelRatio: data.devicePixelRatio * k,
+              padding: data.padding / k,
+              viewPadding:
+                  data.viewPadding / k +
+                  EdgeInsets.symmetric(
+                    horizontal: safe.safeX,
+                    vertical: safe.safeY,
+                  ),
+              viewInsets: data.viewInsets / k,
+              systemGestureInsets: data.systemGestureInsets / k,
+            ),
+            child: child,
+          ),
         ),
-        child: child,
       ),
-    ),
-  );
+    );
+  }
 }
 
 ThemeData shikooThemeData(Brightness brightness, {required bool tv}) {
