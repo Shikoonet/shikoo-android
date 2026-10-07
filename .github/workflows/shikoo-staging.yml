@@ -24,6 +24,8 @@ env:
   PRODUCTION_BOT: shikoonet_bot
   STAGING_API: ${{ vars.SHIKOO_STAGING_API || 'https://app-dev.chopon.uk' }}
   STAGING_BOT: ${{ vars.SHIKOO_STAGING_BOT || 'shikoodevbot' }}
+  RELEASE_CERT_SHA256: dbf909bae41e5aaf30e55b345a195e913cff5ae34d6d97d586e1b95b0d9c29de
+  STAGING_CERT_DN: CN=ShikooNet Staging
 
 jobs:
   build:
@@ -170,15 +172,19 @@ jobs:
           bash tools/check_apk_clean.sh out/*.apk
           tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]} && apksigner=${aapt2%aapt2}apksigner
           # build-tools 37 prints "V2 Signer: certificate SHA-256 digest: ..." where 36 printed "Signer #1 certificate ..."
-          cert() { "$apksigner" verify --print-certs "$1" | sed -n 's/^.* certificate SHA-256 digest: //p'; }
+          signer() { "$apksigner" verify --print-certs "$2" | sed -n "s/^.* certificate $1: //p"; }
           for apk in out/*.apk; do
-            [ -n "$(cert "$apk")" ] || { echo "::error::$apk has no signer digest"; "$apksigner" verify -v --print-certs "$apk"; exit 1; }
+            [ -n "$(signer 'SHA-256 digest' "$apk")" ] ||
+              { echo "::error::$apk has no signer digest"; "$apksigner" verify -v --print-certs "$apk"; exit 1; }
           done
-          staging_cert=$(for apk in out/*-staging-*.apk; do cert "$apk"; done | sort -u)
-          production_cert=$(for apk in out/ShikooNet-"$VN"-a*.apk; do [ ! -e "$apk" ] || cert "$apk"; done | sort -u)
+          staging_cert=$(for apk in out/*-staging-*.apk; do signer 'SHA-256 digest' "$apk"; done | sort -u)
+          staging_dn=$(for apk in out/*-staging-*.apk; do signer DN "$apk"; done | sort -u)
+          production_cert=$(for apk in out/ShikooNet-"$VN"-a*.apk; do [ ! -e "$apk" ] || signer 'SHA-256 digest' "$apk"; done | sort -u)
           [ -n "$staging_cert" ] && [ "$(wc -l <<<"$staging_cert")" -eq 1 ] || { echo "::error::staging APKs carry different signers"; exit 1; }
-          [ -z "$production_cert" ] || { [ "$(wc -l <<<"$production_cert")" -eq 1 ] && [ "$production_cert" != "$staging_cert" ]; } ||
-            { echo "::error::production APKs are not signed by one release key of their own"; exit 1; }
+          [ "$staging_dn" = "$STAGING_CERT_DN" ] ||
+            { echo "::error::staging APKs are signed by '$staging_dn', not the staging key ($STAGING_CERT_DN)"; exit 1; }
+          [ -z "$production_cert" ] || [ "$production_cert" = "$RELEASE_CERT_SHA256" ] ||
+            { echo "::error::production APKs are signed by $production_cert, not the release key $RELEASE_CERT_SHA256"; exit 1; }
           for apk in out/*.apk; do
             n=$(unzip -p "$apk" 'lib/*/libapp.so' | grep -caF "$API" || true)
             pkg=$("$aapt2" dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
