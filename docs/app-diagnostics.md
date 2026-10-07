@@ -214,9 +214,11 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
   since the broadcast is explicit; without it the only trace is our own logcat on the next start.
 - **Go**: a new file `core/shikoo_crash.go` with `//go:build go1.23` holds `setCrashOutput(home)`
   (`debug.SetCrashOutput` on `<home>/go-crash.txt`, append); one line after `constant.SetHomeDir` in `core/hub.go:45`
-  calls it (patch row). The build line raises that file's language version, so `go vet` accepts it without touching
-  `go.mod`. Ceiling: a panic in a Go package `init` runs at `System.loadLibrary`, before that line, so it shows only as
-  an exit record (API 30+); the pre-2012 clock case of `fix/wrong-clock` is one.
+  calls it (patch row). It also sets `debug.SetTraceback("single")`: on the API 25 emulator the core came up with no
+  traceback level, and the file and logcat's `Go` copy held only the panic's first line. The build line raises that
+  file's language version, so `go vet` accepts it without touching `go.mod`. Ceiling: a panic in a Go package
+  `init` runs at `System.loadLibrary`, before that line, so it shows only as an exit record (API 30+); the pre-2012
+  clock case of `fix/wrong-clock` is one.
 - **Exit records**, API 30+: `ShikooDiag.kt` returns those newer than the last seen (reason, status, time,
   description, PSS/RSS), with an ANR's `"main"` thread block (≤ 8192 characters). A native crash sends its record without the
   tombstone.
@@ -388,8 +390,7 @@ TV lacks it.
 - Android 12 TV (the jumping one, spinner gone): the renderer line is readable by the app in a release build; the two
   images, the frame summary and the UI events show the jump; if it is layout, its numbers make WP7 fail before the fix.
 - Mi Box (Android 9, 32-bit, API 28): `coreController.crash()` in a debug build leaves `go-crash.txt`; with the Go stack
-  on the API 35 emulator, but only the panic's first line (27 bytes, no stack) on the API 25 emulator, sent report or
-  not; on the Mi Box unproven. A forced Kotlin crash leaves `java-crash.txt`, also when started from the tile with no
+  on the API 35 and (since `4a4ae07`) the API 25 emulator, sent report or not; on the Mi Box unproven. A forced Kotlin crash leaves `java-crash.txt`, also when started from the tile with no
   Activity; no exit records (below API 30) but «alive ×n» stops where the process died; the SIM fallback runs (only
   the data SIM and the default voice SIM) and, with no telephony, returns empty without throwing; both images work on
   its Mali GPU; D-pad keys and focus moves are recorded; the own-logcat tail
