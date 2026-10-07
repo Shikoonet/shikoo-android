@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:fl_clash/enum/enum.dart' show MessageLevel;
 import 'package:fl_clash/manager/status_manager.dart';
+import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -63,6 +64,8 @@ double _k(_Device device) => device.tv
         device.size.height / ShikooSizes.tvCanvas.height,
       )
     : 1;
+
+Rect _onCanvas(Rect rect, double k) => (rect.topLeft / k) & (rect.size / k);
 
 final _l = lookupShikooL10n(const Locale('fa'));
 final _now = DateTime.now();
@@ -178,10 +181,12 @@ Future<ProviderContainer> _pump(
           ...GlobalMaterialLocalizations.delegates,
         ],
         theme: shikooThemeData(Brightness.light, tv: device.tv),
-        // ShikooApp's builder, with only FlClash's StatusManager of its managers: it holds the
-        // app in a loose Stack and shows FlClash's messages.
-        builder: (context, child) => ShikooTvCanvas(
-          child: StatusManager(child: ShikooSystemUi(child: child!)),
+        // Only FlClash's StatusManager of its managers: it holds the app in a loose Stack and
+        // shows FlClash's messages.
+        builder: (context, child) => shikooFrame(
+          context,
+          child!,
+          managers: (page) => StatusManager(child: page),
         ),
         home: home,
       ),
@@ -341,15 +346,12 @@ Future<List<String>> _faults(
   return faults;
 }
 
+typedef _Check = Future<void> Function(List<Finder> reach);
+
 /// One test per screen, every device in turn, so a run names every device it breaks on.
 void _everywhere(
   String screen,
-  Future<void> Function(
-    WidgetTester tester,
-    _Device device,
-    Future<void> Function(List<Finder> reach) check,
-  )
-  show,
+  Future<void> Function(WidgetTester tester, _Device device, _Check check) show,
 ) {
   testWidgets('$screen stays in view and apart on every screen', (
     tester,
@@ -392,8 +394,7 @@ void main() {
         final shown = <String, Rect>{};
         void measure(Map<String, Finder> targets) {
           for (final MapEntry(key: name, value: target) in targets.entries) {
-            final rect = tester.getRect(target);
-            shown[name] = (rect.topLeft / k) & (rect.size / k);
+            shown[name] = _onCanvas(tester.getRect(target), k);
           }
         }
 
@@ -490,8 +491,7 @@ void main() {
       if (_cut(card.evaluate().first, safe, 0) case final cut?) {
         faults.add('${_name(device)}: $cut');
       }
-      final rect = tester.getRect(card);
-      final shown = (rect.topLeft / k) & (rect.size / k);
+      final shown = _onCanvas(tester.getRect(card), k);
       design ??= shown;
       if ((shown.topLeft - design.topLeft).distance > 0.5 ||
           (shown.bottomRight - design.bottomRight).distance > 0.5) {

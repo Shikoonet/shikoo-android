@@ -54,6 +54,8 @@ class _FakeAppApi {
   List<Map<String, Object?>> services = [];
   DateTime Function()? clock;
 
+  DateTime _now() => clock?.call() ?? DateTime.now();
+
   String get base => 'http://127.0.0.1:${_server.port}';
 
   Future<void> open() async {
@@ -103,7 +105,7 @@ class _FakeAppApi {
         }
         names.add(name);
         final code = '${482915 + codes.length}';
-        final expires = DateTime.now().add(life);
+        final expires = _now().add(life);
         codes[code] = _Code(_secret(), expires);
         return reply(200, {
           'ok': true,
@@ -122,9 +124,7 @@ class _FakeAppApi {
         if (code == null || code.secret != json?['poll_secret']) {
           return reply(404, {'ok': false, 'error': 'not_found'});
         }
-        if (code.used ||
-            code.refused ||
-            !DateTime.now().isBefore(code.expires)) {
+        if (code.used || code.refused || !_now().isBefore(code.expires)) {
           return reply(410, {'ok': false, 'error': code.reason ?? 'gone'});
         }
         final who = code.approvedBy;
@@ -358,8 +358,7 @@ void main() {
       expect(waiting.code, h.api.lastCode);
       expect(link, 'https://t.me/Test_Shikoo_bot?start=app_${h.api.lastCode}');
       expect(h.api.names, ['Xiaomi MIBOX4']);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(h.api.polls, greaterThan(1));
+      await _until(h.container, (_) => h.api.polls > 1);
       expect(h.container.read(shikooLoginProvider)?.phase, LoginPhase.waiting);
 
       h.api.codes[h.api.lastCode]!.approvedBy = (
@@ -459,6 +458,17 @@ void main() {
       h.api.codes[h.api.lastCode]!.approvedBy = (name: 'مریم', username: null);
       final failed = await _until(h.container, _at(LoginPhase.servicesFailed));
       expect(failed!.clock, isTrue);
+    });
+
+    test('a code lives as long as the server says on a box whose clock is '
+        'hours behind', () async {
+      addTearDown(() => shikooSkew = Duration.zero);
+      final h = await _harness();
+      h.api.clock = () => DateTime.now().add(const Duration(hours: 3));
+      final code = await h.container
+          .read(shikooApiProvider)
+          .start(deviceName: 'Xiaomi MIBOX4', tv: true);
+      expect(code.lifetime.inSeconds, closeTo(h.api.life.inSeconds, 2));
     });
 
     test(
