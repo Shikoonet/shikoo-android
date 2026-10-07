@@ -167,8 +167,11 @@ jobs:
           set -euo pipefail
           bash tools/check_apk_clean.sh out/*.apk
           tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]} && apksigner=${aapt2%aapt2}apksigner
-          cert() { "$apksigner" verify --print-certs "$1" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'; }
-          for apk in out/*.apk; do [ -n "$(cert "$apk")" ] || { echo "::error::$apk has no signer digest"; exit 1; }; done
+          # build-tools 37 prints "V2 Signer: certificate SHA-256 digest: ..." where 36 printed "Signer #1 certificate ..."
+          cert() { "$apksigner" verify --print-certs "$1" | sed -n 's/^.* certificate SHA-256 digest: //p'; }
+          for apk in out/*.apk; do
+            [ -n "$(cert "$apk")" ] || { echo "::error::$apk has no signer digest"; "$apksigner" verify -v --print-certs "$apk"; exit 1; }
+          done
           staging_cert=$(for apk in out/*-staging-*.apk; do cert "$apk"; done | sort -u)
           production_cert=$(for apk in out/ShikooNet-"$VN"-a*.apk; do [ ! -e "$apk" ] || cert "$apk"; done | sort -u)
           [ -n "$staging_cert" ] && [ "$(wc -l <<<"$staging_cert")" -eq 1 ] || { echo "::error::staging APKs carry different signers"; exit 1; }
@@ -189,7 +192,7 @@ jobs:
             cat out/SHA256SUMS
             for apk in out/*.apk; do
               echo "== ${apk#out/}"
-              "$aapt2" dump badging "$apk" | grep -E '^(package|sdkVersion|targetSdkVersion|native-code|uses-feature.*leanback)'
+              "$aapt2" dump badging "$apk" | grep -E '^(package|minSdkVersion|targetSdkVersion|native-code)|uses-feature.*leanback'
             done
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY" >out/NOTES.md
