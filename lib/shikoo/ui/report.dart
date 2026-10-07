@@ -352,6 +352,18 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       () => _support(isTV),
       icon: isTV ? ShikooIcon.qr : null,
     );
+    final supportFirst = button(
+      l.support,
+      () => _support(isTV),
+      icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
+      primary: true,
+      first: true,
+    );
+    final retryAgain = button(
+      l.retry,
+      () => unawaited(_send()),
+      icon: ShikooIcon.refresh,
+    );
     final sent = _sent;
     final error = _error;
     final clock = error is ShikooApiFailure && error.clock;
@@ -398,16 +410,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             ],
           ),
         ),
-        [
-          button(
-            l.support,
-            () => _support(isTV),
-            icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
-            primary: true,
-            first: true,
-          ),
-          close,
-        ],
+        [supportFirst, close],
       ),
       _Phase.failed when clock => (
         ResultBlock(
@@ -425,7 +428,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             primary: true,
             first: true,
           ),
-          button(l.retry, () => unawaited(_send()), icon: ShikooIcon.refresh),
+          retryAgain,
         ],
       ),
       _Phase.failed => (
@@ -436,20 +439,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
           body: [TextSpan(text: failedHelp(l, error))],
         ),
         error is ShikooApiFailure && error.status != null
-            ? [
-                button(
-                  l.support,
-                  () => _support(isTV),
-                  icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
-                  primary: true,
-                  first: true,
-                ),
-                button(
-                  l.retry,
-                  () => unawaited(_send()),
-                  icon: ShikooIcon.refresh,
-                ),
-              ]
+            ? [supportFirst, retryAgain]
             : [retry, cancel],
       ),
       _ => (
@@ -779,6 +769,7 @@ class _SwitchRow extends StatelessWidget {
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.lg),
     );
+    const pad = (ShikooSizes.switchH - ShikooSizes.switchThumb) / 2;
     return Pressable(
       shape: shape,
       onPressed: () => onChanged(!on),
@@ -801,23 +792,34 @@ class _SwitchRow extends StatelessWidget {
             spacing: Space.s3,
             children: [
               Expanded(child: Text(label, style: t.text(s.body))),
-              ExcludeFocus(
-                child: IgnorePointer(
-                  child: Switch(
-                    value: on,
-                    onChanged: (_) {},
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    activeTrackColor: t.c.primary,
-                    activeThumbColor: t.c.onPrimary,
-                    inactiveTrackColor: t.c.surfaceSunken,
-                    inactiveThumbColor: t.c.textMuted,
-                    trackOutlineColor: WidgetStateProperty.resolveWith(
-                      (states) => states.contains(WidgetState.selected)
-                          ? Colors.transparent
-                          : t.c.outline,
-                    ),
-                    // With an icon slot the off thumb is the drawn 24dp, not Material's 16.
-                    thumbIcon: const WidgetStatePropertyAll(Icon(null)),
+              Container(
+                width: ShikooSizes.switchW,
+                height: ShikooSizes.switchH,
+                padding: const EdgeInsets.all(pad),
+                alignment: on
+                    ? AlignmentDirectional.centerEnd
+                    : AlignmentDirectional.centerStart,
+                decoration: ShapeDecoration(
+                  color: on ? t.c.primary : t.c.surfaceSunken,
+                  shape: const StadiumBorder(),
+                ),
+                // A foreground, as the mockup's inset box-shadow: a border would shrink the thumb.
+                foregroundDecoration: on
+                    ? null
+                    : ShapeDecoration(
+                        shape: StadiumBorder(
+                          side: BorderSide(
+                            color: t.c.outline,
+                            width: ShikooSizes.borderRadio,
+                          ),
+                        ),
+                      ),
+                child: Container(
+                  width: ShikooSizes.switchThumb,
+                  height: ShikooSizes.switchThumb,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: on ? t.c.onPrimary : t.c.textMuted,
                   ),
                 ),
               ),
