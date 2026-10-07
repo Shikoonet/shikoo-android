@@ -708,40 +708,48 @@ void main() {
       }
     });
 
-    testWidgets('the sign-in code and a paste both refused by the clock: one '
-        'date settings button', (tester) async {
-      final l = _l('fa');
-      final rig = await _pump(
-        tester,
-        const ShikooRoot(),
-        state: _noService,
-        login: const ShikooLogin(LoginPhase.startFailed, clock: true),
+    for (final clock in [true, false]) {
+      testWidgets(
+        '${clock ? 'the sign-in code and a paste both' : 'only a paste'} '
+        'refused by the clock: one date settings button',
+        (tester) async {
+          final l = _l('fa');
+          final rig = await _pump(
+            tester,
+            const ShikooRoot(),
+            state: _noService,
+            login: ShikooLogin(LoginPhase.startFailed, clock: clock),
+          );
+          when(
+            () => rig.container
+                .read(shikooControllerProvider)
+                .pasteService(any()),
+          ).thenAnswer((_) async => ShikooPasteError.clock);
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            (call) async => call.method == 'Clipboard.getData'
+                ? {'text': 'https://example.com/not-ours'}
+                : null,
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(SystemChannels.platform, null),
+          );
+          expect(
+            find.text(l.dateSettings),
+            clock ? findsOneWidget : findsNothing,
+          );
+          await tester.tap(find.text(l.pasteLink));
+          await tester.pumpAndSettle();
+          expect(
+            find.textContaining(l.clockWrongTitle, findRichText: true),
+            findsNWidgets(clock ? 2 : 1),
+            reason: 'every refused press answered',
+          );
+          expect(find.text(l.dateSettings), findsOneWidget);
+        },
       );
-      when(
-        () => rig.container.read(shikooControllerProvider).pasteService(any()),
-      ).thenAnswer((_) async => ShikooPasteError.clock);
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async => call.method == 'Clipboard.getData'
-            ? {'text': 'https://example.com/not-ours'}
-            : null,
-      );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        ),
-      );
-      expect(find.text(l.dateSettings), findsOneWidget);
-      await tester.tap(find.text(l.pasteLink));
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining(l.clockWrongTitle, findRichText: true),
-        findsNWidgets(2),
-        reason: 'both presses answered',
-      );
-      expect(find.text(l.dateSettings), findsOneWidget);
-    });
+    }
 
     testWidgets('no report where it could not go through: a wrong clock', (
       tester,

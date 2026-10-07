@@ -296,6 +296,7 @@ void main() {
       (ShikooPasteError.notShikoo, 'این لینک شیکونت نیست.'),
       (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
       (ShikooPasteError.unavailable, 'لینک الان باز نشد.'),
+      (ShikooPasteError.clock, 'تاریخ و ساعت دستگاهت درست نیست.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {
       when(() => controller.pasteService(any())).thenAnswer((_) async => error);
@@ -309,6 +310,11 @@ void main() {
         reason: 'above the button that made it',
       );
       expect(find.textContaining('secret-token'), findsNothing);
+      expect(
+        find.text('تنظیمات تاریخ و ساعت'),
+        error == ShikooPasteError.clock ? findsOneWidget : findsNothing,
+        reason: error.name,
+      );
     }
 
     final last = Completer<ShikooPasteError?>();

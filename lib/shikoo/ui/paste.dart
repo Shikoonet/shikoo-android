@@ -97,9 +97,7 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
           ),
         if (error == ShikooPasteError.clock && widget.dateButton)
           const DateSettingsButton()
-        else if (error != null &&
-            error != ShikooPasteError.clock &&
-            widget.report)
+        else if (error != null && widget.report)
           LinkButton(
             label: l.reportSendToSupport,
             onPressed: () =>
