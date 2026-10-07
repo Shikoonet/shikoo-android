@@ -538,38 +538,40 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Row(
         children: [
           Expanded(
-            // Scrolls only for large text; the padding keeps the focus ring in view.
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: Space.s2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: Space.s3,
-                children: [
-                  Text(
-                    l.loginTelegram,
-                    style: t.text(s.headline, weight: FontWeight.w800),
-                  ),
-                  Text(
-                    failed
-                        ? (login!.clock ? clockText(l) : l.codeFailedLeadTv)
-                        : (expired ? l.codeExpiredLead : l.tvLoginLead),
-                    style: t.text(s.title),
-                  ),
-                  if (failed) ...[
-                    newCode(l.retry, _retryNode),
-                    if (login!.clock) const DateSettingsButton(),
-                  ] else ...[
-                    if (!expired) Text(l.tvLoginVpnHint, style: fine),
-                    _CodeBox(
-                      login: login,
-                      label: expired ? l.previousCode : l.tvLoginComputer,
+            // The padding keeps the focus ring of «کد تازه» in view.
+            child: ShrinkToFit(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Space.s2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: Space.s3,
+                  children: [
+                    Text(
+                      l.loginTelegram,
+                      style: t.text(s.headline, weight: FontWeight.w800),
                     ),
-                    if (expired)
-                      newCode(l.newCode, _newCodeNode)
-                    else
-                      Text(l.codeLifetime, style: fine),
+                    Text(
+                      failed
+                          ? (login!.clock ? clockText(l) : l.codeFailedLeadTv)
+                          : (expired ? l.codeExpiredLead : l.tvLoginLead),
+                      style: t.text(s.title),
+                    ),
+                    if (failed) ...[
+                      newCode(l.retry, _retryNode),
+                      if (login!.clock) const DateSettingsButton(),
+                    ] else ...[
+                      if (!expired) Text(l.tvLoginVpnHint, style: fine),
+                      _CodeBox(
+                        login: login,
+                        label: expired ? l.previousCode : l.tvLoginComputer,
+                      ),
+                      if (expired)
+                        newCode(l.newCode, _newCodeNode)
+                      else
+                        Text(l.codeLifetime, style: fine),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -684,27 +686,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     };
     return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          Space.s2,
-          Space.s2,
-          Space.s2,
-          Space.s2 + Space.s2,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: Space.s6,
-          children: [
-            result,
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: Space.s2,
-              children: [
-                for (final (i, action) in actions.indexed)
-                  action(i == 0 ? _resultNode : null),
-              ],
-            ),
-          ],
+      child: ShrinkToFit(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.s2,
+            Space.s2,
+            Space.s2,
+            Space.s2 + Space.s2,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            spacing: Space.s6,
+            children: [
+              result,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: Space.s2,
+                children: [
+                  for (final (i, action) in actions.indexed)
+                    action(i == 0 ? _resultNode : null),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

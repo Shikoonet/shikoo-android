@@ -1084,6 +1084,23 @@ class NowPill extends StatelessWidget {
   }
 }
 
+/// A TV page that is not a list: large text shrinks it to the screen. A scroll would cut its top
+/// once the remote brings the buttons into view, and its end if nothing there takes the remote.
+class ShrinkToFit extends StatelessWidget {
+  const ShrinkToFit({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) => FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: SizedBox(width: box.maxWidth, child: child),
+    ),
+  );
+}
+
 /// `.tv-col` (home) and `.tv-settings`: scrolls as one; once scrolled, its top edge fades and a thumb shows. It reaches
 /// 8dp past the pane on every side (`margin: -8; padding: 8`) so focus rings are not clipped.
 class TvScrollColumn extends StatefulWidget {
