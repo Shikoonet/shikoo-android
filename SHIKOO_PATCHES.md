@@ -77,7 +77,7 @@ bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 | `android/app/src/main/kotlin/com/follow/clash/ShikooUpdate.kt` | کانال `shikoo/update` (وصلهٔ ۱۴): `canInstall`، `openInstallSettings` و `install`. زیر اندروید ۸ یک کلید «منابع ناشناس» (`Settings.Secure.INSTALL_NON_MARKET_APPS`) برای همهٔ اپ‌هاست، پس صفحهٔ `ACTION_SECURITY_SETTINGS` باز می‌شود. سمت Dart: `lib/shikoo/engine/update.dart`. |
 | `android/app/src/main/res/xml/update_paths.xml` | تنها مسیری که FileProvider وصلهٔ ۱۵ می‌دهد: `<cache>/update/`. |
 | `android/app/src/main/kotlin/com/follow/clash/ShikooDiag.kt` | کد کاتلین عیب‌یابی (وصله‌های ۱۷ تا ۱۹). فایل‌هایش خام نوشته می‌شوند و Dart هنگام خواندن پاکشان می‌کند. تستش: `android/tests/app/ShikooDiagTest.kt`. |
-| `core/shikoo_crash.go`، `core/shikoo_crash_test.go` | `setCrashOutput` (وصلهٔ ۲۰). `//go:build go1.23` نسخهٔ زبانِ همین فایل را بالا می‌برد، پس `go vet` بی دست زدن به `go.mod` (`go 1.21`) آن را می‌پذیرد. تست، یک پروسهٔ فرزند را با panic می‌کشد و فایل را می‌خواند. |
+| `core/shikoo_crash.go`، `core/shikoo_crash_test.go` | `setCrashOutput` (وصلهٔ ۲۰). `//go:build go1.23` نسخهٔ زبانِ همین فایل را بالا می‌برد، پس `go vet` بی دست زدن به `go.mod` (`go 1.21`) آن را می‌پذیرد. همان تابع سطح traceback را هم به `single` می‌رساند: روی امولاتور API 25 هسته بی سطح traceback بالا آمد و فقط خط اول panic نوشته می‌شد. تست، یک پروسهٔ فرزند را با `GOTRACEBACK=none` و panic می‌کشد و پشتهٔ آن را در فایل می‌خواهد. |
 
 **منبع فونت:** `rastikerdar/vazirmatn` تگ `v33.003`، مسیر `fonts/ttf/`. شناسهٔ گیتِ هر فایل با API گیت‌هاب یکی بود.
 

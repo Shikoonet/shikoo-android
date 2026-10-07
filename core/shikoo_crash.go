@@ -16,4 +16,6 @@ func setCrashOutput(home string) {
 	}
 	defer file.Close()
 	_ = debug.SetCrashOutput(file, debug.CrashOptions{})
+	// The API 25 emulator ran the core with no traceback level: the panic's first line only.
+	debug.SetTraceback("single")
 }

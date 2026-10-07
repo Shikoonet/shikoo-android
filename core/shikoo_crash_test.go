@@ -18,12 +18,14 @@ func TestSetCrashOutputKeepsAnUnrecoveredPanic(t *testing.T) {
 	}
 	home := t.TempDir()
 	child := exec.Command(os.Args[0], "-test.run=^TestSetCrashOutputKeepsAnUnrecoveredPanic$")
-	child.Env = append(os.Environ(), "SHIKOO_CRASH_HOME="+home)
+	// As the API 25 emulator ran the core: no traceback level, so only the panic's first line.
+	child.Env = append(os.Environ(), "SHIKOO_CRASH_HOME="+home, "GOTRACEBACK=none")
 	if err := child.Run(); err == nil {
 		t.Fatal("the child survived its panic")
 	}
 	out, err := os.ReadFile(filepath.Join(home, "go-crash.txt"))
-	if err != nil || !strings.Contains(string(out), "panic: shikoo test panic") {
+	if err != nil || !strings.Contains(string(out), "panic: shikoo test panic") ||
+		!strings.Contains(string(out), "shikoo_crash_test.go:") {
 		t.Fatalf("go-crash.txt = %q, %v", out, err)
 	}
 }
