@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -68,6 +69,7 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
                 ShikooPasteError.revoked => l.pasteRevokedTitle,
                 ShikooPasteError.unavailable => l.pasteUnavailableTitle,
                 ShikooPasteError.offline => l.pasteOfflineTitle,
+                ShikooPasteError.clock => l.clockWrongTitle,
               },
               rest: switch (error) {
                 ShikooPasteError.empty => l.pasteEmptyHelp,
@@ -75,9 +77,11 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
                 ShikooPasteError.revoked => l.pasteRevokedHelp,
                 ShikooPasteError.unavailable => l.pasteUnavailableHelp,
                 ShikooPasteError.offline => l.pasteOfflineHelp,
+                ShikooPasteError.clock => l.clockWrongHelp,
               },
             ),
           ),
+        if (error == ShikooPasteError.clock) const DateSettingsButton(),
         widget.builder(context, _busy, () => unawaited(_paste())),
       ],
     );

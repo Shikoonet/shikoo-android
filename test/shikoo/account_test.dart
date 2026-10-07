@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dio/dio.dart' show Dio, DioException, InterceptorsWrapper;
 import 'package:drift/native.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
@@ -44,6 +45,7 @@ class _FakeAppApi {
   final names = <String>[];
   Duration life = const Duration(minutes: 10);
   int startStatus = 200;
+  bool startHangs = false;
   int servicesStatus = 200;
   int rateLimitedPolls = 0;
   int polls = 0;
@@ -86,6 +88,7 @@ class _FakeAppApi {
 
     switch ('${request.method} ${request.uri.path}') {
       case 'POST /api/v1/app/login/start':
+        if (startHangs) return;
         final name = json?['device_name'];
         if (startStatus != 200) return reply(startStatus, {'ok': false});
         if (name is! String ||
@@ -209,6 +212,7 @@ typedef _Harness = ({
 Future<_Harness> _harness({
   List<String>? bases,
   List<Profile> pasted = const [],
+  Dio? dio,
 }) async {
   SharedPreferences.setMockInitialValues({
     if (pasted.isNotEmpty)
@@ -249,7 +253,7 @@ Future<_Harness> _harness({
   });
   container = ProviderContainer(
     overrides: [
-      shikooApiProvider.overrideWithValue(ShikooApi(bases ?? [api.base])),
+      shikooApiProvider.overrideWithValue(ShikooApi(bases ?? [api.base], dio)),
       shikooDeviceProvider.overrideWithValue(
         () async => (name: 'Xiaomi MIBOX4', tv: true),
       ),
@@ -377,6 +381,45 @@ void main() {
       h.signIn.finish();
       expect(h.container.read(shikooLoginProvider), isNull);
       expect(h.container.read(shikooAccountProvider).who?.name, 'مریم');
+    });
+
+    test(
+      'a start the server never answers gives up within its limit',
+      () async {
+        final h = await _harness();
+        h.api.startHangs = true;
+        h.signIn.startLimit = const Duration(milliseconds: 100);
+        await h.signIn.start().timeout(const Duration(seconds: 3));
+        final failed = h.container.read(shikooLoginProvider);
+        expect(failed?.phase, LoginPhase.startFailed);
+        expect(failed?.clock, isFalse);
+      },
+    );
+
+    test('a start whose certificate is not valid yet blames the clock', () async {
+      final h = await _harness(
+        bases: ['http://127.0.0.1:1'],
+        dio: Dio()
+          ..interceptors.add(
+            InterceptorsWrapper(
+              onRequest: (options, handler) => handler.reject(
+                DioException(
+                  requestOptions: options,
+                  error: const HandshakeException(
+                    'Handshake error in client',
+                    OSError(
+                      'CERTIFICATE_VERIFY_FAILED: certificate is not yet valid',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      );
+      await h.signIn.start();
+      final failed = h.container.read(shikooLoginProvider);
+      expect(failed?.phase, LoginPhase.startFailed);
+      expect(failed?.clock, isTrue);
     });
 
     test(

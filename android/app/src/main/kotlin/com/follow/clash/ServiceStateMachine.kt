@@ -29,6 +29,10 @@ internal const val INVALID_CONFIG_MESSAGE = "Invalid configuration."
 internal const val VPN_PERMISSION_MESSAGE = "VPN permission required."
 internal const val START_FAILED_MESSAGE = "Failed to start service."
 
+// Shikoo: shikooClockFloor in lib/shikoo/engine/clock.dart, which test/shikoo/clock_test.dart pairs.
+internal const val CLOCK_FLOOR_MILLIS = 1788220800000L
+internal const val CLOCK_WRONG_MESSAGE = "تاریخ و ساعت دستگاه درست نیست؛ برنامه را باز کن."
+
 /**
  * Callers request a transition; the newest request always wins. Every step that outlives its own
  * suspension point re-checks [isCurrent] before it publishes anything, so a start that was overtaken
@@ -167,6 +171,10 @@ internal class ServiceStateMachine(private val host: ServiceStateHost) {
         sharedState = host.loadSharedState()
         if (sharedState.setupParams == null || sharedState.vpnOptions == null) {
             host.showToast(MISSING_CONFIG_MESSAGE)
+            return
+        }
+        if (System.currentTimeMillis() < CLOCK_FLOOR_MILLIS) {
+            host.showToast(CLOCK_WRONG_MESSAGE)
             return
         }
         if (setupCore()) {

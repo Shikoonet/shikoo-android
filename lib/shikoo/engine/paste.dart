@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum ShikooPasteError { empty, notShikoo, revoked, unavailable, offline }
+enum ShikooPasteError { empty, notShikoo, revoked, unavailable, offline, clock }
 
 // ponytail: only the test link's domain; needs every domain Sam names, and moves with the panel.
 const shikooSubscriptionDomains = ['4g3.uk'];

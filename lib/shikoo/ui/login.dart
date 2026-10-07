@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
@@ -221,6 +222,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final l = ShikooL10n.of(context);
     final phase = login?.phase;
     final account = login?.account;
+    final clock = login?.clock ?? false;
     final starting = phase == LoginPhase.starting;
     Widget telegram(String label, VoidCallback onPressed) => ShikooButton(
       label: starting ? l.codeFetching : label,
@@ -269,9 +271,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           MessageBox(
             icon: ShikooIcon.alert,
             danger: true,
-            strong: l.codeFailedTitle,
-            rest: l.codeFailedHelpTouch,
+            strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
+            rest: clock ? l.clockWrongHelp : l.codeFailedHelpTouch,
           ),
+          if (clock) const DateSettingsButton(),
           telegram(l.loginTelegram, signIn),
           _paste(enabled: true),
           elsewhere,
@@ -331,7 +334,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           icon: ShikooIcon.alert,
           tone: _Tone.danger,
           title: l.servicesFailedTitle,
-          body: sayWith(l.servicesFailedBodyTouch, _account(l, account)),
+          body: clock
+              ? [TextSpan(text: clockText(l))]
+              : sayWith(l.servicesFailedBodyTouch, _account(l, account)),
         ),
         [
           primary(
@@ -339,6 +344,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             () => unawaited(_signIn.retry()),
             icon: ShikooIcon.refresh,
           ),
+          if (clock) const DateSettingsButton(),
           outline(l.support, _support),
           outline(l.notMyAccount, () => unawaited(_signIn.notMine())),
         ],
@@ -453,10 +459,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       primary: true,
                       onPressed: () => unawaited(_signIn.start()),
                     ),
+                  if (phase == LoginPhase.startFailed && login!.clock)
+                    const DateSettingsButton(),
                   Text(
-                    phase == LoginPhase.startFailed
-                        ? l.codeFailedHelpTouch
-                        : l.otherDeviceFine,
+                    phase != LoginPhase.startFailed
+                        ? l.otherDeviceFine
+                        : (login!.clock ? clockText(l) : l.codeFailedHelpTouch),
                     textAlign: TextAlign.center,
                     style: t.text(
                       s.bodySm,
@@ -536,13 +544,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   Text(
                     failed
-                        ? l.codeFailedLeadTv
+                        ? (login!.clock ? clockText(l) : l.codeFailedLeadTv)
                         : (expired ? l.codeExpiredLead : l.tvLoginLead),
                     style: t.text(s.title),
                   ),
-                  if (failed)
-                    newCode(l.retry, _retryNode)
-                  else ...[
+                  if (failed) ...[
+                    newCode(l.retry, _retryNode),
+                    if (login!.clock) const DateSettingsButton(),
+                  ] else ...[
                     if (!expired) Text(l.tvLoginVpnHint, style: fine),
                     _CodeBox(
                       login: login,
@@ -580,7 +589,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _tvResult(BuildContext context, ShikooLogin login) {
     final l = ShikooL10n.of(context);
     final account = _account(l, login.account);
-    ShikooButton Function(FocusNode?) button(
+    Widget Function(FocusNode?) button(
       String label,
       VoidCallback onPressed, {
       ShikooIcon? icon,
@@ -631,7 +640,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           icon: ShikooIcon.alert,
           tone: _Tone.danger,
           title: l.servicesFailedTitle,
-          body: sayWith(l.servicesFailedBodyTv, account),
+          body: login.clock
+              ? [TextSpan(text: clockText(l))]
+              : sayWith(l.servicesFailedBodyTv, account),
         ),
         [
           button(
@@ -640,6 +651,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             icon: ShikooIcon.refresh,
             primary: true,
           ),
+          if (login.clock)
+            (FocusNode? node) => DateSettingsButton(focusNode: node),
           support,
           notMine,
         ],

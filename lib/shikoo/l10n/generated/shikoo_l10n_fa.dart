@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -838,4 +839,14 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get shortcutToggle => 'وصل / قطع';
+
+  @override
+  String get clockWrongTitle => 'تاریخ و ساعت دستگاهت درست نیست.';
+
+  @override
+  String get clockWrongHelp =>
+      'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
+
+  @override
+  String get dateSettings => 'تنظیمات تاریخ و ساعت';
 }

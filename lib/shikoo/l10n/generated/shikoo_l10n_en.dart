@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -889,4 +890,14 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get shortcutToggle => 'Connect / Disconnect';
+
+  @override
+  String get clockWrongTitle => 'Your device\'s date and time are wrong.';
+
+  @override
+  String get clockWrongHelp =>
+      'In Settings › Date & time, turn on “Automatic” (or set them right), then try again.';
+
+  @override
+  String get dateSettings => 'Date & time settings';
 }

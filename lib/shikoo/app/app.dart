@@ -16,6 +16,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/state.dart';
@@ -182,25 +183,41 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   }
 }
 
+MaterialApp _bareApp(
+  Widget home, {
+  ShikooLook look = (theme: ThemeMode.system, language: shikooDefaultLanguage),
+}) => MaterialApp(
+  debugShowCheckedModeBanner: false,
+  locale: Locale(look.language),
+  supportedLocales: ShikooL10n.supportedLocales,
+  localizationsDelegates: _delegates,
+  themeMode: look.theme,
+  theme: shikooThemeData(Brightness.light, tv: system.isTV),
+  darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
+  home: home,
+);
+
 class ShikooInitErrorApp extends StatelessWidget {
   const ShikooInitErrorApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      locale: const Locale(shikooDefaultLanguage),
-      supportedLocales: ShikooL10n.supportedLocales,
-      localizationsDelegates: _delegates,
-      theme: shikooThemeData(Brightness.light, tv: system.isTV),
-      darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(child: Text(ShikooL10n.of(context).initError)),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _bareApp(
+    Builder(
+      builder: (context) =>
+          Scaffold(body: Center(child: Text(ShikooL10n.of(context).initError))),
+    ),
+  );
+}
+
+class ShikooClockApp extends StatelessWidget {
+  const ShikooClockApp({super.key, required this.look, required this.onRetry});
+
+  final ShikooLook look;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) =>
+      _bareApp(ClockPage(onRetry: onRetry), look: look);
 }
 
 /// FlClash's rare dialogs and toasts throw without its strings, and its delegate refuses `fa`.

@@ -2,6 +2,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
@@ -343,6 +344,64 @@ void main() {
     );
     expect(find.widgetWithText(ShikooButton, 'دوباره'), findsNothing);
     expect(button('چسباندن لینک اشتراک').onPressed, isNotNull);
+  });
+
+  testWidgets('a code the clock kept away says so, with the date settings, on '
+      'TV and phone', (tester) async {
+    const clock = ShikooLogin(LoginPhase.startFailed, clock: true);
+    for (final tv in [true, false]) {
+      await _pump(tester, tv: tv, login: clock);
+      expect(
+        find.textContaining(
+          'تاریخ و ساعت دستگاهت درست نیست.',
+          findRichText: true,
+        ),
+        findsOne,
+        reason: 'tv: $tv',
+      );
+      expect(find.textContaining('اینترنت', findRichText: true), findsNothing);
+      expect(
+        find.widgetWithText(ShikooButton, 'تنظیمات تاریخ و ساعت'),
+        findsOne,
+      );
+    }
+  });
+
+  testWidgets('the clock page says why, the remote starts on the date settings '
+      'and «دوباره» retries', (tester) async {
+    var retries = 0;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(
+      () => FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.automatic,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: ShikooL10n.supportedLocales,
+        localizationsDelegates: const [
+          ShikooL10n.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        theme: shikooThemeData(Brightness.light, tv: true),
+        home: ClockPage(onRetry: () => retries++),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining(
+        'تاریخ و ساعت دستگاهت درست نیست.',
+        findRichText: true,
+      ),
+      findsOne,
+    );
+    expect(_focusedButton(), 'تنظیمات تاریخ و ساعت');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(_focusedButton(), 'دوباره');
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    expect(retries, 1);
   });
 
   testWidgets('a TV whose only service has no link shows its card, the remote '

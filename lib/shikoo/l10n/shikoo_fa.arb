@@ -218,5 +218,8 @@
   "approvedMoreServices": "و {count} سرویس دیگر",
   "notificationStop": "قطع اتصال",
   "notificationStopping": "در حال قطع اتصال…",
-  "shortcutToggle": "وصل / قطع"
+  "shortcutToggle": "وصل / قطع",
+  "clockWrongTitle": "تاریخ و ساعت دستگاهت درست نیست.",
+  "clockWrongHelp": "از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.",
+  "dateSettings": "تنظیمات تاریخ و ساعت"
 }
