@@ -41,6 +41,7 @@ class ServiceBroadcastReceiver : BroadcastReceiver() {
 
             BroadcastAction.VPN_REVOKED.action -> {
                 GlobalState.log("VPN permission revoked")
+                ShikooDiag.event("revoked")
                 ServiceState.handleVpnRevokeAction()
             }
         }
