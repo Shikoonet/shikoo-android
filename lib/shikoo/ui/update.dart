@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -15,12 +17,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// The states of `phone-cards-update`, the forced page's too.
-enum _Step { offered, downloading, ready, failed, badFile, noSpace }
+enum _Step { offered, downloading, ready, failed, badFile, noSpace, clock }
 
 _Step _stepOf(UpdateOffer offer) => switch (offer) {
   UpdateOffer(error: UpdateError.checksum) => _Step.badFile,
   UpdateOffer(error: UpdateError.network) => _Step.failed,
   UpdateOffer(error: UpdateError.noSpace) => _Step.noSpace,
+  UpdateOffer(error: UpdateError.clock) => _Step.clock,
   UpdateOffer(phase: UpdatePhase.downloading) => _Step.downloading,
   UpdateOffer(phase: UpdatePhase.ready) => _Step.ready,
   _ => _Step.offered,
@@ -45,6 +48,7 @@ String _progress(ShikooL10n l, UpdateOffer offer) => l.updateProgress(
   _Step.failed => (l.updateDownloadFailedTitle, l.updateDownloadFailedHelp),
   _Step.badFile => (l.updateBadFileTitle, l.updateBadFileHelp),
   _Step.noSpace => (l.updateNoSpaceTitle, l.updateNoSpaceHelp),
+  _Step.clock => (l.clockWrongTitle, l.clockWrongHelp),
   _ => null,
 };
 
@@ -258,18 +262,29 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
                 final beside =
                     box.maxWidth - Space.s3 - buttonWidth >=
                     12 * scaler.scale(t.s.body);
+                // Under retry, on its side, so the remote's Down goes from one to the other.
+                final dateSettings = step == _Step.clock
+                    ? const DateSettingsButton()
+                    : null;
                 return beside
-                    ? Row(
-                        spacing: Space.s3,
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        spacing: Space.s2,
                         children: [
-                          Expanded(child: texts),
-                          button,
+                          Row(
+                            spacing: Space.s3,
+                            children: [
+                              Expanded(child: texts),
+                              button,
+                            ],
+                          ),
+                          ?dateSettings,
                         ],
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         spacing: Space.s2,
-                        children: [texts, button],
+                        children: [texts, button, ?dateSettings],
                       );
               },
             ),
@@ -380,6 +395,12 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
           icon: ShikooIcon.refresh,
           first: true,
         ),
+        if (step == _Step.clock)
+          button(
+            l.dateSettings,
+            () => unawaited(openDateSettings()),
+            icon: ShikooIcon.gear,
+          ),
         button(l.support, support, icon: ShikooIcon.qr),
       ],
     };

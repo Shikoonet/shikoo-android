@@ -150,7 +150,7 @@ Future<ProviderContainer> _pump(
   final signIn = _SignIn();
   when(signIn.start).thenAnswer((_) async => null);
   final update = _Update();
-  when(update.checkNow).thenAnswer((_) async => true);
+  when(update.checkNow).thenAnswer((_) async => null);
   final container = ProviderContainer(
     overrides: [
       shikooStateProvider.overrideWithValue(state ?? _signedOut(device.tv)),

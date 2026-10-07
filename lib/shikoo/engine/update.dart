@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:fl_clash/providers/providers.dart' show versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart' show clockFailed;
 import 'package:fl_clash/shikoo/engine/controller.dart' show ShikooCell;
 import 'package:fl_clash/shikoo/engine/ping.dart' show isDue;
 import 'package:fl_clash/state.dart';
@@ -25,7 +26,8 @@ const _abiNames = {
 
 enum UpdatePhase { offered, downloading, ready }
 
-enum UpdateError { network, checksum, noSpace, install }
+/// [clock]: TLS refused the door for this device's clock, as `clockFailed` judges it.
+enum UpdateError { network, checksum, noSpace, install, clock }
 
 /// What Android still needs before installing: this app's own permission (8 and up), or
 /// Unknown sources for every app (7).
@@ -88,7 +90,7 @@ class ShikooUpdate {
   DateTime Function() now = DateTime.now;
 
   DateTime? _checked;
-  Future<bool>? _checking;
+  Future<UpdateError?>? _checking;
   Future<void>? _downloading;
   CancelToken? _cancel;
   bool _awaitingPermission = false;
@@ -137,20 +139,22 @@ class ShikooUpdate {
     if (isDue(_checked, now(), updateEvery)) await checkNow();
   }
 
-  /// Settings' «بررسی به‌روزرسانی», past [updateEvery]; false when the door did not answer.
-  Future<bool> checkNow() =>
+  /// Settings' «بررسی به‌روزرسانی», past [updateEvery]; null once the door answered.
+  Future<UpdateError?> checkNow() =>
       _checking ??= _check().whenComplete(() => _checking = null);
 
-  Future<bool> _check() async {
+  Future<UpdateError?> _check() async {
     final AppRelease? release;
     try {
       release = await _api.update(abi);
-    } catch (_) {
-      return false;
+    } catch (error) {
+      return error is ShikooApiFailure && error.clock
+          ? UpdateError.clock
+          : UpdateError.network;
     }
     _checked = now();
     await _take(release);
-    return true;
+    return null;
   }
 
   Future<void> _take(AppRelease? release) async {
@@ -232,6 +236,8 @@ class ShikooUpdate {
       await part.rename(_apk(dir, release).path);
       _move(UpdatePhase.ready);
     } catch (error) {
+      final clock =
+          !cancel.isCancelled && await clockFailed(error, release.url);
       if (stale()) return;
       final noSpace =
           error is FileSystemException && error.osError?.errorCode == 28;
@@ -244,7 +250,11 @@ class ShikooUpdate {
         received: kept,
         error: cancel.isCancelled
             ? null
-            : (noSpace ? UpdateError.noSpace : UpdateError.network),
+            : noSpace
+            ? UpdateError.noSpace
+            : clock
+            ? UpdateError.clock
+            : UpdateError.network,
       );
     }
   }

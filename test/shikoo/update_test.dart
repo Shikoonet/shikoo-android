@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/providers/providers.dart' show versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart' show shikooSkew;
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +32,9 @@ class _Door implements HttpClientAdapter {
   /// A download stalls at this byte until it is cancelled.
   int? holdAt;
 
+  /// Android refuses the door's certificate with this reason.
+  String? refusedFor;
+
   Iterable<RequestOptions> get downloads =>
       requests.where((r) => r.uri.path.startsWith('/dl/'));
 
@@ -47,6 +51,15 @@ class _Door implements HttpClientAdapter {
       throw DioException.connectionError(
         requestOptions: options,
         reason: 'unreachable',
+      );
+    }
+    if (refusedFor case final reason?) {
+      throw DioException(
+        requestOptions: options,
+        error: HandshakeException(
+          'Handshake error in client',
+          OSError('CERTIFICATE_VERIFY_FAILED: $reason(handshake.cc:297)'),
+        ),
       );
     }
     if (options.uri.path == '/api/v1/app/update') {
@@ -107,6 +120,17 @@ class _Door implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// The door's plain http, which only `clockFailed` asks: it answers with its own [clock].
+Future<String> _plainDoor(DateTime clock) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  addTearDown(() => server.close(force: true));
+  server.listen((request) {
+    request.response.headers.date = clock;
+    unawaited(request.response.close());
+  });
+  return 'http://127.0.0.1:${server.port}';
 }
 
 void main() {
@@ -243,10 +267,10 @@ void main() {
       final update = start();
       await update.check();
       expect(door.checks, 1);
-      expect(await update.checkNow(), isTrue);
+      expect(await update.checkNow(), isNull);
       expect(door.checks, 2);
       door.dead.add('door.test');
-      expect(await update.checkNow(), isFalse);
+      expect(await update.checkNow(), UpdateError.network);
       expect(door.checks, 3);
     });
 
@@ -396,6 +420,54 @@ void main() {
       expect(offer()!.error, UpdateError.noSpace);
       expect(Link(part().path).existsSync(), isTrue);
     }, skip: !File('/dev/full').existsSync());
+  });
+
+  group('an expired certificate', () {
+    const years14 = Duration(days: 14 * 365);
+    setUp(() {
+      // The test binding answers every real request 400; clockFailed's plain request must reach the door.
+      final mocked = HttpOverrides.current;
+      HttpOverrides.global = null;
+      addTearDown(() => HttpOverrides.global = mocked);
+    });
+    tearDown(() => shikooSkew = Duration.zero);
+
+    test('fails a check as the clock when the door\'s own clock is 14 years '
+        'off, and as the network when it agrees', () async {
+      door.refusedFor = 'certificate has expired';
+      for (final (off, error) in [
+        (years14, UpdateError.clock),
+        (-years14, UpdateError.clock),
+        (Duration.zero, UpdateError.network),
+      ]) {
+        final plain = await _plainDoor(DateTime.now().add(off));
+        expect(await start(bases: [plain]).checkNow(), error, reason: '$off');
+        expect(offer(), isNull);
+      }
+    });
+
+    test('fails a download the same way, and the next tap continues', () async {
+      for (final (off, error) in [
+        (years14, UpdateError.clock),
+        (Duration.zero, UpdateError.network),
+      ]) {
+        final update = start(
+          bases: [await _plainDoor(DateTime.now().add(off))],
+        );
+        door.refusedFor = null;
+        await update.check();
+        door.refusedFor = 'certificate has expired';
+        await update.download();
+        expect(offer()!.phase, UpdatePhase.offered, reason: '$off');
+        expect(offer()!.error, error, reason: '$off');
+
+        door.refusedFor = null;
+        await update.download();
+        expect(offer()!.phase, UpdatePhase.ready);
+        expect(offer()!.error, isNull);
+        apk().deleteSync();
+      }
+    });
   });
 
   group('install', () {

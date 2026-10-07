@@ -505,6 +505,49 @@ void main() {
       );
     }
   });
+
+  testWidgets('a download the device\'s clock spoiled says so on the card and '
+      'the forced page, with the date settings beside retry', (tester) async {
+    const title = 'تاریخ و ساعت دستگاهت درست نیست.';
+    const dateSettings = 'تنظیمات تاریخ و ساعت';
+    final clock = _offer(
+      UpdatePhase.offered,
+      received: 9000000,
+      error: UpdateError.clock,
+    );
+    for (final isTV in [false, true]) {
+      await _pump(tester, clock, isTV: isTV);
+      expect(
+        tester.widget<Text>(_inCard(title)).style!.color,
+        ShikooTheme.of(tester.element(_inCard(title))).c.danger,
+        reason: 'TV $isTV',
+      );
+      expect(_inCard('دریافت نشد.'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(UpdateCard),
+          matching: find.widgetWithText(ShikooButton, dateSettings),
+        ),
+        findsOneWidget,
+      );
+      if (isTV) {
+        await _focus(tester, 'دوباره');
+        expect(await _press(tester, _down), dateSettings);
+      }
+      await tester.tap(_inCard('دوباره'));
+      await tester.pumpAndSettle();
+      verify(_engine.download).called(1);
+
+      await _pump(tester, _forced(clock), isTV: isTV, root: true);
+      expect(find.textContaining(title), findsOneWidget);
+      expect(find.widgetWithText(ShikooButton, dateSettings), findsOneWidget);
+      if (isTV) {
+        expect(_focused(), 'دوباره');
+        expect(await _press(tester, _towardPower), dateSettings);
+        expect(await _press(tester, _towardPower), 'پشتیبانی');
+      }
+    }
+  });
 }
 
 UpdateOffer _forced(UpdateOffer offer) => UpdateOffer(

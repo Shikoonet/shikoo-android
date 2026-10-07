@@ -24,6 +24,10 @@ const _check = 'بررسی به‌روزرسانی';
 const _checking = 'در حال بررسی…';
 const _latest = 'نسخهٔ تو تازه‌ترین است.';
 const _failed = 'بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.';
+const _clock =
+    'تاریخ و ساعت دستگاهت درست نیست. '
+    'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
+const _dateSettings = 'تنظیمات تاریخ و ساعت';
 const _core = '\u2066FlClash\u00A0$flclashVersion\u2069';
 
 const _release = AppRelease(
@@ -78,7 +82,7 @@ Future<ProviderContainer> _pump(
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   _engine = _Update();
-  when(_engine.checkNow).thenAnswer((_) async => true);
+  when(_engine.checkNow).thenAnswer((_) async => null);
   final container = ProviderContainer(
     overrides: [
       shikooStateProvider.overrideWithValue(
@@ -211,7 +215,7 @@ void main() {
       'or a red failure, and the row itself asks again', (tester) async {
     for (final isTV in [false, true]) {
       await _pump(tester, isTV: isTV);
-      final asked = <Completer<bool>>[];
+      final asked = <Completer<UpdateError?>>[];
       when(_engine.checkNow).thenAnswer((_) {
         asked.add(Completer());
         return asked.last.future;
@@ -233,12 +237,12 @@ void main() {
         findsOneWidget,
       );
       if (isTV) expect(_focused(), _check);
-      asked.last.complete(true);
+      asked.last.complete(null);
       await tester.pumpAndSettle();
       expect(find.text(_latest), findsOneWidget);
 
       await press();
-      asked.last.complete(false);
+      asked.last.complete(UpdateError.network);
       await tester.pumpAndSettle();
       final line = tester.widget<Text>(find.text(_failed));
       expect(
@@ -247,6 +251,34 @@ void main() {
       );
       if (isTV) expect(_focused(), _check);
       verify(_engine.checkNow).called(2);
+    }
+  });
+
+  testWidgets('a check the device\'s clock spoiled says so in red, with the '
+      'date settings under it; on the TV the remote goes check, it, About', (
+    tester,
+  ) async {
+    for (final isTV in [false, true]) {
+      await _pump(tester, isTV: isTV);
+      when(_engine.checkNow).thenAnswer((_) async => UpdateError.clock);
+      if (isTV) {
+        await _focus(tester, _row(_check));
+        await _press(tester, LogicalKeyboardKey.select);
+      } else {
+        await tester.tap(find.text(_check));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        tester.widget<Text>(find.text(_clock)).style!.color,
+        ShikooTheme.of(tester.element(find.text(_clock))).c.danger,
+        reason: 'TV $isTV',
+      );
+      expect(find.text(_failed), findsNothing);
+      expect(find.widgetWithText(ShikooButton, _dateSettings), findsOneWidget);
+      if (!isTV) continue;
+      expect(_focused(), _check);
+      expect(await _press(tester, LogicalKeyboardKey.arrowDown), _dateSettings);
+      expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
     }
   });
 
@@ -260,7 +292,7 @@ void main() {
         container
             .read(shikooUpdateOfferProvider.notifier)
             .set(_cards['offered']);
-        return true;
+        return null;
       });
       if (isTV) {
         // By keys, as on a TV: Up must not undo the Down that reached the row.
@@ -367,7 +399,7 @@ void main() {
         );
         when(_engine.checkNow).thenAnswer((_) async {
           container.read(shikooUpdateOfferProvider.notifier).set(_cards[from]);
-          return true;
+          return null;
         });
         _growOnPress(container, to);
         await tester.dragUntilVisible(
@@ -395,7 +427,7 @@ void main() {
         container
             .read(shikooUpdateOfferProvider.notifier)
             .set(_cards['install failed']);
-        return true;
+        return null;
       });
       await tester.dragUntilVisible(
         find.text(_check),
@@ -430,7 +462,7 @@ void main() {
       tester.getRect(find.text(_core)).top,
       greaterThan(tester.getRect(find.text('هسته')).bottom),
     );
-    when(_engine.checkNow).thenAnswer((_) async => false);
+    when(_engine.checkNow).thenAnswer((_) async => UpdateError.network);
     await tester.ensureVisible(find.text(_check));
     await tester.tap(find.text(_check));
     await tester.pumpAndSettle();

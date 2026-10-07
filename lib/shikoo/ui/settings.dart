@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -268,7 +269,7 @@ class ShikooSettings extends ConsumerWidget {
   }
 }
 
-enum _Check { idle, checking, latest, failed }
+enum _Check { idle, checking, latest, failed, clock }
 
 /// Settings › App: the version, the core, a check that does not wait out the six hours, and
 /// About. A known update stands in for the check as Home's card (phone-cards-settings-app).
@@ -295,9 +296,15 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
   Future<void> _checkNow() async {
     if (_check == _Check.checking) return;
     setState(() => _check = _Check.checking);
-    final answered = await ref.read(shikooUpdateProvider).checkNow();
+    final error = await ref.read(shikooUpdateProvider).checkNow();
     if (!mounted) return;
-    setState(() => _check = answered ? _Check.latest : _Check.failed);
+    setState(
+      () => _check = switch (error) {
+        null => _Check.latest,
+        UpdateError.clock => _Check.clock,
+        _ => _Check.failed,
+      },
+    );
     if (ref.read(shikooUpdateOfferProvider) == null) return;
     // The answer to the press shows: on the TV the remote goes from the row that left to the
     // card's button (tv-settings-app-found); on a phone the card scrolls into view once.
@@ -342,9 +349,21 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
                     _Check.checking => l.settingsChecking,
                     _Check.latest => l.settingsUpToDate,
                     _Check.failed => l.settingsCheckFailed,
+                    _Check.clock => clockText(l),
                   },
-                  alert: _check == _Check.failed,
+                  alert: _check == _Check.failed || _check == _Check.clock,
                   onPressed: () => unawaited(_checkNow()),
+                ),
+              if (update == null && _check == _Check.clock)
+                const Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: Space.s4,
+                    vertical: Space.s3,
+                  ),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: DateSettingsButton(),
+                  ),
                 ),
               _Row(
                 title: l.about,

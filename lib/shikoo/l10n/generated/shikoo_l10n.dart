@@ -1412,7 +1412,7 @@ abstract class ShikooL10n {
   /// **'Connect / Disconnect'**
   String get shortcutToggle;
 
-  /// Instead of a sign-in, update or paste failure when the server's certificate was refused for this device's clock, and on the screen that stops the app before mid-2012 dates crash its core.
+  /// Instead of a sign-in, subscription update, paste, app update check or app download failure when the server's certificate was refused for this device's clock, and on the screen that stops the app before mid-2012 dates crash its core.
   ///
   /// In en, this message translates to:
   /// **'Your device\'s date and time are wrong.'**
