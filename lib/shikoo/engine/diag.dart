@@ -687,7 +687,15 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     return false;
   }
 
-  static const _wrappers = {'Focus', 'Semantics', 'Actions', 'Shortcuts'};
+  static const _wrappers = {
+    'Focus',
+    'Semantics',
+    'Actions',
+    'Shortcuts',
+    'MouseRegion',
+    'DefaultSelectionStyle',
+    'GestureDetector',
+  };
 
   static String _named(BuildContext context) {
     String? name(Widget widget) {
