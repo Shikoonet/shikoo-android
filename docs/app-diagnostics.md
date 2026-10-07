@@ -109,8 +109,10 @@ Android (AOSP `frameworks/base` main, read 2026-10-07, unless named):
   `UsageStatsManager.java:735-753`, API 28); `ConnectivityManager.getRestrictBackgroundStatus` (Data Saver,
   `ConnectivityManager.java:4683` at `android-11.0.0_r1`, API 24).
 - An app reads its own log lines without `READ_LOGS` (the verifier traced it: `logd/LogBuffer.cpp:938` on API 24,
-  `LogReader.cpp:255-262` on main). Go writes a fatal panic to fd 2, which in an app process is not expected to
-  reach logcat (old official logging page; ART redirects only `System.out/err`). Unproven on our devices.
+  `LogReader.cpp:255-262` on main). Go writes a fatal panic to fd 2, and on Android its runtime copies the same text
+  to logcat under the tag `Go` (`runtime/write_err_android.go`; three `E Go` lines on the API 35 emulator,
+  2026-10-07). That copy is lost once the buffer turns over, and a report reads only its own `FlClash` tag, so the
+  file below is what reaches support.
 - Go `runtime/debug.SetCrashOutput(f, CrashOptions{})` (go1.23): "a single additional file where unhandled panics and
   other fatal errors are printed, in addition to standard error".
 - HyperOS's autostart and background killer have no API. The only evidence a killed app gets is its exit record on
@@ -382,7 +384,7 @@ TV lacks it.
 - Android 12 TV (the jumping one, spinner gone): the renderer line is readable by the app in a release build; the two
   images, the frame summary and the UI events show the jump; if it is layout, its numbers make WP7 fail before the fix.
 - Mi Box (Android 9, 32-bit, API 28): `coreController.crash()` in a debug build leaves `go-crash.txt` with the Go stack,
-  and nothing in logcat; a forced Kotlin crash leaves `java-crash.txt`, also when started from the tile with no
+  as on the API 35 emulator; a forced Kotlin crash leaves `java-crash.txt`, also when started from the tile with no
   Activity; no exit records (below API 30) but «alive ×n» stops where the process died; the SIM fallback runs (only
   the data SIM and the default voice SIM) and, with no telephony, returns empty without throwing; both images work on
   its Mali GPU; D-pad keys and focus moves are recorded; the own-logcat tail
