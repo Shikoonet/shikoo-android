@@ -214,11 +214,11 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
   since the broadcast is explicit; without it the only trace is our own logcat on the next start.
 - **Go**: a new file `core/shikoo_crash.go` with `//go:build go1.23` holds `setCrashOutput(home)`
   (`debug.SetCrashOutput` on `<home>/go-crash.txt`, append); one line after `constant.SetHomeDir` in `core/hub.go:45`
-  calls it (patch row). It also sets `debug.SetTraceback("single")`: on the API 25 emulator the core came up with no
-  traceback level, and the file and logcat's `Go` copy held only the panic's first line. The build line raises that
-  file's language version, so `go vet` accepts it without touching `go.mod`. Ceiling: a panic in a Go package
-  `init` runs at `System.loadLibrary`, before that line, so it shows only as an exit record (API 30+); the pre-2012
-  clock case of `fix/wrong-clock` is one.
+  calls it (patch row). It also sets `debug.SetTraceback("single")`: on the API 25 emulator the core behaved as if at
+  traceback level none (cause unknown; no `GOTRACEBACK` in its environment), and the file and logcat's `Go` copy held
+  only the panic's first line. The build line raises that file's language version, so `go vet` accepts it without
+  touching `go.mod`. Ceiling: a panic in a Go package `init` runs at `System.loadLibrary`, before that line, so it
+  shows only as an exit record (API 30+); the pre-2012 clock case of `fix/wrong-clock` is one.
 - **Exit records**, API 30+: `ShikooDiag.kt` returns those newer than the last seen (reason, status, time,
   description, PSS/RSS), with an ANR's `"main"` thread block (≤ 8192 characters). A native crash sends its record without the
   tombstone.
