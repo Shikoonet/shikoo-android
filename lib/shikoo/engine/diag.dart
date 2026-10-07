@@ -695,6 +695,8 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     'MouseRegion',
     'DefaultSelectionStyle',
     'GestureDetector',
+    'FocusableActionDetector',
+    'Pressable',
   };
 
   static String _named(BuildContext context) {
