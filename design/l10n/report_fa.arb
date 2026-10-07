@@ -36,5 +36,7 @@
   "reportCodeSmall": "کد گزارش: {code}",
   "reportGiveCode": "این کد را به پشتیبانی بده.",
   "reportFailedTitle": "فرستاده نشد",
-  "reportFailedHelp": "اینترنت را بررسی کن و دوباره بزن."
+  "reportFailedHelp": "اینترنت را بررسی کن و دوباره بزن.",
+  "reportFailedBusy": "الان گزارش‌های زیادی رسیده. یک ساعت دیگر دوباره بزن.",
+  "reportFailedRefused": "ایراد از سمت ماست. در تلگرام با پشتیبانی گفتگو کن."
 }
