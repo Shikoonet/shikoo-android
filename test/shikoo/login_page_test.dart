@@ -368,8 +368,11 @@ void main() {
   });
 
   testWidgets('the clock page says why, the remote starts on the date settings '
-      'and «دوباره» retries', (tester) async {
+      'and «دوباره» retries, saying so while the clock is still wrong', (
+    tester,
+  ) async {
     var retries = 0;
+    var right = false;
     FocusManager.instance.highlightStrategy =
         FocusHighlightStrategy.alwaysTraditional;
     addTearDown(
@@ -385,7 +388,12 @@ void main() {
           ...GlobalMaterialLocalizations.delegates,
         ],
         theme: shikooThemeData(Brightness.light, tv: true),
-        home: ClockPage(onRetry: () => retries++),
+        home: ClockPage(
+          onRetry: () {
+            retries++;
+            return right;
+          },
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -400,8 +408,17 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
     expect(_focusedButton(), 'دوباره');
+    expect(find.text('ساعت هنوز درست نیست.'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
     expect(retries, 1);
+    expect(find.text('ساعت هنوز درست نیست.'), findsOne);
+
+    right = true;
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(retries, 2);
+    expect(find.text('ساعت هنوز درست نیست.'), findsNothing);
   });
 
   testWidgets('a TV whose only service has no link shows its card, the remote '

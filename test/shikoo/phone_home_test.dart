@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -1603,6 +1604,39 @@ void main() {
         reason: '$locale: a mixed name, the username first too',
       );
     }
+  });
+
+  testWidgets('on a clock 14 years ahead, a service the server ended 3 days '
+      'ago is finished 3 days ago', (tester) async {
+    const years14 = Duration(days: 14 * 365);
+    shikooSkew = -years14;
+    addTearDown(() => shikooSkew = Duration.zero);
+    final phone = _phone();
+    await _pump(
+      tester,
+      ShikooState(
+        connection: phone.connection,
+        connectedFor: phone.connectedFor,
+        isTV: false,
+        service: phone.service,
+        servers: phone.servers,
+        selected: phone.selected,
+        others: [
+          ShikooService(
+            id: 7,
+            name: 'user555 · الماس',
+            usedBytes: 0,
+            totalBytes: 0,
+            expire: DateTime.now().subtract(years14 + const Duration(days: 3)),
+          ),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۱)');
+    await tester.ensureVisible(head);
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    expect(find.text('۳ روز پیش تمام شد'), findsOneWidget);
   });
 }
 

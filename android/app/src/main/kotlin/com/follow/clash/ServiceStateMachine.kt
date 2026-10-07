@@ -38,7 +38,10 @@ internal const val CLOCK_WRONG_MESSAGE = "تاریخ و ساعت دستگاه د
  * suspension point re-checks [isCurrent] before it publishes anything, so a start that was overtaken
  * by a stop cannot report itself as started.
  */
-internal class ServiceStateMachine(private val host: ServiceStateHost) {
+internal class ServiceStateMachine(
+    private val host: ServiceStateHost,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
+) {
     private val transitionLock = Mutex()
     private val startPreparationLock = Mutex()
     private val mutableRunState = MutableStateFlow(RunState.STOPPED)
@@ -173,7 +176,7 @@ internal class ServiceStateMachine(private val host: ServiceStateHost) {
             host.showToast(MISSING_CONFIG_MESSAGE)
             return
         }
-        if (System.currentTimeMillis() < CLOCK_FLOOR_MILLIS) {
+        if (nowMillis() < CLOCK_FLOOR_MILLIS) {
             host.showToast(CLOCK_WRONG_MESSAGE)
             return
         }

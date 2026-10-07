@@ -9,6 +9,7 @@ import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -72,13 +73,15 @@ Future<void> _untilClockRight() async {
   }
   final right = Completer<void>();
   runApp(
-    ShikooClockApp(
+    bareApp(
+      ClockPage(
+        onRetry: () {
+          if (clockTooEarly(DateTime.now())) return false;
+          if (!right.isCompleted) right.complete();
+          return true;
+        },
+      ),
       look: look,
-      onRetry: () {
-        if (!clockTooEarly(DateTime.now()) && !right.isCompleted) {
-          right.complete();
-        }
-      },
     ),
   );
   await right.future;

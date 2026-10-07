@@ -404,6 +404,18 @@ class ServiceStateMachineTest {
     }
 
     @Test
+    fun `handleStartAction on a clock before the floor never sets the core up`() = runTest {
+        val host = FakeHost(backgroundScope)
+        val machine = ServiceStateMachine(host) { CLOCK_FLOOR_MILLIS - 1 }
+
+        machine.handleStartAction()
+
+        assertEquals(listOf(CLOCK_WRONG_MESSAGE), host.toasts)
+        assertEquals(0, host.setupCalls)
+        assertEquals(RunState.STOPPED, machine.runState.value)
+    }
+
+    @Test
     fun `handleStartAction loads the stored configuration and sets the core up`() = runTest {
         val host = FakeHost(backgroundScope)
         val machine = ServiceStateMachine(host)

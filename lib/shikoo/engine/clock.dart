@@ -15,7 +15,7 @@ Duration shikooSkew = Duration.zero;
 
 DateTime shikooNow() => DateTime.now().add(shikooSkew);
 
-Duration? _skewOf(String? date) {
+Duration? skewOf(String? date) {
   if (date == null) return null;
   try {
     return HttpDate.parse(date).difference(DateTime.now());
@@ -30,7 +30,7 @@ bool _keep(Duration skew) {
 }
 
 void learnClock(String? date) {
-  if (_skewOf(date) case final skew?) _keep(skew);
+  if (skewOf(date) case final skew?) _keep(skew);
 }
 
 final _plain = Dio(
@@ -60,7 +60,7 @@ Future<bool> clockFailed(Object error, String url) async {
   } on DioException {
     return early;
   }
-  final skew = _skewOf(response.headers.value(HttpHeaders.dateHeader));
+  final skew = skewOf(response.headers.value(HttpHeaders.dateHeader));
   return skew == null ? early : _keep(skew);
 }
 

@@ -33,10 +33,18 @@ class DateSettingsButton extends StatelessWidget {
 }
 
 /// Phone and TV alike; the app goes no further until [onRetry] finds the clock right.
-class ClockPage extends StatelessWidget {
+class ClockPage extends StatefulWidget {
   const ClockPage({super.key, required this.onRetry});
 
-  final VoidCallback onRetry;
+  /// False while the clock is still before the floor.
+  final bool Function() onRetry;
+
+  @override
+  State<ClockPage> createState() => _ClockPageState();
+}
+
+class _ClockPageState extends State<ClockPage> {
+  bool _stillWrong = false;
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +74,18 @@ class ClockPage extends StatelessWidget {
                   ShikooButton(
                     label: l.retry,
                     icon: ShikooIcon.refresh,
-                    onPressed: onRetry,
+                    onPressed: () =>
+                        setState(() => _stillWrong = !widget.onRetry()),
                   ),
+                  if (_stillWrong)
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        l.clockStillWrong,
+                        textAlign: TextAlign.center,
+                        style: t.text(t.s.bodySm, color: t.c.danger),
+                      ),
+                    ),
                 ],
               ),
             ),

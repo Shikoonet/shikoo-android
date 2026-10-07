@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpDate, HttpException, HttpHeaders, InternetAddress;
+import 'dart:io' show HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -329,14 +329,9 @@ class ShikooApi {
   }
 
   /// A box's clock can be hours off; the server's own clock measures the code's life.
-  static DateTime _serverNow(Response<Object?> response) {
-    final date = response.headers.value(HttpHeaders.dateHeader);
-    try {
-      return date == null ? DateTime.now() : HttpDate.parse(date);
-    } on HttpException {
-      return DateTime.now();
-    }
-  }
+  static DateTime _serverNow(Response<Object?> response) => DateTime.now().add(
+    skewOf(response.headers.value(HttpHeaders.dateHeader)) ?? Duration.zero,
+  );
 
   /// A 429 or a server error is only "ask again later".
   Future<PollAnswer> poll(String code, String secret) async {

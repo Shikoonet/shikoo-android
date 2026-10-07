@@ -1424,6 +1424,12 @@ abstract class ShikooL10n {
   /// **'In Settings › Date & time, turn on “Automatic” (or set them right), then try again.'**
   String get clockWrongHelp;
 
+  /// Under “Try again” on the clock screen, when it was pressed and the clock is still before the floor.
+  ///
+  /// In en, this message translates to:
+  /// **'The clock is still wrong.'**
+  String get clockStillWrong;
+
   /// Opens Android's date and time settings, or its main settings when a TV box has none.
   ///
   /// In en, this message translates to:
