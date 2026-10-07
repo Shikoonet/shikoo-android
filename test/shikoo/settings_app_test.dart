@@ -331,6 +331,41 @@ void main() {
     }
   });
 
+  testWidgets('on a phone the card a press found scrolls into view; one the '
+      'page opened with leaves the page where it was', (tester) async {
+    const phone = Size(720, 1600);
+    for (final scale in const [1.0, 1.45]) {
+      final container = await _pump(tester, size: phone, scale: scale);
+      when(_engine.checkNow).thenAnswer((_) async {
+        container
+            .read(shikooUpdateOfferProvider.notifier)
+            .set(_cards['install failed']);
+        return true;
+      });
+      await tester.dragUntilVisible(
+        find.text(_check),
+        find.byType(SingleChildScrollView),
+        const Offset(0, -40),
+      );
+      await tester.tap(find.text(_check));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(UpdateCard)).bottom,
+        lessThanOrEqualTo(800),
+        reason: 'font $scale',
+      );
+
+      await _pump(
+        tester,
+        size: phone,
+        scale: scale,
+        offer: _cards['install failed'],
+      );
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scroll.position.pixels, 0, reason: 'font $scale');
+    }
+  });
+
   testWidgets('on a small phone with large text nothing overflows, and the '
       'core\'s version goes under its label', (tester) async {
     const small = Size(720, 1600);

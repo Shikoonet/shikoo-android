@@ -281,6 +281,7 @@ class _AppGroup extends ConsumerStatefulWidget {
 }
 
 class _AppGroupState extends ConsumerState<_AppGroup> {
+  final _card = GlobalKey();
   final _cardButton = FocusNode();
   var _check = _Check.idle;
 
@@ -296,12 +297,17 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
     final answered = await ref.read(shikooUpdateProvider).checkNow();
     if (!mounted) return;
     setState(() => _check = answered ? _Check.latest : _Check.failed);
-    // tv-settings-app-found: the remote goes from the row that left to the card's button.
-    if (widget.isTV && ref.read(shikooUpdateOfferProvider) != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) jumpFocus(context, _cardButton);
-      });
-    }
+    if (ref.read(shikooUpdateOfferProvider) == null) return;
+    // The answer to the press shows: on the TV the remote goes from the row that left to the
+    // card's button (tv-settings-app-found); on a phone the card scrolls into view once.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.isTV) {
+        jumpFocus(context, _cardButton);
+      } else if (_card.currentContext case final card?) {
+        revealWithRing(card);
+      }
+    });
   }
 
   @override
@@ -357,6 +363,7 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
           ),
           if (update != null)
             UpdateCard(
+              key: _card,
               offer: update,
               isTV: widget.isTV,
               focusNode: _cardButton,
