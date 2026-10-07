@@ -74,6 +74,7 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
   WidgetTester tester,
   ShikooState state, {
   String locale = 'fa',
+  bool canvas = false,
 }) async {
   final holder = ValueNotifier(state);
   addTearDown(holder.dispose);
@@ -96,6 +97,7 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
           ...GlobalMaterialLocalizations.delegates,
         ],
         theme: shikooThemeData(Brightness.dark, tv: true),
+        builder: canvas ? (_, child) => ShikooTvCanvas(child: child!) : null,
         home: const ShikooHome(),
       ),
     ),
@@ -276,6 +278,49 @@ void main() {
     expect(await _press(tester, _towardPower), 'power');
     expect(offset(), 0);
   });
+
+  testWidgets(
+    'a notice leaving from above the list moves the row under the '
+    'top bar, and toward the power button still goes there, not to Settings',
+    (tester) async {
+      ShikooState home({ShikooNotice? notice}) => _tv(
+        ShikooConnection.off,
+        servers: _longList,
+        selected: 'سرور 1',
+        notice: notice,
+      );
+      final wrong = <String>[];
+      for (final ratio in const [2.0, 1.0]) {
+        for (final locale in const ['fa', 'en']) {
+          _tvScreen(tester);
+          tester.view.devicePixelRatio = ratio;
+          final holder = await _pumpTvHome(
+            tester,
+            home(
+              notice: const SelectedReplaced(
+                removed: 'سرور 13',
+                replacement: 'سرور 1',
+                moved: false,
+              ),
+            ),
+            locale: locale,
+            canvas: true,
+          );
+          await tester.pumpAndSettle();
+          final rtl = locale == 'fa';
+          await _press(tester, rtl ? _towardCard : _towardPower);
+          final row = _focused();
+          holder.value = home();
+          await tester.pumpAndSettle();
+          final got = await _press(tester, rtl ? _towardPower : _towardCard);
+          if (row != 'سرور 1' || got != 'power') {
+            wrong.add('$locale, ${1920 / ratio} dp: $row, then $got');
+          }
+        }
+      }
+      expect(wrong, isEmpty);
+    },
+  );
 
   testWidgets('a new order waits while the remote is on the list', (
     tester,

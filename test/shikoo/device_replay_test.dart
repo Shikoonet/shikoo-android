@@ -372,6 +372,45 @@ void _everywhere(
 
 Finder _button(String label) => find.widgetWithText(ShikooButton, label);
 
+/// From [path]'s first button, [key] as often as [path] has steps: each stop's label, `power`,
+/// or `off the row` when the remote left the first button's row.
+Future<String> _walk(
+  WidgetTester tester,
+  List<String> path,
+  LogicalKeyboardKey key,
+) async {
+  String? on() {
+    final context = FocusManager.instance.primaryFocus?.context;
+    if (context?.findAncestorWidgetOfExactType<PowerButton>() != null) {
+      return 'power';
+    }
+    return context?.findAncestorWidgetOfExactType<ShikooButton>()?.label;
+  }
+
+  final node = Focus.of(
+    tester.element(
+      find
+          .descendant(
+            of: _button(path.first).first,
+            matching: find.byType(GestureDetector),
+          )
+          .first,
+    ),
+  );
+  FocusTraversalGroup.of(node.context!).invalidateScopeData(node.nearestScope!);
+  node.requestFocus();
+  await tester.pumpAndSettle();
+  final row = node.rect.center.dy;
+  final went = [on()];
+  while (went.length < path.length) {
+    await tester.sendKeyEvent(key);
+    await tester.pumpAndSettle();
+    final at = FocusManager.instance.primaryFocus!.rect.center.dy;
+    went.add(on() == 'power' || (at - row).abs() < 1 ? on() : 'off the row');
+  }
+  return went.join(' > ');
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -487,14 +526,6 @@ void main() {
       error: UpdateError.clock,
     );
     const noLink = LinkedService(id: 43, title: 'user456', status: 'active');
-    String? on() {
-      final context = FocusManager.instance.primaryFocus?.context;
-      if (context?.findAncestorWidgetOfExactType<PowerButton>() != null) {
-        return 'power';
-      }
-      return context?.findAncestorWidgetOfExactType<ShikooButton>()?.label;
-    }
-
     final faults = <String>[];
     for (final size in const [Size(1280, 720), Size(1920, 1080)]) {
       for (final language in const ['fa', 'en']) {
@@ -516,34 +547,8 @@ void main() {
           [l.renew, l.support, 'power'],
           [l.openBotTv, l.retry, 'power'],
         ]) {
-          final node = Focus.of(
-            tester.element(
-              find
-                  .descendant(
-                    of: _button(path.first).first,
-                    matching: find.byType(GestureDetector),
-                  )
-                  .first,
-            ),
-          );
-          FocusTraversalGroup.of(
-            node.context!,
-          ).invalidateScopeData(node.nearestScope!);
-          node.requestFocus();
-          await tester.pumpAndSettle();
-          final row = node.rect.center.dy;
-          final went = [on()];
-          while (went.length < path.length) {
-            await tester.sendKeyEvent(towardPower);
-            await tester.pumpAndSettle();
-            final at = FocusManager.instance.primaryFocus!.rect.center.dy;
-            went.add(
-              on() == 'power' || (at - row).abs() < 1 ? on() : 'off the row',
-            );
-          }
-          if (went.join(' > ') != path.join(' > ')) {
-            faults.add('$size $language: ${went.join(' > ')}');
-          }
+          final went = await _walk(tester, path, towardPower);
+          if (went != path.join(' > ')) faults.add('$size $language: $went');
         }
       }
     }
