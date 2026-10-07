@@ -257,10 +257,11 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
   `ShikooApp.builder` with `toImage(pixelRatio: 1)` (Flutter's own offscreen drawing on this GPU), and `screen`,
   `PixelCopy.request` on the `FlutterSurfaceView` (API 24+, no permission; what Flutter actually put on the window).
   Support looks at them side by side, with the WP7 replay picture at the same size: a defect in all three is our
-  layout, one only on the device is drawing or presenting. No screen shows a subscription link. The login page
-  shows a live code and its bot-link QR (`lib/shikoo/ui/login.dart:65,439`), and no report entry point sits on it
-  while a code is live: its only one is the «کد گرفته نشد» state, which has no code. If an entry is ever added
-  there, its images are not taken while a code is live.
+  layout, one only on the device is drawing or presenting. No screen shows a subscription link. The login page shows a
+  live code and its bot-link QR (`lib/shikoo/ui/login.dart:65,439`), and no report entry point sits on it while a code
+  is live: its entries are the «کد گرفته نشد» state and the result states (`servicesFailed`, `noService`), none of
+  which shows a code, and a failed paste offers none. If an entry is ever added there, its images are not taken while
+  a code is live.
 - **Within the server's limits, always** (otherwise the door refuses the whole report): every log line is cut to
   300 characters; the log keeps the newest `E` lines first, then the newest of the rest, up to 700; a crash text is
   cut to 8192 characters after cleaning, keeping the head; an image whose base64 string is over 400 KB is encoded
