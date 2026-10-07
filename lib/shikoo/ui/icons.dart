@@ -18,7 +18,29 @@ enum ShikooIcon {
   ),
   qr(
     '<rect x="3.5" y="3.5" width="6" height="6" rx="1"/><rect x="14.5" y="3.5" width="6" height="6" rx="1"/><rect x="3.5" y="14.5" width="6" height="6" rx="1"/><path d="M14.5 14.5h2.5v2.5"/><path d="M20.5 14.5v.5"/><path d="M14.5 20.5h6v-2"/>',
-  );
+  ),
+  refresh(
+    '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>',
+  ),
+  gauge(
+    '<path d="M5.99 19.01A8.5 8.5 0 1 1 18.01 19.01"/><path d="M12 13l4-4"/>',
+  ),
+  logout(
+    '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 8l-4 4 4 4"/><path d="M5 12h10"/>',
+  ),
+  chevronFwd('<path d="M15 6l-6 6 6 6"/>'),
+  chevronUp('<path d="M6 15l6-6 6 6"/>'),
+  chevronDown('<path d="M6 9l6 6 6-6"/>'),
+  back('<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>'),
+  search('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5 5"/>'),
+  x('<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>'),
+  paste(
+    '<rect x="5" y="4.5" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/>',
+  ),
+  plane(
+    '<path d="M21 3.5L3 10.8l6.8 2.6L12.5 20.5z"/><path d="M9.8 13.4L21 3.5"/>',
+  ),
+  spin('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>');
 
   const ShikooIcon(this.paths);
 
@@ -66,7 +88,7 @@ const _flags = {
 };
 
 /// A country flag in the design's 3:2 box. Countries the mockup has no drawing for use the
-/// emoji flag from FlClash's bundled Twemoji font; an unknown country gets an empty box.
+/// emoji flag from FlClash's bundled Twemoji font; an unknown country keeps only the space.
 class Flag extends StatelessWidget {
   const Flag({super.key, required this.country});
 
@@ -79,6 +101,7 @@ class Flag extends StatelessWidget {
     final h = t.s.flagH;
     final svg = _flags[country];
     final code = country;
+    if (code == null) return SizedBox(width: w, height: h);
     final Widget art = svg != null
         ? SvgPicture.string(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">$svg</svg>',
@@ -86,8 +109,6 @@ class Flag extends StatelessWidget {
             height: h,
             fit: BoxFit.fill,
           )
-        : code == null
-        ? ColoredBox(color: t.c.surfaceSunken)
         : FittedBox(
             fit: BoxFit.cover,
             child: Text(

@@ -15,6 +15,7 @@ class App {
   late MethodChannel methodChannel;
   Function()? onExit;
   Function()? onPackagesChanged;
+  Function(String result)? onVpnConsent;
 
   App._internal() {
     methodChannel = const MethodChannel('$packageName/app');
@@ -26,6 +27,8 @@ class App {
           }
         case 'packagesChanged':
           onPackagesChanged?.call();
+        case 'vpnConsent':
+          onVpnConsent?.call(call.arguments as String);
         default:
           throw MissingPluginException();
       }
@@ -135,10 +138,10 @@ class App {
     return methodChannel.invokeMethod<bool>('tip', {'message': '$message'});
   }
 
-  Future<bool?> initShortcuts() async {
+  Future<bool?> initShortcuts([String? label]) async {
     return methodChannel.invokeMethod<bool>(
       'initShortcuts',
-      currentAppLocalizations.toggle,
+      label ?? currentAppLocalizations.toggle,
     );
   }
 

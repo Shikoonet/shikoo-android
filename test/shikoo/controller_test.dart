@@ -1,3 +1,4 @@
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -52,7 +53,7 @@ void main() {
         stillWanted: () => true,
         every: tick,
       );
-      expect(up, isTrue);
+      expect(up, isNotNull);
       expect(calls, 3);
     });
 
@@ -63,7 +64,19 @@ void main() {
         stillWanted: () => true,
         every: tick,
       );
-      expect(up, isFalse);
+      expect(up, isNull);
+    });
+
+    test('time under the consent dialog does not count', () async {
+      var calls = 0;
+      final up = await waitForTunnel(
+        () async => ++calls < 52 ? null : DateTime(2026),
+        timeout: const Duration(milliseconds: 200),
+        stillWanted: () => true,
+        paused: () => calls < 50,
+        every: const Duration(milliseconds: 5),
+      );
+      expect(up, isNotNull, reason: 'a late OK still connects');
     });
 
     test('stops at once when the user cancels', () async {
@@ -77,8 +90,51 @@ void main() {
         stillWanted: () => calls < 2,
         every: tick,
       );
-      expect(up, isFalse);
+      expect(up, isNull);
       expect(calls, 2);
     });
+  });
+
+  test('a name another service has gets a Persian number, never "(1)"', () {
+    expect(unusedName('user123 · الماس', {}), 'user123 · الماس');
+    expect(
+      unusedName('user123 · الماس', {'user123 · الماس'}),
+      'user123 · الماس ۲',
+    );
+    final taken = {'a', for (var n = 2; n < 10; n++) 'a ${'۰۱۲۳۴۵۶۷۸۹'[n]}'};
+    expect(unusedName('a', taken), 'a ۱۰');
+  });
+
+  test('a link with a known username is that service\'s new link', () {
+    final a = Profile.normal(
+      url: 'https://s.4g3.uk/sub/old',
+    ).copyWith(label: 'user123 · الماس');
+    final b = Profile.normal(
+      url: 'https://s.4g3.uk/sub/b',
+    ).copyWith(label: 'user789 · معمولی');
+    final profiles = [a, b];
+    expect(serviceOf(profiles, 'https://s.4g3.uk/sub/new', 'user123'), a);
+    expect(serviceOf(profiles, 'https://S.4g3.uk/sub/b/', null), b);
+    expect(serviceOf(profiles, 'https://s.4g3.uk/sub/c', 'user456'), isNull);
+    expect(serviceOf(profiles, 'https://s.4g3.uk/sub/c', null), isNull);
+  });
+
+  test('a service has ended only by usage the panel sent', () {
+    ShikooService service({
+      int used = 0,
+      DateTime? expire,
+      bool known = true,
+    }) => ShikooService(
+      name: 'user123 · الماس',
+      usedBytes: used,
+      totalBytes: 10,
+      expire: expire,
+      usageKnown: known,
+    );
+    final past = DateTime.now().subtract(const Duration(days: 1));
+    expect(service().ended, isNull);
+    expect(service(used: 10).ended, ShikooServiceStatus.exhausted);
+    expect(service(expire: past).ended, ShikooServiceStatus.expired);
+    expect(service(used: 10, known: false).ended, isNull);
   });
 }

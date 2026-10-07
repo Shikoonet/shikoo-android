@@ -22,7 +22,9 @@ abstract final class Space {
   static const s3 = 12.0;
   static const s4 = 16.0;
   static const s6 = 24.0;
+  static const s8 = 32.0;
   static const s10 = 40.0;
+  static const s16 = 64.0;
 }
 
 abstract final class Radii {
@@ -49,6 +51,7 @@ class ShikooColors {
     required this.outline,
     required this.text,
     required this.textMuted,
+    required this.iconDisabled,
     required this.primary,
     required this.onPrimary,
     required this.selectedBg,
@@ -60,6 +63,8 @@ class ShikooColors {
     required this.warning,
     required this.danger,
     required this.dangerSoft,
+    required this.onDanger,
+    required this.scrim,
     required this.cardShadow,
     required this.raisedShadow,
   });
@@ -71,6 +76,7 @@ class ShikooColors {
   final Color outline;
   final Color text;
   final Color textMuted;
+  final Color iconDisabled;
   final Color primary;
   final Color onPrimary;
   final Color selectedBg;
@@ -82,6 +88,8 @@ class ShikooColors {
   final Color warning;
   final Color danger;
   final Color dangerSoft;
+  final Color onDanger;
+  final Color scrim;
   final List<BoxShadow> cardShadow;
   final List<BoxShadow> raisedShadow;
 
@@ -93,6 +101,7 @@ class ShikooColors {
     outline: Color(0xFF8B8E87),
     text: Color(0xFF1A1B19),
     textMuted: Color(0xFF5C5F59),
+    iconDisabled: Color(0xFFB3B6AF),
     primary: Color(0xFF1A1B19),
     onPrimary: Color(0xFFFFFFFF),
     selectedBg: Color(0xFFEDEEEA),
@@ -104,6 +113,8 @@ class ShikooColors {
     warning: Color(0xFFA15C07),
     danger: Color(0xFFB42318),
     dangerSoft: Color(0xFFFCEBE9),
+    onDanger: Color(0xFFFFFFFF),
+    scrim: Color(0x73141614),
     cardShadow: [
       BoxShadow(color: Color(0x0F141614), offset: Offset(0, 1), blurRadius: 2),
       BoxShadow(color: Color(0x0F141614), offset: Offset(0, 6), blurRadius: 16),
@@ -117,6 +128,15 @@ class ShikooColors {
     ],
   );
 
+  /// Dark on light in both themes: many phone cameras miss an inverted QR.
+  static const qrModule = Color(0xFF000000);
+  static const qrBg = Color(0xFFFFFFFF);
+  static const onQrBg = Color(0xFF1A1B19);
+
+  /// Telegram's own blue, not Shikoo's, in both themes.
+  static const telegram = Color(0xFF229ED9);
+  static const onTelegram = Color(0xFFFFFFFF);
+
   static const dark = ShikooColors(
     bg: Color(0xFF121413),
     surface: Color(0xFF1B1E1D),
@@ -125,6 +145,7 @@ class ShikooColors {
     outline: Color(0xFF737975),
     text: Color(0xFFECEEEC),
     textMuted: Color(0xFFA2A8A5),
+    iconDisabled: Color(0xFF4C5250),
     primary: Color(0xFFECEEEC),
     onPrimary: Color(0xFF121413),
     selectedBg: Color(0xFF262B29),
@@ -136,6 +157,8 @@ class ShikooColors {
     warning: Color(0xFFF2B544),
     danger: Color(0xFFF47A70),
     dangerSoft: Color(0xFF3A1D1A),
+    onDanger: Color(0xFF2A0F0C),
+    scrim: Color(0xA6000000),
     cardShadow: [
       BoxShadow(color: Color(0x80000000), offset: Offset(0, 1), blurRadius: 2),
       BoxShadow(color: Color(0x4D000000), offset: Offset(0, 6), blurRadius: 16),
@@ -162,6 +185,7 @@ class ShikooSizes {
     required this.appbar,
     required this.row,
     required this.button,
+    required this.buttonSm,
     required this.icon,
     required this.iconSm,
     required this.flagW,
@@ -174,6 +198,12 @@ class ShikooSizes {
     required this.safeX,
     required this.safeY,
     required this.pane,
+    required this.dialog,
+    required this.dialogText,
+    required this.headline,
+    required this.code,
+    required this.heroIcon,
+    required this.qr,
   });
 
   final double caption;
@@ -184,6 +214,9 @@ class ShikooSizes {
   final double appbar;
   final double row;
   final double button;
+
+  /// `.btn-sm`: renew in a finished service's row; its touch target stays [touch].
+  final double buttonSm;
   final double icon;
   final double iconSm;
   final double flagW;
@@ -196,6 +229,12 @@ class ShikooSizes {
   final double safeX;
   final double safeY;
   final double pane;
+  final double dialog;
+  final double dialogText;
+  final double headline;
+  final double code;
+  final double heroIcon;
+  final double qr;
 
   static const phone = ShikooSizes(
     caption: 12,
@@ -206,6 +245,7 @@ class ShikooSizes {
     appbar: 56,
     row: 56,
     button: 44,
+    buttonSm: 36,
     icon: 24,
     iconSm: 18,
     flagW: 27,
@@ -218,6 +258,12 @@ class ShikooSizes {
     safeX: 16,
     safeY: 0,
     pane: 0,
+    dialog: 340,
+    dialogText: 13,
+    headline: 24,
+    code: 28,
+    heroIcon: 64,
+    qr: 200,
   );
 
   static const tv = ShikooSizes(
@@ -229,6 +275,7 @@ class ShikooSizes {
     appbar: 40,
     row: 44,
     button: 40,
+    buttonSm: 32,
     icon: 20,
     iconSm: 16,
     flagW: 30,
@@ -241,16 +288,33 @@ class ShikooSizes {
     safeX: 48,
     safeY: 27,
     pane: 500,
+    dialog: 560,
+    dialogText: 16,
+    headline: 28,
+    code: 40,
+    heroIcon: 64,
+    qr: 300,
   );
 
   static const touch = 48.0;
+
+  /// `--text-scale-max-round`: the round button's text grows no further, its circle being fixed.
+  static const roundTextScaleMax = 1.15;
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
   static const dot = 8.0;
   static const selectedBar = 4.0;
   static const focusRingWidth = 3.0;
   static const focusRingOffset = 2.0;
+
+  /// Room for the focus ring, so it stays inside the TV's safe area (`.tv-top`, `.tv-settings`).
+  static const ring = focusRingWidth + focusRingOffset;
   static const scrollThumb = 4.0;
+  static const qrSm = 200.0;
+  static const buttonLg = 56.0;
+  static const buttonLgText = 19.0;
+  static const markLg = 88.0;
+  static const codeWordSpacing = 0.12;
   static const fade = 24.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;
@@ -281,6 +345,7 @@ class ShikooTheme extends ThemeExtension<ShikooTheme> {
     fontWeight: weight,
     color: color ?? c.text,
     height: height,
+    letterSpacing: 0,
     fontFeatures: tabular ? const [FontFeature.tabularFigures()] : null,
   );
 
@@ -290,6 +355,32 @@ class ShikooTheme extends ThemeExtension<ShikooTheme> {
   @override
   ShikooTheme lerp(ShikooTheme? other, double t) =>
       t < 0.5 || other == null ? this : other;
+}
+
+/// FlClash's ThemeManager sets the bar icons from FlClash's own theme, dark by default.
+class ShikooSystemUi extends StatelessWidget {
+  const ShikooSystemUi({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final icons = brightness == Brightness.light
+        ? Brightness.dark
+        : Brightness.light;
+    return AnnotatedRegion(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: icons,
+        statusBarBrightness: brightness,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: icons,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: child,
+    );
+  }
 }
 
 ThemeData shikooThemeData(Brightness brightness, {required bool tv}) {

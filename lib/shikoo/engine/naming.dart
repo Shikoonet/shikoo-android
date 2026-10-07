@@ -20,6 +20,7 @@ const _countryWords = {
 
 final _flagEmoji = RegExp('[\u{1F1E6}-\u{1F1FF}]{2}', unicode: true);
 final _wordBreak = RegExp(r'[^\p{L}]+', unicode: true);
+final _panelWireGuardPrefix = RegExp('^shikoonet');
 
 /// ISO 3166 code from a flag emoji in the name, else from a Persian or English country word.
 String? countryOf(String name) {
@@ -28,7 +29,10 @@ String? countryOf(String name) {
     return String.fromCharCodes(flag.runes.map((r) => r - 0x1F1A5));
   }
   final lower = name.toLowerCase();
-  final words = lower.split(_wordBreak).toSet();
+  final words = {
+    for (final word in lower.split(_wordBreak))
+      word.replaceFirst(_panelWireGuardPrefix, ''),
+  };
   for (final MapEntry(key: code, value: names) in _countryWords.entries) {
     if (names.any(
       (n) => n.contains(' ') ? lower.contains(n) : words.contains(n),

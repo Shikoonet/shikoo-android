@@ -143,9 +143,21 @@ bool shouldPatchSystemDns(Ref ref) {
       authorizationState == TunAuthorizationState.authorized;
 }
 
+typedef ServiceTexts = ({
+  String stop,
+  String startTip,
+  String stopTip,
+  String toggle,
+});
+
+/// Set by an app on this engine whose languages FlClash's l10n lacks: the
+/// notification, toast and shortcut strings for the locale it has loaded.
+ServiceTexts Function(Locale? locale)? serviceTexts;
+
 @riverpod
 SharedState sharedState(Ref ref) {
-  ref.watch(loadedLocaleProvider);
+  final locale = ref.watch(loadedLocaleProvider);
+  final texts = serviceTexts?.call(locale);
   final currentProfile = ref.watch(
     currentProfileProvider.select(
       (state) => CurrentProfileSelectorState(
@@ -194,10 +206,10 @@ SharedState sharedState(Ref ref) {
     currentProfileName: currentProfileName,
     onlyStatisticsProxy: onlyStatisticsProxy,
     showStopAction: appSetting.showStopAction,
-    stopText: currentAppLocalizations.stop,
+    stopText: texts?.stop ?? currentAppLocalizations.stop,
     crashlytics: crashlytics,
-    stopTip: currentAppLocalizations.stopVpn,
-    startTip: currentAppLocalizations.startVpn,
+    stopTip: texts?.stopTip ?? currentAppLocalizations.stopVpn,
+    startTip: texts?.startTip ?? currentAppLocalizations.startVpn,
     setupParams: SetupParams(selectedMap: selectedMap, testUrl: testUrl),
     vpnOptions: VpnOptions(
       enable: vpnSetting.enable,

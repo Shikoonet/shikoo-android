@@ -5,31 +5,33 @@ import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/application.dart';
 import 'package:fl_clash/bootstrap.dart';
+import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/l10n/l10n.dart';
+import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
-import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and `shikoo-debug://lang?code=en`.
-const _debugLinks = bool.fromEnvironment('SHIKOO_DEBUG');
-
-const _defaultLanguage = String.fromEnvironment(
-  'SHIKOO_LANG',
-  defaultValue: 'fa',
-);
-
 const _delegates = <LocalizationsDelegate<dynamic>>[
   ShikooL10n.delegate,
   _FlClashStrings(),
   ...GlobalMaterialLocalizations.delegates,
 ];
+
+/// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
+Future<bool?>? registerShortcut(App? plugin, String language) =>
+    plugin?.initShortcuts(shikooServiceTexts(Locale(language)).toggle);
 
 class ShikooApp extends ConsumerStatefulWidget {
   const ShikooApp({super.key});
@@ -40,10 +42,10 @@ class ShikooApp extends ConsumerStatefulWidget {
 
 class _ShikooAppState extends ConsumerState<ShikooApp>
     with WidgetsBindingObserver {
-  final _locale = ValueNotifier(const Locale(_defaultLanguage));
-  Timer? _profilesTimer;
   StreamSubscription<Uri>? _links;
+  Timer? _due;
   bool _hadVpn = false;
+  bool _attached = false;
 
   @override
   void initState() {
@@ -67,19 +69,46 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
               autoCheckUpdate: false,
             ),
           );
+      ref.read(networkSettingProvider.notifier).update((s) {
+        if (s.authentication.credentials.isNotEmpty) return s;
+        return s.copyWith(
+          authentication: AuthenticationProps(
+            enable: true,
+            username: generateRandomSecret(8),
+            password: generateRandomSecret(16),
+          ),
+        );
+      });
       await bootstrap.attach();
-      _scheduleProfileUpdates();
-      if (_debugLinks) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
+      _attached = true;
+      unawaited(registerShortcut(app, ref.read(shikooLookProvider).language));
+      ref.read(shikooControllerProvider).onForeground();
+      ref.read(shikooSignInProvider).onForeground();
+      // A TV is often left on the home screen for hours: its services stay as fresh as on open.
+      _due = Timer.periodic(const Duration(minutes: 1), (_) {
+        final controller = ref.read(shikooControllerProvider);
+        if (controller.foreground) unawaited(controller.refreshDue());
+      });
+      if (shikooDebug) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
   }
 
-  void _scheduleProfileUpdates() {
-    _profilesTimer = Timer(const Duration(minutes: 20), () async {
-      await ref.read(profilesActionProvider.notifier).autoUpdateProfiles();
-      if (mounted) _scheduleProfileUpdates();
-    });
+  /// The controller updates the subscription and pings when the app comes back; Android TV
+  /// apps are resumed far more often than started.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_attached) return;
+    final resumed = state == AppLifecycleState.resumed;
+    final controller = ref.read(shikooControllerProvider)..foreground = resumed;
+    final signIn = ref.read(shikooSignInProvider)..foreground = resumed;
+    if (resumed) {
+      controller.onForeground();
+      signIn.onForeground();
+    }
+    if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
+  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and `shikoo-debug://lang?code=en`.
   /// The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;
@@ -89,12 +118,14 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         final url = query['url'];
         if (url == null) return;
         unawaited(
-          ref
-              .read(shikooControllerProvider)
-              .addService(url, query['name'] ?? Uri.parse(url).host),
+          ref.read(shikooControllerProvider).addService(url, query['name']),
         );
       case 'lang':
-        _locale.value = Locale(query['code'] ?? _defaultLanguage);
+        unawaited(
+          ref
+              .read(shikooLookProvider.notifier)
+              .setLanguage(query['code'] ?? shikooDefaultLanguage),
+        );
     }
   }
 
@@ -114,41 +145,39 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _profilesTimer?.cancel();
     unawaited(_links?.cancel());
-    _locale.dispose();
+    _due?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: _locale,
-      builder: (_, locale, _) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        navigatorKey: globalState.navigatorKey,
-        onNavigationNotification: (_) => true,
-        onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
-        locale: locale,
-        supportedLocales: ShikooL10n.supportedLocales,
-        localizationsDelegates: _delegates,
-        theme: shikooThemeData(Brightness.light, tv: system.isTV),
-        darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
-        builder: (context, child) {
-          // ignore: deprecated_member_use
-          return MaterialUiCompatibilityBridge(
-            child: IconTheme(
-              data: Theme.of(context).iconTheme,
-              child: buildManagerStack(
-                isDesktop: false,
-                onConnectivityChanged: _onConnectivityChanged,
-                child: child!,
-              ),
+    final look = ref.watch(shikooLookProvider);
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      navigatorKey: globalState.navigatorKey,
+      onNavigationNotification: (_) => true,
+      onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
+      locale: Locale(look.language),
+      supportedLocales: ShikooL10n.supportedLocales,
+      localizationsDelegates: _delegates,
+      themeMode: look.theme,
+      theme: shikooThemeData(Brightness.light, tv: system.isTV),
+      darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
+      builder: (context, child) {
+        // ignore: deprecated_member_use
+        return MaterialUiCompatibilityBridge(
+          child: IconTheme(
+            data: Theme.of(context).iconTheme,
+            child: buildManagerStack(
+              isDesktop: false,
+              onConnectivityChanged: _onConnectivityChanged,
+              child: ShikooSystemUi(child: child!),
             ),
-          );
-        },
-        home: const ShikooHome(),
-      ),
+          ),
+        );
+      },
+      home: const ShikooRoot(),
     );
   }
 }
@@ -160,7 +189,7 @@ class ShikooInitErrorApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      locale: const Locale(_defaultLanguage),
+      locale: const Locale(shikooDefaultLanguage),
       supportedLocales: ShikooL10n.supportedLocales,
       localizationsDelegates: _delegates,
       theme: shikooThemeData(Brightness.light, tv: system.isTV),
