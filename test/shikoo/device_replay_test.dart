@@ -466,7 +466,14 @@ void main() {
   ) async {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
     await _pump(tester, _devices.last, const ShikooHome(), state: _home(false));
-    expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
+    final style = SystemChrome.latestStyle;
+    expect(
+      (
+        style?.statusBarIconBrightness,
+        style?.systemNavigationBarIconBrightness,
+      ),
+      (Brightness.dark, Brightness.dark),
+    );
   });
 
   testWidgets("on a TV FlClash's messages grow and shrink with the canvas, "
