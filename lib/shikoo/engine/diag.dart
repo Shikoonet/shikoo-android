@@ -24,7 +24,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart' show MaterialPageRoute;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// docs/app-diagnostics.md: a clean record kept on the device, sent to the door only when the
@@ -136,7 +135,7 @@ String _backendOf(String? rendererLine) =>
       _ => 'unknown',
     };
 
-final _usernameShape = RegExp(r'^[A-Za-z0-9_.-]{1,32}$');
+final _usernameShape = RegExp(r'^[A-Za-z0-9_.-]{1,64}$');
 
 String? frameSummary(int frames, int slow, int build, int raster) => slow == 0
     ? null
@@ -428,7 +427,6 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   bool _holding = true;
   ProviderContainer? _container;
   final _secrets = <String>{};
-  final _linkParts = <String>{};
   RegExp? _known;
   String? _lastKind;
   String? _lastText;
@@ -532,7 +530,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   RegExp? _knownNow() {
     final container = _container;
     if (container == null) return null;
-    final before = _secrets.length + _linkParts.length;
+    final before = _secrets.length;
     try {
       _secrets.addAll(container.read(shikooSignInProvider).secrets);
       final auth = container.read(networkSettingProvider).authentication;
@@ -541,20 +539,19 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
         _secrets.add(profile.url);
         final uri = Uri.tryParse(profile.url);
         if (uri == null) continue;
-        _secrets.add(uri.host);
-        _linkParts
+        _secrets
+          ..add(uri.host)
           ..addAll(uri.pathSegments)
-          ..addAll(uri.queryParameters.values);
+          // A short one is a format (`target=clash`), and would eat the word FlClash.
+          ..addAll(uri.queryParameters.values.where((v) => v.length >= 8));
       }
     } catch (_) {}
     // Kept once seen: a crash file read later still holds a password or token since replaced.
-    if (_secrets.length + _linkParts.length != before) {
-      _known = _knownPattern({..._secrets, ..._linkParts});
-    }
+    if (_secrets.length != before) _known = _knownPattern(_secrets);
     return _known;
   }
 
-  /// The panel's account name: a link's path may hold it, a secret the app holds may not.
+  /// The panel's account name, never one of the secrets the app holds, a link's path included.
   String _username(String name) {
     final lower = name.toLowerCase();
     return _usernameShape.hasMatch(name) &&
@@ -675,7 +672,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     FocusManager.instance.addListener(_onFocus);
     SchedulerBinding.instance.addTimingsCallback(_onTimings);
     _framesTimer?.cancel();
-    _framesTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _framesTimer = Timer.periodic(const Duration(minutes: 10), (_) {
       if (frameSummary(_frames, _slow, _worstBuild, _worstRaster)
           case final line?) {
         add('T', line);
@@ -983,14 +980,11 @@ class _Routes extends NavigatorObserver {
 
   final ShikooDiag _diag;
 
-  String _page(Route<dynamic> route) {
-    if (route is MaterialPageRoute && route.navigator != null) {
-      try {
-        return '${route.builder(route.navigator!.context).runtimeType}';
-      } catch (_) {}
-    }
-    return '${route.runtimeType}'.split('<').first;
-  }
+  String _page(Route<dynamic> route) => switch (route.settings.name) {
+    '/' => 'home',
+    final String name => name,
+    null => '${route.runtimeType}'.split('<').first,
+  };
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>

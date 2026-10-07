@@ -8,7 +8,7 @@ import (
 	"runtime/debug"
 )
 
-// Android shows no fd 2, so an unrecovered panic is kept for Shikoo's report (SHIKOO_PATCHES.md row 20).
+// Android copies a panic to logcat (tag Go) until the buffer turns over; the file outlives it.
 func setCrashOutput(home string) {
 	file, err := os.OpenFile(filepath.Join(home, "go-crash.txt"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {

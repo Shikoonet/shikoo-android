@@ -1,6 +1,7 @@
 package com.follow.clash
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -36,6 +37,16 @@ class ShikooDiagTest {
         assertTrue(file.length() <= 1000)
         assertEquals("line 399", lines.last())
         assertTrue(lines.all { it.startsWith("line ") })
+    }
+
+    @Test
+    fun `only exit records newer than the last seen, of this process, count`() {
+        val app = "com.shikoonet.app"
+
+        assertTrue(isNewExit(101, app, since = 100, packageName = app))
+        assertFalse(isNewExit(100, app, since = 100, packageName = app))
+        assertFalse(isNewExit(99, app, since = 100, packageName = app))
+        assertFalse(isNewExit(101, "$app:remote", since = 100, packageName = app))
     }
 
     @Test

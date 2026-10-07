@@ -118,7 +118,7 @@ object ShikooDiag {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
         val manager = context.getSystemService(ActivityManager::class.java)
         return manager.getHistoricalProcessExitReasons(context.packageName, 0, 0)
-            .filter { it.timestamp > since && it.processName == context.packageName }
+            .filter { isNewExit(it.timestamp, it.processName, since, context.packageName) }
             .map {
                 mapOf(
                     "reason" to it.reason,
@@ -253,6 +253,9 @@ object ShikooDiag {
         else -> null
     }
 }
+
+internal fun isNewExit(time: Long, process: String, since: Long, packageName: String) =
+    time > since && process == packageName
 
 internal fun crashHandler(file: File, previous: Thread.UncaughtExceptionHandler?) =
     Thread.UncaughtExceptionHandler { thread, error ->

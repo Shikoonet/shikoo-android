@@ -24,13 +24,16 @@ import '../helpers/test_profiles.dart';
 
 /// Fake values only; none of them was ever a real link, token or key.
 const _subLink =
-    'https://sub.plantedhost.ir/sub/PlantedPathToken?token=QueryTokenValue';
+    'https://sub.plantedhost.ir/sub/PlantedPathToken?token=QueryTokenValue&target=clash';
 const _portUser = 'QwmZpLkr';
 const _portPass = 'HvBnTyUiOpAsDfGh';
 const _laterPass = 'JkLzXcVbNmQwErTy';
 const _signInToken = 'TokenSecretAbcDefGhi';
 const _pollSecret = 'PollSecretXyzUvwRst';
 const _liveCode = '482913';
+
+/// Each one goes into every source as a line of its own, so no source can pass without its filter.
+/// Several come from the verifier's probe (`vdiag-logs/scripts/zz_verifier_test.dart`).
 const _plants = [
   'see $_subLink now',
   'sub.schemeless.ir/sub/Qr7Tz2Wx9Kp4 here',
@@ -46,6 +49,29 @@ const _plants = [
   'port $_portUser $_portPass',
   'secrets $_signInToken $_pollSecret $_liveCode',
   'path PlantedPathToken and QueryTokenValue alone',
+  'xxPlantedPathTokenyy and querytokenvalue',
+  'held host SUB.PLANTEDHOST.IR alone',
+  'creds http://$_portUser:$_portPass@127.0.0.1:7890',
+  'SUB.VHOSTONE.IR/sub/VtokAlpha77',
+  'ساب.وهاست.ایران/sub/VtokBeta88',
+  'vhosttwo.ir:2096/sub/VtokGamma99',
+  r'https:\/\/vhostthree.ir\/sub\/VtokDelta11',
+  '987654321:AAVrfBotTok3nQwErTyUiOpAsDfGhJkLzX',
+  'vuser:vpass9X@10.20.30.40:7890',
+  '?token=VtokEps123456&x=1',
+  '["https://vhostfour.ir/s/VtokZeta22"]',
+  'https:/​/vhostfive.ir/s/VtokEta33',
+  'https&#58;//vhostsix.ir/s/VtokTheta44',
+  'peer 10.11.12.13 up',
+  'fe80::1ff:fe23:4567:890a',
+  'HTTPS://VHOSTSEVEN.IR/S/VtokIota55',
+  'server vhosteight.ir',
+  'node de-1.vhostnine.com',
+  'vless://11111111-2222-3333-4444-555555555555@vhostten.ir:443?pbk=VrfPbkKeyAbCdEfGh123&sid=6ba85179e30d#DE',
+  'ss://YWVzLTI1Ni1nY206VnJmU3NQYXNz@1.2.3.4:8388',
+  'sid ab12cd34 here',
+  'https%3a%2f%2fvhosttwelve.ir',
+  'Foo.bar(sub.vhostthirteen.ir/x,VtokMu88)',
 ];
 const _needles = [
   'plantedhost',
@@ -79,8 +105,51 @@ const _needles = [
   _signInToken,
   _pollSecret,
   _liveCode,
+  'vhostone',
+  'VtokAlpha77',
+  'وهاست',
+  'VtokBeta88',
+  'vhosttwo',
+  'VtokGamma99',
+  '2096',
+  'vhostthree',
+  'VtokDelta11',
+  '987654321',
+  'AAVrfBotTok3n',
+  'vpass9X',
+  '10.20.30.40',
+  'VtokEps123456',
+  'vhostfour',
+  'VtokZeta22',
+  'vhostfive',
+  'VtokEta33',
+  'vhostsix',
+  'VtokTheta44',
+  '10.11.12.13',
+  'fe23:4567',
+  'vhostseven',
+  'VtokIota55',
+  'vhosteight',
+  'vhostnine',
+  'vhostten',
+  'VrfPbkKeyAbCdEfGh123',
+  '6ba85179e30d',
+  '55555555',
+  'YWVzLTI1Ni1nY206',
+  'ab12cd34',
+  'vhosttwelve',
+  'vhostthirteen',
+  'VtokMu88',
   '://',
 ];
+
+/// A number alone must not be found inside a longer one, as a time.
+bool _leaked(String json, String needle) => RegExp(
+  RegExp(r'^\d+$').hasMatch(needle)
+      ? '(?<!\\d)${RegExp.escape(needle)}(?!\\d)'
+      : RegExp.escape(needle),
+  caseSensitive: false,
+).hasMatch(json);
 
 /// shikoo-platform's `appReport.ts` (draft PR 709): every key the door's `.strict()` sections name.
 const _doorKeys = {
@@ -181,7 +250,7 @@ class _Harness {
 
 Future<_Harness> _harness({
   ShikooState? state,
-  String plant = '',
+  List<String> plants = const [],
   Object? Function(MethodCall call)? native,
 }) async {
   SharedPreferences.setMockInitialValues({
@@ -234,12 +303,19 @@ Future<_Harness> _harness({
               connection: ShikooConnection.off,
               connectedFor: Duration.zero,
               isTV: false,
-              servers: [ShikooServer(name: plant, type: 'vless', ping: 120)],
-              service: ShikooService(
-                name: plant,
-                usedBytes: 1 << 30,
-                totalBytes: 10 << 30,
-              ),
+              servers: [
+                for (final plant in plants)
+                  ShikooServer(name: plant, type: 'vless', ping: 120),
+              ],
+              others: [
+                for (final (i, plant) in plants.indexed)
+                  ShikooService(
+                    id: i,
+                    name: plant,
+                    usedBytes: 1 << 30,
+                    totalBytes: 10 << 30,
+                  ),
+              ],
             ),
       ),
       shikooApiProvider.overrideWithValue(
@@ -356,7 +432,11 @@ final _about = aboutSections(
 
 Future<Uint8List> _noisePng(int side) async {
   final noise = Random(side);
-  final random = List<int>.generate(side * side * 4, (_) => noise.nextInt(256));
+  // Opaque: random alpha would be premultiplied away and compress.
+  final random = List<int>.generate(
+    side * side * 4,
+    (i) => i % 4 == 3 ? 255 : noise.nextInt(256),
+  );
   final image = await () {
     final done = Completer<ui.Image>();
     ui.decodeImageFromPixels(
@@ -410,6 +490,10 @@ void main() {
       expect(cleanLine('status=404', null), 'status=404');
     });
 
+    test('a mix of letters and digits stays only up to six', () {
+      expect(cleanLine('DE-1 x1y2z3 sid ab12cd34', null), 'DE-1 x1y2z3 sid ·');
+    });
+
     test('a Go frame keeps only its file and line', () {
       expect(
         cleanLine('\t/root/go/src/core/hub.go:636 +0x25', null, go: true),
@@ -421,50 +505,62 @@ void main() {
   test(
     'no planted link, address, token or key reaches the report from any source',
     () async {
-      final plant = _plants.join(' ');
+      final now = _now.millisecondsSinceEpoch;
       final h = await _harness(
-        plant: plant,
+        plants: _plants,
         native: (call) => switch (call.method) {
           'exits' => [
             {
               'reason': 6,
               'status': 0,
-              'time': _now.millisecondsSinceEpoch - 60000,
-              'description': 'anr $plant',
-              'trace': '"main" prio=5 tid=1 Blocked\n  at $plant',
+              'time': now - 60000,
+              'description': 'anr',
+              'trace': [
+                '"main" prio=5 tid=1 Blocked',
+                for (final plant in _plants) '  at $plant',
+              ].join('\n'),
             },
           ],
           'logTail' => [
-            for (final p in _plants)
-              '10-07 14:58:05.381  1234  5678 D FlClash : $p',
+            for (final plant in _plants)
+              '10-07 14:58:05.381  1234  5678 D FlClash : $plant',
           ].join('\n'),
           'renderer' => 'Using the Impeller rendering backend (Vulkan).',
           _ => null,
         },
       );
-      final diag = h.diag..add('A', 'before start $plant');
+      final diag = h.diag;
+      for (final plant in _plants) {
+        diag.add('A', 'before start $plant');
+      }
       await diag.start(h.home.path);
-      diag.add('A', 'before attach $plant');
-      File(
-        '${h.dir}/events.txt',
-      ).writeAsStringSync('${_now.millisecondsSinceEpoch} revoked $plant\n');
+      for (final plant in _plants) {
+        diag.add('A', 'before attach $plant');
+      }
+      File('${h.dir}/events.txt').writeAsStringSync(
+        [for (final plant in _plants) '$now revoked $plant'].join('\n'),
+      );
       File('${h.dir}/java-crash.txt').writeAsStringSync(
-        '--- ${_now.millisecondsSinceEpoch} main\n'
-        'java.lang.IllegalStateException: $plant\n'
+        '--- $now main\n'
+        '${[for (final plant in _plants) 'java.lang.IllegalStateException: $plant'].join('\n')}\n'
         '\tat com.follow.clash.Foo.bar(Foo.kt:12)\n',
       );
       File('${h.home.path}/go-crash.txt').writeAsStringSync(
-        'panic: $plant\n\ngoroutine 1 [running]:\n'
-        'main.handleCrash(...)\n\t/root/src/core/hub.go:636 +0x25\n',
+        '${[for (final plant in _plants) 'panic: $plant'].join('\n')}\n\n'
+        'goroutine 1 [running]:\nmain.handleCrash(...)\n'
+        '\t/root/src/core/hub.go:636 +0x25\n',
       );
       await diag.attach(h.container);
-      diag
-        ..add('A', 'after attach $plant')
-        ..onLog(Log(logLevel: LogLevel.warning, payload: plant, dateTime: ''))
-        ..error(
-          StateError(plant),
-          StackTrace.fromString('#0      Foo.bar ($_subLink)\n#1      $plant'),
-        );
+      for (final plant in _plants) {
+        diag
+          ..add('A', 'after attach $plant')
+          ..add('T', 'timeline $plant')
+          ..onLog(Log(logLevel: LogLevel.warning, payload: plant, dateTime: ''))
+          ..error(
+            StateError(plant),
+            StackTrace.fromString('#0      Foo.bar ($plant)'),
+          );
+      }
       h.container
           .read(networkSettingProvider.notifier)
           .update(
@@ -475,82 +571,95 @@ void main() {
       diag.add('A', 'the new password is $_laterPass');
 
       final report = await diag.report(trigger: 'test', about: _about);
-      final json = jsonEncode(report).toLowerCase();
+      final json = jsonEncode(report);
 
-      for (final needle in _needles) {
-        expect(json, isNot(contains(needle.toLowerCase())), reason: needle);
+      expect([
+        for (final n in _needles)
+          if (_leaked(json, n)) n,
+      ], isEmpty);
+      final log = (report['log']! as List).cast<String>();
+      for (final kind in ['A', 'T', 'C', 'E']) {
+        expect(
+          log.where((line) => line.split(' ')[1] == kind).length,
+          greaterThanOrEqualTo(_plants.length),
+          reason: kind,
+        );
       }
-      expect(report['log'], isNotEmpty);
       expect(report['crashes'], hasLength(3));
+      expect(report['logcat'], hasLength(_plants.length));
+      expect(report['servers'], hasLength(_plants.length));
       expect(json, contains('revoked'));
       expect(json, contains('hub.go:636'));
     },
   );
 
-  testWidgets(
-    'a big record still fits the door: errors first, then the newest',
-    (tester) async {
-      final h = await tester.runAsync(_harness);
-      final diag = h!.diag;
-      await tester.runAsync(() => diag.start(h.home.path));
-      await tester.runAsync(() => diag.attach(h.container));
-      final errors = <String>[];
-      final rest = <String>[];
-      for (var i = 0; i < 2000; i++) {
-        if (i % 20 < 3) {
-          diag.add('E', 'boom $i');
-          errors.add('E boom $i');
-        } else {
-          diag.add('A', 'line $i');
-          rest.add('A line $i');
-        }
+  testWidgets('a big record still fits the door: errors first, then the newest', (
+    tester,
+  ) async {
+    final h = await tester.runAsync(_harness);
+    final diag = h!.diag;
+    await tester.runAsync(() => diag.start(h.home.path));
+    await tester.runAsync(() => diag.attach(h.container));
+    final errors = <String>[];
+    final rest = <String>[];
+    for (var i = 0; i < 2000; i++) {
+      if (i % 20 < 3) {
+        diag.add('E', 'boom $i');
+        errors.add('E boom $i');
+      } else {
+        diag.add('A', 'line $i');
+        rest.add('A line $i');
       }
-      diag.add('A', 'long ${'abc ' * 1250}');
-      File('${h.dir}/java-crash.txt').writeAsStringSync(
-        '--- ${_now.millisecondsSinceEpoch} main\nhead of the stack\n'
-        '${'\tat com.example.Foo.bar(Foo.kt:1)\n' * 600}',
-      );
-      final big = await tester.runAsync(() => _noisePng(1100));
-      final medium = await tester.runAsync(() => _noisePng(400));
+    }
+    diag.add('A', 'long ${'abc ' * 1250}');
+    File('${h.dir}/java-crash.txt').writeAsStringSync(
+      '--- ${_now.millisecondsSinceEpoch} main\nhead of the stack\n'
+      '${'\tat com.example.Foo.bar(Foo.kt:1)\n' * 600}',
+    );
+    final big = await tester.runAsync(() => _noisePng(1100));
+    // Over the door's 400 KiB as base64, under 500: the window a raised cap would let through.
+    final medium = await tester.runAsync(() => _noisePng(314));
 
-      final report = (await tester.runAsync(
-        () => diag.report(
-          trigger: 'test',
-          about: _about,
-          appImage: medium,
-          screenImage: big,
-        ),
-      ))!;
+    final report = (await tester.runAsync(
+      () => diag.report(
+        trigger: 'test',
+        about: _about,
+        appImage: medium,
+        screenImage: big,
+      ),
+    ))!;
 
-      final log = (report['log']! as List).cast<String>();
-      String body(String line) => line.substring(21);
-      expect(log, hasLength(_doorLogLines));
-      expect(log.every((line) => line.length <= 300), isTrue);
-      expect(log.last.length, greaterThan(250));
-      expect(body(log.last), startsWith('A long abc'));
-      expect(log.map(body).where((l) => l.startsWith('E ')), errors);
-      expect(
-        log.map(body).where((l) => !l.startsWith('E ')).toList()..removeLast(),
-        rest.sublist(rest.length - (_doorLogLines - errors.length - 1)),
-      );
-      final crash = (report['crashes']! as List).single as Map;
-      expect((crash['text']! as String).length, 8192);
-      expect(crash['text'], startsWith('head of the stack'));
-      final images = report['images']! as Map;
-      expect(big!.length, greaterThan(3 << 20));
-      expect(base64.encode(medium!).length, greaterThan(_doorImageChars));
-      expect(
-        (images['app']! as String).length,
-        lessThanOrEqualTo(_doorImageChars),
-      );
-      expect(images.containsKey('screen'), isFalse);
-      expect(images['note'], 'too_large');
-      expect(
-        utf8.encode(jsonEncode(report)).length,
-        lessThanOrEqualTo(_doorBytes),
-      );
-    },
-  );
+    final log = (report['log']! as List).cast<String>();
+    String body(String line) => line.substring(21);
+    expect(log, hasLength(_doorLogLines));
+    expect(log.every((line) => line.length <= 300), isTrue);
+    expect(log.last.length, greaterThan(250));
+    expect(body(log.last), startsWith('A long abc'));
+    expect(log.map(body).where((l) => l.startsWith('E ')), errors);
+    expect(
+      log.map(body).where((l) => !l.startsWith('E ')).toList()..removeLast(),
+      rest.sublist(rest.length - (_doorLogLines - errors.length - 1)),
+    );
+    final crash = (report['crashes']! as List).single as Map;
+    expect((crash['text']! as String).length, 8192);
+    expect(crash['text'], startsWith('head of the stack'));
+    final images = report['images']! as Map;
+    expect(big!.length, greaterThan(3 << 20));
+    expect(
+      base64.encode(medium!).length,
+      allOf(greaterThan(_doorImageChars), lessThanOrEqualTo(500 * 1024)),
+    );
+    expect(
+      (images['app']! as String).length,
+      lessThanOrEqualTo(_doorImageChars),
+    );
+    expect(images.containsKey('screen'), isFalse);
+    expect(images['note'], 'too_large');
+    expect(
+      utf8.encode(jsonEncode(report)).length,
+      lessThanOrEqualTo(_doorBytes),
+    );
+  });
 
   test(
     'the 1.4 MB ceiling counts UTF-8 bytes, so Persian text drops the images',
@@ -694,6 +803,7 @@ void main() {
     () async {
       ShikooService named(int id, String name) =>
           ShikooService(id: id, name: name, usedBytes: 0, totalBytes: 0);
+      final longest = '${'a' * 60}_123';
       final h = await _harness(
         state: ShikooState(
           connection: ShikooConnection.off,
@@ -702,31 +812,57 @@ void main() {
           servers: const [],
           service: named(1, 'ali_2024 · Gold'),
           others: [
-            named(2, 'https://x.ir/s/abc'),
-            named(3, 'sub.schemeless.ir/sub/Qr7Tz2Wx9Kp4'),
-            named(4, 'Zk3Qp9Lx2Vb7Nc4Rt8Wy1Ha6Jd5Ks0Mf3Gq9Xe2Uo7'),
-            named(5, _portUser),
-            named(6, _signInToken),
-            named(7, _liveCode),
-            // A panel may name the account in its link's path, as this one's segment.
-            named(8, 'PlantedPathToken'),
+            named(2, longest),
+            named(3, 'clash'),
+            named(4, '${longest}x'),
+            named(5, 'https://x.ir/s/abc'),
+            named(6, 'sub.schemeless.ir/sub/Qr7Tz2Wx9Kp4'),
+            named(8, _portUser),
+            named(9, _portPass.toLowerCase()),
+            named(10, _signInToken),
+            named(11, _liveCode),
+            named(12, 'PlantedPathToken'),
+            named(13, 'QueryTokenValue'),
           ],
         ),
       );
       final diag = h.diag;
       await diag.start(h.home.path);
       await diag.attach(h.container);
-      diag.add('A', 'service ali_2024 refreshed');
+      diag
+        ..add('A', 'service ali_2024 refreshed')
+        ..add('A', 'FlClash core up');
 
       final report = await diag.report(trigger: 'test', about: _about);
 
       expect(
         [for (final s in report['services']! as List) (s as Map)['username']],
-        ['ali_2024', '·', '·', '·', '·', '·', '·', 'PlantedPathToken'],
+        ['ali_2024', longest, 'clash', ...List.filled(9, '·')],
       );
-      expect((report['log']! as List).last, endsWith(' A service · refreshed'));
+      final log = (report['log']! as List).cast<String>();
+      expect(log, contains(endsWith(' A service · refreshed')));
+      expect(log.last, endsWith(' A FlClash core up'));
     },
   );
+
+  test('the report keeps the door caps on crashes and servers', () async {
+    final now = _now.millisecondsSinceEpoch;
+    final h = await _harness(
+      plants: [for (var i = 0; i < 301; i++) 'Germany $i'],
+    );
+    final diag = h.diag;
+    await diag.start(h.home.path);
+    await diag.attach(h.container);
+    File('${h.dir}/java-crash.txt').writeAsStringSync(
+      [for (var i = 0; i < 12; i++) '--- ${now - i} main\nboom $i\n'].join(),
+    );
+
+    final report = await diag.report(trigger: 'test', about: _about);
+
+    expect(report['crashes'], hasLength(10));
+    expect(report['servers'], hasLength(300));
+    expect(report['services'], hasLength(20));
+  });
 
   test('a minute of frames is written only when one was slow', () {
     expect(frameSummary(60, 0, 4, 15), isNull);
