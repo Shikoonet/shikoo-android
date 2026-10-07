@@ -27,10 +27,8 @@ class PasteLink extends ConsumerStatefulWidget {
   builder;
   final VoidCallback? onAdded;
 
-  /// Off on the sign-in page, where its pictures could hold a live code.
+  /// Off on the sign-in page, whose pictures could hold a live code; [dateButton], where date settings show already.
   final bool report;
-
-  /// Off where the page already shows date settings for its own clock message.
   final bool dateButton;
 
   @override
