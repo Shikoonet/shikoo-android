@@ -777,8 +777,8 @@ void main() {
       final diag = h.diag;
       await diag.start(h.home.path);
       await diag.attach(h.container);
-      final java = File('${h.dir}/java-crash.txt')
-        ..writeAsStringSync('--- ${_now.millisecondsSinceEpoch} main\nboom\n');
+      final javaText = '--- ${_now.millisecondsSinceEpoch} main\nboom\n';
+      final java = File('${h.dir}/java-crash.txt')..writeAsStringSync(javaText);
       final go = File('${h.home.path}/go-crash.txt')
         ..writeAsStringSync('panic: boom\n');
       // The Go core's own descriptor, opened at its init and kept for the process.
@@ -788,7 +788,10 @@ void main() {
       _Harness.reportStatus = 422;
       addTearDown(() => _Harness.reportStatus = 200);
       await expectLater(diag.send(report), throwsA(isA<ShikooApiFailure>()));
-      expect(java.existsSync() && go.existsSync(), isTrue);
+      expect(
+        [java.readAsStringSync(), go.readAsStringSync()],
+        [javaText, 'panic: boom\n'],
+      );
 
       _Harness.reportStatus = 200;
       expect(await diag.send(report), (code: '48219037', linked: true));
@@ -851,6 +854,13 @@ void main() {
               usedBytes: 0,
               totalBytes: 0,
             ),
+            const ShikooService(
+              id: 18,
+              name: 'Gold',
+              account: 'PlantedPathToken',
+              usedBytes: 0,
+              totalBytes: 0,
+            ),
           ],
         ),
       );
@@ -875,6 +885,7 @@ void main() {
           '·',
           '·',
           'ali_2024',
+          '·',
         ],
       );
       final log = (report['log']! as List).cast<String>();
