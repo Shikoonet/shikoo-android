@@ -136,6 +136,12 @@ String _backendOf(String? rendererLine) =>
       _ => 'unknown',
     };
 
+final _usernameShape = RegExp(r'^[A-Za-z0-9_.-]{1,32}$');
+
+String? frameSummary(int frames, int slow, int build, int raster) => slow == 0
+    ? null
+    : 'frames $frames slow $slow build ${build}ms raster ${raster}ms';
+
 String _reasonName(Object? code) => AppExitReason.fromCode(
   code,
 ).name.replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m[0]}').toUpperCase();
@@ -422,6 +428,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   bool _holding = true;
   ProviderContainer? _container;
   final _secrets = <String>{};
+  final _linkParts = <String>{};
   RegExp? _known;
   String? _lastKind;
   String? _lastText;
@@ -525,7 +532,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   RegExp? _knownNow() {
     final container = _container;
     if (container == null) return null;
-    final before = _secrets.length;
+    final before = _secrets.length + _linkParts.length;
     try {
       _secrets.addAll(container.read(shikooSignInProvider).secrets);
       final auth = container.read(networkSettingProvider).authentication;
@@ -534,15 +541,26 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
         _secrets.add(profile.url);
         final uri = Uri.tryParse(profile.url);
         if (uri == null) continue;
-        _secrets
-          ..add(uri.host)
+        _secrets.add(uri.host);
+        _linkParts
           ..addAll(uri.pathSegments)
           ..addAll(uri.queryParameters.values);
       }
     } catch (_) {}
     // Kept once seen: a crash file read later still holds a password or token since replaced.
-    if (_secrets.length != before) _known = _knownPattern(_secrets);
+    if (_secrets.length + _linkParts.length != before) {
+      _known = _knownPattern({..._secrets, ..._linkParts});
+    }
     return _known;
+  }
+
+  /// The panel's account name: a link's path may hold it, a secret the app holds may not.
+  String _username(String name) {
+    final lower = name.toLowerCase();
+    return _usernameShape.hasMatch(name) &&
+            !_secrets.any((secret) => secret.toLowerCase() == lower)
+        ? name
+        : _bullet;
   }
 
   /// After `bootstrap.attach()`: the secrets are known, and the start's records are read.
@@ -658,12 +676,10 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     SchedulerBinding.instance.addTimingsCallback(_onTimings);
     _framesTimer?.cancel();
     _framesTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (_frames == 0) return;
-      add(
-        'T',
-        'frames $_frames slow $_slow build ${_worstBuild}ms '
-            'raster ${_worstRaster}ms',
-      );
+      if (frameSummary(_frames, _slow, _worstBuild, _worstRaster)
+          case final line?) {
+        add('T', line);
+      }
       _frames = _slow = _worstBuild = _worstRaster = 0;
     });
   }
@@ -908,7 +924,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       'services': [
         for (final service in services)
           {
-            'username': cleanLine(service.username, known),
+            'username': _username(service.username),
             'status': service.revoked
                 ? 'revoked'
                 : service.statusAt(shikooNow()).name,

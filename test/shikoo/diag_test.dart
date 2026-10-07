@@ -688,4 +688,51 @@ void main() {
       expect(again['crashes'], isEmpty);
     },
   );
+
+  test(
+    'a service keeps the panel username a log line loses, never a link, token or secret',
+    () async {
+      ShikooService named(int id, String name) =>
+          ShikooService(id: id, name: name, usedBytes: 0, totalBytes: 0);
+      final h = await _harness(
+        state: ShikooState(
+          connection: ShikooConnection.off,
+          connectedFor: Duration.zero,
+          isTV: false,
+          servers: const [],
+          service: named(1, 'ali_2024 · Gold'),
+          others: [
+            named(2, 'https://x.ir/s/abc'),
+            named(3, 'sub.schemeless.ir/sub/Qr7Tz2Wx9Kp4'),
+            named(4, 'Zk3Qp9Lx2Vb7Nc4Rt8Wy1Ha6Jd5Ks0Mf3Gq9Xe2Uo7'),
+            named(5, _portUser),
+            named(6, _signInToken),
+            named(7, _liveCode),
+            // A panel may name the account in its link's path, as this one's segment.
+            named(8, 'PlantedPathToken'),
+          ],
+        ),
+      );
+      final diag = h.diag;
+      await diag.start(h.home.path);
+      await diag.attach(h.container);
+      diag.add('A', 'service ali_2024 refreshed');
+
+      final report = await diag.report(trigger: 'test', about: _about);
+
+      expect(
+        [for (final s in report['services']! as List) (s as Map)['username']],
+        ['ali_2024', '·', '·', '·', '·', '·', '·', 'PlantedPathToken'],
+      );
+      expect((report['log']! as List).last, endsWith(' A service · refreshed'));
+    },
+  );
+
+  test('a minute of frames is written only when one was slow', () {
+    expect(frameSummary(60, 0, 4, 15), isNull);
+    expect(
+      frameSummary(60, 2, 9, 45),
+      'frames 60 slow 2 build 9ms raster 45ms',
+    );
+  });
 }
