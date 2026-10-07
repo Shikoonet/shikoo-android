@@ -11,6 +11,7 @@ import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
@@ -82,6 +83,7 @@ class ShikooService {
     this.pasted = false,
     this.revoked = false,
     this.number = 1,
+    this.account,
   });
 
   final int id;
@@ -106,6 +108,9 @@ class ShikooService {
 
   /// Among the services without a name, 1 for the first.
   final int number;
+
+  /// The panel's account name (content-disposition or the 🆔 row), before [name] is made unique.
+  final String? account;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -276,7 +281,7 @@ final _hiddenProvider = _cell<String?>(null);
 final _nativeStartProvider = _cell<DateTime?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
-typedef _Extras = ({String? announce, String? supportUrl});
+typedef _Extras = ({String? announce, String? supportUrl, String? account});
 
 class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
   static const _key = 'shikoo.serviceExtras';
@@ -293,6 +298,7 @@ class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
         int.parse(key): (
           announce: value['announce'] as String?,
           supportUrl: value['supportUrl'] as String?,
+          account: value['account'] as String?,
         ),
     };
   }
@@ -308,7 +314,11 @@ class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
       _key,
       jsonEncode({
         for (final MapEntry(:key, :value) in state.entries)
-          '$key': {'announce': value.announce, 'supportUrl': value.supportUrl},
+          '$key': {
+            'announce': value.announce,
+            'supportUrl': value.supportUrl,
+            'account': value.account,
+          },
       }),
     );
   }
@@ -531,6 +541,7 @@ ShikooService _serviceFrom(
         : null,
     announce: extras?.announce,
     supportUrl: extras?.supportUrl,
+    account: extras?.account,
     updatedAt: profile.lastUpdateDate,
     usageKnown: info != null,
     refresh: refresh,
@@ -1070,6 +1081,7 @@ class ShikooController {
   }
 
   void _updated(int id) {
+    shikooDiag.refreshed(id, null);
     if (id == _ref.read(currentProfileIdProvider)) {
       if (_ref.read(_refreshProvider) == ShikooRefresh.failed) {
         _ref.read(_refreshProvider.notifier).set(ShikooRefresh.idle);
@@ -1094,6 +1106,7 @@ class ShikooController {
 
   /// Phone-only, as only a phone pastes: the account's own services leave with its next sync.
   void _failed(int id, Object error) {
+    shikooDiag.refreshed(id, error);
     if (addFailure(error) == ShikooPasteError.revoked &&
         _ref.read(_pastedProvider).contains(id)) {
       _revoked(id, revoked: true);
@@ -1331,6 +1344,7 @@ class ShikooController {
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
       supportUrl: headerText(header('support-url')),
+      account: user,
     ));
     return profile;
   }

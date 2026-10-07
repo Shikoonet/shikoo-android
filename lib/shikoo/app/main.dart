@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/common.dart';
@@ -8,6 +9,7 @@ import 'package:fl_clash/providers/state.dart' show serviceTexts;
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -22,6 +24,7 @@ void main() {
       WidgetsFlutterBinding.ensureInitialized();
       _hideLinksInLogs();
       FlutterError.onError = (details) {
+        shikooDiag.error(details.exception, details.stack);
         Future.microtask(() {
           commonPrint.log(
             'exception: ${details.exception} stack: ${details.stack}',
@@ -29,7 +32,12 @@ void main() {
           );
         });
       };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        shikooDiag.error(error, stack);
+        return false;
+      };
       try {
+        await shikooDiag.start(await appPath.homeDirPath);
         await loadShikooFonts();
         await RustLib.init();
         final version = await system.init();
@@ -49,6 +57,7 @@ void main() {
         );
       } catch (e, s) {
         commonPrint.log('init failed: $e $s', logLevel: LogLevel.error);
+        shikooDiag.release();
         runApp(const ShikooInitErrorApp());
       }
     },
@@ -91,6 +100,8 @@ Future<void> _untilClockRight() async {
 void _hideLinksInLogs() {
   final print = debugPrint;
   final link = RegExp(r'[a-z][a-z0-9+.-]*://\S+', caseSensitive: false);
-  debugPrint = (message, {wrapWidth}) =>
-      print(message?.replaceAll(link, '<link>'), wrapWidth: wrapWidth);
+  debugPrint = (message, {wrapWidth}) {
+    if (message != null) shikooDiag.add('A', message);
+    print(message?.replaceAll(link, '<link>'), wrapWidth: wrapWidth);
+  };
 }

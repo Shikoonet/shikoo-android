@@ -21,7 +21,10 @@ import 'package:url_launcher/url_launcher.dart';
 void openSettings(BuildContext context) => unawaited(
   Navigator.push(
     context,
-    MaterialPageRoute<void>(builder: (_) => const ShikooSettings()),
+    MaterialPageRoute<void>(
+      builder: (_) => const ShikooSettings(),
+      settings: const RouteSettings(name: 'settings'),
+    ),
   ),
 );
 
@@ -369,6 +372,7 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
                     context,
                     MaterialPageRoute<void>(
                       builder: (_) => const ShikooAbout(),
+                      settings: const RouteSettings(name: 'about'),
                     ),
                   ),
                 ),

@@ -11,6 +11,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -295,7 +296,9 @@ class ShikooApi {
     String path, {
     Map<String, Object?>? body,
     String? token,
+    Duration? sendTimeout,
   }) async {
+    final name = path.split('/').where((part) => part.isNotEmpty).join('-');
     (DioException, String)? failed;
     for (var i = 0; i < bases.length; i++) {
       final at = (_first + i) % bases.length;
@@ -305,6 +308,7 @@ class ShikooApi {
           data: body,
           options: Options(
             method: method,
+            sendTimeout: sendTimeout,
             headers: {
               if (token != null)
                 HttpHeaders.authorizationHeader: 'Bearer $token',
@@ -313,14 +317,20 @@ class ShikooApi {
         );
         _first = at;
         learnClock(response.headers.value(HttpHeaders.dateHeader));
+        if ((response.statusCode ?? 0) >= 400) {
+          shikooDiag.add('T', 'door $name http ${response.statusCode}');
+        }
         return response;
       } on DioException catch (error) {
         failed = (error, bases[at]);
       }
     }
-    throw ShikooApiFailure(
-      clock: failed != null && await clockFailed(failed.$1, failed.$2),
+    final clock = failed != null && await clockFailed(failed.$1, failed.$2);
+    shikooDiag.add(
+      'T',
+      'door $name ${clock ? 'clock' : failureKind(failed?.$1)}',
     );
+    throw ShikooApiFailure(clock: clock);
   }
 
   static Map<String, dynamic>? _json(Response<Object?> response) =>
@@ -404,6 +414,27 @@ class ShikooApi {
           AccountServiceRow.fromJson(row as Map<String, dynamic>),
       ],
     );
+  }
+
+  /// `POST /report` (shikoo-platform's `appReport.ts`); a 1.4 MB body gets its own minute.
+  Future<({String code, bool linked})> report(
+    Map<String, Object?> body, {
+    String? token,
+  }) async {
+    final response = await _call(
+      'POST',
+      '/report',
+      body: body,
+      token: token,
+      sendTimeout: const Duration(seconds: 60),
+    );
+    if (_json(response) case {
+      'code': final String code,
+      'linked': final bool linked,
+    } when response.statusCode == 200) {
+      return (code: code, linked: linked);
+    }
+    throw const ShikooApiFailure();
   }
 
   Future<void> logout(String token) async {
@@ -509,6 +540,7 @@ class ShikooSignIn {
   @visibleForTesting
   Duration startLimit = const Duration(seconds: 30);
   String? _token;
+  LoginCode? _live;
   bool _servicesClock = false;
 
   /// A newer code, a sign-out or a paste ends whatever the one before was waiting for.
@@ -612,6 +644,7 @@ class ShikooSignIn {
           .read(shikooDeviceProvider)()
           .then((device) => _api.start(deviceName: device.name, tv: device.tv))
           .timeout(startLimit);
+      _live = code;
       if (attempt != _attempt) return null;
       _login(
         ShikooLogin(LoginPhase.waiting, code: code.code, botUrl: code.botUrl),
@@ -703,6 +736,11 @@ class ShikooSignIn {
       ),
     });
   }
+
+  Iterable<String> get secrets => [?_token, ?_live?.code, ?_live?.secret];
+
+  Future<({String code, bool linked})> report(Map<String, Object?> body) =>
+      _api.report(body, token: _token);
 
   void finish() {
     _attempt++;

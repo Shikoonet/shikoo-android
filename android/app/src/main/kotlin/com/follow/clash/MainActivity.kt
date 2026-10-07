@@ -13,6 +13,7 @@ class MainActivity : FlutterActivity() {
         flutterEngine.plugins.add(ServicePlugin())
         flutterEngine.plugins.add(TilePlugin())
         ShikooUpdate.attach(this, flutterEngine)
+        ShikooDiag.attach(this, flutterEngine)
         ServiceState.attachFlutterEngine(flutterEngine)
     }
 
