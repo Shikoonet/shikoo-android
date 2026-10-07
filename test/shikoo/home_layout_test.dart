@@ -16,6 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 const _servers = [
   ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
   ShikooServer(name: 'فنلاند ۲', type: 'Vless', ping: 112),
@@ -81,6 +83,7 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
     ProviderScope(
       key: UniqueKey(),
       overrides: [
+        noShots,
         shikooStateProvider.overrideWith((ref) {
           void changed() => ref.invalidateSelf();
           holder.addListener(changed);

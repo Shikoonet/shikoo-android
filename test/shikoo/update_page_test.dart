@@ -20,6 +20,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 class _Update extends Mock implements ShikooUpdate {}
 
 const _release = AppRelease(
@@ -140,6 +142,7 @@ Future<ProviderContainer> _pump(
     ProviderScope(
       key: UniqueKey(),
       overrides: [
+        noShots,
         shikooVersionProvider.overrideWithValue('1.0.0'),
         shikooStateProvider.overrideWithValue(_state(isTV: isTV)),
         shikooUpdateOfferProvider.overrideWith(() => ShikooCell(offer)),

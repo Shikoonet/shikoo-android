@@ -419,6 +419,12 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   static const keep = Duration(days: 7);
   static const _seenExitKey = 'shikoo.diag.seenExit';
   static const _sentExitKey = 'shikoo.diag.sentExit';
+  static const _askedCrashKey = 'shikoo.diag.askedCrash';
+  static const _crashed = {
+    AppExitReason.crash,
+    AppExitReason.crashNative,
+    AppExitReason.anr,
+  };
 
   String? _home;
   RandomAccessFile? _out;
@@ -593,9 +599,37 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     if (exits.isNotEmpty) {
       await prefs.setInt(_seenExitKey, exits.map((e) => e['time'] as int).max);
     }
+    _offerCrash(prefs, exits);
     _backend = _backendOf(await _invoke<String>('renderer'));
     add('T', 'renderer $_backend');
     await takeEvents();
+  }
+
+  // ponytail: an exit record is read on one start only, so a crash known from it alone is offered then.
+  void _offerCrash(SharedPreferences prefs, List<Map<Object?, Object?>> exits) {
+    final java = File('$_dir/java-crash.txt');
+    final go = File('$_home/go-crash.txt');
+    final times = [
+      for (final exit in exits)
+        if (_crashed.contains(AppExitReason.fromCode(exit['reason'])))
+          exit['time'] as int,
+      if (_home != null && java.existsSync())
+        java.lastModifiedSync().millisecondsSinceEpoch,
+      if (_home != null && go.existsSync() && go.lengthSync() > 0)
+        go.lastModifiedSync().millisecondsSinceEpoch,
+    ];
+    final newest = times.maxOrNull;
+    if (newest != null && newest > (prefs.getInt(_askedCrashKey) ?? 0)) {
+      _container?.read(shikooCrashProvider.notifier).set(newest);
+    }
+  }
+
+  Future<void> crashAsked() async {
+    final container = _container;
+    final at = container?.read(shikooCrashProvider);
+    if (container == null || at == null) return;
+    container.read(shikooCrashProvider.notifier).set(null);
+    await (await SharedPreferences.getInstance()).setInt(_askedCrashKey, at);
   }
 
   /// Kotlin's `events.txt` (screen, airplane mode, revoked, alive) into the timeline.
@@ -996,3 +1030,10 @@ class _Routes extends NavigatorObserver {
 }
 
 final shikooDiag = ShikooDiag();
+
+/// The screens reach the recorder here, so a test can stand in for the device's pictures.
+final shikooDiagProvider = Provider<ShikooDiag>((_) => shikooDiag);
+
+final shikooCrashProvider = NotifierProvider<ShikooCell<int?>, int?>(
+  () => ShikooCell(null),
+);

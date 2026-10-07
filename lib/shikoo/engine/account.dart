@@ -197,9 +197,12 @@ final shikooDeviceProvider =
     );
 
 class ShikooApiFailure implements Exception {
-  const ShikooApiFailure({this.clock = false});
+  const ShikooApiFailure({this.clock = false, this.status});
 
   final bool clock;
+
+  /// The door answered, and refused; null when it was not reached.
+  final int? status;
 }
 
 class LoginCode {
@@ -434,7 +437,7 @@ class ShikooApi {
     } when response.statusCode == 200) {
       return (code: code, linked: linked);
     }
-    throw const ShikooApiFailure();
+    throw ShikooApiFailure(status: response.statusCode);
   }
 
   Future<void> logout(String token) async {

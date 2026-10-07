@@ -16,6 +16,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 class _SignIn extends Mock implements ShikooSignIn {}
 
 class _Controller extends Mock implements ShikooController {}
@@ -58,6 +60,7 @@ Future<ProviderContainer> _pump(
   when(signIn.notMine).thenAnswer((_) async {});
   final container = ProviderContainer(
     overrides: [
+      noShots,
       shikooStateProvider.overrideWith((ref) => ref.watch(_stateCell)),
       shikooSignInProvider.overrideWithValue(signIn),
       shikooControllerProvider.overrideWithValue(_Controller()),
@@ -321,6 +324,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('کد ورود نرسید'), findsOneWidget);
     expect(_focusedButton(), 'دوباره');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(_focusedButton(), 'ارسال گزارش به پشتیبانی');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
     expect(_focusedButton(), 'پشتیبانی');

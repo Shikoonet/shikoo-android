@@ -12,6 +12,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/foundation.dart' show listEquals;
@@ -46,6 +47,8 @@ ShikooServiceStatus? restingFor(ShikooState state) {
 class CardFocus {
   final renew = FocusNode();
   final pingAll = FocusNode();
+  final refresh = FocusNode();
+  final report = FocusNode();
   // ponytail: a removed server's node lives until the page goes; prune if lists churn a lot.
   final _rows = <String, FocusNode>{};
 
@@ -54,6 +57,8 @@ class CardFocus {
   void dispose() {
     renew.dispose();
     pingAll.dispose();
+    refresh.dispose();
+    report.dispose();
     for (final node in _rows.values) {
       node.dispose();
     }
@@ -160,12 +165,12 @@ class _ServiceCardState extends State<ServiceCard> {
                       ShikooButton(
                         label: l.support,
                         icon: state.isTV ? ShikooIcon.qr : null,
-                        onPressed: () => openLink(
-                          context,
-                          isTV: state.isTV,
-                          link: ShikooLinks.support,
-                          title: l.supportTitle,
-                          help: l.supportHelpTv,
+                        onPressed: () => unawaited(
+                          openSupport(
+                            context,
+                            isTV: state.isTV,
+                            trigger: 'support',
+                          ),
                         ),
                       ),
                     ],
@@ -186,6 +191,7 @@ class _ServiceCardState extends State<ServiceCard> {
                         : const EdgeInsetsDirectional.only(start: Space.s4),
                     child: _Head(
                       service: service,
+                      refreshNode: focus.refresh,
                       refresh: state.refresh,
                       onRefresh: () => unawaited(controller.refreshService()),
                       isTV: state.isTV,
@@ -207,7 +213,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 if (notice != null && !revoked)
                   Padding(
                     padding: inset,
-                    child: _Message(notice: notice, isTV: state.isTV),
+                    child: _Message(
+                      notice: notice,
+                      isTV: state.isTV,
+                      reportNode: focus.report,
+                    ),
                   ),
                 if (service.usageKnown && !revoked)
                   Padding(
@@ -276,13 +286,14 @@ class _ServiceCardState extends State<ServiceCard> {
                         child: ShikooButton(
                           label: l.support,
                           icon: state.isTV ? ShikooIcon.qr : null,
-                          onPressed: () => openLink(
-                            context,
-                            isTV: state.isTV,
-                            link: service.supportLink,
-                            title: l.supportTitle,
-                            help: l.supportHelpTv,
-                            below: serviceTitle(context, service),
+                          onPressed: () => unawaited(
+                            openSupport(
+                              context,
+                              isTV: state.isTV,
+                              link: service.supportLink,
+                              below: serviceTitle(context, service),
+                              trigger: 'support',
+                            ),
                           ),
                         ),
                       ),
@@ -420,6 +431,7 @@ String agoText(ShikooL10n l, Duration ago) {
 class _Head extends StatelessWidget {
   const _Head({
     required this.service,
+    this.refreshNode,
     required this.refresh,
     required this.onRefresh,
     required this.isTV,
@@ -428,6 +440,7 @@ class _Head extends StatelessWidget {
   });
 
   final ShikooService service;
+  final FocusNode? refreshNode;
   final ShikooRefresh refresh;
   final VoidCallback onRefresh;
   final bool isTV;
@@ -476,6 +489,7 @@ class _Head extends StatelessWidget {
             label: l.refresh,
             icon: ShikooIcon.refresh,
             busy: busy,
+            focusNode: refreshNode,
             onPressed: busy ? () {} : onRefresh,
           )
         else ...[
@@ -573,10 +587,15 @@ class _Summary extends StatelessWidget {
 /// `.notice.msg`: what the last update did; `.danger` when an update the user asked for
 /// failed.
 class _Message extends StatelessWidget {
-  const _Message({required this.notice, required this.isTV});
+  const _Message({
+    required this.notice,
+    required this.isTV,
+    required this.reportNode,
+  });
 
   final ShikooNotice notice;
   final bool isTV;
+  final FocusNode reportNode;
 
   @override
   Widget build(BuildContext context) {
@@ -624,15 +643,31 @@ class _Message extends StatelessWidget {
       rest: rest,
       danger: danger,
     );
+    void report() => unawaited(openReport(context, 'refresh'));
     return Padding(
       padding: const EdgeInsets.only(top: Space.s3),
-      child: clock
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: Space.s2,
-              children: [box, const DateSettingsButton()],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: Space.s2,
+        children: [
+          box,
+          if (clock)
+            const DateSettingsButton()
+          else if (danger && isTV)
+            ShikooButton(
+              label: l.reportSendToSupport,
+              icon: ShikooIcon.report,
+              focusNode: reportNode,
+              onPressed: report,
             )
-          : box,
+          else if (danger)
+            LinkButton(
+              label: l.reportSendToSupport,
+              alignment: AlignmentDirectional.centerStart,
+              onPressed: report,
+            ),
+        ],
+      ),
     );
   }
 }

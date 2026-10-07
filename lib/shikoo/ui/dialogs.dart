@@ -59,7 +59,7 @@ Future<T?> showShikooDialog<T>(
 
 /// On the TV, `.qr-sheet` (frames `tv-renew-qr`, `tv-support-qr`): the phone scans what the TV
 /// cannot open. A phone opens the link in Telegram at once. [strong], all of [below] unless
-/// given, is bold.
+/// given, is bold; [beside] stands after «بستن», which keeps the remote.
 void openLink(
   BuildContext context, {
   required bool isTV,
@@ -68,6 +68,7 @@ void openLink(
   required String help,
   String? below,
   String? strong,
+  Widget Function(BuildContext dialog)? beside,
 }) {
   if (!isTV) {
     unawaited(launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication));
@@ -113,10 +114,18 @@ void openLink(
               textAlign: TextAlign.center,
               style: paragraph,
             ),
-          ShikooButton(
-            label: ShikooL10n.of(context).close,
-            autofocus: true,
-            onPressed: () => Navigator.pop(context),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: Space.s2,
+            runSpacing: Space.s2,
+            children: [
+              ShikooButton(
+                label: ShikooL10n.of(context).close,
+                autofocus: true,
+                onPressed: () => Navigator.pop(context),
+              ),
+              ?beside?.call(context),
+            ],
           ),
         ];
       },

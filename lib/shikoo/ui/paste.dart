@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/services.dart';
@@ -81,7 +82,14 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
               },
             ),
           ),
-        if (error == ShikooPasteError.clock) const DateSettingsButton(),
+        if (error == ShikooPasteError.clock)
+          const DateSettingsButton()
+        else if (error != null)
+          LinkButton(
+            label: l.reportSendToSupport,
+            onPressed: () =>
+                unawaited(openReport(context, 'paste_${error.name}')),
+          ),
         widget.builder(context, _busy, () => unawaited(_paste())),
       ],
     );

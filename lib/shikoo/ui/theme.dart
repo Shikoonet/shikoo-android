@@ -206,6 +206,7 @@ class ShikooSizes {
     required this.code,
     required this.heroIcon,
     required this.qr,
+    required this.reportImage,
   });
 
   final double caption;
@@ -238,6 +239,9 @@ class ShikooSizes {
   final double heroIcon;
   final double qr;
 
+  /// The tallest a report preview's picture grows (`--size-report-image`).
+  final double reportImage;
+
   static const phone = ShikooSizes(
     caption: 12,
     bodySm: 13,
@@ -266,6 +270,7 @@ class ShikooSizes {
     code: 28,
     heroIcon: 64,
     qr: 200,
+    reportImage: 200,
   );
 
   static const tv = ShikooSizes(
@@ -296,6 +301,7 @@ class ShikooSizes {
     code: 40,
     heroIcon: 64,
     qr: 300,
+    reportImage: 240,
   );
 
   static const touch = 48.0;
@@ -320,6 +326,10 @@ class ShikooSizes {
   static const markLg = 88.0;
   static const codeWordSpacing = 0.12;
   static const fade = 24.0;
+  static const switchW = 52.0;
+  static const switchH = 32.0;
+  static const switchThumb = 24.0;
+  static const borderRadio = 2.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;
 

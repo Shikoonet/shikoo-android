@@ -1022,4 +1022,103 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get settingsCheckFailed =>
       'Couldn\'t check; check your internet and try again.';
+
+  @override
+  String get reportSendToSupport => 'Send a report to Support';
+
+  @override
+  String get reportSendShort => 'Send a report';
+
+  @override
+  String get diagTitle => 'Diagnostics and report';
+
+  @override
+  String get diagRowHelp => 'If the app isn\'t working right';
+
+  @override
+  String get diagReportGroup => 'Report';
+
+  @override
+  String get diagReportHelp =>
+      'If the app isn\'t working right, send Support a report. You see what is sent before it goes.';
+
+  @override
+  String get reportSupportSheetBody =>
+      'If the app isn\'t working right, send a report first so Support can see what happened.';
+
+  @override
+  String get reportChatTelegram => 'Chat on Telegram';
+
+  @override
+  String get reportCrashTitle => 'The app closed suddenly last time.';
+
+  @override
+  String get reportCrashAsk => 'Send us a report about it?';
+
+  @override
+  String get reportCrashYes => 'Send';
+
+  @override
+  String get reportCrashNo => 'No';
+
+  @override
+  String get reportTitle => 'Report to Support';
+
+  @override
+  String get reportImageApp => 'What the app drew';
+
+  @override
+  String get reportImageScreen => 'What the screen showed';
+
+  @override
+  String get reportImagesSwitch => 'Send the screen pictures too';
+
+  @override
+  String get reportImageOff => 'Not sent';
+
+  @override
+  String get reportWhatIsSent =>
+      'Sent: device model and settings, app version, your services’ names and data, your operator and internet status, and the app’s recent activity and errors.';
+
+  @override
+  String get reportNeverSent =>
+      'Your subscription link and passwords are never sent.';
+
+  @override
+  String get reportSend => 'Send';
+
+  @override
+  String get reportSending => 'Sending…';
+
+  @override
+  String get reportSentTitle => 'Sent';
+
+  @override
+  String get reportSentLinked =>
+      'Support can see your report; you don\'t need to send anything.';
+
+  @override
+  String get reportCodeLabel => 'Report code';
+
+  @override
+  String reportCodeSmall(String code) {
+    return 'Report code: $code';
+  }
+
+  @override
+  String get reportGiveCode => 'Give this code to Support.';
+
+  @override
+  String get reportFailedTitle => 'Not sent';
+
+  @override
+  String get reportFailedHelp => 'Check your internet and try again.';
+
+  @override
+  String get reportFailedBusy =>
+      'Several reports were sent in a row. Try again in an hour.';
+
+  @override
+  String get reportFailedRefused =>
+      'This report wasn’t accepted. Try again later; if it still fails, chat with Support on Telegram.';
 }
