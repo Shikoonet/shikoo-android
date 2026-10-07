@@ -13,6 +13,7 @@ import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -458,6 +459,14 @@ void main() {
       if (drawn != canvas) faults.add('$size draws $drawn, not $canvas');
     }
     expect(faults, isEmpty);
+  });
+
+  testWidgets("the app's frame sets the bars' icons for Shikoo's light theme", (
+    tester,
+  ) async {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    await _pump(tester, _devices.last, const ShikooHome(), state: _home(false));
+    expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
   });
 
   testWidgets("on a TV FlClash's messages grow and shrink with the canvas, "

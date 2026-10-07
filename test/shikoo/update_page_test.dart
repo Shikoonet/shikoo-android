@@ -121,6 +121,7 @@ Future<ProviderContainer> _pump(
   bool isTV = false,
   bool root = false,
   Size? size,
+  String language = 'fa',
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -146,7 +147,7 @@ Future<ProviderContainer> _pump(
         shikooUpdateProvider.overrideWithValue(_engine),
       ],
       child: MaterialApp(
-        locale: const Locale('fa'),
+        locale: Locale(language),
         supportedLocales: ShikooL10n.supportedLocales,
         localizationsDelegates: const [
           ShikooL10n.delegate,
@@ -209,6 +210,7 @@ Finder _inCardButton(String label) => find.descendant(
 const _up = LogicalKeyboardKey.arrowUp;
 const _down = LogicalKeyboardKey.arrowDown;
 const _towardPower = LogicalKeyboardKey.arrowLeft;
+const _awayFromPower = LogicalKeyboardKey.arrowRight;
 const _ok = LogicalKeyboardKey.select;
 
 void main() {
@@ -562,13 +564,43 @@ void main() {
         expect(at.bottom, lessThan(retryAt.top), reason: name);
       }
       if (isTV) {
-        await _focus(tester, 'دوباره');
-        final toDate = beside ? LogicalKeyboardKey.arrowRight : _up;
+        await _focus(tester, _dateSet);
+        final toRetry = beside ? _towardPower : _down;
+        expect(await _press(tester, toRetry), 'دوباره', reason: name);
+        final toDate = beside ? _awayFromPower : _up;
         expect(await _press(tester, toDate), _dateSet, reason: name);
+        await _focus(tester, 'دوباره');
+        expect(await _press(tester, _towardPower), 'power', reason: name);
       }
       await tester.tap(_inCard('دوباره'));
       await tester.pumpAndSettle();
       verify(_engine.download).called(1);
+    }
+  });
+
+  testWidgets('in English the TV clock card mirrors: date settings on the '
+      'left, Right to retry and on to the power button', (tester) async {
+    const date = 'Date & time settings';
+    await _pump(tester, _clock, isTV: true, language: 'en');
+    expect(
+      tester.getRect(_inCardButton(date)).right,
+      lessThan(tester.getRect(_inCardButton('Try again')).left),
+    );
+    await _focus(tester, date);
+    expect(await _press(tester, LogicalKeyboardKey.arrowRight), 'Try again');
+    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), date);
+    await _focus(tester, 'Try again');
+    expect(await _press(tester, LogicalKeyboardKey.arrowRight), 'power');
+  });
+
+  testWidgets('a download the clock spoiled keeps the remote on the card\'s '
+      'button, now retry', (tester) async {
+    for (final label in ['دوباره', 'انصراف']) {
+      final from = label == 'دوباره' ? 'failed' : 'downloading';
+      final container = await _pump(tester, _states[from]!.$1, isTV: true);
+      await _focus(tester, label);
+      await _set(tester, container, _clock);
+      expect(_focused(), 'دوباره', reason: from);
     }
   });
 

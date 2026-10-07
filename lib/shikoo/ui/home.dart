@@ -209,6 +209,28 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 /// A node keeps the context of its widget after the widget is gone.
 bool _onScreen(FocusNode? node) => node?.context?.mounted ?? false;
 
+FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
+  final box = cards.findRenderObject();
+  if (box is! RenderBox) return null;
+  final column = box.localToGlobal(Offset.zero) & box.size;
+  final at = from.rect;
+  FocusNode? nearest;
+  var gap = double.infinity;
+  for (final node in from.nearestScope?.traversalDescendants ?? <FocusNode>[]) {
+    final r = node.rect;
+    final apart = rtl ? at.left - r.right : r.left - at.right;
+    if (apart >= 0 &&
+        apart < gap &&
+        r.top < at.bottom &&
+        r.bottom > at.top &&
+        column.contains(r.center)) {
+      nearest = node;
+      gap = apart;
+    }
+  }
+  return nearest;
+}
+
 /// Toward the card is the selected server, or the first one while none is chosen.
 class _PowerKeys extends StatelessWidget {
   const _PowerKeys({required this.row, required this.child});
@@ -240,7 +262,7 @@ class _PowerKeys extends StatelessWidget {
   }
 }
 
-/// Toward the power button every card item goes there, except renew, which steps to support
+/// Toward the power button a card item goes there, or to the item beside it in its row
 /// first; down from renew is ping-all, not the first full-width row (tv-ping.html notes).
 class _CardKeys extends StatelessWidget {
   const _CardKeys({
@@ -255,7 +277,8 @@ class _CardKeys extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final towardPower = Directionality.of(context) == TextDirection.rtl
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final towardPower = rtl
         ? TraversalDirection.left
         : TraversalDirection.right;
     return Actions(
@@ -270,9 +293,9 @@ class _CardKeys extends StatelessWidget {
               return null;
             }
             if (intent.direction == towardPower &&
-                from != focus.renew &&
+                from != null &&
                 _onScreen(power)) {
-              power.requestFocus();
+              (_beside(context, from, rtl: rtl) ?? power).requestFocus();
             } else {
               from?.focusInDirection(intent.direction);
             }
