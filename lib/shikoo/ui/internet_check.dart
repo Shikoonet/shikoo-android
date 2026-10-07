@@ -19,7 +19,7 @@ typedef _Action = (
 );
 
 /// `.card.update.check` (phone-cards-check, phone-home-error, tv-home-error): one sentence and
-/// only the buttons that help with it. [report] shows only once the door answered, since a
+/// only the buttons that help with it. [onReport] shows only once the door answered, since a
 /// report goes to that same door.
 class InternetCheckCard extends StatefulWidget {
   const InternetCheckCard({
@@ -27,7 +27,7 @@ class InternetCheckCard extends StatefulWidget {
     required this.check,
     required this.state,
     required this.controller,
-    this.report,
+    this.onReport,
     this.firstFocus,
   });
 
@@ -35,8 +35,7 @@ class InternetCheckCard extends StatefulWidget {
   final ShikooState state;
   final ShikooController controller;
 
-  /// The report entry; its words and icon come with it from feat/app-report-ui.
-  final ({String label, ShikooIcon icon, VoidCallback onPressed})? report;
+  final VoidCallback? onReport;
 
   /// The first button's node, for the remote coming from the power button.
   final FocusNode? firstFocus;
@@ -59,12 +58,12 @@ class _InternetCheckCardState extends State<InternetCheckCard> {
   }
 
   List<_Action> _actions(ShikooL10n l, ProbeReading reading) {
-    final InternetCheckCard(:state, :controller, :report) = widget;
+    final InternetCheckCard(:state, :controller, :onReport) = widget;
     final service = state.service;
     final busy = state.refresh == ShikooRefresh.running;
-    final reporting = report == null
+    final reporting = onReport == null
         ? null
-        : (report.label, report.icon, report.onPressed, false);
+        : (l.reportSendShort, ShikooIcon.report, onReport, false);
     final support = (
       l.support,
       state.isTV ? ShikooIcon.qr : null,

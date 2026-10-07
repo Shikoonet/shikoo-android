@@ -181,11 +181,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             check: check,
             state: state,
             controller: controller,
-            report: (
-              label: l.reportSendShort,
-              icon: ShikooIcon.report,
-              onPressed: () => unawaited(openReport(context, 'connect')),
-            ),
+            onReport: () => unawaited(openReport(context, 'connect')),
             firstFocus: _check,
           ),
         if (update != null) UpdateCard(offer: update, isTV: state.isTV),

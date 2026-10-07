@@ -22,13 +22,6 @@ class _Controller extends Mock implements ShikooController {}
 
 class _Update extends Mock implements ShikooUpdate {}
 
-/// What feat/app-report-ui passes in: its words, its icon and its page.
-const _reportLabel = 'ارسال گزارش';
-
-({String label, ShikooIcon icon, VoidCallback onPressed}) _entry(
-  VoidCallback onPressed,
-) => (label: _reportLabel, icon: ShikooIcon.check, onPressed: onPressed);
-
 ProbeChecks _probe(String domestic, String international, String door) => (
   domestic: (result: domestic, ms: 40),
   international: (result: international, ms: 300),
@@ -161,11 +154,16 @@ void main() {
     final l = lookupShikooL10n(const Locale('fa'));
     final cases = <(ProbeChecks?, bool, String, List<String>)>[
       (null, false, l.probeChecking, []),
-      (_ok, false, l.probeOk, [_reportLabel]),
+      (_ok, false, l.probeOk, [l.reportSendShort]),
       (_offline, false, l.probeOffline, [l.probeNetSettings]),
-      (_noAbroad, false, l.probeNoAbroad, [_reportLabel]),
+      (_noAbroad, false, l.probeNoAbroad, [l.reportSendShort]),
       (_noDoor, false, l.probeNoDoor, [l.support]),
-      (_ok, true, l.probeNoServer, [_reportLabel, l.support, l.refreshServers]),
+      (
+        _ok,
+        true,
+        l.probeNoServer,
+        [l.reportSendShort, l.support, l.refreshServers],
+      ),
     ];
     for (final (checks, silent, sentence, buttons) in cases) {
       for (final report in [true, false]) {
@@ -178,7 +176,7 @@ void main() {
                     : AsyncData(checks),
                 state: _failed(tv: false, silent: silent),
                 controller: _Controller(),
-                report: report ? _entry(() {}) : null,
+                onReport: report ? () {} : null,
               ),
             ),
           ),
@@ -192,7 +190,7 @@ void main() {
             ))
               button.label,
           ],
-          report ? buttons : buttons.where((b) => b != _reportLabel),
+          report ? buttons : buttons.where((b) => b != l.reportSendShort),
           reason: '$sentence, report $report',
         );
       }
@@ -221,7 +219,7 @@ void main() {
               check: AsyncData(checks),
               state: _failed(tv: false, silent: silent),
               controller: controller,
-              report: _entry(() => reports++),
+              onReport: () => reports++,
             ),
           ),
         ),
@@ -233,8 +231,12 @@ void main() {
     await tester.tap(_button(l.probeNetSettings));
     expect(asked, ['netSettings']);
     await show(_ok, silent: true);
+    expect(
+      tester.widget<ShikooButton>(_button(l.reportSendShort)).icon,
+      ShikooIcon.report,
+    );
     await tester.tap(_button(l.refreshServers));
-    await tester.tap(_button(_reportLabel));
+    await tester.tap(_button(l.reportSendShort));
     verify(controller.refreshService).called(1);
     expect(reports, 1);
   });
