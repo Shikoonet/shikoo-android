@@ -147,8 +147,10 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
   same steps run on every line, stack frames included; Dart `RegExp(…, unicode: true)`:
   1. Go crash text only: a path ending in `.go:<n>` is cut to its file name.
   2. Known values out: every secret listed in the facts that the app holds (port username and password, sign-in
-     token, poll secret, live login code, each subscription URL, its host and each path segment of 4+ characters)
-     becomes `·`, case-insensitively. The list is read afresh on **every write**, from `shikoo.account`,
+     token, poll secret, live login code, each subscription URL, its host, each path segment of 4+ characters and
+     each query value of 8+ characters, as a shorter one is a format such as `target=clash` that would turn
+     «FlClash» into «Fl·») becomes `·`, case-insensitively. A value stays known for the life of the process once
+     seen, so a crash file read later still loses a password or token since replaced. The list is read afresh on **every write**, from `shikoo.account`,
      `ShikooSignIn`, `profilesProvider` and the network setting's `authentication`, so a value made after the
      recorder started (the port password is made in a post-frame callback, `app.dart:72-80`) is covered too.
   3. Link shapes out, case-insensitively, before any splitting so a `,` `(` `)` inside a link cannot leave a tail:
@@ -190,8 +192,10 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
     `FREEZER`, `EXCESSIVE_RESOURCE_USAGE` and the rest, names from `AppExitReason`) and its time. That record is
     the only evidence of HyperOS's autostart or battery killer; there is no API for either;
   - below API 30, «alive ×n» every 5 minutes while our VPN runs, so the last one bounds when the process died;
-  - once a minute while visible, a frame summary from `SchedulerBinding.addTimingsCallback` (frames, slow raster
-    > 32 ms, worst build and raster ms), so stutter is told apart from a layout jump.
+  - every 10 minutes while visible, a frame summary from `SchedulerBinding.addTimingsCallback` (frames, slow
+    raster > 32 ms, worst build and raster ms), written only when a frame was slow, so stutter is told apart from a
+    layout jump. A connected screen redraws its timer every second, and a slow box has a slow frame in every
+    minute: at most 144 lines, about 10 KB, a day.
 
   Events that can happen while no Dart runs (the VPN service alone keeps the process up) are written by Kotlin to
   `files/shikoo/events.txt` (append, 64 KB cap): screen on/off and airplane-mode changes from receivers registered at
@@ -241,7 +245,7 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
 | power | battery saver, device idle, battery optimisation, background restricted, standby bucket |
 | vpn | our state and last `ShikooError`, another VPN up while ours is off |
 | checks | the three probes below: ok, or `dns`/`tcp`/`tls`/`timeout`/`http_<code>`, and ms |
-| services | per service: username (as Home shows it), status, days left, used/total GB, last refresh kind, minutes since update. No link, no title beyond the username |
+| services | per service: the panel's account name (content-disposition or the 🆔 row, not the label Home makes unique with « ۲»), status, days left, used/total GB, last refresh kind, minutes since update. The name passes only as `^[A-Za-z0-9_-]{1,64}$` (the platform makes `[a-z0-9_]`, shelf rows `[a-z0-9_-]`; no dot, so a host or an IPv4 address fails) and when it equals none of the secrets the app holds, a subscription link's path segments and query values included; anything else is `·`. No link, no title beyond the name |
 | servers | label (`ShikooServer.label`) and ping, no address |
 | crashes | since the last sent report, ≤ 7 days: source (java, go, exit), time, reason, status, text ≤ 8192 characters after cleaning, each. Dart errors are the `E` lines |
 | log | from the ring file, up to 700 lines: the newest `E` lines first, then the newest of the rest; plus the last 100 lines of our own logcat (Kotlin's `FlClash` tag), cleaned |
