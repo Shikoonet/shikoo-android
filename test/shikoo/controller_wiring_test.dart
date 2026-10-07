@@ -1032,6 +1032,46 @@ void main() {
     expect(_pasted(container).map((p) => p.label), ['user111', 'user222']);
   });
 
+  test('one account on two hosts is two cards, both keeping the panel\'s '
+      'account name under the label made unique', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('http://127.0.0.1:$port/file/user111/a');
+    await controller.addService('http://10.0.2.2:$port/file/user111/a');
+    final state = container.read(shikooStateProvider);
+    expect({
+      for (final s in [?state.service, ...state.others]) (s.name, s.account),
+    }, containsAll([('user111', 'user111'), ('user111 ۲', 'user111')]));
+  });
+
+  test('the account name is stored with the service and read back after a '
+      'restart', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    await container
+        .read(shikooControllerProvider)
+        .addService('$panel/file/user111/a');
+    final stored = (await SharedPreferences.getInstance()).getString(
+      'shikoo.serviceExtras',
+    );
+    final service = container
+        .read(profilesProvider)
+        .firstWhere((p) => p.label == 'user111');
+
+    final again = _home().container;
+    again.read(profilesProvider.notifier).put(service);
+    SharedPreferences.setMockInitialValues({'shikoo.serviceExtras': stored!});
+    again.read(shikooControllerProvider);
+    await pumpEventQueue();
+
+    final state = again.read(shikooStateProvider);
+    expect(
+      [?state.service, ...state.others].map((s) => (s.name, s.account)),
+      contains(('user111', 'user111')),
+    );
+  });
+
   test('an account pasted again from a new link is the same card, with the '
       'new link', () async {
     final (:container, :core, :proxies, :setup) = _home();

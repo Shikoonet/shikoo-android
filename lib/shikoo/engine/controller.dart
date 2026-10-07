@@ -83,6 +83,7 @@ class ShikooService {
     this.pasted = false,
     this.revoked = false,
     this.number = 1,
+    this.account,
   });
 
   final int id;
@@ -107,6 +108,9 @@ class ShikooService {
 
   /// Among the services without a name, 1 for the first.
   final int number;
+
+  /// The panel's account name (content-disposition or the 🆔 row), before [name] is made unique.
+  final String? account;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -277,7 +281,7 @@ final _hiddenProvider = _cell<String?>(null);
 final _nativeStartProvider = _cell<DateTime?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
-typedef _Extras = ({String? announce, String? supportUrl});
+typedef _Extras = ({String? announce, String? supportUrl, String? account});
 
 class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
   static const _key = 'shikoo.serviceExtras';
@@ -294,6 +298,7 @@ class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
         int.parse(key): (
           announce: value['announce'] as String?,
           supportUrl: value['supportUrl'] as String?,
+          account: value['account'] as String?,
         ),
     };
   }
@@ -309,7 +314,11 @@ class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
       _key,
       jsonEncode({
         for (final MapEntry(:key, :value) in state.entries)
-          '$key': {'announce': value.announce, 'supportUrl': value.supportUrl},
+          '$key': {
+            'announce': value.announce,
+            'supportUrl': value.supportUrl,
+            'account': value.account,
+          },
       }),
     );
   }
@@ -532,6 +541,7 @@ ShikooService _serviceFrom(
         : null,
     announce: extras?.announce,
     supportUrl: extras?.supportUrl,
+    account: extras?.account,
     updatedAt: profile.lastUpdateDate,
     usageKnown: info != null,
     refresh: refresh,
@@ -1334,6 +1344,7 @@ class ShikooController {
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
       supportUrl: headerText(header('support-url')),
+      account: user,
     ));
     return profile;
   }

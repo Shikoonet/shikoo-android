@@ -24,7 +24,8 @@ import '../helpers/test_profiles.dart';
 
 /// Fake values only; none of them was ever a real link, token or key.
 const _subLink =
-    'https://sub.plantedhost.ir/sub/PlantedPathToken?token=QueryTokenValue&target=clash';
+    'https://sub.plantedhost.ir/sub/PlantedPathToken?token=QueryTokenValue&target=clash'
+    '&k8=Eightchr&k7=Sevench';
 const _portUser = 'QwmZpLkr';
 const _portPass = 'HvBnTyUiOpAsDfGh';
 const _laterPass = 'JkLzXcVbNmQwErTy';
@@ -49,6 +50,7 @@ const _plants = [
   'port $_portUser $_portPass',
   'secrets $_signInToken $_pollSecret $_liveCode',
   'path PlantedPathToken and QueryTokenValue alone',
+  'query Eightchr alone',
   'xxPlantedPathTokenyy and querytokenvalue',
   'held host SUB.PLANTEDHOST.IR alone',
   'creds http://$_portUser:$_portPass@127.0.0.1:7890',
@@ -77,6 +79,7 @@ const _needles = [
   'plantedhost',
   'PlantedPathToken',
   'QueryTokenValue',
+  'Eightchr',
   'schemeless',
   'Qr7Tz2Wx9Kp4',
   'pct.encoded',
@@ -555,6 +558,7 @@ void main() {
         diag
           ..add('A', 'after attach $plant')
           ..add('T', 'timeline $plant')
+          ..add('U', 'push $plant')
           ..onLog(Log(logLevel: LogLevel.warning, payload: plant, dateTime: ''))
           ..error(
             StateError(plant),
@@ -578,7 +582,7 @@ void main() {
           if (_leaked(json, n)) n,
       ], isEmpty);
       final log = (report['log']! as List).cast<String>();
-      for (final kind in ['A', 'T', 'C', 'E']) {
+      for (final kind in ['A', 'T', 'C', 'E', 'U']) {
         expect(
           log.where((line) => line.split(' ')[1] == kind).length,
           greaterThanOrEqualTo(_plants.length),
@@ -773,16 +777,21 @@ void main() {
       final diag = h.diag;
       await diag.start(h.home.path);
       await diag.attach(h.container);
-      final java = File('${h.dir}/java-crash.txt')
-        ..writeAsStringSync('--- ${_now.millisecondsSinceEpoch} main\nboom\n');
+      final javaText = '--- ${_now.millisecondsSinceEpoch} main\nboom\n';
+      final java = File('${h.dir}/java-crash.txt')..writeAsStringSync(javaText);
       final go = File('${h.home.path}/go-crash.txt')
         ..writeAsStringSync('panic: boom\n');
+      // The Go core's own descriptor, opened at its init and kept for the process.
+      final held = go.openSync(mode: FileMode.append);
       final report = await diag.report(trigger: 'test', about: _about);
 
       _Harness.reportStatus = 422;
       addTearDown(() => _Harness.reportStatus = 200);
       await expectLater(diag.send(report), throwsA(isA<ShikooApiFailure>()));
-      expect(java.existsSync() && go.existsSync(), isTrue);
+      expect(
+        [java.readAsStringSync(), go.readAsStringSync()],
+        [javaText, 'panic: boom\n'],
+      );
 
       _Harness.reportStatus = 200;
       expect(await diag.send(report), (code: '48219037', linked: true));
@@ -792,9 +801,21 @@ void main() {
       expect(request.headers['Authorization'], 'Bearer $_signInToken');
       expect(request.sendTimeout, const Duration(seconds: 60));
       expect(request.data, report);
-      expect(java.existsSync() || go.existsSync(), isFalse);
+      expect([java.readAsStringSync(), go.readAsStringSync()], ['', '']);
       final again = await diag.report(trigger: 'test', about: _about);
       expect(again['crashes'], isEmpty);
+
+      // O_APPEND, as Go opens it: the next panic of this process lands in the same file.
+      held
+        ..setPositionSync(held.lengthSync())
+        ..writeStringSync('panic: after the send\n')
+        ..closeSync();
+      expect(go.readAsStringSync(), 'panic: after the send\n');
+      final next = await diag.report(trigger: 'test', about: _about);
+      expect(
+        [for (final c in next['crashes']! as List) (c as Map)['source']],
+        ['go'],
+      );
     },
   );
 
@@ -826,6 +847,20 @@ void main() {
             named(14, 'x-shelf-1'),
             named(15, 'vhosteight.ir'),
             named(16, '185.199.110.153'),
+            const ShikooService(
+              id: 17,
+              name: 'ali_2024 ۲',
+              account: 'ali_2024',
+              usedBytes: 0,
+              totalBytes: 0,
+            ),
+            const ShikooService(
+              id: 18,
+              name: 'Gold',
+              account: 'PlantedPathToken',
+              usedBytes: 0,
+              totalBytes: 0,
+            ),
           ],
         ),
       );
@@ -834,6 +869,7 @@ void main() {
       await diag.attach(h.container);
       diag
         ..add('A', 'service ali_2024 refreshed')
+        ..add('A', 'Sevench stays, Eightchr goes')
         ..add('A', 'FlClash core up');
 
       final report = await diag.report(trigger: 'test', about: _about);
@@ -848,10 +884,13 @@ void main() {
           'x-shelf-1',
           '·',
           '·',
+          'ali_2024',
+          '·',
         ],
       );
       final log = (report['log']! as List).cast<String>();
       expect(log, contains(endsWith(' A service · refreshed')));
+      expect(log, contains(endsWith(' A Sevench stays, · goes')));
       expect(log.last, endsWith(' A FlClash core up'));
     },
   );
@@ -873,6 +912,32 @@ void main() {
     expect(report['crashes'], hasLength(10));
     expect(report['servers'], hasLength(300));
     expect(report['services'], hasLength(20));
+  });
+
+  testWidgets('a slow frame is summed up every 10 minutes, not every minute', (
+    tester,
+  ) async {
+    final h = await tester.runAsync(_harness);
+    final diag = h!.diag;
+    await tester.runAsync(() => diag.start(h.home.path));
+    await tester.runAsync(() => diag.attach(h.container));
+    final frames = diag.watchUi();
+    final slow = ui.FrameTiming(
+      vsyncStart: 0,
+      buildStart: 0,
+      buildFinish: 1000,
+      rasterStart: 1000,
+      rasterFinish: 51000,
+      rasterFinishWallTime: 51000,
+    );
+    String ring() => File('${h.dir}/diag.log').readAsStringSync();
+
+    tester.binding.platformDispatcher.onReportTimings!([slow, slow]);
+    await tester.pump(const Duration(minutes: 9));
+    expect(ring(), isNot(contains(' T frames ')));
+    await tester.pump(const Duration(minutes: 1));
+    expect(ring(), contains(' T frames 2 slow 2 build 1ms raster 50ms'));
+    frames.cancel();
   });
 
   test('a minute of frames is written only when one was slow', () {

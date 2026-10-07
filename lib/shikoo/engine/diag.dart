@@ -699,8 +699,9 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     add('T', 'refresh ${kind.replaceAll('_', ' ')}');
   }
 
-  /// Keys, focus, metrics, scrolls and frames, from ShikooApp's first frame on.
-  void watchUi() {
+  /// Keys, focus, metrics, scrolls and frames, from ShikooApp's first frame on; the frame
+  /// summary's timer is returned.
+  Timer watchUi() {
     WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(_onKey);
     FocusManager.instance.addListener(_onFocus);
@@ -713,6 +714,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       }
       _frames = _slow = _worstBuild = _worstRaster = 0;
     });
+    return _framesTimer!;
   }
 
   void _onTimings(List<ui.FrameTiming> timings) {
@@ -955,7 +957,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       'services': [
         for (final service in services)
           {
-            'username': _username(service.username),
+            'username': _username(service.account ?? service.username),
             'status': service.revoked
                 ? 'revoked'
                 : service.statusAt(shikooNow()).name,
@@ -982,7 +984,9 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     });
   }
 
-  /// The crash files go once the door has them, and the exit records sent are not sent again.
+  /// The crash files are emptied once the door has them, and the exit records sent are not
+  /// sent again. Emptied in place: the Go core keeps go-crash.txt open from its init, and a
+  /// deleted file would take every later panic of this process with it.
   Future<({String code, bool linked})> send(Map<String, Object?> report) async {
     final answer = await _container!.read(shikooSignInProvider).report(report);
     for (final file in [
@@ -990,7 +994,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       File('$_home/go-crash.txt'),
     ]) {
       try {
-        if (file.existsSync()) file.deleteSync();
+        if (file.existsSync()) file.writeAsBytesSync(const []);
       } on FileSystemException {
         continue;
       }
