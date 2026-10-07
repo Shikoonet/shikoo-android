@@ -125,11 +125,13 @@ jobs:
         env:
           STAGING_KEYSTORE_B64: ${{ secrets.SHIKOO_STAGING_KEYSTORE_B64 }}
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          # AGP takes its debug keystore from here first; unset, from $XDG_CONFIG_HOME/.android, which the image sets
+          ANDROID_USER_HOME: ${{ runner.temp }}/android-user
         run: |
           set -euo pipefail
           [ -n "$STAGING_KEYSTORE_B64" ] || { echo "::error::set the secret SHIKOO_STAGING_KEYSTORE_B64"; exit 1; }
-          mkdir -p ~/.android out
-          base64 -d <<<"$STAGING_KEYSTORE_B64" >~/.android/debug.keystore
+          mkdir -p "$ANDROID_USER_HOME" out
+          base64 -d <<<"$STAGING_KEYSTORE_B64" >"$ANDROID_USER_HOME/debug.keystore"
           flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm,android-arm64,android-x64 \
             --build-name "$VN" --build-number "$GITHUB_RUN_NUMBER" \
             --dart-define=APP_ENV=stable --dart-define=SHIKOO_API="$API" --dart-define=SHIKOO_BOT="$BOT"
@@ -160,7 +162,7 @@ jobs:
 
       - name: Forget the keys
         if: always()
-        run: rm -f android/app/keystore.jks android/local.properties ~/.android/debug.keystore
+        run: rm -rf android/app/keystore.jks android/local.properties "$RUNNER_TEMP/android-user"
 
       - name: Check every APK, and record what was built
         run: |
