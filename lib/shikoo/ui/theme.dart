@@ -407,26 +407,24 @@ class ShikooTvCanvas extends StatelessWidget {
     // One tree at every size, a window of no size yet too, so the app is never built afresh.
     final k = fit > 0 ? fit : 1.0;
     final size = data.size / k;
-    return SizedBox.expand(
-      child: FittedBox(
-        child: SizedBox.fromSize(
-          size: size,
-          child: MediaQuery(
-            data: data.copyWith(
-              size: size,
-              devicePixelRatio: data.devicePixelRatio * k,
-              padding: data.padding / k,
-              viewPadding:
-                  data.viewPadding / k +
-                  EdgeInsets.symmetric(
-                    horizontal: safe.safeX,
-                    vertical: safe.safeY,
-                  ),
-              viewInsets: data.viewInsets / k,
-              systemGestureInsets: data.systemGestureInsets / k,
-            ),
-            child: child,
+    return FittedBox(
+      child: SizedBox.fromSize(
+        size: size,
+        child: MediaQuery(
+          data: data.copyWith(
+            size: size,
+            devicePixelRatio: data.devicePixelRatio * k,
+            padding: data.padding / k,
+            viewPadding:
+                data.viewPadding / k +
+                EdgeInsets.symmetric(
+                  horizontal: safe.safeX,
+                  vertical: safe.safeY,
+                ),
+            viewInsets: data.viewInsets / k,
+            systemGestureInsets: data.systemGestureInsets / k,
           ),
+          child: child,
         ),
       ),
     );
