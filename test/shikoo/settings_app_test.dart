@@ -254,8 +254,8 @@ void main() {
     }
   });
 
-  testWidgets('a check the device\'s clock spoiled says so in red, with the '
-      'date settings under it; on the TV the remote goes check, it, About', (
+  testWidgets('a check the device\'s clock spoiled says so in red, with a date '
+      'settings row under it; on the TV the remote goes check, it, About', (
     tester,
   ) async {
     for (final isTV in [false, true]) {
@@ -274,12 +274,36 @@ void main() {
         reason: 'TV $isTV',
       );
       expect(find.text(_failed), findsNothing);
-      expect(find.widgetWithText(ShikooButton, _dateSettings), findsOneWidget);
+      expect(find.widgetWithText(ShikooButton, _dateSettings), findsNothing);
+      final rows = [
+        for (final title in [_check, _dateSettings, 'درباره'])
+          tester.getRect(_row(title)),
+      ];
+      expect(rows[0].bottom, lessThanOrEqualTo(rows[1].top));
+      expect(rows[1].bottom, lessThanOrEqualTo(rows[2].top));
+      expect(rows[1].width, rows[0].width);
       if (!isTV) continue;
       expect(_focused(), _check);
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), _dateSettings);
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
     }
+  });
+
+  testWidgets('in the TV\'s settings column the clock card stacks date '
+      'settings over retry, equal in width', (tester) async {
+    await _pump(
+      tester,
+      isTV: true,
+      offer: const UpdateOffer(_release, error: UpdateError.clock),
+    );
+    Rect at(String label) => tester.getRect(
+      find.descendant(
+        of: find.byType(UpdateCard),
+        matching: find.widgetWithText(ShikooButton, label),
+      ),
+    );
+    expect(at(_dateSettings).bottom, lessThan(at('دوباره').top));
+    expect(at(_dateSettings).width, at('دوباره').width);
   });
 
   testWidgets('an update found takes the row\'s place with Home\'s card; on '

@@ -355,15 +355,10 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
                   onPressed: () => unawaited(_checkNow()),
                 ),
               if (update == null && _check == _Check.clock)
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: Space.s4,
-                    vertical: Space.s3,
-                  ),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: DateSettingsButton(),
-                  ),
+                _Row(
+                  icon: ShikooIcon.gear,
+                  title: l.dateSettings,
+                  onPressed: () => unawaited(openDateSettings()),
                 ),
               _Row(
                 title: l.about,
