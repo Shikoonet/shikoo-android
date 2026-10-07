@@ -41,9 +41,6 @@ enum ShikooIcon {
     '<path d="M21 3.5L3 10.8l6.8 2.6L12.5 20.5z"/><path d="M9.8 13.4L21 3.5"/>',
   ),
   spin('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>'),
-  report(
-    '<path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6"/><path d="M9 16.5h4"/>',
-  ),
   download(
     '<path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20h14"/>',
   );

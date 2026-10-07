@@ -973,9 +973,6 @@ class ShikooL10nFa extends ShikooL10n {
       'بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.';
 
   @override
-  String get reportSendShort => 'ارسال گزارش';
-
-  @override
   String get probeChecking => 'در حال بررسی اینترنت…';
 
   @override

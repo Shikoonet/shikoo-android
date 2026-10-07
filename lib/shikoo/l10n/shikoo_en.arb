@@ -335,8 +335,6 @@
   "@settingsCoreHelp": {"description": "Under \"Core\" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from the constant flclashVersion in lib/shikoo/engine/settings.dart; a test fails until it matches the version in pubspec.yaml, which each merged upstream tag raises. There is no separate core download."},
   "@settingsCheckUpdate": {"description": "Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home."},
   "@settingsCheckFailed": {"description": "Red line under settingsCheckUpdate; tapping the row again retries."},
-  "reportSendShort": "Send a report",
-  "@reportSendShort": {"description": "The same entry inside the internet-check card at the head of Home after a failed connect. Shown only when the check reached the Shikoo server."},
   "probeChecking": "Checking the internet…",
   "@probeChecking": {"description": "Internet-check card while the three direct probes run (an Iranian site, a small international address, the Shikoo server). No buttons yet."},
   "probeOk": "The internet works and the ShikooNet server is reachable.",
@@ -347,7 +345,7 @@
   "probeNoDoor": "We couldn't reach the ShikooNet server; try again in a few minutes.",
   "@probeNoDoor": {"description": "The Shikoo server was not reached and not every probe failed. Says nothing about whose fault it is: when the domestic site failed too, the customer's own line may be the cause. One button: support. No report button, since the report goes to that server."},
   "probeNoServer": "None of the servers answer.",
-  "@probeNoServer": {"description": "All probes fine but every server ping failed. Buttons: reportSendShort, support, refreshServers."},
+  "@probeNoServer": {"description": "All probes fine but every server ping failed. Buttons: the report entry (feat/app-report-ui), support, refreshServers."},
   "probeNetSettings": "Internet settings",
   "@probeNetSettings": {"description": "Opens Android's wireless settings; falls back to the main settings on a TV without that page."}
 }

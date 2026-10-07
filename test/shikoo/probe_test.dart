@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/database/database.dart';
@@ -179,6 +180,95 @@ void main() {
     });
   });
 
+  group('every result is one the door takes', () {
+    // apps/ingest-worker/src/appReport.ts: `Check = section({ result: str(32), ms: int.nullable() })`,
+    // and the plan (docs/app-diagnostics.md) names these.
+    final named = RegExp(r'^(ok|dns|tcp|tls|timeout|http_\d{3})$');
+    final at = RequestOptions(path: 'http://site.test/');
+
+    test('each way a request can fail has its name', () {
+      final cases = {
+        DioException.connectionTimeout(
+          requestOptions: at,
+          timeout: Duration.zero,
+        ): 'timeout',
+        DioException.receiveTimeout(requestOptions: at, timeout: Duration.zero):
+            'timeout',
+        DioException.sendTimeout(requestOptions: at, timeout: Duration.zero):
+            'timeout',
+        TimeoutException(null): 'timeout',
+        DioException.badCertificate(requestOptions: at): 'tls',
+        DioException(
+          requestOptions: at,
+          error: const HandshakeException('WRONG_VERSION_NUMBER'),
+        ): 'tls',
+        DioException.badResponse(
+          statusCode: 403,
+          requestOptions: at,
+          response: Response(requestOptions: at, statusCode: 403),
+        ): 'http_403',
+        DioException.connectionError(
+          requestOptions: at,
+          reason: '',
+          error: const SocketException("Failed host lookup: 'site.test'"),
+        ): 'dns',
+        DioException.connectionError(
+          requestOptions: at,
+          reason: '',
+          error: const SocketException('Connection refused'),
+        ): 'tcp',
+        DioException(
+          requestOptions: at,
+          error: const HttpException('Connection closed while receiving data'),
+        ): 'tcp',
+        DioException(requestOptions: at, error: const FormatException()): 'tcp',
+        DioException.requestCancelled(requestOptions: at, reason: null): 'tcp',
+      };
+      for (final MapEntry(key: error, value: kind) in cases.entries) {
+        expect(failureKind(error), kind, reason: '$error');
+        expect(failureKind(error), matches(named));
+      }
+    });
+
+    test(
+      'an answer that is not HTTP at all is tcp, never a name of its own',
+      () async {
+        final garbage = await _socket((socket) {
+          socket.write('garbage\r\n\r\n');
+          unawaited(socket.close());
+        });
+        final checks = await runProbes(
+          domestic: [garbage],
+          international: garbage,
+          doors: [garbage],
+        );
+        for (final probe in [
+          checks.domestic,
+          checks.international,
+          checks.door,
+        ]) {
+          expect(probe.result, 'tcp');
+          expect(probe.result, matches(named));
+          expect(probe.result.length, lessThanOrEqualTo(32));
+        }
+      },
+    );
+  });
+
+  test('the Iranian site counts its whole wait, the first site that never '
+      'answered included', () async {
+    final silent = await _socket((_) {});
+    final digikala = await _site(200);
+    final checks = await runProbes(
+      domestic: [silent, digikala.url],
+      international: digikala.url,
+      doors: [digikala.url],
+      limit: _short,
+    );
+    expect(checks.domestic.result, 'ok');
+    expect(checks.domestic.ms, greaterThanOrEqualTo(_short.inMilliseconds));
+  }, timeout: const Timeout(Duration(seconds: 10)));
+
   test('the probes pass by the local proxy, which a connected app uses for '
       'every other request', () async {
     final proxy = await _site(502);
@@ -196,46 +286,115 @@ void main() {
     expect(target.asked, hasLength(3));
   });
 
-  test('with the VPN on, the core sends the three sites and the door DIRECT, '
-      'ahead of the subscription', () async {
-    final before = database;
-    database = Database(NativeDatabase.memory());
-    addTearDown(() async {
-      await database.close();
-      database = before;
+  group('with the VPN on', () {
+    /// The `dns:` of the live Shikoo subscription: one nameserver, through the proxy.
+    const panelDns = {
+      'enable': true,
+      'listen': ':1053',
+      'ipv6': true,
+      'nameserver': ['https://1.1.1.1/dns-query#PROXY'],
+      'proxy-server-nameserver': ['8.8.8.8', '1.1.1.1'],
+    };
+    const ours = {
+      'app.chopon.uk': 'system',
+      'www.aparat.com': 'system',
+      'www.digikala.com': 'system',
+      'connectivitycheck.gstatic.com': 'system',
+    };
+
+    Future<YamlMap> config([Map<String, Object?>? dns]) async {
+      final before = database;
+      database = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await database.close();
+        database = before;
+      });
+      await database.profilesDao.putAll([
+        const Profile(id: 1, autoUpdateDuration: Duration.zero).toCompanion(),
+      ]);
+      await keepApiDirect();
+      await database.rulesDao.putGlobalRule(
+        Rule.parse('DOMAIN,user.example,DIRECT'),
+      );
+      final made = await makeRealProfileTask(
+        MakeRealProfileState(
+          profilesPath: '/profiles',
+          profileId: 1,
+          rawConfig: {
+            'dns': ?dns,
+            'proxies': [],
+            'rules': ['MATCH,PROXY'],
+          },
+          realPatchConfig: const PatchClashConfig(),
+          overrideDns: false,
+          appendSystemDns: false,
+          proxyGroups: const [],
+          rules: const [],
+          addedRules: await database.rulesDao.queryAddedRules(1).get(),
+          defaultUA: 'FlClash-Test',
+        ),
+      );
+      return loadYaml(made.yaml) as YamlMap;
+    }
+
+    test('the core sends the three sites and the door DIRECT, ahead of the '
+        'subscription', () async {
+      final rules = (await config())['rules'] as List;
+      expect(
+        rules.take(5),
+        unorderedEquals([
+          'DOMAIN,app.chopon.uk,DIRECT',
+          'DOMAIN,www.aparat.com,DIRECT',
+          'DOMAIN,www.digikala.com,DIRECT',
+          'DOMAIN,connectivitycheck.gstatic.com,DIRECT',
+          'DOMAIN,user.example,DIRECT',
+        ]),
+      );
+      expect(rules.skip(5), ['MATCH,PROXY']);
     });
-    await database.profilesDao.putAll([
-      const Profile(id: 1, autoUpdateDuration: Duration.zero).toCompanion(),
-    ]);
-    await keepApiDirect();
-    final config = await makeRealProfileTask(
-      MakeRealProfileState(
-        profilesPath: '/profiles',
-        profileId: 1,
-        rawConfig: {
-          'proxies': [],
-          'rules': ['MATCH,PROXY'],
-        },
-        realPatchConfig: const PatchClashConfig(),
-        overrideDns: false,
-        appendSystemDns: false,
-        proxyGroups: const [],
-        rules: const [],
-        addedRules: await database.rulesDao.queryAddedRules(1).get(),
-        defaultUA: 'FlClash-Test',
-      ),
+
+    test("the core finds those hosts with the device's DNS, not the panel's "
+        'nameserver behind a proxy that may be dead', () async {
+      final dns = (await config(panelDns))['dns'] as YamlMap;
+      expect(dns['nameserver-policy'], ours);
+      expect(dns['nameserver'], panelDns['nameserver']);
+      expect(
+        dns['proxy-server-nameserver'],
+        panelDns['proxy-server-nameserver'],
+      );
+    });
+
+    test(
+      'a policy of the panel stays, its own word on a host included',
+      () async {
+        final dns =
+            (await config({
+                  ...panelDns,
+                  'nameserver-policy': {
+                    '+.example.ir': '8.8.8.8',
+                    'www.aparat.com': '1.1.1.1',
+                  },
+                }))['dns']
+                as YamlMap;
+        expect(dns['nameserver-policy'], {
+          ...ours,
+          '+.example.ir': '8.8.8.8',
+          'www.aparat.com': '1.1.1.1',
+        });
+      },
     );
-    final rules = (loadYaml(config.yaml) as YamlMap)['rules'] as List;
-    expect(
-      rules.take(4),
-      unorderedEquals([
-        'DOMAIN,app.chopon.uk,DIRECT',
-        'DOMAIN,www.aparat.com,DIRECT',
-        'DOMAIN,www.digikala.com,DIRECT',
-        'DOMAIN,connectivitycheck.gstatic.com,DIRECT',
-      ]),
+
+    test(
+      "a subscription without dns keeps FlClash's policy and adds ours",
+      () async {
+        final policy =
+            ((await config())['dns'] as YamlMap)['nameserver-policy'];
+        expect(policy, containsPair('www.baidu.com', '114.114.114.114'));
+        expect(policy, containsPair('www.aparat.com', 'system'));
+        expect(policy, containsPair('app.chopon.uk', 'system'));
+        expect(policy, isNot(contains('user.example')));
+      },
     );
-    expect(rules.skip(4), ['MATCH,PROXY']);
   });
 
   group('the card says one sentence, the door first', () {

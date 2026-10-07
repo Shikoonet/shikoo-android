@@ -1024,9 +1024,6 @@ class ShikooL10nEn extends ShikooL10n {
       'Couldn\'t check; check your internet and try again.';
 
   @override
-  String get reportSendShort => 'Send a report';
-
-  @override
   String get probeChecking => 'Checking the internet…';
 
   @override

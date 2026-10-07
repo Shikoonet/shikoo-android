@@ -251,7 +251,6 @@
   "settingsChecking": "در حال بررسی…",
   "settingsUpToDate": "نسخهٔ تو تازه‌ترین است.",
   "settingsCheckFailed": "بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.",
-  "reportSendShort": "ارسال گزارش",
   "probeChecking": "در حال بررسی اینترنت…",
   "probeOk": "اینترنت وصل است و سرور شیکونت در دسترس است.",
   "probeOffline": "این دستگاه به اینترنت وصل نیست.",

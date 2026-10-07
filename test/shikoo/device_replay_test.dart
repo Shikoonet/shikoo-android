@@ -11,6 +11,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
@@ -660,7 +661,11 @@ void main() {
                         check: AsyncData(_probe('ok', 'ok', 'ok')),
                         state: state,
                         controller: _Controller(),
-                        onReport: () {},
+                        report: (
+                          label: _reportLabel,
+                          icon: ShikooIcon.check,
+                          onPressed: () {},
+                        ),
                         firstFocus: first,
                       ),
                     ),
@@ -676,7 +681,7 @@ void main() {
       await tester.pumpAndSettle();
       for (final fault in await _faults(tester, device, [
         find.text(_l.probeNoServer),
-        _button(_l.reportSendShort),
+        _button(_reportLabel),
         _button(_l.support),
         _button(_l.refreshServers),
       ])) {
@@ -686,6 +691,9 @@ void main() {
     expect(faults, isEmpty);
   });
 }
+
+/// feat/app-report-ui's `reportSendShort`, which it passes in with its icon.
+const _reportLabel = 'ارسال گزارش';
 
 ProbeChecks _probe(String domestic, String international, String door) => (
   domestic: (result: domestic, ms: 40),

@@ -125,7 +125,8 @@ String failureKind(Object? error) => switch (error) {
   DioException(error: SocketException(:final message))
       when message.contains('host lookup') =>
     'dns',
-  DioException(type: DioExceptionType.connectionError) => 'tcp',
+  // A connection that broke or answered no HTTP, whatever the reason Dart gives.
+  DioException() => 'tcp',
   ShikooApiFailure(clock: true) => 'clock',
   _ => 'failed',
 };
@@ -170,12 +171,13 @@ Future<ProbeChecks> runProbes({
     List<String> urls,
     Future<Probe> Function(String) probe,
   ) async {
-    Probe? last;
+    final watch = Stopwatch()..start();
+    var result = 'tcp';
     for (final url in urls) {
-      last = await probe(url);
-      if (last.result == 'ok') break;
+      result = (await probe(url)).result;
+      if (result == 'ok') break;
     }
-    return last ?? (result: 'failed', ms: 0);
+    return (result: result, ms: watch.elapsedMilliseconds);
   }
 
   try {

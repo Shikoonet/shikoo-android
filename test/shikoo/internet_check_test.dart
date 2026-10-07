@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -20,6 +21,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _Controller extends Mock implements ShikooController {}
 
 class _Update extends Mock implements ShikooUpdate {}
+
+/// What feat/app-report-ui passes in: its words, its icon and its page.
+const _reportLabel = 'ارسال گزارش';
+
+({String label, ShikooIcon icon, VoidCallback onPressed}) _entry(
+  VoidCallback onPressed,
+) => (label: _reportLabel, icon: ShikooIcon.check, onPressed: onPressed);
 
 ProbeChecks _probe(String domestic, String international, String door) => (
   domestic: (result: domestic, ms: 40),
@@ -149,16 +157,11 @@ void main() {
     final l = lookupShikooL10n(const Locale('fa'));
     final cases = <(ProbeChecks?, bool, String, List<String>)>[
       (null, false, l.probeChecking, []),
-      (_ok, false, l.probeOk, [l.reportSendShort]),
+      (_ok, false, l.probeOk, [_reportLabel]),
       (_offline, false, l.probeOffline, [l.probeNetSettings]),
-      (_noAbroad, false, l.probeNoAbroad, [l.reportSendShort]),
+      (_noAbroad, false, l.probeNoAbroad, [_reportLabel]),
       (_noDoor, false, l.probeNoDoor, [l.support]),
-      (
-        _ok,
-        true,
-        l.probeNoServer,
-        [l.reportSendShort, l.support, l.refreshServers],
-      ),
+      (_ok, true, l.probeNoServer, [_reportLabel, l.support, l.refreshServers]),
     ];
     for (final (checks, silent, sentence, buttons) in cases) {
       for (final report in [true, false]) {
@@ -171,7 +174,7 @@ void main() {
                     : AsyncData(checks),
                 state: _failed(tv: false, silent: silent),
                 controller: _Controller(),
-                onReport: report ? () {} : null,
+                report: report ? _entry(() {}) : null,
               ),
             ),
           ),
@@ -185,7 +188,7 @@ void main() {
             ))
               button.label,
           ],
-          report ? buttons : buttons.where((b) => b != l.reportSendShort),
+          report ? buttons : buttons.where((b) => b != _reportLabel),
           reason: '$sentence, report $report',
         );
       }
@@ -214,7 +217,7 @@ void main() {
               check: AsyncData(checks),
               state: _failed(tv: false, silent: silent),
               controller: controller,
-              onReport: () => reports++,
+              report: _entry(() => reports++),
             ),
           ),
         ),
@@ -227,7 +230,7 @@ void main() {
     expect(asked, ['netSettings']);
     await show(_ok, silent: true);
     await tester.tap(_button(l.refreshServers));
-    await tester.tap(_button(l.reportSendShort));
+    await tester.tap(_button(_reportLabel));
     verify(controller.refreshService).called(1);
     expect(reports, 1);
   });

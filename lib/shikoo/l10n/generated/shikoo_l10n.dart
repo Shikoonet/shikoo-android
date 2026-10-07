@@ -1604,12 +1604,6 @@ abstract class ShikooL10n {
   /// **'Couldn\'t check; check your internet and try again.'**
   String get settingsCheckFailed;
 
-  /// The same entry inside the internet-check card at the head of Home after a failed connect. Shown only when the check reached the Shikoo server.
-  ///
-  /// In en, this message translates to:
-  /// **'Send a report'**
-  String get reportSendShort;
-
   /// Internet-check card while the three direct probes run (an Iranian site, a small international address, the Shikoo server). No buttons yet.
   ///
   /// In en, this message translates to:
@@ -1640,7 +1634,7 @@ abstract class ShikooL10n {
   /// **'We couldn\'t reach the ShikooNet server; try again in a few minutes.'**
   String get probeNoDoor;
 
-  /// All probes fine but every server ping failed. Buttons: reportSendShort, support, refreshServers.
+  /// All probes fine but every server ping failed. Buttons: the report entry (feat/app-report-ui), support, refreshServers.
   ///
   /// In en, this message translates to:
   /// **'None of the servers answer.'**

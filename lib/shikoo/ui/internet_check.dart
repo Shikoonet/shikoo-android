@@ -19,7 +19,7 @@ typedef _Action = (
 );
 
 /// `.card.update.check` (phone-cards-check, phone-home-error, tv-home-error): one sentence and
-/// only the buttons that help with it. [onReport] shows only once the door answered, since a
+/// only the buttons that help with it. [report] shows only once the door answered, since a
 /// report goes to that same door.
 class InternetCheckCard extends StatefulWidget {
   const InternetCheckCard({
@@ -27,14 +27,16 @@ class InternetCheckCard extends StatefulWidget {
     required this.check,
     required this.state,
     required this.controller,
-    this.onReport,
+    this.report,
     this.firstFocus,
   });
 
   final AsyncValue<ProbeChecks> check;
   final ShikooState state;
   final ShikooController controller;
-  final VoidCallback? onReport;
+
+  /// The report entry; its words and icon come with it from feat/app-report-ui.
+  final ({String label, ShikooIcon icon, VoidCallback onPressed})? report;
 
   /// The first button's node, for the remote coming from the power button.
   final FocusNode? firstFocus;
@@ -57,12 +59,12 @@ class _InternetCheckCardState extends State<InternetCheckCard> {
   }
 
   List<_Action> _actions(ShikooL10n l, ProbeReading reading) {
-    final InternetCheckCard(:state, :controller, :onReport) = widget;
+    final InternetCheckCard(:state, :controller, :report) = widget;
     final service = state.service;
     final busy = state.refresh == ShikooRefresh.running;
-    final report = onReport == null
+    final reporting = report == null
         ? null
-        : (l.reportSendShort, ShikooIcon.report, onReport, false);
+        : (report.label, report.icon, report.onPressed, false);
     final support = (
       l.support,
       state.isTV ? ShikooIcon.qr : null,
@@ -78,7 +80,7 @@ class _InternetCheckCardState extends State<InternetCheckCard> {
     );
     return switch (reading) {
       ProbeReading.checking => const [],
-      ProbeReading.ok || ProbeReading.noAbroad => [?report],
+      ProbeReading.ok || ProbeReading.noAbroad => [?reporting],
       ProbeReading.offline => [
         (
           l.probeNetSettings,
@@ -89,7 +91,7 @@ class _InternetCheckCardState extends State<InternetCheckCard> {
       ],
       ProbeReading.noDoor => [support],
       ProbeReading.noServer => [
-        ?report,
+        ?reporting,
         support,
         (
           l.refreshServers,
