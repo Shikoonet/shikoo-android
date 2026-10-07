@@ -239,6 +239,9 @@ later picks by itself.
    for `D:\ShikooNet-signing-key\shikoonet-release.jks`.
 5. Nothing for environments: on GitHub Free a private repository gets no environment rules (§4).
 6. Merge this branch (after the prerequisites in §9) and watch the first `Shikoo Staging` run.
+   Staging builds only a commit on which `Shikoo CI` passed as a push to `main`, and `Shikoo CI` has no manual start. A pull
+   request merged while Actions was off has no such run, so a dispatch on it stops at «CI has not passed on <sha> as a push
+   to main» (run 37608391767, 2026-10-07). The next merged pull request starts CI, and staging follows on its own.
 7. Give each tester read access to the repository, or decide another way to hand them the staging APK (§8).
 8. For every release: install the production APK from the staging pre-release on the box, sign in once, then Actions ▸
    Shikoo Promote ▸ Run workflow ▸ choose `PROMOTE`.
