@@ -393,25 +393,29 @@ class ShikooSystemUi extends StatelessWidget {
 Widget _onTvCanvas(BuildContext context, Widget child) {
   final data = MediaQuery.of(context);
   const canvas = ShikooSizes.tvCanvas;
-  final k = math.min(
+  final fit = math.min(
     data.size.width / canvas.width,
     data.size.height / canvas.height,
   );
-  if (k == 1 || k <= 0) return child;
+  // One tree at every size, a window of no size yet too, so the app is never built afresh.
+  final k = fit > 0 ? fit : 1.0;
   final size = data.size / k;
-  return FittedBox(
-    child: SizedBox.fromSize(
-      size: size,
-      child: MediaQuery(
-        data: data.copyWith(
-          size: size,
-          devicePixelRatio: data.devicePixelRatio * k,
-          padding: data.padding / k,
-          viewPadding: data.viewPadding / k,
-          viewInsets: data.viewInsets / k,
-          systemGestureInsets: data.systemGestureInsets / k,
+  // FlClash's StatusManager holds the app in a loose Stack; FittedBox alone would not grow.
+  return SizedBox.expand(
+    child: FittedBox(
+      child: SizedBox.fromSize(
+        size: size,
+        child: MediaQuery(
+          data: data.copyWith(
+            size: size,
+            devicePixelRatio: data.devicePixelRatio * k,
+            padding: data.padding / k,
+            viewPadding: data.viewPadding / k,
+            viewInsets: data.viewInsets / k,
+            systemGestureInsets: data.systemGestureInsets / k,
+          ),
+          child: child,
         ),
-        child: child,
       ),
     ),
   );
