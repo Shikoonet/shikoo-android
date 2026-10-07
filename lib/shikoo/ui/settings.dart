@@ -129,6 +129,7 @@ class ShikooSettings extends ConsumerWidget {
                       onPressed: paste,
                     ),
                   _Row(
+                    key: const ValueKey('logout'),
                     icon: ShikooIcon.logout,
                     danger: true,
                     title: l.logout,
@@ -373,6 +374,7 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
                   onPressed: () => unawaited(openDateSettings()),
                 ),
               _Row(
+                key: const ValueKey('about'),
                 title: l.about,
                 subtitle: l.aboutSummary,
                 forward: true,
@@ -811,7 +813,8 @@ class _SegmentedState<T> extends State<Segmented<T>> {
   }
 }
 
-/// `.card` holding `.row`s, a hairline between each two.
+/// `.card` holding `.row`s, a hairline between each two. Rows are matched by place, so one that
+/// keeps the remote while a row above it comes or goes needs a key.
 class _Card extends StatelessWidget {
   const _Card({required this.rows});
 
@@ -916,6 +919,7 @@ class _PastedRow extends StatelessWidget {
 /// `.row`: an icon, a title over a line of help, then a value or a forward chevron.
 class _Row extends StatelessWidget {
   const _Row({
+    super.key,
     required this.title,
     this.rich,
     this.subtitle,

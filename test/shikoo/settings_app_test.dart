@@ -350,6 +350,23 @@ void main() {
     }
   });
 
+  testWidgets('on the TV an update or a sign-in coming above the remote '
+      'leaves it on its row', (tester) async {
+    final container = await _pump(tester, isTV: true);
+    await _focus(tester, _row('درباره'));
+    for (final offer in [_cards['offered'], null]) {
+      container.read(shikooUpdateOfferProvider.notifier).set(offer);
+      await tester.pumpAndSettle();
+      expect(_focused(), 'درباره', reason: 'offer $offer');
+    }
+    await _focus(tester, _row('خروج'));
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(const ShikooAccount(who: TelegramAccount(name: 'Sam')));
+    await tester.pumpAndSettle();
+    expect(_focused(), 'خروج');
+  });
+
   testWidgets('on the TV the remote stops at the check and About only', (
     tester,
   ) async {
