@@ -3,7 +3,7 @@ import 'package:fl_clash/models/models.dart';
 
 const shikooDirectIds = 7470000;
 
-/// SHIKOO_PATCHES 22: Shikoo's DIRECT hosts resolve with the device's DNS; only the same exact key keeps the panel's.
+/// SHIKOO_PATCHES 22: Shikoo's DIRECT hosts resolve with the device's DNS unless the panel's policy names that host.
 Map<String, dynamic> withDirectHostsOnSystemDns(
   Map<String, dynamic> dns,
   Iterable<Rule> added,
