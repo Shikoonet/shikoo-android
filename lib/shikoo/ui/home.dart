@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
@@ -12,6 +13,7 @@ import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -80,6 +82,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
+    final update = ref.watch(shikooUpdateOfferProvider);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final now = shikooNow();
@@ -160,6 +163,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.s3,
       children: [
+        if (update != null) UpdateCard(offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
         if (hasService || (unlinked.isEmpty && current == null))
           ServiceCard(
@@ -330,7 +334,7 @@ class _TvLayout extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: s.pane,
-                    child: _TvColumn(child: card),
+                    child: TvScrollColumn(child: card),
                   ),
                   const SizedBox(width: Space.s10),
                   Expanded(child: Center(child: power)),
@@ -339,98 +343,6 @@ class _TvLayout extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// `.tv-col`: scrolls as one; once scrolled, its top edge fades and a thumb shows. It reaches
-/// 8dp past the pane on every side (`margin: -8; padding: 8`) so focus rings are not clipped.
-class _TvColumn extends StatefulWidget {
-  const _TvColumn({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_TvColumn> createState() => _TvColumnState();
-}
-
-class _TvColumnState extends State<_TvColumn> {
-  final _scroll = ScrollController();
-  bool _scrolled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(() {
-      final scrolled = _scroll.offset > 0;
-      if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
-    });
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _onFocusInside(bool inside) {
-    if (inside || !_scroll.hasClients) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _scroll.jumpTo(0);
-    } else {
-      unawaited(
-        _scroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    return LayoutBuilder(
-      builder: (context, box) => OverflowBox(
-        maxWidth: box.maxWidth + 2 * Space.s2,
-        minHeight: box.maxHeight + 2 * Space.s2,
-        maxHeight: box.maxHeight + 2 * Space.s2,
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (rect) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              _scrolled ? Colors.transparent : Colors.black,
-              Colors.black,
-            ],
-            stops: [0, ShikooSizes.fade / rect.height],
-          ).createShader(rect),
-          child: Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onFocusChange: _onFocusInside,
-            child: RawScrollbar(
-              controller: _scroll,
-              thumbVisibility: _scrolled,
-              thickness: ShikooSizes.scrollThumb,
-              radius: const Radius.circular(ShikooSizes.scrollThumb),
-              thumbColor: t.c.outline,
-              child: SingleChildScrollView(
-                controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(
-                  Space.s2,
-                  Space.s2,
-                  Space.s2,
-                  Space.s2 + ShikooSizes.ring,
-                ),
-                child: widget.child,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -822,16 +734,8 @@ class _FinishedServicesState extends State<_FinishedServices> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(Scrollable.ensureVisible(context));
-      if (widget.isTV) _jump(_first);
+      if (widget.isTV) jumpFocus(context, _first);
     });
-  }
-
-  /// Directional traversal remembers its last moves, and Up would undo the Down that came here.
-  void _jump(FocusNode node) {
-    if (node.nearestScope case final scope?) {
-      FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
-    }
-    node.requestFocus();
   }
 
   void _renew(Finished row) {
@@ -996,7 +900,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !_open) return;
         setState(() => _open = false);
-        _jump(_head);
+        jumpFocus(context, _head);
       },
       child: card,
     );

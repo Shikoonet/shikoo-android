@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -90,6 +92,19 @@ Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
 }
 
 void main() {
+  // The TV page fits one screen with Vazirmatn's widths, not the test font's.
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await loadShikooFonts();
+  });
+
+  test('the core row names the FlClash in pubspec.yaml, which each upstream '
+      'tag raises', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final name = RegExp(r'^version:\s*([^+\s]+)', multiLine: true);
+    expect(flclashVersion, name.firstMatch(pubspec)![1]);
+  });
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('the remote starts on the current look and changes it for good', (
@@ -167,6 +182,10 @@ void main() {
   ) async {
     await _pumpSettings(tester, _Controller());
     await _press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowDown),
+      'بررسی به‌روزرسانی',
+    );
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
     await _press(tester, LogicalKeyboardKey.select);
     expect(find.textContaining('GPL-3.0'), findsOneWidget);
@@ -203,11 +222,19 @@ void main() {
       'خروج',
       reason: 'not into the app column',
     );
-    expect(await _press(tester, left), 'درباره');
+    expect(await _press(tester, left), 'بررسی به‌روزرسانی');
     expect(await _press(tester, right), 'خروج');
-    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'تیره');
-    expect(await _press(tester, left), 'خودکار');
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowUp),
+      'خودکار',
+      reason: 'the chosen look, not the option nearest the row',
+    );
     expect(await _press(tester, left), 'فارسی');
+    expect(
+      await _press(tester, down),
+      'بررسی به‌روزرسانی',
+      reason: 'version and core are only text',
+    );
     expect(await _press(tester, down), 'درباره');
     expect(await _press(tester, down), 'درباره');
   });

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
@@ -48,6 +49,36 @@ Text nameText(
       : TextAlign.left,
 );
 
+/// Traversal reveals only the focused widget, cutting the ring drawn outside it in a scrolled
+/// column; this brings [context]'s box into view with room for the ring, and above a phone's
+/// navigation bar, which the page scrolls under.
+void revealWithRing(BuildContext context) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final box = context.mounted ? context.findRenderObject() : null;
+    if (box is RenderBox && box.attached) {
+      const room = Space.s2 + ShikooSizes.ring;
+      final below = room + MediaQuery.paddingOf(context).bottom;
+      box.showOnScreen(
+        rect: Rect.fromLTRB(
+          -room,
+          -room,
+          box.size.width + room,
+          box.size.height + below,
+        ),
+      );
+    }
+  });
+}
+
+/// Moves the remote to [node] by hand. Directional traversal remembers its last moves, and Up
+/// would undo the Down that came before, back to where that Down started.
+void jumpFocus(BuildContext context, FocusNode node) {
+  if (node.nearestScope case final scope?) {
+    FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
+  }
+  node.requestFocus();
+}
+
 /// A focusable, pressable surface. The remote's OK key and a tap both press it.
 /// The focus ring (`.is-focused`: 3dp, 2dp away) is drawn outside the child.
 class Pressable extends StatefulWidget {
@@ -73,19 +104,6 @@ class Pressable extends StatefulWidget {
 class _PressableState extends State<Pressable> {
   bool _focused = false;
 
-  /// Traversal reveals only the widget, cutting the ring drawn outside it in a scrolled column.
-  void _revealWithRing(bool focused) {
-    if (!focused) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final box = mounted ? context.findRenderObject() : null;
-      if (box is RenderBox && box.attached) {
-        box.showOnScreen(
-          rect: (Offset.zero & box.size).inflate(Space.s2 + ShikooSizes.ring),
-        );
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -93,7 +111,9 @@ class _PressableState extends State<Pressable> {
     return FocusableActionDetector(
       autofocus: widget.autofocus,
       focusNode: widget.focusNode,
-      onFocusChange: _revealWithRing,
+      onFocusChange: (focused) {
+        if (focused) revealWithRing(context);
+      },
       onShowFocusHighlight: (value) => setState(() => _focused = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1059,6 +1079,98 @@ class NowPill extends StatelessWidget {
             say(l.findingBest, t.c.textMuted),
           ],
         },
+      ),
+    );
+  }
+}
+
+/// `.tv-col` (home) and `.tv-settings`: scrolls as one; once scrolled, its top edge fades and a thumb shows. It reaches
+/// 8dp past the pane on every side (`margin: -8; padding: 8`) so focus rings are not clipped.
+class TvScrollColumn extends StatefulWidget {
+  const TvScrollColumn({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<TvScrollColumn> createState() => _TvScrollColumnState();
+}
+
+class _TvScrollColumnState extends State<TvScrollColumn> {
+  final _scroll = ScrollController();
+  bool _scrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      final scrolled = _scroll.offset > 0;
+      if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onFocusInside(bool inside) {
+    if (inside || !_scroll.hasClients) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _scroll.jumpTo(0);
+    } else {
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    return LayoutBuilder(
+      builder: (context, box) => OverflowBox(
+        maxWidth: box.maxWidth + 2 * Space.s2,
+        minHeight: box.maxHeight + 2 * Space.s2,
+        maxHeight: box.maxHeight + 2 * Space.s2,
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              _scrolled ? Colors.transparent : Colors.black,
+              Colors.black,
+            ],
+            stops: [0, ShikooSizes.fade / rect.height],
+          ).createShader(rect),
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onFocusChange: _onFocusInside,
+            child: RawScrollbar(
+              controller: _scroll,
+              thumbVisibility: _scrolled,
+              thickness: ShikooSizes.scrollThumb,
+              radius: const Radius.circular(ShikooSizes.scrollThumb),
+              thumbColor: t.c.outline,
+              child: SingleChildScrollView(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s2,
+                  Space.s2,
+                  Space.s2,
+                  Space.s2 + ShikooSizes.ring,
+                ),
+                child: widget.child,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

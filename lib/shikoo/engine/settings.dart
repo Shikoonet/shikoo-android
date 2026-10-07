@@ -104,3 +104,6 @@ ServiceTexts shikooServiceTexts(Locale? locale) {
 final shikooVersionProvider = Provider<String>(
   (ref) => globalState.packageInfo.version,
 );
+
+/// The FlClash under this build; a test holds it to `pubspec.yaml`, which each upstream tag raises.
+const flclashVersion = '0.8.98';

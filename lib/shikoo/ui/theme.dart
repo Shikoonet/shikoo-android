@@ -155,7 +155,7 @@ class ShikooColors {
     onPositive: Color(0xFF06210F),
     positiveSoft: Color(0xFF153222),
     warning: Color(0xFFF2B544),
-    danger: Color(0xFFF47A70),
+    danger: Color(0xFFF5847A),
     dangerSoft: Color(0xFF3A1D1A),
     onDanger: Color(0xFF2A0F0C),
     scrim: Color(0xA6000000),

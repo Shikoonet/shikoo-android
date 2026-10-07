@@ -851,4 +851,124 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get dateSettings => 'تنظیمات تاریخ و ساعت';
+
+  @override
+  String get updateTitle => 'نسخهٔ تازه آمده';
+
+  @override
+  String updateVersionSize(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'نسخهٔ $version، $sizeString مگابایت';
+  }
+
+  @override
+  String get updateGet => 'دریافت';
+
+  @override
+  String get updateDownloading => 'در حال دریافت…';
+
+  @override
+  String updateProgress(int percent, int done, int total) {
+    final intl.NumberFormat percentNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String percentString = percentNumberFormat.format(percent);
+    final intl.NumberFormat doneNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String doneString = doneNumberFormat.format(done);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return '$percentString٪، $doneString از $totalString مگابایت';
+  }
+
+  @override
+  String get updateReady => 'آمادهٔ نصب';
+
+  @override
+  String get updateInstall => 'نصب';
+
+  @override
+  String get updateClosesApp =>
+      'با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.';
+
+  @override
+  String get updateDownloadFailedTitle => 'دریافت نشد.';
+
+  @override
+  String get updateDownloadFailedHelp =>
+      'اینترنت را بررسی کن و دوباره بزن؛ از همان‌جا ادامه می‌دهد.';
+
+  @override
+  String get updateBadFileTitle => 'فایل سالم نرسید.';
+
+  @override
+  String get updateBadFileHelp => 'دوباره بزن تا از اول دریافت شود.';
+
+  @override
+  String get updateForcedTitle => 'نسخهٔ تازه لازم است';
+
+  @override
+  String updateForcedBody(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'برای ادامه، نسخهٔ $version را دریافت و نصب کن ($sizeString مگابایت).';
+  }
+
+  @override
+  String get installPermissionTitle => 'اجازهٔ نصب';
+
+  @override
+  String get installPermissionTouch =>
+      'در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ گوشی را بزن؛ نصب خودش شروع می‌شود.';
+
+  @override
+  String get installPermissionTv =>
+      'در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن؛ نصب خودش شروع می‌شود.';
+
+  @override
+  String get updateNoSpaceTitle => 'جا کم است.';
+
+  @override
+  String get updateNoSpaceHelp =>
+      'چند برنامه یا فایل را از این دستگاه پاک کن و دوباره بزن.';
+
+  @override
+  String get updateInstallFailed =>
+      'نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.';
+
+  @override
+  String get installPermissionLegacy =>
+      'در صفحهٔ بعد، پایین همان صفحه «منابع ناشناس» را روشن کن، بعد دکمهٔ برگشت را بزن.';
+
+  @override
+  String get installPermissionLegacyTv =>
+      'در صفحهٔ بعد «منابع ناشناس» را پیدا و روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.';
+
+  @override
+  String get settingsCore => 'هسته';
+
+  @override
+  String get settingsCoreHelp => 'همراه خودِ برنامه به‌روز می‌شود.';
+
+  @override
+  String get settingsCheckUpdate => 'بررسی به‌روزرسانی';
+
+  @override
+  String get settingsChecking => 'در حال بررسی…';
+
+  @override
+  String get settingsUpToDate => 'نسخهٔ تو تازه‌ترین است.';
+
+  @override
+  String get settingsCheckFailed =>
+      'بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.';
 }
