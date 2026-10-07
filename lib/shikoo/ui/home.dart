@@ -733,16 +733,8 @@ class _FinishedServicesState extends State<_FinishedServices> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(Scrollable.ensureVisible(context));
-      if (widget.isTV) _jump(_first);
+      if (widget.isTV) jumpFocus(context, _first);
     });
-  }
-
-  /// Directional traversal remembers its last moves, and Up would undo the Down that came here.
-  void _jump(FocusNode node) {
-    if (node.nearestScope case final scope?) {
-      FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
-    }
-    node.requestFocus();
   }
 
   void _renew(Finished row) {
@@ -907,7 +899,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !_open) return;
         setState(() => _open = false);
-        _jump(_head);
+        jumpFocus(context, _head);
       },
       child: card,
     );

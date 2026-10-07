@@ -62,6 +62,15 @@ void revealWithRing(BuildContext context) {
   });
 }
 
+/// Moves the remote to [node] by hand. Directional traversal remembers its last moves, and Up
+/// would undo the Down that came before, back to where that Down started.
+void jumpFocus(BuildContext context, FocusNode node) {
+  if (node.nearestScope case final scope?) {
+    FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
+  }
+  node.requestFocus();
+}
+
 /// Keeps [child] in view with room for a ring while the remote is anywhere inside it, also when
 /// it grows under the remote, as a card whose state changes by itself.
 class RevealWhileFocused extends StatelessWidget {

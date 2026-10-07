@@ -244,7 +244,9 @@ void main() {
         return true;
       });
       if (isTV) {
-        await _focus(tester, _row(_check));
+        // By keys, as on a TV: Up must not undo the Down that reached the row.
+        await _press(tester, LogicalKeyboardKey.arrowLeft);
+        expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
         await _press(tester, LogicalKeyboardKey.select);
       } else {
         await tester.tap(find.text(_check));

@@ -298,9 +298,9 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
     setState(() => _check = answered ? _Check.latest : _Check.failed);
     // tv-settings-app-found: the remote goes from the row that left to the card's button.
     if (widget.isTV && ref.read(shikooUpdateOfferProvider) != null) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _cardButton.requestFocus(),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) jumpFocus(context, _cardButton);
+      });
     }
   }
 
