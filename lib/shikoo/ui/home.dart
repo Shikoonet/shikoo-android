@@ -333,7 +333,7 @@ class _TvLayout extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: s.pane,
-                    child: _TvColumn(child: card),
+                    child: TvScrollColumn(child: card),
                   ),
                   const SizedBox(width: Space.s10),
                   Expanded(child: Center(child: power)),
@@ -342,98 +342,6 @@ class _TvLayout extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// `.tv-col`: scrolls as one; once scrolled, its top edge fades and a thumb shows. It reaches
-/// 8dp past the pane on every side (`margin: -8; padding: 8`) so focus rings are not clipped.
-class _TvColumn extends StatefulWidget {
-  const _TvColumn({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_TvColumn> createState() => _TvColumnState();
-}
-
-class _TvColumnState extends State<_TvColumn> {
-  final _scroll = ScrollController();
-  bool _scrolled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(() {
-      final scrolled = _scroll.offset > 0;
-      if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
-    });
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _onFocusInside(bool inside) {
-    if (inside || !_scroll.hasClients) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _scroll.jumpTo(0);
-    } else {
-      unawaited(
-        _scroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    return LayoutBuilder(
-      builder: (context, box) => OverflowBox(
-        maxWidth: box.maxWidth + 2 * Space.s2,
-        minHeight: box.maxHeight + 2 * Space.s2,
-        maxHeight: box.maxHeight + 2 * Space.s2,
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (rect) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              _scrolled ? Colors.transparent : Colors.black,
-              Colors.black,
-            ],
-            stops: [0, ShikooSizes.fade / rect.height],
-          ).createShader(rect),
-          child: Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onFocusChange: _onFocusInside,
-            child: RawScrollbar(
-              controller: _scroll,
-              thumbVisibility: _scrolled,
-              thickness: ShikooSizes.scrollThumb,
-              radius: const Radius.circular(ShikooSizes.scrollThumb),
-              thumbColor: t.c.outline,
-              child: SingleChildScrollView(
-                controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(
-                  Space.s2,
-                  Space.s2,
-                  Space.s2,
-                  Space.s2 + ShikooSizes.ring,
-                ),
-                child: widget.child,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

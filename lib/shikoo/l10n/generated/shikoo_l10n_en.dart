@@ -989,5 +989,24 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get installPermissionLegacyTv =>
-      'On the next screen, turn on Unknown sources at the bottom of it, then press Back on the remote.';
+      'On the next screen, find and turn on Unknown sources, then press Back on the remote.';
+
+  @override
+  String get settingsCore => 'Core';
+
+  @override
+  String get settingsCoreHelp => 'Updates together with the app.';
+
+  @override
+  String get settingsCheckUpdate => 'Check for updates';
+
+  @override
+  String get settingsChecking => 'Checking…';
+
+  @override
+  String get settingsUpToDate => 'You have the latest version.';
+
+  @override
+  String get settingsCheckFailed =>
+      'Couldn\'t check; check your internet and try again.';
 }

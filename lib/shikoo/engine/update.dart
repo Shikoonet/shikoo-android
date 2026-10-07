@@ -88,7 +88,7 @@ class ShikooUpdate {
   DateTime Function() now = DateTime.now;
 
   DateTime? _checked;
-  Future<void>? _checking;
+  Future<bool>? _checking;
   Future<void>? _downloading;
   CancelToken? _cancel;
   bool _awaitingPermission = false;
@@ -134,18 +134,26 @@ class ShikooUpdate {
   }
 
   Future<void> check() async {
-    if (!isDue(_checked, now(), updateEvery)) return;
-    return _checking ??= _check().whenComplete(() => _checking = null);
+    if (isDue(_checked, now(), updateEvery)) await checkNow();
   }
 
-  Future<void> _check() async {
+  /// Settings' «بررسی به‌روزرسانی», past [updateEvery]; false when the door did not answer.
+  Future<bool> checkNow() =>
+      _checking ??= _check().whenComplete(() => _checking = null);
+
+  Future<bool> _check() async {
     final AppRelease? release;
     try {
       release = await _api.update(abi);
     } catch (_) {
-      return;
+      return false;
     }
     _checked = now();
+    await _take(release);
+    return true;
+  }
+
+  Future<void> _take(AppRelease? release) async {
     final newer = release != null && installed < release.versionCode
         ? release
         : null;

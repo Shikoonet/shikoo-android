@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -139,28 +141,7 @@ class ShikooSettings extends ConsumerWidget {
           ],
         ),
       ),
-      _Group(
-        title: l.appSection,
-        child: _Card(
-          rows: [
-            _Row(
-              title: l.version,
-              value: _version(context, ref.watch(shikooVersionProvider)),
-            ),
-            _Row(
-              title: l.about,
-              subtitle: l.aboutSummary,
-              forward: true,
-              onPressed: () => unawaited(
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(builder: (_) => const ShikooAbout()),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      _AppGroup(isTV: isTV),
     ];
     return _Page(
       title: l.settings,
@@ -283,6 +264,106 @@ class ShikooSettings extends ConsumerWidget {
     if (sure != true || !context.mounted) return;
     await ref.read(shikooSignInProvider).signOut();
     if (context.mounted) Navigator.popUntil(context, (route) => route.isFirst);
+  }
+}
+
+enum _Check { idle, checking, latest, failed }
+
+/// Settings › App: the version, the core, a check that does not wait out the six hours, and
+/// About. A known update stands in for the check as Home's card (phone-cards-settings-app).
+class _AppGroup extends ConsumerStatefulWidget {
+  const _AppGroup({required this.isTV});
+
+  final bool isTV;
+
+  @override
+  ConsumerState<_AppGroup> createState() => _AppGroupState();
+}
+
+class _AppGroupState extends ConsumerState<_AppGroup> {
+  final _cardButton = FocusNode();
+  var _check = _Check.idle;
+
+  @override
+  void dispose() {
+    _cardButton.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkNow() async {
+    if (_check == _Check.checking) return;
+    setState(() => _check = _Check.checking);
+    final answered = await ref.read(shikooUpdateProvider).checkNow();
+    if (!mounted) return;
+    setState(() => _check = answered ? _Check.latest : _Check.failed);
+    // tv-settings-app-found: the remote goes from the row that left to the card's button.
+    if (widget.isTV && ref.read(shikooUpdateOfferProvider) != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _cardButton.requestFocus(),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = ShikooL10n.of(context);
+    final update = ref.watch(shikooUpdateOfferProvider);
+    return _Group(
+      title: l.appSection,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s3,
+        children: [
+          _Card(
+            rows: [
+              _Row(
+                title: l.version,
+                value: _version(context, ref.watch(shikooVersionProvider)),
+              ),
+              _Row(
+                title: l.settingsCore,
+                subtitle: l.settingsCoreHelp,
+                value: '\u2066FlClash\u00A0$flclashVersion\u2069',
+              ),
+              if (update == null)
+                _Row(
+                  icon: ShikooIcon.refresh,
+                  busy: _check == _Check.checking,
+                  title: l.settingsCheckUpdate,
+                  subtitle: switch (_check) {
+                    _Check.idle => null,
+                    _Check.checking => l.settingsChecking,
+                    _Check.latest => l.settingsUpToDate,
+                    _Check.failed => l.settingsCheckFailed,
+                  },
+                  alert: _check == _Check.failed,
+                  onPressed: () => unawaited(_checkNow()),
+                ),
+              _Row(
+                title: l.about,
+                // A word joiner keeps «GPL-3.0» on one line.
+                subtitle: l.aboutSummary.replaceAll('-', '-\u2060'),
+                forward: true,
+                onPressed: () => unawaited(
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ShikooAbout(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (update != null)
+            UpdateCard(
+              offer: update,
+              isTV: widget.isTV,
+              focusNode: _cardButton,
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -410,18 +491,17 @@ class _Page extends StatelessWidget {
                   ),
                   SizedBox(height: isTV ? Space.s3 : Space.s2),
                   Expanded(
-                    // Only for large text; the padding keeps the last focus ring in view.
-                    child: SingleChildScrollView(
-                      padding: isTV
-                          ? const EdgeInsets.only(bottom: Space.s2)
-                          : EdgeInsets.fromLTRB(
+                    child: isTV
+                        ? TvScrollColumn(child: child)
+                        : SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(
                               s.safeX,
                               0,
                               s.safeX,
                               Space.s6 + MediaQuery.paddingOf(context).bottom,
                             ),
-                      child: child,
-                    ),
+                            child: child,
+                          ),
                   ),
                 ],
               ),
@@ -698,11 +778,15 @@ class _Row extends StatelessWidget {
     this.icon,
     this.forward = false,
     this.danger = false,
+    this.alert = false,
     this.busy = false,
     this.onPressed,
   });
 
   final String title;
+
+  /// The subtitle in red, as `.row small.danger`.
+  final bool alert;
 
   /// The title with bold parts.
   final List<InlineSpan>? rich;
@@ -727,6 +811,38 @@ class _Row extends StatelessWidget {
     final icon = this.icon;
     final subtitle = this.subtitle;
     final value = this.value;
+    final texts = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (rich case final rich?)
+          Text.rich(
+            TextSpan(children: rich),
+            style: t.text(s.body, color: ink),
+          )
+        else
+          Text(title, style: t.text(s.body, color: ink)),
+        if (subtitle != null)
+          Text(
+            subtitle,
+            style: t.text(s.bodySm, color: alert ? t.c.danger : t.c.textMuted),
+          ),
+      ],
+    );
+    // `.row:has(> .value)` wraps: a value that does not fit goes under its label.
+    Widget beside(Widget texts, String value) => Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: Space.s3,
+      runSpacing: Space.s1,
+      children: [
+        texts,
+        Text(
+          value,
+          style: t.text(s.body, color: t.c.textMuted, height: Leading.body),
+        ),
+      ],
+    );
     Widget row(bool focused) => Container(
       constraints: BoxConstraints(minHeight: s.row),
       padding: const EdgeInsets.symmetric(
@@ -752,27 +868,7 @@ class _Row extends StatelessWidget {
                 color: danger ? ink : t.c.textMuted,
               ),
             ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (rich case final rich?)
-                  Text.rich(
-                    TextSpan(children: rich),
-                    style: t.text(s.body, color: ink),
-                  )
-                else
-                  Text(title, style: t.text(s.body, color: ink)),
-                if (subtitle != null)
-                  Text(subtitle, style: t.text(s.bodySm, color: t.c.textMuted)),
-              ],
-            ),
-          ),
-          if (value != null)
-            Text(
-              value,
-              style: t.text(s.body, color: t.c.textMuted, height: Leading.body),
-            ),
+          Expanded(child: value == null ? texts : beside(texts, value)),
           if (forward)
             Transform.flip(
               flipX: ltr,

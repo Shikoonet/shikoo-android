@@ -1484,7 +1484,7 @@ abstract class ShikooL10n {
   /// **'Try again to download it from the start.'**
   String get updateBadFileHelp;
 
-  /// Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog).
+  /// Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog). Ready to install shows Install and Support side by side, always.
   ///
   /// In en, this message translates to:
   /// **'This version needs an update'**
@@ -1526,7 +1526,7 @@ abstract class ShikooL10n {
   /// **'Remove a few apps or files from this device and try again.'**
   String get updateNoSpaceHelp;
 
-  /// One red line under Install, on the card and the forced page, when Android's installer did not open. Not a new state; the next Install clears it.
+  /// One red line when Android's installer did not open: under Install on the card, above the buttons on the forced page. Not a new state; the next Install clears it.
   ///
   /// In en, this message translates to:
   /// **'The installer didn\'t open; try again or ask Support.'**
@@ -1541,8 +1541,44 @@ abstract class ShikooL10n {
   /// No description provided for @installPermissionLegacyTv.
   ///
   /// In en, this message translates to:
-  /// **'On the next screen, turn on Unknown sources at the bottom of it, then press Back on the remote.'**
+  /// **'On the next screen, find and turn on Unknown sources, then press Back on the remote.'**
   String get installPermissionLegacyTv;
+
+  /// No description provided for @settingsCore.
+  ///
+  /// In en, this message translates to:
+  /// **'Core'**
+  String get settingsCore;
+
+  /// Under "Core" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from a constant in lib/shikoo/ that the upstream sync script writes when it merges a new tag. There is no separate core download.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates together with the app.'**
+  String get settingsCoreHelp;
+
+  /// Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get settingsCheckUpdate;
+
+  /// No description provided for @settingsChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get settingsChecking;
+
+  /// No description provided for @settingsUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You have the latest version.'**
+  String get settingsUpToDate;
+
+  /// Red line under settingsCheckUpdate; tapping the row again retries.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check; check your internet and try again.'**
+  String get settingsCheckFailed;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

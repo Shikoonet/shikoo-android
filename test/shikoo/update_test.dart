@@ -238,6 +238,18 @@ void main() {
       expect(offer()!.release.url, door.url);
     });
 
+    test('checkNow does not wait out the six hours, and says whether the '
+        'door answered', () async {
+      final update = start();
+      await update.check();
+      expect(door.checks, 1);
+      expect(await update.checkNow(), isTrue);
+      expect(door.checks, 2);
+      door.dead.add('door.test');
+      expect(await update.checkNow(), isFalse);
+      expect(door.checks, 3);
+    });
+
     test('asks once in six hours, and again soon after a failure', () async {
       final update = start();
       door.dead.add('door.test');
@@ -454,6 +466,14 @@ void main() {
       canInstall = true;
       await update.onForeground();
       expect(native.last.method, 'install');
+    });
+
+    test('Android 8 (API 26) already asks per app', () async {
+      canInstall = false;
+      final update = start(sdk: 26);
+      await update.check();
+      await update.download();
+      expect(await update.install(), InstallAsk.thisApp);
     });
 
     test('an apk the system cleared is downloaded again', () async {

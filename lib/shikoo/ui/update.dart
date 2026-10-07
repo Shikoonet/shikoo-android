@@ -118,12 +118,19 @@ Future<void> _install(
   if (go ?? false) await update.allow();
 }
 
-/// `.card.update`: heads the home's cards, under the power button, which keeps the first focus.
+/// `.card.update`: heads the home's cards, under the power button, which keeps the first focus;
+/// in Settings it takes the place of «بررسی به‌روزرسانی».
 class UpdateCard extends ConsumerStatefulWidget {
-  const UpdateCard({super.key, required this.offer, required this.isTV});
+  const UpdateCard({
+    super.key,
+    required this.offer,
+    required this.isTV,
+    this.focusNode,
+  });
 
   final UpdateOffer offer;
   final bool isTV;
+  final FocusNode? focusNode;
 
   @override
   ConsumerState<UpdateCard> createState() => _UpdateCardState();
@@ -196,58 +203,61 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
       key: _button,
       label: label,
       primary: primary,
+      focusNode: widget.focusNode,
       onPressed: action,
     );
-    return Container(
-      padding: const EdgeInsets.all(Space.s4),
-      decoration: ShapeDecoration(
-        color: t.c.surface,
-        shadows: t.c.cardShadow,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Radii.lg),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.s3,
-        children: [
-          LayoutBuilder(
-            builder: (context, box) {
-              final scaler = MediaQuery.textScalerOf(context);
-              final painter = TextPainter(
-                text: TextSpan(
-                  text: label,
-                  style: t.text(t.s.body, weight: FontWeight.w700),
-                ),
-                textDirection: Directionality.of(context),
-                textScaler: scaler,
-                maxLines: 1,
-              )..layout();
-              final buttonWidth = painter.width + 2 * Space.s4;
-              painter.dispose();
-              // `.update-row .t` is `flex: 1 1 12em`: under 12em beside the button, it wraps.
-              final beside =
-                  box.maxWidth - Space.s3 - buttonWidth >=
-                  12 * scaler.scale(t.s.body);
-              return beside
-                  ? Row(
-                      spacing: Space.s3,
-                      children: [
-                        Expanded(child: texts),
-                        button,
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: Space.s2,
-                      children: [texts, button],
-                    );
-            },
+    return RevealWhileFocused(
+      child: Container(
+        padding: const EdgeInsets.all(Space.s4),
+        decoration: ShapeDecoration(
+          color: t.c.surface,
+          shadows: t.c.cardShadow,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(Radii.lg),
           ),
-          if (step == _Step.downloading)
-            MeterBar(ratio: offer.percent / 100, usage: false),
-          ?_installFailed(t, l, offer),
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.s3,
+          children: [
+            LayoutBuilder(
+              builder: (context, box) {
+                final scaler = MediaQuery.textScalerOf(context);
+                final painter = TextPainter(
+                  text: TextSpan(
+                    text: label,
+                    style: t.text(t.s.body, weight: FontWeight.w700),
+                  ),
+                  textDirection: Directionality.of(context),
+                  textScaler: scaler,
+                  maxLines: 1,
+                )..layout();
+                final buttonWidth = painter.width + 2 * Space.s4;
+                painter.dispose();
+                // `.update-row .t` is `flex: 1 1 12em`: under 12em beside the button, it wraps.
+                final beside =
+                    box.maxWidth - Space.s3 - buttonWidth >=
+                    12 * scaler.scale(t.s.body);
+                return beside
+                    ? Row(
+                        spacing: Space.s3,
+                        children: [
+                          Expanded(child: texts),
+                          button,
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: Space.s2,
+                        children: [texts, button],
+                      );
+              },
+            ),
+            if (step == _Step.downloading)
+              MeterBar(ratio: offer.percent / 100, usage: false),
+            ?_installFailed(t, l, offer),
+          ],
+        ),
       ),
     );
   }

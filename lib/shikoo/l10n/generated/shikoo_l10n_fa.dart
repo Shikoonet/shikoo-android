@@ -938,5 +938,24 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get installPermissionLegacyTv =>
-      'در صفحهٔ بعد، پایین همان صفحه «منابع ناشناس» را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.';
+      'در صفحهٔ بعد «منابع ناشناس» را پیدا و روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.';
+
+  @override
+  String get settingsCore => 'هسته';
+
+  @override
+  String get settingsCoreHelp => 'همراه خودِ برنامه به‌روز می‌شود.';
+
+  @override
+  String get settingsCheckUpdate => 'بررسی به‌روزرسانی';
+
+  @override
+  String get settingsChecking => 'در حال بررسی…';
+
+  @override
+  String get settingsUpToDate => 'نسخهٔ تو تازه‌ترین است.';
+
+  @override
+  String get settingsCheckFailed =>
+      'بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.';
 }
