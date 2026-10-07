@@ -67,15 +67,18 @@ const PAGES = [
   { name: 'phone-states', width: 2300 },
   { name: 'phone-ping', width: 2300 },
   { name: 'phone-update', width: 2300 },
+  { name: 'phone-report', width: 2300 },
   { name: 'tv', width: 2040 },
   { name: 'tv-states', width: 2040 },
   { name: 'tv-ping', width: 2040 },
   { name: 'tv-update', width: 2040 },
+  { name: 'tv-report', width: 2040 },
 ];
 const WEIGHTS = ['400', '500', '700', '800'];
 const problems = [];
 const written = [];
 const tallFrames = new Set();
+const smallFrames = new Set();
 const browser = await chromium.launch({ channel: 'chrome' });
 await mkdir(FRAMES, { recursive: true });
 
@@ -151,12 +154,13 @@ async function shootFrames(tab, suffix) {
   for (const el of await tab.$$('[data-frame]')) {
     const file = join(FRAMES, `${await el.getAttribute('data-frame')}-${suffix}.png`);
     // قابی که جایش کسری است، عکسی یک پیکسل پهن‌تر می‌دهد.
-    const tall = await el.evaluate((n) => {
+    const { tall, small } = await el.evaluate((n) => {
       const r = n.getBoundingClientRect();
       n.style.translate = `${Math.round(r.x) - r.x}px ${Math.round(r.y) - r.y}px`;
-      return n.classList.contains('tall');
+      return { tall: n.classList.contains('tall'), small: n.classList.contains('small') };
     });
     if (tall) tallFrames.add(file);
+    if (small) smallFrames.add(file);
     await el.screenshot({ path: file });
     written.push(file);
   }
@@ -201,7 +205,7 @@ for (const file of written) {
   const size = `${head.readUInt32BE(16)}×${head.readUInt32BE(20)}`;
   const name = file.slice(FRAMES.length + 1);
   (sizes[size] ??= []).push(name);
-  const fixed = name.startsWith('tv-') ? '1920×1080' : tallFrames.has(file) || name.startsWith('phone-cards') ? null : name.startsWith('phone-small') ? '686×1524' : '824×1830';
+  const fixed = name.startsWith('tv-') ? '1920×1080' : tallFrames.has(file) || name.startsWith('phone-cards') ? null : smallFrames.has(file) ? '686×1524' : '824×1830';
   if (fixed && size !== fixed) problems.push(`${name}: ${size} به‌جای ${fixed}`);
 }
 for (const [size, names] of Object.entries(sizes)) console.log(`${size}: ${names.length} عکس`);

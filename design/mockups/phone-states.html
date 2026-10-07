@@ -21,10 +21,12 @@
     <a href="phone-states.html" aria-current="page">حالت‌های گوشی</a>
     <a href="phone-ping.html">پینگ گوشی</a>
     <a href="phone-update.html">به‌روزرسانی گوشی</a>
+    <a href="phone-report.html">گزارش گوشی</a>
     <a href="tv.html">تلویزیون</a>
     <a href="tv-states.html">حالت‌های تلویزیون</a>
     <a href="tv-ping.html">پینگ تلویزیون</a>
     <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
+    <a href="tv-report.html">گزارش تلویزیون</a>
   </nav>
   <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
 </header>
@@ -111,6 +113,10 @@
           </div>
           <p class="power-msg danger">آلمان ۲ تا ۳۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.</p>
         </section>
+        <section class="card update check is-positive">
+          <div class="update-row"><svg class="icon"><use href="#i-check"/></svg><span class="t"><strong>اینترنت وصل است و سرور شیکونت در دسترس است.</strong></span></div>
+          <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش</button></div>
+        </section>
         <article class="card svc">
           <header class="svc-head">
             <div class="svc-titles">
@@ -148,6 +154,7 @@
     </div>
     <p class="note">دکمهٔ گرد حالا یعنی «دوباره». پینگِ سرورِ انتخاب‌شده هم «بی‌پاسخ» می‌شود تا علت دیده شود.</p>
     <p class="note">عدد پیام همان مهلت اپ است (۳۰ ثانیه)؛ اگر مهلت عوض شد، این عدد هم با آن عوض می‌شود.</p>
+    <p class="note">بعد از «وصل نشد» اپ اینترنت را خودش می‌سنجد و کارت «بررسی اینترنت» سرِ فهرست کارت‌ها می‌آید، با «ارسال گزارش». این‌جا اینترنت و سرور ما درست‌اند و فقط آلمان ۲ جواب نداد. حالت‌های دیگرِ کارت در صفحهٔ «گزارش گوشی» است.</p>
   </figure>
 
   <!-- حجم تمام شده -->
@@ -399,6 +406,12 @@
               <svg class="icon"><use href="#i-logout"/></svg>
               <span class="t"><span>خروج</span><small>سرویس‌ها از این گوشی پاک می‌شوند.</small></span>
             </button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">پشتیبانی</h3>
+          <div class="card">
+            <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
           </div>
         </section>
         <section>
@@ -694,6 +707,7 @@
         <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>ورود با تلگرام</button>
         <p class="login-note">تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.</p>
         <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک شیکونت نیست.</strong> فقط لینک اشتراک شیکونت کار می‌کند؛ همان که از ربات شیکونت یا نماینده‌ات گرفتی.</span></p>
+        <button class="btn-link" type="button">ارسال گزارش به پشتیبانی</button>
         <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
         <button class="btn-link" type="button">تلگرام روی این گوشی نیست؟</button>
       </div>
@@ -701,6 +715,7 @@
     </div>
     <p class="note">پیام خطا درست بالای دکمه‌ای است که آن را ساخت. تا چسباندنِ بعدی یا رفتن به تلگرام می‌ماند. چیزی که چسبانده شد هیچ‌جا نشان داده نمی‌شود.</p>
     <p class="note">«شیکونت نیست» را خودِ اپ از نشانیِ لینک می‌فهمد، بی‌اینترنت. سه خطای دیگر در قاب بعدی‌اند.</p>
+    <p class="note">زیر هر پیامِ خطای چسباندن «ارسال گزارش به پشتیبانی» هست. گزارش نوع خطا را می‌برد، نه خودِ لینک.</p>
   </figure>
 
   <!-- چسباندن: همهٔ پیام‌ها -->
@@ -727,9 +742,11 @@
     <div class="cards-stack login-parts" data-frame="phone-cards-login-code">
       <button class="btn btn-telegram" type="button" aria-busy="true"><svg class="icon"><use href="#i-spin"/></svg>در حال گرفتن کد…</button>
       <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>کد ورود نرسید.</strong> اینترنت گوشی را بررسی کن و دوباره بزن.</span></p>
+      <button class="btn-link" type="button">ارسال گزارش به پشتیبانی</button>
     </div>
     <p class="note">بالا: «ورود با تلگرام» تا رسیدن کد چرخنده و «در حال گرفتن کد…» می‌گیرد؛ «چسباندن لینک اشتراک» و «تلگرام روی این گوشی نیست؟» هر دو غیرفعال و کم‌رنگ‌اند، مثل چسباندن لینک. با رسیدن کد تلگرام باز می‌شود. اگر تا ۱۵ ثانیه کد نرسید، پیام پایین.</p>
-    <p class="note">پایین: اگر کد نرسید، این پیام درست بالای «ورود با تلگرام» می‌آید و جای «تلگرام باز می‌شود؛…» را می‌گیرد. دکمهٔ جدای «دوباره» نیست؛ خودِ «ورود با تلگرام» دوباره امتحان می‌کند.</p>
+    <p class="note">پایین: اگر کد نرسید، پیام و «ارسال گزارش به پشتیبانی» زیرش با هم می‌آیند. کسی هنوز وارد نشده، پس نتیجهٔ گزارش کد ۸ رقمی است.</p>
+    <p class="note">جای پیام: اگر کد نرسید، این پیام درست بالای «ورود با تلگرام» می‌آید و جای «تلگرام باز می‌شود؛…» را می‌گیرد. دکمهٔ جدای «دوباره» نیست؛ خودِ «ورود با تلگرام» دوباره امتحان می‌کند.</p>
     <p class="note">صفحهٔ «تأیید از دستگاه دیگر» همان دو حالت تلویزیون را دارد: جای کد تصویری خالی با چرخنده، و اگر کد نرسید «کد ورود نرسید» روی کاشی و دکمهٔ «دوباره» جای جعبهٔ کد؛ جملهٔ «تلگرامت روی کامپیوتر است؟…» هم با جعبهٔ کد می‌رود، چون کدی نیست که فرستاده شود. خط پایینِ صفحه هم جای «کد ۱۰ دقیقه کار می‌کند…» می‌شود «اینترنت گوشی را بررسی کن و دوباره بزن.»، چون کدی نیست که کار کند.</p>
   </figure>
 

@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شیکونت · گزارش به پشتیبانی، گوشی</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mockup.css">
+<script src="mockup.js"></script>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>شیکونت · گزارش به پشتیبانی، گوشی</h1>
+  <p>کارت «دفعهٔ قبل بسته شد»، «پشتیبانی»، «عیب‌یابی و گزارش» و بررسی اینترنت، پیش‌نمایش پیش از ارسال، و حالت‌های ارسال؛ گوشی معمولی و گوشی کوچک با قلم ۱٫۴۵. ورودی‌های دیگر در قاب‌های خودشان‌اند.</p>
+  <nav class="sheet-nav">
+    <a href="phone.html">گوشی</a>
+    <a href="phone-states.html">حالت‌های گوشی</a>
+    <a href="phone-ping.html">پینگ گوشی</a>
+    <a href="phone-update.html">به‌روزرسانی گوشی</a>
+    <a href="phone-report.html" aria-current="page">گزارش گوشی</a>
+    <a href="tv.html">تلویزیون</a>
+    <a href="tv-states.html">حالت‌های تلویزیون</a>
+    <a href="tv-ping.html">پینگ تلویزیون</a>
+    <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
+    <a href="tv-report.html">گزارش تلویزیون</a>
+  </nav>
+  <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
+</header>
+
+<main class="board">
+
+  <figure class="shot">
+    <figcaption>خانه · برنامه دفعهٔ قبل ناگهان بسته شد</figcaption>
+    <div class="phone" data-frame="phone-home-crash">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+        </section>
+        <section class="card update">
+          <div class="update-row"><span class="t"><strong>برنامه دفعهٔ قبل ناگهان بسته شد.</strong><small>گزارشش را برای ما بفرستیم؟</small></span></div>
+          <div class="dialog-actions">
+            <button class="btn btn-outline" type="button">نه</button>
+            <button class="btn btn-primary" type="button">بفرست</button>
+          </div>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، همین الان</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 24%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+        </article>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">فقط یک بار برای هر بسته شدن، در اولین باز شدنِ بعدی، و فقط وقتی اپ نشانی از بسته شدنِ ناگهانی پیدا کرده (کرش یا «جواب نمی‌دهد»ِ اندروید). جای کارت نسخهٔ تازه است: زیر دکمهٔ گرد، سرِ فهرست کارت‌ها. اگر هر دو باشند، این یکی بالاتر است.</p>
+    <p class="note">«بفرست» همان پیش‌نمایش را باز می‌کند؛ هیچ چیزی بی‌زدنِ «ارسال» نمی‌رود. «نه» کارت را برمی‌دارد و دیگر برای همان بسته شدن نمی‌پرسد.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>«پشتیبانی» · گفتگو یا گزارش</figcaption>
+    <div class="phone" data-frame="phone-support-sheet">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، همین الان</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 24%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+        </article>
+      </div>
+      <div class="scrim">
+        <div class="dialog" role="dialog" aria-labelledby="support-title">
+          <h2 id="support-title">پشتیبانی</h2>
+          <p>اگر برنامه درست کار نمی‌کند، اول یک گزارش بفرست تا پشتیبانی ببیند چه شده.</p>
+          <div class="actions is-stacked">
+            <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-plane"/></svg>گفتگو در تلگرام</button>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش به پشتیبانی</button>
+            <button class="btn btn-text" type="button">انصراف</button>
+          </div>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note"><b>پیشنهاد</b>«پشتیبانی» روی گوشی تا امروز گفتگو را مستقیم در تلگرام باز می‌کرد. حالا اول این پنجره می‌آید، با دو راه: گفتگو، یا گزارش. همهٔ «پشتیبانی»‌های گوشی همین پنجره را باز می‌کنند (کارت سرویس، صفحهٔ اجباری به‌روزرسانی، «سرویسی نیست»)، جز «پشتیبانی» ِ صفحهٔ «فرستاده شد» که گزارشش رفته و گفتگو را مستقیم باز می‌کند.</p>
+    <p class="note">عکسِ گزارش از صفحهٔ زیر پنجره است، همان لحظه‌ای که «پشتیبانی» زده شد؛ خود پنجره در عکس نیست.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>تنظیمات › عیب‌یابی و گزارش</figcaption>
+    <div class="phone" data-frame="phone-diagnose">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>عیب‌یابی و گزارش</h2>
+      </div>
+      <div class="settings">
+        <section>
+          <h3 class="group-title">اینترنت</h3>
+          <section class="card update check is-warning">
+            <div class="update-row"><svg class="icon"><use href="#i-alert"/></svg><span class="t"><strong>اینترنت بین‌الملل روی این خط قطع است. سرورها بیرون از ایران‌اند.</strong></span></div>
+            <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button></div>
+          </section>
+        </section>
+        <section>
+          <h3 class="group-title">گزارش</h3>
+          <div class="card update">
+            <p class="report-note">اگر برنامه درست کار نمی‌کند، یک گزارش برای پشتیبانی بفرست. پیش از ارسال می‌بینی چه فرستاده می‌شود.</p>
+            <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش به پشتیبانی</button>
+          </div>
+        </section>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">بررسی اینترنت با باز شدن صفحه خودش اجرا می‌شود و چند ثانیه طول می‌کشد؛ «دوباره» آن را از نو می‌زند. حالت‌هایش در قاب بعدی است.</p>
+    <p class="note">عکسِ این گزارش صفحهٔ «تنظیمات» است، نه همین صفحه: کسی که از تنظیمات می‌آید، معمولاً ایراد را جای دیگری دیده. بررسی‌های تازهٔ روی دستگاه بعداً زیر «اینترنت» اضافه می‌شوند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>بررسی اینترنت · همهٔ حالت‌ها</figcaption>
+    <div class="cards-stack" data-frame="phone-cards-check">
+      <section class="card update check">
+        <div class="update-row"><svg class="icon"><use href="#i-spin"/></svg><span class="t"><strong>در حال بررسی اینترنت…</strong></span></div>
+      </section>
+      <section class="card update check is-positive">
+        <div class="update-row"><svg class="icon"><use href="#i-check"/></svg><span class="t"><strong>اینترنت وصل است و سرور شیکونت در دسترس است.</strong></span></div>
+        <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش</button></div>
+      </section>
+      <section class="card update check is-danger">
+        <div class="update-row"><svg class="icon"><use href="#i-alert"/></svg><span class="t"><strong>این دستگاه به اینترنت وصل نیست.</strong></span></div>
+        <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات اینترنت</button></div>
+      </section>
+      <section class="card update check is-warning">
+        <div class="update-row"><svg class="icon"><use href="#i-alert"/></svg><span class="t"><strong>اینترنت بین‌الملل روی این خط قطع است. سرورها بیرون از ایران‌اند.</strong></span></div>
+        <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش</button></div>
+      </section>
+      <section class="card update check is-danger">
+        <div class="update-row"><svg class="icon"><use href="#i-alert"/></svg><span class="t"><strong>به سرور شیکونت نرسیدیم؛ مشکل از طرف ماست.</strong></span></div>
+        <div class="dialog-actions"><button class="btn btn-outline" type="button">پشتیبانی</button></div>
+      </section>
+      <section class="card update check is-danger">
+        <div class="update-row"><svg class="icon"><use href="#i-alert"/></svg><span class="t"><strong>هیچ‌کدام از سرورها جواب نمی‌دهند.</strong></span></div>
+        <div class="dialog-actions">
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش</button>
+          <button class="btn btn-outline" type="button">پشتیبانی</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی سرورها</button>
+        </div>
+      </section>
+    </div>
+    <p class="note">از بالا: در حال بررسی؛ همه‌چیز درست؛ اینترنت نیست؛ فقط اینترنت بین‌الملل قطع است؛ سرور ما در دسترس نیست؛ و اینترنت و سرور ما درست‌اند ولی هیچ سروری جواب نمی‌دهد. یک جملهٔ ساده، و فقط دکمه‌ای که به همان حالت کمک می‌کند.</p>
+    <p class="note">سه سنجش، بیرون از تونل: یک سایت بزرگِ داخل ایران، یک نشانیِ کوچکِ بین‌الملل، و سرور شیکونت. اگر سایت داخلی جواب نداد ولی بین‌الملل داد، جمله‌ای نشان داده نمی‌شود و فقط در گزارش می‌رود.</p>
+    <p class="note">«ارسال گزارش» فقط وقتی هست که سرور شیکونت در دسترس است؛ وقتی اینترنت نیست یا سرور ما جواب نمی‌دهد، گزارش هم نمی‌رسد، پس دکمه‌اش نیست. سرور ما در ایران است و با قطع اینترنت بین‌الملل هم می‌رسد.</p>
+    <p class="note">این کارت بعد از هر «وصل نشد» سرِ فهرست کارت‌های خانه می‌آید (قاب «خانه · وصل نشد» در حالت‌های گوشی)، با «ارسال گزارش». در «عیب‌یابی و گزارش» همین کارت است، با «دوباره» به‌جای «ارسال گزارش»، چون دکمهٔ بزرگ گزارش زیرش هست. اتصالِ بعدی کارت را برمی‌دارد.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>پیش‌نمایش پیش از ارسال</figcaption>
+    <div class="phone" data-frame="phone-report-preview">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>گزارش برای پشتیبانی</h2>
+      </div>
+      <div class="report">
+        <div class="report-body" data-scroll-to=".report-images">
+          <div class="scroll-content">
+            <div class="report-images">
+              <div class="report-image"><div class="report-tile"><span class="mini"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>آنچه برنامه کشید</span></div>
+              <div class="report-image"><div class="report-tile"><span class="mini"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>آنچه روی صفحه بود</span></div>
+            </div>
+            <div class="card"><button class="row" type="button" role="switch" aria-checked="true"><span class="t"><span>عکس صفحه‌ها هم فرستاده شود</span></span><span class="switch"></span></button></div>
+            <p class="report-note">این‌ها فرستاده می‌شود: مدل دستگاه، اندازهٔ صفحه، وضعیت اینترنت و خطاهای اخیر برنامه. <strong>لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.</strong></p>
+          </div>
+          <span class="scroll-thumb"></span>
+        </div>
+        <div class="report-foot">
+          <button class="btn btn-primary" type="button">ارسال</button>
+          <button class="btn btn-outline" type="button">انصراف</button>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">هر ورودی اول عکسِ صفحه‌ای را می‌گیرد که دکمه در آن زده شد، بعد این صفحه را باز می‌کند. دو عکس از یک لحظه‌اند: راست آنچه خودِ برنامه کشید، چپ آنچه واقعاً روی صفحهٔ دستگاه رفت. اگر فرق دارند، ایراد از نمایشِ دستگاه است، نه از چیدمان.</p>
+    <p class="note">کلید پیش‌فرض روشن است؛ خاموشش هر دو عکس را برمی‌دارد و روی عکس‌ها «فرستاده نمی‌شود» می‌آید (قاب کلید خاموش در صفحهٔ تلویزیون). عکس‌ها نام کاربری و حجم را نشان می‌دهند، هیچ لینکی نه.</p>
+    <p class="note">وسطِ صفحه اسکرول می‌شود و «ارسال» و «انصراف» همیشه پایین صفحه‌اند، تا با قلم درشت هم بی‌اسکرول پیدا شوند. چیزی بیرون از همین جمله‌ها فرستاده نمی‌شود.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · پیش‌نمایش</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-report-preview-145">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>گزارش برای پشتیبانی</h2>
+      </div>
+      <div class="report">
+        <div class="report-body" data-scroll-to=".report-note">
+          <div class="scroll-content">
+            <div class="report-images">
+              <div class="report-image"><div class="report-tile"><span class="mini"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>آنچه برنامه کشید</span></div>
+              <div class="report-image"><div class="report-tile"><span class="mini"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>آنچه روی صفحه بود</span></div>
+            </div>
+            <div class="card"><button class="row" type="button" role="switch" aria-checked="true"><span class="t"><span>عکس صفحه‌ها هم فرستاده شود</span></span><span class="switch"></span></button></div>
+            <p class="report-note">این‌ها فرستاده می‌شود: مدل دستگاه، اندازهٔ صفحه، وضعیت اینترنت و خطاهای اخیر برنامه. <strong>لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.</strong></p>
+          </div>
+          <span class="scroll-thumb"></span>
+        </div>
+        <div class="report-foot">
+          <button class="btn btn-primary" type="button">ارسال</button>
+          <button class="btn btn-outline" type="button">انصراف</button>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">۳۴۳ در ۷۶۲، اندازهٔ پوکو سی۸۵ با قلم ۱٫۴۵؛ از ۳۶۰ هم باریک‌تر است. هنوز همه‌چیز بی‌اسکرول جا می‌شود. اگر دستگاهی کوتاه‌تر یا قلمی درشت‌تر جا نداد، فقط وسطِ صفحه اسکرول می‌شود، با لبهٔ بالای محو و نشانگر اسکرول، و دو دکمه سر جایشان می‌مانند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · انگلیسی</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" dir="ltr" lang="en" data-frame="phone-report-preview-145-en">
+      <div class="statusbar"><span>12:40</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="Back"><svg class="icon flip-ltr"><use href="#i-back"/></svg></button>
+        <h2>Report to Support</h2>
+      </div>
+      <div class="report">
+        <div class="report-body" data-scroll-to=".report-note">
+          <div class="scroll-content">
+            <div class="report-images">
+              <div class="report-image"><div class="report-tile"><span class="mini"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>What the app drew</span></div>
+              <div class="report-image"><div class="report-tile"><span class="mini"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>What the screen showed</span></div>
+            </div>
+            <div class="card"><button class="row" type="button" role="switch" aria-checked="true"><span class="t"><span>Send the screen pictures too</span></span><span class="switch"></span></button></div>
+            <p class="report-note">This is sent: device model, screen size, internet status and the app’s recent errors. <strong>Your subscription link and passwords are never sent.</strong></p>
+          </div>
+          <span class="scroll-thumb"></span>
+        </div>
+        <div class="report-foot">
+          <button class="btn btn-primary" type="button">Send</button>
+          <button class="btn btn-outline" type="button">Cancel</button>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">همان چیدمان، از چپ به راست؛ کلید در انگلیسی سمت راست ردیف است. متن انگلیسی بلندتر است و همین‌جا جا نمی‌شود، پس وسط صفحه کمی اسکرول می‌شود: نشانگر اسکرول کنار است و دو دکمه سر جایشان می‌مانند. نمونه تا ته اسکرول شده.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · در حال ارسال</figcaption>
+    <div class="phone" data-frame="phone-report-sending">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>گزارش برای پشتیبانی</h2>
+      </div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-spin"/></svg></span>
+          <span class="word">در حال ارسال…</span>
+        </div>
+        <button class="btn btn-outline" type="button">انصراف</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">ارسال از راه خودِ اپ به سرور شیکونت می‌رود، بیرون از تونل، و تا ۶۰ ثانیه صبر می‌کند. «انصراف» و دکمهٔ برگشت ارسال را می‌بُرند و به صفحهٔ قبل برمی‌گردند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده شد، وارد شده با تلگرام</figcaption>
+    <div class="phone" data-frame="phone-report-sent">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>گزارش برای پشتیبانی</h2>
+      </div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+          <span class="word">فرستاده شد</span>
+          <span class="sub">پشتیبانی گزارشت را می‌بیند؛ لازم نیست چیزی بفرستی.</span>
+          <span class="sub">کد گزارش: <bdi dir="ltr">۴۸۲۱ ۹۰۳۷</bdi></span>
+        </div>
+        <button class="btn btn-primary" type="button">بستن</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">گزارش به حساب تلگرامِ همین دستگاه وصل شد، پس پشتیبانی آن را کنار گفتگوی همین مشتری می‌بیند. کد کوچک است، فقط برای وقتی که پشتیبانی بپرسد.</p>
+    <p class="note">«پشتیبانی» این‌جا گفتگو را مستقیم در تلگرام باز می‌کند، چون گزارش رفته.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده شد، بی‌ورود تلگرامی</figcaption>
+    <div class="phone" data-frame="phone-report-sent-code">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>گزارش برای پشتیبانی</h2>
+      </div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+          <span class="word">فرستاده شد</span>
+          <div class="code-box">
+            <span class="code-label">کد گزارش</span>
+            <span class="code">۴۸۲۱ ۹۰۳۷</span>
+          </div>
+          <span class="sub">این کد را به پشتیبانی بده.</span>
+        </div>
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-plane"/></svg>پشتیبانی</button>
+        <button class="btn btn-outline" type="button">بستن</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">وقتی کسی وارد نشده (لینک چسبانده، یا هنوز وارد نشده)، پشتیبانی گزارش را فقط با همین کد پیدا می‌کند. کد ۸ رقم است و دو تکهٔ چهاررقمی، تا با کد ۶ رقمیِ ورود قاطی نشود.</p>
+    <p class="note">«پشتیبانی» گفتگو را مستقیم باز می‌کند. کد تا بستن صفحه روی صفحه می‌ماند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده نشد</figcaption>
+    <div class="phone" data-frame="phone-report-failed">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>گزارش برای پشتیبانی</h2>
+      </div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon danger"><svg class="icon"><use href="#i-alert"/></svg></span>
+          <span class="word">فرستاده نشد</span>
+          <span class="sub">اینترنت را بررسی کن و دوباره بزن.</span>
+        </div>
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+        <button class="btn btn-outline" type="button">انصراف</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">«دوباره» همان گزارشِ پیش‌نمایش‌شده را دوباره می‌فرستد، با همان عکس‌ها؛ عکس تازه گرفته نمی‌شود. «انصراف» گزارش را دور می‌ریزد.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده نشد، چون ساعت دستگاه غلط است</figcaption>
+    <div class="phone" data-frame="phone-report-failed-clock">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>گزارش برای پشتیبانی</h2>
+      </div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon danger"><svg class="icon"><use href="#i-alert"/></svg></span>
+          <span class="word">فرستاده نشد</span>
+        </div>
+        <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>تاریخ و ساعت دستگاهت درست نیست.</strong> از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</span></p>
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات تاریخ و ساعت</button>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">همان پیام و همان دکمه‌های ساعتِ غلط که جاهای دیگرِ اپ دارند، وقتی سرور به خاطر ساعت دستگاه پذیرفته نشد. «دوباره» بعد از درست کردن ساعت همان گزارش را می‌فرستد.</p>
+  </figure>
+
+</main>
+</body>
+</html>
