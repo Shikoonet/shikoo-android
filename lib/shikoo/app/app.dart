@@ -177,25 +177,33 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       themeMode: look.theme,
       theme: shikooThemeData(Brightness.light, tv: system.isTV),
       darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
-      builder: (context, child) {
-        // ignore: deprecated_member_use
-        return MaterialUiCompatibilityBridge(
-          child: IconTheme(
-            data: Theme.of(context).iconTheme,
-            child: ShikooTvCanvas(
-              child: buildManagerStack(
-                isDesktop: false,
-                onConnectivityChanged: _onConnectivityChanged,
-                child: ShikooSystemUi(child: child!),
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (context, child) => shikooFrame(
+        context,
+        child!,
+        managers: (page) => buildManagerStack(
+          isDesktop: false,
+          onConnectivityChanged: _onConnectivityChanged,
+          child: page,
+        ),
+      ),
       home: const ShikooRoot(),
     );
   }
 }
+
+/// [ShikooApp]'s builder; a test passes as [managers] only the FlClash managers it can run.
+Widget shikooFrame(
+  BuildContext context,
+  Widget page, {
+  required Widget Function(Widget page) managers,
+}) =>
+    // ignore: deprecated_member_use
+    MaterialUiCompatibilityBridge(
+      child: IconTheme(
+        data: Theme.of(context).iconTheme,
+        child: ShikooTvCanvas(child: managers(ShikooSystemUi(child: page))),
+      ),
+    );
 
 MaterialApp bareApp(
   Widget home, {
