@@ -7,7 +7,9 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/state.dart' show serviceTexts;
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -31,6 +33,7 @@ void main() {
         await loadShikooFonts();
         await RustLib.init();
         final version = await system.init();
+        if (clockTooEarly(DateTime.now())) await _untilClockRight();
         serviceTexts = shikooServiceTexts;
         final container = await bootstrap.init(version);
         await keepApiDirect();
@@ -55,6 +58,33 @@ void main() {
       );
     },
   );
+}
+
+/// Before bootstrap: on Android the core loads only once Dart asks the service channel for it.
+Future<void> _untilClockRight() async {
+  commonPrint.log('clock before ${shikooClockFloor.year}: core held back');
+  final looks = ProviderContainer();
+  await looks.read(shikooLookProvider.notifier).load();
+  final look = looks.read(shikooLookProvider);
+  looks.dispose();
+  if (system.isTV) {
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+  }
+  final right = Completer<void>();
+  runApp(
+    bareApp(
+      ClockPage(
+        onRetry: () {
+          if (clockTooEarly(DateTime.now())) return false;
+          if (!right.isCompleted) right.complete();
+          return true;
+        },
+      ),
+      look: look,
+    ),
+  );
+  await right.future;
 }
 
 /// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`).

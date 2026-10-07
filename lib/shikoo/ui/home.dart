@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -81,7 +82,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final account = ref.watch(shikooAccountProvider);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    final now = DateTime.now();
+    final now = shikooNow();
     final current = state.service;
     final unlinked = account.withoutLink;
     final finished = finishedOrder([
@@ -855,7 +856,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final isTV = widget.isTV;
-    final now = DateTime.now();
+    final now = shikooNow();
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.md),
     );

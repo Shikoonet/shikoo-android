@@ -10,6 +10,7 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
@@ -127,7 +128,7 @@ class ShikooService {
   }.contains(ended);
 
   ShikooServiceStatus? get ended {
-    final status = statusAt(DateTime.now());
+    final status = statusAt(shikooNow());
     return (usageKnown || revoked) && status != ShikooServiceStatus.active
         ? status
         : null;
@@ -175,9 +176,12 @@ class SilentReplaced extends ShikooNotice {
   final bool moved;
 }
 
-/// Only for an update the user asked for; an automatic one just says so under the name.
+/// Only for an update the user asked for, or one this device's clock failed; an automatic one
+/// just says so under the name.
 class RefreshFailed extends ShikooNotice {
-  const RefreshFailed();
+  const RefreshFailed({this.clock = false});
+
+  final bool clock;
 }
 
 @immutable
@@ -441,6 +445,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       running: runTime != null || nativeStart != null,
       error: intent.error,
     ),
+    // ponytail: wall clock, negative once the clock moves back mid-tunnel; needs elapsedRealtime from Kotlin.
     connectedFor: nativeStart != null
         ? DateTime.now().difference(nativeStart)
         : Duration(milliseconds: runTime ?? 0),
@@ -617,7 +622,7 @@ int? serviceInstead(ShikooState state) {
   final latest = finishedOrder([
     for (final service in [current!, ...state.others])
       if (service.finished) finishedOf(service),
-  ], DateTime.now()).firstOrNull?.profileId;
+  ], shikooNow()).firstOrNull?.profileId;
   return latest == current.id ? null : latest;
 }
 
@@ -1251,9 +1256,10 @@ class ShikooController {
         throw StateError('apply');
       }
     } catch (error) {
+      final clock = await clockFailed(error, profile.url);
       status.set(ShikooRefresh.failed);
       _failed(profile.id, error);
-      if (_manualRefresh) _notice(const RefreshFailed());
+      if (_manualRefresh || clock) _notice(RefreshFailed(clock: clock));
       return;
     }
     status.set(ShikooRefresh.idle);
@@ -1287,6 +1293,7 @@ class ShikooController {
         .getFileResponseForUrl(url)
         .timeout(const Duration(seconds: 30));
     final header = response.headers.value;
+    learnClock(header('date'));
     final body = response.data ?? Uint8List(0);
     final profiles = _ref.read(profilesProvider);
     final title = headerText(header('profile-title'));
@@ -1361,7 +1368,9 @@ class ShikooController {
       }
       return null;
     } catch (error) {
-      return addFailure(error);
+      return await clockFailed(error, url)
+          ? ShikooPasteError.clock
+          : addFailure(error);
     }
   }
 

@@ -1411,6 +1411,30 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Connect / Disconnect'**
   String get shortcutToggle;
+
+  /// Instead of a sign-in, update or paste failure when the server's certificate was refused for this device's clock, and on the screen that stops the app before mid-2012 dates crash its core.
+  ///
+  /// In en, this message translates to:
+  /// **'Your device\'s date and time are wrong.'**
+  String get clockWrongTitle;
+
+  /// No description provided for @clockWrongHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'In Settings › Date & time, turn on “Automatic” (or set them right), then try again.'**
+  String get clockWrongHelp;
+
+  /// Under “Try again” on the clock screen, when it was pressed and the clock is still before the floor.
+  ///
+  /// In en, this message translates to:
+  /// **'The clock is still wrong.'**
+  String get clockStillWrong;
+
+  /// Opens Android's date and time settings, or its main settings when a TV box has none.
+  ///
+  /// In en, this message translates to:
+  /// **'Date & time settings'**
+  String get dateSettings;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

@@ -190,25 +190,30 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
   }
 }
 
+MaterialApp bareApp(
+  Widget home, {
+  ShikooLook look = (theme: ThemeMode.system, language: shikooDefaultLanguage),
+}) => MaterialApp(
+  debugShowCheckedModeBanner: false,
+  locale: Locale(look.language),
+  supportedLocales: ShikooL10n.supportedLocales,
+  localizationsDelegates: _delegates,
+  themeMode: look.theme,
+  theme: shikooThemeData(Brightness.light, tv: system.isTV),
+  darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
+  home: home,
+);
+
 class ShikooInitErrorApp extends StatelessWidget {
   const ShikooInitErrorApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      locale: const Locale(shikooDefaultLanguage),
-      supportedLocales: ShikooL10n.supportedLocales,
-      localizationsDelegates: _delegates,
-      theme: shikooThemeData(Brightness.light, tv: system.isTV),
-      darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(child: Text(ShikooL10n.of(context).initError)),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => bareApp(
+    Builder(
+      builder: (context) =>
+          Scaffold(body: Center(child: Text(ShikooL10n.of(context).initError))),
+    ),
+  );
 }
 
 /// FlClash's rare dialogs and toasts throw without its strings, and its delegate refuses `fa`.

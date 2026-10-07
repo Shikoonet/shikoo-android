@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpDate, HttpException, HttpHeaders, InternetAddress;
+import 'dart:io' show HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -9,6 +9,7 @@ import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
@@ -51,6 +52,7 @@ class ShikooLogin {
     this.botUrl,
     this.account,
     this.services = const [],
+    this.clock = false,
   });
 
   final LoginPhase phase;
@@ -59,6 +61,7 @@ class ShikooLogin {
   final String? botUrl;
   final TelegramAccount? account;
   final List<String> services;
+  final bool clock;
 }
 
 @immutable
@@ -193,7 +196,9 @@ final shikooDeviceProvider =
     );
 
 class ShikooApiFailure implements Exception {
-  const ShikooApiFailure();
+  const ShikooApiFailure({this.clock = false});
+
+  final bool clock;
 }
 
 class LoginCode {
@@ -267,6 +272,7 @@ class ShikooApi {
     Map<String, Object?>? body,
     String? token,
   }) async {
+    (DioException, String)? failed;
     for (var i = 0; i < bases.length; i++) {
       final at = (_first + i) % bases.length;
       try {
@@ -282,12 +288,15 @@ class ShikooApi {
           ),
         );
         _first = at;
+        learnClock(response.headers.value(HttpHeaders.dateHeader));
         return response;
-      } on DioException {
-        continue;
+      } on DioException catch (error) {
+        failed = (error, bases[at]);
       }
     }
-    throw const ShikooApiFailure();
+    throw ShikooApiFailure(
+      clock: failed != null && await clockFailed(failed.$1, failed.$2),
+    );
   }
 
   static Map<String, dynamic>? _json(Response<Object?> response) =>
@@ -320,14 +329,9 @@ class ShikooApi {
   }
 
   /// A box's clock can be hours off; the server's own clock measures the code's life.
-  static DateTime _serverNow(Response<Object?> response) {
-    final date = response.headers.value(HttpHeaders.dateHeader);
-    try {
-      return date == null ? DateTime.now() : HttpDate.parse(date);
-    } on HttpException {
-      return DateTime.now();
-    }
-  }
+  static DateTime _serverNow(Response<Object?> response) => DateTime.now().add(
+    skewOf(response.headers.value(HttpHeaders.dateHeader)) ?? Duration.zero,
+  );
 
   /// A 429 or a server error is only "ask again later".
   Future<PollAnswer> poll(String code, String secret) async {
@@ -424,7 +428,11 @@ class ShikooSignIn {
 
   @visibleForTesting
   Duration pollEvery = const Duration(seconds: 3);
+
+  @visibleForTesting
+  Duration startLimit = const Duration(seconds: 30);
   String? _token;
+  bool _servicesClock = false;
 
   /// A newer code, a sign-out or a paste ends whatever the one before was waiting for.
   int _attempt = 0;
@@ -523,17 +531,24 @@ class ShikooSignIn {
     final attempt = ++_attempt;
     _login(const ShikooLogin(LoginPhase.starting));
     try {
-      final device = await _ref.read(shikooDeviceProvider)();
-      final code = await _api.start(deviceName: device.name, tv: device.tv);
+      final code = await _ref
+          .read(shikooDeviceProvider)()
+          .then((device) => _api.start(deviceName: device.name, tv: device.tv))
+          .timeout(startLimit);
       if (attempt != _attempt) return null;
       _login(
         ShikooLogin(LoginPhase.waiting, code: code.code, botUrl: code.botUrl),
       );
       unawaited(_poll(attempt, code, DateTime.now().add(code.lifetime)));
       return code.botUrl;
-    } catch (_) {
+    } catch (error) {
       if (attempt == _attempt) {
-        _login(const ShikooLogin(LoginPhase.startFailed));
+        _login(
+          ShikooLogin(
+            LoginPhase.startFailed,
+            clock: error is ShikooApiFailure && error.clock,
+          ),
+        );
       }
       return null;
     }
@@ -595,7 +610,11 @@ class ShikooSignIn {
     final account = _account;
     _login(switch (synced) {
       null => null,
-      false => ShikooLogin(LoginPhase.servicesFailed, account: account.who),
+      false => ShikooLogin(
+        LoginPhase.servicesFailed,
+        account: account.who,
+        clock: _servicesClock,
+      ),
       true when account.services.isEmpty => ShikooLogin(
         LoginPhase.noService,
         account: account.who,
@@ -690,7 +709,9 @@ class ShikooSignIn {
     final ({String? bot, List<AccountServiceRow> services})? answer;
     try {
       answer = await _api.services(token);
-    } catch (_) {
+      _servicesClock = false;
+    } catch (error) {
+      _servicesClock = error is ShikooApiFailure && error.clock;
       return false;
     }
     if (token != _token) return null;

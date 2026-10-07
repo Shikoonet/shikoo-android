@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
@@ -401,8 +403,7 @@ class _NameLine extends StatelessWidget {
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
       ServiceName(plainTitle(context, service)),
-      if (service.usageKnown)
-        StatusChip(status: service.statusAt(DateTime.now())),
+      if (service.usageKnown) StatusChip(status: service.statusAt(shikooNow())),
     ],
   );
 }
@@ -581,7 +582,9 @@ class _Message extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = ShikooL10n.of(context);
     final danger = notice is RefreshFailed;
+    final clock = notice is RefreshFailed && (notice as RefreshFailed).clock;
     final (strong, rest) = switch (notice) {
+      RefreshFailed(clock: true) => (l.clockWrongTitle, l.clockWrongHelp),
       RefreshFailed() => (
         l.updateFailedTitle,
         isTV ? l.updateFailedTv : l.updateFailedTouch,
@@ -615,14 +618,21 @@ class _Message extends StatelessWidget {
         '',
       ),
     };
+    final box = MessageBox(
+      icon: danger ? ShikooIcon.alert : ShikooIcon.refresh,
+      strong: strong,
+      rest: rest,
+      danger: danger,
+    );
     return Padding(
       padding: const EdgeInsets.only(top: Space.s3),
-      child: MessageBox(
-        icon: danger ? ShikooIcon.alert : ShikooIcon.refresh,
-        strong: strong,
-        rest: rest,
-        danger: danger,
-      ),
+      child: clock
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: Space.s2,
+              children: [box, const DateSettingsButton()],
+            )
+          : box,
     );
   }
 }
@@ -704,8 +714,7 @@ class _Usage extends StatelessWidget {
                     : l.daysLeft(
                         math.max(
                           0,
-                          (expire.difference(DateTime.now()).inHours / 24)
-                              .ceil(),
+                          (expire.difference(shikooNow()).inHours / 24).ceil(),
                         ),
                       ),
                 style: expired ? muted.merge(danger) : muted,

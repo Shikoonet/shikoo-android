@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -661,7 +662,7 @@ class _PastedRow extends StatelessWidget {
               children: [
                 Text(serviceTitle(context, service), style: t.text(t.s.body)),
                 Text(
-                  statusLabel(l, service.statusAt(DateTime.now())),
+                  statusLabel(l, service.statusAt(shikooNow())),
                   style: t.text(t.s.bodySm, color: t.c.textMuted),
                 ),
               ],

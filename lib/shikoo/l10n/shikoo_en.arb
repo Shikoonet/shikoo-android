@@ -285,5 +285,12 @@
   "notificationStopping": "Disconnecting…",
   "@notificationStopping": {"description": "Android toast after the notification's button is pressed. A start from the Quick Settings tile shows powerConnecting."},
   "shortcutToggle": "Connect / Disconnect",
-  "@shortcutToggle": {"description": "The shortcut in the menu of a long-pressed launcher icon; it connects or disconnects. Android registers it after a language change."}
+  "@shortcutToggle": {"description": "The shortcut in the menu of a long-pressed launcher icon; it connects or disconnects. Android registers it after a language change."},
+  "clockWrongTitle": "Your device's date and time are wrong.",
+  "@clockWrongTitle": {"description": "Instead of a sign-in, update or paste failure when the server's certificate was refused for this device's clock, and on the screen that stops the app before mid-2012 dates crash its core."},
+  "clockWrongHelp": "In Settings › Date & time, turn on “Automatic” (or set them right), then try again.",
+  "clockStillWrong": "The clock is still wrong.",
+  "@clockStillWrong": {"description": "Under “Try again” on the clock screen, when it was pressed and the clock is still before the floor."},
+  "dateSettings": "Date & time settings",
+  "@dateSettings": {"description": "Opens Android's date and time settings, or its main settings when a TV box has none."}
 }

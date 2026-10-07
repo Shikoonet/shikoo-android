@@ -838,4 +838,17 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get shortcutToggle => 'وصل / قطع';
+
+  @override
+  String get clockWrongTitle => 'تاریخ و ساعت دستگاهت درست نیست.';
+
+  @override
+  String get clockWrongHelp =>
+      'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
+
+  @override
+  String get clockStillWrong => 'ساعت هنوز درست نیست.';
+
+  @override
+  String get dateSettings => 'تنظیمات تاریخ و ساعت';
 }
