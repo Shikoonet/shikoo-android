@@ -212,7 +212,13 @@ void main() {
           )
           .first,
     );
-    expect(go.top - list.bottom, closeTo(24, 0.5), reason: 'to the buttons');
+    // The test font's tall lines shrink the page to fit; it keeps its proportions.
+    final shrunk = tester.getRect(circle.first).height / 64;
+    expect(
+      go.top - list.bottom,
+      closeTo(24 * shrunk, 0.5),
+      reason: 'to the buttons',
+    );
   });
 
   testWidgets('on a small phone with large text the sign-in result shows its '
