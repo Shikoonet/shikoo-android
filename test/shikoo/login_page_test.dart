@@ -106,6 +106,19 @@ String? _focusedButton() =>
         ?.label;
 
 void main() {
+  testWidgets('sign-in shows the fox mark, not the letter, on the phone and '
+      'the TV', (tester) async {
+    for (final tv in [false, true]) {
+      await _pump(tester, tv: tv);
+      expect(
+        find.image(const AssetImage(shikooMarkAsset)),
+        findsOneWidget,
+        reason: 'tv: $tv',
+      );
+      expect(find.text('ش'), findsNothing, reason: 'tv: $tv');
+    }
+  });
+
   testWidgets('a TV with nothing asks for a code at once', (tester) async {
     final container = await _pump(tester, tv: true);
     verify(_signInOf(container).start).called(1);
