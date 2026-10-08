@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -271,6 +272,21 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String selectedNoAnswer(String name) {
     return '“$name” didn\'t answer.';
+  }
+
+  @override
+  String switchingTo(String name) {
+    return 'Moving to “$name”…';
+  }
+
+  @override
+  String switchedTo(String name) {
+    return 'Now connected through “$name”.';
+  }
+
+  @override
+  String switchKept(String name) {
+    return 'Still on “$name”. Try another server.';
   }
 
   @override

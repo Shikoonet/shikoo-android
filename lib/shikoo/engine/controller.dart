@@ -39,7 +39,14 @@ enum ShikooPick { server, finding, none }
 
 enum ShikooRefresh { idle, running, failed }
 
+enum ShikooSwitchStage { moving, done, failed }
+
+/// Connected, a tapped [to] gets the traffic only once it answers; [from] keeps it until then.
+typedef ShikooSwitch = ({String to, String from, ShikooSwitchStage stage});
+
 const connectTimeout = Duration(seconds: 30);
+
+const switchedFor = Duration(seconds: 4);
 
 @immutable
 class ShikooServer {
@@ -202,6 +209,7 @@ class ShikooState {
     this.notice,
     this.waiting = false,
     this.others = const [],
+    this.switching,
   });
 
   final ShikooConnection connection;
@@ -224,6 +232,8 @@ class ShikooState {
   final bool waiting;
 
   final List<ShikooService> others;
+
+  final ShikooSwitch? switching;
 
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
@@ -273,6 +283,7 @@ final _pastedProvider = _cell<Set<int>>(const {});
 final _revokedProvider = _cell<Set<int>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
 final _hiddenProvider = _cell<String?>(null);
+final _switchProvider = _cell<ShikooSwitch?>(null);
 
 /// The tunnel's real start; FlClash's run time starts at the press, before the consent dialog.
 final _nativeStartProvider = _cell<DateTime?>(null);
@@ -435,13 +446,17 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       byName.containsKey(chosen) && chosen != ref.watch(_hiddenProvider)
       ? chosen
       : null;
+  final switching = ref.watch(_switchProvider);
+  bool testing(String name) =>
+      round.pending.contains(name) ||
+      (switching?.stage == ShikooSwitchStage.moving && switching?.to == name);
   final servers = [
     for (final name in keepOrder(ref.watch(_orderProvider), [...byName.keys]))
       ShikooServer(
         name: name,
         type: byName[name]!.type,
-        ping: round.pending.contains(name) ? null : pings[name],
-        testing: round.pending.contains(name),
+        ping: testing(name) ? null : pings[name],
+        testing: testing(name),
         fresh: fresh.contains(name),
       ),
   ];
@@ -473,13 +488,16 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     ),
     pinging: pinging
         ? (
-            done: servers.where((server) => !server.testing).length,
+            done: servers
+                .where((server) => !round.pending.contains(server.name))
+                .length,
             total: servers.length,
           )
         : null,
     refresh: ref.watch(_refreshProvider),
     notice: ref.watch(_noticeProvider),
     waiting: intent.waiting,
+    switching: switching,
   );
 });
 
@@ -637,6 +655,7 @@ int? serviceInstead(ShikooState state) {
 class ShikooController {
   // Microtasks: Riverpod forbids writing other providers while this one is being built.
   ShikooController(this._ref) {
+    _ref.onDispose(() => _switched?.cancel());
     _ref.listen(shikooStateProvider.select(serviceInstead), (_, id) {
       if (id != null) scheduleMicrotask(() => selectService(id));
     }, fireImmediately: true);
@@ -704,6 +723,8 @@ class ShikooController {
   DateTime? _lastRound;
 
   bool _quiet = false;
+  int _tap = 0;
+  Timer? _switched;
   String? _awaiting;
   DateTime _awaitingUntil = DateTime(0);
   String? _stopgap;
@@ -763,6 +784,18 @@ class ShikooController {
   void clearNews() {
     if (_ref.read(_noticeProvider) is! RefreshFailed) _notice(null);
     _ref.read(_freshProvider.notifier).set(const {});
+    if (_ref.read(_switchProvider)?.stage != ShikooSwitchStage.moving) {
+      _switching(null);
+    }
+  }
+
+  void _switching(ShikooSwitch? next) =>
+      _ref.read(_switchProvider.notifier).set(next);
+
+  int _endSwitch() {
+    _switched?.cancel();
+    _switching(null);
+    return ++_tap;
   }
 
   List<String> _names(Group? group) => [
@@ -834,6 +867,7 @@ class ShikooController {
 
   Future<void> disconnect() async {
     _attempt++;
+    _endSwitch();
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
@@ -854,17 +888,69 @@ class ShikooController {
     _ref.read(_othersRefreshProvider.notifier).set(const {});
   }
 
-  /// The user's choice, which the app never replaces.
+  /// The user's choice, which the app never replaces; connected, a dead one never gets the traffic.
   Future<void> selectServer(String name) async {
-    _pickedByApp(null);
+    final tap = _endSwitch();
     _hide(null);
-    _stopgap = null;
     if (_ref.read(_noticeProvider)
         case SilentReplaced() || SelectedReplaced()) {
       _notice(null);
     }
+    final from = _validSelection();
+    final connected = _running && !_ref.read(_intentProvider).connecting;
+    if (connected && from != null && from != name) {
+      return _switchTo(name, from, tap);
+    }
+    _pickedByApp(null);
+    _stopgap = null;
     await _choose(name);
     await _checkSelected();
+  }
+
+  Future<void> _switchTo(String name, String from, int tap) async {
+    void show(ShikooSwitchStage stage) {
+      if (tap != _tap) return;
+      _switching(
+        _running
+            ? (to: name, from: _validSelection() ?? from, stage: stage)
+            : null,
+      );
+    }
+
+    show(ShikooSwitchStage.moving);
+    final url = _testUrl(_group!);
+    var ms = -1;
+    await pingServers([name], (name) => _probe(url, name), (_, answer) {
+      ms = answer;
+    });
+    if (tap != _tap) return;
+    final wireGuard = _serversOf(
+      _group,
+    ).any((proxy) => proxy.name == name && proxy.type == 'WireGuard');
+    if (ms <= 0 && !wireGuard) {
+      _setPing(name, -1);
+      return show(ShikooSwitchStage.failed);
+    }
+    if (ms > 0) _setPing(name, ms);
+    await _choose(name);
+    if (ms <= 0) {
+      // WireGuard pings can fail while it carries traffic (c19fdfc): real traffic decides.
+      if (!await _ref.read(trafficPassesProvider)()) {
+        if (_validSelection() == name && _running) await _choose(from);
+        _setPing(name, -1);
+        return show(ShikooSwitchStage.failed);
+      }
+      _setPing(name, math.max(_ping(name) ?? 0, 0));
+    }
+    if (tap != _tap) return;
+    if (_validSelection() != name) {
+      _switching(null);
+      return;
+    }
+    _pickedByApp(null);
+    _stopgap = null;
+    show(ShikooSwitchStage.done);
+    _switched = Timer(switchedFor, () => _switching(null));
   }
 
   Future<void> _choose(String name) async {
@@ -1019,8 +1105,8 @@ class ShikooController {
     final chosen = _validSelection();
     if (group == null || chosen == null || _pinging) return;
     final url = _testUrl(group);
+    // Not sorted: the row under the finger or the remote keeps its place until the next round.
     await pingServers([chosen], (name) => _probe(url, name), _setPing);
-    if (!_pinging) _sort();
     await _replaceSilentPick();
   }
 
@@ -1164,6 +1250,7 @@ class ShikooController {
 
   void selectService(int id) {
     clearNews();
+    _endSwitch();
     unawaited(_use(id));
   }
 

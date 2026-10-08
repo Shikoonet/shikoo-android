@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -235,6 +236,21 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String selectedNoAnswer(String name) {
     return '«$name» جواب نداد.';
+  }
+
+  @override
+  String switchingTo(String name) {
+    return 'در حال رفتن به «$name»…';
+  }
+
+  @override
+  String switchedTo(String name) {
+    return 'حالا از «$name» وصلی.';
+  }
+
+  @override
+  String switchKept(String name) {
+    return 'هنوز از «$name» وصلی؛ سرور دیگری را امتحان کن.';
   }
 
   @override

@@ -1647,7 +1647,179 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('۳ روز پیش تمام شد'), findsOneWidget);
   });
+
+  testWidgets('connected, a tap on another server shows its move in one '
+      'bottom bar whose words follow it, in Persian and English', (
+    tester,
+  ) async {
+    final nl = bidiName('هلند ۱');
+    final de = bidiName('آلمان ۲');
+    for (final (locale, moving, done, strong, kept) in [
+      (
+        'fa',
+        'در حال رفتن به «$nl»…',
+        'حالا از «$nl» وصلی.',
+        '«$nl» جواب نداد.',
+        'هنوز از «$de» وصلی؛ سرور دیگری را امتحان کن.',
+      ),
+      (
+        'en',
+        'Moving to “$nl”…',
+        'Now connected through “$nl”.',
+        '“$nl” didn\'t answer.',
+        'Still on “$de”. Try another server.',
+      ),
+    ]) {
+      final failed = '$strong $kept';
+      final holder = await _pump(tester, _switch(null), locale: locale);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byWidgetPredicate(_arc), findsNothing);
+
+      holder.value = _switch(ShikooSwitchStage.moving);
+      await tester.pumpAndSettle();
+      expect(find.text(moving, findRichText: true), findsOneWidget);
+      final bar = tester.element(find.byType(SnackBar));
+      expect(
+        find.descendant(
+          of: find.widgetWithText(ServerRow, 'هلند ۱'),
+          matching: find.byType(Spinner),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<ServerRow>(find.widgetWithText(ServerRow, 'آلمان ۲')),
+        isA<ServerRow>().having((row) => row.selected, 'selected', isTrue),
+      );
+      expect(find.byWidgetPredicate(_arc), findsOneWidget);
+      expect(find.text(locale == 'fa' ? 'وصل' : 'Connected'), findsOneWidget);
+
+      holder.value = _switch(ShikooSwitchStage.done);
+      await tester.pumpAndSettle();
+      expect(find.text(done, findRichText: true), findsOneWidget);
+      expect(
+        tester.element(find.byType(SnackBar)),
+        same(bar),
+        reason: 'the same bar changes its words',
+      );
+      expect(find.byWidgetPredicate(_arc), findsNothing);
+
+      holder.value = _switch(null);
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+
+      holder.value = _switch(ShikooSwitchStage.failed);
+      await tester.pumpAndSettle();
+      expect(find.text(failed, findRichText: true), findsOneWidget);
+      final words = tester.widget<RichText>(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.text(failed, findRichText: true),
+        ),
+      );
+      FontWeight? weight;
+      words.text.visitChildren((span) {
+        if (span is TextSpan && span.text == strong) {
+          weight = span.style?.fontWeight;
+        }
+        return weight == null;
+      });
+      expect(weight, FontWeight.w700);
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsOneWidget, reason: 'no timer');
+    }
+  });
+
+  testWidgets('while the bar is up the list ends above it, by its real height: '
+      'three lines need more room than one', (tester) async {
+    const long = '(Gemini) Italy 2 [WG] Milano';
+    const old = 'Germany 3 [WG] Frankfurt';
+    final servers = [
+      const ShikooServer(name: old, type: 'WireGuard', ping: 80),
+      for (var i = 1; i <= 12; i++)
+        ShikooServer(name: 'سرور $i', type: 'Vless', ping: 90 + i),
+      const ShikooServer(name: long, type: 'Vless', ping: -1),
+    ];
+    ShikooState state(ShikooSwitchStage? stage, String to) =>
+        _switch(stage, to: to, from: old, servers: servers);
+    double padding() =>
+        (tester
+                    .widget<SingleChildScrollView>(
+                      find.byType(SingleChildScrollView).first,
+                    )
+                    .padding!
+                as EdgeInsets)
+            .bottom;
+    Rect bar() => tester.getRect(
+      find
+          .descendant(
+            of: find.byType(SnackBar),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+
+    final holder = await _pump(tester, state(null, long));
+    final resting = padding();
+    holder.value = state(ShikooSwitchStage.moving, 'سرور 1');
+    await tester.pumpAndSettle();
+    final oneLine = padding();
+    holder.value = state(ShikooSwitchStage.failed, long);
+    await tester.pumpAndSettle();
+    final threeLines = padding();
+    final screen =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    expect(threeLines, closeTo(screen - bar().top + Space.s3, 1));
+    expect(threeLines, greaterThan(oneLine));
+    expect(oneLine, greaterThan(resting));
+
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -10000),
+    );
+    await tester.pumpAndSettle();
+    final last = tester.getRect(find.byType(ServerRow).last);
+    expect(last.bottom, lessThanOrEqualTo(bar().top), reason: 'not under it');
+
+    holder.value = state(null, long);
+    await tester.pumpAndSettle();
+    expect(padding(), resting);
+  });
 }
+
+bool _arc(Widget widget) =>
+    widget is CustomPaint && '${widget.painter.runtimeType}' == '_ArcPainter';
+
+/// Connected through آلمان ۲; [stage] of a tap on [to].
+ShikooState _switch(
+  ShikooSwitchStage? stage, {
+  String to = 'هلند ۱',
+  String from = 'آلمان ۲',
+  List<ShikooServer> servers = _servers,
+}) => ShikooState(
+  connection: ShikooConnection.on,
+  connectedFor: const Duration(minutes: 12, seconds: 47),
+  isTV: false,
+  service: _phone().service,
+  servers: [
+    for (final server in servers)
+      switch ((server.name == to, stage)) {
+        (true, ShikooSwitchStage.moving) => ShikooServer(
+          name: to,
+          type: server.type,
+          testing: true,
+        ),
+        (true, ShikooSwitchStage.failed) => ShikooServer(
+          name: to,
+          type: server.type,
+          ping: -1,
+        ),
+        _ => server,
+      },
+  ],
+  selected: stage == ShikooSwitchStage.done ? to : from,
+  switching: stage == null ? null : (to: to, from: from, stage: stage),
+);
 
 String localNumberFa(int n) => '$n'.replaceAllMapped(
   RegExp('[0-9]'),
