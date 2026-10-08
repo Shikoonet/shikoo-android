@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>شیکو · حالت‌های تلویزیون</title>
+<title>شیکونت · حالت‌های تلویزیون</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
@@ -14,13 +14,19 @@
 <body>
 
 <header class="sheet-head">
-  <h1>شیکو · حالت‌های تلویزیون</h1>
-  <p>فوکوس ریموت، «وصل نشد»، فهرست بلند و چند سرویس، کد تصویریِ تمدید و پشتیبانی، تنظیمات، و ورود: کد تمام‌شده، تأیید، رد.</p>
+  <h1>شیکونت · حالت‌های تلویزیون</h1>
+  <p>فوکوس ریموت، «وصل نشد»، فهرست بلند و چند سرویس، کد تصویریِ تمدید و پشتیبانی، سرویسِ بی‌لینک، تنظیمات، و ورود: در حال گرفتن کد، کد نرسید، کد تمام‌شده، تأیید، حساب بی‌سرویس، رد.</p>
   <nav class="sheet-nav">
     <a href="phone.html">گوشی</a>
     <a href="phone-states.html">حالت‌های گوشی</a>
+    <a href="phone-ping.html">پینگ گوشی</a>
+    <a href="phone-update.html">به‌روزرسانی گوشی</a>
+    <a href="phone-report.html">گزارش گوشی</a>
     <a href="tv.html">تلویزیون</a>
     <a href="tv-states.html" aria-current="page">حالت‌های تلویزیون</a>
+    <a href="tv-ping.html">پینگ تلویزیون</a>
+    <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
+    <a href="tv-report.html">گزارش تلویزیون</a>
   </nav>
   <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
 </header>
@@ -32,7 +38,7 @@
     <figcaption>خانه · قطع · فوکوس اول روی دکمهٔ گرد</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-home-first-focus">
       <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
       </header>
       <div class="tv-home">
@@ -40,8 +46,11 @@
           <div class="tv-col-content">
             <article class="card svc">
               <header class="svc-head">
-                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-                <span class="chip chip-positive">فعال</span>
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
               </header>
               <div class="usage">
                 <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
@@ -52,6 +61,10 @@
               <div class="actions">
                 <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
                 <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+              <div class="list-head">
+                <p class="list-caption"><strong>سرورها</strong> · سریع‌ترین بالا</p>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
               </div>
               <ul class="servers">
                 <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
@@ -84,16 +97,23 @@
     <figcaption>خانه · وصل نشد</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-home-error">
       <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
       </header>
       <div class="tv-home">
         <div class="tv-col">
           <div class="tv-col-content">
+            <section class="card update check is-positive">
+              <div class="update-row"><svg class="icon"><use href="#i-check"/></svg><span class="t"><strong>اینترنت وصل است و سرور شیکونت در دسترس است.</strong></span></div>
+              <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش</button></div>
+            </section>
             <article class="card svc">
               <header class="svc-head">
-                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-                <span class="chip chip-positive">فعال</span>
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
               </header>
               <div class="usage">
                 <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
@@ -104,6 +124,10 @@
               <div class="actions">
                 <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
                 <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+              <div class="list-head">
+                <p class="list-caption"><strong>سرورها</strong> · سریع‌ترین بالا</p>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
               </div>
               <ul class="servers">
                 <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
@@ -129,6 +153,66 @@
       </div>
     </div>
     <p class="note">پیام همان متن اپ است و در دو جمله می‌شکند. فوکوس روی دکمهٔ گرد می‌ماند؛ دکمهٔ وسط دوباره وصل می‌کند.</p>
+    <p class="note">کارت «بررسی اینترنت» سرِ ستون کارت‌ها می‌آید، مثل گوشی، و فوکوس را نمی‌گیرد. فلشِ رو به ستون از دکمهٔ گرد به «ارسال گزارش» می‌رود. زیر دکمهٔ گرد جا برای دکمهٔ دیگری نیست و دکمهٔ گرد هم نباید جابه‌جا شود؛ برای همین گزارش در ستون کارت‌هاست.</p>
+  </figure>
+
+  <!-- خانه: اجازهٔ اتصال داده نشد -->
+  <figure class="shot">
+    <figcaption>خانه · در پنجرهٔ اندروید اجازهٔ اتصال داده نشد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-vpn-refused">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، همین الان</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 33%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+              </div>
+              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+              <div class="list-head">
+                <p class="list-caption"><strong>سرورها</strong> · سریع‌ترین بالا</p>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+              </div>
+              <ul class="servers">
+                  <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping">۷۱</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                  <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲</span><span class="ping">۸۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                  <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲</span><span class="ping">۹۹</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              </ul>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-error">
+          <div class="power-ring">
+            <button class="power is-focused" type="button">
+              <svg class="icon"><use href="#i-alert"/></svg>
+              <span class="power-label">وصل نشد</span>
+              <span class="power-sub">دکمهٔ وسط: دوباره</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۸</span></span>
+          <p class="power-msg danger">اجازهٔ اتصال داده نشد.<br>دوباره وصل شو و در پنجرهٔ اندروید اجازه بده.</p>
+        </section>
+      </div>
+    </div>
+    <p class="note">در پنجرهٔ اجازهٔ اندروید «تأیید» زده نشد، یا پنجره بی‌جواب بسته شد. شکلِ «وصل نشد» است و فقط پیام فرق دارد. دکمهٔ وسط دوباره وصل می‌شود و اندروید دوباره می‌پرسد.</p>
+    <p class="note">دستگاهی که اصلاً این پنجره را ندارد (بعضی باکس‌ها) همین قاب را می‌گیرد، با این پیام: «این دستگاه پنجرهٔ اجازهٔ اتصال را ندارد.» و «از «پشتیبانی» بپرس.»</p>
+    <p class="note">متن اپ «اجازهٔ اتصال» می‌گوید، نه نامِ لاتینِ آن؛ مثل باقیِ نوشته‌های اپ.</p>
   </figure>
 
   <!-- فهرست بلند و چند سرویس -->
@@ -136,16 +220,19 @@
     <figcaption>خانه · فهرست بلند و چند سرویس · ستون اسکرول‌شده</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-home-long">
       <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
       </header>
       <div class="tv-home">
-        <div class="tv-col is-scrolled">
-          <div class="tv-col-content mock-scroll-end">
+        <div class="tv-col" data-scroll-to=".finished">
+          <div class="tv-col-content">
             <article class="card svc">
               <header class="svc-head">
-                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-                <span class="chip chip-positive">فعال</span>
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
               </header>
               <div class="usage">
                 <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
@@ -177,16 +264,11 @@
               </header>
               <p class="svc-summary">مصرف شده <span class="warn">۴۹٫۸ از ۵۰ گیگ</span> · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
             </article>
-            <article class="card svc">
-              <header class="svc-head">
-                <h2 class="svc-name"><bdi dir="ltr">user456</bdi> · طلایی</h2>
-                <span class="chip chip-danger">تاریخ انقضا گذشته</span>
-                <svg class="icon"><use href="#i-chevron-down"/></svg>
-              </header>
-              <p class="svc-summary">اعتبارش ۲۸ شهریور ۱۴۰۵ تمام شد. با تمدید دوباره فعال می‌شود.</p>
-            </article>
+            <section class="card finished">
+              <button class="finished-head" type="button" aria-expanded="false"><span>سرویس‌های تمام‌شده (۱)</span><svg class="icon"><use href="#i-chevron-down"/></svg></button>
+            </section>
           </div>
-          <span class="scroll-thumb mock-scroll-end"></span>
+          <span class="scroll-thumb"></span>
         </div>
         <section class="tv-power is-on">
           <div class="power-ring">
@@ -200,16 +282,143 @@
         </section>
       </div>
     </div>
-    <p class="note">ریموت پایین رفته و ستون همراهش اسکرول شده: لبهٔ بالا محو است و نشانگر اسکرول کنار ستون است. زیر سرورها، سرویس‌های دیگر جمع‌شده‌اند؛ دکمهٔ وسط هر کدام را باز می‌کند.</p>
+    <p class="note">ریموت پایین رفته و ستون همراهش اسکرول شده: لبهٔ بالا محو است و نشانگر اسکرول کنار ستون است. زیر سرورها، سرویس‌های دیگر جمع‌شده‌اند؛ دکمهٔ وسط هر کدام را باز می‌کند. سرویسِ تاریخ‌گذشته در ردیف «سرویس‌های تمام‌شده» ته ستون است.</p>
     <p class="note">وقتی ریموت از ستون بیرون می‌رود، ستون به بالا برمی‌گردد.</p>
+    <p class="note">کارت جمع‌شده فقط نام، برچسب، فلش و خط خلاصه دارد؛ نه زمان به‌روزرسانی، نه دکمه‌اش. هر دکمهٔ اضافه یک ایستگاه دیگر برای ریموت است. به‌روزرسانی بعد از باز شدنِ کارت در دسترس است.</p>
+  </figure>
+
+  <!-- سرویس‌های تمام‌شده: یک ردیف ته ستون -->
+  <figure class="shot">
+    <figcaption>خانه · یک سرویس فعال و سه سرویس تمام‌شده · ریموت روی ردیفِ جمع‌شده</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-finished">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col" data-scroll-to=".finished">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000123_a1f0</bdi> <span class="tier">· پاسارگاد</span></h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، همین الان</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 24%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+              <div class="list-head">
+                <p class="list-caption"><strong>سرورها</strong> · سریع‌ترین بالا</p>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+              </div>
+              <ul class="servers">
+                <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۳</span><span class="ping">۹۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping">۱۰۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲</span><span class="ping ok">۱۴۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              </ul>
+            </article>
+            <section class="card finished is-focused">
+              <button class="finished-head" type="button" aria-expanded="false"><span>سرویس‌های تمام‌شده (۳)</span><svg class="icon"><use href="#i-chevron-down"/></svg></button>
+            </section>
+          </div>
+          <span class="scroll-thumb"></span>
+        </div>
+        <section class="tv-power">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+          <p class="tv-hint">دکمهٔ وسطِ ریموت را بزن تا وصل شوی</p>
+        </section>
+      </div>
+    </div>
+    <p class="note">ترتیب، روی گوشی و تلویزیون یکی: اول سرویس‌هایی که می‌شود با آن‌ها وصل شد (انتخاب‌شده باز، بقیه جمع، مثل همیشه)؛ بعد کارت‌هایی که کاری از مشتری می‌خواهند ولی تمام نشده‌اند («بدون لینک» و «لینک باطل شده»)؛ و ته ستون یک ردیف «سرویس‌های تمام‌شده (تعداد)» برای همهٔ سرویس‌هایی که اعتبار یا حجمشان تمام شده. این جای قانونِ قبلی را می‌گیرد که کارت‌های بی‌لینکِ حساب را بالای ستون می‌گذاشت: روی باکس واقعی، سرویسِ فعال زیر سه کارت تمام‌شده از صفحه بیرون افتاد، و روی گوشیِ کوچک با قلم درشت کارت‌های تمام‌شده کل خانه را پر کردند.</p>
+    <p class="note">ردیف جمع‌شده یک ایستگاه ریموت است، زیرِ آخرین سرور. دکمهٔ وسط بازش می‌کند و ریموت روی اولین سرویسِ آن می‌رود (قاب بعدی). با هر بار باز شدنِ اپ، ردیف جمع است.</p>
+    <p class="note">وقتی اپ باز می‌شود، ریموت مثل همیشه روی دکمهٔ گرد است و کارت فعال بالای ستون؛ این قاب ستون است وقتی ریموت تا ته پایین رفته. ته ستون ۵ واحد جای خالی دارد، به اندازهٔ حلقهٔ فوکوس، تا حلقهٔ آخرین جزء هم داخل حاشیهٔ امن بماند. همهٔ چیدمان تلویزیون هم به همین اندازه از دو پهلوی حاشیهٔ امن تو رفته است، تا نشان و «تنظیمات» با لبهٔ کارت‌ها و دکمهٔ گرد هم‌تراز باشند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>خانه · ردیف «سرویس‌های تمام‌شده» باز · ریموت روی اولین سرویس</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-finished-open">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col" data-scroll-to=".finished">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000123_a1f0</bdi> <span class="tier">· پاسارگاد</span></h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، همین الان</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 24%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+              <div class="list-head">
+                <p class="list-caption"><strong>سرورها</strong> · سریع‌ترین بالا</p>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+              </div>
+              <ul class="servers">
+                <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۳</span><span class="ping">۹۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping">۱۰۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲</span><span class="ping ok">۱۴۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+              </ul>
+            </article>
+            <section class="card finished">
+              <button class="finished-head" type="button" aria-expanded="true"><span>سرویس‌های تمام‌شده (۳)</span><svg class="icon"><use href="#i-chevron-up"/></svg></button>
+              <ul>
+                <li class="finished-row is-focused"><span class="t"><span class="n"><bdi dir="ltr">7000123_f38a</bdi> <span class="tier">· پاسارگاد</span></span><span class="s">حجم تمام شد</span></span><span class="btn btn-outline btn-sm"><svg class="icon"><use href="#i-qr"/></svg>تمدید</span></li>
+                <li class="finished-row"><span class="t"><span class="n"><bdi dir="ltr">7000123_e7f9</bdi> <span class="tier">· پاسارگاد</span></span><span class="s">۳ روز پیش تمام شد</span></span><span class="btn btn-outline btn-sm"><svg class="icon"><use href="#i-qr"/></svg>تمدید</span></li>
+                <li class="finished-row"><span class="t"><span class="n"><bdi dir="ltr">7000123_7000123_2</bdi> <span class="tier">· اولین خرید</span></span><span class="s">۱۲ روز پیش تمام شد</span></span><span class="btn btn-outline btn-sm"><svg class="icon"><use href="#i-qr"/></svg>تمدید</span></li>
+              </ul>
+            </section>
+          </div>
+          <span class="scroll-thumb"></span>
+        </div>
+        <section class="tv-power">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+          <p class="tv-hint">دکمهٔ وسطِ ریموت را بزن تا وصل شوی</p>
+        </section>
+      </div>
+    </div>
+    <p class="note">هر سرویس یک ایستگاه ریموت است: نام، وضعیت و «تمدید». دکمهٔ وسط همان پنجرهٔ کد تصویریِ «تمدید» را برای همین سرویس باز می‌کند. «پشتیبانی» در این ردیف‌ها نیست؛ «پشتیبانی» کارت بالا هست.</p>
+    <p class="note">دکمهٔ برگشت ردیف را می‌بندد و ریموت به سربرگش برمی‌گردد. بالا از اولین سرویس هم به سربرگ می‌رود.</p>
+    <p class="note">ردیف‌ها دوخطی‌اند: نام و رده، و زیرش وضعیت. ترتیب، یکی برای همه: تاریخ پایان سرویس، از دیرتر به زودتر؛ بی‌تاریخ‌ها آخر. پس حجم‌تمام‌شده‌ای که تاریخش هنوز نرسیده خودبه‌خود اول است. سرویسی که تاریخ پایانش بیش از ۳۰ روز پیش است پنهان است، چه حجمش تمام شده باشد چه نه (یک ثابت در کد). بی‌تاریخ همیشه دیده می‌شود.</p>
   </figure>
 
   <!-- QR تمدید -->
   <figure class="shot">
-    <figcaption>«تمدید» روی تلویزیون · کد تصویری برای گوشی</figcaption>
+    <figcaption>«تمدید» روی تلویزیون · وقتی اپ شناسهٔ سرویس را ندارد</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-renew-qr">
       <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
       </header>
       <div class="tv-home">
@@ -246,14 +455,69 @@
       <div class="scrim">
         <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-title">
           <h2 id="renew-title">تمدید با گوشی</h2>
-          <p>با دوربین گوشی اسکن کن؛ ربات شیکو صفحهٔ تمدیدِ همین سرویس را باز می‌کند.</p>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکونت فهرست تمدید سرویس‌هایت را باز می‌کند.</p>
           <div class="qr-tile sm"><svg class="qr" data-seed="31337" role="img" aria-label="QR نمونه"></svg></div>
+          <p>در فهرست ربات، سرویسِ <span class="for"><bdi dir="ltr">user123</bdi></span> را بزن؛ اگر نبود، صفحهٔ بعدِ فهرست را ببین.</p>
+          <button class="btn btn-outline is-focused" type="button">بستن</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">ربات پیوندِ مستقیمِ تمدیدِ هر سرویس را از قبل دارد؛ کمبود فقط این است که اپ هنوز شناسهٔ سرویس را ندارد. تا وقتی سرور آن را به اپ ندهد، کد تصویری فهرست تمدید ربات را باز می‌کند و متن می‌گوید کدام را بزند.</p>
+    <p class="note">فهرست تمدید ربات چندصفحه‌ای است و نام‌ها را کوتاه می‌کند. پس متن فقط نام کاربری را می‌گوید، که اولِ نام است و از کوتاه شدن می‌ماند، و صفحهٔ بعد را یادآوری می‌کند.</p>
+    <p class="note">روی گوشی «تمدید» همین پیوند را مستقیم در تلگرام باز می‌کند و متنی لازم ندارد.</p>
+  </figure>
+
+  <!-- QR تمدید: مستقیم روی همین سرویس -->
+  <figure class="shot">
+    <figcaption>«تمدید» روی تلویزیون · بعد از ورود، مستقیم روی همین سرویس</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-renew-qr-direct">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
+                <span class="chip chip-positive">فعال</span>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 33%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+              </div>
+              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="scrim">
+        <div class="dialog qr-sheet" role="dialog" aria-labelledby="renew-direct-title">
+          <h2 id="renew-direct-title">تمدید با گوشی</h2>
+          <p>با دوربین گوشی اسکن کن؛ ربات شیکونت صفحهٔ تمدیدِ همین سرویس را باز می‌کند.</p>
+          <div class="qr-tile sm"><svg class="qr" data-seed="31338" role="img" aria-label="QR نمونه"></svg></div>
           <p class="for"><bdi dir="ltr">user123</bdi> · الماس</p>
           <button class="btn btn-outline is-focused" type="button">بستن</button>
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>کد تصویری به ربات شیکو می‌رود و ربات باید بداند کدام سرویس را تمدید کند؛ این پیوند هنوز در ربات نیست.</p>
+    <p class="note">وقتی سرور شناسهٔ سرویس را به اپ داد، کد تصویری همان پیوندِ مستقیمی است که ربات از قبل دارد و تمدیدِ همین سرویس را باز می‌کند. نام سرویس زیر کد تصویری فقط تأیید است.</p>
+    <p class="note"><b>پیشنهاد</b>اگر گوشیِ اسکن‌کننده در حساب تلگرام دیگری باشد، ربات به‌جای خطا همان فهرست سرویس‌ها را نشان دهد. کار سمت سرور است.</p>
   </figure>
 
   <!-- QR پشتیبانی -->
@@ -261,7 +525,7 @@
     <figcaption>«پشتیبانی» روی تلویزیون · کد تصویری برای گوشی</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-support-qr">
       <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
       </header>
       <div class="tv-home">
@@ -298,14 +562,18 @@
       <div class="scrim">
         <div class="dialog qr-sheet" role="dialog" aria-labelledby="support-title">
           <h2 id="support-title">پشتیبانی با گوشی</h2>
-          <p>با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکو در تلگرام باز شود.</p>
+          <p>با دوربین گوشی اسکن کن تا گفتگو با پشتیبانی شیکونت در تلگرام باز شود.</p>
           <div class="qr-tile sm"><svg class="qr" data-seed="90210" role="img" aria-label="QR نمونه"></svg></div>
           <p class="for"><bdi dir="ltr">user123</bdi> · الماس</p>
-          <button class="btn btn-outline is-focused" type="button">بستن</button>
+          <div class="dialog-actions">
+            <button class="btn btn-outline is-focused" type="button">بستن</button>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش به پشتیبانی</button>
+          </div>
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>نشانیِ پشتیبانی باید از پنل یا ربات بیاید. دکمهٔ پشتیبانیِ لینک اشتراک امروز خالی است، پس این کد تصویری هنوز مقصدی ندارد.</p>
+    <p class="note">نشانیِ پشتیبانی از خودِ اشتراک می‌آید؛ اگر خالی بود، که امروز هست، پشتیبانی شیکونت در تلگرام جایش می‌نشیند.</p>
+    <p class="note">کنار «بستن»، «ارسال گزارش به پشتیبانی». ریموت مثل قبل روی «بستن» است و چپ به گزارش می‌رود. عکسِ گزارش از صفحهٔ پشتِ پنجره است، بی‌خودِ پنجره. همهٔ «پشتیبانی»‌های تلویزیون همین پنجره را باز می‌کنند، جز «پشتیبانی» ِ صفحهٔ «فرستاده شد».</p>
   </figure>
 
   <!-- تنظیمات تلویزیون -->
@@ -327,18 +595,35 @@
             </div>
           </section>
           <section>
+            <h3 class="group-title">زبان</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="true">فارسی</button>
+              <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+            </div>
+          </section>
+          <section>
             <h3 class="group-title">حساب</h3>
             <div class="card">
+              <div class="row">
+                <svg class="icon"><use href="#i-plane"/></svg>
+                <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرامِ <bdi dir="ltr">@maryam_k</bdi></small></span>
+              </div>
               <button class="row danger" type="button">
                 <svg class="icon"><use href="#i-logout"/></svg>
-                <span class="t"><span>خروج</span><small>این تلویزیون از حساب تلگرامت جدا می‌شود</small></span>
+                <span class="t"><span>خروج</span><small>سرویس‌ها از این تلویزیون برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.</small></span>
               </button>
+            </div>
+            <h3 class="group-title">پشتیبانی</h3>
+            <div class="card">
+              <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
             </div>
           </section>
           <section>
             <h3 class="group-title">اپ</h3>
             <div class="card">
-              <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۰</span></div>
+              <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+              <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+              <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
               <button class="row" type="button">
                 <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
                 <svg class="icon"><use href="#i-chevron-fwd"/></svg>
@@ -348,21 +633,314 @@
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>«این تلویزیون از حساب تلگرامت جدا می‌شود» به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+    <p class="note">دو ستون: ظاهر و زبان در ردیف بالا، حساب و اپ زیرشان. ریموت چپ و راست بین دو ستون می‌رود و بالا و پایین در هر ستون. معمولاً همه‌چیز در یک صفحه جا می‌شود؛ اگر کارت «نسخهٔ تازه» زیر «اپ» بیاید، صفحه با ریموت اسکرول می‌شود (صفحهٔ «به‌روزرسانی تلویزیون»).</p>
+    <p class="note">«وارد شده با» فقط نوشته است و ریموت رویش نمی‌ایستد. پایین از «خودکار» مستقیم به «خروج» می‌رود. پنجرهٔ تأیید خروج همان پنجرهٔ گوشی است، با «این تلویزیون» به‌جای «این دستگاه».</p>
+    <p class="note"><b>پیشنهاد</b>«خروج» به سمت سرورِ ورود بستگی دارد که تازه شروع شده.</p>
+    <p class="note">«پشتیبانی» در ستون راست، زیر «حساب»: یک ردیف، «عیب‌یابی و گزارش». پایین از «خروج» به آن می‌رسد. همین بخش در همهٔ حالت‌های تنظیمات تلویزیون هست.</p>
+    <p class="note">بخش «اپ» همان بخش گوشی است. «نسخه» و «هسته» فقط نوشته‌اند و ریموت رویشان نمی‌ایستد؛ ایستگاه‌ها «بررسی به‌روزرسانی» و «درباره»‌اند. حالت‌ها در صفحهٔ «به‌روزرسانی تلویزیون» است.</p>
+  </figure>
+
+  <!-- تنظیمات تلویزیون، پیش از ورود تلگرامی -->
+  <figure class="shot">
+    <figcaption>تنظیمات · پیش از ساخته شدنِ ورود تلگرامی</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-settings-pre-login">
+      <header class="tv-top">
+        <h2 class="tv-title">تنظیمات</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-settings">
+        <div class="settings">
+          <section>
+            <h3 class="group-title">ظاهر</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="false">روشن</button>
+              <button type="button" role="radio" aria-checked="false">تیره</button>
+              <button class="is-focused" type="button" role="radio" aria-checked="true">خودکار</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">زبان</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="true">فارسی</button>
+              <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">حساب</h3>
+            <div class="card">
+              <button class="row danger" type="button">
+                <svg class="icon"><use href="#i-logout"/></svg>
+                <span class="t"><span>خروج</span><small>سرویس‌ها از این تلویزیون پاک می‌شوند.</small></span>
+              </button>
+            </div>
+            <h3 class="group-title">پشتیبانی</h3>
+            <div class="card">
+              <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">اپ</h3>
+            <div class="card">
+              <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+              <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+              <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
+              <button class="row" type="button">
+                <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
+                <svg class="icon"><use href="#i-chevron-fwd"/></svg>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+    <p class="note">تا ورود تلگرامی ساخته نشده، سرویس‌ها بی‌حساب روی تلویزیون‌اند؛ پس «خروج» یعنی پاک کردن آن‌ها از همین تلویزیون، مثل «تنظیمات · با لینک چسبانده‌شده» روی گوشی. ردیفِ «وارد شده با» نیست.</p>
+    <p class="note">همان دو ستون و همان ترتیب ریموت قاب قبلی: پایین از «خودکار» به «خروج»، و چپ و راست بین دو ستون.</p>
+    <p class="note">بعد از ورود تلگرامی این قاب کنار می‌رود: کسی که بیرون آمده به صفحهٔ ورود می‌رود و تنظیمات را بی‌حساب نمی‌بیند.</p>
+  </figure>
+
+  <!-- پنجرهٔ تأیید خروج، پیش از ورود تلگرامی -->
+  <figure class="shot">
+    <figcaption>تنظیمات · تأیید خروج، پیش از ورود تلگرامی · ریموت روی «انصراف»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-logout-confirm">
+      <header class="tv-top">
+        <h2 class="tv-title">تنظیمات</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-settings">
+        <div class="settings">
+          <section>
+            <h3 class="group-title">ظاهر</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="false">روشن</button>
+              <button type="button" role="radio" aria-checked="false">تیره</button>
+              <button type="button" role="radio" aria-checked="true">خودکار</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">زبان</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="true">فارسی</button>
+              <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">حساب</h3>
+            <div class="card">
+              <button class="row danger" type="button">
+                <svg class="icon"><use href="#i-logout"/></svg>
+                <span class="t"><span>خروج</span><small>سرویس‌ها از این تلویزیون پاک می‌شوند.</small></span>
+              </button>
+            </div>
+            <h3 class="group-title">پشتیبانی</h3>
+            <div class="card">
+              <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">اپ</h3>
+            <div class="card">
+              <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+              <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+              <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
+              <button class="row" type="button">
+                <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
+                <svg class="icon"><use href="#i-chevron-fwd"/></svg>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="scrim">
+        <div class="dialog" role="alertdialog" aria-labelledby="tv-logout-title">
+          <h2 id="tv-logout-title">سرویس‌ها از این تلویزیون پاک شوند؟</h2>
+          <p>اتصال قطع می‌شود و سرویس‌ها از این تلویزیون پاک می‌شوند. اشتراکت در ربات شیکونت سر جایش می‌ماند.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-outline is-focused" type="button">انصراف</button>
+            <button class="btn btn-danger" type="button">پاک کردن</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">ریموت اول روی «انصراف» است تا یک دکمهٔ وسطِ اشتباهی چیزی پاک نکند. چپ به «پاک کردن»، و دکمهٔ برگشت یعنی انصراف.</p>
+    <p class="note">دکمهٔ قرمز کارش را می‌گوید: «پاک کردن»، مثل همین پنجره روی گوشی. «انصراف» روی تلویزیون دورخط‌دار است، نه متنیِ گوشی، تا حلقهٔ فوکوس شکل داشته باشد.</p>
+    <p class="note">بعد از ورود تلگرامی همان پنجرهٔ «از حساب خارج می‌شوی؟» گوشی می‌آید، با «این تلویزیون» به‌جای «این دستگاه».</p>
+  </figure>
+
+  <!-- خانه بی‌سرویس، پیش از ورود تلگرامی -->
+  <figure class="shot">
+    <figcaption>خانه · سرویسی روی تلویزیون نیست، پیش از ساخته شدنِ ورود تلگرامی · ریموت روی «تنظیمات»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-no-service">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline is-focused" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name">سرویسی روی این تلویزیون نیست</h2>
+              </header>
+              <p class="state-msg">برای برگرداندنش از «پشتیبانی» بپرس.</p>
+              <div class="actions">
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">سرویسی نیست</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="note">بعد از «پاک کردن» در تنظیمات، یا هر وقت سرویسی روی تلویزیون نیست. دکمهٔ گرد شکلِ «حجم تمام شده» را دارد و ریموت رویش نمی‌ایستد.</p>
+    <p class="note">ریموت اول روی «تنظیمات» است؛ پایین یا راست به «پشتیبانی» می‌رود و از آن بالا یا چپ به «تنظیمات» برمی‌گردد. «پشتیبانی» همان کد تصویریِ پنجرهٔ پشتیبانیِ خانه را نشان می‌دهد.</p>
+    <p class="note">وقتی ورود تلگرامی ساخته شد، این صفحه کنار می‌رود و صفحهٔ ورود جایش می‌آید.</p>
+  </figure>
+
+  <!-- خانه: تنها سرویس هنوز لینک ندارد -->
+  <figure class="shot">
+    <figcaption>خانه · سرویس هنوز لینک ندارد · ریموت روی «ربات شیکونت»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-no-link">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <article class="card svc">
+              <header class="svc-head">
+                <h2 class="svc-name">الماس ۱ ماهه ۱۰ گیگ</h2>
+                <span class="chip chip-muted">بدون لینک</span>
+              </header>
+              <p class="state-msg">یک بار از ربات سرویس را باز کن، بعد «دوباره» را بزن.</p>
+              <div class="actions">
+                <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>ربات شیکونت</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">بدون لینک</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="note">همان کارتِ «بدون لینک» گوشی (قاب «کارت‌های دیگر سرویس»)، وقتی تنها سرویسِ تلویزیون است. نام سرویس مثل بقیهٔ کارت‌هاست: نام کاربری · رده، و اگر حساب هنوز نیست، نام پلن.</p>
+    <p class="note">ریموت اول روی «ربات شیکونت» است، چون کارِ همین صفحه گرفتن لینک است؛ چپ به «دوباره»، بالا به «تنظیمات». دکمهٔ گرد غیرفعال است و ریموت رویش نمی‌ایستد.</p>
+    <p class="note">«ربات شیکونت» کد تصویریِ ربات را در پنجره‌ای مثل «پشتیبانی» نشان می‌دهد؛ با «بستن» ریموت به «ربات شیکونت» برمی‌گردد. «دوباره» فهرست سرویس‌ها را دوباره می‌گیرد و تا جواب، چرخنده روی خودش است. اگر لینک آمد، این کارت کارتِ معمولی سرویس می‌شود و ریموت روی دکمهٔ گرد می‌رود؛ اگر نیامد، همین قاب می‌ماند و ریموت روی «دوباره».</p>
+    <p class="note">کارتِ «بدون لینک» بعد از سرویس‌هایی می‌آید که وصل می‌شوند، و تمام‌شده‌های بی‌لینکِ حساب در ردیف «سرویس‌های تمام‌شده»‌اند (قاب «یک سرویس فعال و سه سرویس تمام‌شده»). اگر هیچ سرویسی وصل نمی‌شود، ستون از بالا: کارتِ کاملِ اولین تمام‌شده (به همان ترتیبِ ردیف) با «تمدید»، «پشتیبانی» و «دوباره»؛ بعد «بدون لینک» و «لینک باطل شده»؛ بعد ردیف جمع‌شدهٔ بقیه.</p>
+    <p class="note"><b>پیشنهاد</b>گوشی «دوباره» نمی‌خواهد: وقتی کاربر از تلگرام به اپ برمی‌گردد، اپ یک بار خودش فهرست را می‌گیرد.</p>
+  </figure>
+
+  <!-- تنظیمات تلویزیون به انگلیسی -->
+  <figure class="shot">
+    <figcaption>تنظیمات · زبان انگلیسی، چپ‌به‌راست · ریموت روی همان گزینه</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-settings-english" dir="ltr" lang="en">
+      <header class="tv-top">
+        <h2 class="tv-title">Settings</h2>
+        <span class="tv-hint">Press Back on the remote to go back</span>
+      </header>
+      <div class="tv-settings">
+        <div class="settings">
+          <section>
+            <h3 class="group-title">Appearance</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="false">Light</button>
+              <button type="button" role="radio" aria-checked="false">Dark</button>
+              <button type="button" role="radio" aria-checked="true">Auto</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">Language</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="false" lang="fa">فارسی</button>
+              <button class="is-focused" type="button" role="radio" aria-checked="true">English</button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">Account</h3>
+            <div class="card">
+              <button class="row danger" type="button">
+                <svg class="icon flip-ltr"><use href="#i-logout"/></svg>
+                <span class="t"><span>Log out</span><small>Removes the services from this TV.</small></span>
+              </button>
+            </div>
+            <h3 class="group-title">Support</h3>
+            <div class="card">
+              <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>Diagnostics and report</span><small>If the app isn't working right</small></span><svg class="icon flip-ltr"><use href="#i-chevron-fwd"/></svg></button>
+            </div>
+          </section>
+          <section>
+            <h3 class="group-title">App</h3>
+            <div class="card">
+              <div class="row"><span class="t"><span>Version</span></span><span class="value">1.0.57</span></div>
+              <div class="row"><span class="t"><span>Core</span><small>Updates together with the app.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+              <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>Check for updates</span></span></button>
+              <button class="row" type="button">
+                <span class="t"><span>About</span><small>Free software under GPL-3.0, built on FlClash and mihomo</small></span>
+                <svg class="icon flip-ltr"><use href="#i-chevron-fwd"/></svg>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+    <p class="note">همه‌چیز آینه می‌شود: عنوان چپ، ستونِ ظاهر چپ، و فلش «درباره» رو به راست. «فارسی» با خط خودش می‌ماند. رقم‌ها لاتین‌اند.</p>
+    <p class="note">ریموت بعد از عوض شدن زبان روی همان گزینه می‌ماند، تا کسی که اشتباهی زد با یک دکمه برگردد.</p>
+  </figure>
+
+  <!-- درباره -->
+  <figure class="shot">
+    <figcaption>درباره · فقط متن، برگشت با دکمهٔ برگشت</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-about">
+      <header class="tv-top">
+        <h2 class="tv-title">درباره</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-settings">
+        <article class="card about">
+          <h3>شیکونت ۱.۰.۵۷</h3>
+          <p>شیکونت نرم‌افزار آزاد است و با مجوز <bdi>GPL-3.0</bdi> منتشر می‌شود.</p>
+          <p>شیکونت بر پایهٔ دو نرم‌افزار آزاد است: <bdi>FlClash</bdi> از <bdi>chen08209</bdi> و هستهٔ <bdi>mihomo</bdi> از <bdi>MetaCubeX</bdi>. سپاس از سازندگانشان.</p>
+          <p>کد منبعِ همین نسخه را می‌توانی از «پشتیبانی» بگیری.</p>
+          <p class="muted">متن مجوز: <bdi dir="ltr">gnu.org/licenses/gpl-3.0</bdi></p>
+        </article>
+      </div>
+    </div>
+    <p class="note">جزء قابل انتخابی ندارد، پس حلقهٔ فوکوس هم نیست؛ دکمهٔ برگشت به تنظیمات برمی‌گردد و ریموت روی «درباره» می‌ماند. اگر روزی متنِ کامل مجوز این‌جا آمد، بالا و پایینِ ریموت متن را اسکرول کند.</p>
+    <p class="note">نسخه همان نسخهٔ خودِ اپ است که در تنظیمات هم هست، نه نسخهٔ پایه.</p>
   </figure>
 
   <!-- ورود: کد تمام شده -->
   <figure class="shot">
     <figcaption>ورود · کد تمام شده</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-login-expired">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+      </header>
       <div class="tv-login">
         <div class="login-copy">
-          <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
           <h1>ورود با تلگرام</h1>
-          <p class="lead">این کد دیگر کار نمی‌کند. یک کد تازه بگیر.</p>
+          <p class="lead">۱۰ دقیقه گذشت و این کد تمام شد. یک کد تازه بگیر.</p>
           <div class="code-box">
             <span class="code-label">کد قبلی</span>
-            <span class="code is-expired">K7P2-9QXM</span>
+            <span class="code is-expired">۴۸۲ ۹۱۵</span>
           </div>
           <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>کد تازه</button>
         </div>
@@ -372,7 +950,77 @@
         </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>یا کد بی‌دکمه و خودکار عوض شود. هر دو به مهلت کد بستگی دارند که سمت سرور تعیین می‌شود.</p>
+    <p class="note">کد خودش عوض نمی‌شود، تا کسی وسط تایپ کردن کدِ عوض‌شده نبیند. بعد از ۱۰ دقیقه این حالت می‌آید و ریموت روی «کد تازه» است، هر جا که پیش‌تر بود، حتی روی انتخاب زبان.</p>
+    <p class="note">با «کد تازه» قاب «در حال گرفتن کد» می‌آید و بعد قاب «ورود»؛ ریموت روی «پشتیبانی» است، مثل بار اول.</p>
+  </figure>
+
+  <!-- ورود: کد هنوز نرسیده -->
+  <figure class="shot">
+    <figcaption>ورود · در حال گرفتن کد · ریموت روی «پشتیبانی»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-loading">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+      </header>
+      <div class="tv-login">
+        <div class="login-copy">
+          <h1>ورود با تلگرام</h1>
+          <p class="lead">با دوربین گوشی اسکن کن و «تأیید» را بزن</p>
+          <p class="fine">تلگرامت فقط با فیلترشکن باز می‌شود؟ روی گوشی روشنش کن، بعد اسکن کن.</p>
+          <div class="code-box">
+            <span class="code-label">تلگرامت روی کامپیوتر است؟<br>این کد را برای ربات بفرست:</span>
+            <span class="code is-pending" aria-hidden="true">۰۰۰ ۰۰۰</span>
+            <span class="code-bot"><svg class="icon"><use href="#i-plane"/></svg><bdi dir="ltr">@shikoonet_bot</bdi></span>
+            <span class="code-warn"><svg class="icon"><use href="#i-alert"/></svg>این کد را فقط خودت در ربات بزن؛ به هیچ‌کس نده.</span>
+          </div>
+          <p class="fine">این کد ۱۰ دقیقه کار می‌کند.</p>
+        </div>
+        <div class="qr-side">
+          <div class="qr-tile is-empty">
+            <span class="qr" aria-hidden="true"></span>
+            <div class="qr-overlay"><svg class="icon"><use href="#i-spin"/></svg>در حال گرفتن کد…</div>
+          </div>
+          <button class="btn btn-outline is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">همان قاب «ورود» است، فقط کد هنوز نرسیده: جای کد تصویری خالی است با چرخندهٔ گردان، و جای کدِ شش‌رقمی یک نوار خاکستریِ هم‌اندازه، تا با رسیدن کد چیزی جابه‌جا نشود. ریموت از اول روی «پشتیبانی» است و با رسیدن کد همان‌جا می‌ماند.</p>
+    <p class="note">اگر تا ۱۵ ثانیه کد نرسید، قاب بعدی. این مهلت روی شبکهٔ واقعی سنجیده نشده.</p>
+  </figure>
+
+  <!-- ورود: کد نرسید -->
+  <figure class="shot">
+    <figcaption>ورود · کد ورود نرسید · ریموت روی «دوباره»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-code-failed">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+      </header>
+      <div class="tv-login">
+        <div class="login-copy">
+          <h1>ورود با تلگرام</h1>
+          <p class="lead">کد ورود از سرور نرسید. اینترنت این تلویزیون را بررسی کن و دوباره امتحان کن.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش به پشتیبانی</button>
+          </div>
+        </div>
+        <div class="qr-side">
+          <div class="qr-tile is-empty">
+            <span class="qr" aria-hidden="true"></span>
+            <div class="qr-overlay"><svg class="icon"><use href="#i-alert"/></svg>کد ورود نرسید</div>
+          </div>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">شکلِ قاب «کد تمام شده» است، ولی کدی نیامده که خط بخورد. ریموت روی «دوباره» است، هر جا که پیش‌تر بود؛ چپ به «ارسال گزارش به پشتیبانی» و بعد «پشتیبانی». کسی هنوز وارد نشده، پس نتیجهٔ گزارش کد ۸ رقمی است. «دوباره» همان قاب «در حال گرفتن کد» را می‌آورد.</p>
   </figure>
 
   <!-- ورود: تأیید شد -->
@@ -380,16 +1028,124 @@
     <figcaption>ورود · در تلگرام «تأیید» زده شد</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-login-approved">
       <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
       </header>
       <div class="tv-result">
         <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
         <h1>ورود انجام شد</h1>
-        <p>حساب تلگرامت به این تلویزیون وصل شد. سرویس‌هایت دارند می‌آیند…</p>
-        <div class="progress"><span></span></div>
+        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</p>
+        <ul class="card result-list">
+          <li><bdi dir="ltr">user123</bdi> · الماس</li>
+          <li><bdi dir="ltr">user789</bdi> · معمولی</li>
+        </ul>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button">ادامه</button>
+          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+        </div>
       </div>
     </div>
-    <p class="note"><b>پیشنهاد</b>بعد از آمدن سرویس‌ها خودش به خانه می‌رود و ریموت روی دکمهٔ گرد است. به سمت سرورِ ورود بستگی دارد.</p>
+    <p class="note">«این حساب من نیست» تلویزیون را از آن حساب جدا می‌کند، سرویس‌های آن حساب را روی تلویزیون نگه نمی‌دارد و به صفحهٔ ورود با کد تازه برمی‌گردد. ریموت اول روی «ادامه» است؛ چپ به «این حساب من نیست». نام کاربری کنار نام نمایشی است، چون نام نمایشی یکتا نیست؛ اگر نیست، فقط نام.</p>
+    <p class="note">صفحه نام حساب و سرویس‌ها را نشان می‌دهد و تا «ادامه» زده نشود به خانه نمی‌رود. اگر کسی کدِ این تلویزیون را گرفته و با حساب خودش تأیید کرده باشد، همین‌جا نامِ غریبه دیده می‌شود.</p>
+    <p class="note">تا سرویس‌ها برسند، به‌جای فهرست نوار پیشرفت و «سرویس‌هایت دارند می‌آیند…» است و «ادامه» هنوز نیست، ولی «این حساب من نیست» هست. اگر تا ۲۰ ثانیه نرسیدند، قاب «سرویس‌ها نرسیدند». بعد از «ادامه»، خانه با ریموت روی دکمهٔ گرد.</p>
+    <p class="note"><b>پیشنهاد</b>پیام تأیید در ربات هم بگوید چه دستگاهی وصل می‌شود و هشدار دهد که کدی را که کس دیگری فرستاده تأیید نکن. کار سمت سرور است.</p>
+  </figure>
+
+  <!-- ورود: تأیید شد، با چهار سرویس -->
+  <figure class="shot">
+    <figcaption>ورود · تأیید شد، با چهار سرویس و نام‌های بلند</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-approved-many">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+        <h1>ورود انجام شد</h1>
+        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</p>
+        <ul class="card result-list">
+          <li><bdi dir="ltr">user5551234_a1f0</bdi> · پاسارگاد</li>
+          <li><bdi dir="ltr">user5551234_e7f9</bdi> · پاسارگاد</li>
+          <li><bdi dir="ltr">user5551234_f38a</bdi> · پاسارگاد</li>
+          <li><bdi dir="ltr">user5551234_5551234_2</bdi> · اولین خرید</li>
+        </ul>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button">ادامه</button>
+          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">روی باکسِ واقعی (۹۶۰ در ۵۴۰) با چهار سرویس، دایرهٔ تیک از بالا و دکمه‌ها از پایین بیرون زدند. حالا: دایرهٔ صفحه‌های نتیجهٔ تلویزیون ۶۴ است، نه ۹۶؛ فاصلهٔ اجزا ۱۲ است، نه ۱۶؛ فهرست حداکثر چهار خط دارد (قاب بعدی). سربرگِ همهٔ صفحه‌های تلویزیون ۵۰ واحد است، نه ۴۰، تا حلقهٔ فوکوسِ «تنظیمات» هم داخل حاشیهٔ امن بماند؛ ستون‌های تنظیمات هم به همان اندازه از لبه فاصله دارند. پس جای این صفحه، میان سربرگ و حاشیهٔ امن پایین، ۴۳۶ واحد است؛ خودش ۴۳۴ است و حلقهٔ فوکوسِ «ادامه» ۴ واحد بالای حاشیهٔ امن می‌ماند. سنجشِ خودکار عکس‌ها هم حالا هر جزء تلویزیون را با حلقه‌اش در حاشیهٔ امن می‌سنجد.</p>
+    <p class="note">نام‌ها کوتاه نمی‌شوند و «…» نمی‌گیرند، چون تفاوتِ دو سرویس شاید فقط در چهار حرف آخر باشد. عرض فهرست حدود ۶۰ حرف جا دارد.</p>
+    <p class="note">هر صفحه با بیشترین محتوای ممکن روی ۹۶۰ در ۵۴۰ سنجیده شود، نه با نمونهٔ دوسرویسی. آزمون اپ هم یک حالت چهارسرویسی با نام بلند داشته باشد.</p>
+  </figure>
+  <!-- ورود: تأیید شد، با پنج سرویس -->
+  <figure class="shot">
+    <figcaption>ورود · تأیید شد، با پنج سرویس: سه نام و «و ۲ سرویس دیگر»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-approved-more">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+        <h1>ورود انجام شد</h1>
+        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</p>
+        <ul class="card result-list">
+          <li><bdi dir="ltr">user5551234_a1f0</bdi> · پاسارگاد</li>
+          <li><bdi dir="ltr">user5551234_e7f9</bdi> · پاسارگاد</li>
+          <li><bdi dir="ltr">user5551234_f38a</bdi> · پاسارگاد</li>
+          <li class="more">و ۲ سرویس دیگر</li>
+        </ul>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button">ادامه</button>
+          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">با پنج سرویس یا بیشتر: سه نام اول، و خط چهارم «و ۲ سرویس دیگر» به همان اندازه، کم‌رنگ و نازک. ارتفاعش همان قاب چهارسرویسی است. باقی سرویس‌ها بعد از «ادامه» در خانه‌اند.</p>
+  </figure>
+
+  <!-- ورود: سرویس‌ها نرسیدند -->
+  <figure class="shot">
+    <figcaption>ورود · تأیید شد ولی سرویس‌ها نرسیدند · ریموت روی «دوباره»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-services-failed">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon danger"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <h1>سرویس‌ها نرسیدند</h1>
+        <p>ورود با حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) انجام شد، ولی فهرست سرویس‌ها از سرور نرسید. اینترنت این تلویزیون را بررسی کن و دوباره امتحان کن.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">بعد از «تأیید»، اپ تا ۲۰ ثانیه منتظر فهرست سرویس‌هاست؛ بعد این قاب. ورود سر جایش است و «دوباره» فقط فهرست را دوباره می‌گیرد، نه کد تازه.</p>
+    <p class="note">ریموت اول روی «دوباره»؛ چپ به «پشتیبانی» و بعد «این حساب من نیست». گوشی همین متن را دارد، با «این گوشی».</p>
+    <p class="note"><b>پیشنهاد</b>مهلت ۲۰ ثانیه روی شبکهٔ واقعی سنجیده نشده؛ با سمت سرورِ ورود معلوم می‌شود.</p>
+  </figure>
+
+  <!-- ورود: حساب سرویسی ندارد -->
+  <figure class="shot">
+    <figcaption>ورود · حسابِ واردشده سرویسی ندارد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-login-no-service">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon muted"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <h1>این حساب سرویسی ندارد</h1>
+        <p>با حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وارد شدی، ولی سرویسی به آن وصل نیست.</p>
+        <p>سرویست روی حساب دیگری است؟ در تلگرامِ گوشی به همان حساب برو و دوباره اسکن کن.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>ورود با حساب دیگر</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">«پشتیبانی» همان کد تصویریِ پنجرهٔ پشتیبانیِ خانه است، برای کسی که مطمئن است سرویس دارد. ریموت اول روی «ورود با حساب دیگر».</p>
+    <p class="note">همان حالت گوشی است. «ورود با حساب دیگر» به صفحهٔ ورود با کد تازه برمی‌گردد. روی تلویزیون چسباندن لینک نیست، پس راه دیگر «پشتیبانی» است.</p>
   </figure>
 
   <!-- ورود: رد شد -->
@@ -397,7 +1153,7 @@
     <figcaption>ورود · در تلگرام «رد» زده شد</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-login-rejected">
       <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
       </header>
       <div class="tv-result">
         <span class="hero-icon danger"><svg class="icon"><use href="#i-x"/></svg></span>
@@ -452,7 +1208,8 @@
       </div>
     </div>
     <p class="note">حلقهٔ فوکوس همیشه یک رنگ است (سیاه در روشن، سفید در تیره) و به رنگ برند وابسته نیست.</p>
-    <p class="note">ترتیب ریموت در خانه: از دکمهٔ گرد، بالا به «تنظیمات»، فلشِ رو به کارت به سرورِ انتخاب‌شده، و پایین هیچ. از «تمدید» و «پشتیبانی»، بالا به «تنظیمات».</p>
+    <p class="note">ترتیب ریموت در خانه: از دکمهٔ گرد، بالا به «تنظیمات»، فلشِ رو به کارت به سرورِ انتخاب‌شده، و پایین هیچ. از «تمدید»، فلشِ رو به دکمهٔ گرد اول به «پشتیبانی» و از «پشتیبانی» به دکمهٔ گرد.</p>
+    <p class="note">با چیدمان «پینگ تلویزیون»، دکمهٔ «به‌روزرسانی» کنار نام سرویس و بالای «تمدید» و «پشتیبانی» است: بالا از این دو به «به‌روزرسانی» می‌رود و از آن به «تنظیمات». قاب‌های این صفحه هنوز آن دکمه را ندارند؛ ترتیب کامل در صفحهٔ «پینگ تلویزیون» است.</p>
   </figure>
 
   <!-- حالت‌های دکمهٔ گرد روی تلویزیون -->

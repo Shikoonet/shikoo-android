@@ -12,6 +12,7 @@
 //   - فونت: برای هر وزن ۴۰۰، ۵۰۰، ۷۰۰ و ۸۰۰، تکهٔ عربیِ Vazirmatn باید status === 'loaded' باشد.
 //   - متنِ بریده (از پهلو، یا یک‌خطیِ سه‌نقطه‌دار از بالا و پایین) یا جزئی که از قاب بیرون زده.
 //   - متنِ تلویزیون کوچک‌تر از --text-caption (۱۲dp).
+//   - جزئی از قاب تلویزیون، با حلقهٔ فوکوسش، بیرون از حاشیهٔ امن (--safe-x، --safe-y). از ستونِ اسکرول‌شونده فقط جزءِ زیر ریموت سنجیده می‌شود؛ پردهٔ پشت پنجره سنجیده نمی‌شود.
 //   - حرف لاتین در لایهٔ ارائه (سربرگ، زیرنویس، یادداشت).
 //   - اندازهٔ هر عکسِ قاب.
 import { createServer } from 'node:http';
@@ -64,12 +65,20 @@ const BASE = `http://127.0.0.1:${server.address().port}/mockups/`;
 const PAGES = [
   { name: 'phone', width: 2300 },
   { name: 'phone-states', width: 2300 },
+  { name: 'phone-ping', width: 2300 },
+  { name: 'phone-update', width: 2300 },
+  { name: 'phone-report', width: 2300 },
   { name: 'tv', width: 2040 },
   { name: 'tv-states', width: 2040 },
+  { name: 'tv-ping', width: 2040 },
+  { name: 'tv-update', width: 2040 },
+  { name: 'tv-report', width: 2040 },
 ];
 const WEIGHTS = ['400', '500', '700', '800'];
 const problems = [];
 const written = [];
+const tallFrames = new Set();
+const smallFrames = new Set();
 const browser = await chromium.launch({ channel: 'chrome' });
 await mkdir(FRAMES, { recursive: true });
 
@@ -100,6 +109,8 @@ async function checkText(tab, label) {
     const out = [];
     for (const frame of document.querySelectorAll('[data-frame]')) {
       const box = frame.getBoundingClientRect();
+      const frameStyle = getComputedStyle(frame);
+      const sx = parseFloat(frameStyle.paddingLeft), sy = parseFloat(frameStyle.paddingTop);
       for (const el of frame.querySelectorAll('*')) {
         if (el.closest('svg')) continue;
         const r = el.getBoundingClientRect();
@@ -109,9 +120,15 @@ async function checkText(tab, label) {
         const cutTall = style.textOverflow === 'ellipsis' && el.scrollHeight > el.clientHeight;
         const outside = r.left < box.left - 1 || r.right > box.right + 1;
         const tiny = frame.dataset.device === 'tv' && el.childNodes[0]?.nodeType === 3 && el.textContent.trim() &&
-          parseFloat(style.fontSize) < parseFloat(getComputedStyle(frame).getPropertyValue('--text-caption'));
+          parseFloat(style.fontSize) < parseFloat(frameStyle.getPropertyValue('--text-caption'));
         if (clipped || cutTall || outside || tiny)
           out.push(`${frame.dataset.frame}: «${el.textContent.trim().slice(0, 30)}» ${clipped ? 'بریده شده' : cutTall ? 'از بالا یا پایین بریده' : outside ? 'بیرون از قاب' : `متن ${style.fontSize} کوچک‌تر از ۱۲dp`}`);
+        const focused = el.classList.contains('is-focused');
+        if (frame.dataset.device === 'tv' && !el.classList.contains('scrim') && (focused || !el.closest('.tv-col'))) {
+          const ring = focused ? parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset) : 0;
+          const over = Math.max(box.top + sy - (r.top - ring), (r.bottom + ring) - (box.bottom - sy), box.left + sx - (r.left - ring), (r.right + ring) - (box.right - sx));
+          if (over > 0.5) out.push(`${frame.dataset.frame}: «${el.textContent.trim().slice(0, 30) || el.className}» ${over.toFixed(1)}dp بیرون از حاشیهٔ امن`);
+        }
       }
     }
     for (const el of document.querySelectorAll('.sheet-head, figcaption, .note, .fold'))
@@ -136,6 +153,14 @@ async function tvTextSizes(tab) {
 async function shootFrames(tab, suffix) {
   for (const el of await tab.$$('[data-frame]')) {
     const file = join(FRAMES, `${await el.getAttribute('data-frame')}-${suffix}.png`);
+    // قابی که جایش کسری است، عکسی یک پیکسل پهن‌تر می‌دهد.
+    const { tall, small } = await el.evaluate((n) => {
+      const r = n.getBoundingClientRect();
+      n.style.translate = `${Math.round(r.x) - r.x}px ${Math.round(r.y) - r.y}px`;
+      return { tall: n.classList.contains('tall'), small: n.classList.contains('small') };
+    });
+    if (tall) tallFrames.add(file);
+    if (small) smallFrames.add(file);
     await el.screenshot({ path: file });
     written.push(file);
   }
@@ -180,7 +205,7 @@ for (const file of written) {
   const size = `${head.readUInt32BE(16)}×${head.readUInt32BE(20)}`;
   const name = file.slice(FRAMES.length + 1);
   (sizes[size] ??= []).push(name);
-  const fixed = name.startsWith('tv-') ? '1920×1080' : name.includes('-long-') || name.startsWith('phone-cards') ? null : '824×1830';
+  const fixed = name.startsWith('tv-') ? '1920×1080' : tallFrames.has(file) || name.startsWith('phone-cards') ? null : smallFrames.has(file) ? '686×1524' : '824×1830';
   if (fixed && size !== fixed) problems.push(`${name}: ${size} به‌جای ${fixed}`);
 }
 for (const [size, names] of Object.entries(sizes)) console.log(`${size}: ${names.length} عکس`);

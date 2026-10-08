@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>شیکو · حالت‌های گوشی</title>
+<title>شیکونت · حالت‌های گوشی</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
@@ -14,13 +14,19 @@
 <body>
 
 <header class="sheet-head">
-  <h1>شیکو · حالت‌های گوشی</h1>
-  <p>اتصال و خطا، سرویسِ تمام‌شده، فهرست بلند، خروج، ورود بدون تلگرام و انواع کارت سرویس.</p>
+  <h1>شیکونت · حالت‌های گوشی</h1>
+  <p>اتصال و خطا، سرویسِ تمام‌شده، فهرست بلند، خروج و حذف یک سرویس، ورود و چسباندن لینک، و انواع کارت سرویس.</p>
   <nav class="sheet-nav">
     <a href="phone.html">گوشی</a>
     <a href="phone-states.html" aria-current="page">حالت‌های گوشی</a>
+    <a href="phone-ping.html">پینگ گوشی</a>
+    <a href="phone-update.html">به‌روزرسانی گوشی</a>
+    <a href="phone-report.html">گزارش گوشی</a>
     <a href="tv.html">تلویزیون</a>
     <a href="tv-states.html">حالت‌های تلویزیون</a>
+    <a href="tv-ping.html">پینگ تلویزیون</a>
+    <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
+    <a href="tv-report.html">گزارش تلویزیون</a>
   </nav>
   <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
 </header>
@@ -33,7 +39,7 @@
     <div class="phone" data-frame="phone-home-connecting">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
@@ -50,8 +56,11 @@
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
@@ -63,6 +72,10 @@
           <div class="actions">
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
           </div>
           <ul class="servers">
             <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
@@ -77,7 +90,7 @@
       <div class="gesture"></div>
     </div>
     <p class="note">«وصل» فقط وقتی نشان داده می‌شود که موتور اتصال را واقعاً تأیید کرده باشد؛ تا آن موقع همین حالت می‌ماند.</p>
-    <p class="note"><b>پیشنهاد</b>اگر تا ۲۰ ثانیه وصل نشد، به «وصل نشد» می‌رود (قاب بعدی). عدد ۲۰ ثانیه حدس است و باید روی شبکهٔ واقعی سنجیده شود.</p>
+    <p class="note">اگر تا ۳۰ ثانیه وصل نشد، به «وصل نشد» می‌رود (قاب بعدی). ۳۰ ثانیه مهلتِ خودِ اپ است، مثل تلویزیون؛ روی شبکهٔ واقعی سنجیده نشده.</p>
   </figure>
 
   <!-- خطای اتصال -->
@@ -86,7 +99,7 @@
     <div class="phone" data-frame="phone-home-error">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
@@ -98,12 +111,19 @@
               <span class="power-sub">دوباره بزن</span>
             </button>
           </div>
-          <p class="power-msg danger">آلمان ۲ تا ۲۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.</p>
+          <p class="power-msg danger">آلمان ۲ تا ۳۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.</p>
+        </section>
+        <section class="card update check is-positive">
+          <div class="update-row"><svg class="icon"><use href="#i-check"/></svg><span class="t"><strong>اینترنت وصل است و سرور شیکونت در دسترس است.</strong></span></div>
+          <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش</button></div>
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
@@ -115,6 +135,10 @@
           <div class="actions">
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
           </div>
           <ul class="servers">
             <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
@@ -129,7 +153,8 @@
       <div class="gesture"></div>
     </div>
     <p class="note">دکمهٔ گرد حالا یعنی «دوباره». پینگِ سرورِ انتخاب‌شده هم «بی‌پاسخ» می‌شود تا علت دیده شود.</p>
-    <p class="note"><b>پیشنهاد</b>«۲۰ ثانیه» در متن این قاب حدس است؛ مهلت واقعی باید روی شبکهٔ واقعی سنجیده و تعیین شود.</p>
+    <p class="note">عدد پیام همان مهلت اپ است (۳۰ ثانیه)؛ اگر مهلت عوض شد، این عدد هم با آن عوض می‌شود.</p>
+    <p class="note">بعد از «وصل نشد» اپ اینترنت را خودش می‌سنجد و کارت «بررسی اینترنت» سرِ فهرست کارت‌ها می‌آید، با «ارسال گزارش». این‌جا اینترنت و سرور ما درست‌اند و فقط آلمان ۲ جواب نداد. حالت‌های دیگرِ کارت در صفحهٔ «گزارش گوشی» است.</p>
   </figure>
 
   <!-- حجم تمام شده -->
@@ -138,7 +163,7 @@
     <div class="phone" data-frame="phone-home-exhausted">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
@@ -153,14 +178,19 @@
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-danger">حجم تمام شده</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-danger">حجم تمام شده</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
             <div class="usage-row"><span>مصرف شده: <strong>۱۰۰</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong class="danger">۰ گیگ</strong></span></div>
             <div class="bar is-full"><span style="inline-size: 100%"></span></div>
             <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
           </div>
+          <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
           <div class="actions">
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
@@ -171,7 +201,9 @@
       <div class="gesture"></div>
     </div>
     <p class="note">نوار مثل ربات به اندازهٔ مصرف پر می‌شود و «۱۰۰٪» فقط برای حجمی است که واقعاً تمام شده.</p>
-  </figure>
+    <p class="note">سربرگ همان سربرگ کارت فعال است. دکمهٔ به‌روزرسانی این‌جا لازم‌تر است: مشتری در ربات تمدید می‌کند و برمی‌گردد، و به‌روزرسانیِ خودکار تا ۱۰ دقیقه نمی‌آید. اطلاعیهٔ پنل هم می‌ماند، چون شاید دربارهٔ همین تمدید باشد.</p>
+    <p class="note">این قاب برای وقتی است که هیچ سرویسی وصل نمی‌شود: اولین سرویسِ تمام‌شده (به ترتیب تاریخ پایان، از دیرتر) کارت کامل است و بقیه در ردیف «سرویس‌های تمام‌شده» زیرش (قاب گوشیِ کوچک). اگر سرویس دیگری وصل می‌شود، اپ همان را انتخاب می‌کند، بی آن‌که خودش وصل شود، و این سرویس به آن ردیف می‌رود؛ پس پیامِ «یا سرویس دیگرت را انتخاب کن» دیگر لازم نیست.</p>
+</figure>
 
   <!-- اعتبار تمام شده -->
   <figure class="shot">
@@ -179,7 +211,7 @@
     <div class="phone" data-frame="phone-home-expired">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
@@ -194,14 +226,19 @@
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-danger">تاریخ انقضا گذشته</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-danger">تاریخ انقضا گذشته</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
             <div class="usage-row"><span>مصرف شده: <strong>۵۸</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۴۲ گیگ</strong></span></div>
             <div class="bar"><span style="inline-size: 58%"></span></div>
             <div class="usage-row"><span class="danger">اعتبار تا ۲۸ شهریور ۱۴۰۵</span><span class="danger">تمام شده</span></div>
           </div>
+          <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
           <div class="actions">
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
@@ -212,6 +249,42 @@
       <div class="gesture"></div>
     </div>
     <p class="note">دکمهٔ گرد کار نمی‌کند و خاکستری است؛ کار اصلی صفحه «تمدید» است.</p>
+  </figure>
+
+  <!-- خانه بی‌سرویس، تا وقتی ورود تلگرامی ساخته نشده -->
+  <figure class="shot">
+    <figcaption>خانه · سرویسی روی گوشی نیست، پیش از ساخته شدنِ ورود تلگرامی</figcaption>
+    <div class="phone" data-frame="phone-home-no-service">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">سرویسی نیست</span>
+            </div>
+          </div>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <h2 class="svc-name">سرویسی روی این گوشی نیست</h2>
+          </header>
+          <p class="state-msg">لینک اشتراکت را کپی کن، بعد «چسباندن لینک اشتراک» را بزن.<br>لینک نداری؟ از «پشتیبانی» بپرس.</p>
+          <div class="actions is-stacked">
+            <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+        </article>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">کار اصلی چسباندن لینک است، چون بیشترِ کسانی که این‌جا می‌رسند لینکشان را از ربات یا نماینده دارند؛ «پشتیبانی» راه دوم است. هر خطای چسباندن درست بالای همان دکمه می‌آید (چهار پیام قاب «چسباندن لینک»).</p>
+    <p class="note">همتای «خانه · سرویسی روی تلویزیون نیست»، ولی تلویزیون چسباندن ندارد. روی گوشی «پشتیبانی» آیکون کد تصویری ندارد، چون گفتگو را مستقیم در تلگرام باز می‌کند.</p>
+    <p class="note">از وقتی ورود تلگرامی ساخته شده، گوشیِ وارد‌نشده‌ای که سرویسی ندارد این کارت را نمی‌بیند و صفحهٔ ورود را می‌بیند: با اولین باز شدن اپ، بعد از «خروج»، و بعد از حذف آخرین سرویسِ چسبانده‌شده. صفحهٔ ورود صفحهٔ اول اپ است و «چسباندن لینک اشتراک» را هم دارد.</p>
   </figure>
 
   <!-- تأیید خروج -->
@@ -233,18 +306,37 @@
           </div>
         </section>
         <section>
+          <h3 class="group-title">زبان</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="true">فارسی</button>
+            <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+          </div>
+        </section>
+        <section>
           <h3 class="group-title">حساب</h3>
           <div class="card">
+            <div class="row">
+              <svg class="icon"><use href="#i-plane"/></svg>
+              <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرامِ <bdi dir="ltr">@maryam_k</bdi></small></span>
+            </div>
             <button class="row danger" type="button">
               <svg class="icon"><use href="#i-logout"/></svg>
-              <span class="t"><span>خروج</span><small>این گوشی از حساب تلگرامت جدا می‌شود</small></span>
+              <span class="t"><span>خروج</span><small>سرویس‌های این حساب از این دستگاه برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.</small></span>
             </button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">پشتیبانی</h3>
+          <div class="card">
+            <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
           </div>
         </section>
         <section>
           <h3 class="group-title">اپ</h3>
           <div class="card">
-            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۰</span></div>
+            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+            <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+            <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
             <button class="row" type="button">
               <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
               <svg class="icon"><use href="#i-chevron-fwd"/></svg>
@@ -255,37 +347,419 @@
       <div class="scrim">
         <div class="dialog" role="alertdialog" aria-labelledby="logout-title">
           <h2 id="logout-title">از حساب خارج می‌شوی؟</h2>
-          <p>اتصال قطع می‌شود و این گوشی از حساب تلگرامت جدا می‌شود. برای برگشتن، دوباره با تلگرام وارد شو.</p>
+          <p>اتصال قطع می‌شود و این دستگاه از حساب تلگرامت جدا می‌شود. سرویس‌های این حساب از آن برداشته می‌شوند، ولی سرویسی که لینکش را خودت چسبانده‌ای می‌ماند. خودِ اشتراک‌هایت سر جایشان‌اند.</p>
           <div class="dialog-actions">
-            <button class="btn btn-text" type="button">انصراف</button>
+            <button class="btn btn-outline" type="button">انصراف</button>
             <button class="btn btn-danger" type="button">خروج</button>
           </div>
         </div>
       </div>
       <div class="gesture"></div>
     </div>
-    <p class="note"><b>پیشنهاد</b>جدا کردن دستگاه از حساب کارِ سرور است و سمت سرورِ ورود هنوز ساخته نشده. اگر سرور نتواند، «خروج» فقط اطلاعات همین گوشی را پاک می‌کند.</p>
+    <p class="note"><b>پیشنهاد</b>جدا کردن دستگاه از حساب کارِ سرور است و سمت سرورِ ورود تازه شروع شده. اگر سرور نتواند، «خروج» فقط اطلاعات همین گوشی را پاک می‌کند.</p>
   </figure>
 
-  <!-- ورود بدون تلگرام -->
+  <!-- تنظیمات: سرویس با لینک چسبانده شده، هنوز بی‌ورود تلگرامی -->
   <figure class="shot">
-    <figcaption>ورود بدون تلگرام روی این گوشی</figcaption>
+    <figcaption>تنظیمات · با لینک چسبانده‌شده، پیش از ورود تلگرامی</figcaption>
+    <div class="phone" data-frame="phone-settings-pasted">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>تنظیمات</h2>
+      </div>
+      <div class="settings">
+        <section>
+          <h3 class="group-title">ظاهر</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="false">روشن</button>
+            <button type="button" role="radio" aria-checked="false">تیره</button>
+            <button type="button" role="radio" aria-checked="true">خودکار</button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">زبان</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="true">فارسی</button>
+            <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">سرویس‌های اضافه‌شده با لینک</h3>
+          <div class="card">
+            <div class="row">
+              <span class="t"><span><bdi dir="ltr">user123</bdi> · الماس</span><small>فعال</small></span>
+              <button class="btn btn-text danger" type="button" aria-label="حذف user123 · الماس">حذف</button>
+            </div>
+            <div class="row">
+              <span class="t"><span><bdi dir="ltr">user456</bdi> · طلایی</span><small>تاریخ انقضا گذشته</small></span>
+              <button class="btn btn-text danger" type="button" aria-label="حذف user456 · طلایی">حذف</button>
+            </div>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">حساب</h3>
+          <div class="card">
+            <button class="row" type="button">
+              <svg class="icon"><use href="#i-plane"/></svg>
+              <span class="t"><span>ورود با تلگرام</span><small>هنوز وارد نشده‌ای. با ورود، همهٔ سرویس‌هایت خودکار می‌آیند.</small></span>
+            </button>
+            <button class="row" type="button">
+              <svg class="icon"><use href="#i-paste"/></svg>
+              <span class="t"><span>چسباندن لینک دیگر</span><small>برای سرویس دیگری که داری</small></span>
+            </button>
+            <button class="row danger" type="button">
+              <svg class="icon"><use href="#i-logout"/></svg>
+              <span class="t"><span>خروج</span><small>سرویس‌ها از این گوشی پاک می‌شوند.</small></span>
+            </button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">پشتیبانی</h3>
+          <div class="card">
+            <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">اپ</h3>
+          <div class="card">
+            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+            <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+            <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
+            <button class="row" type="button">
+              <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
+              <svg class="icon"><use href="#i-chevron-fwd"/></svg>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">وقتی سرویس‌ها فقط با چسباندن لینک آمده‌اند، حسابی در کار نیست؛ پس «خروج» یعنی پاک کردن سرویس‌ها از همین دستگاه. پنجرهٔ تأییدش همان شکل قبلی است با این متن: «سرویس‌ها از این گوشی پاک شوند؟» و «اتصال قطع می‌شود و سرویس‌ها از این گوشی پاک می‌شوند. خودِ سرویس‌ها سر جایشان‌اند؛ با همان لینک یا با تلگرام برمی‌گردند.» دکمه‌ها: «انصراف» و «پاک کردن».</p>
+    <p class="note"><b>پیشنهاد</b>«چسباندن لینک دیگر» برای کسی است که بیش از یک سرویس دارد و هنوز نمی‌تواند با تلگرام وارد شود؛ خانه دکمهٔ افزودن ندارد. بعد از ورود تلگرامی این ردیف می‌رود.</p>
+    <p class="note"><b>پیشنهاد</b>بعد از ورود با تلگرام، سرویس‌های چسبانده‌شده می‌مانند و سرویس‌های حساب کنارشان می‌آیند؛ سرویسِ تکراری یکی می‌شود. این برای مشتری نماینده مهم است که لینکش شاید به حساب تلگرامش وصل نباشد.</p>
+    <p class="note">تلویزیون چسباندن ندارد. فقط تا ساخته شدنِ ورود تلگرامی حالتی شبیه این دارد: قاب «تنظیمات · پیش از ساخته شدنِ ورود تلگرامی» در حالت‌های تلویزیون.</p>
+    <p class="note">حذف یک سرویس فقط از بخش «سرویس‌های اضافه‌شده با لینک» است، نه از خودِ کارت. سربرگ کارت جای دکمهٔ سوم ندارد: با «⋯» نامِ همان سرویس‌های تمام‌شده که بیشتر حذف می‌شوند بریده می‌شد، و کارت گوشی دیگر با کارت تلویزیون یکی نبود. این‌جا افزودن و حذف یک‌جا هستند.</p>
+    <p class="note">در این بخش فقط سرویسی هست که تنها راه آمدنش به این گوشی، لینکِ چسبانده‌شده است. سرویسی که حساب تلگرام هم می‌آوردش (همان نام کاربری) این‌جا نیست، چون همگام‌سازیِ بعدی برش می‌گرداند. بعد از ورود تلگرامی هم این بخش برای سرویس‌هایی که فقط لینک دارند می‌ماند. اگر چنین سرویسی نیست، کل بخش نیست.</p>
+    <p class="note">ردیف‌ها به ترتیب کارت‌های خانه‌اند. خط دوم همان برچسب کارت است («فعال»، «تاریخ انقضا گذشته»، …) تا سرویسِ کهنه پیدا شود. فقط «حذف» کار می‌کند، نه خودِ ردیف، تا اسکرول کردن پنجره‌ای باز نکند. «حذف» دست‌کم ۴۸ در ۴۸ لمس می‌گیرد و خوانندهٔ صفحه آن را با نام سرویس می‌خواند.</p>
+    <p class="note">وصل بودن چیزی را غیرفعال نمی‌کند: سرویسِ وصل هم حذف می‌شود (قاب بعدی). فقط وقتی «چسباندن لینک دیگر» در حال بررسی لینک است، دکمه‌های «حذف» غیرفعال‌اند، چون شاید لینکِ تازه مال همان سرویس باشد.</p>
+  </figure>
+
+  <!-- حذف یک سرویس که الان وصل است -->
+  <figure class="shot">
+    <figcaption>تنظیمات · حذف سرویسی که الان وصل است</figcaption>
+    <div class="phone" data-frame="phone-remove-confirm">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar sub">
+        <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
+        <h2>تنظیمات</h2>
+      </div>
+      <div class="settings">
+        <section>
+          <h3 class="group-title">ظاهر</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="false">روشن</button>
+            <button type="button" role="radio" aria-checked="false">تیره</button>
+            <button type="button" role="radio" aria-checked="true">خودکار</button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">زبان</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="true">فارسی</button>
+            <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">سرویس‌های اضافه‌شده با لینک</h3>
+          <div class="card">
+            <div class="row">
+              <span class="t"><span><bdi dir="ltr">user123</bdi> · الماس</span><small>فعال</small></span>
+              <button class="btn btn-text danger" type="button" aria-label="حذف user123 · الماس">حذف</button>
+            </div>
+            <div class="row">
+              <span class="t"><span><bdi dir="ltr">user456</bdi> · طلایی</span><small>تاریخ انقضا گذشته</small></span>
+              <button class="btn btn-text danger" type="button" aria-label="حذف user456 · طلایی">حذف</button>
+            </div>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">حساب</h3>
+          <div class="card">
+            <button class="row" type="button">
+              <svg class="icon"><use href="#i-plane"/></svg>
+              <span class="t"><span>ورود با تلگرام</span><small>هنوز وارد نشده‌ای. با ورود، همهٔ سرویس‌هایت خودکار می‌آیند.</small></span>
+            </button>
+            <button class="row" type="button">
+              <svg class="icon"><use href="#i-paste"/></svg>
+              <span class="t"><span>چسباندن لینک دیگر</span><small>برای سرویس دیگری که داری</small></span>
+            </button>
+            <button class="row danger" type="button">
+              <svg class="icon"><use href="#i-logout"/></svg>
+              <span class="t"><span>خروج</span><small>سرویس‌ها از این گوشی پاک می‌شوند.</small></span>
+            </button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">پشتیبانی</h3>
+          <div class="card">
+            <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">اپ</h3>
+          <div class="card">
+            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+            <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+            <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
+            <button class="row" type="button">
+              <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
+              <svg class="icon"><use href="#i-chevron-fwd"/></svg>
+            </button>
+          </div>
+        </section>
+      </div>
+      <div class="scrim">
+        <div class="dialog" role="alertdialog" aria-labelledby="remove-title">
+          <h2 id="remove-title">حذف «<bdi dir="ltr">user123</bdi> · الماس»؟</h2>
+          <p>اتصال قطع می‌شود و این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-outline" type="button">انصراف</button>
+            <button class="btn btn-danger" type="button">حذف</button>
+          </div>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">پنجره با فوکوس روی «انصراف» باز می‌شود. ترتیب خواندن: عنوان، متن، «انصراف»، «حذف». دکمهٔ برگشت و زدن بیرون از پنجره یعنی «انصراف». «حذف» قرمز و در انتهاست، مثل «خروج».</p>
+    <p class="note">«اتصال قطع می‌شود و» فقط وقتی هست که همین سرویس انتخاب‌شده و وصل یا در حال اتصال است. در بقیهٔ حالت‌ها متن این است: «این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.»</p>
+    <p class="note">بعد از «حذف»، به همین ترتیب: اتصال قطع می‌شود (یا تلاشِ در حال اتصال لغو می‌شود)، سرویس پاک می‌شود، و سرویسِ بعدی انتخاب می‌شود: کارتِ زیرینش، یا اگر کارت آخر بود، کارتِ بالایی. اپ خودش دوباره وصل نمی‌شود، چون وصل شدن با سرویس دیگر حجمِ آن را خرج می‌کند بی‌آن‌که مشتری خواسته باشد.</p>
+    <p class="note">برای همین خانه پیام تازه‌ای نمی‌خواهد: این پنجره قطع شدن را گفته، و خانه دکمهٔ «اتصال» و کارتِ بازِ سرویسِ بعدی را نشان می‌دهد، مثل قاب «خانه · قطع». اگر هیچ سرویسی روی گوشی نماند و وارد نشده‌ای، تنظیمات بسته می‌شود و صفحهٔ ورود می‌آید، که چسباندن لینک را هم دارد.</p>
+    <p class="note">اگر سرویس دیگری مانده، تنظیمات باز می‌ماند و فقط ردیفِ حذف‌شده می‌رود. خوانندهٔ صفحه «… حذف شد» را می‌گوید و فوکوس به عنوان همین بخش می‌رود، نه به «حذف» بعدی. به‌روزرسانیِ نیمه‌کارهٔ همان سرویس دور ریخته می‌شود.</p>
+  </figure>
+
+  <!-- لینکِ چسبانده‌شده که بعداً باطل شد -->
+  <figure class="shot">
+    <figcaption>کارت سرویس · لینکِ چسبانده‌شده باطل شده، باز و جمع‌شده</figcaption>
+    <div class="cards-stack" data-frame="phone-cards-revoked">
+      <article class="card svc">
+        <header class="svc-head">
+          <div class="svc-titles">
+            <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user456</bdi> · طلایی</h2><span class="chip chip-danger">لینک باطل شده</span></div>
+            <p class="svc-sub">به‌روز نشد</p>
+          </div>
+          <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+          <svg class="icon"><use href="#i-chevron-up"/></svg>
+        </header>
+        <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک باطل شده.</strong> حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» بچسبان.</span></p>
+        <div class="actions">
+          <button class="btn btn-outline danger" type="button" aria-label="حذف user456 · طلایی">حذف</button>
+          <button class="btn btn-outline" type="button">پشتیبانی</button>
+        </div>
+      </article>
+      <article class="card svc">
+        <header class="svc-head">
+          <div class="svc-titles">
+            <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user456</bdi> · طلایی</h2><span class="chip chip-danger">لینک باطل شده</span></div>
+            <p class="svc-sub">به‌روز نشد</p>
+          </div>
+          <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+          <svg class="icon"><use href="#i-chevron-down"/></svg>
+        </header>
+        <p class="svc-summary">حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» بچسبان.</p>
+      </article>
+    </div>
+    <p class="note">وقتی به‌روزرسانیِ سرویسی که با لینک آمده جواب ۴۰۴ یا ۴۱۰ می‌گیرد، کارتش این شکل را می‌گیرد: برچسب «لینک باطل شده»، پیام قرمز، و «حذف» به‌جای «تمدید». حجم، اطلاعیه و سرورها پنهان‌اند، چون آخرین داده‌شان دیگر قابل اعتماد نیست. خطای سرور یا بی‌اینترنتی همان «به‌روز نشد» معمولی است.</p>
+    <p class="note">«حذف» روی خودِ کارت است، نه در سربرگ و نه فقط در تنظیمات: جای «تمدید» در ردیف دکمه‌ها آزاد است، چون تمدید لینکِ باطل را زنده نمی‌کند. پس یک قدم کمتر است و سربرگ شلوغ‌تر نمی‌شود. همان پنجرهٔ تأیید را باز می‌کند، با «انصراف» و «حذف».</p>
+    <p class="note">فقط گوشی و فقط سرویسی که با لینک آمده. سرویسِ ورود تلگرامی که دیگر نیست، با همگام‌سازی خودش می‌رود. اگر به‌روزرسانیِ بعدی موفق شد، یا لینک تازهٔ همین نام کاربری چسبانده شد، کارت به حالت عادی برمی‌گردد.</p>
+    <p class="note">اگر همین سرویس انتخاب‌شده است، دکمهٔ گرد مثل سرویسِ تمام‌شده غیرفعال است، با برچسب «لینک باطل شده» و بی‌پیامِ زیرش. اگر همان لحظه وصل است، اتصال خودکار قطع نمی‌شود؛ دکمه بعد از قطع غیرفعال می‌شود.</p>
+    <p class="note">ترتیب: پیام، «حذف»، «پشتیبانی». کارت جمع‌شده (پایین) به‌جای خط خلاصه همان راهنما را دارد. زیر نام، باز یا جمع، فقط «به‌روز نشد» است، بی «فهرستِ … پیش»، چون فهرستی دیده نمی‌شود. بعد از حذف، فوکوس به سربرگ کارتِ سرویسِ بعدی می‌رود.</p>
+  </figure>
+
+  <!-- برگشت از تلگرام بی‌تأیید -->
+  <figure class="shot">
+    <figcaption>ورود · برگشت از تلگرام بی‌تأیید</figcaption>
+    <div class="phone" data-frame="phone-login-waiting">
+      <div class="statusbar"><span>۱۲:۴۱</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+        <div class="login-brand">
+          <span class="mark">ش</span>
+          <span class="word">شیکونت</span>
+          <span class="sub">مخصوص مشتری‌های شیکونت</span>
+        </div>
+        <p class="notice msg"><svg class="icon"><use href="#i-spin"/></svg><span><strong>هنوز «تأیید» نرسیده.</strong> اگر تلگرامت فقط با فیلترشکن باز می‌شود، اول آن را روشن کن، بعد دوباره تلگرام را باز کن.</span></p>
+        <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>باز کردن دوبارهٔ تلگرام</button>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
+        <button class="btn-link" type="button">از دستگاه دیگری تأیید کن</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">کاربر تلگرام را باز کرد و بی‌آن‌که «تأیید» بزند به اپ برگشت. اپ همان کد را نگه می‌دارد و هنوز منتظر است؛ اگر «تأیید» حالا برسد، خودش به خانه می‌رود.</p>
+    <p class="note">راهنما دو راه می‌دهد: روشن کردن فیلترشکنِ دیگر برای خودِ تلگرام، یا تأیید از دستگاه دیگر (قاب بعدی). «باز کردن دوبارهٔ تلگرام» همان کد را دوباره می‌فرستد، نه کد تازه.</p>
+    <p class="note">چرخندهٔ کنار پیام یعنی اپ هنوز منتظر است. اگر کد تمام شد، پیام می‌شود «این کد تمام شد.» و دکمهٔ آبی «ورود با تلگرام» با کد تازه.</p>
+  </figure>
+
+  <!-- تأیید از دستگاه دیگر -->
+  <figure class="shot">
+    <figcaption>ورود · تأیید از دستگاه دیگر</figcaption>
     <div class="phone" data-frame="phone-login-no-telegram">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar sub">
         <button class="icon-btn" type="button" aria-label="بازگشت"><svg class="icon"><use href="#i-back"/></svg></button>
-        <h2>ورود بدون تلگرام</h2>
+        <h2>تأیید از دستگاه دیگر</h2>
       </div>
       <div class="alt-login">
-        <p class="lead">با گوشی یا کامپیوتری که تلگرام دارد، این QR را اسکن کن و در ربات شیکو «تأیید» را بزن.</p>
+        <p class="lead">گوشی دیگری با تلگرام داری؟ این کد تصویری را با دوربینش اسکن کن.</p>
         <div class="qr-tile sm"><svg class="qr" data-seed="77031" role="img" aria-label="QR نمونه"></svg></div>
-        <p class="fine">یا این کد را در ربات شیکو بفرست:</p>
-        <div class="code-box"><span class="code">K7P2-9QXM</span></div>
-        <p class="fine">بعد از تأیید، این صفحه خودش به خانه می‌رود.</p>
+        <p class="lead">تلگرامت روی کامپیوتر است؟ این کد را برای ربات شیکونت بفرست:</p>
+        <div class="code-box">
+          <span class="code">۴۸۲ ۹۱۵</span>
+          <span class="code-bot"><svg class="icon"><use href="#i-plane"/></svg><bdi dir="ltr">@shikoonet_bot</bdi></span>
+          <span class="code-warn"><svg class="icon"><use href="#i-alert"/></svg>این کد را فقط خودت در ربات بزن؛ به هیچ‌کس نده.</span>
+        </div>
+        <p class="fine">کد ۱۰ دقیقه کار می‌کند. بعد از «تأیید» در ربات، این صفحه خودش به خانه می‌رود.</p>
       </div>
       <div class="gesture"></div>
     </div>
-    <p class="note"><b>پیشنهاد</b>کل این صفحه پیشنهاد است: همان کد و کد تصویریِ تلویزیون، برای گوشی‌ای که تلگرام ندارد. به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+    <p class="note">هشدارِ زیر کد برای کسی است که کد را از غریبه گرفته: هر کس کد را در ربات بزند، این دستگاه به حساب او وصل می‌شود.</p>
+    <p class="note">کامپیوتر کد تصویری نمی‌خواند، پس برای کامپیوتر کد و نام ربات نوشته شده. کد ۶ رقمِ فارسی است، بی‌حرف لاتین، در دو تکهٔ سه‌رقمی تا راحت خوانده و تایپ شود.</p>
+    <p class="note"><b>پیشنهاد</b>ربات کد را با رقم فارسی یا انگلیسی، و با فاصله یا بی‌فاصله، بپذیرد. کار سمت سرور است.</p>
+    <p class="note">کد تصویری همان پیوندِ «ورود با تلگرام» است. اگر کد تمام شد، مثل تلویزیون کد تصویری کم‌رنگ می‌شود و دکمهٔ «کد تازه» می‌آید.</p>
+  </figure>
+
+  <!-- ورود: تأیید شد -->
+  <figure class="shot">
+    <figcaption>ورود · در تلگرام «تأیید» زده شد</figcaption>
+    <div class="phone" data-frame="phone-login-approved">
+      <div class="statusbar"><span>۱۲:۴۲</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+          <span class="word">ورود انجام شد</span>
+          <span class="sub">این گوشی به حساب تلگرامِ <strong>مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</span>
+          <ul class="card result-list">
+            <li><bdi dir="ltr">user123</bdi> · الماس</li>
+            <li><bdi dir="ltr">user789</bdi> · معمولی</li>
+          </ul>
+        </div>
+        <button class="btn btn-primary" type="button">ادامه</button>
+        <button class="btn btn-outline" type="button">این حساب من نیست</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">مثل تلویزیون: تا «ادامه» زده نشود به خانه نمی‌رود، تا اگر حسابِ غریبه‌ای «تأیید» زده باشد همین‌جا دیده شود. نام کاربری کنار نام نمایشی است، چون نام نمایشی یکتا نیست.</p>
+    <p class="note">«این حساب من نیست» این گوشی را از آن حساب جدا می‌کند، سرویس‌های آن حساب را روی گوشی نگه نمی‌دارد و به صفحهٔ اول ورود برمی‌گردد.</p>
+    <p class="note">تا سرویس‌ها برسند، به‌جای فهرست نوار پیشرفت و «سرویس‌هایت دارند می‌آیند…» است و «ادامه» هنوز نیست؛ اگر نرسیدند، همان قاب «سرویس‌ها نرسیدند» تلویزیون، با دکمه‌های لمسی.</p>
+  </figure>
+
+  <!-- ورود: رد شد -->
+  <figure class="shot">
+    <figcaption>ورود · در تلگرام «رد» زده شد</figcaption>
+    <div class="phone" data-frame="phone-login-rejected">
+      <div class="statusbar"><span>۱۲:۴۲</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+        <div class="login-brand">
+          <span class="hero-icon danger"><svg class="icon"><use href="#i-x"/></svg></span>
+          <span class="word">ورود رد شد</span>
+          <span class="sub">در تلگرام «رد» زده شد، پس این گوشی وصل نشد. اگر اشتباهی بود، دوباره امتحان کن.</span>
+        </div>
+        <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>ورود با تلگرام</button>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">«ورود با تلگرام» کد تازه می‌گیرد. چسباندن لینک هم همین‌جاست، چون مشتری نماینده شاید حساب تلگرامی برای شیکونت نداشته باشد.</p>
+  </figure>
+
+  <!-- حساب تلگرام سرویسی ندارد -->
+  <figure class="shot">
+    <figcaption>ورود · حسابِ واردشده سرویسی ندارد</figcaption>
+    <div class="phone" data-frame="phone-login-no-service">
+      <div class="statusbar"><span>۱۲:۴۲</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-alert"/></svg></span>
+          <span class="word">این حساب سرویسی ندارد</span>
+          <span class="sub">با حساب تلگرامِ <strong>مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وارد شدی، ولی هیچ سرویس شیکونت به آن وصل نیست.</span>
+        </div>
+        <p class="notice msg"><svg class="icon"><use href="#i-plane"/></svg><span>سرویست روی حساب تلگرام دیگری است؟ اول در خودِ تلگرام به همان حساب برو، بعد «ورود با حساب دیگر» را بزن.</span></p>
+        <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>ورود با حساب دیگر</button>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-logout"/></svg>خروج</button>
+        <button class="btn-link" type="button">فکر می‌کنی اشتباه شده؟ از پشتیبانی بپرس</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">نام همان نامِ نمایشیِ حسابی است که «تأیید» زد، با نام کاربری‌اش اگر دارد، تا کاربر ببیند کدام حساب بود. تلگرام پیوند را در حسابی باز می‌کند که الان در آن است؛ برای همین راهنما می‌گوید اول در تلگرام حساب را عوض کن.</p>
+    <p class="note">«خروج» به صفحهٔ اول ورود برمی‌گردد. مشتری نماینده که لینکش به حساب تلگرامش وصل نیست، از همان‌جا «چسباندن لینک اشتراک» را می‌زند. «پشتیبانی» گفتگو با پشتیبانی شیکونت در تلگرام را باز می‌کند.</p>
+  </figure>
+
+  <!-- چسباندن: لینک شیکونت نیست -->
+  <figure class="shot">
+    <figcaption>چسباندن لینک · این لینک شیکونت نیست</figcaption>
+    <div class="phone" data-frame="phone-paste-error">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
+        <div class="login-brand">
+          <span class="mark">ش</span>
+          <span class="word">شیکونت</span>
+          <span class="sub">مخصوص مشتری‌های شیکونت</span>
+        </div>
+        <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>ورود با تلگرام</button>
+        <p class="login-note">تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.</p>
+        <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک شیکونت نیست.</strong> فقط لینک اشتراک شیکونت کار می‌کند؛ همان که از ربات شیکونت یا نماینده‌ات گرفتی.</span></p>
+        <button class="btn-link" type="button">ارسال گزارش به پشتیبانی</button>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
+        <button class="btn-link" type="button">تلگرام روی این گوشی نیست؟</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">پیام خطا درست بالای دکمه‌ای است که آن را ساخت. تا چسباندنِ بعدی یا رفتن به تلگرام می‌ماند. چیزی که چسبانده شد هیچ‌جا نشان داده نمی‌شود.</p>
+    <p class="note">«شیکونت نیست» را خودِ اپ از نشانیِ لینک می‌فهمد، بی‌اینترنت. سه خطای دیگر در قاب بعدی‌اند.</p>
+    <p class="note">زیر هر پیامِ خطای چسباندن «ارسال گزارش به پشتیبانی» هست. گزارش نوع خطا را می‌برد، نه خودِ لینک.</p>
+  </figure>
+
+  <!-- چسباندن: همهٔ پیام‌ها -->
+  <figure class="shot">
+    <figcaption>چسباندن لینک · دکمه در حال بررسی، و پنج پیام خطا</figcaption>
+    <div class="cards-stack login-parts" data-frame="phone-cards-paste">
+      <button class="btn btn-outline" type="button" aria-busy="true"><svg class="icon"><use href="#i-spin"/></svg>در حال بررسی لینک…</button>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>کلیپ‌بورد خالی است.</strong> لینک اشتراکت را کپی کن، بعد دوباره بزن.</span></p>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک شیکونت نیست.</strong> فقط لینک اشتراک شیکونت کار می‌کند؛ همان که از ربات شیکونت یا نماینده‌ات گرفتی.</span></p>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>این لینک باطل شده یا منقضی است.</strong> لینک تازه را از ربات شیکونت یا نماینده‌ات بگیر.</span></p>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>اینترنت وصل نیست.</strong> اینترنت گوشی را بررسی کن و دوباره بزن.</span></p>
+      <p class="notice msg danger"><svg class="icon"><use href="#i-alert"/></svg><span><strong>لینک الان باز نشد.</strong> کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.</span></p>
+    </div>
+    <p class="note">از بالا: دکمه تا جواب سرور، کلیپ‌بورد خالی، لینک غیرشیکونت، لینکی که سرور دیگر نمی‌شناسد، بی‌اینترنت، و جوابی که خوانده نشد. همه جای پیام قاب قبلی می‌آیند.</p>
+    <p class="note">«باطل شده یا منقضی» فقط وقتی است که سرور صریح بگوید این لینک را نمی‌شناسد (۴۰۴ یا ۴۱۰). خطای سرور (۵۰۰ به بالا)، جواب خالی، صفحهٔ وب به‌جای اشتراک، یا اشتراکی که فقط ردیف‌های غیرسرور دارد و حجم و اعتبارش هم تمام نشده، «لینک الان باز نشد» است: اپ نمی‌داند لینک خراب است، پس نباید بگوید باطل شده. صفحهٔ وب ممکن است صفحهٔ ورودِ وای‌فایِ هتل یا صفحهٔ فیلتر باشد. «سرور» در متن نمی‌آید، چون مشتری آن را با سرورهای فهرست یکی می‌گیرد.</p>
+    <p class="note">لینکِ سرویسی که از قبل روی گوشی است، کارت دوم نمی‌سازد: نام کاربری در پنل یکتاست، پس همان کارت لینک تازه را می‌گیرد و باز می‌شود. لینک تازه کار کرده، پس لینک قبلی همان است که باطل شده.</p>
+    <p class="note">سرویسی که فقط اعتبار یا حجمش تمام شده، باطل حساب نمی‌شود: اضافه می‌شود و خانه «تمدید» را نشان می‌دهد. «باطل شده یا منقضی» فقط برای لینکی است که سرور دیگر جواب نمی‌دهد.</p>
+    <p class="note"><b>پیشنهاد</b>اگر نشانی اشتراک از ایران بی‌فیلترشکن باز نشود، «اینترنت وصل نیست» گمراه‌کننده است. این‌که اپ این دو را از هم جدا کند، با برنامه‌نویس است.</p>
+  </figure>
+
+  <!-- ورود: گرفتن کد -->
+  <figure class="shot">
+    <figcaption>ورود با تلگرام · دکمه در حال گرفتن کد، و پیامِ «کد ورود نرسید»</figcaption>
+    <div class="cards-stack login-parts" data-frame="phone-cards-login-code">
+      <button class="btn btn-telegram" type="button" aria-busy="true"><svg class="icon"><use href="#i-spin"/></svg>در حال گرفتن کد…</button>
+      <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>کد ورود نرسید.</strong> اینترنت گوشی را بررسی کن و دوباره بزن.</span></p>
+      <button class="btn-link" type="button">ارسال گزارش به پشتیبانی</button>
+    </div>
+    <p class="note">بالا: «ورود با تلگرام» تا رسیدن کد چرخنده و «در حال گرفتن کد…» می‌گیرد؛ «چسباندن لینک اشتراک» و «تلگرام روی این گوشی نیست؟» هر دو غیرفعال و کم‌رنگ‌اند، مثل چسباندن لینک. با رسیدن کد تلگرام باز می‌شود. اگر تا ۱۵ ثانیه کد نرسید، پیام پایین.</p>
+    <p class="note">پایین: اگر کد نرسید، پیام و «ارسال گزارش به پشتیبانی» زیرش با هم می‌آیند. کسی هنوز وارد نشده، پس نتیجهٔ گزارش کد ۸ رقمی است.</p>
+    <p class="note">جای پیام: اگر کد نرسید، این پیام درست بالای «ورود با تلگرام» می‌آید و جای «تلگرام باز می‌شود؛…» را می‌گیرد. دکمهٔ جدای «دوباره» نیست؛ خودِ «ورود با تلگرام» دوباره امتحان می‌کند.</p>
+    <p class="note">صفحهٔ «تأیید از دستگاه دیگر» همان دو حالت تلویزیون را دارد: جای کد تصویری خالی با چرخنده، و اگر کد نرسید «کد ورود نرسید» روی کاشی و دکمهٔ «دوباره» جای جعبهٔ کد؛ جملهٔ «تلگرامت روی کامپیوتر است؟…» هم با جعبهٔ کد می‌رود، چون کدی نیست که فرستاده شود. خط پایینِ صفحه هم جای «کد ۱۰ دقیقه کار می‌کند…» می‌شود «اینترنت گوشی را بررسی کن و دوباره بزن.»، چون کدی نیست که کار کند.</p>
   </figure>
 
   <!-- آینده: چند نوع اتصال (هنوز تصمیم نیست) -->
@@ -295,7 +769,7 @@
       <div class="phone" data-frame="phone-future-home">
         <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
         <div class="appbar">
-          <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+          <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
           <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
         </div>
         <div class="home">
@@ -354,6 +828,13 @@
             </div>
           </section>
           <section>
+            <h3 class="group-title">زبان</h3>
+            <div class="segmented" role="radiogroup">
+              <button type="button" role="radio" aria-checked="true">فارسی</button>
+              <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+            </div>
+          </section>
+          <section>
             <h3 class="group-title">روش اتصال</h3>
             <div class="card" role="radiogroup">
               <button class="row" type="button" role="radio" aria-checked="true"><span class="radio"></span><span class="t"><span>خودکار</span><small>روش‌ها به ترتیب امتحان می‌شوند تا یکی وصل شود</small></span></button>
@@ -367,9 +848,13 @@
           <section>
             <h3 class="group-title">حساب</h3>
             <div class="card">
+              <div class="row">
+                <svg class="icon"><use href="#i-plane"/></svg>
+                <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرامِ <bdi dir="ltr">@maryam_k</bdi></small></span>
+              </div>
               <button class="row danger" type="button">
                 <svg class="icon"><use href="#i-logout"/></svg>
-                <span class="t"><span>خروج</span><small>این گوشی از حساب تلگرامت جدا می‌شود</small></span>
+                <span class="t"><span>خروج</span><small>سرویس‌های این حساب از این دستگاه برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.</small></span>
               </button>
             </div>
           </section>
@@ -405,7 +890,7 @@
           <span class="chip chip-positive">فعال</span>
         </header>
         <div class="usage">
-          <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+          <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
           <div class="bar"><span style="inline-size: 24%"></span></div>
           <div class="usage-row"><span>اعتبار: بدون محدودیت زمان</span></div>
         </div>
@@ -445,7 +930,7 @@
         </div>
       </article>
     </div>
-    <p class="note">متن‌ها همان متن‌های صفحهٔ جزئیات سرویس در ربات‌اند: «حجم: نامحدود»، «اعتبار: بدون محدودیت زمان»، «اعتبار: ۳۰ روز از اولین اتصال» و برچسب «در انتظار فعال‌سازی». کارت آخر حجمِ ۹۹٪ مصرف‌شده است: نوار رنگ هشدار می‌گیرد، ولی مثل ربات تا وقتی واقعاً تمام نشده «۱۰۰٪» و «تمام شده» نمی‌شود.</p>
+    <p class="note">متن‌ها همان متن‌های صفحهٔ جزئیات سرویس در ربات‌اند: «حجم: نامحدود»، «اعتبار: بدون محدودیت زمان»، «اعتبار: ۳۰ روز از اولین اتصال» و برچسب «در انتظار فعال‌سازی». کارت آخر حجمِ ۹۹٪ مصرف‌شده است: از ۹۰٪ نوار و عدد «باقی‌مانده» رنگ هشدار می‌گیرند، مثل عددِ قرمزِ کارتِ حجمِ تمام‌شده، ولی مثل ربات تا وقتی واقعاً تمام نشده «۱۰۰٪» و «تمام شده» نمی‌شود.</p>
   </figure>
 
   <!-- خانهٔ بلند: ۹ سرور و چند سرویس -->
@@ -454,7 +939,7 @@
     <div class="phone tall" data-frame="phone-home-long">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
@@ -470,8 +955,11 @@
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
@@ -484,39 +972,213 @@
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
           </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+          </div>
           <ul class="servers">
-            <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۷۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۰۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۲۴۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۱</span><span class="ping">۷۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲</span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping">۹۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۲</span><span class="ping">۱۰۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲</span><span class="ping">۱۱۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱</span><span class="ping ok">۱۳۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲</span><span class="ping ok">۱۸۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۱</span><span class="ping ok">۲۴۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس</span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
           </ul>
         </article>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-down"/></svg>
           </header>
-          <p class="svc-summary">مصرف شده <span class="warn">۴۹٫۸ از ۵۰ گیگ</span> · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+          <p class="svc-summary">مصرف شده: <span class="warn">۴۹٫۸ از ۵۰ گیگ</span> · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
         </article>
-        <article class="card svc">
-          <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user456</bdi> · طلایی</h2>
-            <span class="chip chip-danger">تاریخ انقضا گذشته</span>
-            <svg class="icon"><use href="#i-chevron-down"/></svg>
-          </header>
-          <p class="svc-summary">اعتبارش ۲۸ شهریور ۱۴۰۵ تمام شد. با تمدید دوباره فعال می‌شود.</p>
-        </article>
+        <section class="card finished">
+          <button class="finished-head" type="button" aria-expanded="false"><span>سرویس‌های تمام‌شده (۲)</span><svg class="icon"><use href="#i-chevron-down"/></svg></button>
+        </section>
       </div>
     </div>
     <div class="fold">پایان صفحهٔ اول</div>
     <p class="note">کل صفحه یکجا اسکرول می‌شود و دکمهٔ گرد هم بالا می‌رود. خط‌چینِ کنار قاب ارتفاع یک صفحهٔ گوشی است.</p>
-    <p class="note">سرویسِ در حال استفاده باز است و بقیه جمع‌اند؛ با زدن روی هر کدام باز می‌شود. سرویس دوم ۹۹٪ مصرف شده و رنگ هشدار گرفته، ولی هنوز «تمام شده» نیست.</p>
+    <p class="note">سرویسِ در حال استفاده باز است و بقیه جمع‌اند. کارت جمع‌شده با زدن روی هر جایش باز می‌شود، جز دکمهٔ به‌روزرسانی. سربرگش همان سربرگ کارت باز است، با زمان به‌روزرسانی و دکمه‌اش.</p>
+    <p class="note">خط خلاصه همان برچسب‌های کارت باز را دارد: «مصرف شده: ۳۳ از ۱۰۰ گیگ · اعتبار تا ۳ آبان ۱۴۰۵». حجم نامحدود: «مصرف شده: ۴۲ گیگ». سرویس بی‌تاریخ یا «از اولین اتصال» بخش اعتبار را ندارد. از ۹۰٪ مصرف، بخش حجم رنگ هشدار می‌گیرد (سرویس دوم). سرویس‌هایی که اعتبار یا حجمشان تمام شده کارت جدا ندارند و در ردیف «سرویس‌های تمام‌شده» ته صفحه‌اند (قاب‌های گوشیِ کوچک).</p>
+  </figure>
+
+  <!-- گوشیِ کوچک با قلم درشت: سرویس‌های تمام‌شده، تایمر و نام بلند -->
+  <figure class="shot tall">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · وصل، یک سرویس فعال و سه تمام‌شده (کل صفحه)</figcaption>
+    <div class="phone small tall" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-home-finished">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000123_a1f0</bdi> <span class="tier">· پاسارگاد</span></h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، همین الان</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 24%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+          </div>
+          <ul class="servers">
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۳</span><span class="ping">۹۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping">۱۰۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲</span><span class="ping ok">۱۴۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+          </ul>
+        </article>
+        <section class="card finished">
+          <button class="finished-head" type="button" aria-expanded="false"><span>سرویس‌های تمام‌شده (۳)</span><svg class="icon"><use href="#i-chevron-down"/></svg></button>
+        </section>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <div class="fold small">پایان صفحهٔ اول</div>
+    <p class="note">گوشی آزمون اول: ۷۲۰×۱۶۰۰ با چگالی ۳۳۶، یعنی ۳۴۳ در ۷۶۲ واحد، و اندازهٔ قلم سیستم ۱٫۴۵. همهٔ متن‌ها ۱٫۴۵ برابرند، جز داخل دکمهٔ گرد.</p>
+    <p class="note">ترتیب، روی گوشی و تلویزیون یکی: اول سرویس‌هایی که می‌شود با آن‌ها وصل شد (انتخاب‌شده باز، بقیه جمع، مثل همیشه)؛ بعد کارت‌هایی که کاری از مشتری می‌خواهند ولی تمام نشده‌اند («بدون لینک» و «لینک باطل شده»)؛ و ته ستون یک ردیف «سرویس‌های تمام‌شده (تعداد)» برای همهٔ سرویس‌هایی که اعتبار یا حجمشان تمام شده. این جای قانونِ قبلی را می‌گیرد که کارت‌های بی‌لینکِ حساب را بالای ستون می‌گذاشت: روی باکس واقعی، سرویسِ فعال زیر سه کارت تمام‌شده از صفحه بیرون افتاد، و روی گوشیِ کوچک با قلم درشت کارت‌های تمام‌شده کل خانه را پر کردند.</p>
+    <p class="note">ردیف «سرویس‌های تمام‌شده (۳)» با هر بار باز شدنِ اپ جمع است. با زدن باز می‌شود (قاب بعدی).</p>
+    <p class="note">تایمر: متنِ داخل دکمهٔ گرد حداکثر ۱٫۱۵ برابر بزرگ می‌شود، هر چه قلم سیستم باشد (در اپ: محدود کردنِ مقیاس متن فقط دورِ همین دکمه). با ۱٫۴۵، رقم آخرِ «۰۰:۰۰:۲۷» بیرون دایره می‌افتاد. دایره اندازهٔ ثابت دارد؛ بزرگ‌تر کردنش کارت را از صفحهٔ اول بیرون می‌برد.</p>
+    <p class="note">نام سرویس: اگر «نام کاربری · رده» در یک خط کنار برچسب جا نشد، برچسب به خط بعد می‌رود و رده هم اگر لازم شد؛ «·» با رده می‌رود، تا ته خط اول آویزان نماند. عدد و واحد («۳۸ گیگ») هم هیچ‌وقت از هم جدا نمی‌شوند. نام هرگز از ته بریده نمی‌شود؛ «۱۱۱۷۱۳۱…» در آزمون، همهٔ کارت‌ها را یکسان کرده بود. همین قانون روی تلویزیون هم هست.</p>
+  </figure>
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · ردیف «سرویس‌های تمام‌شده» باز</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-home-finished-open">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="scroll-view" data-scroll-to=".finished">
+        <div class="scroll-content">
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-on">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۱۲:۴۷</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000123_a1f0</bdi> <span class="tier">· پاسارگاد</span></h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، همین الان</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰ گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 24%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+          </div>
+          <ul class="servers">
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۳</span><span class="ping">۹۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping">۱۰۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲</span><span class="ping ok">۱۴۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+          </ul>
+        </article>
+        <section class="card finished">
+          <button class="finished-head" type="button" aria-expanded="true"><span>سرویس‌های تمام‌شده (۳)</span><svg class="icon"><use href="#i-chevron-up"/></svg></button>
+          <ul>
+            <li class="finished-row"><span class="t"><span class="n"><bdi dir="ltr">7000123_f38a</bdi> <span class="tier">· پاسارگاد</span></span><span class="s">حجم تمام شد</span></span><span class="btn btn-outline btn-sm">تمدید</span></li>
+            <li class="finished-row"><span class="t"><span class="n"><bdi dir="ltr">7000123_e7f9</bdi> <span class="tier">· پاسارگاد</span></span><span class="s">۳ روز پیش تمام شد</span></span><span class="btn btn-outline btn-sm">تمدید</span></li>
+            <li class="finished-row"><span class="t"><span class="n"><bdi dir="ltr">7000…123_2</bdi> <span class="tier">· اولین خرید</span></span><span class="s">۱۲ روز پیش تمام شد</span></span><span class="btn btn-outline btn-sm">تمدید</span></li>
+          </ul>
+        </section>
+      </div>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">هر سرویس یک ردیف است: نام و وضعیت زیر هم، و «تمدید» کنارشان، که ربات را روی صفحهٔ تمدیدِ همان سرویس باز می‌کند. «پشتیبانی» در ردیف‌ها نیست. خودِ ردیف کاری نمی‌کند، تا اسکرول کردن چیزی باز نکند.</p>
+    <p class="note">ردیف دوخطی است: نام و رده، و زیرش وضعیت؛ با قلم درشت، نام هم می‌تواند بشکند. وضعیت: «حجم تمام شد»، یا «امروز تمام شد» و «۳ روز پیش تمام شد»؛ تاریخ‌گذشته‌ای که تاریخش در دست نیست «اعتبارش تمام شد».</p>
+    <p class="note">ترتیب، یکی برای همه: تاریخ پایان سرویس، از دیرتر به زودتر؛ بی‌تاریخ‌ها آخر. حجم‌تمام‌شده‌ای که تاریخش هنوز نرسیده خودبه‌خود اول است. تاریخ پایانِ بیش از ۳۰ روز پیش یعنی پنهان، چه حجمش تمام شده باشد چه نه (یک ثابت در کد). بی‌تاریخ همیشه دیده می‌شود.</p>
+    <p class="note">نام کاربری‌ای که به‌تنهایی جا نشود از وسط کوتاه می‌شود و پنج حرف آخرش می‌ماند: سطر سوم. تفاوتِ سرویس‌های یک حساب همان ته نام است.</p>
+    <p class="note">لینکِ چسبانده‌شده‌ای که باطل شده «تمام‌شده» نیست و کارت خودش را دارد (کارت «لینک باطل شده»)، بالای این ردیف.</p>
+  </figure>
+  <figure class="shot tall">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · هیچ سرویسی وصل نمی‌شود (کل صفحه)</figcaption>
+    <div class="phone small tall" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-home-only-finished">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone is-disabled">
+          <div class="power-ring">
+            <div class="power" aria-disabled="true">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">حجم تمام شده</span>
+            </div>
+          </div>
+          <p class="power-msg">با «تمدید» دوباره وصل می‌شوی.</p>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000123_f38a</bdi> <span class="tier">· پاسارگاد</span></h2><span class="chip chip-danger">حجم تمام شده</span></div>
+            </div>
+          </header>
+          <p class="svc-summary">حجمش تمام شد. با تمدید دوباره فعال می‌شود.</p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+        </article>
+        <section class="card finished">
+          <button class="finished-head" type="button" aria-expanded="false"><span>سرویس‌های تمام‌شده (۲)</span><svg class="icon"><use href="#i-chevron-down"/></svg></button>
+        </section>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <div class="fold small">پایان صفحهٔ اول</div>
+    <p class="note">وقتی هیچ سرویسی وصل نمی‌شود، از بالا: کارتِ کاملِ اولین تمام‌شده (همان ترتیبِ ردیف)، با «تمدید» بزرگ و «پشتیبانی»؛ بعد «بدون لینک» و «لینک باطل شده» اگر هستند؛ بعد ردیف جمع‌شدهٔ بقیه. همان روی تلویزیون، با «دوباره» کنار دو دکمه.</p>
+    <p class="note">همان حسابِ قاب‌های بالا، بی سرویسِ فعال. سرویسِ کارتِ کامل همان اولین ردیفِ قاب «باز» است: حجمش تمام شده و تاریخش هنوز نرسیده، پس به ترتیبِ تاریخ پایان اول است. دو سرویس دیگر در ردیف جمع‌شده‌اند.</p>
+    <p class="note">اگر کارتِ کامل لینک دارد (چسبانده شده)، سربرگش زمان به‌روزرسانی و دکمه‌اش را هم دارد، مثل قاب «خانه · حجم تمام شده».</p>
   </figure>
 
 </main>

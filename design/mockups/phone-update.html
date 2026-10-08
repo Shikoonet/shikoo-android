@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شیکونت · به‌روزرسانی، گوشی</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mockup.css">
+<script src="mockup.js"></script>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>شیکونت · به‌روزرسانی، گوشی</h1>
+  <p>کارت نسخهٔ تازه در خانه و پنج حالتش، به‌روزرسانیِ اجباری، پنجرهٔ اجازهٔ نصب، و ساعت دستگاه غلط؛ گوشی معمولی و گوشی کوچک با قلم ۱٫۴۵.</p>
+  <nav class="sheet-nav">
+    <a href="phone.html">گوشی</a>
+    <a href="phone-states.html">حالت‌های گوشی</a>
+    <a href="phone-ping.html">پینگ گوشی</a>
+    <a href="phone-update.html" aria-current="page">به‌روزرسانی گوشی</a>
+    <a href="phone-report.html">گزارش گوشی</a>
+    <a href="tv.html">تلویزیون</a>
+    <a href="tv-states.html">حالت‌های تلویزیون</a>
+    <a href="tv-ping.html">پینگ تلویزیون</a>
+    <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
+    <a href="tv-report.html">گزارش تلویزیون</a>
+  </nav>
+  <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
+</header>
+
+<main class="board">
+
+  <figure class="shot">
+    <figcaption>خانه · نسخهٔ تازه آمده</figcaption>
+    <div class="phone" data-frame="phone-home-update">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+        </section>
+        <section class="card update">
+          <div class="update-row"><span class="t"><strong>نسخهٔ تازه آمده</strong><small>نسخهٔ ۱.۰.۵۷، ۵۲ مگابایت</small></span><button class="btn btn-primary" type="button">دریافت</button></div>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، همین الان</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 24%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+        </article>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">کارتِ نسخهٔ تازه سرِ فهرست کارت‌هاست، زیر دکمهٔ گرد؛ دکمهٔ گرد و سرورِ زیرش هیچ‌وقت جابه‌جا نمی‌شوند. اعلانِ سیستمی ندارد.</p>
+    <p class="note">فقط وقتی هست که نسخهٔ این دستگاه از نسخهٔ منتشرشده کهنه‌تر است. دریافت فقط با زدن «دریافت» شروع می‌شود، چون فایل ۵۲ مگابایت است و شاید اینترنتِ حجمی باشد.</p>
+    <p class="note">کارت دکمهٔ بستن ندارد: تا نسخهٔ تازه نصب نشده، سر جایش می‌ماند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>کارت نسخهٔ تازه · همهٔ حالت‌ها</figcaption>
+    <div class="cards-stack" data-frame="phone-cards-update">
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>نسخهٔ تازه آمده</strong><small>نسخهٔ ۱.۰.۵۷، ۵۲ مگابایت</small></span><button class="btn btn-primary" type="button">دریافت</button></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>در حال دریافت…</strong><small>۴۷٪، ۲۴ از ۵۲ مگابایت</small></span><button class="btn btn-outline" type="button">انصراف</button></div>
+        <div class="bar"><span style="inline-size: 47%"></span></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary" type="button">نصب</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>دریافت نشد.</strong><small>اینترنت را بررسی کن و دوباره بزن؛ از همان‌جا ادامه می‌دهد.</small></span><button class="btn btn-outline" type="button">دوباره</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>فایل سالم نرسید.</strong><small>دوباره بزن تا از اول دریافت شود.</small></span><button class="btn btn-outline" type="button">دوباره</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>جا کم است.</strong><small>چند برنامه یا فایل را از این دستگاه پاک کن و دوباره بزن.</small></span><button class="btn btn-outline" type="button">دوباره</button></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary" type="button">نصب</button></div>
+        <p class="update-msg">نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.</p>
+      </section>
+    </div>
+    <p class="note">از بالا: هست، در حال دریافت، آماده، دریافت نشد، فایل سالم نرسید، جا کم است، و «آماده» وقتی نصب‌کننده باز نشد. همین‌ها روی تلویزیون هم هست.</p>
+    <p class="note">«جا کم است» وقتی است که فایل در حافظهٔ دستگاه جا نمی‌شود. متنش برای گوشی و تلویزیون یکی است و از اینترنت حرفی نمی‌زند. «دوباره» از همان‌جا ادامه می‌دهد.</p>
+    <p class="note">اگر نصب‌کنندهٔ اندروید باز نشد، کارت همان «آماده» می‌ماند و فقط یک خط قرمز زیر «نصب» می‌آید؛ حالت تازه‌ای نیست. «نصب» ِ بعدی خط را برمی‌دارد. در صفحهٔ اجباری همین خط بالای دکمه‌هاست (قاب «نصب‌کننده باز نشد»).</p>
+    <p class="note">«انصراف» دریافت را نگه می‌دارد و کارت به حالت اول برمی‌گردد؛ «دریافت» ِ بعدی از همان‌جا ادامه می‌دهد. روی تلویزیون، «انصراف» جای ریموت هم هست، تا وسط دریافت فوکوس جایی برود.</p>
+    <p class="note">«دریافت نشد» یعنی اینترنت یا سرور وسط راه قطع شد؛ «دوباره» از همان‌جا ادامه می‌دهد. «فایل سالم نرسید» یعنی فایلِ کامل با نشانِ منتشرشده نخواند؛ فایل پاک می‌شود و «دوباره» از اول می‌گیرد.</p>
+    <p class="note">حالتِ «در حال نصب» نداریم: «نصب» نصب‌کنندهٔ خودِ اندروید را باز می‌کند و اپ بسته می‌شود.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · جای خانه را می‌گیرد</figcaption>
+    <div class="phone" data-frame="phone-update-forced">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <button class="btn btn-primary" type="button">دریافت</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">وقتی نسخهٔ این دستگاه دیگر پذیرفته نیست، این صفحه جای خانه را می‌گیرد و تنها دکمه‌اش «دریافت» است. بعد از زدن، همان حالت‌های کارت را می‌گیرد: نوار و «انصراف»، بعد «نصب» و «پشتیبانی»، یا «دوباره» و «پشتیبانی».</p>
+    <p class="note">خط وضعیتِ اتصال ندارد. اتصالی که از قبل روشن بوده روشن می‌ماند، ولی از این صفحه کاری با آن نمی‌شود کرد، و نشانِ کلیدِ نوار وضعیتِ اندروید همین را می‌گوید. جملهٔ دوم فقط می‌گوید نصب چه می‌کند.</p>
+    <p class="note">دکمهٔ برگشت این صفحه را نمی‌بندد؛ اپ را به پس‌زمینه می‌برد.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · در حال دریافت</figcaption>
+    <div class="phone" data-frame="phone-update-forced-downloading">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <div class="update-progress"><span>در حال دریافت… ۴۷٪، ۲۴ از ۵۲ مگابایت</span><div class="bar"><span style="inline-size: 47%"></span></div></div>
+        <button class="btn btn-outline" type="button">انصراف</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">پایین صفحه، جای «دریافت»: یک خط «در حال دریافت…» با درصد و مگابایت، نوار، و «انصراف». متن بالا عوض نمی‌شود تا صفحه نپرد. با تمام شدن، «نصب» و «پشتیبانی» جای «انصراف» می‌آیند (قاب «آمادهٔ نصب»).</p>
+    <p class="note">«انصراف» صفحه را به حالت اول برمی‌گرداند و «دریافت» ِ بعدی از همان‌جا ادامه می‌دهد. صفحهٔ اجباری بسته نمی‌شود.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · آمادهٔ نصب</figcaption>
+    <div class="phone" data-frame="phone-update-forced-ready">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <button class="btn btn-primary" type="button">نصب</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">در حالت «آماده» ِ صفحهٔ اجباری، «پشتیبانی» همیشه کنار «نصب» است، چه خط قرمز باشد چه نه، چون این صفحه راه دیگری به پشتیبانی ندارد و نصب گاهی از دست اپ بیرون است: اجازهٔ نصب داده نمی‌شود (قفل امنیتی گوشی، تنظیماتِ بستهٔ تلویزیون)، یا نصب‌کنندهٔ اندروید باز می‌شود و بی‌نصب برمی‌گردد. مقصدش همان «پشتیبانی» ِ کارت سرویس است. در کارت خانه «پشتیبانی» لازم نیست، چون کارت سرویس زیرش آن را دارد.</p>
+  </figure>
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · نصب‌کننده باز نشد</figcaption>
+    <div class="phone" data-frame="phone-update-forced-install-failed">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <p class="update-msg">نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.</p>
+        <button class="btn btn-primary" type="button">نصب</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">اگر نصب‌کنندهٔ اندروید باز نشد، همین صفحه با یک خط قرمز بالای دکمه‌ها؛ «نصب» ِ بعدی خط را برمی‌دارد. در کارت خانه همین خط زیر «نصب» است.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · دریافت نشد</figcaption>
+    <div class="phone" data-frame="phone-update-forced-failed">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+        </div>
+        <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>دریافت نشد.</strong> اینترنت را بررسی کن و دوباره بزن؛ از همان‌جا ادامه می‌دهد.</span></p>
+        <button class="btn btn-primary" type="button">دوباره</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">اگر دریافت در صفحهٔ اجباری نشد، کنار «دوباره» یک «پشتیبانی» هم هست، تا کسی که سرور به او نمی‌رسد گیر نکند. مقصدش همان «پشتیبانی» ِ کارت سرویس است: نشانیِ پشتیبانیِ اشتراک، یا اگر خالی است، پشتیبانی شیکونت.</p>
+    <p class="note">برای «فایل سالم نرسید» همین قاب است، با متن «فایل سالم نرسید.» و «دوباره بزن تا از اول دریافت شود.». جملهٔ «با نصب، شیکونت بسته می‌شود…» در این حالت نیست، چون هنوز چیزی برای نصب نیست.</p>
+    <p class="note">روی گوشی «پشتیبانی» گفتگو را مستقیم در تلگرام باز می‌کند، مثل جاهای دیگر.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>نصب · اجازهٔ نصب هنوز داده نشده</figcaption>
+    <div class="phone" data-frame="phone-update-permission">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+        </section>
+        <section class="card update">
+          <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary" type="button">نصب</button></div>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، همین الان</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 24%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+        </article>
+      </div>
+      <div class="scrim">
+        <div class="dialog" role="alertdialog" aria-labelledby="perm-title">
+          <h2 id="perm-title">اجازهٔ نصب</h2>
+          <p>در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ گوشی را بزن؛ نصب خودش شروع می‌شود.</p>
+          <p>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-outline" type="button">انصراف</button>
+            <button class="btn btn-primary" type="button">ادامه</button>
+          </div>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">فقط وقتی می‌آید که «نصب» زده شده و اندروید هنوز اجازهٔ نصب به شیکونت نداده. «ادامه» صفحهٔ همین اجازه را در تنظیمات اندروید باز می‌کند.</p>
+    <p class="note">شیائومی بعد از روشن کردنِ اجازه خودش به اپ برنمی‌گردد؛ پس متن می‌گوید «دکمهٔ برگشت». وقتی اپ دوباره جلو می‌آید و اجازه هست، نصب‌کننده بی‌دکمهٔ دیگری باز می‌شود. اگر اجازه هنوز نیست، کارت همان «آماده» می‌ماند و «نصب» ِ بعدی همین پنجره را دوباره می‌آورد. در صفحهٔ اجباری هم همین است، و چون شاید اجازه هرگز داده نشود (قفل امنیتی، تنظیمات بسته)، «پشتیبانی» همیشه کنار «نصب» است (قاب «آمادهٔ نصب» ِ صفحهٔ اجباری).</p>
+    <p class="note">دستگاهی که این صفحهٔ تنظیمات را ندارد، این پنجره را نمی‌بیند و مستقیم به نصب‌کننده می‌رود.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · همهٔ حالت‌ها</figcaption>
+    <div class="cards-stack small" data-font-scale style="--font-scale: 1.45" data-frame="phone-cards-update-small">
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>نسخهٔ تازه آمده</strong><small>نسخهٔ ۱.۰.۵۷، ۵۲ مگابایت</small></span><button class="btn btn-primary" type="button">دریافت</button></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>در حال دریافت…</strong><small>۴۷٪، ۲۴ از ۵۲ مگابایت</small></span><button class="btn btn-outline" type="button">انصراف</button></div>
+        <div class="bar"><span style="inline-size: 47%"></span></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary" type="button">نصب</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>دریافت نشد.</strong><small>اینترنت را بررسی کن و دوباره بزن؛ از همان‌جا ادامه می‌دهد.</small></span><button class="btn btn-outline" type="button">دوباره</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>فایل سالم نرسید.</strong><small>دوباره بزن تا از اول دریافت شود.</small></span><button class="btn btn-outline" type="button">دوباره</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>جا کم است.</strong><small>چند برنامه یا فایل را از این دستگاه پاک کن و دوباره بزن.</small></span><button class="btn btn-outline" type="button">دوباره</button></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary" type="button">نصب</button></div>
+        <p class="update-msg">نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.</p>
+      </section>
+    </div>
+    <p class="note">با قلم درشت، دکمه زیر متن می‌رود و متن کامل می‌ماند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · انگلیسی</figcaption>
+    <div class="cards-stack small" data-font-scale style="--font-scale: 1.45" dir="ltr" lang="en" data-frame="phone-cards-update-small-en">
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>A new version is out</strong><small>Version 1.0.57, 52 MB</small></span><button class="btn btn-primary" type="button">Download</button></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>Downloading…</strong><small>47%, 24 of 52 MB</small></span><button class="btn btn-outline" type="button">Cancel</button></div>
+        <div class="bar"><span style="inline-size: 47%"></span></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>Ready to install</strong><small>Installing closes ShikooNet, and the connection if you're connected; open it again afterwards.</small></span><button class="btn btn-primary" type="button">Install</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>The download stopped.</strong><small>Check your internet and try again; it picks up where it stopped.</small></span><button class="btn btn-outline" type="button">Try again</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>The file arrived damaged.</strong><small>Try again to download it from the start.</small></span><button class="btn btn-outline" type="button">Try again</button></div>
+      </section>
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>Not enough space.</strong><small>Remove a few apps or files from this device and try again.</small></span><button class="btn btn-outline" type="button">Try again</button></div>
+      </section>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>Ready to install</strong><small>Installing closes ShikooNet, and the connection if you're connected; open it again afterwards.</small></span><button class="btn btn-primary" type="button">Install</button></div>
+        <p class="update-msg">The installer didn't open; try again or ask Support.</p>
+      </section>
+    </div>
+    <p class="note">متن‌های انگلیسی بلندترند؛ همان چیدمان، از چپ به راست.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · به‌روزرسانیِ اجباری</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-update-forced">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <button class="btn btn-primary" type="button">دریافت</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · به‌روزرسانیِ اجباری در حال دریافت</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-update-forced-downloading">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <div class="update-progress"><span>در حال دریافت… ۴۷٪، ۲۴ از ۵۲ مگابایت</span><div class="bar"><span style="inline-size: 47%"></span></div></div>
+        <button class="btn btn-outline" type="button">انصراف</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · به‌روزرسانیِ اجباری، آمادهٔ نصب</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-update-forced-ready">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <button class="btn btn-primary" type="button">نصب</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+  </figure>
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · به‌روزرسانیِ اجباری، نصب‌کننده باز نشد</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-update-forced-install-failed">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+          <span class="sub">با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</span>
+        </div>
+        <p class="update-msg">نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.</p>
+        <button class="btn btn-primary" type="button">نصب</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · اجازهٔ نصب</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-update-permission">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="appbar">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="home">
+        <section class="power-zone">
+          <div class="power-ring">
+            <button class="power" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+        </section>
+        <section class="card update">
+          <div class="update-row"><span class="t"><strong>آمادهٔ نصب</strong><small>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</small></span><button class="btn btn-primary" type="button">نصب</button></div>
+        </section>
+        <article class="card svc">
+          <header class="svc-head">
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، همین الان</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            <svg class="icon"><use href="#i-chevron-up"/></svg>
+          </header>
+          <div class="usage">
+            <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+            <div class="bar"><span style="inline-size: 24%"></span></div>
+            <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" type="button">تمدید</button>
+            <button class="btn btn-outline" type="button">پشتیبانی</button>
+          </div>
+        </article>
+      </div>
+      <div class="scrim">
+        <div class="dialog" role="alertdialog" aria-labelledby="perm-title">
+          <h2 id="perm-title">اجازهٔ نصب</h2>
+          <p>در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ گوشی را بزن؛ نصب خودش شروع می‌شود.</p>
+          <p>با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-outline" type="button">انصراف</button>
+            <button class="btn btn-primary" type="button">ادامه</button>
+          </div>
+        </div>
+      </div>
+      <div class="gesture"></div>
+    </div>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>تنظیمات · حالت‌های «بررسی به‌روزرسانی»</figcaption>
+    <div class="cards-stack" data-frame="phone-cards-settings-app">
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-spin"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small>در حال بررسی…</small></span></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small>نسخهٔ تو تازه‌ترین است.</small></span></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small class="danger">بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.</small></span></button>
+      </div>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>نسخهٔ تازه آمده</strong><small>نسخهٔ ۱.۰.۵۸، ۵۲ مگابایت</small></span><button class="btn btn-primary" type="button">دریافت</button></div>
+      </section>
+    </div>
+    <p class="note">فقط ردیفی که عوض می‌شود: در حال بررسی، تازه‌ترین است، بررسی نشد، و نسخهٔ تازه هست. بقیهٔ بخش «اپ» در قاب «تنظیمات» ِ صفحهٔ گوشی است. «دوباره» دکمهٔ جدایی نیست: خودِ ردیف را دوباره بزن.</p>
+    <p class="note">وقتی نسخهٔ تازه هست، چه از همین بررسی چه از بررسیِ خودکار، ردیف «بررسی به‌روزرسانی» جایش را به همان کارت «نسخهٔ تازه» ِ خانه می‌دهد، زیر کارتِ «اپ»، با همهٔ حالت‌هایش. رفتن به خانه لازم نیست.</p>
+    <p class="note">پیام «تازه‌ترین است» و «بررسی نشد» تا بیرون رفتن از تنظیمات می‌ماند.</p>
+  </figure>
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · بخش «اپ» و حالت‌ها</figcaption>
+    <div class="cards-stack small" data-font-scale style="--font-scale: 1.45" data-frame="phone-cards-settings-app-small">
+      <div class="card">
+        <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+        <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
+        <button class="row" type="button"><span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-spin"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small>در حال بررسی…</small></span></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small>نسخهٔ تو تازه‌ترین است.</small></span></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small class="danger">بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.</small></span></button>
+      </div>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>نسخهٔ تازه آمده</strong><small>نسخهٔ ۱.۰.۵۸، ۵۲ مگابایت</small></span><button class="btn btn-primary" type="button">دریافت</button></div>
+      </section>
+    </div>
+    <p class="note">با قلم درشت، اگر ردیف جا نشد، عدد نسخه زیر برچسب می‌رود، نه کنارش.</p>
+  </figure>
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · انگلیسی</figcaption>
+    <div class="cards-stack small" data-font-scale style="--font-scale: 1.45" dir="ltr" lang="en" data-frame="phone-cards-settings-app-small-en">
+      <div class="card">
+        <div class="row"><span class="t"><span>Version</span></span><span class="value">1.0.57</span></div>
+        <div class="row"><span class="t"><span>Core</span><small>Updates together with the app.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>Check for updates</span></span></button>
+        <button class="row" type="button"><span class="t"><span>About</span><small>Free software under <bdi>GPL-3.0</bdi>, built on <bdi>FlClash</bdi> and <bdi>mihomo</bdi></small></span><svg class="icon flip-ltr"><use href="#i-chevron-fwd"/></svg></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-spin"/></svg><span class="t"><span>Check for updates</span><small>Checking…</small></span></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>Check for updates</span><small>You have the latest version.</small></span></button>
+      </div>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>Check for updates</span><small class="danger">Couldn't check; check your internet and try again.</small></span></button>
+      </div>
+      <section class="card update">
+        <div class="update-row"><span class="t"><strong>A new version is out</strong><small>Version 1.0.58, 52 MB</small></span><button class="btn btn-primary" type="button">Download</button></div>
+      </section>
+    </div>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ساعت دستگاه غلط · کارت نسخهٔ تازه و بخش «اپ» ِ تنظیمات</figcaption>
+    <div class="cards-stack" data-frame="phone-cards-clock">
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>تاریخ و ساعت دستگاهت درست نیست.</strong><small>از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</small></span></div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات تاریخ و ساعت</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+        </div>
+      </section>
+      <div class="card">
+        <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+        <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small class="danger">تاریخ و ساعت دستگاهت درست نیست. از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</small></span></button>
+        <button class="row" type="button"><svg class="icon"><use href="#i-gear"/></svg><span class="t"><span>تنظیمات تاریخ و ساعت</span></span></button>
+        <button class="row" type="button"><span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
+      </div>
+    </div>
+    <p class="note">بالا، کارت نسخهٔ تازه وقتی دریافت به خاطر ساعت دستگاه پذیرفته نشد؛ در خانه و در تنظیمات همین است. این تنها حالتِ کارت با دو دکمه است، پس دکمه کنار متن نمی‌نشیند: متن تمام‌پهناست و دو دکمه زیرش می‌آیند.</p>
+    <p class="note">دو دکمه مثل «تمدید» و «پشتیبانی» ِ کارت سرویس‌اند: دو نیمهٔ برابر در یک خط. اگر «تنظیمات تاریخ و ساعت» در نیمه جا نشود، هر دو تمام‌پهنا زیر هم می‌روند؛ هیچ‌وقت دو دکمهٔ ناهم‌پهنا زیر هم نیستند. روی گوشی همیشه زیر هم‌اند.</p>
+    <p class="note">ترتیب همان صفحهٔ ساعتِ غلط و گزارش است: اول «تنظیمات تاریخ و ساعت» (پررنگ)، بعد «دوباره». جفت دکمه همه‌جا آیکون دارد، چرخ‌دنده و پیکان چرخان.</p>
+    <p class="note">پایین، بخش «اپ» ِ تنظیمات. «دوباره» ِ این بخش خودِ ردیف «بررسی به‌روزرسانی» است، مثل «بررسی نشد». «تنظیمات تاریخ و ساعت» یک ردیف معمولیِ تنظیمات است، با آیکون چرخ‌دنده و بی‌پیکان، درست زیر همان ردیف و پیش از «درباره»؛ دکمهٔ جدا نیست، پس جایش راست و چپ ندارد. با درست شدن ساعت و بررسیِ دوباره، یا بیرون رفتن از تنظیمات، ردیف می‌رود.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>به‌روزرسانیِ اجباری · ساعت دستگاه غلط</figcaption>
+    <div class="phone" data-frame="phone-update-forced-clock">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+        </div>
+        <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>تاریخ و ساعت دستگاهت درست نیست.</strong> از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</span></p>
+        <button class="btn btn-primary" type="button">تنظیمات تاریخ و ساعت</button>
+        <button class="btn btn-outline" type="button">دوباره</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">همان قاب «دریافت نشد»، با پیام ساعت و یک دکمهٔ بیشتر. «تنظیمات تاریخ و ساعت» اول و پررنگ است، چون تا ساعت درست نشود «دوباره» همان پیام را می‌آورد؛ بعد «دوباره» و «پشتیبانی». همه تمام‌پهنا و بی‌آیکون، مثل بقیهٔ دکمه‌های همین صفحه روی گوشی.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · ساعت دستگاه غلط</figcaption>
+    <div class="cards-stack small" data-font-scale style="--font-scale: 1.45" data-frame="phone-cards-clock-small">
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>تاریخ و ساعت دستگاهت درست نیست.</strong><small>از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</small></span></div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات تاریخ و ساعت</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+        </div>
+      </section>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span><small class="danger">تاریخ و ساعت دستگاهت درست نیست. از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</small></span></button>
+        <button class="row" type="button"><svg class="icon"><use href="#i-gear"/></svg><span class="t"><span>تنظیمات تاریخ و ساعت</span></span></button>
+        <button class="row" type="button"><span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
+      </div>
+    </div>
+    <p class="note">با قلم درشت هم «تنظیمات تاریخ و ساعت» با آیکونش در یک خط جا می‌شود و بریده نمی‌شود.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · به‌روزرسانیِ اجباری، ساعت دستگاه غلط</figcaption>
+    <div class="phone small" data-font-scale style="--font-scale: 1.45" data-frame="phone-small-update-forced-clock">
+      <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
+      <div class="login">
+        <div class="login-brand">
+          <span class="hero-icon muted"><svg class="icon"><use href="#i-download"/></svg></span>
+          <span class="word">نسخهٔ تازه لازم است</span>
+          <span class="sub">برای ادامه، نسخهٔ ۱.۰.۵۷ را دریافت و نصب کن (۵۲ مگابایت).</span>
+        </div>
+        <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>تاریخ و ساعت دستگاهت درست نیست.</strong> از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</span></p>
+        <button class="btn btn-primary" type="button">تنظیمات تاریخ و ساعت</button>
+        <button class="btn btn-outline" type="button">دوباره</button>
+        <button class="btn btn-outline" type="button">پشتیبانی</button>
+      </div>
+      <div class="gesture"></div>
+    </div>
+    <p class="note">بلندترین حالت این صفحه: با قلم درشت هم پیام و سه دکمه بی‌اسکرول جا می‌شوند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>گوشی کوچک، قلم ۱٫۴۵ · انگلیسی، ساعت دستگاه غلط</figcaption>
+    <div class="cards-stack small" data-font-scale style="--font-scale: 1.45" dir="ltr" lang="en" data-frame="phone-cards-clock-small-en">
+      <section class="card update is-error">
+        <div class="update-row"><span class="t"><strong>Your device's date and time are wrong.</strong><small>In Settings › Date &amp; time, turn on “Automatic” (or set them right), then try again.</small></span></div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-gear"/></svg>Date &amp; time settings</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>Try again</button>
+        </div>
+      </section>
+      <div class="card">
+        <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>Check for updates</span><small class="danger">Your device's date and time are wrong. In Settings › Date &amp; time, turn on “Automatic” (or set them right), then try again.</small></span></button>
+        <button class="row" type="button"><svg class="icon"><use href="#i-gear"/></svg><span class="t"><span>Date &amp; time settings</span></span></button>
+        <button class="row" type="button"><span class="t"><span>About</span><small>Free software under <bdi>GPL-3.0</bdi>, built on <bdi>FlClash</bdi> and <bdi>mihomo</bdi></small></span><svg class="icon flip-ltr"><use href="#i-chevron-fwd"/></svg></button>
+      </div>
+    </div>
+    <p class="note">از چپ به راست، همان چیدمان: دکمه‌ها و ردیف از لبهٔ چپ شروع می‌شوند.</p>
+  </figure>
+
+</main>
+</body>
+</html>

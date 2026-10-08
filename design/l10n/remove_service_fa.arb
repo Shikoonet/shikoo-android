@@ -1,0 +1,13 @@
+{
+  "@@locale": "fa",
+  "pastedServicesTitle": "سرویس‌های اضافه‌شده با لینک",
+  "removeService": "حذف",
+  "removeServiceLabel": "حذف {name}",
+  "removeServiceTitle": "حذف «{name}»؟",
+  "removeServiceBody": "این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.",
+  "removeServiceBodyConnected": "اتصال قطع می‌شود و این سرویس از این گوشی پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.",
+  "cancelButton": "انصراف",
+  "chipRevoked": "لینک باطل شده",
+  "revokedTitle": "این لینک باطل شده.",
+  "revokedHelp": "حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» بچسبان."
+}

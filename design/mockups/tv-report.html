@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شیکونت · گزارش به پشتیبانی، تلویزیون</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mockup.css">
+<script src="mockup.js"></script>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>شیکونت · گزارش به پشتیبانی، تلویزیون</h1>
+  <p>کارت «دفعهٔ قبل بسته شد»، «عیب‌یابی و گزارش»، پیش‌نمایش با ریموت، و حالت‌های ارسال. ورودی‌های دیگر در قاب‌های خودشان‌اند.</p>
+  <nav class="sheet-nav">
+    <a href="phone.html">گوشی</a>
+    <a href="phone-states.html">حالت‌های گوشی</a>
+    <a href="phone-ping.html">پینگ گوشی</a>
+    <a href="phone-update.html">به‌روزرسانی گوشی</a>
+    <a href="phone-report.html">گزارش گوشی</a>
+    <a href="tv.html">تلویزیون</a>
+    <a href="tv-states.html">حالت‌های تلویزیون</a>
+    <a href="tv-ping.html">پینگ تلویزیون</a>
+    <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
+    <a href="tv-report.html" aria-current="page">گزارش تلویزیون</a>
+  </nav>
+  <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
+</header>
+
+<main class="board tv-board">
+
+  <figure class="shot">
+    <figcaption>خانه · برنامه دفعهٔ قبل ناگهان بسته شد · ریموت روی دکمهٔ گرد</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-home-crash">
+      <header class="tv-top">
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
+      </header>
+      <div class="tv-home">
+        <div class="tv-col">
+          <div class="tv-col-content">
+            <section class="card update">
+              <div class="update-row"><span class="t"><strong>برنامه دفعهٔ قبل ناگهان بسته شد.</strong><small>گزارشش را برای ما بفرستیم؟</small></span></div>
+              <div class="dialog-actions">
+                <button class="btn btn-outline" type="button">نه</button>
+                <button class="btn btn-primary" type="button">بفرست</button>
+              </div>
+            </section>
+            <article class="card svc">
+              <header class="svc-head">
+                <div class="svc-titles">
+                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></h2><span class="chip chip-positive">فعال</span></div>
+                  <p class="svc-sub">به‌روز شد، همین الان</p>
+                </div>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
+              </header>
+              <div class="usage">
+                <div class="usage-row"><span>مصرف شده: <strong>۱۲</strong> از ۵۰&nbsp;گیگ</span><span>باقی‌مانده: <strong>۳۸ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 24%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۲۰ آذر ۱۴۰۵</span><span>۶۷ روز باقی‌مانده</span></div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
+                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <section class="tv-power">
+          <div class="power-ring">
+            <button class="power is-focused" type="button">
+              <svg class="icon"><use href="#i-power"/></svg>
+              <span class="power-label">اتصال</span>
+            </button>
+          </div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۳<span class="ping">۹۲</span></span>
+          <p class="tv-hint">دکمهٔ وسطِ ریموت را بزن تا وصل شوی</p>
+        </section>
+      </div>
+    </div>
+    <p class="note">مثل کارت نسخهٔ تازه: سرِ ستون است و فوکوس اول را نمی‌گیرد. فلشِ رو به ستون از دکمهٔ گرد به «بفرست» می‌رود؛ چپ و راست میان «بفرست» و «نه». اگر هر دو کارت باشند، این یکی بالاتر است.</p>
+    <p class="note">«بفرست» پیش‌نمایش را باز می‌کند. «نه» کارت را برمی‌دارد و ریموت به «به‌روزرسانی» ِ کارت سرویس می‌رود.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>تنظیمات › عیب‌یابی و گزارش · ریموت روی «ارسال گزارش»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-diagnose">
+      <header class="tv-top">
+        <h2 class="tv-title">عیب‌یابی و گزارش</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-settings">
+        <div class="settings">
+          <section>
+            <h3 class="group-title">اینترنت</h3>
+            <section class="card update check is-warning">
+              <div class="update-row"><svg class="icon"><use href="#i-alert"/></svg><span class="t"><strong>اینترنت بین‌الملل روی این خط قطع است. سرورها بیرون از ایران‌اند.</strong></span></div>
+              <div class="dialog-actions"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button></div>
+            </section>
+          </section>
+          <section>
+            <h3 class="group-title">گزارش</h3>
+            <div class="card update">
+              <p class="report-note">اگر برنامه درست کار نمی‌کند، یک گزارش برای پشتیبانی بفرست. پیش از ارسال می‌بینی چه فرستاده می‌شود.</p>
+              <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-report"/></svg>ارسال گزارش به پشتیبانی</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+    <p class="note">دو ستون، مثل تنظیمات: بررسی اینترنت در سمت راست و گزارش در سمت چپ. ریموت اول روی «ارسال گزارش به پشتیبانی» است، چون کار اصلی این صفحه همان است؛ فلشِ راست به «دوباره» ِ بررسی اینترنت می‌رود.</p>
+    <p class="note">حالت‌های بررسی اینترنت همان کارت‌های گوشی‌اند (قاب «بررسی اینترنت · همهٔ حالت‌ها» در صفحهٔ گزارش گوشی)، با اندازه‌های تلویزیون. «تنظیمات اینترنت» روی تلویزیونی که آن صفحه را ندارد، تنظیمات اصلی را باز می‌کند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>پیش‌نمایش پیش از ارسال · ریموت روی «ارسال»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-preview">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="report">
+        <div class="report-body">
+          <div class="scroll-content">
+            <div class="report-images">
+              <div class="report-image"><div class="report-tile"><span class="mini is-tv"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>آنچه برنامه کشید</span></div>
+              <div class="report-image"><div class="report-tile"><span class="mini is-tv"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span></div><span>آنچه روی صفحه بود</span></div>
+            </div>
+            <p class="report-note">فرستاده می‌شود: مدل و تنظیمات دستگاه، نسخهٔ برنامه، نام و حجم سرویس‌هایت، اپراتور و وضعیت اینترنت، و کارهای اخیر برنامه و خطاهایش. <strong>لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.</strong></p>
+          </div>
+        </div>
+        <div class="report-foot">
+          <div class="card"><button class="row" type="button" role="switch" aria-checked="true"><span class="t"><span>عکس صفحه‌ها هم فرستاده شود</span></span><span class="switch"></span></button></div>
+          <button class="btn btn-primary is-focused" type="button">ارسال</button>
+          <button class="btn btn-outline" type="button">انصراف</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">همه‌چیز در یک صفحه جا می‌شود و اسکرول ندارد. کلید و دو دکمه در یک ردیفِ پایین‌اند، تا عکس‌ها بزرگ بمانند. سه ایستگاه ریموت: کلید، «ارسال» و «انصراف». فوکوس اول روی «ارسال»؛ فلشِ راست به کلید، چپ به «انصراف». عکس‌ها و جمله ایستگاه نیستند.</p>
+    <p class="note">عکس‌های تلویزیون ۱۶ به ۹ اند؛ هر کدام نیمی از پهنا، منهای فاصله.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>پیش‌نمایش · کلید خاموش · ریموت روی کلید</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-preview-off">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="report">
+        <div class="report-body">
+          <div class="scroll-content">
+            <div class="report-images is-off">
+              <div class="report-image"><div class="report-tile"><span class="mini is-tv"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span><span class="report-off">فرستاده نمی‌شود</span></div><span>آنچه برنامه کشید</span></div>
+              <div class="report-image"><div class="report-tile"><span class="mini is-tv"><i class="m-ring"></i><i class="m-card"></i><i class="m-card"></i></span><span class="report-off">فرستاده نمی‌شود</span></div><span>آنچه روی صفحه بود</span></div>
+            </div>
+            <p class="report-note">فرستاده می‌شود: مدل و تنظیمات دستگاه، نسخهٔ برنامه، نام و حجم سرویس‌هایت، اپراتور و وضعیت اینترنت، و کارهای اخیر برنامه و خطاهایش. <strong>لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.</strong></p>
+          </div>
+        </div>
+        <div class="report-foot">
+          <div class="card"><button class="row is-focused" type="button" role="switch" aria-checked="false"><span class="t"><span>عکس صفحه‌ها هم فرستاده شود</span></span><span class="switch"></span></button></div>
+          <button class="btn btn-primary" type="button">ارسال</button>
+          <button class="btn btn-outline" type="button">انصراف</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">دکمهٔ وسط روی کلید آن را عوض می‌کند و فوکوس همان‌جا می‌ماند. خاموش: عکس‌ها کم‌رنگ می‌شوند و رویشان «فرستاده نمی‌شود» می‌آید، تا روشن باشد که فقط متن می‌رود. روی گوشی هم همین است.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · در حال ارسال · ریموت روی «انصراف»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-sending">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon muted"><svg class="icon"><use href="#i-spin"/></svg></span>
+        <h1>در حال ارسال…</h1>
+        <div class="actions">
+          <button class="btn btn-outline is-focused" type="button">انصراف</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">ریموت باید جایی بایستد، پس «انصراف» تنها ایستگاه است. ارسال تا ۶۰ ثانیه صبر می‌کند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده شد، وارد شده با تلگرام · ریموت روی «بستن»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-sent">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+        <h1>فرستاده شد</h1>
+        <p>پشتیبانی گزارشت را می‌بیند؛ لازم نیست چیزی بفرستی.</p>
+        <span class="fine">کد گزارش: <bdi dir="ltr">۴۸۲۱ ۹۰۳۷</bdi></span>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button">بستن</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">«پشتیبانی» همان پنجرهٔ کد تصویریِ پشتیبانی را باز می‌کند، بی‌دکمهٔ گزارش، چون گزارش رفته.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده شد، بی‌ورود تلگرامی · ریموت روی «پشتیبانی»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-sent-code">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+        <h1>فرستاده شد</h1>
+        <div class="code-box">
+          <span class="code-label">کد گزارش</span>
+          <span class="code">۴۸۲۱ ۹۰۳۷</span>
+        </div>
+        <p>این کد را به پشتیبانی بده.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+          <button class="btn btn-outline" type="button">بستن</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">کد درشت است تا از سه متری خوانده و در گفتگو تایپ شود. «پشتیبانی» پنجرهٔ کد تصویری را باز می‌کند و کد پشتش سر جایش می‌ماند؛ «بستن» ِ آن پنجره ریموت را به «پشتیبانی» برمی‌گرداند.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده نشد · ریموت روی «دوباره»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-failed">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon danger"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <h1>فرستاده نشد</h1>
+        <p>اینترنت را بررسی کن و دوباره بزن.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+          <button class="btn btn-outline" type="button">انصراف</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">«دوباره» همان گزارش را با همان عکس‌ها دوباره می‌فرستد.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده نشد، سرور جواب داد ولی نگرفت · ریموت روی «پشتیبانی»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-failed-answered">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon danger"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <h1>فرستاده نشد</h1>
+        <p>ایراد از سمت ماست. در تلگرام با پشتیبانی گفتگو کن.</p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">«پشتیبانی» پنجرهٔ کد تصویریِ پشتیبانی را باز می‌کند، بی‌دکمهٔ گزارش. وقتی سقف ساعتی پر شده، همین چیدمان با جملهٔ «الان گزارش‌های زیادی رسیده. یک ساعت دیگر دوباره بزن.» می‌آید.</p>
+  </figure>
+
+  <figure class="shot">
+    <figcaption>ارسال · فرستاده نشد، ساعت غلط · ریموت روی «تنظیمات تاریخ و ساعت»</figcaption>
+    <div class="tv" data-device="tv" data-frame="tv-report-failed-clock">
+      <header class="tv-top">
+        <h2 class="tv-title">گزارش برای پشتیبانی</h2>
+        <span class="tv-hint">برای برگشت، دکمهٔ برگشتِ ریموت را بزن</span>
+      </header>
+      <div class="tv-result">
+        <span class="hero-icon danger"><svg class="icon"><use href="#i-alert"/></svg></span>
+        <h1>فرستاده نشد</h1>
+        <p class="notice msg danger" role="alert"><svg class="icon"><use href="#i-alert"/></svg><span><strong>تاریخ و ساعت دستگاهت درست نیست.</strong> از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.</span></p>
+        <div class="actions">
+          <button class="btn btn-primary is-focused" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات تاریخ و ساعت</button>
+          <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>دوباره</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">همان پیام ساعتِ غلطِ بقیهٔ اپ. ریموت اول روی «تنظیمات تاریخ و ساعت» است، مثل صفحهٔ ساعتِ غلط؛ اگر تلویزیون آن صفحه را ندارد، تنظیمات اصلی باز می‌شود.</p>
+  </figure>
+
+</main>
+</body>
+</html>

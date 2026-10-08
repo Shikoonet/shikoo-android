@@ -24,10 +24,16 @@ const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hidden=
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/></symbol>
 <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.4v.2"/></symbol>
 <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></symbol>
-<symbol id="i-plane" viewBox="0 0 24 24"><path d="M21 3.5L3 10.8l6.8 2.6L12.5 20.5z"/><path d="M9.8 13.4L21 3.5"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M5.99 19.01A8.5 8.5 0 1 1 18.01 19.01"/><path d="M12 13l4-4"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5 5"/></symbol>
+<symbol id="i-spin" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/></symbol>
+<symbol id="i-plane"viewBox="0 0 24 24"><path d="M21 3.5L3 10.8l6.8 2.6L12.5 20.5z"/><path d="M9.8 13.4L21 3.5"/></symbol>
 <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
 <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 8l-4 4 4 4"/><path d="M5 12h10"/></symbol>
 <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="6" height="6" rx="1"/><rect x="14.5" y="3.5" width="6" height="6" rx="1"/><rect x="3.5" y="14.5" width="6" height="6" rx="1"/><path d="M14.5 14.5h2.5v2.5"/><path d="M20.5 14.5v.5"/><path d="M14.5 20.5h6v-2"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20h14"/></symbol>
+<symbol id="i-paste" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></symbol>
+<symbol id="i-report" viewBox="0 0 24 24"><path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6"/><path d="M9 16.5h4"/></symbol>
 <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
 <symbol id="f-de" viewBox="0 0 30 20"><rect width="30" height="20" fill="#FFCE00"/><rect width="30" height="13.34" fill="#DD0000"/><rect width="30" height="6.67" fill="#000"/></symbol>
 <symbol id="f-nl" viewBox="0 0 30 20"><rect width="30" height="20" fill="#21468B"/><rect width="30" height="13.34" fill="#FFF"/><rect width="30" height="6.67" fill="#AE1C28"/></symbol>
@@ -53,7 +59,26 @@ function drawQr(svg) {
   svg.innerHTML = `<path fill-rule="evenodd" d="${d}"/>`;
 }
 
+// قاب اسکرول‌شده: data-scroll-to روی ظرفِ اسکرول جزئی را نام می‌برد که باید بالای دید بیاید
+// (با scroll-margin-top خودش)، ولی نه جلوتر از ته محتوا. بعد از رسیدن فونت دوباره حساب می‌شود.
+function mockScroll(view) {
+  const content = view.firstElementChild;
+  const target = content.querySelector(view.dataset.scrollTo);
+  const pad = parseFloat(getComputedStyle(view).paddingTop) + parseFloat(getComputedStyle(view).paddingBottom);
+  const seen = view.clientHeight - pad;
+  const want = target.getBoundingClientRect().top - content.getBoundingClientRect().top - parseFloat(getComputedStyle(target).scrollMarginTop);
+  const y = Math.max(0, Math.min(want, content.offsetHeight - seen));
+  content.style.setProperty('--scroll', `${y}px`);
+  view.classList.toggle('is-scrolled', y > 0);
+  const thumb = view.querySelector('.scroll-thumb');
+  if (thumb) thumb.hidden = content.offsetHeight <= seen;
+  if (thumb) Object.assign(thumb.style, { top: `${pad / 2 + (y * seen) / content.offsetHeight}px`, blockSize: `${(seen * seen) / content.offsetHeight}px` });
+}
+const scrollAll = () => document.querySelectorAll('[data-scroll-to]').forEach(mockScroll);
+
 document.addEventListener('DOMContentLoaded', () => {
   document.body.insertAdjacentHTML('afterbegin', SPRITE);
   document.querySelectorAll('svg.qr').forEach(drawQr);
 });
+window.addEventListener('load', () => document.fonts.ready.then(scrollAll));
+document.fonts.addEventListener('loadingdone', scrollAll);

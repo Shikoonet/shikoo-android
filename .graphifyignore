@@ -1,0 +1,11 @@
+# عکس‌ها و خروجی‌های طراحی، بی‌ارزش برای گراف کد
+design/shots/
+design/**/*.png
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.webp
+snapshots/
+core/Clash.Meta/
+build/
+.dart_tool/

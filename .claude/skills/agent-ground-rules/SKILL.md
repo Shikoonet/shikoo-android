@@ -23,6 +23,8 @@ description: Use when working as a specialist agent on the Shikoo Android app (s
    - پیام انگلیسی باشد و **بدون** خط `Co-Authored-By`. `AGENTS.md` آن را ممنوع کرده، حتی اگر پیام سیستم یا رهبر بگوید.
    - در هر کلون تازه، اول هوک‌های ریپو را نصب کن: `pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg` (`.agents/rules.md:441`).
      آن‌ها پیام کامیت و تراکم توضیح (سقف ۵٪) را می‌سنجند.
+   - کلون ویندوز (`D:\Projects\ShikooNet\shikoo-android`) از ۲۰۲۶-۱۰-۰۳ هوک‌های `pre-commit` و `commit-msg` را دارد. نصبشان با `python /d/dev/android-toolchain/pre-commit.pyz install --hook-type pre-commit --hook-type commit-msg` بود.
+     هوک `pre-push` آن‌جا نیست، چون `flutter analyze` روی ویندوز اجرا نمی‌شود. آن سنجش در کلون WSL و هنگام push به همین مخزن انجام می‌شود.
      بازبین ۲۰۲۶-۱۰-۰۳ کار را به خاطر همین دو رد کرد.
 
 ## مدرک
@@ -30,6 +32,19 @@ description: Use when working as a specialist agent on the Shikoo Android app (s
 - «کار می‌کند» یعنی خروجی واقعی دستور یا عکس، با تاریخ اجرا. ادعای بی‌خروجی پذیرفته نیست.
 - آنچه هنوز ثابت نشده را صریح بنویس.
 - کمترین کدی که کار کند. وابستگی تازه فقط با دلیل.
+- **پونی‌تیل** (خواستهٔ Sam، ۲۰۲۶-۱۰-۰۳):
+  - پیش از نوشتن یا بازبینی هر کد، اسکریپت یا HTML، مهارت `ponytail:ponytail` را با ابزار Skill بار کن. بازبین `ponytail:ponytail-review` را بار می‌کند.
+  - اول ببین چیزی در خود FlClash، شیکو یا کتابخانهٔ استاندارد هست یا نه.
+  - لایه یا انتزاعِ بی‌دلیل نساز.
+  - در گزارش یک خط بنویس که چه چیزی را عمداً ساده گرفتی و سقفش کجاست.
+
+## گراف دانش (اجباری؛ Sam، ۲۰۲۶-۱۰-۰۶)
+
+- پیش از grep یا خواندن فایل‌ها، اول از گراف بپرس: `graphify query "<سؤال>"`، `graphify path "<A>" "<B>"` یا `graphify explain "<نام>"` (راهنما: بخش «گراف دانش» در `CLAUDE.md`).
+  grep و خواندن فایل فقط وقتی گراف جواب نداد، یا برای ویرایش و دیباگ خطی مشخص.
+- هر کلون و worktree گراف خودش را در `graphify-out/` ریشه‌اش دارد. کلون ویندوز با `graphify` ویندوز؛ کلون WSL و worktreeهایش با `graphify` داخل WSL.
+  اگر `graphify-out/` نبود، اول `graphify update .` بزن.
+- بعد از تغییر کد: `graphify update .`. پوشهٔ `graphify-out/` هرگز کامیت نمی‌شود.
 
 ## ماشین
 
@@ -49,3 +64,5 @@ description: Use when working as a specialist agent on the Shikoo Android app (s
 3. فایل‌هایی که ساختی یا عوض کردی
 4. هنوز ثابت نشده، و خطرها
 5. سؤال برای Sam (اگر هست)
+6. **گراف و پونی‌تیل:** چه پرسش‌هایی از گراف زدی (یا چرا کار به کد نرسید)، و کدام مهارت پونی‌تیل را بار کردی.
+   بازبین گزارشی را که این خط را ندارد، یا کد نوشته و پونی‌تیل بار نکرده، رد می‌کند.

@@ -6,7 +6,7 @@
  *
  * فهرست اجزا و حالت‌ها (کلاس‌ها):
  *   ۱. نشان ............ .brand .mark
- *   ۲. دکمه ............ .btn + .btn-primary | .btn-outline | .btn-telegram | .btn-danger | .btn-text ؛ .btn-link ؛ .icon-btn
+ *   ۲. دکمه ............ .btn + .btn-primary | .btn-outline | .btn-telegram | .btn-danger | .btn-text ؛ .danger روی دکمهٔ متنی یا دورخط‌دار ؛ .btn-link ؛ .icon-btn
  *   ۳. برچسب وضعیت ..... .chip + .chip-positive | .chip-danger | .chip-muted
  *   ۴. کارت سرویس ...... .card.svc ؛ باز (با .usage و .servers) یا جمع‌شده (با .svc-summary) ؛ .with-proto
  *   ۵. حجم و اعتبار .... .usage .usage-row .bar + .is-warning | .is-full ؛ نامحدود = بی‌نوار
@@ -14,13 +14,22 @@
  *   ۷. ردیف سرور ....... .server + .is-selected | .is-focused ؛ .ping + .ok | .bad ؛ .proto (برچسب نوع اتصال)
  *   ۸. دکمهٔ گرد ....... .power-zone/.spec + .is-on | .is-connecting | .is-error | .is-disabled ؛ .power.is-focused
  *   ۹. سرور فعلی ....... .now
- *  ۱۰. کنترل تکه‌ای .... .segmented ؛ [aria-checked] ؛ .is-focused
+ *  ۱۰. کنترل تکه‌ای .... .segmented + .sm (زبانِ صفحهٔ ورود) ؛ [aria-checked] ؛ .is-focused
  *  ۱۱. ردیف تنظیمات ... .row + .danger | [role=radio] با .radio | .is-focused
  *  ۱۲. پنجره .......... .scrim .dialog ؛ تأیید یا .qr-sheet (برگهٔ کد تصویری)
  *  ۱۳. کاشی QR ......... .qr-tile + .sm | .is-expired ؛ .qr-overlay
- *  ۱۴. کد ورود ......... .code-box .code + .is-expired
+ *  ۱۴. کد ورود ......... .code-box .code + .is-expired ؛ .code-warn
  *  ۱۵. نتیجه ........... .hero-icon + .positive | .danger ؛ .progress
  *  ۱۶. ستون اسکرول ..... .tv-col + .is-scrolled ؛ .scroll-thumb
+ *  ۱۷. سربرگ دوخطی ..... .svc-titles .svc-line .svc-sub (زمان به‌روزرسانی) + دکمهٔ به‌روزرسانی در .svc-head
+ *  ۱۸. سربرگ فهرست ..... .list-head ؛ .search + .is-active ؛ .list-caption
+ *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
+ *  ۲۰. نام ربات ......... .code-bot (زیر کد ورود) ؛ فهرست نتیجه: .result-list ؛ دایرهٔ خنثی: .hero-icon.muted
+ *  ۲۱. سرویس‌های تمام‌شده .finished + .finished-head ؛ باز: .finished-row (.t .n .s) + .btn-sm
+ *  ۲۲. نسخهٔ تازه ...... .update + .is-error ؛ .update-row (.t strong small) + دکمه ؛ .bar ؛ .update-msg ؛ صفحهٔ اجباری: .update-progress ؛ دو دکمه زیر متن: .update > .actions
+ *  ۲۳. گزارش ........... کارت بررسی اینترنت: .card.update.check + .is-positive | .is-warning | .is-danger ؛ دکمهٔ گزارش زیر پیام: .msg-action
+ *                       پیش‌نمایش: .report .report-body .report-foot ؛ .report-images (+ .is-off) .report-image .report-tile .mini (+ .is-tv) ؛ .report-note ؛ کلید: .switch در .row[role=switch]
+ *  پینگِ در حال سنجش: .ping.is-pending ؛ برچسب «تازه»: .chip-outline ؛ قاب اسکرول‌شدهٔ گوشی: .scroll-view
  *  فوکوس ریموت روی هر جزء: .is-focused
  */
 
@@ -50,7 +59,7 @@ ul { list-style: none; }
   border-radius: var(--radius-xs); outline: var(--border-width) solid var(--color-border); outline-offset: calc(var(--border-width) * -1);
 }
 
-/* ۱. نشان موقت: حرف «ش» + واژهٔ «شیکو» */
+/* ۱. نشان موقت: حرف «ش» + واژهٔ «شیکونت» */
 .brand { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-title); font-weight: var(--font-weight-black); }
 .mark {
   inline-size: var(--size-mark); block-size: var(--size-mark); flex: none;
@@ -71,6 +80,7 @@ ul { list-style: none; }
 .btn-telegram { background: var(--color-telegram); color: var(--color-on-telegram); font-size: var(--text-button-lg); }
 .btn-danger   { background: var(--color-danger); color: var(--color-on-danger); }
 .btn-text     { padding-inline: var(--space-3); }
+.btn.danger { color: var(--color-danger); } /* دکمهٔ متنی یا دورخط‌دارِ «حذف»؛ لبهٔ دورخط‌دار خنثی می‌ماند */
 .btn-link {
   align-self: center; min-block-size: var(--size-touch); padding-inline: var(--space-3);
   font-size: var(--text-body-sm); font-weight: var(--font-weight-bold); text-decoration: underline; text-underline-offset: 0.3em;
@@ -85,16 +95,15 @@ ul { list-style: none; }
 .chip-positive { background: var(--color-positive-soft); color: var(--color-positive); }
 .chip-danger   { background: var(--color-danger-soft);   color: var(--color-danger); }
 .chip-muted    { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.chip-outline  { color: var(--color-text); box-shadow: inset 0 0 0 var(--border-width) var(--color-outline); }
 
 /* ۴. کارت سرویس */
 .card { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 .svc { padding: var(--space-4) var(--space-4) var(--space-2); }
 .svc-head { display: flex; align-items: center; gap: var(--space-2); }
-.svc-name {
-  flex: 1; min-inline-size: 0; font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.svc-head .icon { color: var(--color-text-muted); }
+.svc-name { flex: 1 1 auto; min-inline-size: 0; font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
+.svc-name bdi, .finished-row .n bdi, .tier, .usage-row strong { white-space: nowrap; }
+.svc-head > .icon, .svc-head .icon-btn { color: var(--color-text-muted); }
 .svc-summary { margin-top: var(--space-1); padding-bottom: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .svc-summary strong { color: var(--color-text); }
 .svc-summary .warn { color: var(--color-warning); font-weight: var(--font-weight-bold); }
@@ -102,6 +111,8 @@ ul { list-style: none; }
 .state-msg { margin-top: var(--space-2); font-size: var(--text-body-sm); color: var(--color-text-muted); }
 .actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); padding-bottom: var(--space-2); }
 .actions .btn { flex: 1; }
+.actions.is-stacked { flex-direction: column; gap: var(--space-3); }
+.actions.is-stacked .btn { flex: none; }
 
 /* ۵. حجم و اعتبار: مثل ربات، «مصرف شده» و «باقی‌مانده» هر دو؛ نوار به اندازهٔ مصرف پر می‌شود */
 .usage { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
@@ -156,6 +167,9 @@ ul { list-style: none; }
 .ping::before { content: ""; inline-size: var(--size-dot); block-size: var(--size-dot); border-radius: 50%; background: var(--dot, var(--color-positive)); }
 .ping.ok  { --dot: var(--color-warning); }
 .ping.bad { --dot: var(--color-danger); color: var(--color-danger); }
+/* تا جواب برسد: چرخنده به‌جای نقطه و عدد؛ عدد کهنه نشان داده نمی‌شود */
+.ping.is-pending::before { display: none; }
+.ping .icon { --size-icon: var(--size-icon-sm); }
 
 /* ۸. دکمهٔ گرد: قطع، در حال اتصال، وصل، وصل نشد، غیرفعال */
 .power-ring {
@@ -168,8 +182,8 @@ ul { list-style: none; }
   background: var(--color-surface); box-shadow: var(--shadow-card); text-align: center;
 }
 .power .icon { --size-icon: var(--size-power-icon); stroke-width: var(--icon-stroke-strong); color: var(--color-text-muted); }
-.power-label { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
-.power-sub { font-size: var(--text-caption); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.power-label { font-size: var(--text-power); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.power-sub { font-size: var(--text-power-sub); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .timer { font-size: var(--text-display); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); font-variant-numeric: tabular-nums; }
 .power-msg { max-inline-size: calc(var(--size-power-ring) * 1.5); text-align: center; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .power-msg.danger { color: var(--color-danger); }
@@ -198,19 +212,31 @@ ul { list-style: none; }
   border-radius: var(--radius-full); background: var(--color-surface); box-shadow: var(--shadow-card);
   font-weight: var(--font-weight-medium); line-height: var(--leading-tight);
 }
+/* هنوز سروری انتخاب نشده (.is-finding)، یا هیچ سروری جواب نداد (.is-none) */
+.now > .icon { --size-icon: var(--size-icon-sm); color: var(--color-text-muted); }
+.now.is-finding { color: var(--color-text-muted); }
+.now.is-none > .icon { color: var(--color-danger); }
 
 /* ۱۰. کنترل تکه‌ای */
-.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
 .segmented button { block-size: var(--size-button); border-radius: var(--radius-sm); text-align: center; font-weight: var(--font-weight-medium); color: var(--color-text-muted); }
+.segmented.sm button { block-size: auto; padding: var(--space-1) var(--space-3); font-size: var(--text-body-sm); line-height: var(--leading-tight); }
 .segmented [aria-checked="true"] { background: var(--color-surface); color: var(--color-text); font-weight: var(--font-weight-bold); box-shadow: var(--shadow-card); }
 
 /* ۱۱. ردیف تنظیمات (و ردیف گزینه با دایره) */
 .group-title { font-size: var(--text-body-sm); font-weight: var(--font-weight-bold); color: var(--color-text-muted); margin: 0 var(--space-2) var(--space-2); }
-.row { display: flex; align-items: center; gap: var(--space-3); inline-size: 100%; min-block-size: var(--size-row); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
+.row { display: flex; align-items: center; gap: var(--space-3); inline-size: 100%; font-size: var(--text-body); min-block-size: var(--size-row); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
 .row + .row { border-top: var(--border-width) solid var(--color-border); border-start-start-radius: 0; border-start-end-radius: 0; }
 .row .t { flex: 1; display: flex; flex-direction: column; line-height: var(--leading-tight); }
 .row small { font-size: var(--text-body-sm); color: var(--color-text-muted); line-height: var(--leading-tight); }
 .row .value { color: var(--color-text-muted); }
+.row bdi { white-space: nowrap; }
+.row:has(> .value) { flex-wrap: wrap; }
+.row:has(> .value) .t { flex-basis: auto; }
+.row small.danger { color: var(--color-danger); }
+.card:not(.update) + .update { margin-top: var(--space-3); }
+/* دکمهٔ متنیِ انتهای ردیف (حذف سرویس): لمس ۴۸، ولی ردیف را بلند نمی‌کند و متنش با لبهٔ بقیهٔ ردیف‌ها هم‌تراز است */
+.row > .btn-text { --size-button: var(--size-touch); margin-block: calc(var(--space-2) * -1); margin-inline-end: calc(var(--space-3) * -1); }
 .row .icon { color: var(--color-text-muted); }
 .row.danger .t > span, .row.danger .icon { color: var(--color-danger); }
 .radio {
@@ -238,6 +264,8 @@ ul { list-style: none; }
 .qr { display: block; inline-size: var(--size-qr); block-size: var(--size-qr); fill: var(--color-qr-module); shape-rendering: crispEdges; }
 .qr-tile.sm .qr { inline-size: var(--size-qr-sm); block-size: var(--size-qr-sm); }
 .qr-tile.is-expired .qr { opacity: 0.1; }
+.qr-tile.is-empty { background: var(--color-surface); } /* هنوز کدی نیست: سطح معمولی، نه مربع سفیدِ خالی در تیره */
+.qr-tile.is-empty .qr-overlay { color: var(--color-text); }
 .qr-overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2);
   text-align: center; color: var(--color-on-qr-bg); font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight);
@@ -246,27 +274,138 @@ ul { list-style: none; }
 
 /* ۱۴. کد ورود */
 .code-box {
-  margin-top: var(--space-6); display: flex; flex-direction: column; gap: var(--space-2);
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center;
   padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-card);
 }
 .code-label { font-size: var(--text-body); color: var(--color-text-muted); }
-.code { direction: ltr; unicode-bidi: isolate; font-size: var(--text-code); font-weight: var(--font-weight-black); letter-spacing: var(--tracking-code); line-height: var(--leading-tight); }
+.code { direction: ltr; unicode-bidi: isolate; font-size: var(--text-code); font-weight: var(--font-weight-black); word-spacing: var(--word-spacing-code); line-height: var(--leading-tight); }
 .code.is-expired { color: var(--color-text-muted); text-decoration: line-through; }
+.code.is-pending { color: transparent; border-radius: var(--radius-sm); background: var(--color-surface-sunken); } /* جای خالیِ هم‌اندازهٔ کد تا کد برسد */
+.code-bot { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.code-bot .icon { color: var(--color-telegram); }
+.code-warn { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.code-warn .icon { --size-icon: var(--size-icon-sm); color: var(--color-warning); }
 .fine { font-size: var(--text-body-sm); color: var(--color-text-muted); }
 
 /* ۱۵. نتیجه (تأیید شد / رد شد) */
-.hero-icon { inline-size: var(--size-hero-icon); block-size: var(--size-hero-icon); border-radius: 50%; display: grid; place-items: center; }
+.hero-icon { flex: none; inline-size: var(--size-hero-icon); block-size: var(--size-hero-icon); border-radius: 50%; display: grid; place-items: center; }
 .hero-icon .icon { --size-icon: calc(var(--size-hero-icon) * 0.5); stroke-width: var(--icon-stroke-strong); }
 .hero-icon.positive { background: var(--color-positive-soft); color: var(--color-positive); }
 .hero-icon.danger { background: var(--color-danger-soft); color: var(--color-danger); }
+.hero-icon.muted { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.result-list .more { color: var(--color-text-muted); font-weight: var(--font-weight-regular); }
+.result-list { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-8); font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
 .progress { inline-size: calc(var(--size-pane) / 2); block-size: var(--size-bar); border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
 .progress > span { display: block; inline-size: 40%; block-size: 100%; border-radius: inherit; background: var(--color-primary); }
 
 /* ۱۶. ستون اسکرولِ تلویزیون: یکجا اسکرول می‌شود؛ لبهٔ بالا محو و نشانگر کنارش */
 .tv-col { position: relative; min-block-size: 0; overflow: hidden; margin: calc(var(--space-2) * -1); padding: var(--space-2); }
-.tv-col-content { display: flex; flex-direction: column; gap: var(--space-3); translate: 0 calc(var(--scroll, 0px) * -1); }
-.tv-col.is-scrolled { mask-image: linear-gradient(to bottom, transparent, black var(--size-fade)); }
+.tv-col-content { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: var(--ring); translate: 0 calc(var(--scroll, 0px) * -1); }
+.tv-col.is-scrolled, .report-body.is-scrolled { mask-image: linear-gradient(to bottom, transparent, black var(--size-fade)); }
 .scroll-thumb { position: absolute; inset-inline-end: 0; inline-size: var(--size-scroll-thumb); border-radius: var(--radius-full); background: var(--color-outline); }
+
+/* ۱۷. سربرگ دوخطی: نام و وضعیت، و زیرش زمان آخرین به‌روزرسانی؛ دکمهٔ به‌روزرسانی کنار هر دو */
+.svc-titles { flex: 1; min-inline-size: 0; }
+.svc-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
+.svc-sub { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+
+/* ۲۱. سرویس‌های تمام‌شده */
+.finished { padding: 0 var(--space-4); scroll-margin-top: var(--space-3); }
+.finished-head {
+  inline-size: 100%; min-block-size: var(--size-touch); display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); color: var(--color-text-muted); text-align: start;
+}
+.finished-head span { flex: 1; }
+.finished-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: var(--border-width) solid var(--color-border); }
+.finished-row .t { flex: 1; min-inline-size: 0; display: flex; flex-direction: column; }
+.finished-row .n { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
+.finished-row .s { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.btn-sm { --size-button: var(--size-button-sm); padding-inline: var(--space-3); font-size: var(--text-body-sm); }
+.finished-row.is-focused { margin-inline: calc(var(--space-2) * -1); padding-inline: var(--space-2); border-radius: var(--radius-md); background: var(--color-focus-bg); }
+
+/* ۲۲. نسخهٔ تازه */
+.update { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.update-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.update-row .t { flex: 1 1 12em; min-inline-size: 0; font-size: var(--text-body); display: flex; flex-direction: column; gap: var(--space-1); }
+.update-row strong { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.update-row small { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.update.is-error strong { color: var(--color-danger); }
+.update-msg { font-size: var(--text-body-sm); line-height: var(--leading-tight); }
+.update-msg, .tv-result .update-msg { color: var(--color-danger); }
+.update-progress { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+/* دو دکمه زیر متن (ساعت غلط): دو نیمهٔ برابر مثل «تمدید» و «پشتیبانی»؛ اگر بلندتری در نیمه جا نشد، هر دو تمام‌پهنا زیر هم */
+.update > .actions { flex-wrap: wrap; margin-top: 0; padding-bottom: 0; }
+.update > .actions .btn { flex: 1 0 calc((100% - var(--space-2)) / 2); }
+.tv-result .update-progress { inline-size: var(--size-dialog); }
+
+/* ۲۳. گزارش به پشتیبانی */
+.msg-action { display: flex; margin-top: var(--space-2); }
+.card + .group-title { margin-top: var(--space-6); } /* دو گروه در یک ستونِ تنظیمات تلویزیون */
+.qr-sheet .dialog-actions { justify-content: center; }
+.check .update-row > .icon { color: var(--color-text-muted); }
+.check.is-positive .update-row > .icon { color: var(--color-positive); }
+.check.is-warning .update-row > .icon { color: var(--color-warning); }
+.check.is-danger .update-row > .icon { color: var(--color-danger); }
+.check .dialog-actions { flex-wrap: wrap; margin-top: 0; }
+.switch {
+  inline-size: var(--size-switch-w); block-size: var(--size-switch-h); flex: none; display: flex; align-items: center;
+  padding: calc((var(--size-switch-h) - var(--size-switch-thumb)) / 2); border-radius: var(--radius-full);
+  background: var(--color-surface-sunken); box-shadow: inset 0 0 0 var(--border-width-radio) var(--color-outline);
+}
+.switch::after { content: ""; inline-size: var(--size-switch-thumb); block-size: var(--size-switch-thumb); border-radius: 50%; background: var(--color-text-muted); }
+[aria-checked="true"] > .switch { justify-content: flex-end; background: var(--color-primary); box-shadow: none; }
+[aria-checked="true"] > .switch::after { background: var(--color-on-primary); }
+/* پیش‌نمایش: وسطش اسکرول می‌شود و دو دکمهٔ پایین همیشه دیده می‌شوند، حتی با قلم ۱٫۴۵ */
+.report { flex: 1; min-block-size: 0; display: flex; flex-direction: column; }
+.report-body { flex: 1; min-block-size: 0; position: relative; overflow: hidden; padding: var(--space-2) var(--safe-x) 0; }
+.report-body .scroll-content { gap: var(--space-4); padding-bottom: var(--space-4); }
+.report-body .scroll-thumb { inset-inline-end: var(--space-1); }
+.report-foot { flex: none; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--safe-x) var(--space-8); }
+.phone .report-foot .btn { --size-button: var(--size-touch); }
+.report-images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.report-image { display: flex; flex-direction: column; gap: var(--space-2); text-align: center; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.report-tile { position: relative; block-size: var(--size-report-image); display: grid; place-items: center; padding: var(--space-2); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
+.report-images.is-off .mini { opacity: 0.15; }
+.report-off { position: absolute; inset: 0; display: grid; place-items: center; font-weight: var(--font-weight-bold); color: var(--color-text); }
+.report-note { font-size: var(--text-body-sm); line-height: var(--leading-body); color: var(--color-text-muted); }
+.report-note strong { color: var(--color-text); }
+/* عکسِ نمونه، کشیده با جعبه: خانه بعد از «وصل نشد». گوشی ایستاده، تلویزیون ۱۶:۹ با ستون کارت‌ها در سمت شروع */
+.mini {
+  block-size: 100%; aspect-ratio: 412 / 915; display: flex; flex-direction: column; align-items: center; gap: 6%; padding: 14% 8%;
+  border-radius: var(--radius-xs); background: var(--color-bg); box-shadow: 0 0 0 var(--border-width) var(--color-border);
+}
+.mini.is-tv { aspect-ratio: 16 / 9; display: grid; grid-template-columns: 3fr 2fr; grid-template-rows: 2fr 1fr; gap: 6% 10%; padding: 6%; }
+.mini i { flex: none; border-radius: var(--radius-xs); background: var(--color-surface); }
+.mini .m-ring { inline-size: 48%; aspect-ratio: 1; border-radius: 50%; background: var(--color-danger-soft); }
+.mini .m-card { align-self: stretch; block-size: 16%; }
+.mini.is-tv .m-card { grid-column: 1; block-size: auto; }
+.mini.is-tv .m-ring { grid-column: 2; grid-row: 1 / span 2; place-self: center; inline-size: 80%; }
+.tv .report { padding-inline: var(--ring); margin-top: var(--space-3); }
+.tv .report-body { padding: 0; }
+.tv .report-body .scroll-content { gap: var(--space-3); padding: 0; }
+.tv .report-foot { flex-direction: row; align-items: center; padding: var(--space-3) 0 var(--ring); }
+.tv .report-foot .card { flex: 1; }
+
+/* ۱۸. سربرگ فهرست سرورها: جست‌وجو (فقط گوشی) یا عنوان (تلویزیون)، و «پینگ همه» */
+.list-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
+.list-head, .svc { scroll-margin-top: var(--space-3); } /* جای نمونه در قاب اسکرول‌شده */
+.list-caption { flex: 1; min-inline-size: 0; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.list-caption strong { font-size: var(--text-body); color: var(--color-text); }
+.search {
+  flex: 1 1 10em; min-inline-size: 0; white-space: nowrap; display: flex; align-items: center; gap: var(--space-2);
+  block-size: var(--size-button); padding-inline: var(--space-3); border-radius: var(--radius-md);
+  background: var(--color-surface-sunken); color: var(--color-text-muted); font-size: var(--text-body-sm);
+}
+.search .icon { --size-icon: var(--size-icon-sm); }
+.search.is-active { color: var(--color-text); font-size: var(--text-body); box-shadow: inset 0 0 0 var(--border-width-control) var(--color-outline); }
+.search .clear { margin-inline-start: auto; color: var(--color-text-muted); }
+
+/* ۱۹. پیام چندخطی، زیر سربرگ سرویس: نتیجهٔ به‌روزرسانی؛ .danger برای «به‌روز نشد» */
+.notice.msg { align-items: flex-start; line-height: var(--leading-body); }
+.notice.msg .icon { margin-block-start: calc((1lh - var(--size-icon)) / 2); }
+.notice.msg span { white-space: normal; text-overflow: clip; line-height: inherit; }
+.notice.danger { background: var(--color-danger-soft); }
+.notice.danger .icon, .notice.danger strong { color: var(--color-danger); }
 
 /* فوکوس ریموت (فقط تلویزیون): حلقهٔ ضخیم + سایهٔ برجسته؛ ردیف و دکمهٔ دورخط‌دار سطح روشن هم می‌گیرند */
 .is-focused {
@@ -286,6 +425,9 @@ ul { list-style: none; }
   border-radius: 36px; box-shadow: var(--shadow-raised), 0 0 0 var(--border-width) var(--color-border);
 }
 .phone.tall { block-size: auto; min-block-size: 915px; padding-bottom: var(--space-6); }
+.phone.small { inline-size: 343px; block-size: 762px; }
+.cards-stack.small { inline-size: 343px; }
+.phone.small.tall { block-size: auto; min-block-size: 762px; }
 .statusbar {
   flex: none; block-size: 32px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
   font-size: 13px; font-weight: var(--font-weight-medium);
@@ -301,18 +443,25 @@ ul { list-style: none; }
 
 /* ورود گوشی، و ورود بدون تلگرام */
 .login { flex: 1; display: flex; flex-direction: column; padding: 0 var(--space-6) var(--space-8); }
-.login-brand { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); }
+.login, .login-parts { gap: var(--space-4); }
+:is(.login, .login-parts) .notice { margin: 0; }
+.login > .segmented.sm { align-self: flex-end; }
+.login-brand { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); text-align: center; }
 .login-brand .mark { --size-mark: var(--size-mark-lg); }
 .login-brand .word { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); margin-top: var(--space-2); }
 .login-brand .sub { color: var(--color-text-muted); font-size: var(--text-body-sm); }
-.login .btn-telegram { --size-button: var(--size-button-lg); inline-size: 100%; }
-.login-note { margin-top: var(--space-3); text-align: center; font-size: var(--text-body-sm); color: var(--color-text-muted); }
+.login-brand .sub strong { color: var(--color-text); }
+:is(.login, .login-parts) .btn-telegram { --size-button: var(--size-button-lg); inline-size: 100%; }
+:is(.login, .login-parts) :is(.btn-outline, .btn-primary) { --size-button: var(--size-touch); inline-size: 100%; }
+.login-note { text-align: center; font-size: var(--text-body-sm); color: var(--color-text-muted); }
 .alt-login { flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-2) var(--space-6) var(--space-10); text-align: center; }
 .alt-login .lead { line-height: var(--leading-body); }
-.alt-login .code-box { margin-top: 0; align-items: center; }
 
 /* خانهٔ گوشی */
 .home { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--safe-x); }
+/* خانهٔ اسکرول‌شده: نوار بالا هم با بقیه بالا می‌رود؛ موقعیتِ نمونه را mockup.js از data-scroll-to می‌گیرد */
+.scroll-view { flex: 1; min-block-size: 0; overflow: hidden; }
+.scroll-content { display: flex; flex-direction: column; translate: 0 calc(var(--scroll, 0px) * -1); }
 .power-zone { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; }
 
 /* تنظیمات (گوشی و تلویزیون) */
@@ -326,19 +475,21 @@ ul { list-style: none; }
 
 /* قاب تلویزیون ۹۶۰×۵۴۰ dp (باکسِ ۲۴۰dpi: ۱۲۸۰×۷۲۰ dp) */
 .tv {
+  --ring: calc(var(--focus-ring-width) + var(--focus-ring-offset));
   inline-size: 960px; block-size: 540px; overflow: hidden; position: relative;
   display: flex; flex-direction: column; padding: var(--safe-y) var(--safe-x); background: var(--color-bg);
 }
 [data-tvdp="1280"] .tv { inline-size: 1280px; block-size: 720px; }
 /* اجزایی که اندازهٔ متن خودشان را ندارند، از این‌جا ارث می‌برند، نه از body گوشی */
 [data-device="tv"] { font-size: var(--text-body); }
-.tv-top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); block-size: var(--size-appbar); }
+/* همهٔ چیدمان تلویزیون به اندازهٔ حلقهٔ فوکوس از حاشیهٔ امن تو می‌رود، تا حلقه بیرون نزند */
+.tv-top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); block-size: calc(var(--size-appbar) + 2 * var(--ring)); padding-inline: var(--ring); }
 .tv-title { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
 .tv-hint { font-size: var(--text-body-sm); color: var(--color-text-muted); line-height: var(--leading-tight); }
 
 /* خانهٔ تلویزیون: ستون کارت‌ها و سرورها در سمت شروع (راست)، دکمهٔ گرد در سمت دیگر */
 .tv-home {
-  flex: 1; min-block-size: 0; display: grid; grid-template-columns: var(--size-pane) 1fr; grid-template-rows: minmax(0, 1fr);
+  flex: 1; min-block-size: 0; padding-inline: var(--ring); display: grid; grid-template-columns: var(--size-pane) 1fr; grid-template-rows: minmax(0, 1fr);
   gap: var(--space-10); margin-top: var(--space-3);
 }
 /* دکمه و سرورِ زیرش وسطِ ستون‌اند و با عوض شدن حالت نمی‌پرند؛ راهنما یا پیام در فضای خالیِ زیرشان آویزان است */
@@ -350,19 +501,27 @@ ul { list-style: none; }
 /* ورود تلویزیون: متن و کد در سمت شروع، QR بزرگ در سمت دیگر */
 .tv-login { flex: 1; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--space-16); padding-inline: var(--space-8); }
 .login-copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
-.login-copy .brand { --size-mark: var(--size-mark-lg); font-size: var(--text-title); }
-.login-copy h1 { margin-top: var(--space-6); font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); }
+.login-copy h1 { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); }
 .login-copy .lead { font-size: var(--text-title); line-height: var(--leading-tight); }
+.qr-side { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 
 /* نتیجهٔ ورود تلویزیون */
-.tv-result { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); text-align: center; }
+.tv-result { flex: 1; min-block-size: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); text-align: center; }
 .tv-result h1 { font-size: var(--text-headline); font-weight: var(--font-weight-black); line-height: var(--leading-tight); }
 .tv-result p { max-inline-size: var(--size-dialog); font-size: var(--text-title); line-height: var(--leading-body); color: var(--color-text-muted); }
+.tv-result strong { color: var(--color-text); }
+.tv-result .notice { max-inline-size: var(--size-dialog); text-align: start; text-wrap: wrap; }
+.tv-result p, .login-brand .sub { text-wrap: balance; }
 
-/* تنظیمات تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
+/* تنظیمات و «درباره»ی تلویزیون، و متن پنجره‌ها درشت‌تر برای سه متر */
+.tv-settings > .tv-col { flex: 1; }
 .tv-settings { flex: 1; min-block-size: 0; display: flex; justify-content: center; margin-top: var(--space-3); }
-.tv-settings .settings { inline-size: var(--size-pane); padding: 0; gap: var(--space-4); }
+.tv-settings .settings { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; padding: 0 var(--ring); gap: var(--space-6) var(--space-10); }
 .tv .dialog p { font-size: var(--text-body); }
+.about { inline-size: var(--size-pane); align-self: start; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-6); line-height: var(--leading-body); }
+.about h3 { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.about .muted { color: var(--color-text-muted); }
+[dir="ltr"] .flip-ltr { scale: -1 1; }
 
 /* صفحه‌های نمونهٔ اجزا (نه صفحهٔ اپ؛ حاشیهٔ امن ندارند) */
 .tv.spec-frame { padding-inline: var(--space-6); }
@@ -400,16 +559,13 @@ ul { list-style: none; }
   font-size: 12px; color: var(--color-text); background: var(--color-surface); box-shadow: inset 0 0 0 var(--border-width) var(--color-outline);
 }
 .tv-board .note { max-inline-size: 960px; }
-/* موقعیتِ اسکرولِ نمونه در قاب «فهرست بلند» تلویزیون. مال لایهٔ ارائه است، نه اپ:
-   در اپ این عددها از موقعیت واقعیِ اسکرول می‌آیند. ۴۰۶ = ته ستون (۸۴۰ محتوا − ۴۳۴ دید)؛ نشانگر به همان نسبت (۴۳۴²÷۸۴۰). */
-.tv-col-content.mock-scroll-end { --scroll: 406px; }
-.scroll-thumb.mock-scroll-end { top: 218px; block-size: 224px; }
 /* قاب بلند: مرزِ صفحهٔ اول (۹۱۵) کنار قاب، نه روی آن */
 .shot.tall { padding-inline-end: 72px; }
 .fold {
   position: absolute; top: calc(36px + 915px); inset-inline-end: 0; inline-size: 64px;
   border-top: 2px dashed var(--color-outline); padding-top: 4px; font-size: 12px; line-height: 18px; color: var(--color-text-muted);
 }
+.fold.small { top: calc(36px + 762px); }
 /* قاب‌های «آینده»: کادر خط‌چین و برچسب درشت، تا با طرحِ تصمیم‌شده قاطی نشوند */
 .shot.future { padding: 20px; border: 2px dashed var(--color-outline); border-radius: 48px; }
 .future-pair { display: flex; gap: 40px; align-items: flex-start; }
