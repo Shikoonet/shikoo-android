@@ -621,6 +621,7 @@ class PowerButton extends StatefulWidget {
     required this.onPressed,
     this.focusNode,
     this.restingLabel,
+    this.switching = false,
   });
 
   final ShikooConnection connection;
@@ -628,6 +629,9 @@ class PowerButton extends StatefulWidget {
   final bool isTV;
   final VoidCallback? onPressed;
   final FocusNode? focusNode;
+
+  /// Connected and moving to another server: the connecting arc turns around "connected".
+  final bool switching;
 
   /// What a button with no [onPressed] says; "No service" unless given.
   final String? restingLabel;
@@ -655,10 +659,11 @@ class _PowerButtonState extends State<PowerButton>
     _sync();
   }
 
+  bool get _arc =>
+      widget.connection == ShikooConnection.connecting || widget.switching;
+
   void _sync() {
-    final spin =
-        widget.connection == ShikooConnection.connecting &&
-        !MediaQuery.disableAnimationsOf(context);
+    final spin = _arc && !MediaQuery.disableAnimationsOf(context);
     if (!spin) {
       _spin.stop();
     } else if (!_spin.isAnimating) {
@@ -793,7 +798,7 @@ class _PowerButtonState extends State<PowerButton>
             )
           else
             face(false),
-          if (conn == ShikooConnection.connecting)
+          if (_arc)
             Positioned.fill(
               child: IgnorePointer(
                 child: RotationTransition(

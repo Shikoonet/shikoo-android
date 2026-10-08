@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -32,6 +34,19 @@ String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   return days < 1 ? l.finishedToday : l.finishedDaysAgo(days);
 }
 
+/// A switch's sentences; a failure's first one is bold on the phone.
+List<String> switchNews(ShikooL10n l, ShikooSwitch shift) {
+  String name(String server) => bidiName(withoutFlags(server));
+  return switch (shift.stage) {
+    ShikooSwitchStage.moving => [l.switchingTo(name(shift.to))],
+    ShikooSwitchStage.done => [l.switchedTo(name(shift.to))],
+    ShikooSwitchStage.failed => [
+      l.selectedNoAnswer(name(shift.to)),
+      l.switchKept(name(shift.from)),
+    ],
+  };
+}
+
 /// Home, laid out after `design/mockups/tv.html` (frames `tv-home-*`) and `phone.html`.
 class ShikooHome extends ConsumerStatefulWidget {
   const ShikooHome({super.key});
@@ -50,6 +65,11 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _check = FocusNode();
   final _scroll = ScrollController();
   (int?, bool, bool)? _shown;
+  final _news = ValueNotifier<ShikooSwitch?>(null);
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _bar;
+
+  /// From the bar's top to the screen's bottom, so the list can end above it.
+  double _room = 0;
 
   @override
   void dispose() {
@@ -61,7 +81,42 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     _crashNo.dispose();
     _check.dispose();
     _scroll.dispose();
+    _news.dispose();
     super.dispose();
+  }
+
+  /// phone-switch-*: one bar from the tap to the end, its words following the switch.
+  void _onSwitch(ShikooSwitch? next) {
+    if (next == null) return _bar?.close();
+    _news.value = next;
+    if (_bar != null || ref.read(shikooStateProvider).isTV) return;
+    final t = ShikooTheme.of(context);
+    final bar = _bar = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: _SwitchBar(news: _news, onTop: _barAt),
+        persist: true,
+        behavior: SnackBarBehavior.floating,
+        padding: EdgeInsets.zero,
+        margin: EdgeInsets.fromLTRB(t.s.safeX, 0, t.s.safeX, Space.s4),
+        backgroundColor: t.c.text,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+      ),
+    );
+    unawaited(
+      bar.closed.then((_) {
+        if (_bar == bar) _bar = null;
+        if (mounted) setState(() => _room = 0);
+      }),
+    );
+  }
+
+  void _barAt(double top) {
+    final room = MediaQuery.sizeOf(context).height - top;
+    if (_bar != null && (room - _room).abs() > 0.5) {
+      setState(() => _room = room);
+    }
   }
 
   /// phone-home-long: the chosen service opens at the top, under the power button.
@@ -88,6 +143,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      shikooStateProvider.select((state) => state.switching),
+      (_, next) => _onSwitch(next),
+    );
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
@@ -224,7 +283,12 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   ),
                   card: _CardKeys(focus: _card, power: _power, child: card),
                 )
-              : _PhoneLayout(power: power, card: card, scroll: _scroll),
+              : _PhoneLayout(
+                  power: power,
+                  card: card,
+                  scroll: _scroll,
+                  room: _room,
+                ),
         ),
       ),
     );
@@ -410,11 +474,15 @@ class _PhoneLayout extends StatelessWidget {
     required this.power,
     required this.card,
     required this.scroll,
+    required this.room,
   });
 
   final Widget power;
   final Widget card;
   final ScrollController scroll;
+
+  /// The switch bar's, which the last rows can rise above.
+  final double room;
 
   @override
   Widget build(BuildContext context) {
@@ -424,7 +492,10 @@ class _PhoneLayout extends StatelessWidget {
       child: SingleChildScrollView(
         controller: scroll,
         padding: EdgeInsets.only(
-          bottom: Space.s6 + MediaQuery.paddingOf(context).bottom,
+          bottom: math.max(
+            Space.s6 + MediaQuery.paddingOf(context).bottom,
+            room + Space.s3,
+          ),
         ),
         child: Column(
           children: [
@@ -518,6 +589,11 @@ class _PowerZone extends StatelessWidget {
     final resting = restingFor(state);
     final silent =
         state.connection == ShikooConnection.on && (selected?.ping ?? 0) < 0;
+    // The phone's switch news is its bottom bar; the TV's is this slot, which never moves.
+    final shift = state.isTV ? state.switching : null;
+    final alarm = shift == null
+        ? silent
+        : shift.stage == ShikooSwitchStage.failed;
     final message = switch (state.lastError) {
       _ when resting == ShikooServiceStatus.revoked => null,
       _ when resting != null => l.renewToConnect,
@@ -533,6 +609,7 @@ class _PowerZone extends StatelessWidget {
       ShikooError.vpnMissing => l.vpnMissing,
       ShikooError.serverChange => l.errorServer,
       null when state.waiting => l.connectsToFirst,
+      null when shift != null => switchNews(l, shift).join(' '),
       null when silent => l.selectedDown(selected!.label),
       null =>
         state.isTV && state.connection == ShikooConnection.off
@@ -550,6 +627,7 @@ class _PowerZone extends StatelessWidget {
           connectedFor: state.connectedFor,
           isTV: state.isTV,
           focusNode: focusNode,
+          switching: state.switching?.stage == ShikooSwitchStage.moving,
           restingLabel: switch (resting) {
             ShikooServiceStatus.exhausted => l.stateExhausted,
             ShikooServiceStatus.revoked => l.chipRevoked,
@@ -580,7 +658,7 @@ class _PowerZone extends StatelessWidget {
               textAlign: TextAlign.center,
               style: t.text(
                 t.s.bodySm,
-                color: resting != null || (state.lastError == null && !silent)
+                color: resting != null || (state.lastError == null && !alarm)
                     ? t.c.textMuted
                     : t.c.danger,
               ),
@@ -593,6 +671,79 @@ class _PowerZone extends StatelessWidget {
 
   static double _twoLines(BuildContext context, ShikooTheme t) =>
       2 * MediaQuery.textScalerOf(context).scale(t.s.bodySm) * Leading.tight;
+}
+
+/// `.snackbar`: the bar's whole face, as its own padding is none, so [onTop] is the bar's top.
+class _SwitchBar extends StatelessWidget {
+  const _SwitchBar({required this.news, required this.onTop});
+
+  final ValueNotifier<ShikooSwitch?> news;
+  final ValueChanged<double> onTop;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final style = t.text(t.s.body, color: t.c.bg, height: Leading.body);
+    return ValueListenableBuilder(
+      valueListenable: news,
+      builder: (context, shift, _) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final box = context.mounted ? context.findRenderObject() : null;
+          if (box is RenderBox && box.attached) {
+            onTop(box.localToGlobal(Offset.zero).dy);
+          }
+        });
+        final [first, ...rest] = switchNews(l, shift!);
+        final icon = switch (shift.stage) {
+          ShikooSwitchStage.moving => null,
+          ShikooSwitchStage.done => ShikooIcon.check,
+          ShikooSwitchStage.failed => ShikooIcon.alert,
+        };
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s4,
+            vertical: Space.s3,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: Space.s3,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(
+                  top:
+                      (MediaQuery.textScalerOf(context).scale(t.s.body) *
+                              Leading.body -
+                          t.s.icon) /
+                      2,
+                ),
+                child: switch (icon) {
+                  null => Spinner(size: t.s.icon, color: t.c.bg),
+                  _ => SvgIcon(icon, size: t.s.icon, color: t.c.bg),
+                },
+              ),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: first,
+                        style: rest.isEmpty
+                            ? null
+                            : const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      for (final sentence in rest) TextSpan(text: ' $sentence'),
+                    ],
+                  ),
+                  style: style,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// `tv-home-no-link` and `phone-cards-other`: a service of the account with no link here, for

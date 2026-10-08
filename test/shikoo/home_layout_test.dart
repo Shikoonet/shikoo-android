@@ -1035,4 +1035,88 @@ void main() {
       reason: 'the column keeps room for the last ring',
     );
   });
+
+  // Last, as the font stays for every test after: the two lines are Vazirmatn's.
+  group('in Vazirmatn', () {
+    setUpAll(loadShikooFonts);
+    _switchOnTv();
+  });
+}
+
+void _switchOnTv() {
+  testWidgets('on the TV a switch speaks in the fixed slot under the pill, red '
+      'once it failed, in two lines even with long names; the remote, the '
+      'button and the order stay put', (tester) async {
+    _tvScreen(tester);
+    const old = 'Germany 3 [WG]';
+    const to = '(Gemini) Italy';
+    final servers = [
+      const ShikooServer(name: old, type: 'WireGuard', ping: 84),
+      const ShikooServer(name: to, type: 'Vless', ping: 112),
+      ..._servers.skip(2),
+    ];
+    ShikooState state(ShikooSwitchStage? stage) {
+      final base = _tv(
+        ShikooConnection.on,
+        servers: servers,
+        selected: stage == ShikooSwitchStage.done ? to : old,
+      );
+      return ShikooState(
+        connection: base.connection,
+        connectedFor: base.connectedFor,
+        isTV: true,
+        service: base.service,
+        servers: base.servers,
+        selected: base.selected,
+        switching: stage == null ? null : (to: to, from: old, stage: stage),
+      );
+    }
+
+    final [a, b] = [bidiName(to), bidiName(old)];
+    for (final (locale, texts) in [
+      (
+        'fa',
+        [
+          'در حال رفتن به «$a»…',
+          'حالا از «$a» وصلی.',
+          '«$a» جواب نداد. هنوز از «$b» وصلی؛ سرور دیگری را امتحان کن.',
+        ],
+      ),
+      (
+        'en',
+        [
+          'Moving to “$a”…',
+          'Now connected through “$a”.',
+          '“$a” didn\'t answer. Still on “$b”. Try another server.',
+        ],
+      ),
+    ]) {
+      final holder = await _pumpTvHome(tester, state(null), locale: locale);
+      await _focus(tester, to);
+      final power = tester.getRect(find.byType(PowerButton));
+      final order = _rowOrder(tester);
+      for (final stage in ShikooSwitchStage.values) {
+        holder.value = state(stage);
+        await tester.pumpAndSettle();
+        final why = '$locale ${stage.name}';
+        final text = find.text(texts[stage.index]);
+        expect(
+          tester.widget<Text>(text).style?.color,
+          stage == ShikooSwitchStage.failed
+              ? ShikooColors.dark.danger
+              : ShikooColors.dark.textMuted,
+          reason: why,
+        );
+        expect(
+          tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
+          isFalse,
+          reason: why,
+        );
+        expect(_focused(), to, reason: why);
+        expect(tester.getRect(find.byType(PowerButton)), power, reason: why);
+        expect(_rowOrder(tester), order, reason: why);
+        expect(find.byType(SnackBar), findsNothing, reason: why);
+      }
+    }
+  });
 }

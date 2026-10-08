@@ -235,6 +235,21 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String switchingTo(String name) {
+    return 'در حال رفتن به «$name»…';
+  }
+
+  @override
+  String switchedTo(String name) {
+    return 'حالا از «$name» وصلی.';
+  }
+
+  @override
+  String switchKept(String name) {
+    return 'هنوز از «$name» وصلی؛ سرور دیگری را امتحان کن.';
+  }
+
+  @override
   String get findingBest => 'در حال یافتن بهترین سرور…';
 
   @override
