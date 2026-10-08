@@ -42,7 +42,7 @@ void main() {
   });
 
   test('the adaptive foreground of the phone and the TV stays inside the '
-      '66dp circle that no launcher mask cuts', () async {
+      '66dp circle that no launcher mask cuts, at every density', () async {
     for (final icon in [
       'mipmap-anydpi-v26/ic_launcher.xml',
       'mipmap-anydpi-v26/ic_launcher_round.xml',
@@ -56,24 +56,85 @@ void main() {
         reason: icon,
       );
     }
-    final codec = await ui.instantiateImageCodec(
-      File(
-        '$_res/drawable-xxxhdpi/ic_launcher_foreground.png',
-      ).readAsBytesSync(),
-    );
-    final image = (await codec.getNextFrame()).image;
-    final rgba = (await image.toByteData())!;
-    final dp = image.width / 108;
-    var farthest = 0.0;
-    for (var y = 0; y < image.height; y++) {
-      for (var x = 0; x < image.width; x++) {
-        if (rgba.getUint8((y * image.width + x) * 4 + 3) > 0) {
-          final dx = x + 0.5 - image.width / 2;
-          final dy = y + 0.5 - image.height / 2;
-          farthest = max(farthest, sqrt(dx * dx + dy * dy) / dp);
+    for (final density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
+      final image = await _decode(
+        '$_res/drawable-$density/ic_launcher_foreground.png',
+      );
+      final alpha = await _alpha(image);
+      final w = image.width;
+      var farthest = 0.0;
+      for (var i = 0; i < alpha.length; i++) {
+        if (alpha[i] > 0) {
+          final dx = i % w + 0.5 - w / 2;
+          final dy = i ~/ w + 0.5 - w / 2;
+          farthest = max(farthest, sqrt(dx * dx + dy * dy) * 108 / w);
         }
       }
+      expect(farthest, inInclusiveRange(28, 33), reason: density);
     }
-    expect(farthest, inInclusiveRange(28, 33));
   });
+
+  test('the TV banner is the 320x180 Android TV asks for at xhdpi', () async {
+    final image = await _decode('$_res/mipmap-xhdpi/ic_banner.png');
+    expect((image.width, image.height), (320, 180));
+  });
+
+  test('the notification and tile icons draw the fox, not a filled box: '
+      'clear corners and under 60% of the square filled', () async {
+    const size = 96;
+    const arity = {'M': 2, 'L': 2, 'C': 6};
+    for (final name in ['ic', 'ic_service']) {
+      final xml = File(
+        'android/service/src/main/res/drawable/$name.xml',
+      ).readAsStringSync();
+      String attr(String a) =>
+          RegExp('android:$a="([^"]+)"').firstMatch(xml)!.group(1)!;
+      final path = ui.Path()
+        ..fillType = attr('fillType') == 'evenOdd'
+            ? ui.PathFillType.evenOdd
+            : ui.PathFillType.nonZero;
+      var command = '';
+      final n = <double>[];
+      for (final t in RegExp(r'[MLCZ]|-?[\d.]+').allMatches(attr('pathData'))) {
+        final token = t[0]!;
+        if (token == 'Z') {
+          path.close();
+        } else if (arity.containsKey(token)) {
+          command = token;
+        } else if ((n..add(double.parse(token))).length == arity[command]) {
+          switch (command) {
+            case 'M':
+              path.moveTo(n[0], n[1]);
+            case 'L':
+              path.lineTo(n[0], n[1]);
+            default:
+              path.cubicTo(n[0], n[1], n[2], n[3], n[4], n[5]);
+          }
+          n.clear();
+        }
+      }
+      final recorder = ui.PictureRecorder();
+      ui.Canvas(recorder)
+        ..scale(size / double.parse(attr('viewportWidth')))
+        ..drawPath(path, ui.Paint()..color = const ui.Color(0xFFFFFFFF));
+      final alpha = await _alpha(
+        await recorder.endRecording().toImage(size, size),
+      );
+      final filled = alpha.where((a) => a > 127).length / alpha.length;
+      expect(filled, inInclusiveRange(0.15, 0.6), reason: name);
+      for (final corner in [0, size - 1, size * (size - 1), size * size - 1]) {
+        expect(alpha[corner], 0, reason: '$name, corner pixel $corner');
+      }
+    }
+  });
+}
+
+Future<ui.Image> _decode(String path) async {
+  final codec = await ui.instantiateImageCodec(File(path).readAsBytesSync());
+  return (await codec.getNextFrame()).image;
+}
+
+Future<List<int>> _alpha(ui.Image image) async {
+  final rgba = (await image.toByteData())!;
+  return [for (var i = 3; i < rgba.lengthInBytes; i += 4) rgba.getUint8(i)];
 }

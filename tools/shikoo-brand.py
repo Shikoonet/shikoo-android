@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.10"
+# requires-python = "==3.12.*"
 # dependencies = ["pillow==12.3.0", "potracer==0.0.4"]
 # ///
 """Writes every Shikoo brand image from one source, assets/brand/logo-source.jpg.
@@ -15,6 +15,7 @@ splash icon), the TV banner, the notification and quick-settings icon, and the i
 Each file carries MARK, which test/shikoo/brand_test.dart looks for.
 """
 
+import sys
 from pathlib import Path
 
 import potrace
@@ -88,7 +89,8 @@ def tile(fox, size, reach, shape=None):
 
 
 def banner(fox, word):
-    out = Image.new('RGBA', (320, 180), 'black')
+    # A shade off black: a pure black card has no edge on the TV launcher's black page.
+    out = Image.new('RGBA', (320, 180), '#1A1A1A')
     w = fit(word, 256)
     f = fit(fox, round(104 * fox.width / fox.height))
     top = (180 - f.height - 12 - w.height) // 2
@@ -135,7 +137,13 @@ def main():
     src = Image.open(SRC).convert('RGB')
     r, g, b = src.split()
     peak = ImageChops.lighter(ImageChops.lighter(r, g), b)
-    fox_box, word_box = parts(peak.point(lambda v: 255 if v > LIT else 0))[:2]
+    w, h = src.size
+    if max(peak.getpixel(c) for c in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1))) > LIT:
+        sys.exit(f'{SRC}: the background must be pure black, or the fox is traced as the whole frame')
+    found = parts(peak.point(lambda v: 255 if v > LIT else 0))
+    if len(found) < 2:
+        sys.exit(f'{SRC}: expected the fox, then the word mark under it, on black')
+    fox_box, word_box = found[:2]
     fox, word = cut(src, peak, fox_box), cut(src, peak, word_box)
     solid = fox.getchannel('A').point(lambda v: 255 if v == 255 else 0)
     gold = '#%02X%02X%02X' % tuple(round(c) for c in ImageStat.Stat(fox.convert('RGB'), solid).mean)
