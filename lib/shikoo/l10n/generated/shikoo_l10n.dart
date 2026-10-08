@@ -104,12 +104,6 @@ abstract class ShikooL10n {
   /// **'ShikooNet'**
   String get appTitle;
 
-  /// No description provided for @brandMark.
-  ///
-  /// In en, this message translates to:
-  /// **'S'**
-  String get brandMark;
-
   /// No description provided for @settings.
   ///
   /// In en, this message translates to:

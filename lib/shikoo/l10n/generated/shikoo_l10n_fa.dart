@@ -12,9 +12,6 @@ class ShikooL10nFa extends ShikooL10n {
   String get appTitle => 'شیکونت';
 
   @override
-  String get brandMark => 'ش';
-
-  @override
   String get settings => 'تنظیمات';
 
   @override

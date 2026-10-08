@@ -366,10 +366,20 @@ void main() {
     expect(find.byType(ShikooSettings), findsNothing);
   });
 
-  testWidgets('the app is called ShikooNet, شیکونت in Persian', (tester) async {
-    for (final (locale, name) in [('fa', 'شیکونت'), ('en', 'ShikooNet')]) {
+  testWidgets('the app is called ShikooNet, شیکونت in Persian, beside the fox '
+      'mark in either language', (tester) async {
+    for (final (locale, name, letter) in [
+      ('fa', 'شیکونت', 'ش'),
+      ('en', 'ShikooNet', 'S'),
+    ]) {
       await _pump(tester, _phone(), locale: locale);
       expect(find.text(name), findsOneWidget, reason: locale);
+      expect(
+        find.image(const AssetImage(shikooMarkAsset)),
+        findsOneWidget,
+        reason: locale,
+      );
+      expect(find.text(letter), findsNothing, reason: locale);
     }
   });
 
