@@ -1,0 +1,24 @@
+diff --git a/adapter/outbound/wireguard.go b/adapter/outbound/wireguard.go
+index b856c5c..ce207ea 100644
+--- a/adapter/outbound/wireguard.go
++++ b/adapter/outbound/wireguard.go
+@@ -344,6 +344,9 @@ func (option WireGuardOption) Prefixes() ([]netip.Prefix, error) {
+ 	return localPrefixes, nil
+ }
+ 
++// ShikooUnconnectedBind exists only with tools/core-patches applied; core/shikoo_patches.go needs it to compile.
++const ShikooUnconnectedBind = true
++
+ func NewWireGuard(option WireGuardOption) (*WireGuard, error) {
+ 	outbound := &WireGuard{
+ 		Base: NewBase(BaseOption{
+@@ -369,7 +372,8 @@ func NewWireGuard(option WireGuardOption) (*WireGuard, error) {
+ 	}
+ 	var isConnect bool
+ 	if len(option.Peers) < 2 {
+-		isConnect = true
++		// shikoo: a connected socket keeps the source address of the network it was dialed on; unconnected, the kernel picks it per packet
++		isConnect = option.DialerProxy != ""
+ 		if len(option.Peers) == 1 {
+ 			outbound.connectAddr = option.Peers[0].Addr()
+ 		} else {

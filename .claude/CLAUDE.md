@@ -287,6 +287,7 @@
    - **نصب ابزار از صفر:** `bash /mnt/d/Projects/ShikooNet/shikoo-android/tools/wsl-toolchain.sh`. حدود ۱۱ تا ۱۵ دقیقه طول می‌کشد.
    - **ساخت:**
      - داخل WSL: `source ~/android-toolchain/env.sh && cd ~/src/FlClash && dart setup.dart android --env stable`
+     - در کلون شیکو، پیش از هر ساخت: `bash tools/core-patches/apply.sh`. بی آن هسته کامپایل نمی‌شود (وصلهٔ وایرگارد، `SHIKOO_PATCHES.md`).
      - x86_64 تنها: ۳ تا ۵ دقیقه. هر سه معماری: حدود ۶ تا ۷ دقیقه. ساخت سرد اول: حدود ۳۰ دقیقه.
    - **از ویندوز** همیشه `wsl.exe -d Ubuntu --exec bash -c '…'` بزن، نه `--`.
    - **WSL در حالت NAT اینترنت ندارد.**
