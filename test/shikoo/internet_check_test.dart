@@ -8,6 +8,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -263,6 +264,28 @@ void main() {
       },
     );
   }
+
+  testWidgets('TV: under the crash card, which the remote reaches first', (
+    tester,
+  ) async {
+    final l = lookupShikooL10n(const Locale('fa'));
+    final container = await _home(
+      tester,
+      state: _failed(tv: true, silent: true),
+      probe: () async => _ok,
+    );
+    container.read(shikooCrashProvider.notifier).set(1);
+    await _show(container, tester);
+    expect(
+      tester.getRect(find.byType(CrashCard)).bottom,
+      lessThan(tester.getRect(find.byType(InternetCheckCard)).top),
+    );
+    expect(_focused(), 'power');
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowRight),
+      l.reportCrashYes,
+    );
+  });
 
   testWidgets('on the phone it heads the cards, under the power button', (
     tester,

@@ -72,6 +72,7 @@ bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 | `assets/fonts/Vazirmatn-{Regular,Medium,Bold,ExtraBold}.ttf` | فونت وزیرمتن داخل APK. `assets/fonts/` در `pubspec.yaml` خود FlClash از قبل بسته‌بندی می‌شود، پس pubspec دست نخورد. با `FontLoader` بار می‌شود. |
 | `assets/fonts/Vazirmatn-OFL.txt` | متن مجوز OFL، همراه فونت. |
 | `test/shikoo/` | تست‌های شیکو: مرز import لایهٔ UI، و منطق وضعیت اتصال. |
+| `test/helpers/no_shots.dart` | `NoShots`، جانشینِ `ShikooDiag` در تست‌های شیکو: دو عکس صفحه را `null` می‌دهد. هر «پشتیبانی» و هر ورودی گزارش اول عکس می‌گیرد، و در تست نیمهٔ اندرویدیِ کانال `shikoo/diag` بیرون از زمانِ ساختگیِ تست جواب می‌داد و صفحه منتظر می‌ماند. |
 | `android/shikoo/mobile_scanner/` (`build.gradle.kts` و `MobileScannerPlugin.java`) | پلاگین خالیِ جایگزین `mobile_scanner` روی اندروید (وصلهٔ ۷). هم‌نام کلاسی است که `GeneratedPluginRegistrant` ثبت می‌کند. |
 | `android/common/src/main/res/values-fa/strings.xml` | اسم فارسی اپ، «شیکونت»، برای دستگاهی که زبانش فارسی است (وصلهٔ ۹). |
 | `android/app/src/main/res/values/strings.xml`، `android/app/src/main/res/values-fa/strings.xml` | نام کانال اعلان (`service_channel_name`): «ShikooNet» و «شیکونت». منابع ماژول اپ بر منابع کتابخانهٔ `common` مقدم‌اند، پس «FlClash Service» خود FlClash بی‌وصله کنار می‌رود. اندروید کانال را فقط بار اول می‌سازد (`Ext.kt:65-72`)، به زبان دستگاهِ همان لحظه. نصبی که کانالش را از قبل دارد، اسم قبلی را نگه می‌دارد تا اپ پاک و دوباره نصب شود یا داده‌اش پاک شود. |

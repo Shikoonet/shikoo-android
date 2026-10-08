@@ -331,6 +331,49 @@ void main() {
     },
   );
 
+  testWidgets('a row the list scrolled under the top bar steps toward the '
+      'power button there, not to Settings beside it', (tester) async {
+    final wrong = <String>[];
+    for (final ratio in const [2.0, 1.0]) {
+      for (final locale in const ['fa', 'en']) {
+        _tvScreen(tester);
+        tester.view.devicePixelRatio = ratio;
+        await _pumpTvHome(
+          tester,
+          _tv(ShikooConnection.off, servers: _longList, selected: 'سرور 1'),
+          locale: locale,
+          canvas: true,
+        );
+        await tester.pumpAndSettle();
+        final rtl = locale == 'fa';
+        await _press(tester, rtl ? _towardCard : _towardPower);
+        final row = find.widgetWithText(ServerRow, 'سرور 1');
+        final settings = find.widgetWithText(
+          ShikooButton,
+          lookupShikooL10n(Locale(locale)).settings,
+        );
+        double above() =>
+            tester.getCenter(row).dy - tester.getCenter(settings).dy;
+        final list = find
+            .ancestor(of: row, matching: find.byType(Scrollable))
+            .first;
+        final box = tester.renderObject<RenderBox>(list);
+        final scale =
+            box.localToGlobal(const Offset(0, 1)).dy -
+            box.localToGlobal(Offset.zero).dy;
+        final position = tester.state<ScrollableState>(list).position;
+        position.jumpTo(position.pixels + above() / scale);
+        await tester.pump();
+        final level = above().abs() < 1;
+        final got = await _press(tester, rtl ? _towardPower : _towardCard);
+        if (!level || got != 'power') {
+          wrong.add('$locale, ${1920 / ratio} dp: level $level, then $got');
+        }
+      }
+    }
+    expect(wrong, isEmpty);
+  });
+
   testWidgets('a refresh that fails puts its message above the card\'s '
       'buttons and leaves the remote on the one it was on', (tester) async {
     final wrong = <String>[];
