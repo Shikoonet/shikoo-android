@@ -12,6 +12,7 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/state.dart';
@@ -148,10 +149,13 @@ var _mostInFlight = 0;
 /// Paths the panel answers 404 for, as for a link it no longer knows.
 final _gone = <String>{};
 
+DateTime? _panelClock;
+
 Future<String> _panel(ProviderContainer container, _Core core) async {
   globalState.container = container;
   _mostInFlight = 0;
   _gone.clear();
+  _panelClock = null;
   when(() => core.validateConfig(any())).thenAnswer((_) async => '');
   when(() => core.getConfig(any())).thenAnswer(
     (_) async => {
@@ -177,6 +181,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
     }
     final [kind, ...rest] = call.uri.pathSegments;
     final user = kind == 'none' ? null : rest.first;
+    if (_panelClock case final at?) call.response.headers.date = at;
     call.response.headers
       ..contentType = ContentType('text', 'yaml', charset: 'utf-8')
       ..set('profile-title', 'base64:U2hp')
@@ -213,10 +218,38 @@ class _EmulatorHost extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) =>
       super.createHttpClient(context)
-        ..connectionFactory = (uri, _, _) => Socket.startConnect(
-          uri.host == '10.0.2.2' ? InternetAddress.loopbackIPv4 : uri.host,
-          uri.port,
-        );
+        ..connectionFactory = (uri, _, _) => switch (uri) {
+          Uri(host: 'clock.test', scheme: 'https') =>
+            Future<ConnectionTask<Socket>>.error(
+              HandshakeException(
+                'Handshake error in client',
+                OSError('CERTIFICATE_VERIFY_FAILED: $_certificate'),
+              ),
+            ),
+          Uri(host: 'clock.test') => Socket.startConnect(
+            InternetAddress.loopbackIPv4,
+            _clockPort!,
+          ),
+          _ => Socket.startConnect(
+            uri.host == '10.0.2.2' ? InternetAddress.loopbackIPv4 : uri.host,
+            uri.port,
+          ),
+        };
+}
+
+/// `clock.test`: https fails on the certificate's dates, plain http answers with the server's [at].
+String? _certificate;
+int? _clockPort;
+
+Future<void> _clockTest(String certificate, DateTime at) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  addTearDown(() => server.close(force: true));
+  server.listen((call) {
+    call.response.headers.date = at;
+    unawaited(call.response.close());
+  });
+  _certificate = certificate;
+  _clockPort = server.port;
 }
 
 List<Profile> _pasted(ProviderContainer container) => [
@@ -999,6 +1032,48 @@ void main() {
     expect(_pasted(container).map((p) => p.label), ['user111', 'user222']);
   });
 
+  test('one account on two hosts is two cards, both keeping the panel\'s '
+      'account name under the label made unique', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('http://127.0.0.1:$port/file/user111/a');
+    await controller.addService('http://10.0.2.2:$port/file/user111/a');
+    final state = container.read(shikooStateProvider);
+    expect({
+      for (final s in [?state.service, ...state.others]) (s.name, s.account),
+    }, containsAll([('user111', 'user111'), ('user111 ۲', 'user111')]));
+  });
+
+  test('the account name is stored with the service and read back after a '
+      'restart', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('http://127.0.0.1:$port/file/user111/a');
+    // A second card of the account, whose label is made unique: only storage gives its account.
+    await controller.addService('http://10.0.2.2:$port/file/user111/a');
+    final stored = (await SharedPreferences.getInstance()).getString(
+      'shikoo.serviceExtras',
+    );
+    final services = [
+      for (final p in container.read(profilesProvider))
+        if (p.label.startsWith('user111')) p,
+    ];
+
+    final again = _home().container;
+    services.forEach(again.read(profilesProvider.notifier).put);
+    SharedPreferences.setMockInitialValues({'shikoo.serviceExtras': stored!});
+    again.read(shikooControllerProvider);
+    await pumpEventQueue();
+
+    final state = again.read(shikooStateProvider);
+    expect(
+      [?state.service, ...state.others].map((s) => (s.name, s.account)),
+      containsAll([('user111', 'user111'), ('user111 ۲', 'user111')]),
+    );
+  });
+
   test('an account pasted again from a new link is the same card, with the '
       'new link', () async {
     final (:container, :core, :proxies, :setup) = _home();
@@ -1214,6 +1289,57 @@ void main() {
     controller.selectService(failing.id);
     await pumpEventQueue();
     expect(container.read(shikooStateProvider).refresh, ShikooRefresh.failed);
+  });
+
+  group('a clock years off', () {
+    const years14 = Duration(days: 14 * 365);
+    tearDown(() => shikooSkew = Duration.zero);
+
+    test('is learned from the server clock a subscription carries', () async {
+      final (:container, :core, proxies: _, setup: _) = _home();
+      final panel = await _panel(container, core);
+      _panelClock = DateTime.now().subtract(years14);
+      await container
+          .read(shikooControllerProvider)
+          .addService('$panel/file/user111/a');
+      expect(shikooSkew.inDays, closeTo(-years14.inDays, 1));
+    });
+
+    test('is what a paste refused for an expired certificate says', () async {
+      final (:container, :core, proxies: _, setup: _) = _home();
+      await _panel(container, core);
+      await _clockTest(
+        'certificate has expired',
+        DateTime.now().subtract(years14),
+      );
+      expect(
+        await container
+            .read(shikooControllerProvider)
+            .addService('https://clock.test/sub/user111'),
+        ShikooPasteError.clock,
+      );
+    });
+
+    test('shows on the card after an automatic update, not only a pressed '
+        'one', () async {
+      final (:container, :core, proxies: _, setup: _) = _home();
+      await _panel(container, core);
+      await _clockTest(
+        'certificate is not yet valid',
+        DateTime.now().add(years14),
+      );
+      final profile = Profile.normal(url: 'https://clock.test/sub/user111');
+      container.read(profilesProvider.notifier).put(profile);
+      container.read(currentProfileIdProvider.notifier).value = profile.id;
+      await pumpEventQueue();
+      await container
+          .read(shikooControllerProvider)
+          .refreshService(manual: false);
+      expect(
+        container.read(shikooStateProvider).notice,
+        isA<RefreshFailed>().having((notice) => notice.clock, 'clock', isTrue),
+      );
+    });
   });
 
   test('a service without a name has an empty one, also once FlClash has '

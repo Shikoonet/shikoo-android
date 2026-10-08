@@ -889,4 +889,267 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get shortcutToggle => 'Connect / Disconnect';
+
+  @override
+  String get clockWrongTitle => 'Your device\'s date and time are wrong.';
+
+  @override
+  String get clockWrongHelp =>
+      'In Settings › Date & time, turn on “Automatic” (or set them right), then try again.';
+
+  @override
+  String get clockStillWrong => 'The clock is still wrong.';
+
+  @override
+  String get dateSettings => 'Date & time settings';
+
+  @override
+  String get updateTitle => 'A new version is out';
+
+  @override
+  String updateVersionSize(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'Version $version, $sizeString MB';
+  }
+
+  @override
+  String get updateGet => 'Download';
+
+  @override
+  String get updateDownloading => 'Downloading…';
+
+  @override
+  String updateProgress(int percent, int done, int total) {
+    final intl.NumberFormat percentNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String percentString = percentNumberFormat.format(percent);
+    final intl.NumberFormat doneNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String doneString = doneNumberFormat.format(done);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return '$percentString%, $doneString of $totalString MB';
+  }
+
+  @override
+  String get updateReady => 'Ready to install';
+
+  @override
+  String get updateInstall => 'Install';
+
+  @override
+  String get updateClosesApp =>
+      'Installing closes ShikooNet, and the connection if you\'re connected; open it again afterwards.';
+
+  @override
+  String get updateDownloadFailedTitle => 'The download stopped.';
+
+  @override
+  String get updateDownloadFailedHelp =>
+      'Check your internet and try again; it picks up where it stopped.';
+
+  @override
+  String get updateBadFileTitle => 'The file arrived damaged.';
+
+  @override
+  String get updateBadFileHelp => 'Try again to download it from the start.';
+
+  @override
+  String get updateForcedTitle => 'This version needs an update';
+
+  @override
+  String updateForcedBody(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'To keep using ShikooNet, download and install version $version ($sizeString MB).';
+  }
+
+  @override
+  String get installPermissionTitle => 'Allow installing';
+
+  @override
+  String get installPermissionTouch =>
+      'On the next screen, turn on installing for “ShikooNet”, then press your phone’s Back button; the install starts by itself.';
+
+  @override
+  String get installPermissionTv =>
+      'On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself.';
+
+  @override
+  String get updateNoSpaceTitle => 'Not enough space.';
+
+  @override
+  String get updateNoSpaceHelp =>
+      'Remove a few apps or files from this device and try again.';
+
+  @override
+  String get updateInstallFailed =>
+      'The installer didn\'t open; try again or ask Support.';
+
+  @override
+  String get installPermissionLegacy =>
+      'On the next screen, turn on Unknown sources at the bottom of it, then press Back.';
+
+  @override
+  String get installPermissionLegacyTv =>
+      'On the next screen, find and turn on Unknown sources, then press Back on the remote.';
+
+  @override
+  String get settingsCore => 'Core';
+
+  @override
+  String get settingsCoreHelp => 'Updates together with the app.';
+
+  @override
+  String get settingsCheckUpdate => 'Check for updates';
+
+  @override
+  String get settingsChecking => 'Checking…';
+
+  @override
+  String get settingsUpToDate => 'You have the latest version.';
+
+  @override
+  String get settingsCheckFailed =>
+      'Couldn\'t check; check your internet and try again.';
+
+  @override
+  String get reportSendToSupport => 'Send a report to Support';
+
+  @override
+  String get reportSendShort => 'Send a report';
+
+  @override
+  String get diagTitle => 'Diagnostics and report';
+
+  @override
+  String get diagRowHelp => 'If the app isn\'t working right';
+
+  @override
+  String get diagInternetGroup => 'Internet';
+
+  @override
+  String get diagReportGroup => 'Report';
+
+  @override
+  String get diagReportHelp =>
+      'If the app isn\'t working right, send Support a report. You see what is sent before it goes.';
+
+  @override
+  String get diagReportLater =>
+      'The report can’t get through now. When the internet is back, press Try again.';
+
+  @override
+  String get reportSupportSheetBody =>
+      'If the app isn\'t working right, send a report first so Support can see what happened.';
+
+  @override
+  String get reportChatTelegram => 'Chat on Telegram';
+
+  @override
+  String get reportCrashTitle => 'The app closed suddenly last time.';
+
+  @override
+  String get reportCrashAsk => 'Send us a report about it?';
+
+  @override
+  String get reportCrashYes => 'Send';
+
+  @override
+  String get reportCrashNo => 'No';
+
+  @override
+  String get reportTitle => 'Report to Support';
+
+  @override
+  String get reportImageApp => 'What the app drew';
+
+  @override
+  String get reportImageScreen => 'What the screen showed';
+
+  @override
+  String get reportImagesSwitch => 'Send the screen pictures too';
+
+  @override
+  String get reportImageOff => 'Not sent';
+
+  @override
+  String get reportWhatIsSent =>
+      'Sent: device model and settings, app version, your services’ names and data, your operator and internet status, and the app’s recent activity and errors.';
+
+  @override
+  String get reportNeverSent =>
+      'Your subscription link and passwords are never sent.';
+
+  @override
+  String get reportSend => 'Send';
+
+  @override
+  String get reportSending => 'Sending…';
+
+  @override
+  String get reportSentTitle => 'Sent';
+
+  @override
+  String get reportSentLinked =>
+      'Support can see your report; you don\'t need to send anything.';
+
+  @override
+  String get reportCodeLabel => 'Report code';
+
+  @override
+  String reportCodeSmall(String code) {
+    return 'Report code: $code';
+  }
+
+  @override
+  String get reportGiveCode => 'Give this code to Support.';
+
+  @override
+  String get reportFailedTitle => 'Not sent';
+
+  @override
+  String get reportFailedHelp => 'Check your internet and try again.';
+
+  @override
+  String get reportFailedBusy =>
+      'Too many reports right now. Try again in an hour.';
+
+  @override
+  String get reportFailedRefused =>
+      'The problem is on our side. Chat with Support on Telegram.';
+
+  @override
+  String get probeChecking => 'Checking the internet…';
+
+  @override
+  String get probeOk =>
+      'The internet works and the ShikooNet server is reachable.';
+
+  @override
+  String get probeOffline => 'This device isn\'t connected to the internet.';
+
+  @override
+  String get probeNoAbroad =>
+      'International internet is cut on this line. The servers are outside Iran.';
+
+  @override
+  String get probeNoDoor =>
+      'We couldn\'t reach the ShikooNet server; try again in a few minutes.';
+
+  @override
+  String get probeNoServer => 'None of the servers answer.';
+
+  @override
+  String get probeNetSettings => 'Internet settings';
 }

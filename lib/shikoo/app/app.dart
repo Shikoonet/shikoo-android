@@ -7,14 +7,18 @@ import 'package:fl_clash/application.dart';
 import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/system.dart';
+import 'package:fl_clash/core/controller.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -32,6 +36,34 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
 /// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
 Future<bool?>? registerShortcut(App? plugin, String language) =>
     plugin?.initShortcuts(shikooServiceTexts(Locale(language)).toggle);
+
+/// Once per install, and only after [attached]: until then the core has no config, and FlClash toasts "config is not applied".
+Future<void> lockLocalPortAfter(
+  Future<void> attached,
+  ProviderContainer container,
+) async {
+  await attached;
+  container.read(networkSettingProvider.notifier).update((s) {
+    if (s.authentication.credentials.isNotEmpty) return s;
+    return s.copyWith(
+      authentication: AuthenticationProps(
+        enable: true,
+        username: generateRandomSecret(8),
+        password: generateRandomSecret(16),
+      ),
+    );
+  });
+}
+
+/// Without FlClash's IP-lookup card on the dashboard, FlClash never looks the IP up; Shikoo shows no IP, and the lookup went out from the customer's own address.
+AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
+  disclaimerAccepted: true,
+  crashlyticsTip: true,
+  crashlytics: false,
+  autoCheckUpdate: false,
+  dashboardWidgets: const [],
+  openLogs: true,
+);
 
 class ShikooApp extends ConsumerStatefulWidget {
   const ShikooApp({super.key});
@@ -59,35 +91,24 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (globalState.navigatorKey.currentContext == null) exit(0);
       // Saved only because AppStateManager is mounted by now (engine map section 1).
+      ref.read(appSettingProvider.notifier).update(shikooAppSettings);
+      await lockLocalPortAfter(bootstrap.attach(), globalState.container);
       ref
-          .read(appSettingProvider.notifier)
-          .update(
-            (s) => s.copyWith(
-              disclaimerAccepted: true,
-              crashlyticsTip: true,
-              crashlytics: false,
-              autoCheckUpdate: false,
-            ),
-          );
-      ref.read(networkSettingProvider.notifier).update((s) {
-        if (s.authentication.credentials.isNotEmpty) return s;
-        return s.copyWith(
-          authentication: AuthenticationProps(
-            enable: true,
-            username: generateRandomSecret(8),
-            password: generateRandomSecret(16),
-          ),
-        );
-      });
-      await bootstrap.attach();
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => c.copyWith(logLevel: LogLevel.warning));
+      unawaited(shikooDiag.attach(globalState.container));
+      shikooDiag.watchUi();
       _attached = true;
       unawaited(registerShortcut(app, ref.read(shikooLookProvider).language));
       ref.read(shikooControllerProvider).onForeground();
       ref.read(shikooSignInProvider).onForeground();
+      unawaited(ref.read(shikooUpdateProvider).onForeground());
       // A TV is often left on the home screen for hours: its services stay as fresh as on open.
       _due = Timer.periodic(const Duration(minutes: 1), (_) {
         final controller = ref.read(shikooControllerProvider);
-        if (controller.foreground) unawaited(controller.refreshDue());
+        if (!controller.foreground) return;
+        unawaited(controller.refreshDue());
+        unawaited(ref.read(shikooUpdateProvider).check());
       });
       if (shikooDebug) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
@@ -104,11 +125,12 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (resumed) {
       controller.onForeground();
       signIn.onForeground();
+      unawaited(ref.read(shikooUpdateProvider).onForeground());
     }
     if (state == AppLifecycleState.paused) controller.clearNews();
   }
 
-  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>` and `shikoo-debug://lang?code=en`.
+  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `lang?code=en` and `crash`.
   /// The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;
@@ -126,10 +148,13 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
               .read(shikooLookProvider.notifier)
               .setLanguage(query['code'] ?? shikooDefaultLanguage),
         );
+      case 'crash':
+        unawaited(coreController.crash());
     }
   }
 
   Future<void> _onConnectivityChanged(List<ConnectivityResult> results) async {
+    shikooDiag.network(results);
     unawaited(ref.read(systemActionProvider.notifier).updateLocalIp());
     final hasVpn = results.contains(ConnectivityResult.vpn);
     if (_hadVpn == hasVpn) ref.read(checkIpNumProvider.notifier).add();
@@ -156,6 +181,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: globalState.navigatorKey,
+      navigatorObservers: [shikooDiag.routes],
       onNavigationNotification: (_) => true,
       onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
       locale: Locale(look.language),
@@ -164,43 +190,65 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       themeMode: look.theme,
       theme: shikooThemeData(Brightness.light, tv: system.isTV),
       darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
-      builder: (context, child) {
-        // ignore: deprecated_member_use
-        return MaterialUiCompatibilityBridge(
-          child: IconTheme(
-            data: Theme.of(context).iconTheme,
-            child: buildManagerStack(
-              isDesktop: false,
-              onConnectivityChanged: _onConnectivityChanged,
-              child: ShikooSystemUi(child: child!),
-            ),
-          ),
-        );
-      },
+      builder: (context, child) => shikooFrame(
+        context,
+        child!,
+        managers: (page) => buildManagerStack(
+          isDesktop: false,
+          onConnectivityChanged: _onConnectivityChanged,
+          child: page,
+        ),
+      ),
       home: const ShikooRoot(),
     );
   }
 }
 
+/// [ShikooApp]'s builder; a test passes as [managers] only the FlClash managers it can run.
+Widget shikooFrame(
+  BuildContext context,
+  Widget page, {
+  required Widget Function(Widget page) managers,
+}) => RepaintBoundary(
+  key: shikooDiag.appKey,
+  child: NotificationListener<ScrollEndNotification>(
+    onNotification: shikooDiag.onScrollEnd,
+    // ignore: deprecated_member_use
+    child: MaterialUiCompatibilityBridge(
+      child: IconTheme(
+        data: Theme.of(context).iconTheme,
+        child: ShikooTvCanvas(child: managers(ShikooSystemUi(child: page))),
+      ),
+    ),
+  ),
+);
+
+MaterialApp bareApp(
+  Widget home, {
+  ShikooLook look = (theme: ThemeMode.system, language: shikooDefaultLanguage),
+}) => MaterialApp(
+  debugShowCheckedModeBanner: false,
+  locale: Locale(look.language),
+  supportedLocales: ShikooL10n.supportedLocales,
+  localizationsDelegates: _delegates,
+  themeMode: look.theme,
+  theme: shikooThemeData(Brightness.light, tv: system.isTV),
+  darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
+  builder: (context, child) =>
+      ShikooTvCanvas(child: ShikooSystemUi(child: child!)),
+  home: home,
+);
+
 class ShikooInitErrorApp extends StatelessWidget {
   const ShikooInitErrorApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      locale: const Locale(shikooDefaultLanguage),
-      supportedLocales: ShikooL10n.supportedLocales,
-      localizationsDelegates: _delegates,
-      theme: shikooThemeData(Brightness.light, tv: system.isTV),
-      darkTheme: shikooThemeData(Brightness.dark, tv: system.isTV),
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(child: Text(ShikooL10n.of(context).initError)),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => bareApp(
+    Builder(
+      builder: (context) =>
+          Scaffold(body: Center(child: Text(ShikooL10n.of(context).initError))),
+    ),
+  );
 }
 
 /// FlClash's rare dialogs and toasts throw without its strings, and its delegate refuses `fa`.

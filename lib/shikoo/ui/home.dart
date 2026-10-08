@@ -2,15 +2,21 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/internet_check.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -39,6 +45,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _power = FocusNode();
   final _settings = FocusNode();
   final _linkless = FocusNode();
+  final _crashSend = FocusNode();
+  final _crashNo = FocusNode();
+  final _check = FocusNode();
   final _scroll = ScrollController();
   (int?, bool, bool)? _shown;
 
@@ -48,6 +57,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     _power.dispose();
     _settings.dispose();
     _linkless.dispose();
+    _crashSend.dispose();
+    _crashNo.dispose();
+    _check.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -79,9 +91,12 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
+    final update = ref.watch(shikooUpdateOfferProvider);
+    final crashed = ref.watch(shikooCrashProvider) != null;
+    final check = ref.watch(shikooProbeProvider);
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    final now = DateTime.now();
+    final now = shikooNow();
     final current = state.service;
     final unlinked = account.withoutLink;
     final finished = finishedOrder([
@@ -133,6 +148,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         _ => l.noLinkChip,
       },
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
+      checked: check != null,
     );
     FoldedServiceCard folded(ShikooService other) => FoldedServiceCard(
       key: ValueKey(other.id),
@@ -159,6 +175,16 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.s3,
       children: [
+        if (crashed) CrashCard(send: _crashSend, no: _crashNo),
+        if (check != null)
+          InternetCheckCard(
+            check: check,
+            state: state,
+            controller: controller,
+            onReport: () => unawaited(openReport(context, 'connect')),
+            firstFocus: _check,
+          ),
+        if (update != null) UpdateCard(offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
         if (hasService || (unlinked.isEmpty && current == null))
           ServiceCard(
@@ -189,7 +215,11 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   noService: current == null && unlinked.isEmpty,
                   settings: _settings,
                   power: _PowerKeys(
-                    row: towardCard == null ? null : _card.row(towardCard),
+                    targets: [
+                      _crashSend,
+                      _check,
+                      if (towardCard != null) _card.row(towardCard),
+                    ],
                     child: power,
                   ),
                   card: _CardKeys(focus: _card, power: _power, child: card),
@@ -204,11 +234,37 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 /// A node keeps the context of its widget after the widget is gone.
 bool _onScreen(FocusNode? node) => node?.context?.mounted ?? false;
 
-/// Toward the card is the selected server, or the first one while none is chosen.
-class _PowerKeys extends StatelessWidget {
-  const _PowerKeys({required this.row, required this.child});
+/// Only the cards' own: a list scrolled up under the top bar shares a row with its Settings.
+FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
+  final box = cards.findRenderObject();
+  if (box is! RenderBox) return null;
+  final column = MatrixUtils.transformRect(
+    box.getTransformTo(null),
+    Offset.zero & box.size,
+  );
+  final at = from.rect;
+  FocusNode? nearest;
+  var gap = double.infinity;
+  for (final node in from.nearestScope?.traversalDescendants ?? <FocusNode>[]) {
+    final r = node.rect;
+    final apart = rtl ? at.left - r.right : r.left - at.right;
+    if (apart >= 0 &&
+        apart < gap &&
+        r.top < at.bottom &&
+        r.bottom > at.top &&
+        column.contains(r.center)) {
+      nearest = node;
+      gap = apart;
+    }
+  }
+  return nearest;
+}
 
-  final FocusNode? row;
+/// Toward the card: the crash card, the internet check, then the selected or first server.
+class _PowerKeys extends StatelessWidget {
+  const _PowerKeys({required this.targets, required this.child});
+
+  final List<FocusNode> targets;
   final Widget child;
 
   @override
@@ -220,9 +276,9 @@ class _PowerKeys extends StatelessWidget {
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
-            final row = this.row;
-            if (intent.direction == towardCard && _onScreen(row)) {
-              row!.requestFocus();
+            final target = targets.firstWhereOrNull(_onScreen);
+            if (intent.direction == towardCard && target != null) {
+              target.requestFocus();
             } else if (intent.direction != TraversalDirection.down) {
               primaryFocus?.focusInDirection(intent.direction);
             }
@@ -235,7 +291,7 @@ class _PowerKeys extends StatelessWidget {
   }
 }
 
-/// Toward the power button every card item goes there, except renew, which steps to support
+/// Toward the power button a card item goes there, or to the item beside it in its row
 /// first; down from renew is ping-all, not the first full-width row (tv-ping.html notes).
 class _CardKeys extends StatelessWidget {
   const _CardKeys({
@@ -250,7 +306,8 @@ class _CardKeys extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final towardPower = Directionality.of(context) == TextDirection.rtl
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final towardPower = rtl
         ? TraversalDirection.left
         : TraversalDirection.right;
     return Actions(
@@ -258,16 +315,20 @@ class _CardKeys extends StatelessWidget {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
             final from = primaryFocus;
-            if (from == focus.renew &&
-                intent.direction == TraversalDirection.down &&
-                _onScreen(focus.pingAll)) {
-              focus.pingAll.requestFocus();
+            final below = switch (from) {
+              _ when intent.direction != TraversalDirection.down => null,
+              final node when node == focus.renew => focus.pingAll,
+              final node when node == focus.refresh => focus.report,
+              _ => null,
+            };
+            if (_onScreen(below)) {
+              below!.requestFocus();
               return null;
             }
             if (intent.direction == towardPower &&
-                from != focus.renew &&
+                from != null &&
                 _onScreen(power)) {
-              power.requestFocus();
+              (_beside(context, from, rtl: rtl) ?? power).requestFocus();
             } else {
               from?.focusInDirection(intent.direction);
             }
@@ -329,7 +390,7 @@ class _TvLayout extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: s.pane,
-                    child: _TvColumn(child: card),
+                    child: TvScrollColumn(child: card),
                   ),
                   const SizedBox(width: Space.s10),
                   Expanded(child: Center(child: power)),
@@ -338,98 +399,6 @@ class _TvLayout extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// `.tv-col`: scrolls as one; once scrolled, its top edge fades and a thumb shows. It reaches
-/// 8dp past the pane on every side (`margin: -8; padding: 8`) so focus rings are not clipped.
-class _TvColumn extends StatefulWidget {
-  const _TvColumn({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_TvColumn> createState() => _TvColumnState();
-}
-
-class _TvColumnState extends State<_TvColumn> {
-  final _scroll = ScrollController();
-  bool _scrolled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(() {
-      final scrolled = _scroll.offset > 0;
-      if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
-    });
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _onFocusInside(bool inside) {
-    if (inside || !_scroll.hasClients) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _scroll.jumpTo(0);
-    } else {
-      unawaited(
-        _scroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    return LayoutBuilder(
-      builder: (context, box) => OverflowBox(
-        maxWidth: box.maxWidth + 2 * Space.s2,
-        minHeight: box.maxHeight + 2 * Space.s2,
-        maxHeight: box.maxHeight + 2 * Space.s2,
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (rect) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              _scrolled ? Colors.transparent : Colors.black,
-              Colors.black,
-            ],
-            stops: [0, ShikooSizes.fade / rect.height],
-          ).createShader(rect),
-          child: Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onFocusChange: _onFocusInside,
-            child: RawScrollbar(
-              controller: _scroll,
-              thumbVisibility: _scrolled,
-              thickness: ShikooSizes.scrollThumb,
-              radius: const Radius.circular(ShikooSizes.scrollThumb),
-              thumbColor: t.c.outline,
-              child: SingleChildScrollView(
-                controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(
-                  Space.s2,
-                  Space.s2,
-                  Space.s2,
-                  Space.s2 + ShikooSizes.ring,
-                ),
-                child: widget.child,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -503,6 +472,7 @@ class _PowerZone extends StatelessWidget {
     required this.focusNode,
     this.restingLabel,
     this.restingMessage,
+    this.checked = false,
   });
 
   final ShikooState state;
@@ -510,6 +480,9 @@ class _PowerZone extends StatelessWidget {
   final FocusNode focusNode;
   final String? restingLabel;
   final String? restingMessage;
+
+  /// The internet check has its card; «check this phone's internet» would contradict it.
+  final bool checked;
 
   @override
   Widget build(BuildContext context) {
@@ -553,6 +526,7 @@ class _PowerZone extends StatelessWidget {
           selected?.label ?? '',
           connectTimeout.inSeconds,
         ),
+      ShikooError.noServer when checked => null,
       ShikooError.noServer =>
         state.isTV ? l.noServerAnsweredHelpTv : l.noServerAnsweredHelpTouch,
       ShikooError.vpnRefused => l.vpnRefused,
@@ -751,13 +725,13 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                   child: ShikooButton(
                     label: l.support,
                     icon: isTV ? ShikooIcon.qr : null,
-                    onPressed: () => openLink(
-                      context,
-                      isTV: isTV,
-                      link: ShikooLinks.support,
-                      title: l.supportTitle,
-                      help: l.supportHelpTv,
-                      below: bidiName(service.title),
+                    onPressed: () => unawaited(
+                      openSupport(
+                        context,
+                        isTV: isTV,
+                        below: bidiName(service.title),
+                        trigger: 'support',
+                      ),
                     ),
                   ),
                 ),
@@ -821,16 +795,8 @@ class _FinishedServicesState extends State<_FinishedServices> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(Scrollable.ensureVisible(context));
-      if (widget.isTV) _jump(_first);
+      if (widget.isTV) jumpFocus(context, _first);
     });
-  }
-
-  /// Directional traversal remembers its last moves, and Up would undo the Down that came here.
-  void _jump(FocusNode node) {
-    if (node.nearestScope case final scope?) {
-      FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
-    }
-    node.requestFocus();
   }
 
   void _renew(Finished row) {
@@ -855,7 +821,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final isTV = widget.isTV;
-    final now = DateTime.now();
+    final now = shikooNow();
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.md),
     );
@@ -995,7 +961,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !_open) return;
         setState(() => _open = false);
-        _jump(_head);
+        jumpFocus(context, _head);
       },
       child: card,
     );

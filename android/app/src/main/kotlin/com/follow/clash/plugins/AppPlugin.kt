@@ -180,6 +180,13 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(openAppSettings())
             }
 
+            "openDateSettings" -> {
+                result.success(
+                    openSettings(Settings.ACTION_DATE_SETTINGS) ||
+                        openSettings(Settings.ACTION_SETTINGS),
+                )
+            }
+
             "didCrashOnPreviousExecution" -> reply(result) {
                 GlobalState.didCrashOnPreviousExecution()
             }
@@ -258,6 +265,16 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 data = "package:${GlobalState.application.packageName}".toUri()
             }
             activity.startActivity(intent)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun openSettings(action: String): Boolean {
+        val activity = activity ?: return false
+        return try {
+            activity.startActivity(Intent(action))
             true
         } catch (_: Exception) {
             false

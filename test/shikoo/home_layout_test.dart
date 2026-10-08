@@ -16,6 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_shots.dart';
+
 const _servers = [
   ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
   ShikooServer(name: 'فنلاند ۲', type: 'Vless', ping: 112),
@@ -74,6 +76,7 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
   WidgetTester tester,
   ShikooState state, {
   String locale = 'fa',
+  bool canvas = false,
 }) async {
   final holder = ValueNotifier(state);
   addTearDown(holder.dispose);
@@ -81,6 +84,7 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
     ProviderScope(
       key: UniqueKey(),
       overrides: [
+        noShots,
         shikooStateProvider.overrideWith((ref) {
           void changed() => ref.invalidateSelf();
           holder.addListener(changed);
@@ -96,6 +100,7 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
           ...GlobalMaterialLocalizations.delegates,
         ],
         theme: shikooThemeData(Brightness.dark, tv: true),
+        builder: canvas ? (_, child) => ShikooTvCanvas(child: child!) : null,
         home: const ShikooHome(),
       ),
     ),
@@ -275,6 +280,123 @@ void main() {
 
     expect(await _press(tester, _towardPower), 'power');
     expect(offset(), 0);
+  });
+
+  testWidgets(
+    'a notice leaving from above the list keeps the row and its ring in '
+    'view, and toward the power button still goes there, not to Settings',
+    (tester) async {
+      ShikooState home({ShikooNotice? notice}) => _tv(
+        ShikooConnection.off,
+        servers: _longList,
+        selected: 'سرور 1',
+        notice: notice,
+      );
+      final wrong = <String>[];
+      for (final ratio in const [2.0, 1.0]) {
+        for (final locale in const ['fa', 'en']) {
+          _tvScreen(tester);
+          tester.view.devicePixelRatio = ratio;
+          final holder = await _pumpTvHome(
+            tester,
+            home(
+              notice: const SelectedReplaced(
+                removed: 'سرور 13',
+                replacement: 'سرور 1',
+                moved: false,
+              ),
+            ),
+            locale: locale,
+            canvas: true,
+          );
+          await tester.pumpAndSettle();
+          final rtl = locale == 'fa';
+          await _press(tester, rtl ? _towardCard : _towardPower);
+          final row = _focused();
+          holder.value = home();
+          await tester.pumpAndSettle();
+          final shown = find.widgetWithText(ServerRow, 'سرور 1');
+          final view = tester.getRect(
+            find.ancestor(of: shown, matching: find.byType(Scrollable)).first,
+          );
+          final ring = tester.getRect(shown).inflate(ShikooSizes.ring);
+          final inView = ring.top >= view.top && ring.bottom <= view.bottom;
+          final got = await _press(tester, rtl ? _towardPower : _towardCard);
+          if (row != 'سرور 1' || !inView || got != 'power') {
+            wrong.add('$locale, ${1920 / ratio} dp: $row $inView, then $got');
+          }
+        }
+      }
+      expect(wrong, isEmpty);
+    },
+  );
+
+  testWidgets('a row the list scrolled under the top bar steps toward the '
+      'power button there, not to Settings beside it', (tester) async {
+    final wrong = <String>[];
+    for (final ratio in const [2.0, 1.0]) {
+      for (final locale in const ['fa', 'en']) {
+        _tvScreen(tester);
+        tester.view.devicePixelRatio = ratio;
+        await _pumpTvHome(
+          tester,
+          _tv(ShikooConnection.off, servers: _longList, selected: 'سرور 1'),
+          locale: locale,
+          canvas: true,
+        );
+        await tester.pumpAndSettle();
+        final rtl = locale == 'fa';
+        await _press(tester, rtl ? _towardCard : _towardPower);
+        final row = find.widgetWithText(ServerRow, 'سرور 1');
+        final settings = find.widgetWithText(
+          ShikooButton,
+          lookupShikooL10n(Locale(locale)).settings,
+        );
+        double above() =>
+            tester.getCenter(row).dy - tester.getCenter(settings).dy;
+        final list = find
+            .ancestor(of: row, matching: find.byType(Scrollable))
+            .first;
+        final box = tester.renderObject<RenderBox>(list);
+        final scale =
+            box.localToGlobal(const Offset(0, 1)).dy -
+            box.localToGlobal(Offset.zero).dy;
+        final position = tester.state<ScrollableState>(list).position;
+        position.jumpTo(position.pixels + above() / scale);
+        await tester.pump();
+        final level = above().abs() < 1;
+        final got = await _press(tester, rtl ? _towardPower : _towardCard);
+        if (!level || got != 'power') {
+          wrong.add('$locale, ${1920 / ratio} dp: level $level, then $got');
+        }
+      }
+    }
+    expect(wrong, isEmpty);
+  });
+
+  testWidgets('a refresh that fails puts its message above the card\'s '
+      'buttons and leaves the remote on the one it was on', (tester) async {
+    final wrong = <String>[];
+    for (final at in ['پشتیبانی', 'تمدید', 'پینگ همه', 'فنلاند ۲']) {
+      _tvScreen(tester);
+      final holder = await _pumpTvHome(tester, _tv(ShikooConnection.off));
+      await _focus(tester, at);
+      holder.value = _tv(ShikooConnection.off, refresh: ShikooRefresh.running);
+      await tester.pumpAndSettle();
+      holder.value = _tv(
+        ShikooConnection.off,
+        refresh: ShikooRefresh.failed,
+        notice: const RefreshFailed(),
+      );
+      await tester.pumpAndSettle();
+      final failed = _focused();
+      holder.value = _tv(ShikooConnection.off);
+      await tester.pumpAndSettle();
+      if (failed != at || _focused() != at) {
+        wrong.add('$at: $failed, then ${_focused()}');
+      }
+    }
+    expect(wrong, isEmpty);
   });
 
   testWidgets('a new order waits while the remote is on the list', (

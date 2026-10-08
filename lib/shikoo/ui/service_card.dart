@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/foundation.dart' show listEquals;
@@ -44,6 +47,8 @@ ShikooServiceStatus? restingFor(ShikooState state) {
 class CardFocus {
   final renew = FocusNode();
   final pingAll = FocusNode();
+  final refresh = FocusNode();
+  final report = FocusNode();
   // ponytail: a removed server's node lives until the page goes; prune if lists churn a lot.
   final _rows = <String, FocusNode>{};
 
@@ -52,6 +57,8 @@ class CardFocus {
   void dispose() {
     renew.dispose();
     pingAll.dispose();
+    refresh.dispose();
+    report.dispose();
     for (final node in _rows.values) {
       node.dispose();
     }
@@ -85,6 +92,19 @@ class ServiceCard extends StatefulWidget {
 
 class _ServiceCardState extends State<ServiceCard> {
   bool _open = true;
+
+  /// A message leaving from above the list moves the remote's row up, under the top bar.
+  @override
+  void didUpdateWidget(ServiceCard old) {
+    super.didUpdateWidget(old);
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (widget.state.isTV &&
+        old.state.notice != null &&
+        widget.state.notice == null &&
+        focused != null) {
+      revealWithRing(focused);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,12 +178,12 @@ class _ServiceCardState extends State<ServiceCard> {
                       ShikooButton(
                         label: l.support,
                         icon: state.isTV ? ShikooIcon.qr : null,
-                        onPressed: () => openLink(
-                          context,
-                          isTV: state.isTV,
-                          link: ShikooLinks.support,
-                          title: l.supportTitle,
-                          help: l.supportHelpTv,
+                        onPressed: () => unawaited(
+                          openSupport(
+                            context,
+                            isTV: state.isTV,
+                            trigger: 'support',
+                          ),
                         ),
                       ),
                     ],
@@ -184,6 +204,7 @@ class _ServiceCardState extends State<ServiceCard> {
                         : const EdgeInsetsDirectional.only(start: Space.s4),
                     child: _Head(
                       service: service,
+                      refreshNode: focus.refresh,
                       refresh: state.refresh,
                       onRefresh: () => unawaited(controller.refreshService()),
                       isTV: state.isTV,
@@ -205,7 +226,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 if (notice != null && !revoked)
                   Padding(
                     padding: inset,
-                    child: _Message(notice: notice, isTV: state.isTV),
+                    child: _Message(
+                      notice: notice,
+                      isTV: state.isTV,
+                      reportNode: focus.report,
+                    ),
                   ),
                 if (service.usageKnown && !revoked)
                   Padding(
@@ -217,7 +242,9 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset,
                     child: _Notice(text: service.announce!),
                   ),
+                // Unkeyed, a message appearing above rebuilt Support and the remote fell off it.
                 Padding(
+                  key: const ValueKey('actions'),
                   padding: inset.copyWith(top: Space.s3),
                   child: Row(
                     children: [
@@ -274,13 +301,14 @@ class _ServiceCardState extends State<ServiceCard> {
                         child: ShikooButton(
                           label: l.support,
                           icon: state.isTV ? ShikooIcon.qr : null,
-                          onPressed: () => openLink(
-                            context,
-                            isTV: state.isTV,
-                            link: service.supportLink,
-                            title: l.supportTitle,
-                            help: l.supportHelpTv,
-                            below: serviceTitle(context, service),
+                          onPressed: () => unawaited(
+                            openSupport(
+                              context,
+                              isTV: state.isTV,
+                              link: service.supportLink,
+                              below: serviceTitle(context, service),
+                              trigger: 'support',
+                            ),
                           ),
                         ),
                       ),
@@ -401,8 +429,7 @@ class _NameLine extends StatelessWidget {
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
       ServiceName(plainTitle(context, service)),
-      if (service.usageKnown)
-        StatusChip(status: service.statusAt(DateTime.now())),
+      if (service.usageKnown) StatusChip(status: service.statusAt(shikooNow())),
     ],
   );
 }
@@ -419,6 +446,7 @@ String agoText(ShikooL10n l, Duration ago) {
 class _Head extends StatelessWidget {
   const _Head({
     required this.service,
+    this.refreshNode,
     required this.refresh,
     required this.onRefresh,
     required this.isTV,
@@ -427,6 +455,7 @@ class _Head extends StatelessWidget {
   });
 
   final ShikooService service;
+  final FocusNode? refreshNode;
   final ShikooRefresh refresh;
   final VoidCallback onRefresh;
   final bool isTV;
@@ -475,6 +504,7 @@ class _Head extends StatelessWidget {
             label: l.refresh,
             icon: ShikooIcon.refresh,
             busy: busy,
+            focusNode: refreshNode,
             onPressed: busy ? () {} : onRefresh,
           )
         else ...[
@@ -572,16 +602,23 @@ class _Summary extends StatelessWidget {
 /// `.notice.msg`: what the last update did; `.danger` when an update the user asked for
 /// failed.
 class _Message extends StatelessWidget {
-  const _Message({required this.notice, required this.isTV});
+  const _Message({
+    required this.notice,
+    required this.isTV,
+    required this.reportNode,
+  });
 
   final ShikooNotice notice;
   final bool isTV;
+  final FocusNode reportNode;
 
   @override
   Widget build(BuildContext context) {
     final l = ShikooL10n.of(context);
     final danger = notice is RefreshFailed;
+    final clock = notice is RefreshFailed && (notice as RefreshFailed).clock;
     final (strong, rest) = switch (notice) {
+      RefreshFailed(clock: true) => (l.clockWrongTitle, l.clockWrongHelp),
       RefreshFailed() => (
         l.updateFailedTitle,
         isTV ? l.updateFailedTv : l.updateFailedTouch,
@@ -615,13 +652,36 @@ class _Message extends StatelessWidget {
         '',
       ),
     };
+    final box = MessageBox(
+      icon: danger ? ShikooIcon.alert : ShikooIcon.refresh,
+      strong: strong,
+      rest: rest,
+      danger: danger,
+    );
+    void report() => unawaited(openReport(context, 'refresh'));
     return Padding(
       padding: const EdgeInsets.only(top: Space.s3),
-      child: MessageBox(
-        icon: danger ? ShikooIcon.alert : ShikooIcon.refresh,
-        strong: strong,
-        rest: rest,
-        danger: danger,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: Space.s2,
+        children: [
+          box,
+          if (clock)
+            const DateSettingsButton()
+          else if (danger && isTV)
+            ShikooButton(
+              label: l.reportSendToSupport,
+              icon: ShikooIcon.report,
+              focusNode: reportNode,
+              onPressed: report,
+            )
+          else if (danger)
+            LinkButton(
+              label: l.reportSendToSupport,
+              alignment: AlignmentDirectional.centerStart,
+              onPressed: report,
+            ),
+        ],
       ),
     );
   }
@@ -689,7 +749,7 @@ class _Usage extends StatelessWidget {
           ]),
           if (total > 0) ...[
             const SizedBox(height: Space.s2),
-            _Bar(ratio: ratio),
+            MeterBar(ratio: ratio),
           ],
           if (expire != null) ...[
             const SizedBox(height: Space.s2),
@@ -704,8 +764,7 @@ class _Usage extends StatelessWidget {
                     : l.daysLeft(
                         math.max(
                           0,
-                          (expire.difference(DateTime.now()).inHours / 24)
-                              .ceil(),
+                          (expire.difference(shikooNow()).inHours / 24).ceil(),
                         ),
                       ),
                 style: expired ? muted.merge(danger) : muted,
@@ -718,16 +777,19 @@ class _Usage extends StatelessWidget {
   }
 }
 
-/// `.bar`: fills from the start edge; amber from 90%, red when used up.
-class _Bar extends StatelessWidget {
-  const _Bar({required this.ratio});
+/// `.bar`: fills from the start edge; for usage, amber from 90% and red when used up.
+class MeterBar extends StatelessWidget {
+  const MeterBar({super.key, required this.ratio, this.usage = true});
 
   final double ratio;
+  final bool usage;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final fill = ratio >= 1
+    final fill = !usage
+        ? t.c.primary
+        : ratio >= 1
         ? t.c.danger
         : (ratio >= _nearlyUsed ? t.c.warning : t.c.primary);
     return Container(

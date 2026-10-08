@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dio/dio.dart'
+    show BaseOptions, Dio, DioException, InterceptorsWrapper;
 import 'package:drift/native.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:flutter/foundation.dart';
@@ -44,10 +47,14 @@ class _FakeAppApi {
   final names = <String>[];
   Duration life = const Duration(minutes: 10);
   int startStatus = 200;
+  bool startHangs = false;
   int servicesStatus = 200;
   int rateLimitedPolls = 0;
   int polls = 0;
   List<Map<String, Object?>> services = [];
+  DateTime Function()? clock;
+
+  DateTime _now() => clock?.call() ?? DateTime.now();
 
   String get base => 'http://127.0.0.1:${_server.port}';
 
@@ -77,6 +84,7 @@ class _FakeAppApi {
         ? auth.substring(7)
         : null;
     Future<void> reply(int status, Map<String, Object?> body) async {
+      if (clock case final at?) request.response.headers.date = at();
       request.response
         ..statusCode = status
         ..headers.contentType = ContentType.json
@@ -86,6 +94,7 @@ class _FakeAppApi {
 
     switch ('${request.method} ${request.uri.path}') {
       case 'POST /api/v1/app/login/start':
+        if (startHangs) return;
         final name = json?['device_name'];
         if (startStatus != 200) return reply(startStatus, {'ok': false});
         if (name is! String ||
@@ -96,7 +105,7 @@ class _FakeAppApi {
         }
         names.add(name);
         final code = '${482915 + codes.length}';
-        final expires = DateTime.now().add(life);
+        final expires = _now().add(life);
         codes[code] = _Code(_secret(), expires);
         return reply(200, {
           'ok': true,
@@ -115,9 +124,7 @@ class _FakeAppApi {
         if (code == null || code.secret != json?['poll_secret']) {
           return reply(404, {'ok': false, 'error': 'not_found'});
         }
-        if (code.used ||
-            code.refused ||
-            !DateTime.now().isBefore(code.expires)) {
+        if (code.used || code.refused || !_now().isBefore(code.expires)) {
           return reply(410, {'ok': false, 'error': code.reason ?? 'gone'});
         }
         final who = code.approvedBy;
@@ -209,6 +216,7 @@ typedef _Harness = ({
 Future<_Harness> _harness({
   List<String>? bases,
   List<Profile> pasted = const [],
+  Dio? dio,
 }) async {
   SharedPreferences.setMockInitialValues({
     if (pasted.isNotEmpty)
@@ -249,7 +257,7 @@ Future<_Harness> _harness({
   });
   container = ProviderContainer(
     overrides: [
-      shikooApiProvider.overrideWithValue(ShikooApi(bases ?? [api.base])),
+      shikooApiProvider.overrideWithValue(ShikooApi(bases ?? [api.base], dio)),
       shikooDeviceProvider.overrideWithValue(
         () async => (name: 'Xiaomi MIBOX4', tv: true),
       ),
@@ -350,8 +358,7 @@ void main() {
       expect(waiting.code, h.api.lastCode);
       expect(link, 'https://t.me/Test_Shikoo_bot?start=app_${h.api.lastCode}');
       expect(h.api.names, ['Xiaomi MIBOX4']);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(h.api.polls, greaterThan(1));
+      await _until(h.container, (_) => h.api.polls > 1);
       expect(h.container.read(shikooLoginProvider)?.phase, LoginPhase.waiting);
 
       h.api.codes[h.api.lastCode]!.approvedBy = (
@@ -377,6 +384,91 @@ void main() {
       h.signIn.finish();
       expect(h.container.read(shikooLoginProvider), isNull);
       expect(h.container.read(shikooAccountProvider).who?.name, 'مریم');
+    });
+
+    test(
+      'a start the server never answers gives up within its limit',
+      () async {
+        final h = await _harness();
+        h.api.startHangs = true;
+        h.signIn.startLimit = const Duration(milliseconds: 100);
+        await h.signIn.start().timeout(const Duration(seconds: 3));
+        final failed = h.container.read(shikooLoginProvider);
+        expect(failed?.phase, LoginPhase.startFailed);
+        expect(failed?.clock, isFalse);
+      },
+    );
+
+    test('a start whose certificate is not valid yet blames the clock', () async {
+      final h = await _harness(
+        bases: ['http://127.0.0.1:1'],
+        dio: Dio()
+          ..interceptors.add(
+            InterceptorsWrapper(
+              onRequest: (options, handler) => handler.reject(
+                DioException(
+                  requestOptions: options,
+                  error: const HandshakeException(
+                    'Handshake error in client',
+                    OSError(
+                      'CERTIFICATE_VERIFY_FAILED: certificate is not yet valid',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      );
+      await h.signIn.start();
+      final failed = h.container.read(shikooLoginProvider);
+      expect(failed?.phase, LoginPhase.startFailed);
+      expect(failed?.clock, isTrue);
+    });
+
+    test('the clock an answer carries is learned, and a services list refused '
+        'for an expired certificate blames the clock', () async {
+      const years14 = Duration(days: 14 * 365);
+      addTearDown(() => shikooSkew = Duration.zero);
+      final h = await _harness(
+        dio: Dio(BaseOptions(validateStatus: (_) => true))
+          ..interceptors.add(
+            InterceptorsWrapper(
+              onRequest: (options, handler) =>
+                  options.path.endsWith('/services')
+                  ? handler.reject(
+                      DioException(
+                        requestOptions: options,
+                        error: const HandshakeException(
+                          'Handshake error in client',
+                          OSError(
+                            'CERTIFICATE_VERIFY_FAILED: certificate has expired',
+                          ),
+                        ),
+                      ),
+                    )
+                  : handler.next(options),
+            ),
+          ),
+      );
+      h.api.services = [_service(1, 'user123')];
+      h.api.clock = () => DateTime.now().subtract(years14);
+      await h.signIn.start();
+      expect(shikooSkew.inDays, closeTo(-years14.inDays, 1));
+
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'مریم', username: null);
+      final failed = await _until(h.container, _at(LoginPhase.servicesFailed));
+      expect(failed!.clock, isTrue);
+    });
+
+    test('a code lives as long as the server says on a box whose clock is '
+        'hours behind', () async {
+      addTearDown(() => shikooSkew = Duration.zero);
+      final h = await _harness();
+      h.api.clock = () => DateTime.now().add(const Duration(hours: 3));
+      final code = await h.container
+          .read(shikooApiProvider)
+          .start(deviceName: 'Xiaomi MIBOX4', tv: true);
+      expect(code.lifetime.inSeconds, closeTo(h.api.life.inSeconds, 2));
     });
 
     test(
@@ -956,7 +1048,12 @@ void main() {
     await keepApiDirect();
     await keepApiDirect();
     final rules = await database.rulesDao.queryAddedRules(1).get();
-    expect(rules.map((rule) => rule.rawValue), ['DOMAIN,app.chopon.uk,DIRECT']);
+    expect(rules.map((rule) => rule.rawValue), [
+      'DOMAIN,app.chopon.uk,DIRECT',
+      'DOMAIN,www.aparat.com,DIRECT',
+      'DOMAIN,www.digikala.com,DIRECT',
+      'DOMAIN,connectivitycheck.gstatic.com,DIRECT',
+    ]);
     expect(
       apiDirectRule('http://10.0.2.2:18790', 1).rawValue,
       'IP-CIDR,10.0.2.2/32,DIRECT,no-resolve',

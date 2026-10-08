@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpDate, HttpException, HttpHeaders, InternetAddress;
+import 'dart:io' show HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -9,7 +9,10 @@ import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -51,6 +54,7 @@ class ShikooLogin {
     this.botUrl,
     this.account,
     this.services = const [],
+    this.clock = false,
   });
 
   final LoginPhase phase;
@@ -59,6 +63,7 @@ class ShikooLogin {
   final String? botUrl;
   final TelegramAccount? account;
   final List<String> services;
+  final bool clock;
 }
 
 @immutable
@@ -193,7 +198,12 @@ final shikooDeviceProvider =
     );
 
 class ShikooApiFailure implements Exception {
-  const ShikooApiFailure();
+  const ShikooApiFailure({this.clock = false, this.status});
+
+  final bool clock;
+
+  /// The door answered, and refused; null when it was not reached.
+  final int? status;
 }
 
 class LoginCode {
@@ -242,6 +252,30 @@ class AccountServiceRow {
   String get label => location == null ? title : '$title · $location';
 }
 
+/// One ABI's build at the app door (`appRelease.ts`).
+@immutable
+class AppRelease {
+  const AppRelease({
+    required this.versionName,
+    required this.versionCode,
+    required this.minVersionCode,
+    required this.size,
+    required this.sha256,
+    required this.url,
+  });
+
+  final String versionName;
+  final int versionCode;
+
+  final int minVersionCode;
+  final int size;
+
+  final String sha256;
+  final String url;
+}
+
+final _sha256 = RegExp(r'^[0-9a-f]{64}$');
+
 class ShikooApi {
   ShikooApi(this.bases, [Dio? dio])
     : _dio =
@@ -266,7 +300,10 @@ class ShikooApi {
     String path, {
     Map<String, Object?>? body,
     String? token,
+    Duration? sendTimeout,
   }) async {
+    final name = path.split('/').where((part) => part.isNotEmpty).join('-');
+    (DioException, String)? failed;
     for (var i = 0; i < bases.length; i++) {
       final at = (_first + i) % bases.length;
       try {
@@ -275,6 +312,7 @@ class ShikooApi {
           data: body,
           options: Options(
             method: method,
+            sendTimeout: sendTimeout,
             headers: {
               if (token != null)
                 HttpHeaders.authorizationHeader: 'Bearer $token',
@@ -282,12 +320,21 @@ class ShikooApi {
           ),
         );
         _first = at;
+        learnClock(response.headers.value(HttpHeaders.dateHeader));
+        if ((response.statusCode ?? 0) >= 400) {
+          shikooDiag.add('T', 'door $name http ${response.statusCode}');
+        }
         return response;
-      } on DioException {
-        continue;
+      } on DioException catch (error) {
+        failed = (error, bases[at]);
       }
     }
-    throw const ShikooApiFailure();
+    final clock = failed != null && await clockFailed(failed.$1, failed.$2);
+    shikooDiag.add(
+      'T',
+      'door $name ${clock ? 'clock' : failureKind(failed?.$1)}',
+    );
+    throw ShikooApiFailure(clock: clock);
   }
 
   static Map<String, dynamic>? _json(Response<Object?> response) =>
@@ -320,14 +367,9 @@ class ShikooApi {
   }
 
   /// A box's clock can be hours off; the server's own clock measures the code's life.
-  static DateTime _serverNow(Response<Object?> response) {
-    final date = response.headers.value(HttpHeaders.dateHeader);
-    try {
-      return date == null ? DateTime.now() : HttpDate.parse(date);
-    } on HttpException {
-      return DateTime.now();
-    }
-  }
+  static DateTime _serverNow(Response<Object?> response) => DateTime.now().add(
+    skewOf(response.headers.value(HttpHeaders.dateHeader)) ?? Duration.zero,
+  );
 
   /// A 429 or a server error is only "ask again later".
   Future<PollAnswer> poll(String code, String secret) async {
@@ -378,9 +420,83 @@ class ShikooApi {
     );
   }
 
+  /// `POST /report` (shikoo-platform's `appReport.ts`); a 1.4 MB body gets its own minute.
+  Future<({String code, bool linked})> report(
+    Map<String, Object?> body, {
+    String? token,
+  }) async {
+    final response = await _call(
+      'POST',
+      '/report',
+      body: body,
+      token: token,
+      sendTimeout: const Duration(seconds: 60),
+    );
+    if (_json(response) case {
+      'code': final String code,
+      'linked': final bool linked,
+    } when response.statusCode == 200) {
+      return (code: code, linked: linked);
+    }
+    throw ShikooApiFailure(status: response.statusCode);
+  }
+
   Future<void> logout(String token) async {
     await _call('POST', '/logout', token: token);
   }
+
+  /// Null before the first release, for another ABI, and for a file anywhere but the door that
+  /// answered: its sha256 vouches only for that door's file.
+  Future<AppRelease?> update(String abi) async {
+    final response = await _call('GET', '/update');
+    if (response.statusCode == 404) return null;
+    final body = _json(response);
+    if (response.statusCode != 200 || body == null) {
+      throw const ShikooApiFailure();
+    }
+    final apk = (body['apks'] as Map?)?[abi];
+    if (apk == null) return null;
+    if (apk case {
+      'version_code': final int code,
+      'size': final int size,
+      'sha256': final String sha256,
+      'url': final String url,
+    } when size > 0 && _sha256.hasMatch(sha256)) {
+      final door = response.requestOptions.uri;
+      final at = door.resolve(url);
+      if (at.scheme != door.scheme ||
+          at.host != door.host ||
+          at.port != door.port) {
+        return null;
+      }
+      return AppRelease(
+        versionName: body['version_name'] as String? ?? '',
+        versionCode: code,
+        minVersionCode: apk['min_version_code'] as int? ?? 0,
+        size: size,
+        sha256: sha256,
+        url: '$at',
+      );
+    }
+    throw const ShikooApiFailure();
+  }
+
+  Future<Response<ResponseBody>> download(
+    String url,
+    int from,
+    CancelToken cancel,
+  ) => _dio.get<ResponseBody>(
+    url,
+    cancelToken: cancel,
+    options: Options(
+      responseType: ResponseType.stream,
+      headers: {
+        // Ranges count stored bytes; HttpClient would ask for gzip and unpack it.
+        HttpHeaders.acceptEncodingHeader: 'identity',
+        if (from > 0) HttpHeaders.rangeHeader: 'bytes=$from-',
+      },
+    ),
+  );
 }
 
 final shikooApiProvider = Provider<ShikooApi>((_) => ShikooApi(shikooApiBases));
@@ -395,9 +511,17 @@ Rule apiDirectRule(String base, int id) {
   );
 }
 
+/// The door, and the internet check's sites, so the check answers alike with the VPN on.
 Future<void> keepApiDirect() async {
   for (final (i, base) in shikooApiBases.indexed) {
-    await database.rulesDao.putGlobalRule(apiDirectRule(base, 7470000 + i));
+    await database.rulesDao.putGlobalRule(
+      apiDirectRule(base, shikooDirectIds + i),
+    );
+  }
+  for (final (i, url) in [...domesticProbes, internationalProbe].indexed) {
+    await database.rulesDao.putGlobalRule(
+      apiDirectRule(url, shikooDirectIds + 100 + i),
+    );
   }
 }
 
@@ -424,7 +548,12 @@ class ShikooSignIn {
 
   @visibleForTesting
   Duration pollEvery = const Duration(seconds: 3);
+
+  @visibleForTesting
+  Duration startLimit = const Duration(seconds: 30);
   String? _token;
+  LoginCode? _live;
+  bool _servicesClock = false;
 
   /// A newer code, a sign-out or a paste ends whatever the one before was waiting for.
   int _attempt = 0;
@@ -523,17 +652,25 @@ class ShikooSignIn {
     final attempt = ++_attempt;
     _login(const ShikooLogin(LoginPhase.starting));
     try {
-      final device = await _ref.read(shikooDeviceProvider)();
-      final code = await _api.start(deviceName: device.name, tv: device.tv);
+      final code = await _ref
+          .read(shikooDeviceProvider)()
+          .then((device) => _api.start(deviceName: device.name, tv: device.tv))
+          .timeout(startLimit);
+      _live = code;
       if (attempt != _attempt) return null;
       _login(
         ShikooLogin(LoginPhase.waiting, code: code.code, botUrl: code.botUrl),
       );
       unawaited(_poll(attempt, code, DateTime.now().add(code.lifetime)));
       return code.botUrl;
-    } catch (_) {
+    } catch (error) {
       if (attempt == _attempt) {
-        _login(const ShikooLogin(LoginPhase.startFailed));
+        _login(
+          ShikooLogin(
+            LoginPhase.startFailed,
+            clock: error is ShikooApiFailure && error.clock,
+          ),
+        );
       }
       return null;
     }
@@ -595,7 +732,11 @@ class ShikooSignIn {
     final account = _account;
     _login(switch (synced) {
       null => null,
-      false => ShikooLogin(LoginPhase.servicesFailed, account: account.who),
+      false => ShikooLogin(
+        LoginPhase.servicesFailed,
+        account: account.who,
+        clock: _servicesClock,
+      ),
       true when account.services.isEmpty => ShikooLogin(
         LoginPhase.noService,
         account: account.who,
@@ -607,6 +748,11 @@ class ShikooSignIn {
       ),
     });
   }
+
+  Iterable<String> get secrets => [?_token, ?_live?.code, ?_live?.secret];
+
+  Future<({String code, bool linked})> report(Map<String, Object?> body) =>
+      _api.report(body, token: _token);
 
   void finish() {
     _attempt++;
@@ -690,7 +836,9 @@ class ShikooSignIn {
     final ({String? bot, List<AccountServiceRow> services})? answer;
     try {
       answer = await _api.services(token);
-    } catch (_) {
+      _servicesClock = false;
+    } catch (error) {
+      _servicesClock = error is ShikooApiFailure && error.clock;
       return false;
     }
     if (token != _token) return null;

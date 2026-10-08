@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -155,7 +157,7 @@ class ShikooColors {
     onPositive: Color(0xFF06210F),
     positiveSoft: Color(0xFF153222),
     warning: Color(0xFFF2B544),
-    danger: Color(0xFFF47A70),
+    danger: Color(0xFFF5847A),
     dangerSoft: Color(0xFF3A1D1A),
     onDanger: Color(0xFF2A0F0C),
     scrim: Color(0xA6000000),
@@ -204,6 +206,7 @@ class ShikooSizes {
     required this.code,
     required this.heroIcon,
     required this.qr,
+    required this.reportImage,
   });
 
   final double caption;
@@ -236,6 +239,9 @@ class ShikooSizes {
   final double heroIcon;
   final double qr;
 
+  /// The tallest a report preview's picture grows (`--size-report-image`).
+  final double reportImage;
+
   static const phone = ShikooSizes(
     caption: 12,
     bodySm: 13,
@@ -264,6 +270,7 @@ class ShikooSizes {
     code: 28,
     heroIcon: 64,
     qr: 200,
+    reportImage: 200,
   );
 
   static const tv = ShikooSizes(
@@ -294,9 +301,12 @@ class ShikooSizes {
     code: 40,
     heroIcon: 64,
     qr: 300,
+    reportImage: 240,
   );
 
   static const touch = 48.0;
+
+  static const tvCanvas = Size(960, 540);
 
   /// `--text-scale-max-round`: the round button's text grows no further, its circle being fixed.
   static const roundTextScaleMax = 1.15;
@@ -316,6 +326,10 @@ class ShikooSizes {
   static const markLg = 88.0;
   static const codeWordSpacing = 0.12;
   static const fade = 24.0;
+  static const switchW = 52.0;
+  static const switchH = 32.0;
+  static const switchThumb = 24.0;
+  static const borderRadio = 2.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;
 
@@ -379,6 +393,48 @@ class ShikooSystemUi extends StatelessWidget {
         systemNavigationBarContrastEnforced: false,
       ),
       child: child,
+    );
+  }
+}
+
+class ShikooTvCanvas extends StatelessWidget {
+  const ShikooTvCanvas({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!identical(ShikooTheme.of(context).s, ShikooSizes.tv)) return child;
+    final data = MediaQuery.of(context);
+    const canvas = ShikooSizes.tvCanvas;
+    const safe = ShikooSizes.tv;
+    final fit = math.min(
+      data.size.width / canvas.width,
+      data.size.height / canvas.height,
+    );
+    // One tree at every size, a window of no size yet too, so the app is never built afresh.
+    final k = fit > 0 ? fit : 1.0;
+    final size = data.size / k;
+    return FittedBox(
+      child: SizedBox.fromSize(
+        size: size,
+        child: MediaQuery(
+          data: data.copyWith(
+            size: size,
+            devicePixelRatio: data.devicePixelRatio * k,
+            padding: data.padding / k,
+            viewPadding:
+                data.viewPadding / k +
+                EdgeInsets.symmetric(
+                  horizontal: safe.safeX,
+                  vertical: safe.safeY,
+                ),
+            viewInsets: data.viewInsets / k,
+            systemGestureInsets: data.systemGestureInsets / k,
+          ),
+          child: child,
+        ),
+      ),
     );
   }
 }

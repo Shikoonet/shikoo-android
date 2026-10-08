@@ -1411,6 +1411,432 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Connect / Disconnect'**
   String get shortcutToggle;
+
+  /// Instead of a sign-in, subscription update, paste, app update check or app download failure when the server's certificate was refused for this device's clock, and on the screen that stops the app before mid-2012 dates crash its core.
+  ///
+  /// In en, this message translates to:
+  /// **'Your device\'s date and time are wrong.'**
+  String get clockWrongTitle;
+
+  /// No description provided for @clockWrongHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'In Settings › Date & time, turn on “Automatic” (or set them right), then try again.'**
+  String get clockWrongHelp;
+
+  /// Under “Try again” on the clock screen, when it was pressed and the clock is still before the floor.
+  ///
+  /// In en, this message translates to:
+  /// **'The clock is still wrong.'**
+  String get clockStillWrong;
+
+  /// Opens Android's date and time settings, or its main settings when a TV box has none.
+  ///
+  /// In en, this message translates to:
+  /// **'Date & time settings'**
+  String get dateSettings;
+
+  /// Card at the head of the home card list when the published versionCode is higher than this install. Reuses cancelButton, retry and continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'A new version is out'**
+  String get updateTitle;
+
+  /// No description provided for @updateVersionSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}, {size} MB'**
+  String updateVersionSize(String version, int size);
+
+  /// No description provided for @updateGet.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get updateGet;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get updateDownloading;
+
+  /// No description provided for @updateProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%, {done} of {total} MB'**
+  String updateProgress(int percent, int done, int total);
+
+  /// No description provided for @updateReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to install'**
+  String get updateReady;
+
+  /// No description provided for @updateInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get updateInstall;
+
+  /// On the ready card, the forced page and the install-permission dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing closes ShikooNet, and the connection if you\'re connected; open it again afterwards.'**
+  String get updateClosesApp;
+
+  /// No description provided for @updateDownloadFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The download stopped.'**
+  String get updateDownloadFailedTitle;
+
+  /// No description provided for @updateDownloadFailedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and try again; it picks up where it stopped.'**
+  String get updateDownloadFailedHelp;
+
+  /// The finished file did not match the published sha256; it is deleted and the next try starts over.
+  ///
+  /// In en, this message translates to:
+  /// **'The file arrived damaged.'**
+  String get updateBadFileTitle;
+
+  /// No description provided for @updateBadFileHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again to download it from the start.'**
+  String get updateBadFileHelp;
+
+  /// Full-screen page replacing Home when this install is below min_version_code. Its one button is updateGet. After a failed download or a damaged file it shows the matching error with two buttons: retry (focused on TV) and Support, aimed like every other Support (on TV the QR dialog). Ready to install shows Install and Support side by side, always.
+  ///
+  /// In en, this message translates to:
+  /// **'This version needs an update'**
+  String get updateForcedTitle;
+
+  /// No description provided for @updateForcedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'To keep using ShikooNet, download and install version {version} ({size} MB).'**
+  String updateForcedBody(String version, int size);
+
+  /// Dialog before Android’s “install unknown apps” page, only when the permission is missing. Buttons: cancelButton and continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow installing'**
+  String get installPermissionTitle;
+
+  /// No description provided for @installPermissionTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, turn on installing for “ShikooNet”, then press your phone’s Back button; the install starts by itself.'**
+  String get installPermissionTouch;
+
+  /// No description provided for @installPermissionTv.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, turn on installing for “ShikooNet”, then press Back on the remote; the install starts by itself.'**
+  String get installPermissionTv;
+
+  /// Card and forced page when the file does not fit in storage. Same text on phone and TV; never mentions the internet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough space.'**
+  String get updateNoSpaceTitle;
+
+  /// No description provided for @updateNoSpaceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove a few apps or files from this device and try again.'**
+  String get updateNoSpaceHelp;
+
+  /// One red line when Android's installer did not open: under Install on the card, above the buttons on the forced page. Not a new state; the next Install clears it.
+  ///
+  /// In en, this message translates to:
+  /// **'The installer didn\'t open; try again or ask Support.'**
+  String get updateInstallFailed;
+
+  /// Android 7 and older: the install-permission dialog's text, before the security settings page, where one Unknown sources switch covers every app.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, turn on Unknown sources at the bottom of it, then press Back.'**
+  String get installPermissionLegacy;
+
+  /// No description provided for @installPermissionLegacyTv.
+  ///
+  /// In en, this message translates to:
+  /// **'On the next screen, find and turn on Unknown sources, then press Back on the remote.'**
+  String get installPermissionLegacyTv;
+
+  /// No description provided for @settingsCore.
+  ///
+  /// In en, this message translates to:
+  /// **'Core'**
+  String get settingsCore;
+
+  /// Under "Core" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from the constant flclashVersion in lib/shikoo/engine/settings.dart; a test fails until it matches the version in pubspec.yaml, which each merged upstream tag raises. There is no separate core download.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates together with the app.'**
+  String get settingsCoreHelp;
+
+  /// Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get settingsCheckUpdate;
+
+  /// No description provided for @settingsChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get settingsChecking;
+
+  /// No description provided for @settingsUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You have the latest version.'**
+  String get settingsUpToDate;
+
+  /// Red line under settingsCheckUpdate; tapping the row again retries.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check; check your internet and try again.'**
+  String get settingsCheckFailed;
+
+  /// Entry button under a failed login code, a failed paste, a failed manual refresh, in the TV support QR dialog, in the phone support sheet and on the Diagnostics page. Each entry first captures the screen it was pressed on, then opens the preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a report to Support'**
+  String get reportSendToSupport;
+
+  /// The same entry inside the internet-check card at the head of Home after a failed connect. Shown only when the check reached the Shikoo server.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a report'**
+  String get reportSendShort;
+
+  /// Settings row in a new «Support» group between Account and App, and the title of the page it opens. Uses the existing key support for the group title.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics and report'**
+  String get diagTitle;
+
+  /// No description provided for @diagRowHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'If the app isn\'t working right'**
+  String get diagRowHelp;
+
+  /// No description provided for @diagInternetGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet'**
+  String get diagInternetGroup;
+
+  /// No description provided for @diagReportGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get diagReportGroup;
+
+  /// Above the full-width reportSendToSupport button on the Diagnostics page. The internet-check card above it has the reading's buttons plus retry.
+  ///
+  /// In en, this message translates to:
+  /// **'If the app isn\'t working right, send Support a report. You see what is sent before it goes.'**
+  String get diagReportHelp;
+
+  /// Diagnostics page, instead of the reportSendToSupport button while the check did not reach the Shikoo server. Try again is the check card’s retry.
+  ///
+  /// In en, this message translates to:
+  /// **'The report can’t get through now. When the internet is back, press Try again.'**
+  String get diagReportLater;
+
+  /// Phone only: the dialog every Support button opens, title support. Buttons: reportChatTelegram (primary), reportSendToSupport, cancelButton. TV keeps its support QR dialog with reportSendToSupport beside close.
+  ///
+  /// In en, this message translates to:
+  /// **'If the app isn\'t working right, send a report first so Support can see what happened.'**
+  String get reportSupportSheetBody;
+
+  /// No description provided for @reportChatTelegram.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat on Telegram'**
+  String get reportChatTelegram;
+
+  /// Card at the head of the Home cards, once per crash or ANR found on the next start. Above the update card if both show. Never sends by itself.
+  ///
+  /// In en, this message translates to:
+  /// **'The app closed suddenly last time.'**
+  String get reportCrashTitle;
+
+  /// No description provided for @reportCrashAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Send us a report about it?'**
+  String get reportCrashAsk;
+
+  /// Opens the preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get reportCrashYes;
+
+  /// Removes the card; the same crash is never asked about again.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get reportCrashNo;
+
+  /// Title of the preview and of the sending, sent and failed states that replace it.
+  ///
+  /// In en, this message translates to:
+  /// **'Report to Support'**
+  String get reportTitle;
+
+  /// Caption under the image the app drew itself, at the moment of the tap.
+  ///
+  /// In en, this message translates to:
+  /// **'What the app drew'**
+  String get reportImageApp;
+
+  /// Caption under the image of what the device actually put on its screen, at the same moment.
+  ///
+  /// In en, this message translates to:
+  /// **'What the screen showed'**
+  String get reportImageScreen;
+
+  /// On by default; off drops both images and shows reportImageOff over them.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the screen pictures too'**
+  String get reportImagesSwitch;
+
+  /// No description provided for @reportImageOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Not sent'**
+  String get reportImageOff;
+
+  /// No description provided for @reportWhatIsSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent: device model and settings, app version, your services’ names and data, your operator and internet status, and the app’s recent activity and errors.'**
+  String get reportWhatIsSent;
+
+  /// Bold, right after reportWhatIsSent in the same paragraph.
+  ///
+  /// In en, this message translates to:
+  /// **'Your subscription link and passwords are never sent.'**
+  String get reportNeverSent;
+
+  /// Preview: Send (focused on TV) and cancelButton; stacked and pinned to the bottom on a phone, beside the switch on TV.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get reportSend;
+
+  /// Its one button is cancelButton, which stops the send.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get reportSending;
+
+  /// No description provided for @reportSentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get reportSentTitle;
+
+  /// Signed in: the report is linked to this device's Telegram account. Buttons: close (primary) and support, which opens the chat directly.
+  ///
+  /// In en, this message translates to:
+  /// **'Support can see your report; you don\'t need to send anything.'**
+  String get reportSentLinked;
+
+  /// Not signed in: above the 8-digit code, shown large in two groups of four, e.g. 4821 9037. Buttons: support (primary, opens the chat directly) and close.
+  ///
+  /// In en, this message translates to:
+  /// **'Report code'**
+  String get reportCodeLabel;
+
+  /// Signed in: the same code, small, for when Support asks.
+  ///
+  /// In en, this message translates to:
+  /// **'Report code: {code}'**
+  String reportCodeSmall(String code);
+
+  /// No description provided for @reportGiveCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Give this code to Support.'**
+  String get reportGiveCode;
+
+  /// One sentence under it says why. When the server was not reached: reportFailedHelp; buttons retry (resends the same report and images) and cancelButton. When it answered without taking the report: reportFailedBusy or reportFailedRefused. When the server refused this device's clock: clockWrongTitle and clockWrongHelp in a red message, then dateSettings (primary) and retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Not sent'**
+  String get reportFailedTitle;
+
+  /// No answer at all: offline, timed out, or no door reached.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and try again.'**
+  String get reportFailedHelp;
+
+  /// The server answered 429: six an hour per device, six per address before sign-in (a carrier may give one address to many phones), or 600 an hour in all. So it never says who sent them. The window is fixed, so an hour is the longest wait. Buttons as reportFailedRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many reports right now. Try again in an hour.'**
+  String get reportFailedBusy;
+
+  /// The server answered with any other status: 400, 413, 422, 5xx, or 200 without a code. Over HTTPS only our own server or its front gives such an answer, so the fault is ours. Retry resends the very same report, so a 4xx refuses it again; hence no «try later» here. Buttons: support (primary; on a phone it opens the chat, on TV its QR dialog without the report button) and retry. No cancelButton: back leaves, as on the clock state.
+  ///
+  /// In en, this message translates to:
+  /// **'The problem is on our side. Chat with Support on Telegram.'**
+  String get reportFailedRefused;
+
+  /// Internet-check card while the three direct probes run (an Iranian site, a small international address, the Shikoo server). No buttons yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the internet…'**
+  String get probeChecking;
+
+  /// No description provided for @probeOk.
+  ///
+  /// In en, this message translates to:
+  /// **'The internet works and the ShikooNet server is reachable.'**
+  String get probeOk;
+
+  /// All three probes failed. One button: probeNetSettings. No report button, since a report cannot arrive.
+  ///
+  /// In en, this message translates to:
+  /// **'This device isn\'t connected to the internet.'**
+  String get probeOffline;
+
+  /// The Iranian site answered, the international address did not. The report button stays, because the Shikoo server is inside Iran.
+  ///
+  /// In en, this message translates to:
+  /// **'International internet is cut on this line. The servers are outside Iran.'**
+  String get probeNoAbroad;
+
+  /// The Shikoo server was not reached and not every probe failed. Says nothing about whose fault it is: when the domestic site failed too, the customer's own line may be the cause. One button: support. No report button, since the report goes to that server.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t reach the ShikooNet server; try again in a few minutes.'**
+  String get probeNoDoor;
+
+  /// All probes fine but every server ping failed. Buttons: reportSendShort, support, refreshServers.
+  ///
+  /// In en, this message translates to:
+  /// **'None of the servers answer.'**
+  String get probeNoServer;
+
+  /// Opens Android's wireless settings; falls back to the main settings on a TV without that page.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet settings'**
+  String get probeNetSettings;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

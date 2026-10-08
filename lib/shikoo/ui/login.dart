@@ -4,14 +4,18 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -24,6 +28,11 @@ class ShikooRoot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(
+      shikooUpdateOfferProvider.select((o) => o?.forced ?? false),
+    )) {
+      return const ForcedUpdatePage();
+    }
     final login = ref.watch(shikooLoginProvider);
     final account = ref.watch(shikooAccountProvider);
     final hasService = ref.watch(
@@ -145,16 +154,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  void _support() {
-    final l = ShikooL10n.of(context);
-    openLink(
+  /// No report where a sign-in code may show: its pictures would carry the code.
+  void _support() => unawaited(
+    openSupport(
       context,
       isTV: _isTV,
-      link: ShikooLinks.support,
-      title: l.supportTitle,
-      help: l.supportHelpTv,
-    );
-  }
+      trigger: _coding.contains(widget.login?.phase) ? null : 'login',
+    ),
+  );
+
+  void _report() => unawaited(openReport(context, 'login'));
 
   @override
   Widget build(BuildContext context) {
@@ -201,10 +210,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _paste({required bool enabled}) {
+  Widget _paste({required bool enabled, bool dateButton = true}) {
     final l = ShikooL10n.of(context);
     return PasteLink(
       onAdded: _signIn.finish,
+      report: false,
+      dateButton: dateButton,
       builder: (context, busy, paste) => ShikooButton(
         label: busy ? l.pasteChecking : l.pasteLink,
         icon: ShikooIcon.paste,
@@ -221,6 +232,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final l = ShikooL10n.of(context);
     final phase = login?.phase;
     final account = login?.account;
+    final clock = login?.clock ?? false;
     final starting = phase == LoginPhase.starting;
     Widget telegram(String label, VoidCallback onPressed) => ShikooButton(
       label: starting ? l.codeFetching : label,
@@ -245,7 +257,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           onPressed: onPressed,
         );
     void signIn() => unawaited(_telegram());
-    final elsewhere = _LinkButton(
+    final elsewhere = LinkButton(
       label: l.noTelegramHere,
       onPressed: starting ? null : _showOtherDevice,
     );
@@ -269,11 +281,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           MessageBox(
             icon: ShikooIcon.alert,
             danger: true,
-            strong: l.codeFailedTitle,
-            rest: l.codeFailedHelpTouch,
+            strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
+            rest: clock ? l.clockWrongHelp : l.codeFailedHelpTouch,
           ),
+          if (clock)
+            const DateSettingsButton()
+          else
+            LinkButton(label: l.reportSendToSupport, onPressed: _report),
           telegram(l.loginTelegram, signIn),
-          _paste(enabled: true),
+          _paste(enabled: true, dateButton: !clock),
           elsewhere,
         ],
       ),
@@ -287,7 +303,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
           telegram(l.reopenTelegram, () => _open(login?.botUrl)),
           _paste(enabled: true),
-          _LinkButton(label: l.approveElsewhere, onPressed: _showOtherDevice),
+          LinkButton(label: l.approveElsewhere, onPressed: _showOtherDevice),
         ],
       ),
       LoginPhase.expired => (
@@ -304,18 +320,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.rejected => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.x,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.rejectedTitle,
           body: [TextSpan(text: l.rejectedBodyTouch)],
         ),
         [telegram(l.loginTelegram, signIn), _paste(enabled: true)],
       ),
       LoginPhase.syncing || LoginPhase.approved => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.check,
-          tone: _Tone.positive,
+          tone: ResultTone.positive,
           title: l.approvedTitle,
           body: sayWith(l.approvedBodyTouch, _account(l, account)),
           below: _ServicesBelow(login: login!),
@@ -327,11 +343,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.servicesFailed => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.servicesFailedTitle,
-          body: sayWith(l.servicesFailedBodyTouch, _account(l, account)),
+          body: clock
+              ? [TextSpan(text: clockText(l))]
+              : sayWith(l.servicesFailedBodyTouch, _account(l, account)),
         ),
         [
           primary(
@@ -339,14 +357,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             () => unawaited(_signIn.retry()),
             icon: ShikooIcon.refresh,
           ),
+          if (clock) const DateSettingsButton(),
           outline(l.support, _support),
           outline(l.notMyAccount, () => unawaited(_signIn.notMine())),
         ],
       ),
       LoginPhase.noService => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.muted,
+          tone: ResultTone.muted,
           title: l.noServiceTitle,
           body: sayWith(l.noServiceBodyTouch, _account(l, account)),
         ),
@@ -362,7 +381,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             () => unawaited(_signIn.notMine()),
             icon: ShikooIcon.logout,
           ),
-          _LinkButton(label: l.askSupportLink, onPressed: _support),
+          LinkButton(label: l.askSupportLink, onPressed: _support),
         ],
       ),
     };
@@ -374,7 +393,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }.contains(phase);
     return SafeArea(
       minimum: const EdgeInsets.only(bottom: Space.s8),
-      child: _Fill(
+      child: FillPage(
         padding: const EdgeInsets.fromLTRB(Space.s6, Space.s2, Space.s6, 0),
         top: language
             ? Align(
@@ -453,10 +472,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       primary: true,
                       onPressed: () => unawaited(_signIn.start()),
                     ),
+                  if (phase == LoginPhase.startFailed && login!.clock)
+                    const DateSettingsButton(),
                   Text(
-                    phase == LoginPhase.startFailed
-                        ? l.codeFailedHelpTouch
-                        : l.otherDeviceFine,
+                    phase != LoginPhase.startFailed
+                        ? l.otherDeviceFine
+                        : (login!.clock ? clockText(l) : l.codeFailedHelpTouch),
                     textAlign: TextAlign.center,
                     style: t.text(
                       s.bodySm,
@@ -523,37 +544,53 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Row(
         children: [
           Expanded(
-            // Scrolls only for large text; the padding keeps the focus ring in view.
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: Space.s2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: Space.s3,
-                children: [
-                  Text(
-                    l.loginTelegram,
-                    style: t.text(s.headline, weight: FontWeight.w800),
-                  ),
-                  Text(
-                    failed
-                        ? l.codeFailedLeadTv
-                        : (expired ? l.codeExpiredLead : l.tvLoginLead),
-                    style: t.text(s.title),
-                  ),
-                  if (failed)
-                    newCode(l.retry, _retryNode)
-                  else ...[
-                    if (!expired) Text(l.tvLoginVpnHint, style: fine),
-                    _CodeBox(
-                      login: login,
-                      label: expired ? l.previousCode : l.tvLoginComputer,
+            // The padding keeps the focus ring of «کد تازه» in view.
+            child: ShrinkToFit(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Space.s2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: Space.s3,
+                  children: [
+                    Text(
+                      l.loginTelegram,
+                      style: t.text(s.headline, weight: FontWeight.w800),
                     ),
-                    if (expired)
-                      newCode(l.newCode, _newCodeNode)
-                    else
-                      Text(l.codeLifetime, style: fine),
+                    Text(
+                      failed
+                          ? (login!.clock ? clockText(l) : l.codeFailedLeadTv)
+                          : (expired ? l.codeExpiredLead : l.tvLoginLead),
+                      style: t.text(s.title),
+                    ),
+                    if (failed && login!.clock) ...[
+                      newCode(l.retry, _retryNode),
+                      const DateSettingsButton(),
+                    ] else if (failed)
+                      Wrap(
+                        spacing: Space.s2,
+                        runSpacing: Space.s2,
+                        children: [
+                          newCode(l.retry, _retryNode),
+                          ShikooButton(
+                            label: l.reportSendToSupport,
+                            icon: ShikooIcon.report,
+                            onPressed: _report,
+                          ),
+                        ],
+                      )
+                    else ...[
+                      if (!expired) Text(l.tvLoginVpnHint, style: fine),
+                      _CodeBox(
+                        login: login,
+                        label: expired ? l.previousCode : l.tvLoginComputer,
+                      ),
+                      if (expired)
+                        newCode(l.newCode, _newCodeNode)
+                      else
+                        Text(l.codeLifetime, style: fine),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -580,7 +617,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _tvResult(BuildContext context, ShikooLogin login) {
     final l = ShikooL10n.of(context);
     final account = _account(l, login.account);
-    ShikooButton Function(FocusNode?) button(
+    Widget Function(FocusNode?) button(
       String label,
       VoidCallback onPressed, {
       ShikooIcon? icon,
@@ -597,9 +634,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final support = button(l.support, _support, icon: ShikooIcon.qr);
     final (result, actions) = switch (login.phase) {
       LoginPhase.rejected => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.x,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.rejectedTitle,
           body: [TextSpan(text: l.rejectedBodyTv)],
         ),
@@ -613,9 +650,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.syncing || LoginPhase.approved => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.check,
-          tone: _Tone.positive,
+          tone: ResultTone.positive,
           title: l.approvedTitle,
           body: sayWith(l.approvedBodyTv, account),
           below: _ServicesBelow(login: login),
@@ -627,11 +664,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.servicesFailed => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.danger,
+          tone: ResultTone.danger,
           title: l.servicesFailedTitle,
-          body: sayWith(l.servicesFailedBodyTv, account),
+          body: login.clock
+              ? [TextSpan(text: clockText(l))]
+              : sayWith(l.servicesFailedBodyTv, account),
         ),
         [
           button(
@@ -640,14 +679,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             icon: ShikooIcon.refresh,
             primary: true,
           ),
+          if (login.clock)
+            (FocusNode? node) => DateSettingsButton(focusNode: node),
           support,
           notMine,
         ],
       ),
       _ => (
-        _Result(
+        ResultBlock(
           icon: ShikooIcon.alert,
-          tone: _Tone.muted,
+          tone: ResultTone.muted,
           title: l.noServiceTitle,
           body: sayWith(l.noServiceBodyTv, account),
           more: l.noServiceHelpTv,
@@ -664,27 +705,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     };
     return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          Space.s2,
-          Space.s2,
-          Space.s2,
-          Space.s2 + Space.s2,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: Space.s6,
-          children: [
-            result,
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: Space.s2,
-              children: [
-                for (final (i, action) in actions.indexed)
-                  action(i == 0 ? _resultNode : null),
-              ],
-            ),
-          ],
+      child: ShrinkToFit(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.s2,
+            Space.s2,
+            Space.s2,
+            Space.s2 + Space.s2,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            spacing: Space.s6,
+            children: [
+              result,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: Space.s2,
+                children: [
+                  for (final (i, action) in actions.indexed)
+                    action(i == 0 ? _resultNode : null),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -708,8 +751,9 @@ List<InlineSpan> _account(ShikooL10n l, TelegramAccount? who) {
 }
 
 /// Fills the screen and scrolls only when large text does not fit.
-class _Fill extends StatelessWidget {
-  const _Fill({
+class FillPage extends StatelessWidget {
+  const FillPage({
+    super.key,
     required this.padding,
     required this.top,
     required this.middle,
@@ -776,21 +820,24 @@ class _BrandBlock extends StatelessWidget {
   }
 }
 
-enum _Tone { positive, danger, muted }
+enum ResultTone { positive, danger, muted }
 
 /// `.hero-icon` over the result's title, its sentence and, after it, [below].
-class _Result extends StatelessWidget {
-  const _Result({
+class ResultBlock extends StatelessWidget {
+  const ResultBlock({
+    super.key,
     required this.icon,
     required this.tone,
     required this.title,
     required this.body,
     this.more,
     this.below,
+    this.spin = false,
   });
 
   final ShikooIcon icon;
-  final _Tone tone;
+  final bool spin;
+  final ResultTone tone;
   final String title;
   final List<InlineSpan> body;
   final String? more;
@@ -803,9 +850,9 @@ class _Result extends StatelessWidget {
     final s = t.s;
     final tv = identical(s, ShikooSizes.tv);
     final (fill, ink) = switch (tone) {
-      _Tone.positive => (c.positiveSoft, c.positive),
-      _Tone.danger => (c.dangerSoft, c.danger),
-      _Tone.muted => (c.surfaceSunken, c.textMuted),
+      ResultTone.positive => (c.positiveSoft, c.positive),
+      ResultTone.danger => (c.dangerSoft, c.danger),
+      ResultTone.muted => (c.surfaceSunken, c.textMuted),
     };
     final paragraph = t.text(
       tv ? s.title : s.bodySm,
@@ -825,12 +872,14 @@ class _Result extends StatelessWidget {
             height: s.heroIcon,
             decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: SvgIcon(
-              icon,
-              size: s.heroIcon / 2,
-              stroke: ShikooSizes.iconStrokeStrong,
-              color: ink,
-            ),
+            child: spin
+                ? Spinner(size: s.heroIcon / 2, color: ink)
+                : SvgIcon(
+                    icon,
+                    size: s.heroIcon / 2,
+                    stroke: ShikooSizes.iconStrokeStrong,
+                    color: ink,
+                  ),
           ),
           Padding(
             padding: EdgeInsets.only(top: tv ? 0 : Space.s2),
@@ -840,11 +889,12 @@ class _Result extends StatelessWidget {
               style: t.text(s.headline, weight: FontWeight.w800),
             ),
           ),
-          Text.rich(
-            TextSpan(children: body),
-            textAlign: TextAlign.center,
-            style: paragraph,
-          ),
+          if (body.isNotEmpty)
+            Text.rich(
+              TextSpan(children: body),
+              textAlign: TextAlign.center,
+              style: paragraph,
+            ),
           if (more != null)
             Text(more, textAlign: TextAlign.center, style: paragraph),
           ?below,
@@ -1096,47 +1146,6 @@ class _CodeBox extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-/// `.btn-link`: an underlined line of text that is a button; greyed out with no [onPressed].
-class _LinkButton extends StatelessWidget {
-  const _LinkButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    final onPressed = this.onPressed;
-    final ink = onPressed == null ? t.c.textMuted : t.c.text;
-    Widget text() => Container(
-      constraints: const BoxConstraints(minHeight: ShikooSizes.touch),
-      padding: const EdgeInsets.symmetric(horizontal: Space.s3),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: t
-            .text(t.s.bodySm, weight: FontWeight.w700, color: ink)
-            .copyWith(
-              decoration: TextDecoration.underline,
-              decorationColor: ink,
-            ),
-      ),
-    );
-    return Center(
-      child: onPressed == null
-          ? text()
-          : Pressable(
-              shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.circular(Radii.sm),
-              ),
-              onPressed: onPressed,
-              builder: (context, _) => Semantics(button: true, child: text()),
-            ),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
@@ -48,6 +49,35 @@ Text nameText(
       : TextAlign.left,
 );
 
+/// Brings [context]'s box into view with room for the ring, which traversal alone cuts in a
+/// scrolled column, and above a phone's navigation bar, which the page scrolls under.
+void revealWithRing(BuildContext context) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final box = context.mounted ? context.findRenderObject() : null;
+    if (box is RenderBox && box.attached) {
+      const room = Space.s2 + ShikooSizes.ring;
+      final below = room + MediaQuery.paddingOf(context).bottom;
+      box.showOnScreen(
+        rect: Rect.fromLTRB(
+          -room,
+          -room,
+          box.size.width + room,
+          box.size.height + below,
+        ),
+      );
+    }
+  });
+}
+
+/// Moves the remote to [node] by hand. Directional traversal remembers its last moves, and Up
+/// would undo the Down that came before, back to where that Down started.
+void jumpFocus(BuildContext context, FocusNode node) {
+  if (node.nearestScope case final scope?) {
+    FocusTraversalGroup.maybeOf(context)?.invalidateScopeData(scope);
+  }
+  node.requestFocus();
+}
+
 /// A focusable, pressable surface. The remote's OK key and a tap both press it.
 /// The focus ring (`.is-focused`: 3dp, 2dp away) is drawn outside the child.
 class Pressable extends StatefulWidget {
@@ -73,19 +103,6 @@ class Pressable extends StatefulWidget {
 class _PressableState extends State<Pressable> {
   bool _focused = false;
 
-  /// Traversal reveals only the widget, cutting the ring drawn outside it in a scrolled column.
-  void _revealWithRing(bool focused) {
-    if (!focused) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final box = mounted ? context.findRenderObject() : null;
-      if (box is RenderBox && box.attached) {
-        box.showOnScreen(
-          rect: (Offset.zero & box.size).inflate(Space.s2 + ShikooSizes.ring),
-        );
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -93,7 +110,9 @@ class _PressableState extends State<Pressable> {
     return FocusableActionDetector(
       autofocus: widget.autofocus,
       focusNode: widget.focusNode,
-      onFocusChange: _revealWithRing,
+      onFocusChange: (focused) {
+        if (focused) revealWithRing(context);
+      },
       onShowFocusHighlight: (value) => setState(() => _focused = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -255,6 +274,7 @@ class ShikooButton extends StatelessWidget {
     this.height,
     this.dangerText = false,
     this.small = false,
+    this.flat = false,
   });
 
   final String label;
@@ -277,6 +297,9 @@ class ShikooButton extends StatelessWidget {
 
   /// `.btn-sm`, whose touch target still reaches [ShikooSizes.touch].
   final bool small;
+
+  /// `.btn-text`: the label alone, as a dialog's «انصراف» under its two choices.
+  final bool flat;
 
   @override
   Widget build(BuildContext context) {
@@ -306,13 +329,15 @@ class ShikooButton extends StatelessWidget {
           (telegram
               ? ShikooSizes.buttonLg
               : (small ? t.s.buttonSm : t.s.button)),
-      padding: EdgeInsets.symmetric(horizontal: small ? Space.s3 : Space.s4),
+      padding: EdgeInsets.symmetric(
+        horizontal: small || flat ? Space.s3 : Space.s4,
+      ),
       decoration: ShapeDecoration(
         color: fill ?? (focused ? t.c.focusBg : null),
         shadows: focused ? t.c.raisedShadow : null,
         shape: RoundedSuperellipseBorder(borderRadius: radius),
       ),
-      foregroundDecoration: fill != null || focused
+      foregroundDecoration: fill != null || focused || flat
           ? null
           : ShapeDecoration(
               shape: RoundedSuperellipseBorder(
@@ -427,6 +452,7 @@ class MessageBox extends StatelessWidget {
     required this.strong,
     required this.rest,
     this.danger = false,
+    this.style,
   });
 
   final ShikooIcon icon;
@@ -434,9 +460,12 @@ class MessageBox extends StatelessWidget {
   final String rest;
   final bool danger;
 
+  final TextStyle? style;
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final text = style ?? t.text(t.s.bodySm, height: Leading.body);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s3,
@@ -453,7 +482,7 @@ class MessageBox extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(
-              top: (t.s.bodySm * Leading.body - t.s.iconSm) / 2,
+              top: (text.fontSize! * text.height! - t.s.iconSm) / 2,
             ),
             child: SvgIcon(
               icon,
@@ -478,7 +507,7 @@ class MessageBox extends StatelessWidget {
                     TextSpan(text: strong.isEmpty ? rest : ' $rest'),
                 ],
               ),
-              style: t.text(t.s.bodySm, height: Leading.body),
+              style: text,
             ),
           ),
         ],
@@ -1060,6 +1089,163 @@ class NowPill extends StatelessWidget {
           ],
         },
       ),
+    );
+  }
+}
+
+/// A TV page that is not a list: large text shrinks it to the screen. A scroll would cut its top
+/// once the remote brings the buttons into view, and its end if nothing there takes the remote.
+class ShrinkToFit extends StatelessWidget {
+  const ShrinkToFit({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) => FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: SizedBox(width: box.maxWidth, child: child),
+    ),
+  );
+}
+
+/// `.tv-col` (home) and `.tv-settings`: scrolls as one; once scrolled, its top edge fades and a thumb shows. It reaches
+/// 8dp past the pane on every side (`margin: -8; padding: 8`) so focus rings are not clipped.
+class TvScrollColumn extends StatefulWidget {
+  const TvScrollColumn({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<TvScrollColumn> createState() => _TvScrollColumnState();
+}
+
+class _TvScrollColumnState extends State<TvScrollColumn> {
+  final _scroll = ScrollController();
+  bool _scrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      final scrolled = _scroll.offset > 0;
+      if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onFocusInside(bool inside) {
+    if (inside || !_scroll.hasClients) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _scroll.jumpTo(0);
+    } else {
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    return LayoutBuilder(
+      builder: (context, box) => OverflowBox(
+        maxWidth: box.maxWidth + 2 * Space.s2,
+        minHeight: box.maxHeight + 2 * Space.s2,
+        maxHeight: box.maxHeight + 2 * Space.s2,
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              _scrolled ? Colors.transparent : Colors.black,
+              Colors.black,
+            ],
+            stops: [0, ShikooSizes.fade / rect.height],
+          ).createShader(rect),
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onFocusChange: _onFocusInside,
+            child: RawScrollbar(
+              controller: _scroll,
+              thumbVisibility: _scrolled,
+              thickness: ShikooSizes.scrollThumb,
+              radius: const Radius.circular(ShikooSizes.scrollThumb),
+              thumbColor: t.c.outline,
+              child: SingleChildScrollView(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s2,
+                  Space.s2,
+                  Space.s2,
+                  Space.s2 + ShikooSizes.ring,
+                ),
+                child: widget.child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// `.btn-link`: an underlined line of text that is a button; greyed out with no [onPressed].
+class LinkButton extends StatelessWidget {
+  const LinkButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.alignment = Alignment.center,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final onPressed = this.onPressed;
+    final ink = onPressed == null ? t.c.textMuted : t.c.text;
+    Widget text() => Container(
+      constraints: const BoxConstraints(minHeight: ShikooSizes.touch),
+      padding: const EdgeInsets.symmetric(horizontal: Space.s3),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: t
+            .text(t.s.bodySm, weight: FontWeight.w700, color: ink)
+            .copyWith(
+              decoration: TextDecoration.underline,
+              decorationColor: ink,
+            ),
+      ),
+    );
+    return Align(
+      alignment: alignment,
+      child: onPressed == null
+          ? text()
+          : Pressable(
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              onPressed: onPressed,
+              builder: (context, _) => Semantics(button: true, child: text()),
+            ),
     );
   }
 }

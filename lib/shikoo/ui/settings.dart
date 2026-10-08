@@ -1,14 +1,21 @@
 import 'dart:async';
 
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
+import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -17,7 +24,10 @@ import 'package:url_launcher/url_launcher.dart';
 void openSettings(BuildContext context) => unawaited(
   Navigator.push(
     context,
-    MaterialPageRoute<void>(builder: (_) => const ShikooSettings()),
+    MaterialPageRoute<void>(
+      builder: (_) => const ShikooSettings(),
+      settings: const RouteSettings(name: 'settings'),
+    ),
   ),
 );
 
@@ -121,6 +131,7 @@ class ShikooSettings extends ConsumerWidget {
                       onPressed: paste,
                     ),
                   _Row(
+                    key: const ValueKey('logout'),
                     icon: ShikooIcon.logout,
                     danger: true,
                     title: l.logout,
@@ -136,55 +147,42 @@ class ShikooSettings extends ConsumerWidget {
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-      _Group(
-        title: l.appSection,
-        child: _Card(
-          rows: [
-            _Row(
-              title: l.version,
-              value: _version(context, ref.watch(shikooVersionProvider)),
-            ),
-            _Row(
-              title: l.about,
-              subtitle: l.aboutSummary,
-              forward: true,
-              onPressed: () => unawaited(
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(builder: (_) => const ShikooAbout()),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ];
-    return _Page(
-      title: l.settings,
-      isTV: isTV,
-      child: isTV
-          ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: Space.s10,
-                children: [
-                  for (final first in [0, 1])
-                    Expanded(
-                      child: _Column(
-                        children: [
-                          for (var i = first; i < groups.length; i += 2)
-                            groups[i],
-                        ],
-                      ),
-                    ),
+            _Group(
+              title: l.support,
+              child: _Card(
+                rows: [
+                  _Row(
+                    icon: ShikooIcon.report,
+                    title: l.diagTitle,
+                    subtitle: l.diagRowHelp,
+                    forward: true,
+                    onPressed: () => unawaited(_diagnose(context)),
+                  ),
                 ],
               ),
-            )
-          : _Column(children: groups),
+            ),
+          ],
+        ),
+      ),
+      _AppGroup(isTV: isTV),
+    ];
+    return SubPage(
+      title: l.settings,
+      isTV: isTV,
+      child: _columns(groups, isTV: isTV),
+    );
+  }
+
+  /// The pictures are of Settings, where the customer came from: the fault was seen elsewhere.
+  static Future<void> _diagnose(BuildContext context) async {
+    final shots = await takeShots(context);
+    if (!context.mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ShikooDiagnose(shots: shots),
+        settings: const RouteSettings(name: 'diagnose'),
+      ),
     );
   }
 
@@ -286,6 +284,127 @@ class ShikooSettings extends ConsumerWidget {
   }
 }
 
+enum _Check { idle, checking, latest, failed, clock }
+
+/// Settings › App: the version, the core, a check that does not wait out the six hours, and
+/// About. A known update stands in for the check as Home's card (phone-cards-settings-app).
+class _AppGroup extends ConsumerStatefulWidget {
+  const _AppGroup({required this.isTV});
+
+  final bool isTV;
+
+  @override
+  ConsumerState<_AppGroup> createState() => _AppGroupState();
+}
+
+class _AppGroupState extends ConsumerState<_AppGroup> {
+  final _card = GlobalKey();
+  final _cardButton = FocusNode();
+  var _check = _Check.idle;
+
+  @override
+  void dispose() {
+    _cardButton.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkNow() async {
+    if (_check == _Check.checking) return;
+    setState(() => _check = _Check.checking);
+    final error = await ref.read(shikooUpdateProvider).checkNow();
+    if (!mounted) return;
+    setState(
+      () => _check = switch (error) {
+        null => _Check.latest,
+        UpdateError.clock => _Check.clock,
+        _ => _Check.failed,
+      },
+    );
+    if (ref.read(shikooUpdateOfferProvider) == null) return;
+    // The answer to the press shows: on the TV the remote goes from the row that left to the
+    // card's button (tv-settings-app-found); on a phone the card scrolls into view once.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.isTV) {
+        jumpFocus(context, _cardButton);
+      } else if (_card.currentContext case final card?) {
+        revealWithRing(card);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = ShikooL10n.of(context);
+    final update = ref.watch(shikooUpdateOfferProvider);
+    return _Group(
+      title: l.appSection,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s3,
+        children: [
+          _Card(
+            rows: [
+              _Row(
+                title: l.version,
+                value: _version(context, ref.watch(shikooVersionProvider)),
+              ),
+              _Row(
+                title: l.settingsCore,
+                subtitle: l.settingsCoreHelp,
+                value: '\u2066FlClash\u00A0$flclashVersion\u2069',
+              ),
+              if (update == null)
+                _Row(
+                  icon: ShikooIcon.refresh,
+                  busy: _check == _Check.checking,
+                  title: l.settingsCheckUpdate,
+                  subtitle: switch (_check) {
+                    _Check.idle => null,
+                    _Check.checking => l.settingsChecking,
+                    _Check.latest => l.settingsUpToDate,
+                    _Check.failed => l.settingsCheckFailed,
+                    _Check.clock => clockText(l),
+                  },
+                  alert: _check == _Check.failed || _check == _Check.clock,
+                  onPressed: () => unawaited(_checkNow()),
+                ),
+              if (update == null && _check == _Check.clock)
+                _Row(
+                  icon: ShikooIcon.gear,
+                  title: l.dateSettings,
+                  onPressed: () => unawaited(openDateSettings()),
+                ),
+              _Row(
+                key: const ValueKey('about'),
+                title: l.about,
+                subtitle: l.aboutSummary,
+                forward: true,
+                onPressed: () => unawaited(
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ShikooAbout(),
+                      settings: const RouteSettings(name: 'about'),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (update != null)
+            UpdateCard(
+              key: _card,
+              offer: update,
+              isTV: widget.isTV,
+              focusNode: _cardButton,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Frame `tv-about`: the licence, the credits and where the source comes from.
 class ShikooAbout extends ConsumerWidget {
   const ShikooAbout({super.key});
@@ -296,7 +415,7 @@ class ShikooAbout extends ConsumerWidget {
     final l = ShikooL10n.of(context);
     final body = t.text(t.s.body, height: Leading.body);
     final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
-    return _Page(
+    return SubPage(
       title: l.about,
       isTV: isTV,
       child: Center(
@@ -343,13 +462,21 @@ String _version(BuildContext context, String version) => version
     })
     .join('.');
 
-/// `.tv-top` with `.tv-title` and `.tv-hint` over the page; on the phone `.appbar.sub`.
-class _Page extends StatelessWidget {
-  const _Page({required this.title, required this.isTV, required this.child});
+/// `.tv-top` with `.tv-title` and `.tv-hint` over the page; on the phone `.appbar.sub`. A
+/// [child] that does not [scrolls] lays out its own room, the phone's bottom inset included.
+class SubPage extends StatelessWidget {
+  const SubPage({
+    super.key,
+    required this.title,
+    required this.isTV,
+    required this.child,
+    this.scrolls = true,
+  });
 
   final String title;
   final bool isTV;
   final Widget child;
+  final bool scrolls;
 
   @override
   Widget build(BuildContext context) {
@@ -410,18 +537,19 @@ class _Page extends StatelessWidget {
                   ),
                   SizedBox(height: isTV ? Space.s3 : Space.s2),
                   Expanded(
-                    // Only for large text; the padding keeps the last focus ring in view.
-                    child: SingleChildScrollView(
-                      padding: isTV
-                          ? const EdgeInsets.only(bottom: Space.s2)
-                          : EdgeInsets.fromLTRB(
+                    child: !scrolls
+                        ? child
+                        : isTV
+                        ? TvScrollColumn(child: child)
+                        : SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(
                               s.safeX,
                               0,
                               s.safeX,
                               Space.s6 + MediaQuery.paddingOf(context).bottom,
                             ),
-                      child: child,
-                    ),
+                            child: child,
+                          ),
                   ),
                 ],
               ),
@@ -429,6 +557,163 @@ class _Page extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// On a TV two columns, the groups in turn, so nothing scrolls.
+Widget _columns(List<Widget> groups, {required bool isTV}) => isTV
+    ? Padding(
+        padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: Space.s10,
+          children: [
+            for (final first in [0, 1])
+              Expanded(
+                child: _Column(
+                  children: [
+                    for (var i = first; i < groups.length; i += 2) groups[i],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      )
+    : _Column(children: groups);
+
+/// Frames `phone-diagnose`, `tv-diagnose`: the internet check, run on open, over the report,
+/// the remote on its button. A check that missed the door hides it, as a report cannot arrive.
+class ShikooDiagnose extends ConsumerStatefulWidget {
+  const ShikooDiagnose({super.key, required this.shots});
+
+  final ReportShots shots;
+
+  @override
+  ConsumerState<ShikooDiagnose> createState() => _ShikooDiagnoseState();
+}
+
+class _ShikooDiagnoseState extends ConsumerState<ShikooDiagnose> {
+  final _again = FocusNode();
+  final _send = FocusNode();
+  ProbeChecks? _checks;
+  var _checking = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_check());
+  }
+
+  @override
+  void dispose() {
+    _again.dispose();
+    _send.dispose();
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    final checks = await ref.read(shikooProbeProvider.notifier).probe();
+    if (!mounted) return;
+    final onSend = _send.hasPrimaryFocus;
+    setState(() {
+      _checks = checks;
+      _checking = false;
+    });
+    if (!onSend) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_send.hasPrimaryFocus) _again.requestFocus();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final state = ref.watch(shikooStateProvider);
+    final isTV = state.isTV;
+    final reading = readProbes(_checks, state.servers);
+    final towardCheck = Directionality.of(context) == TextDirection.rtl
+        ? TraversalDirection.right
+        : TraversalDirection.left;
+    final internet = _Group(
+      title: l.diagInternetGroup,
+      child: InternetCheckCard(
+        check: _checking ? const AsyncLoading() : AsyncData(_checks!),
+        state: state,
+        controller: ref.watch(shikooControllerProvider),
+        onAgain: () {
+          setState(() => _checking = true);
+          unawaited(_check());
+        },
+        firstFocus: _again,
+      ),
+    );
+    final report = _Group(
+      title: l.diagReportGroup,
+      child: Container(
+        padding: const EdgeInsets.all(Space.s4),
+        decoration: ShapeDecoration(
+          color: t.c.surface,
+          shadows: t.c.cardShadow,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(Radii.lg),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.s3,
+          children: [
+            Text(
+              l.diagReportHelp,
+              style: t.text(
+                t.s.bodySm,
+                color: t.c.textMuted,
+                height: Leading.body,
+              ),
+            ),
+            if (reading == ProbeReading.offline ||
+                reading == ProbeReading.noDoor)
+              Text(
+                l.diagReportLater,
+                style: t.text(
+                  t.s.bodySm,
+                  weight: FontWeight.w700,
+                  height: Leading.body,
+                ),
+              )
+            else
+              Actions(
+                actions: {
+                  DirectionalFocusIntent:
+                      CallbackAction<DirectionalFocusIntent>(
+                        onInvoke: (intent) {
+                          if (intent.direction != towardCheck) {
+                            return Actions.maybeInvoke(context, intent);
+                          }
+                          _again.requestFocus();
+                          return null;
+                        },
+                      ),
+                },
+                child: ShikooButton(
+                  label: l.reportSendToSupport,
+                  icon: ShikooIcon.report,
+                  primary: true,
+                  autofocus: isTV && _checks == null,
+                  focusNode: _send,
+                  onPressed: () =>
+                      unawaited(openReport(context, 'diagnose', widget.shots)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    return SubPage(
+      title: l.diagTitle,
+      isTV: isTV,
+      child: _columns([internet, report], isTV: isTV),
     );
   }
 }
@@ -497,7 +782,7 @@ class _Group extends StatelessWidget {
 }
 
 /// `.segmented`: one choice of a few, the chosen one raised.
-class Segmented<T> extends StatelessWidget {
+class Segmented<T> extends StatefulWidget {
   const Segmented({
     super.key,
     required this.options,
@@ -518,75 +803,102 @@ class Segmented<T> extends StatelessWidget {
   final bool small;
 
   @override
+  State<Segmented<T>> createState() => _SegmentedState<T>();
+}
+
+class _SegmentedState<T> extends State<Segmented<T>> {
+  final _nodes = <T, FocusNode>{};
+
+  @override
+  void dispose() {
+    for (final node in _nodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final Segmented(:options, :selected, :onSelect, :autofocus, :small) =
+        widget;
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.sm),
     );
-    return Container(
-      padding: const EdgeInsets.all(Space.s1),
-      decoration: ShapeDecoration(
-        color: t.c.surfaceSunken,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Radii.md),
+    // The remote coming from another row lands on the chosen option, not the nearest one.
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (inside) {
+        if (inside) _nodes[selected]?.requestFocus();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(Space.s1),
+        decoration: ShapeDecoration(
+          color: t.c.surfaceSunken,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(Radii.md),
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
-        spacing: Space.s1,
-        children: [
-          for (final MapEntry(key: value, value: label) in options.entries)
-            Flexible(
-              flex: small ? 0 : 1,
-              fit: FlexFit.tight,
-              child: Pressable(
-                autofocus: autofocus && value == selected,
-                shape: shape,
-                onPressed: () => onSelect(value),
-                builder: (context, focused) {
-                  final chosen = value == selected;
-                  return Semantics(
-                    selected: chosen,
-                    button: true,
-                    child: Container(
-                      height: small ? null : t.s.button,
-                      padding: small
-                          ? const EdgeInsets.symmetric(
-                              horizontal: Space.s4,
-                              vertical: Space.s1,
-                            )
-                          : null,
-                      alignment: Alignment.center,
-                      decoration: ShapeDecoration(
-                        color: focused
-                            ? t.c.focusBg
-                            : (chosen ? t.c.surface : null),
-                        shadows: focused
-                            ? t.c.raisedShadow
-                            : (chosen ? t.c.cardShadow : null),
-                        shape: shape,
-                      ),
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: t.text(
-                          small ? t.s.bodySm : t.s.body,
-                          weight: chosen ? FontWeight.w700 : FontWeight.w500,
-                          color: chosen ? t.c.text : t.c.textMuted,
+        child: Row(
+          mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
+          spacing: Space.s1,
+          children: [
+            for (final MapEntry(key: value, value: label) in options.entries)
+              Flexible(
+                flex: small ? 0 : 1,
+                fit: FlexFit.tight,
+                child: Pressable(
+                  focusNode: _nodes.putIfAbsent(value, FocusNode.new),
+                  autofocus: autofocus && value == selected,
+                  shape: shape,
+                  onPressed: () => onSelect(value),
+                  builder: (context, focused) {
+                    final chosen = value == selected;
+                    return Semantics(
+                      selected: chosen,
+                      button: true,
+                      child: Container(
+                        height: small ? null : t.s.button,
+                        padding: small
+                            ? const EdgeInsets.symmetric(
+                                horizontal: Space.s4,
+                                vertical: Space.s1,
+                              )
+                            : null,
+                        alignment: Alignment.center,
+                        decoration: ShapeDecoration(
+                          color: focused
+                              ? t.c.focusBg
+                              : (chosen ? t.c.surface : null),
+                          shadows: focused
+                              ? t.c.raisedShadow
+                              : (chosen ? t.c.cardShadow : null),
+                          shape: shape,
+                        ),
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          style: t.text(
+                            small ? t.s.bodySm : t.s.body,
+                            weight: chosen ? FontWeight.w700 : FontWeight.w500,
+                            color: chosen ? t.c.text : t.c.textMuted,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// `.card` holding `.row`s, a hairline between each two.
+/// `.card` holding `.row`s, a hairline between each two. Rows are matched by place, so one that
+/// keeps the remote while a row above it comes or goes needs a key.
 class _Card extends StatelessWidget {
   const _Card({required this.rows});
 
@@ -661,7 +973,7 @@ class _PastedRow extends StatelessWidget {
               children: [
                 Text(serviceTitle(context, service), style: t.text(t.s.body)),
                 Text(
-                  statusLabel(l, service.statusAt(DateTime.now())),
+                  statusLabel(l, service.statusAt(shikooNow())),
                   style: t.text(t.s.bodySm, color: t.c.textMuted),
                 ),
               ],
@@ -691,6 +1003,7 @@ class _PastedRow extends StatelessWidget {
 /// `.row`: an icon, a title over a line of help, then a value or a forward chevron.
 class _Row extends StatelessWidget {
   const _Row({
+    super.key,
     required this.title,
     this.rich,
     this.subtitle,
@@ -698,11 +1011,15 @@ class _Row extends StatelessWidget {
     this.icon,
     this.forward = false,
     this.danger = false,
+    this.alert = false,
     this.busy = false,
     this.onPressed,
   });
 
   final String title;
+
+  /// The subtitle in red, as `.row small.danger`.
+  final bool alert;
 
   /// The title with bold parts.
   final List<InlineSpan>? rich;
@@ -727,6 +1044,24 @@ class _Row extends StatelessWidget {
     final icon = this.icon;
     final subtitle = this.subtitle;
     final value = this.value;
+    final texts = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (rich case final rich?)
+          Text.rich(
+            TextSpan(children: rich),
+            style: t.text(s.body, color: ink),
+          )
+        else
+          Text(title, style: t.text(s.body, color: ink)),
+        if (subtitle != null)
+          Text(
+            subtitle,
+            style: t.text(s.bodySm, color: alert ? t.c.danger : t.c.textMuted),
+          ),
+      ],
+    );
     Widget row(bool focused) => Container(
       constraints: BoxConstraints(minHeight: s.row),
       padding: const EdgeInsets.symmetric(
@@ -753,26 +1088,27 @@ class _Row extends StatelessWidget {
               ),
             ),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (rich case final rich?)
-                  Text.rich(
-                    TextSpan(children: rich),
-                    style: t.text(s.body, color: ink),
-                  )
-                else
-                  Text(title, style: t.text(s.body, color: ink)),
-                if (subtitle != null)
-                  Text(subtitle, style: t.text(s.bodySm, color: t.c.textMuted)),
-              ],
-            ),
+            child: value == null
+                ? texts
+                // `.row:has(> .value)` wraps: a value that does not fit goes under its label.
+                : Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: Space.s3,
+                    runSpacing: Space.s1,
+                    children: [
+                      texts,
+                      Text(
+                        value,
+                        style: t.text(
+                          s.body,
+                          color: t.c.textMuted,
+                          height: Leading.body,
+                        ),
+                      ),
+                    ],
+                  ),
           ),
-          if (value != null)
-            Text(
-              value,
-              style: t.text(s.body, color: t.c.textMuted, height: Leading.body),
-            ),
           if (forward)
             Transform.flip(
               flipX: ltr,

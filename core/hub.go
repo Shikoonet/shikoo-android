@@ -43,6 +43,7 @@ func handleInitClash(params *InitParams) bool {
 	defer configMu.Unlock()
 	sdkVersion.Store(int32(params.Version))
 	constant.SetHomeDir(params.HomeDir)
+	setCrashOutput(params.HomeDir)
 	initOwnership(params.HomeDir)
 	isInit.Store(true)
 	return true

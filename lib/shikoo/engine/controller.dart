@@ -10,6 +10,8 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
@@ -81,6 +83,7 @@ class ShikooService {
     this.pasted = false,
     this.revoked = false,
     this.number = 1,
+    this.account,
   });
 
   final int id;
@@ -106,6 +109,8 @@ class ShikooService {
   /// Among the services without a name, 1 for the first.
   final int number;
 
+  final String? account;
+
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
   String get username => usernameOf(name);
@@ -127,7 +132,7 @@ class ShikooService {
   }.contains(ended);
 
   ShikooServiceStatus? get ended {
-    final status = statusAt(DateTime.now());
+    final status = statusAt(shikooNow());
     return (usageKnown || revoked) && status != ShikooServiceStatus.active
         ? status
         : null;
@@ -175,9 +180,10 @@ class SilentReplaced extends ShikooNotice {
   final bool moved;
 }
 
-/// Only for an update the user asked for; an automatic one just says so under the name.
 class RefreshFailed extends ShikooNotice {
-  const RefreshFailed();
+  const RefreshFailed({this.clock = false});
+
+  final bool clock;
 }
 
 @immutable
@@ -272,7 +278,7 @@ final _hiddenProvider = _cell<String?>(null);
 final _nativeStartProvider = _cell<DateTime?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
-typedef _Extras = ({String? announce, String? supportUrl});
+typedef _Extras = ({String? announce, String? supportUrl, String? account});
 
 class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
   static const _key = 'shikoo.serviceExtras';
@@ -289,6 +295,7 @@ class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
         int.parse(key): (
           announce: value['announce'] as String?,
           supportUrl: value['supportUrl'] as String?,
+          account: value['account'] as String?,
         ),
     };
   }
@@ -304,7 +311,11 @@ class _ExtrasNotifier extends Notifier<Map<int, _Extras>> {
       _key,
       jsonEncode({
         for (final MapEntry(:key, :value) in state.entries)
-          '$key': {'announce': value.announce, 'supportUrl': value.supportUrl},
+          '$key': {
+            'announce': value.announce,
+            'supportUrl': value.supportUrl,
+            'account': value.account,
+          },
       }),
     );
   }
@@ -441,6 +452,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       running: runTime != null || nativeStart != null,
       error: intent.error,
     ),
+    // ponytail: wall clock, negative once the clock moves back mid-tunnel; needs elapsedRealtime from Kotlin.
     connectedFor: nativeStart != null
         ? DateTime.now().difference(nativeStart)
         : Duration(milliseconds: runTime ?? 0),
@@ -526,6 +538,7 @@ ShikooService _serviceFrom(
         : null,
     announce: extras?.announce,
     supportUrl: extras?.supportUrl,
+    account: extras?.account,
     updatedAt: profile.lastUpdateDate,
     usageKnown: info != null,
     refresh: refresh,
@@ -617,7 +630,7 @@ int? serviceInstead(ShikooState state) {
   final latest = finishedOrder([
     for (final service in [current!, ...state.others])
       if (service.finished) finishedOf(service),
-  ], DateTime.now()).firstOrNull?.profileId;
+  ], shikooNow()).firstOrNull?.profileId;
   return latest == current.id ? null : latest;
 }
 
@@ -1065,6 +1078,7 @@ class ShikooController {
   }
 
   void _updated(int id) {
+    shikooDiag.refreshed(id, null);
     if (id == _ref.read(currentProfileIdProvider)) {
       if (_ref.read(_refreshProvider) == ShikooRefresh.failed) {
         _ref.read(_refreshProvider.notifier).set(ShikooRefresh.idle);
@@ -1089,6 +1103,7 @@ class ShikooController {
 
   /// Phone-only, as only a phone pastes: the account's own services leave with its next sync.
   void _failed(int id, Object error) {
+    shikooDiag.refreshed(id, error);
     if (addFailure(error) == ShikooPasteError.revoked &&
         _ref.read(_pastedProvider).contains(id)) {
       _revoked(id, revoked: true);
@@ -1251,9 +1266,10 @@ class ShikooController {
         throw StateError('apply');
       }
     } catch (error) {
+      final clock = await clockFailed(error, profile.url);
       status.set(ShikooRefresh.failed);
       _failed(profile.id, error);
-      if (_manualRefresh) _notice(const RefreshFailed());
+      if (_manualRefresh || clock) _notice(RefreshFailed(clock: clock));
       return;
     }
     status.set(ShikooRefresh.idle);
@@ -1287,6 +1303,7 @@ class ShikooController {
         .getFileResponseForUrl(url)
         .timeout(const Duration(seconds: 30));
     final header = response.headers.value;
+    learnClock(header('date'));
     final body = response.data ?? Uint8List(0);
     final profiles = _ref.read(profilesProvider);
     final title = headerText(header('profile-title'));
@@ -1324,6 +1341,7 @@ class ShikooController {
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
       supportUrl: headerText(header('support-url')),
+      account: user,
     ));
     return profile;
   }
@@ -1361,7 +1379,9 @@ class ShikooController {
       }
       return null;
     } catch (error) {
-      return addFailure(error);
+      return await clockFailed(error, url)
+          ? ShikooPasteError.clock
+          : addFailure(error);
     }
   }
 

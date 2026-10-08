@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -18,6 +19,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../helpers/no_shots.dart';
 
 class _Controller extends Mock implements ShikooController {}
 
@@ -74,6 +77,7 @@ Future<ValueNotifier<ShikooState>> _pump(
     ProviderScope(
       key: UniqueKey(),
       overrides: [
+        noShots,
         shikooVersionProvider.overrideWithValue('1.0.0'),
         if (controller != null)
           shikooControllerProvider.overrideWithValue(controller),
@@ -292,6 +296,7 @@ void main() {
       (ShikooPasteError.notShikoo, 'این لینک شیکونت نیست.'),
       (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
       (ShikooPasteError.unavailable, 'لینک الان باز نشد.'),
+      (ShikooPasteError.clock, 'تاریخ و ساعت دستگاهت درست نیست.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {
       when(() => controller.pasteService(any())).thenAnswer((_) async => error);
@@ -305,6 +310,11 @@ void main() {
         reason: 'above the button that made it',
       );
       expect(find.textContaining('secret-token'), findsNothing);
+      expect(
+        find.text('تنظیمات تاریخ و ساعت'),
+        error == ShikooPasteError.clock ? findsOneWidget : findsNothing,
+        reason: error.name,
+      );
     }
 
     final last = Completer<ShikooPasteError?>();
@@ -1603,6 +1613,39 @@ void main() {
         reason: '$locale: a mixed name, the username first too',
       );
     }
+  });
+
+  testWidgets('on a clock 14 years ahead, a service the server ended 3 days '
+      'ago is finished 3 days ago', (tester) async {
+    const years14 = Duration(days: 14 * 365);
+    shikooSkew = -years14;
+    addTearDown(() => shikooSkew = Duration.zero);
+    final phone = _phone();
+    await _pump(
+      tester,
+      ShikooState(
+        connection: phone.connection,
+        connectedFor: phone.connectedFor,
+        isTV: false,
+        service: phone.service,
+        servers: phone.servers,
+        selected: phone.selected,
+        others: [
+          ShikooService(
+            id: 7,
+            name: 'user555 · الماس',
+            usedBytes: 0,
+            totalBytes: 0,
+            expire: DateTime.now().subtract(years14 + const Duration(days: 3)),
+          ),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۱)');
+    await tester.ensureVisible(head);
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    expect(find.text('۳ روز پیش تمام شد'), findsOneWidget);
   });
 }
 

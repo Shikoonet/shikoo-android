@@ -838,4 +838,265 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get shortcutToggle => 'وصل / قطع';
+
+  @override
+  String get clockWrongTitle => 'تاریخ و ساعت دستگاهت درست نیست.';
+
+  @override
+  String get clockWrongHelp =>
+      'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
+
+  @override
+  String get clockStillWrong => 'ساعت هنوز درست نیست.';
+
+  @override
+  String get dateSettings => 'تنظیمات تاریخ و ساعت';
+
+  @override
+  String get updateTitle => 'نسخهٔ تازه آمده';
+
+  @override
+  String updateVersionSize(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'نسخهٔ $version، $sizeString مگابایت';
+  }
+
+  @override
+  String get updateGet => 'دریافت';
+
+  @override
+  String get updateDownloading => 'در حال دریافت…';
+
+  @override
+  String updateProgress(int percent, int done, int total) {
+    final intl.NumberFormat percentNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String percentString = percentNumberFormat.format(percent);
+    final intl.NumberFormat doneNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String doneString = doneNumberFormat.format(done);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return '$percentString٪، $doneString از $totalString مگابایت';
+  }
+
+  @override
+  String get updateReady => 'آمادهٔ نصب';
+
+  @override
+  String get updateInstall => 'نصب';
+
+  @override
+  String get updateClosesApp =>
+      'با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.';
+
+  @override
+  String get updateDownloadFailedTitle => 'دریافت نشد.';
+
+  @override
+  String get updateDownloadFailedHelp =>
+      'اینترنت را بررسی کن و دوباره بزن؛ از همان‌جا ادامه می‌دهد.';
+
+  @override
+  String get updateBadFileTitle => 'فایل سالم نرسید.';
+
+  @override
+  String get updateBadFileHelp => 'دوباره بزن تا از اول دریافت شود.';
+
+  @override
+  String get updateForcedTitle => 'نسخهٔ تازه لازم است';
+
+  @override
+  String updateForcedBody(String version, int size) {
+    final intl.NumberFormat sizeNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String sizeString = sizeNumberFormat.format(size);
+
+    return 'برای ادامه، نسخهٔ $version را دریافت و نصب کن ($sizeString مگابایت).';
+  }
+
+  @override
+  String get installPermissionTitle => 'اجازهٔ نصب';
+
+  @override
+  String get installPermissionTouch =>
+      'در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ گوشی را بزن؛ نصب خودش شروع می‌شود.';
+
+  @override
+  String get installPermissionTv =>
+      'در صفحهٔ بعد، کنار «شیکونت» اجازهٔ نصب را روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن؛ نصب خودش شروع می‌شود.';
+
+  @override
+  String get updateNoSpaceTitle => 'جا کم است.';
+
+  @override
+  String get updateNoSpaceHelp =>
+      'چند برنامه یا فایل را از این دستگاه پاک کن و دوباره بزن.';
+
+  @override
+  String get updateInstallFailed =>
+      'نصب‌کننده باز نشد؛ دوباره بزن یا از «پشتیبانی» بپرس.';
+
+  @override
+  String get installPermissionLegacy =>
+      'در صفحهٔ بعد، پایین همان صفحه «منابع ناشناس» را روشن کن، بعد دکمهٔ برگشت را بزن.';
+
+  @override
+  String get installPermissionLegacyTv =>
+      'در صفحهٔ بعد «منابع ناشناس» را پیدا و روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.';
+
+  @override
+  String get settingsCore => 'هسته';
+
+  @override
+  String get settingsCoreHelp => 'همراه خودِ برنامه به‌روز می‌شود.';
+
+  @override
+  String get settingsCheckUpdate => 'بررسی به‌روزرسانی';
+
+  @override
+  String get settingsChecking => 'در حال بررسی…';
+
+  @override
+  String get settingsUpToDate => 'نسخهٔ تو تازه‌ترین است.';
+
+  @override
+  String get settingsCheckFailed =>
+      'بررسی نشد؛ اینترنت را بررسی کن و دوباره بزن.';
+
+  @override
+  String get reportSendToSupport => 'ارسال گزارش به پشتیبانی';
+
+  @override
+  String get reportSendShort => 'ارسال گزارش';
+
+  @override
+  String get diagTitle => 'عیب‌یابی و گزارش';
+
+  @override
+  String get diagRowHelp => 'اگر برنامه درست کار نمی‌کند';
+
+  @override
+  String get diagInternetGroup => 'اینترنت';
+
+  @override
+  String get diagReportGroup => 'گزارش';
+
+  @override
+  String get diagReportHelp =>
+      'اگر برنامه درست کار نمی‌کند، یک گزارش برای پشتیبانی بفرست. پیش از ارسال می‌بینی چه فرستاده می‌شود.';
+
+  @override
+  String get diagReportLater =>
+      'گزارش الان نمی‌رسد. وقتی اینترنت برگشت، «دوباره» را بزن.';
+
+  @override
+  String get reportSupportSheetBody =>
+      'اگر برنامه درست کار نمی‌کند، اول یک گزارش بفرست تا پشتیبانی ببیند چه شده.';
+
+  @override
+  String get reportChatTelegram => 'گفتگو در تلگرام';
+
+  @override
+  String get reportCrashTitle => 'برنامه دفعهٔ قبل ناگهان بسته شد.';
+
+  @override
+  String get reportCrashAsk => 'گزارشش را برای ما بفرستیم؟';
+
+  @override
+  String get reportCrashYes => 'بفرست';
+
+  @override
+  String get reportCrashNo => 'نه';
+
+  @override
+  String get reportTitle => 'گزارش برای پشتیبانی';
+
+  @override
+  String get reportImageApp => 'آنچه برنامه کشید';
+
+  @override
+  String get reportImageScreen => 'آنچه روی صفحه بود';
+
+  @override
+  String get reportImagesSwitch => 'عکس صفحه‌ها هم فرستاده شود';
+
+  @override
+  String get reportImageOff => 'فرستاده نمی‌شود';
+
+  @override
+  String get reportWhatIsSent =>
+      'فرستاده می‌شود: مدل و تنظیمات دستگاه، نسخهٔ برنامه، نام و حجم سرویس‌هایت، اپراتور و وضعیت اینترنت، و کارهای اخیر برنامه و خطاهایش.';
+
+  @override
+  String get reportNeverSent => 'لینک اشتراک و رمزها هرگز فرستاده نمی‌شوند.';
+
+  @override
+  String get reportSend => 'ارسال';
+
+  @override
+  String get reportSending => 'در حال ارسال…';
+
+  @override
+  String get reportSentTitle => 'فرستاده شد';
+
+  @override
+  String get reportSentLinked =>
+      'پشتیبانی گزارشت را می‌بیند؛ لازم نیست چیزی بفرستی.';
+
+  @override
+  String get reportCodeLabel => 'کد گزارش';
+
+  @override
+  String reportCodeSmall(String code) {
+    return 'کد گزارش: $code';
+  }
+
+  @override
+  String get reportGiveCode => 'این کد را به پشتیبانی بده.';
+
+  @override
+  String get reportFailedTitle => 'فرستاده نشد';
+
+  @override
+  String get reportFailedHelp => 'اینترنت را بررسی کن و دوباره بزن.';
+
+  @override
+  String get reportFailedBusy =>
+      'الان گزارش‌های زیادی رسیده. یک ساعت دیگر دوباره بزن.';
+
+  @override
+  String get reportFailedRefused =>
+      'ایراد از سمت ماست. در تلگرام با پشتیبانی گفتگو کن.';
+
+  @override
+  String get probeChecking => 'در حال بررسی اینترنت…';
+
+  @override
+  String get probeOk => 'اینترنت وصل است و سرور شیکونت در دسترس است.';
+
+  @override
+  String get probeOffline => 'این دستگاه به اینترنت وصل نیست.';
+
+  @override
+  String get probeNoAbroad =>
+      'اینترنت بین‌الملل روی این خط قطع است. سرورها بیرون از ایران‌اند.';
+
+  @override
+  String get probeNoDoor =>
+      'به سرور شیکونت نرسیدیم؛ چند دقیقهٔ دیگر دوباره امتحان کن.';
+
+  @override
+  String get probeNoServer => 'هیچ‌کدام از سرورها جواب نمی‌دهند.';
+
+  @override
+  String get probeNetSettings => 'تنظیمات اینترنت';
 }

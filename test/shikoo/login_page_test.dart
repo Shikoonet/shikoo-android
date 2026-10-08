@@ -1,7 +1,9 @@
+import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
@@ -13,6 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../helpers/no_shots.dart';
 
 class _SignIn extends Mock implements ShikooSignIn {}
 
@@ -56,6 +60,7 @@ Future<ProviderContainer> _pump(
   when(signIn.notMine).thenAnswer((_) async {});
   final container = ProviderContainer(
     overrides: [
+      noShots,
       shikooStateProvider.overrideWith((ref) => ref.watch(_stateCell)),
       shikooSignInProvider.overrideWithValue(signIn),
       shikooControllerProvider.overrideWithValue(_Controller()),
@@ -212,7 +217,13 @@ void main() {
           )
           .first,
     );
-    expect(go.top - list.bottom, closeTo(24, 0.5), reason: 'to the buttons');
+    // The test font's tall lines shrink the page to fit; it keeps its proportions.
+    final shrunk = tester.getRect(circle.first).height / 64;
+    expect(
+      go.top - list.bottom,
+      closeTo(24 * shrunk, 0.5),
+      reason: 'to the buttons',
+    );
   });
 
   testWidgets('on a small phone with large text the sign-in result shows its '
@@ -315,6 +326,9 @@ void main() {
     expect(_focusedButton(), 'دوباره');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
+    expect(_focusedButton(), 'ارسال گزارش به پشتیبانی');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
     expect(_focusedButton(), 'پشتیبانی');
     login.set(const ShikooLogin(LoginPhase.starting));
     await tester.pumpAndSettle();
@@ -343,6 +357,107 @@ void main() {
     );
     expect(find.widgetWithText(ShikooButton, 'دوباره'), findsNothing);
     expect(button('چسباندن لینک اشتراک').onPressed, isNotNull);
+  });
+
+  testWidgets('a code the clock kept away says so, with the date settings, on '
+      'TV and phone', (tester) async {
+    const clock = ShikooLogin(LoginPhase.startFailed, clock: true);
+    for (final tv in [true, false]) {
+      await _pump(tester, tv: tv, login: clock);
+      expect(
+        find.textContaining(
+          'تاریخ و ساعت دستگاهت درست نیست.',
+          findRichText: true,
+        ),
+        findsOne,
+        reason: 'tv: $tv',
+      );
+      expect(find.textContaining('اینترنت', findRichText: true), findsNothing);
+      expect(
+        find.widgetWithText(ShikooButton, 'تنظیمات تاریخ و ساعت'),
+        findsOne,
+      );
+    }
+  });
+
+  testWidgets('the clock page says why, the remote starts on the date settings '
+      'and «دوباره» retries, saying so while the clock is still wrong', (
+    tester,
+  ) async {
+    var retries = 0;
+    var right = false;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(
+      () => FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.automatic,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: ShikooL10n.supportedLocales,
+        localizationsDelegates: const [
+          ShikooL10n.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        theme: shikooThemeData(Brightness.light, tv: true),
+        home: ClockPage(
+          onRetry: () {
+            retries++;
+            return right;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining(
+        'تاریخ و ساعت دستگاهت درست نیست.',
+        findRichText: true,
+      ),
+      findsOne,
+    );
+    expect(_focusedButton(), 'تنظیمات تاریخ و ساعت');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(_focusedButton(), 'دوباره');
+    expect(find.text('ساعت هنوز درست نیست.'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(retries, 1);
+    expect(find.text('ساعت هنوز درست نیست.'), findsOne);
+
+    right = true;
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(retries, 2);
+    expect(find.text('ساعت هنوز درست نیست.'), findsNothing);
+  });
+
+  testWidgets('the clock page, before the app, draws on the same TV canvas', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(2560, 1440)
+      ..devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    // bareApp's own builder, under the TV theme system.isTV would choose on a TV.
+    final app = bareApp(ClockPage(onRetry: () => false));
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: app.locale,
+        supportedLocales: app.supportedLocales,
+        localizationsDelegates: app.localizationsDelegates,
+        theme: shikooThemeData(Brightness.light, tv: true),
+        builder: app.builder,
+        home: app.home,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      MediaQuery.sizeOf(tester.element(find.byType(ClockPage))),
+      ShikooSizes.tvCanvas,
+    );
   });
 
   testWidgets('a TV whose only service has no link shows its card, the remote '
