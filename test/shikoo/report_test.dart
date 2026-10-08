@@ -1193,22 +1193,31 @@ void main() {
         });
 
         testWidgets('$name: an answer that hides the report moves the remote '
-            'to «دوباره»', (tester) async {
+            'to «دوباره», where it stays when the report comes back', (
+          tester,
+        ) async {
           final l = _l(locale);
-          final answer = Completer<ProbeChecks>();
+          final runs = <Completer<ProbeChecks>>[];
           await _pump(
             tester,
             diagnose,
             tv: true,
             locale: locale,
-            probe: () => answer.future,
+            probe: () => (runs..add(Completer())).last.future,
           );
           expect(_focused(), l.reportSendToSupport);
-          answer.complete(_checks('ok', 'ok', 'timeout'));
+          runs.last.complete(_checks('ok', 'ok', 'timeout'));
           await tester.pumpAndSettle();
           expect(find.text(l.reportSendToSupport), findsNothing);
           expect(_focused(), l.retry);
           expect(_ringed(), isTrue);
+          await tester.sendKeyEvent(_ok);
+          await tester.pumpAndSettle();
+          runs.last.complete(_reached);
+          await tester.pumpAndSettle();
+          expect(find.text(l.reportSendToSupport), findsOneWidget);
+          expect(_focused(), l.retry);
+          expect(await _press(tester, towardReport), l.reportSendToSupport);
         });
       }
     }

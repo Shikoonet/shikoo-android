@@ -700,7 +700,7 @@ class _ShikooDiagnoseState extends ConsumerState<ShikooDiagnose> {
                   label: l.reportSendToSupport,
                   icon: ShikooIcon.report,
                   primary: true,
-                  autofocus: isTV,
+                  autofocus: isTV && _checks == null,
                   focusNode: _send,
                   onPressed: () =>
                       unawaited(openReport(context, 'diagnose', widget.shots)),
