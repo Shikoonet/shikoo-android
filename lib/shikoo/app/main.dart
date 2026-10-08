@@ -5,7 +5,6 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
-import 'package:fl_clash/providers/state.dart' show serviceTexts;
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
@@ -42,7 +41,7 @@ void main() {
         await RustLib.init();
         final version = await system.init();
         if (clockTooEarly(DateTime.now())) await _untilClockRight();
-        serviceTexts = shikooServiceTexts;
+        fillFlClashHooks();
         final container = await bootstrap.init(version);
         await keepApiDirect();
         await container.read(shikooLookProvider.notifier).load();
