@@ -695,6 +695,11 @@ class _SwitchBar extends StatelessWidget {
           }
         });
         final [first, ...rest] = switchNews(l, shift!);
+        final icon = switch (shift.stage) {
+          ShikooSwitchStage.moving => null,
+          ShikooSwitchStage.done => ShikooIcon.check,
+          ShikooSwitchStage.failed => ShikooIcon.alert,
+        };
         return Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Space.s4,
@@ -712,21 +717,9 @@ class _SwitchBar extends StatelessWidget {
                           t.s.icon) /
                       2,
                 ),
-                child: switch (shift.stage) {
-                  ShikooSwitchStage.moving => Spinner(
-                    size: t.s.icon,
-                    color: t.c.bg,
-                  ),
-                  ShikooSwitchStage.done => SvgIcon(
-                    ShikooIcon.check,
-                    size: t.s.icon,
-                    color: t.c.bg,
-                  ),
-                  ShikooSwitchStage.failed => SvgIcon(
-                    ShikooIcon.alert,
-                    size: t.s.icon,
-                    color: t.c.bg,
-                  ),
+                child: switch (icon) {
+                  null => Spinner(size: t.s.icon, color: t.c.bg),
+                  _ => SvgIcon(icon, size: t.s.icon, color: t.c.bg),
                 },
               ),
               Expanded(

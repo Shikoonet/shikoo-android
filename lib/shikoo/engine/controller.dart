@@ -689,7 +689,14 @@ class ShikooController {
       fireImmediately: true,
     );
     _ref.listen(runTimeProvider.select((time) => time != null), (_, running) {
-      scheduleMicrotask(running ? _reconcile : () => _nativeStart(null));
+      scheduleMicrotask(
+        running
+            ? _reconcile
+            : () {
+                _nativeStart(null);
+                _endSwitch();
+              },
+      );
     });
     app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
@@ -784,8 +791,13 @@ class ShikooController {
   void clearNews() {
     if (_ref.read(_noticeProvider) is! RefreshFailed) _notice(null);
     _ref.read(_freshProvider.notifier).set(const {});
+  }
+
+  /// A switch's outcome leaves with the app as well, one under way does not.
+  void onBackground() {
+    clearNews();
     if (_ref.read(_switchProvider)?.stage != ShikooSwitchStage.moving) {
-      _switching(null);
+      _endSwitch();
     }
   }
 
@@ -890,6 +902,8 @@ class ShikooController {
 
   /// The user's choice, which the app never replaces; connected, a dead one never gets the traffic.
   Future<void> selectServer(String name) async {
+    final shift = _ref.read(_switchProvider);
+    if (shift?.stage == ShikooSwitchStage.moving && shift?.to == name) return;
     final tap = _endSwitch();
     _hide(null);
     if (_ref.read(_noticeProvider)
@@ -910,11 +924,8 @@ class ShikooController {
   Future<void> _switchTo(String name, String from, int tap) async {
     void show(ShikooSwitchStage stage) {
       if (tap != _tap) return;
-      _switching(
-        _running
-            ? (to: name, from: _validSelection() ?? from, stage: stage)
-            : null,
-      );
+      final now = stage == ShikooSwitchStage.failed ? _validSelection() : null;
+      _switching((to: name, from: now ?? from, stage: stage));
     }
 
     show(ShikooSwitchStage.moving);
@@ -924,10 +935,11 @@ class ShikooController {
       ms = answer;
     });
     if (tap != _tap) return;
-    final wireGuard = _serversOf(
+    final proxy = _serversOf(
       _group,
-    ).any((proxy) => proxy.name == name && proxy.type == 'WireGuard');
-    if (ms <= 0 && !wireGuard) {
+    ).firstWhereOrNull((proxy) => proxy.name == name);
+    if (proxy == null) return _switching(null);
+    if (ms <= 0 && proxy.type != 'WireGuard') {
       _setPing(name, -1);
       return show(ShikooSwitchStage.failed);
     }
@@ -943,10 +955,7 @@ class ShikooController {
       _setPing(name, math.max(_ping(name) ?? 0, 0));
     }
     if (tap != _tap) return;
-    if (_validSelection() != name) {
-      _switching(null);
-      return;
-    }
+    if (_validSelection() != name) return _switching(null);
     _pickedByApp(null);
     _stopgap = null;
     show(ShikooSwitchStage.done);
@@ -1105,8 +1114,8 @@ class ShikooController {
     final chosen = _validSelection();
     if (group == null || chosen == null || _pinging) return;
     final url = _testUrl(group);
-    // Not sorted: the row under the finger or the remote keeps its place until the next round.
     await pingServers([chosen], (name) => _probe(url, name), _setPing);
+    if (!_pinging) _sort();
     await _replaceSilentPick();
   }
 
@@ -1368,6 +1377,10 @@ class ShikooController {
     ];
     final added = after.where((name) => !before.contains(name)).toSet();
     _ref.read(_freshProvider.notifier).set(added);
+    if (_ref.read(_switchProvider) case final shift?
+        when removed.contains(shift.to) || removed.contains(shift.from)) {
+      _endSwitch();
+    }
     if (had != null && removed.contains(had)) {
       _removed = had;
     } else if (added.isNotEmpty || removed.isNotEmpty) {
