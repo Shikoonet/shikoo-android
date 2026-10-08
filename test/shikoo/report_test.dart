@@ -1221,5 +1221,48 @@ void main() {
         });
       }
     }
+
+    testWidgets('a check that answers after the page closed is dropped '
+        'without an error', (tester) async {
+      final answer = Completer<ProbeChecks>();
+      await _pump(tester, diagnose, probe: () => answer.future);
+      await tester.pumpWidget(const SizedBox());
+      answer.complete(_offline);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('phone: an answer, the report hidden or not, leaves focus '
+        'alone when it was not on the report', (tester) async {
+      for (final locale in ['fa', 'en']) {
+        for (final checks in [_reached, _offline]) {
+          final l = _l(locale);
+          final answer = Completer<ProbeChecks>();
+          await _pump(
+            tester,
+            diagnose,
+            locale: locale,
+            probe: () => answer.future,
+          );
+          final before = FocusManager.instance.primaryFocus;
+          answer.complete(checks);
+          await tester.pumpAndSettle();
+          expect(_focused(), isNot(l.retry), reason: '$locale $checks');
+          expect(FocusManager.instance.primaryFocus, before);
+        }
+      }
+    });
+
+    testWidgets('its report goes to the door with the diagnose trigger', (
+      tester,
+    ) async {
+      final l = _l('fa');
+      final rig = await _pump(tester, diagnose);
+      await tester.tap(find.text(l.reportSendToSupport));
+      await tester.pumpAndSettle();
+      await _sendNow(tester, l);
+      expect(rig.door.bodies, hasLength(1));
+      expect((rig.door.bodies.single['meta'] as Map)['trigger'], 'diagnose');
+    });
   });
 }
