@@ -28,6 +28,7 @@ class InternetCheckCard extends StatefulWidget {
     required this.state,
     required this.controller,
     this.onReport,
+    this.onAgain,
     this.firstFocus,
   });
 
@@ -36,6 +37,9 @@ class InternetCheckCard extends StatefulWidget {
   final ShikooController controller;
 
   final VoidCallback? onReport;
+
+  /// Diagnostics' «دوباره»: first in every reading, busy while the check runs.
+  final VoidCallback? onAgain;
 
   /// The first button's node, for the remote coming from the power button.
   final FocusNode? firstFocus;
@@ -58,7 +62,7 @@ class _InternetCheckCardState extends State<InternetCheckCard> {
   }
 
   List<_Action> _actions(ShikooL10n l, ProbeReading reading) {
-    final InternetCheckCard(:state, :controller, :onReport) = widget;
+    final InternetCheckCard(:state, :controller, :onReport, :onAgain) = widget;
     final service = state.service;
     final busy = state.refresh == ShikooRefresh.running;
     final reporting = onReport == null
@@ -77,7 +81,11 @@ class _InternetCheckCardState extends State<InternetCheckCard> {
       ),
       false,
     );
-    return switch (reading) {
+    final checking = reading == ProbeReading.checking;
+    final again = onAgain == null
+        ? null
+        : (l.retry, ShikooIcon.refresh, checking ? () {} : onAgain, checking);
+    final List<_Action> own = switch (reading) {
       ProbeReading.checking => const [],
       ProbeReading.ok || ProbeReading.noAbroad => [?reporting],
       ProbeReading.offline => [
@@ -100,6 +108,7 @@ class _InternetCheckCardState extends State<InternetCheckCard> {
         ),
       ],
     };
+    return [?again, ...own];
   }
 
   /// Left and right step along the buttons; past the last, the page's own rule decides.

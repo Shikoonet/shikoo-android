@@ -985,11 +985,18 @@ class ShikooL10nFa extends ShikooL10n {
   String get diagRowHelp => 'اگر برنامه درست کار نمی‌کند';
 
   @override
+  String get diagInternetGroup => 'اینترنت';
+
+  @override
   String get diagReportGroup => 'گزارش';
 
   @override
   String get diagReportHelp =>
       'اگر برنامه درست کار نمی‌کند، یک گزارش برای پشتیبانی بفرست. پیش از ارسال می‌بینی چه فرستاده می‌شود.';
+
+  @override
+  String get diagReportLater =>
+      'گزارش الان نمی‌رسد. وقتی اینترنت برگشت، «دوباره» را بزن.';
 
   @override
   String get reportSupportSheetBody =>

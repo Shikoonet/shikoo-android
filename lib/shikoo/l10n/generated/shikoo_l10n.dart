@@ -1628,6 +1628,12 @@ abstract class ShikooL10n {
   /// **'If the app isn\'t working right'**
   String get diagRowHelp;
 
+  /// No description provided for @diagInternetGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet'**
+  String get diagInternetGroup;
+
   /// No description provided for @diagReportGroup.
   ///
   /// In en, this message translates to:
@@ -1639,6 +1645,12 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'If the app isn\'t working right, send Support a report. You see what is sent before it goes.'**
   String get diagReportHelp;
+
+  /// Diagnostics page, instead of the reportSendToSupport button while the check did not reach the Shikoo server. Try again is the check card’s retry.
+  ///
+  /// In en, this message translates to:
+  /// **'The report can’t get through now. When the internet is back, press Try again.'**
+  String get diagReportLater;
 
   /// Phone only: the dialog every Support button opens, title support. Buttons: reportChatTelegram (primary), reportSendToSupport, cancelButton. TV keeps its support QR dialog with reportSendToSupport beside close.
   ///

@@ -253,6 +253,9 @@ class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
     return null;
   }
 
+  /// The same probes, the card left alone: Diagnostics shows its own.
+  Future<ProbeChecks> probe() => _probe();
+
   Future<void> run() async {
     final round = ++_round;
     state = const AsyncLoading();

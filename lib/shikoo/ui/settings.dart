@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -10,6 +11,7 @@ import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -580,17 +582,73 @@ Widget _columns(List<Widget> groups, {required bool isTV}) => isTV
       )
     : _Column(children: groups);
 
-/// Frames `phone-diagnose`, `tv-diagnose`: the report, the remote on its button.
-class ShikooDiagnose extends ConsumerWidget {
+/// Frames `phone-diagnose`, `tv-diagnose`: the internet check, run on open, over the report,
+/// the remote on its button. A check that missed the door hides it, as a report cannot arrive.
+class ShikooDiagnose extends ConsumerStatefulWidget {
   const ShikooDiagnose({super.key, required this.shots});
 
   final ReportShots shots;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShikooDiagnose> createState() => _ShikooDiagnoseState();
+}
+
+class _ShikooDiagnoseState extends ConsumerState<ShikooDiagnose> {
+  final _again = FocusNode();
+  final _send = FocusNode();
+  ProbeChecks? _checks;
+  var _checking = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_check());
+  }
+
+  @override
+  void dispose() {
+    _again.dispose();
+    _send.dispose();
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    final checks = await ref.read(shikooProbeProvider.notifier).probe();
+    if (!mounted) return;
+    final onSend = _send.hasPrimaryFocus;
+    setState(() {
+      _checks = checks;
+      _checking = false;
+    });
+    if (!onSend) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_send.hasPrimaryFocus) _again.requestFocus();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    final isTV = ref.watch(shikooStateProvider.select((state) => state.isTV));
+    final state = ref.watch(shikooStateProvider);
+    final isTV = state.isTV;
+    final reading = readProbes(_checks, state.servers);
+    final towardCheck = Directionality.of(context) == TextDirection.rtl
+        ? TraversalDirection.right
+        : TraversalDirection.left;
+    final internet = _Group(
+      title: l.diagInternetGroup,
+      child: InternetCheckCard(
+        check: _checking ? const AsyncLoading() : AsyncData(_checks!),
+        state: state,
+        controller: ref.watch(shikooControllerProvider),
+        onAgain: () {
+          setState(() => _checking = true);
+          unawaited(_check());
+        },
+        firstFocus: _again,
+      ),
+    );
     final report = _Group(
       title: l.diagReportGroup,
       child: Container(
@@ -614,14 +672,40 @@ class ShikooDiagnose extends ConsumerWidget {
                 height: Leading.body,
               ),
             ),
-            ShikooButton(
-              label: l.reportSendToSupport,
-              icon: ShikooIcon.report,
-              primary: true,
-              autofocus: isTV,
-              onPressed: () =>
-                  unawaited(openReport(context, 'diagnose', shots)),
-            ),
+            if (reading == ProbeReading.offline ||
+                reading == ProbeReading.noDoor)
+              Text(
+                l.diagReportLater,
+                style: t.text(
+                  t.s.bodySm,
+                  weight: FontWeight.w700,
+                  height: Leading.body,
+                ),
+              )
+            else
+              Actions(
+                actions: {
+                  DirectionalFocusIntent:
+                      CallbackAction<DirectionalFocusIntent>(
+                        onInvoke: (intent) {
+                          if (intent.direction != towardCheck) {
+                            return Actions.maybeInvoke(context, intent);
+                          }
+                          _again.requestFocus();
+                          return null;
+                        },
+                      ),
+                },
+                child: ShikooButton(
+                  label: l.reportSendToSupport,
+                  icon: ShikooIcon.report,
+                  primary: true,
+                  autofocus: isTV,
+                  focusNode: _send,
+                  onPressed: () =>
+                      unawaited(openReport(context, 'diagnose', widget.shots)),
+                ),
+              ),
           ],
         ),
       ),
@@ -629,7 +713,7 @@ class ShikooDiagnose extends ConsumerWidget {
     return SubPage(
       title: l.diagTitle,
       isTV: isTV,
-      child: _columns([report], isTV: isTV),
+      child: _columns([internet, report], isTV: isTV),
     );
   }
 }

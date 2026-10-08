@@ -11,6 +11,7 @@ import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
@@ -134,6 +135,7 @@ ShikooState _state({
   bool tv = false,
   ShikooConnection connection = ShikooConnection.off,
   ShikooNotice? notice,
+  bool silent = false,
 }) => ShikooState(
   connection: connection,
   connectedFor: Duration.zero,
@@ -149,9 +151,9 @@ ShikooState _state({
     expire: _now.add(const Duration(days: 67)),
     updatedAt: _now,
   ),
-  servers: const [
-    ShikooServer(name: 'آلمان ۳', type: 'Vless', ping: 92),
-    ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 71),
+  servers: [
+    ShikooServer(name: 'آلمان ۳', type: 'Vless', ping: silent ? -1 : 92),
+    ShikooServer(name: 'هلند ۱', type: 'Vless', ping: silent ? -1 : 71),
   ],
   selected: 'آلمان ۳',
 );
@@ -167,6 +169,7 @@ Future<_Rig> _pump(
   Size? size,
   ShikooState? state,
   ShikooLogin? login,
+  Future<ProbeChecks> Function()? probe,
 }) async {
   SharedPreferences.setMockInitialValues({});
   _quietNative();
@@ -202,7 +205,7 @@ Future<_Rig> _pump(
       shikooControllerProvider.overrideWithValue(controller),
       shikooVersionProvider.overrideWithValue('1.0.57'),
       shikooProbeProvider.overrideWith(
-        () => ShikooProbes(() async => _reached),
+        () => ShikooProbes(probe ?? () async => _reached),
       ),
     ],
   );
@@ -242,6 +245,14 @@ const ProbeChecks _reached = (
   international: (result: 'ok', ms: 300),
   door: (result: 'ok', ms: 60),
 );
+
+ProbeChecks _checks(String domestic, String international, String door) => (
+  domestic: (result: domestic, ms: 40),
+  international: (result: international, ms: 300),
+  door: (result: door, ms: 60),
+);
+
+final _offline = _checks('dns', 'dns', 'dns');
 
 /// Kotlin's half answers nothing here; unanswered, its replies would come outside fake time.
 void _quietNative([List<Map<String, Object?>> exits = const []]) {
@@ -338,6 +349,14 @@ Future<void> _sendNow(WidgetTester tester, ShikooL10n l) async {
   await tester.tap(find.text(l.reportSend));
   await tester.pumpAndSettle();
 }
+
+List<String> _labels(Finder within) => [
+  for (final button
+      in find
+          .descendant(of: within, matching: find.byType(ShikooButton))
+          .evaluate())
+    (button.widget as ShikooButton).label,
+];
 
 const _left = LogicalKeyboardKey.arrowLeft;
 const _right = LogicalKeyboardKey.arrowRight;
@@ -1010,5 +1029,188 @@ void main() {
       expect(_focused(), l.close);
       expect(find.text(l.reportSendToSupport), findsNothing);
     });
+  });
+
+  group('the Diagnostics page', () {
+    const diagnose = ShikooDiagnose(shots: (app: null, screen: null));
+
+    for (final tv in [false, true]) {
+      for (final locale in ['fa', 'en']) {
+        final name = '${tv ? 'TV' : 'phone'} $locale';
+        final rtl = locale == 'fa';
+
+        testWidgets('$name: each reading has its card, «دوباره» in place of '
+            'its report; the report button only while the door answers', (
+          tester,
+        ) async {
+          final l = _l(locale);
+          final cases = [
+            (null, false, l.probeChecking, [l.retry], true),
+            (_reached, false, l.probeOk, [l.retry], true),
+            (
+              _offline,
+              false,
+              l.probeOffline,
+              [l.retry, l.probeNetSettings],
+              false,
+            ),
+            (
+              _checks('ok', 'timeout', 'ok'),
+              false,
+              l.probeNoAbroad,
+              [l.retry],
+              true,
+            ),
+            (
+              _checks('ok', 'ok', 'timeout'),
+              false,
+              l.probeNoDoor,
+              [l.retry, l.support],
+              false,
+            ),
+            (
+              _reached,
+              true,
+              l.probeNoServer,
+              [l.retry, l.support, l.refreshServers],
+              true,
+            ),
+          ];
+          for (final (checks, silent, sentence, buttons, reaches) in cases) {
+            await _pump(
+              tester,
+              diagnose,
+              tv: tv,
+              locale: locale,
+              state: _state(tv: tv, silent: silent),
+              probe: () async => checks ?? Completer<ProbeChecks>().future,
+            );
+            expect(find.text(l.diagInternetGroup), findsOneWidget);
+            expect(find.text(sentence), findsOneWidget);
+            expect(
+              _labels(find.byType(InternetCheckCard)),
+              buttons,
+              reason: sentence,
+            );
+            expect(
+              tester
+                  .widget<ShikooButton>(
+                    find.widgetWithText(ShikooButton, l.retry),
+                  )
+                  .busy,
+              checks == null,
+              reason: sentence,
+            );
+            expect(
+              find.text(l.reportSendToSupport),
+              reaches ? findsOneWidget : findsNothing,
+              reason: sentence,
+            );
+            expect(
+              find.text(l.diagReportLater),
+              reaches ? findsNothing : findsOneWidget,
+              reason: sentence,
+            );
+            final card = tester.getRect(find.byType(InternetCheckCard));
+            final help = tester.getRect(find.text(l.diagReportHelp));
+            if (!tv) {
+              expect(card.bottom, lessThan(help.top));
+            } else if (rtl) {
+              expect(card.left, greaterThan(help.right));
+            } else {
+              expect(card.right, lessThan(help.left));
+            }
+          }
+        });
+
+        testWidgets('$name: «دوباره» runs the check again, the last answer '
+            'kept for the report meanwhile', (tester) async {
+          final l = _l(locale);
+          final runs = <Completer<ProbeChecks>>[];
+          await _pump(
+            tester,
+            diagnose,
+            tv: tv,
+            locale: locale,
+            probe: () => (runs..add(Completer())).last.future,
+          );
+          expect(runs, hasLength(1));
+          runs.last.complete(_offline);
+          await tester.pumpAndSettle();
+          expect(find.text(l.probeOffline), findsOneWidget);
+          Future<void> again() async {
+            if (tv) {
+              await _focus(tester, l.retry);
+              await tester.sendKeyEvent(_ok);
+            } else {
+              await tester.tap(find.text(l.retry));
+            }
+            await tester.pumpAndSettle();
+          }
+
+          await again();
+          expect(runs, hasLength(2));
+          expect(find.text(l.probeChecking), findsOneWidget);
+          expect(find.text(l.diagReportLater), findsOneWidget);
+          await again();
+          expect(runs, hasLength(2));
+          runs.last.complete(_reached);
+          await tester.pumpAndSettle();
+          expect(find.text(l.probeOk), findsOneWidget);
+          expect(find.text(l.reportSendToSupport), findsOneWidget);
+          expect(find.text(l.diagReportLater), findsNothing);
+        });
+
+        if (!tv) continue;
+        final towardCheck = rtl ? _right : _left;
+        final towardReport = rtl ? _left : _right;
+
+        testWidgets('$name: the remote starts on the report; toward the check '
+            'it lands on «دوباره», steps along the card and comes back', (
+          tester,
+        ) async {
+          final l = _l(locale);
+          for (final (silent, walk) in [
+            (false, [l.retry]),
+            (true, [l.retry, l.support, l.refreshServers]),
+          ]) {
+            await _pump(
+              tester,
+              diagnose,
+              tv: true,
+              locale: locale,
+              state: _state(tv: true, silent: silent),
+            );
+            expect(_focused(), l.reportSendToSupport);
+            expect(_ringed(), isTrue);
+            expect(await _press(tester, towardCheck), l.retry);
+            expect(_ringed(), isTrue);
+            for (final label in walk.skip(1)) {
+              expect(await _press(tester, towardReport), label);
+            }
+            expect(await _press(tester, towardReport), l.reportSendToSupport);
+          }
+        });
+
+        testWidgets('$name: an answer that hides the report moves the remote '
+            'to «دوباره»', (tester) async {
+          final l = _l(locale);
+          final answer = Completer<ProbeChecks>();
+          await _pump(
+            tester,
+            diagnose,
+            tv: true,
+            locale: locale,
+            probe: () => answer.future,
+          );
+          expect(_focused(), l.reportSendToSupport);
+          answer.complete(_checks('ok', 'ok', 'timeout'));
+          await tester.pumpAndSettle();
+          expect(find.text(l.reportSendToSupport), findsNothing);
+          expect(_focused(), l.retry);
+          expect(_ringed(), isTrue);
+        });
+      }
+    }
   });
 }
