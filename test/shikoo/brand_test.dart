@@ -10,8 +10,8 @@ const _res = 'android/app/src/main/res';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test("every launcher, round, TV, Play and adaptive icon, the banner, the "
-      "notification and tile icon and the in-app mark come from "
+  test('every launcher, round, TV, Play and adaptive icon, the banner, the '
+      'notification and tile icon and the in-app mark come from '
       "tools/shikoo-brand.py, none of them FlClash's", () {
     final name = RegExp(
       r'^(ic_launcher.*|ic_banner|ic|ic_service|shikoo_mark)\.(png|webp|xml)$',
