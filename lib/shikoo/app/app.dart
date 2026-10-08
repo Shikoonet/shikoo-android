@@ -10,6 +10,7 @@ import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
+import 'package:fl_clash/manager/status_manager.dart' show StatusManager;
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -33,16 +34,25 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
   ...GlobalMaterialLocalizations.delegates,
 ];
 
+/// FlClash's hooks, filled before it starts: its service texts in the app's language, and its messages logged, never drawn.
+void fillFlClashHooks() {
+  serviceTexts = shikooServiceTexts;
+  StatusManager.showMessages = false;
+}
+
 /// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
 Future<bool?>? registerShortcut(App? plugin, String language) =>
     plugin?.initShortcuts(shikooServiceTexts(Locale(language)).toggle);
 
-/// Once per install, and only after [attached]: until then the core has no config, and FlClash toasts "config is not applied".
-Future<void> lockLocalPortAfter(
+/// After [attached], before which the core has no config and FlClash toasts "config is not applied": the local port's
+/// password, once per install, and the core's log, on every start. On a first install FlClash's own startLog and the
+/// stopLog of its default wait for the core together, then race in goroutines of their own, and the report loses every core line.
+Future<void> afterAttach(
   Future<void> attached,
   ProviderContainer container,
 ) async {
   await attached;
+  container.read(coreHandlerProvider).startLog();
   container.read(networkSettingProvider.notifier).update((s) {
     if (s.authentication.credentials.isNotEmpty) return s;
     return s.copyWith(
@@ -92,7 +102,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       if (globalState.navigatorKey.currentContext == null) exit(0);
       // Saved only because AppStateManager is mounted by now (engine map section 1).
       ref.read(appSettingProvider.notifier).update(shikooAppSettings);
-      await lockLocalPortAfter(bootstrap.attach(), globalState.container);
+      await afterAttach(bootstrap.attach(), globalState.container);
       ref
           .read(patchClashConfigProvider.notifier)
           .update((c) => c.copyWith(logLevel: LogLevel.warning));

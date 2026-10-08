@@ -185,37 +185,20 @@ class Brand extends StatelessWidget {
   }
 }
 
-/// `.mark`: the letter «ش» on the primary colour.
+/// The mark on its own black, written by `tools/shikoo-brand.py` with the app icons.
+const shikooMarkAsset = 'assets/images/shikoo_mark.png';
+
+/// `.mark`: [shikooMarkAsset] cut to the tile's shape.
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, required this.size});
 
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      padding: EdgeInsets.only(bottom: size * 0.1),
-      decoration: ShapeDecoration(
-        color: t.c.primary,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(size * Radii.markRatio),
-        ),
-      ),
-      child: Text(
-        ShikooL10n.of(context).brandMark,
-        style: t.text(
-          size * 0.56,
-          weight: FontWeight.w800,
-          color: t.c.onPrimary,
-          height: 1,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ClipRSuperellipse(
+    borderRadius: BorderRadius.circular(size * Radii.markRatio),
+    child: Image.asset(shikooMarkAsset, width: size, height: size),
+  );
 }
 
 /// `.icon` turning, for work in progress (`#i-spin`); still when animations are off.
