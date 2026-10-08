@@ -1,0 +1,22 @@
+diff --git a/adapter/outbound/wireguard.go b/adapter/outbound/wireguard.go
+index b856c5c..317e22e 100644
+--- a/adapter/outbound/wireguard.go
++++ b/adapter/outbound/wireguard.go
+@@ -771,6 +771,17 @@ func (w *WireGuard) genIpcConf(ctx context.Context, updateOnly bool) (string, er
+ 	return ipcConf, nil
+ }
+ 
++// ShikooRebind gives a WireGuard outbound's bind a new socket, through the dialer and so through VPN protect.
++// core/shikoo_rebind.go calls it once the VPN is up, for the sockets pings opened before it.
++func ShikooRebind(adapter C.ProxyAdapter) {
++	if p, ok := adapter.(*autoCloseProxyAdapter); ok {
++		adapter = p.ProxyAdapter
++	}
++	if w, ok := adapter.(*WireGuard); ok && w.initOk.Load() {
++		_ = w.device.IpcSet("listen_port=0\n")
++	}
++}
++
+ // Close implements C.ProxyAdapter
+ func (w *WireGuard) Close() error {
+ 	if w.device != nil {

@@ -397,8 +397,10 @@ func applyConfig(params *SetupParams) error {
 		cfg = fallback
 	}
 
+	previous := currentConfig
 	currentConfig = cfg
 	hub.ApplyConfig(cfg)
+	closeWireGuard(previous)
 	patchSelectGroup(params.SelectedMap)
 	updateListeners(cfg)
 	reconcileGeoUpdater()
