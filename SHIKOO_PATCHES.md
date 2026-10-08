@@ -65,7 +65,7 @@ bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 
 - `dart setup.dart android` همچنان اپ خود FlClash را می‌سازد. برای اینکه آن هم اپ شیکو بسازد، یا `setup.dart` وصله می‌خورد (و دو تست `test/setup_test.dart`)، یا `lib/main.dart`. فعلاً لازم نیست.
 - ترجمه‌ها: `lib/shikoo/l10n/*.arb`. بعد از هر تغییر: `bash tools/shikoo-l10n.sh` (پوشهٔ `generated/` را می‌سازد).
-- برند: همهٔ آیکون‌ها، بنر تلویزیون، آیکون اعلان و نشان داخل اپ از `assets/brand/logo-source.jpg` می‌آیند. بعد از عوض کردن آن: `uv run tools/shikoo-brand.py` (وابستگی‌هایش، Pillow و potracer، در سر خود اسکریپت قفل شده‌اند).
+- برند: همهٔ آیکون‌ها، بنر تلویزیون، آیکون اعلان و نشان داخل اپ از `assets/brand/logo-source.jpg` می‌آیند. بعد از عوض کردن آن: `uv run tools/shikoo-brand.py` (پایتون ۳٫۱۲، Pillow، potracer و numpy در `tools/shikoo-brand.py.lock` قفل شده‌اند؛ بعد از عوض کردن وابستگی‌ها: `uv lock --script tools/shikoo-brand.py`).
 
 **فایل‌های تازهٔ شیکو داخل پوشه‌های FlClash** (فایلی از FlClash عوض نشده؛ در ادغام تداخلی نمی‌سازند):
 
