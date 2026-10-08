@@ -809,8 +809,21 @@ void main() {
       device,
       const ShikooDiagnose(shots: (app: null, screen: null)),
       state: _home(device.tv),
+      checks: _probe('ok', 'ok', 'ok'),
     );
-    await check([_button(_l.reportSendToSupport)]);
+    await check([_button(_l.retry), _button(_l.reportSendToSupport)]);
+    await _pump(
+      tester,
+      device,
+      const ShikooDiagnose(shots: (app: null, screen: null)),
+      state: _home(device.tv),
+      checks: _probe('dns', 'dns', 'dns'),
+    );
+    await check([
+      _button(_l.retry),
+      _button(_l.probeNetSettings),
+      find.text(_l.diagReportLater),
+    ]);
 
     await _pump(
       tester,

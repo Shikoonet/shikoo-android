@@ -1036,11 +1036,18 @@ class ShikooL10nEn extends ShikooL10n {
   String get diagRowHelp => 'If the app isn\'t working right';
 
   @override
+  String get diagInternetGroup => 'Internet';
+
+  @override
   String get diagReportGroup => 'Report';
 
   @override
   String get diagReportHelp =>
       'If the app isn\'t working right, send Support a report. You see what is sent before it goes.';
+
+  @override
+  String get diagReportLater =>
+      'The report can’t get through now. When the internet is back, press Try again.';
 
   @override
   String get reportSupportSheetBody =>
