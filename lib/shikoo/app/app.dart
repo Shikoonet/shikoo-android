@@ -10,6 +10,7 @@ import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
+import 'package:fl_clash/manager/status_manager.dart' show StatusManager;
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -32,6 +33,12 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
   _FlClashStrings(),
   ...GlobalMaterialLocalizations.delegates,
 ];
+
+/// FlClash's hooks, filled before it starts: its service texts in the app's language, and its messages logged, never drawn.
+void fillFlClashHooks() {
+  serviceTexts = shikooServiceTexts;
+  StatusManager.showMessages = false;
+}
 
 /// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
 Future<bool?>? registerShortcut(App? plugin, String language) =>
