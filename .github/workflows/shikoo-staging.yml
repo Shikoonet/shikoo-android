@@ -78,6 +78,8 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - run: bash tools/core-patches/apply.sh
+
       - name: The app takes its server and bot from the build, and staging points away from production
         run: |
           set -euo pipefail
