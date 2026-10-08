@@ -271,6 +271,21 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String switchingTo(String name) {
+    return 'Moving to “$name”…';
+  }
+
+  @override
+  String switchedTo(String name) {
+    return 'Now connected through “$name”.';
+  }
+
+  @override
+  String switchKept(String name) {
+    return 'Still on “$name”. Try another server.';
+  }
+
+  @override
   String get findingBest => 'Finding the best server…';
 
   @override

@@ -404,11 +404,29 @@ abstract class ShikooL10n {
   /// **'The connection moved to “{name}” right away.'**
   String selectedMovedFirst(String name);
 
-  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced when disconnected or selectedMoved when connected.
+  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced when disconnected or selectedMoved when connected. Also the first sentence of a failed switch, followed by switchKept.
   ///
   /// In en, this message translates to:
   /// **'“{name}” didn\'t answer.'**
   String selectedNoAnswer(String name);
+
+  /// While connected, from tapping another server until it answers its own ping; the connection still goes through the previous server meanwhile. Phone: bottom snackbar. TV: under the server pill. In all three switch messages {name} goes through bidiName.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving to “{name}”…'**
+  String switchingTo(String name);
+
+  /// Replaces switchingTo once the tapped server answered and the connection moved to it. Hides after 4 seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Now connected through “{name}”.'**
+  String switchedTo(String name);
+
+  /// After selectedNoAnswer (the tapped server), when it did not answer and the connection stayed on {name}, the previous server. No timer: it stays until the next server tap or the app goes to the background. Keep it short: the TV slot has two lines.
+  ///
+  /// In en, this message translates to:
+  /// **'Still on “{name}”. Try another server.'**
+  String switchKept(String name);
 
   /// No description provided for @findingBest.
   ///

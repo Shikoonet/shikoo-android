@@ -68,6 +68,9 @@ class _Setup extends SetupAction {
   /// Holds the traffic check open until completed.
   Completer<void>? trafficGate;
 
+  /// What an applied profile changes, such as the core's server list.
+  void Function()? onApply;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
@@ -79,7 +82,10 @@ class _Setup extends SetupAction {
     bool silence = false,
     bool force = false,
     Future<void> Function()? preloadInvoke,
-  }) async => true;
+  }) async {
+    onApply?.call();
+    return true;
+  }
 }
 
 /// The panel answers at once: a paste goes through without a network.
@@ -509,7 +515,8 @@ void main() {
   });
 
   test(
-    'connected, a silent server picked by hand is measured and kept',
+    'connected, a tapped server that does not answer is measured and never '
+    'gets the traffic; the next tap or leaving the app clears the news',
     () async {
       final (:container, :core, :proxies, :setup) = _home();
       final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
@@ -524,15 +531,29 @@ void main() {
 
       pings['هلند ۱'] = -1;
       await controller.selectServer('هلند ۱');
-      final state = container.read(shikooStateProvider);
-      expect(state.selected, 'هلند ۱');
+      var state = container.read(shikooStateProvider);
+      expect(state.selected, 'آلمان ۱');
+      expect(proxies.picked, ['آلمان ۱'], reason: 'never moved to a dead one');
+      expect(setup.runs, isEmpty, reason: 'the tunnel was never touched');
+      expect(state.switching, (
+        to: 'هلند ۱',
+        from: 'آلمان ۱',
+        stage: ShikooSwitchStage.failed,
+      ));
       expect(
-        state.selectedServer?.ping,
+        state.servers.firstWhere((server) => server.name == 'هلند ۱').ping,
         -1,
         reason: 'measured, not the old 90',
       );
       expect(state.notice, isNull);
-      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+
+      await controller.selectServer('آلمان ۱');
+      expect(container.read(shikooStateProvider).switching, isNull);
+      await controller.selectServer('هلند ۱');
+      controller.onBackground();
+      state = container.read(shikooStateProvider);
+      expect(state.switching, isNull, reason: 'the app went to the background');
+      expect(proxies.picked, ['آلمان ۱', 'آلمان ۱']);
     },
   );
 
@@ -692,6 +713,7 @@ void main() {
     );
     final controller = container.read(shikooControllerProvider);
     await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
     container.read(runTimeProvider.notifier).value = 1;
     setup
       ..tunnel = DateTime(2026)
@@ -888,6 +910,519 @@ void main() {
       expect(order().take(2), ['هلند ۱', 'آلمان ۱']);
     },
   );
+
+  test('once connected, the selected server is measured again and the list '
+      'goes back in order', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    List<String> order() => [
+      for (final server in container.read(shikooStateProvider).servers)
+        server.name,
+    ];
+    expect(order().take(2), ['آلمان ۱', 'هلند ۱']);
+
+    pings['آلمان ۱'] = 226;
+    setup.tunnel = DateTime(2026);
+    await controller.connect();
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).connection, ShikooConnection.on);
+    expect(order().take(2), ['هلند ۱', 'آلمان ۱']);
+    await controller.disconnect();
+  });
+
+  test("connected, a switch's own answer leaves the rows where they are and "
+      'shows its fresh number; the next round puts them in order', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    await pumpEventQueue();
+    List<String> order() => [
+      for (final server in container.read(shikooStateProvider).servers)
+        server.name,
+    ];
+
+    pings['هلند ۱'] = 10;
+    await controller.selectServer('هلند ۱');
+    final state = container.read(shikooStateProvider);
+    expect(state.switching?.stage, ShikooSwitchStage.done);
+    expect(state.selectedServer?.ping, 10, reason: "the switch's, not 90");
+    expect(order().take(2), ['آلمان ۱', 'هلند ۱']);
+    await controller.pingAll();
+    expect(order().take(2), ['هلند ۱', 'آلمان ۱']);
+  });
+
+  test('connected, a tapped server is measured first and takes the traffic '
+      'only once it answers; the news goes after a few seconds', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    Completer<void>? netherlands;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (name == 'هلند ۱') await netherlands?.future;
+      return Delay(name: name, url: '', value: name == 'هلند ۱' ? 90 : 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+
+    netherlands = Completer<void>();
+    final tap = controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    var state = container.read(shikooStateProvider);
+    ShikooServer row(String name) =>
+        state.servers.firstWhere((server) => server.name == name);
+    expect(state.switching, (
+      to: 'هلند ۱',
+      from: 'آلمان ۱',
+      stage: ShikooSwitchStage.moving,
+    ));
+    expect(proxies.picked, ['آلمان ۱'], reason: 'nothing moves before it');
+    expect(state.selected, 'آلمان ۱', reason: 'the tick stays until then');
+    expect(row('هلند ۱').testing, isTrue);
+
+    netherlands.complete();
+    await tap;
+    state = container.read(shikooStateProvider);
+    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+    expect(state.selected, 'هلند ۱');
+    expect(state.switching?.stage, ShikooSwitchStage.done);
+    expect((row('هلند ۱').testing, row('هلند ۱').ping), (false, 90));
+    expect(setup.runs, isEmpty, reason: 'the tunnel stays up throughout');
+
+    await Future<void>.delayed(switchedFor);
+    expect(container.read(shikooStateProvider).switching, isNull);
+  });
+
+  test('a WireGuard server whose ping fails is tried on real traffic: it stays '
+      'if traffic passes, else the old one comes back; known by its type, not '
+      'its name', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+          Proxy(name: 'آلمان ۳', type: 'WireGuard'),
+          Proxy(name: 'WG ۲', type: 'Vless'),
+        ],
+      ),
+    ];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: name == 'آلمان ۱' ? 50 : -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup
+      ..tunnel = DateTime(2026)
+      ..traffic = true;
+    await pumpEventQueue();
+
+    await controller.selectServer('آلمان ۳');
+    var state = container.read(shikooStateProvider);
+    expect(proxies.picked, ['آلمان ۱', 'آلمان ۳']);
+    expect(state.switching?.stage, ShikooSwitchStage.done);
+    expect(state.selectedServer?.ping, isNull, reason: 'not "no answer"');
+
+    await controller.selectServer('آلمان ۱');
+    setup.traffic = false;
+    await controller.selectServer('آلمان ۳');
+    state = container.read(shikooStateProvider);
+    expect(proxies.picked, [
+      'آلمان ۱',
+      'آلمان ۳',
+      'آلمان ۱',
+      'آلمان ۳',
+      'آلمان ۱',
+    ]);
+    expect(state.selected, 'آلمان ۱');
+    expect(state.switching, (
+      to: 'آلمان ۳',
+      from: 'آلمان ۱',
+      stage: ShikooSwitchStage.failed,
+    ));
+
+    setup.traffic = true;
+    await controller.selectServer('WG ۲');
+    expect(
+      proxies.picked,
+      hasLength(5),
+      reason: 'a Vless named like WireGuard',
+    );
+    expect(
+      container.read(shikooStateProvider).switching?.stage,
+      ShikooSwitchStage.failed,
+    );
+  });
+
+  test('the last tap wins: an earlier one that answers later moves nothing, '
+      'and its row gets its number back', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+          Proxy(name: 'ترکیه ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    final pings = {'آلمان ۱': 50, 'هلند ۱': 90, 'ترکیه ۱': 70};
+    Completer<void>? netherlands;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (name == 'هلند ۱') await netherlands?.future;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    await pumpEventQueue();
+
+    netherlands = Completer<void>();
+    final first = controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    final second = controller.selectServer('ترکیه ۱');
+    final netherlandsRow = container
+        .read(shikooStateProvider)
+        .servers
+        .firstWhere((server) => server.name == 'هلند ۱');
+    expect((netherlandsRow.testing, netherlandsRow.ping), (false, 90));
+    await second;
+    netherlands.complete();
+    await first;
+    final state = container.read(shikooStateProvider);
+    expect(proxies.picked, ['آلمان ۱', 'ترکیه ۱']);
+    expect(state.selected, 'ترکیه ۱');
+    expect(state.switching?.to, 'ترکیه ۱');
+  });
+
+  /// Connected on آلمان ۱; هلند ۱ answers 90 once [gate] is completed.
+  Future<
+    ({
+      ProviderContainer container,
+      _Proxies proxies,
+      _Setup setup,
+      ShikooController controller,
+      Completer<void> gate,
+    })
+  >
+  connected() async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final gate = Completer<void>();
+    var armed = false;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (armed && name == 'هلند ۱') await gate.future;
+      return Delay(name: name, url: '', value: name == 'هلند ۱' ? 90 : 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    armed = true;
+    return (
+      container: container,
+      proxies: proxies,
+      setup: setup,
+      controller: controller,
+      gate: gate,
+    );
+  }
+
+  /// Connected on آلمان ۱; آلمان ۳ is a WireGuard server whose ping fails and whose
+  /// traffic check waits for `setup.trafficGate`.
+  Future<
+    ({
+      ProviderContainer container,
+      _Proxies proxies,
+      _Setup setup,
+      ShikooController controller,
+    })
+  >
+  wireGuard({required bool traffic}) async {
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+          Proxy(name: 'آلمان ۳', type: 'WireGuard'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: name == 'آلمان ۳' ? -1 : 60);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    setup
+      ..traffic = traffic
+      ..trafficGate = Completer<void>();
+    return (
+      container: container,
+      proxies: proxies,
+      setup: setup,
+      controller: controller,
+    );
+  }
+
+  test('a tap while still connecting moves at once, as when off', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      ),
+    );
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    expect(
+      container.read(shikooStateProvider).connection,
+      ShikooConnection.connecting,
+    );
+
+    await controller.selectServer('هلند ۱');
+    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+    expect(container.read(shikooStateProvider).switching, isNull);
+    await controller.disconnect();
+  });
+
+  test('a tunnel that drops by itself during a switch ends it at once, with '
+      'no move and no news', () async {
+    final (:container, :proxies, :setup, :controller, :gate) =
+        await connected();
+    final tap = controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    expect(
+      container.read(shikooStateProvider).switching?.stage,
+      ShikooSwitchStage.moving,
+    );
+    container.read(runTimeProvider.notifier).value = null;
+    setup.tunnel = null;
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).switching, isNull);
+
+    gate.complete();
+    await tap;
+    expect(proxies.picked, ['آلمان ۱']);
+    expect(container.read(shikooStateProvider).switching, isNull);
+  });
+
+  test('another service during a switch drops it', () async {
+    final (:container, :proxies, :setup, :controller, :gate) =
+        await connected();
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(second);
+    final tap = controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).switching, isNull);
+
+    gate.complete();
+    await tap;
+    await pumpEventQueue();
+    expect(proxies.picked, isNot(contains('هلند ۱')));
+    expect(container.read(shikooStateProvider).switching, isNull);
+  });
+
+  test('leaving the app keeps a switch under way, which then lands', () async {
+    final (:container, :proxies, :setup, :controller, :gate) =
+        await connected();
+    final tap = controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    controller.onBackground();
+    expect(
+      container.read(shikooStateProvider).switching?.stage,
+      ShikooSwitchStage.moving,
+    );
+
+    gate.complete();
+    await tap;
+    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
+    expect(
+      container.read(shikooStateProvider).switching?.stage,
+      ShikooSwitchStage.done,
+    );
+  });
+
+  test('a server an update takes away during its switch gets no traffic and '
+      'no news', () async {
+    final (:container, :proxies, :setup, :controller, :gate) =
+        await connected();
+    final tap = controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: _version, type: 'Vless'),
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    await pumpEventQueue();
+
+    gate.complete();
+    await tap;
+    await pumpEventQueue();
+    expect(proxies.picked, isNot(contains('هلند ۱')));
+    expect(container.read(shikooStateProvider).switching, isNull);
+  });
+
+  test('a WireGuard check that ends after a newer tap landed changes nothing: '
+      'no way back, no news over the newer one', () async {
+    for (final traffic in [false, true]) {
+      final (:container, :proxies, :setup, :controller) = await wireGuard(
+        traffic: traffic,
+      );
+      final check = controller.selectServer('آلمان ۳');
+      await pumpEventQueue();
+      expect(proxies.picked, ['آلمان ۱', 'آلمان ۳'], reason: '$traffic');
+
+      await controller.selectServer('هلند ۱');
+      setup.trafficGate!.complete();
+      await check;
+      final state = container.read(shikooStateProvider);
+      expect(proxies.picked, [
+        'آلمان ۱',
+        'آلمان ۳',
+        'هلند ۱',
+      ], reason: '$traffic');
+      expect(state.selected, 'هلند ۱', reason: '$traffic');
+      expect(state.switching, (
+        to: 'هلند ۱',
+        from: 'آلمان ۳',
+        stage: ShikooSwitchStage.done,
+      ), reason: '$traffic');
+    }
+  });
+
+  test('tapping the row already on its way does nothing, also during the '
+      'WireGuard check', () async {
+    final (:container, :proxies, :setup, :controller) = await wireGuard(
+      traffic: false,
+    );
+    final first = controller.selectServer('آلمان ۳');
+    await pumpEventQueue();
+    await controller.selectServer('آلمان ۳');
+    expect(proxies.picked, ['آلمان ۱', 'آلمان ۳']);
+    expect(container.read(shikooStateProvider).switching, (
+      to: 'آلمان ۳',
+      from: 'آلمان ۱',
+      stage: ShikooSwitchStage.moving,
+    ));
+
+    setup.trafficGate!.complete();
+    await first;
+    expect(proxies.picked, ['آلمان ۱', 'آلمان ۳', 'آلمان ۱']);
+    expect(container.read(shikooStateProvider).switching, (
+      to: 'آلمان ۳',
+      from: 'آلمان ۱',
+      stage: ShikooSwitchStage.failed,
+    ));
+  });
+
+  test('a failed switch stays through an update, unless the update takes '
+      'one of its servers away', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    container
+        .read(profilesProvider.notifier)
+        .put(
+          container
+              .read(profilesProvider)
+              .single
+              .copyWith(url: '$panel/none/a'),
+        );
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: name == 'هلند ۱' ? -1 : 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
+    final failed = container.read(shikooStateProvider).switching;
+    expect(failed?.stage, ShikooSwitchStage.failed);
+
+    await controller.refreshService(manual: false);
+    var state = container.read(shikooStateProvider);
+    expect(state.refresh, ShikooRefresh.idle, reason: 'it went through');
+    expect(state.switching, failed);
+
+    setup.onApply = () => container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [Proxy(name: 'آلمان ۱', type: 'Vless')],
+      ),
+    ];
+    await controller.refreshService(manual: false);
+    state = container.read(shikooStateProvider);
+    expect(state.refresh, ShikooRefresh.idle);
+    expect(state.switching, isNull, reason: 'هلند ۱ left with it');
+  });
+
+  test('a disconnect during a switch drops it: no move, no news', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    Completer<void>? netherlands;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (name == 'هلند ۱') await netherlands?.future;
+      return Delay(name: name, url: '', value: name == 'هلند ۱' ? 90 : 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    await pumpEventQueue();
+
+    netherlands = Completer<void>();
+    final tap = controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    await controller.disconnect();
+    expect(container.read(shikooStateProvider).switching, isNull);
+    netherlands.complete();
+    await tap;
+    expect(proxies.picked, ['آلمان ۱']);
+    expect(container.read(shikooStateProvider).switching, isNull);
+  });
 
   test(
     'after a switch with the tunnel up, a service with no server of its own '

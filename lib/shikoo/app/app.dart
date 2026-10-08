@@ -137,7 +137,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       signIn.onForeground();
       unawaited(ref.read(shikooUpdateProvider).onForeground());
     }
-    if (state == AppLifecycleState.paused) controller.clearNews();
+    if (state == AppLifecycleState.paused) controller.onBackground();
   }
 
   /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `lang?code=en` and `crash`.
