@@ -76,7 +76,11 @@ jobs:
         env:
           DOOR_TOKEN: ${{ secrets.SHIKOO_PRODUCTION_DOOR_TOKEN }}
           FORCE: ${{ inputs.force == 'yes' }}
-        run: bash tools/publish_door.sh "$PRODUCTION_API" out "$FORCE"
+        run: |
+          set -euo pipefail
+          [ -n "$DOOR_TOKEN" ] ||
+            { echo "::error::set the secret SHIKOO_PRODUCTION_DOOR_TOKEN, the production door's RELEASE_TOKEN; nothing was published"; exit 1; }
+          bash tools/publish_door.sh "$PRODUCTION_API" out "$FORCE"
 
       - name: Publish
         env:

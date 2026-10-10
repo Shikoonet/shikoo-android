@@ -3,7 +3,7 @@
 > **خلاصه برای سم**
 > - **مثل پلتفرم:** هر تغییر از شاخه و PR می‌آید. بعد از ادغام در `main`، گیت‌هاب خودش نسخهٔ آزمایشی (staging) می‌سازد. انتشار برای مشتری فقط با دکمهٔ «Shikoo Promote»، که فقط شما می‌زنید.
 > - **یک فرق با پلتفرم:** نشانی سرور و ربات داخل خود اپ ساخته می‌شوند. پس «همان فایل» برای آزمایش و برای مشتری ممکن نیست. به‌جایش هر بار **دو نسخه از یک کامیت، در یک کار** ساخته می‌شود: نسخهٔ آزمایشی (سرور و ربات آزمایشی) و نسخهٔ مشتری. اثر انگشت (sha256) هر دو ثبت می‌شود، و دکمهٔ Promote **همان فایل ثبت‌شدهٔ مشتری** را منتشر می‌کند، بدون ساخت دوباره.
-> - **فعلاً همه‌چیز داخل گیت‌هابِ خصوصی می‌ماند:** نسخهٔ آزمایشی یک «پیش‌انتشار» است و نسخهٔ مشتری یک «انتشار». فرستادن به ربات و سایت، و به‌روزرسانی خودکار داخل اپ، قدم ۸ نقشهٔ راه است.
+> - **هر نسخه دو جا می‌رود:** یک نسخه در گیت‌هابِ خصوصی می‌ماند، برای سابقه. یکی هم روی «در» سرورِ همان محیط می‌رود. اپ‌های نصب‌شده نسخهٔ تازه را از همان «در» می‌گیرند (به‌روزرسانی داخل اپ). ترتیب: **اول «در» اصلی ساخته می‌شود، بعد Promote.** بی «در» اصلی، Promote هیچ چیزی منتشر نمی‌کند.
 > - **کارهای یک‌باره و تصمیم‌های شما** در بخش ۷ و ۸ آمده‌اند. مهم‌ترینش: روی پلن رایگان گیت‌هاب «تأییدکنندهٔ اجباری» برای مخزن خصوصی وجود ندارد. پس دروازهٔ Promote همان بررسی نام کاربری و انتخاب «PROMOTE» است، مثل پلتفرم.
 
 Design and draft workflows, 2026-10-05, branch `chore/release-pipeline`. **Nothing here has run on GitHub**: Actions is off in
@@ -178,7 +178,9 @@ assets do not count against that storage.
   door step fails, or its token is missing, Promote stops there: no GitHub release, nothing published anywhere.
 - **`tools/publish_door.sh <api> <dir> <true|false>`:** for each APK in `<dir>/SHA256SUMS`, versionCode, versionName and
   its one ABI from `aapt2 dump badging`; uploads it in 8 MiB chunks (`PUT /dl/upload/<file>?offset=N`), each retried up to
-  5 times on any error, so a lost answer resends the same bytes to the same offset; then `POST /dl/publish` with a body
+  5 times on any error, so a lost answer resends the same bytes to the same offset. A request that stalls (under 1 KB/s for
+  60 s, or no connection in 30 s) counts as an error and is retried, so a stuck chunk does not hold the job until its
+  timeout. A file always starts at offset 0, so a re-run uploads it whole again. Then `POST /dl/publish` with a body
   built by `jq`. The door hashes every file and refuses a mismatch (422) without changing the live release. The token
   comes only from `DOOR_TOKEN`, goes to curl through a `0600` header file in a temporary folder, and is never on a command
   line or in the log.
@@ -198,6 +200,9 @@ them to files and deletes the files at the end.
 | `SHIKOO_RELEASE_STORE_PASSWORD`, `SHIKOO_RELEASE_KEY_PASSWORD` | production: both the same value, the one in `password.txt`; a PKCS12 store has one password |
 | `SHIKOO_STAGING_DOOR_TOKEN` | staging `door` job: the `RELEASE_TOKEN` of `shikoo-dev-app`. Unset: the job warns and skips |
 | `SHIKOO_PRODUCTION_DOOR_TOKEN` | Promote: the `RELEASE_TOKEN` of `shikoo-prod-app`. Unset: Promote fails before publishing |
+
+A door token is the door's own `RELEASE_TOKEN`, character for character; the door refuses to start with one shorter than
+32 characters. Make each one fresh (for example `openssl rand -hex 32`), never the same for both doors.
 
 Sam makes both keystores and `password.txt` with his `make-signing-key.ps1`, outside this repository. Only
 `shikoo-staging.yml` reads the signing secrets: the staging one in its «Staging APKs» step, the four release ones in
@@ -252,14 +257,13 @@ later picks by itself.
 ## 7. What Sam does by hand, once
 
 1. Decide the items in §8 (at least where the release key lives) before the first production build. Before the first
-   Promote, the production door `shikoo-prod-app` must exist with its volume and `RELEASE_TOKEN` (`docs/app-update.md`).
+   Promote, the production door must exist (the door order below).
 2. Repository ▸ Settings ▸ Actions ▸ General: allow Actions.
 3. Immediately, before any push: `gh workflow disable build.yaml -R Shikoonet/shikoo-android`.
 4. Settings ▸ Secrets and variables ▸ Actions: add the secrets and variables of §4, from the folder `make-signing-key.ps1`
    wrote. A keystore's base64, in PowerShell, with the full path (`[IO.File]` does not follow PowerShell's current folder):
    `[Convert]::ToBase64String([IO.File]::ReadAllBytes('D:\ShikooNet-signing-key\shikoonet-staging.jks'))`, and the same
-   for `D:\ShikooNet-signing-key\shikoonet-release.jks`. The two door tokens are each door's `RELEASE_TOKEN`, copied from
-   its Coolify app.
+   for `D:\ShikooNet-signing-key\shikoonet-release.jks`. The two door tokens come in the door order below, not before.
 5. Nothing for environments: on GitHub Free a private repository gets no environment rules (§4).
 6. Merge this branch (after the prerequisites in §9) and watch the first `Shikoo Staging` run.
    Staging builds only a commit on which `Shikoo CI` passed as a push to `main`, and `Shikoo CI` has no manual start. A pull
@@ -268,6 +272,17 @@ later picks by itself.
 7. Give each tester read access to the repository, or decide another way to hand them the staging APK (§8).
 8. For every release: install the production APK from the staging pre-release on the box, sign in once, then Actions ▸
    Shikoo Promote ▸ Run workflow ▸ choose `PROMOTE`, and `force` `yes` only when older versions must stop working.
+
+**The door order, once per door.** A door token set before its door is live turns that job red, so each door goes first:
+
+1. The door app runs shikoo-platform PR #700 with the volume `/data/apk`, `APK_DIR=/data/apk` and a fresh
+   `RELEASE_TOKEN` (§4): `shikoo-dev-app` for staging, `shikoo-prod-app` for production.
+2. `curl -s https://app-dev.chopon.uk/api/v1/app/update` (or `app.chopon.uk`) answers `{"ok":false,"error":"no_release"}`
+   before the first publish, or a manifest after it. On 2026-10-10 app-dev answered a plain `404 Not Found` (PR #700 not
+   deployed) and `app.chopon.uk` did not resolve.
+3. The same value goes into `SHIKOO_STAGING_DOOR_TOKEN` or `SHIKOO_PRODUCTION_DOOR_TOKEN`.
+4. Staging: re-run the `door` job of the latest `Shikoo Staging` run, and an installed staging app offers that build.
+   Production: only now the first Promote.
 
 ## 8. Sam's decisions (placeholders until then)
 
@@ -311,6 +326,11 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
 | The same door: an offset past the upload; one wrong hash in `SHA256SUMS`; the same release with `force=true`; a wrong token; empty `force` | `409 {"error": "offset", "size": 207}`; exit 22 after `422 {"error": "sha256", "file": …}` and `update.json` unchanged; `min_version_code` = `version_code` for both ABIs; exit 22 on `401`; `::error::force must be true or false` |
 | The token in that run: all script output, including two runs under `bash -x`, and the door's log | 0 lines each; no header file left behind |
 | The same script, unchanged, against the real door of shikoo-platform PR #700 (WP1), run by the verifier on 2026-10-06: a publish; a wrong sha256; a wrong token; a swapped ABI; a chunk sent twice | as the contract says: published; 422 with the manifest unchanged; 401; the swapped ABI case as expected; the repeated chunk harmless |
+| `tools/publish_door.sh` after the merge with `main` `3b5ee7c` (2026-10-10), in WSL Ubuntu 24.04 with the runner image's curl 8.5.0, jq 1.7.1 and bash 5.2.21, against a throwaway door on `127.0.0.1` that copies `appRelease.ts` of PR #700 at `d1c05ad4` (truncate at the offset, `409` past the end, `422` on a hash, `upload/` emptied by a publish), two 50–53 MB APKs. The door cut the connection halfway into chunk 2, and read nothing of chunk 3 | exit 0 in 72 s: curl `(52) Empty reply from server`, then `(28) Operation too slow`, each followed by `200` at the same offset; publish `200`; the door's files pass `sha256sum -c` |
+| The same door: the run killed in chunk 4, then run again; the same release again; one wrong hash in `SHA256SUMS`; one byte flipped in transit; the upload deleted mid-file; `force=true`, then `false` again; no `DOOR_TOKEN`; `force=yes`; a wrong token; nothing listening | published from offset 0, `upload/` gone; the manifest equal but for `published_at`; exit 22 after six `422 sha256`, `update.json` byte-identical; the same; exit 22 after six `409`, the next run publishes; `min_version_code` = `version_code`, then kept; `::error::DOOR_TOKEN is empty`; `::error::force must be true or false`; exit 22 after six `401`, the door still `no_release`; exit 7 after 31 s |
+| The token in that run: every output, a run under `bash -x`, the door's log; the temporary folders | 0 lines; none left, also after the killed run |
+| The staging `door` step and Promote's door step, cut from the workflow files, run with a stub `gh` and the same door: staging with the secret empty, then set; Promote with it empty, then set and `force` true | `::warning::no staging door yet`, exit 0, `gh` never called; the production line filtered out, `sha256sum -c` OK, published; `::error::set the secret SHIKOO_PRODUCTION_DOOR_TOKEN …`, exit 1; published, `min_version_code` = `version_code` |
+| `actionlint` 1.7.12 with `shellcheck` 0.9.0 (the runner's) on the three workflows after the merge | two `SC2015` infos, both in `main`'s own staging steps and the same on `main`; none in the door job or Promote |
 | The same two guards where only the package can tell: FlClash's official `com.follow.clash` (sha256 `9a507336…a122a`) named as production; FlClash's WSL debug build named as staging, with `API=chen08209`, a string its `libapp.so` holds 4 times | old: PASS, PASS. Exact id: refused (`is com.follow.clash and carries the staging server 0 times`); refused (`is com.follow.clash.dev and carries the staging server 4 times`) |
 | Staging run 37623319636 stopped at `has no signer digest` (2026-10-07). A fresh WSL clone of `main` `73ad42a` ran the build and check steps as written, with throwaway PKCS12 keys made like `make-signing-key.ps1`'s (release RSA 4096, alias `shikoonet`, one password) | Same failure. apksigner 37.0.0, the runner's newest build-tools, prints `V2 Signer: certificate SHA-256 digest:` where 36.0.0 printed `Signer #1 certificate …`, exit 0 and empty stderr either way. The step reading `certificate SHA-256 digest:` passes with 37.0.0 and 36.0.0, and the production digest is the throwaway release key's. An unsigned production APK is refused, with apksigner's output; production re-signed with the staging key is refused |
 | Run 37636218455 went green, but its staging APKs carry `C=US, O=Android, CN=Android Debug` (`32870d0e…`), not the staging key (2026-10-07). A fresh WSL clone of `66b730a`, the steps as written, `HOME` apart and `XDG_CONFIG_HOME=$HOME/.config` as the image's `/etc/environment` sets it, throwaway keys | `main`: the step wrote `~/.android/debug.keystore`; AGP made `~/.config/.android/debug.keystore` and signed staging with it (`CN=Android Debug`), and the old check passed. With `ANDROID_USER_HOME`: staging signed by the throwaway staging key, even with that stray key still in `~/.config/.android`. A garbage file or a keystore with another password there fails the build (`Failed to read key AndroidDebugKey`); AGP makes a key only where none exists (`createIfAbsent` in `ValidateSigningTask`, AGP 9.0.1). The new check refuses run 37636218455's staging APKs (`signed by 'C=US, O=Android, CN=Android Debug'`), passes its production APKs against `RELEASE_CERT_SHA256`, and refuses: the throwaway release key as production, the release key as staging, the staging key as production, an unsigned production APK |
@@ -334,7 +354,10 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
   keeps happening.
 - That `gh workflow disable` is kept across a FlClash merge that rewrites `build.yaml`.
 - The new version in the User-Agent against the panel (§5).
-- The door (`docs/app-update.md`, WP1) is shikoo-platform PR #700, not yet merged or deployed; the script met it only in the
-  verifier's run above, never on a deployed door (`app-dev.chopon.uk`, `app.chopon.uk`). Upload speed from a GitHub runner to the
-  door's host is unmeasured. A failing request is retried five times
-  even when it is a 401 or 422, so such a failure takes about half a minute to show.
+- The door (`docs/app-update.md`, WP1) is shikoo-platform PR #700, not yet merged or deployed: on 2026-10-10
+  `app-dev.chopon.uk/api/v1/app/update` answered a plain `404 Not Found` and `app.chopon.uk` did not resolve. The script met
+  the real door's code only in the verifier's run of 2026-10-06, never a deployed door. Upload speed from a GitHub runner to
+  the door's host is unmeasured. A failing request is retried five times even when it is a 401 or 422, so such a failure
+  takes about half a minute to show.
+- If the production door publishes and `gh release create` then fails, customers are offered the build before its GitHub
+  release exists. Re-running Promote sends the same files to the door again, which it allows, and retries the release.

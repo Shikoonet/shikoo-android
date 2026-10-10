@@ -11,7 +11,11 @@ tools=("$ANDROID_HOME"/build-tools/*/aapt2) && aapt2=${tools[-1]}
 work=$(mktemp -d) && trap 'rm -rf "$work"' EXIT
 (umask 077 && printf 'Authorization: Bearer %s\n' "$DOOR_TOKEN" >"$work/auth")
 # ponytail: --retry-all-errors also repeats a 401 or 422 six times, so it fails 30-40 s late; a loop on %{http_code} would stop on 4xx
-door() { curl -sS --fail-with-body --retry 5 --retry-all-errors -H @"$work/auth" "$@"; }
+# A request that stalls with the connection still open is cut after 60 s and retried, instead of waiting for the job's timeout
+door() {
+  curl -sS --fail-with-body --retry 5 --retry-all-errors --connect-timeout 30 --speed-limit 1024 --speed-time 60 \
+    -H @"$work/auth" "$@"
+}
 
 rows=() names=()
 while read -r sha file <&3; do
