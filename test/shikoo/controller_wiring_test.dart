@@ -1729,6 +1729,52 @@ void main() {
     expect(_mostInFlight, 1);
   });
 
+  test('a service the door says runs again skips the ten-minute wait, even '
+      'named while a round is under way, at most once a minute', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    for (final user in ['user111', 'user222']) {
+      await controller.addService('$panel/file/$user/a');
+    }
+    final profiles = container.read(profilesProvider.notifier);
+    final [renewed, due] = _pasted(container);
+    final now = DateTime.now();
+    for (final profile in container.read(profilesProvider)) {
+      profiles.put(
+        profile.copyWith(
+          lastUpdateDate: profile.id == due.id ? DateTime(2020) : now,
+        ),
+      );
+    }
+    Profile current() =>
+        container.read(profilesProvider).getProfile(renewed.id)!;
+    void endIt(DateTime at) => profiles.put(
+      current().copyWith(
+        lastUpdateDate: at,
+        subscriptionInfo: const SubscriptionInfo(expire: 1),
+      ),
+    );
+    endIt(now);
+    _mostInFlight = 0;
+    final round = controller.refreshDue();
+    for (var i = 0; i < 200 && _inFlight == 0; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    unawaited(controller.refreshDue(renewed: {renewed.id}));
+    await round;
+    for (var i = 0; i < 200 && profileFinished(current()); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(profileFinished(current()), isFalse);
+    expect(_mostInFlight, 1);
+
+    final marker = DateTime.now().subtract(const Duration(seconds: 1));
+    endIt(marker);
+    await controller.refreshDue(renewed: {renewed.id});
+    expect(current().lastUpdateDate, marker);
+  });
+
   test('a pasted link the panel stops knowing is revoked until an update or '
       'a new paste of the account works again', () async {
     final (:container, :core, :proxies, :setup) = _home();

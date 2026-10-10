@@ -609,6 +609,55 @@ void main() {
     expect(faults, isEmpty);
   });
 
+  testWidgets('a renew QR on the TV tells the account to ask every minute', (
+    tester,
+  ) async {
+    final home = _home(true);
+    final container = await _pump(
+      tester,
+      (size: const Size(1280, 720), scale: 1.0, tv: true),
+      const ShikooHome(),
+      state: ShikooState(
+        connection: home.connection,
+        connectedFor: Duration.zero,
+        isTV: true,
+        service: home.service,
+        servers: home.servers,
+      ),
+    );
+    final signIn = container.read(shikooSignInProvider);
+    verifyNever(signIn.botOpened);
+    await tester.tap(find.text(_l.renew));
+    await tester.pumpAndSettle();
+    expect(find.text(_l.renewTitle), findsOneWidget);
+    verify(signIn.botOpened).called(1);
+  });
+
+  test('the minute tick updates the services and asks the account, only '
+      'while the app is on screen', () {
+    final controller = _Controller();
+    final signIn = _SignIn();
+    final update = _Update();
+    when(controller.refreshDue).thenAnswer((_) async {});
+    when(update.check).thenAnswer((_) async {});
+    final container = ProviderContainer(
+      overrides: [
+        shikooControllerProvider.overrideWithValue(controller),
+        shikooSignInProvider.overrideWithValue(signIn),
+        shikooUpdateProvider.overrideWithValue(update),
+      ],
+    );
+    addTearDown(container.dispose);
+    when(() => controller.foreground).thenReturn(false);
+    everyMinute(container);
+    verifyNever(signIn.onMinute);
+    when(() => controller.foreground).thenReturn(true);
+    everyMinute(container);
+    verify(signIn.onMinute).called(1);
+    verify(controller.refreshDue).called(1);
+    verify(update.check).called(1);
+  });
+
   _everywhere('the sign-in code', (tester, device, check) async {
     await _pump(tester, device, const ShikooRoot(), login: waiting);
     if (!device.tv) {

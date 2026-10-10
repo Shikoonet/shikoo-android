@@ -551,6 +551,10 @@ class ShikooSignIn {
 
   @visibleForTesting
   Duration startLimit = const Duration(seconds: 30);
+
+  @visibleForTesting
+  Duration botWindow = const Duration(minutes: 30);
+  DateTime? _botOpened;
   String? _token;
   LoginCode? _live;
   bool _servicesClock = false;
@@ -796,14 +800,34 @@ class ShikooSignIn {
     } catch (_) {}
   }
 
-  /// Back from the bot, a service without a link is asked about again at once.
+  /// Back from the bot, a service to renew or without a link is asked about again at once.
   void onForeground() {
     if (_token != null &&
-        (isDue(_lastSync, DateTime.now(), refreshEvery) ||
-            _account.withoutLink.isNotEmpty)) {
+        (_unsettled || isDue(_lastSync, DateTime.now(), refreshEvery))) {
       unawaited(sync());
     }
   }
+
+  /// A TV stays on screen while its QR is paid for on the phone.
+  void onMinute() {
+    if (_token != null &&
+        _unsettled &&
+        !isDue(_botOpened, DateTime.now(), botWindow)) {
+      unawaited(sync());
+    }
+  }
+
+  void botOpened() => _botOpened = DateTime.now();
+
+  bool get _unsettled => _account.services.any(
+    (s) => s.renews || s.profileId == null || _ended(s.profileId),
+  );
+
+  bool _ended(int? profileId) =>
+      switch (_ref.read(profilesProvider).getProfile(profileId)) {
+        final profile? => profileFinished(profile),
+        null => false,
+      };
 
   /// Makes this device hold the account's services. True once done, false when the list did
   /// not come or no service could be added, null when the token stopped working.
@@ -848,7 +872,9 @@ class ShikooSignIn {
     }
     final before = {for (final s in _account.services) s.id: s};
     final kept = <LinkedService>[];
+    final renewed = <int>{};
     var failed = false;
+    var unloaded = 0;
     for (final row in answer.services) {
       if (token != _token) return null;
       final was = before.remove(row.id);
@@ -862,6 +888,7 @@ class ShikooSignIn {
         }
         if (added == null) {
           failed = true;
+          if (profileId == null) unloaded++;
         } else {
           if (profileId != added) await _drop(profileId);
           profileId = added;
@@ -870,18 +897,18 @@ class ShikooSignIn {
         await _drop(profileId);
         if (!LinkedService.finishedStatuses.contains(row.status)) continue;
         profileId = null;
+      } else if (url != null && _ended(profileId)) {
+        renewed.add(profileId!);
       }
-      if (profileId != null || url == null) {
-        kept.add(
-          LinkedService(
-            id: row.id,
-            title: row.label,
-            status: row.status,
-            profileId: profileId,
-            expiresAt: row.expiresAt,
-          ),
-        );
-      }
+      kept.add(
+        LinkedService(
+          id: row.id,
+          title: row.label,
+          status: row.status,
+          profileId: profileId,
+          expiresAt: row.expiresAt,
+        ),
+      );
     }
     for (final gone in before.values) {
       await _drop(gone.profileId);
@@ -895,7 +922,12 @@ class ShikooSignIn {
       ),
     );
     await _save();
-    return !(failed && kept.isEmpty);
+    if (renewed.isNotEmpty) {
+      unawaited(
+        _ref.read(shikooControllerProvider).refreshDue(renewed: renewed),
+      );
+    }
+    return !(failed && kept.length == unloaded);
   }
 
   int? _existing(int? profileId) =>

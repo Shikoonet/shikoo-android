@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:qr/qr.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -70,6 +72,10 @@ void openLink(
   String? strong,
   Widget Function(BuildContext dialog)? beside,
 }) {
+  ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(shikooSignInProvider).botOpened();
   if (!isTV) {
     unawaited(launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication));
     return;

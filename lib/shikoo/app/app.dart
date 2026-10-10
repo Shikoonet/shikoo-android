@@ -75,6 +75,15 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
   openLogs: true,
 );
 
+/// A TV is often left on the home screen for hours: its services stay as fresh as on open.
+void everyMinute(ProviderContainer container) {
+  final controller = container.read(shikooControllerProvider);
+  if (!controller.foreground) return;
+  unawaited(controller.refreshDue());
+  container.read(shikooSignInProvider).onMinute();
+  unawaited(container.read(shikooUpdateProvider).check());
+}
+
 class ShikooApp extends ConsumerStatefulWidget {
   const ShikooApp({super.key});
 
@@ -113,13 +122,10 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       ref.read(shikooControllerProvider).onForeground();
       ref.read(shikooSignInProvider).onForeground();
       unawaited(ref.read(shikooUpdateProvider).onForeground());
-      // A TV is often left on the home screen for hours: its services stay as fresh as on open.
-      _due = Timer.periodic(const Duration(minutes: 1), (_) {
-        final controller = ref.read(shikooControllerProvider);
-        if (!controller.foreground) return;
-        unawaited(controller.refreshDue());
-        unawaited(ref.read(shikooUpdateProvider).check());
-      });
+      _due = Timer.periodic(
+        const Duration(minutes: 1),
+        (_) => everyMinute(globalState.container),
+      );
       if (shikooDebug) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
     });
   }
