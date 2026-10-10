@@ -46,7 +46,13 @@ internal class NetworkObserveModule(private val service: Service) : ServiceModul
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            networkInfos[network] = NetworkInfo()
+            // Before O, no onLinkPropertiesChanged follows onAvailable: the DNS list would stay empty.
+            val dnsList = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                connectivity?.getLinkProperties(network)?.dnsServers.orEmpty()
+            } else {
+                emptyList()
+            }
+            networkInfos[network] = NetworkInfo(dnsList = dnsList)
             updateDns()
         }
 
