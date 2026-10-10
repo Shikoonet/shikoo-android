@@ -23,6 +23,9 @@ const _messageMaxWidth = 500.0;
 const _messageMinHeight = 54.0;
 
 class StatusManager extends ConsumerStatefulWidget {
+  /// Shikoo sets it false: every message is still logged, none is drawn.
+  static bool showMessages = true;
+
   final Widget child;
 
   const StatusManager({super.key, required this.child});
@@ -73,7 +76,7 @@ class StatusManagerState extends ConsumerState<StatusManager> {
       actionState: actionState,
     );
     commonPrint.log('message: $text');
-    if (_mergeMessage(commonMessage)) {
+    if (!StatusManager.showMessages || _mergeMessage(commonMessage)) {
       return;
     }
     _bufferMessages.add(commonMessage);

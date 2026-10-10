@@ -53,7 +53,7 @@
   --color-on-positive:    light-dark(#FFFFFF, #06210F);
   --color-positive-soft:  light-dark(#DCF2E3, #153222);
   --color-warning:        light-dark(#A15C07, #F2B544); /* پینگ کند، حجم رو به اتمام */
-  --color-danger:         light-dark(#B42318, #F47A70); /* تمام‌شده، بی‌پاسخ، خروج */
+  --color-danger:         light-dark(#B42318, #F5847A); /* تمام‌شده، بی‌پاسخ، خروج؛ ≥ ۴٫۵:۱ روی focus-bg */
   --color-on-danger:      light-dark(#FFFFFF, #2A0F0C);
   --color-danger-soft:    light-dark(#FCEBE9, #3A1D1A);
 
@@ -75,18 +75,10 @@
   --font-weight-black: 800;
 
   /* اندازهٔ متن بر اساس نقش (گوشی) */
-  --text-caption: 12px;    /* واحد ms، برچسب‌های ریز */
-  --text-body-sm: 13px;    /* توضیح دوم، تاریخ، اطلاعیه */
-  --text-body: 15px;       /* متن معمولی، نام سرور، دکمه */
-  --text-title: 17px;      /* نام سرویس، عنوان نوار بالا */
-  --text-button-lg: 19px;  /* «ورود با تلگرام»: درشت و پررنگ، تا ۳:۱ روی آبی تلگرام کافی باشد */
-  --text-headline: 24px;   /* واژهٔ «شیکو» در صفحهٔ ورود */
-  --text-display: 26px;    /* تایمر داخل دکمهٔ گرد */
-  --text-code: 28px;       /* کد کوتاه ورود، مثل K7P2-9QXM */
   --leading-tight: 1.35;
   --leading-body: 1.7;     /* فارسی جای بالا و پایین می‌خواهد */
   --leading-snug: 1.6;     /* یک‌خطی‌های بریده‌شونده (سه‌نقطه): حروف لاتینِ وزیرمتن، مثل نام کاربری، ۱٫۶ برابر اندازهٔ قلم بلندند */
-  --tracking-code: 0.12em; /* فاصلهٔ حروف کد ورود، برای خواندن از دور */
+  --word-spacing-code: 0.12em; /* فاصلهٔ اضافه فقط میان دو تکهٔ سه‌رقمی کد ورود؛ میان رقم‌ها فاصلهٔ اضافه نیست */
 
   /* ── فاصله (گام ۴) ── */
   --space-1: 4px;
@@ -119,6 +111,7 @@
   --size-touch: 48px;          /* کمترین هدف لمس */
   --size-appbar: 56px;         /* نوار بالای صفحه */
   --size-button: 44px;
+  --size-button-sm: 36px;      /* جای لمسِ «تمدید»ِ ردیف تمام‌شده باز هم ۴۸ است */
   --size-button-lg: 56px;      /* «ورود با تلگرام» */
   --size-row: 56px;            /* ردیف سرور و ردیف تنظیمات */
   --size-selected-bar: 4px;    /* نوار لبهٔ ردیفِ انتخاب‌شده */
@@ -139,10 +132,29 @@
   --size-hero-icon: 64px;      /* دایرهٔ تیک یا ضربدرِ صفحهٔ نتیجه */
   --size-radio: 20px;          /* دایرهٔ گزینه در فهرست «روش اتصال» */
   --border-width-radio: 2px;
+  --size-switch-w: 52px;       /* کلید روشن و خاموش */
+  --size-switch-h: 32px;
+  --size-switch-thumb: 24px;
+  --size-report-image: 200px;  /* سقف بلندیِ هر عکسِ پیش‌نمایش گزارش */
   --size-scroll-thumb: 4px;    /* نشانگر اسکرول */
   --size-fade: 24px;           /* محوشدنِ لبهٔ فهرستِ اسکرول‌شده */
   --safe-x: 16px;              /* حاشیهٔ افقی صفحه */
   --safe-y: 0px;
+}
+
+/* --font-scale همان اندازهٔ قلم سیستم است (آزمون اول ۱٫۴۵). متنِ داخل دکمهٔ گرد سقف دارد، چون دایره اندازهٔ ثابت دارد. */
+:root { --font-scale: 1; --text-scale-max-round: 1.15; }
+:root, [data-font-scale] {
+  --text-caption: calc(12px * var(--font-scale));    /* برچسب‌های ریز، و واحد پینگ در انگلیسی */
+  --text-body-sm: calc(13px * var(--font-scale));    /* توضیح دوم، تاریخ، اطلاعیه */
+  --text-body: calc(15px * var(--font-scale));       /* متن معمولی، نام سرور، دکمه */
+  --text-title: calc(17px * var(--font-scale));      /* نام سرویس، عنوان نوار بالا */
+  --text-button-lg: calc(19px * var(--font-scale));  /* «ورود با تلگرام»: درشت و پررنگ، تا ۳:۱ روی آبی تلگرام کافی باشد */
+  --text-headline: calc(24px * var(--font-scale));   /* واژهٔ «شیکونت» در صفحهٔ ورود */
+  --text-code: calc(28px * var(--font-scale));       /* کد ورود: ۶ رقم فارسی، مثل ۴۸۲ ۹۱۵ */
+  --text-power: calc(15px * min(var(--font-scale), var(--text-scale-max-round)));   /* «اتصال»، «وصل» و … داخل دکمهٔ گرد */
+  --text-display: calc(26px * min(var(--font-scale), var(--text-scale-max-round))); /* تایمر داخل دکمهٔ گرد */
+  --text-power-sub: calc(12px * min(var(--font-scale), var(--text-scale-max-round)));
 }
 
 :root[data-theme="light"] { color-scheme: light; }
@@ -156,27 +168,30 @@
   --text-title: 20px;
   --text-headline: 28px;
   --text-display: 30px;
+  --text-power: 16px;
+  --text-power-sub: 12px;
   --text-code: 40px;
 
   --border-width-control: 2px; /* ۴ پیکسل در عکس ۱۹۲۰ */
   --size-appbar: 40px;
   --size-row: 44px;
   --size-button: 40px;
+  --size-button-sm: 32px;
   --size-selected-bar: 4px;    /* ۸ پیکسل در عکس ۱۹۲۰ */
   --size-icon: 20px;
   --size-icon-sm: 16px;
   --size-flag-w: 30px;
   --size-flag-h: 20px;
   --size-mark: 28px;
-  --size-mark-lg: 36px;
   --size-pane: 500px;          /* ستون کارت سرویس و فهرست سرورها */
   --size-qr: 300px;            /* QR ورود */
   --size-qr-sm: 200px;         /* QR پنجرهٔ «تمدید» و «پشتیبانی» */
   --size-dialog: 560px;
-  --size-hero-icon: 96px;
+  --size-hero-icon: 64px;      /* ۹۶ با چهار سرویس «ورود انجام شد» را از ۵۴۰ بلندتر می‌کرد */
   --size-power: 176px;
   --size-power-ring: 224px;
   --size-bar: 6px;
+  --size-report-image: 240px;  /* عکس ۱۶:۹ تلویزیون؛ پیش‌نمایش بی‌اسکرول در ۵۴۰ جا می‌شود */
 
   /* حلقهٔ فوکوس فقط در تلویزیون دیده می‌شود.
      ۳dp یعنی ۶ پیکسل در عکس ۱۹۲۰×۱۰۸۰ (چگالی ۲) و ۴٫۵ پیکسل در ۱۲۸۰×۷۲۰ dp (چگالی ۱٫۵). */

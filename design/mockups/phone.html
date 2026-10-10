@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>شیکو · گوشی</title>
+<title>شیکونت · گوشی</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
@@ -14,13 +14,19 @@
 <body>
 
 <header class="sheet-head">
-  <h1>شیکو · صفحه‌های گوشی</h1>
+  <h1>شیکونت · صفحه‌های گوشی</h1>
   <p>فقط چیدمان و جریان. رنگ‌ها موقت‌اند تا نظام طراحی شیکو برسد.</p>
   <nav class="sheet-nav">
     <a href="phone.html" aria-current="page">گوشی</a>
     <a href="phone-states.html">حالت‌های گوشی</a>
+    <a href="phone-ping.html">پینگ گوشی</a>
+    <a href="phone-update.html">به‌روزرسانی گوشی</a>
+    <a href="phone-report.html">گزارش گوشی</a>
     <a href="tv.html">تلویزیون</a>
     <a href="tv-states.html">حالت‌های تلویزیون</a>
+    <a href="tv-ping.html">پینگ تلویزیون</a>
+    <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
+    <a href="tv-report.html">گزارش تلویزیون</a>
   </nav>
   <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
 </header>
@@ -29,23 +35,32 @@
 
   <!-- ورود -->
   <figure class="shot">
-    <figcaption>ورود</figcaption>
+    <figcaption>ورود · هنوز سرویسی نیست</figcaption>
     <div class="phone" data-frame="phone-login">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="login">
+        <div class="segmented sm" role="radiogroup" aria-label="زبان">
+          <button type="button" role="radio" aria-checked="true">فارسی</button>
+          <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+        </div>
         <div class="login-brand">
           <span class="mark">ش</span>
-          <span class="word">شیکو</span>
-          <span class="sub">مخصوص مشتری‌های شیکو</span>
+          <span class="word">شیکونت</span>
+          <span class="sub">مخصوص مشتری‌های شیکونت</span>
         </div>
         <button class="btn btn-telegram" type="button"><svg class="icon"><use href="#i-plane"/></svg>ورود با تلگرام</button>
-        <p class="login-note">تلگرام باز می‌شود؛ در ربات شیکو «تأیید» را بزن.</p>
+        <p class="login-note">تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.</p>
+        <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-paste"/></svg>چسباندن لینک اشتراک</button>
         <button class="btn-link" type="button">تلگرام روی این گوشی نیست؟</button>
       </div>
       <div class="gesture"></div>
     </div>
-    <p class="note">دکمه به رنگ آبی خود تلگرام است، نه رنگ شیکو.</p>
-    <p class="note"><b>پیشنهاد</b>«تلگرام روی این گوشی نیست؟» به ورود با کد یا کد تصویری می‌رود (قاب «ورود بدون تلگرام» در حالت‌های گوشی). به سمت سرورِ ورود بستگی دارد که هنوز ساخته نشده.</p>
+    <p class="note">زبان کوچک و در گوشه است، تا کسی که فارسی نمی‌خواند پیش از ورود اپ را انگلیسی کند. هر زبان به خط خودش است و انتخابش در تنظیمات هم همان می‌ماند.</p>
+    <p class="note">کار اصلی «ورود با تلگرام» است، به رنگ آبی خود تلگرام، نه رنگ شیکو. «چسباندن لینک اشتراک» دکمهٔ دوم است و فقط روی گوشی هست؛ تلویزیون فقط کد تصویری دارد.</p>
+    <p class="note">ورود: اپ از سرور یک کد ۶ رقمی می‌گیرد و ربات شیکونت را با همان کد باز می‌کند. کد ۱۰ دقیقه کار می‌کند. اگر کاربر بی‌تأیید برگردد، قاب «برگشت از تلگرام» در حالت‌های گوشی.</p>
+    <p class="note">چسباندن: کلیپ‌بورد فقط با زدن همین دکمه خوانده می‌شود، هرگز خودکار. اندروید ۱۲ به بالا همان لحظه پیام کوچک خودش را نشان می‌دهد و این طبیعی است. بعد از زدن، همین دکمه چرخنده و «در حال بررسی لینک…» می‌گیرد و دو دکمهٔ دیگر تا جواب غیرفعال‌اند. خطاها در حالت‌های گوشی.</p>
+    <p class="note">فقط لینک اشتراک شیکونت پذیرفته می‌شود، از ربات یا از پنل نماینده. لینک هیچ‌جا روی صفحه یا در گزارش اپ نمی‌آید، حتی در پیام خطا.</p>
+    <p class="note">تا سرورِ ورود آماده شود، به‌جای این صفحه خانهٔ بی‌سرویس می‌آید، با «چسباندن لینک اشتراک» و «پشتیبانی» (قاب «خانه · سرویسی روی گوشی نیست» در حالت‌های گوشی).</p>
   </figure>
 
   <!-- خانه، قطع -->
@@ -54,7 +69,7 @@
     <div class="phone" data-frame="phone-home-off">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
@@ -65,12 +80,15 @@
               <span class="power-label">اتصال</span>
             </button>
           </div>
-          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴ <span class="unit">ms</span></span></span>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴</span></span>
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
@@ -83,13 +101,17 @@
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
           </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+          </div>
           <ul class="servers">
-            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
             <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
           </ul>
         </article>
       </div>
@@ -104,7 +126,7 @@
     <div class="phone" data-frame="phone-home-on">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
-        <div class="brand"><span class="mark">ش</span><span>شیکو</span></div>
+        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
@@ -116,12 +138,15 @@
               <span class="timer">۰۰:۰۰:۰۳</span>
             </button>
           </div>
-          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴ <span class="unit">ms</span></span></span>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴</span></span>
         </section>
         <article class="card svc">
           <header class="svc-head">
-            <h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2>
-            <span class="chip chip-positive">فعال</span>
+            <div class="svc-titles">
+              <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
+              <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            </div>
+            <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button>
             <svg class="icon"><use href="#i-chevron-up"/></svg>
           </header>
           <div class="usage">
@@ -134,13 +159,17 @@
             <button class="btn btn-primary" type="button">تمدید</button>
             <button class="btn btn-outline" type="button">پشتیبانی</button>
           </div>
+          <div class="list-head">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
+            <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ همه</button>
+          </div>
           <ul class="servers">
-            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
             <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰ <span class="unit">ms</span></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
           </ul>
         </article>
       </div>
@@ -167,18 +196,37 @@
           </div>
         </section>
         <section>
+          <h3 class="group-title">زبان</h3>
+          <div class="segmented" role="radiogroup">
+            <button type="button" role="radio" aria-checked="true">فارسی</button>
+            <button type="button" role="radio" aria-checked="false" lang="en">English</button>
+          </div>
+        </section>
+        <section>
           <h3 class="group-title">حساب</h3>
           <div class="card">
+            <div class="row">
+              <svg class="icon"><use href="#i-plane"/></svg>
+              <span class="t"><span>وارد شده با <strong>مریم</strong></span><small>حساب تلگرامِ <bdi dir="ltr">@maryam_k</bdi></small></span>
+            </div>
             <button class="row danger" type="button">
               <svg class="icon"><use href="#i-logout"/></svg>
-              <span class="t"><span>خروج</span><small>این گوشی از حساب تلگرامت جدا می‌شود</small></span>
+              <span class="t"><span>خروج</span><small>سرویس‌های این حساب از این دستگاه برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.</small></span>
             </button>
+          </div>
+        </section>
+        <section>
+          <h3 class="group-title">پشتیبانی</h3>
+          <div class="card">
+            <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
           </div>
         </section>
         <section>
           <h3 class="group-title">اپ</h3>
           <div class="card">
-            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۰</span></div>
+            <div class="row"><span class="t"><span>نسخه</span></span><span class="value">۱.۰.۵۷</span></div>
+            <div class="row"><span class="t"><span>هسته</span><small>همراه خودِ برنامه به‌روز می‌شود.</small></span><span class="value"><bdi dir="ltr">FlClash 0.8.99</bdi></span></div>
+            <button class="row" type="button"><svg class="icon"><use href="#i-refresh"/></svg><span class="t"><span>بررسی به‌روزرسانی</span></span></button>
             <button class="row" type="button">
               <span class="t"><span>درباره</span><small>نرم‌افزار آزاد با مجوز <bdi>GPL-3.0</bdi>، بر پایهٔ <bdi>FlClash</bdi> و <bdi>mihomo</bdi></small></span>
               <svg class="icon"><use href="#i-chevron-fwd"/></svg>
@@ -188,7 +236,13 @@
       </div>
       <div class="gesture"></div>
     </div>
-    <p class="note"><b>پیشنهاد</b>«این گوشی از حساب تلگرامت جدا می‌شود» فرض می‌کند سرور بتواند یک دستگاه را جدا کند. سمت سرورِ ورود هنوز ساخته نشده.</p>
+    <p class="note">زبان همان شکلِ کنترل ظاهر را دارد. هر زبان به خط خودش نوشته می‌شود تا کسی که فارسی نمی‌خواند هم پیدایش کند. پیش‌فرض فارسی است؛ با انگلیسی کل اپ چپ‌به‌راست می‌شود، بی‌نیاز به اجرای دوباره.</p>
+    <p class="note">«وارد شده با» نامِ نمایشیِ حساب تلگرام است و دکمه نیست. زیرش نام کاربریِ تلگرام می‌آید، چون نام نمایشی یکتا نیست؛ اگر حساب نام کاربری ندارد، فقط «حساب تلگرام». اگر سرویس‌ها با چسباندن لینک آمده باشند، این بخش شکل دیگری دارد (قاب «تنظیمات · با لینک چسبانده‌شده» در حالت‌های گوشی).</p>
+    <p class="note"><b>پیشنهاد</b>«خروج» این دستگاه را در سرور از حساب جدا می‌کند و سرویس‌ها را از خودِ دستگاه پاک می‌کند؛ اشتراک‌ها و لینک‌هایشان عوض نمی‌شوند. به سمت سرورِ ورود بستگی دارد که تازه شروع شده.</p>
+    <p class="note">بخش «پشتیبانی» یک ردیف دارد: «عیب‌یابی و گزارش»، که بررسی اینترنت و «ارسال گزارش به پشتیبانی» را باز می‌کند (صفحهٔ «گزارش گوشی»). همین بخش، همین‌جا میان «حساب» و «اپ»، در همهٔ حالت‌های تنظیمات هست.</p>
+    <p class="note">بخش «اپ»: نسخهٔ برنامه، نسخهٔ هسته، «بررسی به‌روزرسانی» و «درباره». نسخه نسخهٔ انتشار است (۱.۰.شمارهٔ ساخت).</p>
+    <p class="note">ردیف «هسته» نسخهٔ پایهٔ برنامه را نشان می‌دهد که نویسنده‌اش به‌روزش می‌کند. هسته جدا دانلود نمی‌شود و دکمه ندارد؛ با هر نسخهٔ تازهٔ برنامه به‌روز می‌شود. عددش از یک ثابت در پوشهٔ شیکوی کد می‌آید که اسکریپت هم‌گامی با نسخه‌های پایه، هنگام ادغام نسخهٔ تازه، می‌نویسد.</p>
+    <p class="note">«بررسی به‌روزرسانی» همین حالا بررسی می‌کند و سقف ۶ ساعتهٔ بررسیِ خودکار را دور می‌زند. پیش از زدن، زیرش چیزی نیست. حالت‌هایش در صفحهٔ «به‌روزرسانی گوشی» است.</p>
   </figure>
 
   <!-- کارت‌های دیگر سرویس -->
@@ -217,7 +271,9 @@
         </div>
       </article>
     </div>
-    <p class="note">نام سرویس مثل فهرست «سرویس‌های من» در ربات است: نام کاربری · رده. سرویسی که هنوز حساب ندارد، مثل ربات نام پلن را نشان می‌دهد.</p>
+    <p class="note">نام سرویس مثل فهرست «سرویس‌های من» در ربات است: نام کاربری · رده. سرویسی که هنوز حساب ندارد، مثل ربات نام پلن را نشان می‌دهد. اگر پنل هیچ نامی نفرستد، «سرویس شیکونت».</p>
+    <p class="note">کارتِ کاملِ تمام‌شده فقط وقتی هست که هیچ سرویسی وصل نمی‌شود، و فقط برای اولینِ آن‌ها به ترتیب تاریخ پایان؛ بقیه در ردیف «سرویس‌های تمام‌شده»‌اند (قاب‌های گوشیِ کوچک). ترتیب همین قاب است: اول کارت کاملِ تمام‌شده، بعد «بدون لینک» و «لینک باطل شده»، بعد آن ردیف. هر کارتِ تمام‌شده «تمدید» و «پشتیبانی» دارد. وقتی سرویس فقط از حساب تلگرام آمده و تاریخ پایانش در دست نیست، متن «اعتبارش تمام شد. با تمدید دوباره فعال می‌شود.» است و برای حجم همان «حجمش تمام شد…». دکمهٔ گرد مثل قاب‌های «حجم تمام شده» و «اعتبار تمام شده» است، نه متن برچسب کارت.</p>
+    <p class="note">گوشی «دوباره» ندارد و با برگشتن به اپ خودش فهرست را می‌گیرد. تلویزیون کنار «تمدید» و «پشتیبانی»، «دوباره» هم دارد و متنش می‌گوید «بعد از تمدید، «دوباره» را بزن.».</p>
     <p class="note"><b>پیشنهاد</b>دکمهٔ «باز کردن ربات» به یک پیوند مستقیم به ربات (و شاید به همین سرویس) نیاز دارد که هنوز ساخته نشده.</p>
   </figure>
 

@@ -1,0 +1,19 @@
+//go:build go1.23
+
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"runtime/debug"
+)
+
+func setCrashOutput(home string) {
+	file, err := os.OpenFile(filepath.Join(home, "go-crash.txt"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	_ = debug.SetCrashOutput(file, debug.CrashOptions{})
+	debug.SetTraceback("single")
+}

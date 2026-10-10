@@ -6,6 +6,7 @@ Update submodules first. The ClashMeta Go core lives in `core/Clash.Meta/`.
 
 ```bash
 git submodule update --init --recursive
+bash tools/core-patches/apply.sh  # Shikoo patches the core; an unpatched core does not compile
 ```
 
 Full package build, including Go core, Flutter, and packaging, runs through `setup.dart`:
