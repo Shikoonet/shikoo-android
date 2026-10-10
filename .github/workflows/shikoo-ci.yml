@@ -63,11 +63,35 @@ jobs:
 
       - run: flutter analyze --no-fatal-infos
 
+  tests:
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      # whole files per shard: --total-shards slices inside each file, so every shard would still load every file
       - name: Tests
-        if: github.event_name == 'push' || !github.event.pull_request.draft
+        env:
+          SHARD: ${{ strategy.job-index }}
+          SHARDS: ${{ strategy.job-total }}
         run: |
           yq -i '.hooks.user_defines.setup.build_assets = false | .hooks.user_defines.rust_api.build_assets = false' pubspec.yaml
-          flutter test --reporter expanded
+          mapfile -t files < <(find test -name '*_test.dart' | LC_ALL=C sort | awk -v n="$SHARDS" -v i="$SHARD" 'NR % n == i')
+          echo "shard $((SHARD + 1)) of $SHARDS: ${#files[@]} files"
+          flutter test --reporter expanded "${files[@]}"
 
   apk:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
