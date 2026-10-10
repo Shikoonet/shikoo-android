@@ -294,6 +294,7 @@ func startTUN(callback unsafe.Pointer, fd C.int, stackChar, addressChar, dnsChar
 	if !started {
 		return false
 	}
+	safeGoDetached("rebindWireGuard", rebindWireGuard)
 	if !isRunning.Load() {
 		handleStartListener()
 	} else {
