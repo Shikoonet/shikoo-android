@@ -770,19 +770,22 @@ void main() {
     });
 
     test('a service the door says runs while its own update says ended is '
-        'updated now; one the door says ended waits', () async {
+        'updated now; one both call running, or the door calls ended, '
+        'waits', () async {
       final h = await _harness();
       h.api.services = [_service(1, 'user123')];
       await _signedIn(h);
       h.signIn.finish();
       final profile = h.container.read(profilesProvider).single;
-      h.container
+      void subscription(SubscriptionInfo info) => h.container
           .read(profilesProvider.notifier)
-          .put(
-            profile.copyWith(
-              subscriptionInfo: const SubscriptionInfo(expire: 1),
-            ),
-          );
+          .put(profile.copyWith(subscriptionInfo: info));
+      subscription(const SubscriptionInfo(total: 1 << 30));
+      await h.signIn.sync();
+      verifyNever(
+        () => h.controller.refreshDue(renewed: any(named: 'renewed')),
+      );
+      subscription(const SubscriptionInfo(expire: 1));
       h.signIn.onForeground();
       await Future<void>.delayed(const Duration(milliseconds: 50));
       verify(() => h.controller.refreshDue(renewed: {profile.id})).called(1);
@@ -879,6 +882,10 @@ void main() {
           s.id,
       ];
       expect(unlinked(), [1]);
+      final asked = h.api.listed;
+      h.signIn.onForeground();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.api.listed, asked + 1, reason: 'a return asks again at once');
       h.api.services = [
         _service(1, 'gone'),
         _service(2, 'next', url: 'https://sub.4g3.uk/dead2'),
