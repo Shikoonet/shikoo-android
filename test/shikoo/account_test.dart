@@ -51,6 +51,7 @@ class _FakeAppApi {
   int servicesStatus = 200;
   int rateLimitedPolls = 0;
   int polls = 0;
+  int listed = 0;
   List<Map<String, Object?>> services = [];
   DateTime Function()? clock;
 
@@ -138,6 +139,7 @@ class _FakeAppApi {
           'account': {'name': who.name, 'username': who.username},
         });
       case 'GET /api/v1/app/services':
+        listed++;
         if (live[token] != true) {
           return reply(401, {'ok': false, 'error': 'unauthorized'});
         }
@@ -249,6 +251,9 @@ Future<_Harness> _harness({
     return null;
   });
   when(controller.disconnect).thenAnswer((_) async {});
+  when(
+    () => controller.refreshDue(renewed: any(named: 'renewed')),
+  ).thenAnswer((_) async {});
   when(() => controller.renameFromPanel(any())).thenAnswer((_) async {});
   when(controller.forgetServices).thenAnswer((_) async {
     for (final profile in [...container.read(profilesProvider)]) {
@@ -311,7 +316,10 @@ List<String> _urls(ProviderContainer container) => [
 ];
 
 void main() {
-  setUpAll(() => registerFallbackValue(''));
+  setUpAll(() {
+    registerFallbackValue('');
+    registerFallbackValue(<int>{});
+  });
 
   group('the device name the bot shows', () {
     test('is the maker and the model, in what the server takes', () {
@@ -720,6 +728,71 @@ void main() {
       },
     );
 
+    test('with a service to renew every return asks the door, a settled '
+        'account only every ten minutes', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'user123')];
+      await _signedIn(h);
+      h.signIn.finish();
+      final asked = h.api.listed;
+      h.signIn.onForeground();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.api.listed, asked);
+      h.api.services = [_service(1, 'user123', status: 'expired', noUrl: true)];
+      await h.signIn.sync();
+      h.signIn.onForeground();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.api.listed, asked + 2);
+    });
+
+    test('the minute timer asks the door only for a while after a QR or a '
+        'bot link opened, and only while something waits', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'user123')];
+      await _signedIn(h);
+      h.signIn
+        ..finish()
+        ..botWindow = const Duration(milliseconds: 300)
+        ..botOpened();
+      Future<int> minute() async {
+        final asked = h.api.listed;
+        h.signIn.onMinute();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return h.api.listed - asked;
+      }
+
+      expect(await minute(), 0, reason: 'nothing to renew');
+      h.api.services = [_service(1, 'user123', status: 'expired', noUrl: true)];
+      await h.signIn.sync();
+      expect(await minute(), 1);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(await minute(), 0, reason: 'the QR opened too long ago');
+    });
+
+    test('a service the door says runs while its own update says ended is '
+        'updated now; one the door says ended waits', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'user123')];
+      await _signedIn(h);
+      h.signIn.finish();
+      final profile = h.container.read(profilesProvider).single;
+      h.container
+          .read(profilesProvider.notifier)
+          .put(
+            profile.copyWith(
+              subscriptionInfo: const SubscriptionInfo(expire: 1),
+            ),
+          );
+      h.signIn.onForeground();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verify(() => h.controller.refreshDue(renewed: {profile.id})).called(1);
+      h.api.services = [_service(1, 'user123', status: 'expired', noUrl: true)];
+      await h.signIn.sync();
+      verifyNever(
+        () => h.controller.refreshDue(renewed: any(named: 'renewed')),
+      );
+    });
+
     test('a link the paste would refuse never reaches the device: it counts as '
         'none', () async {
       final h = await _harness();
@@ -796,11 +869,23 @@ void main() {
       },
     );
 
-    test('a link that would not load is not a service, and alone fails the '
-        'sign-in', () async {
+    test('a link that would not load stays, without a link, for the next sync '
+        'to load; alone it fails the sign-in', () async {
       final h = await _harness();
       h.api.services = [_service(1, 'gone', url: 'https://sub.4g3.uk/dead')];
       expect((await _signedIn(h))?.phase, LoginPhase.servicesFailed);
+      List<int> unlinked() => [
+        for (final s in h.container.read(shikooAccountProvider).withoutLink)
+          s.id,
+      ];
+      expect(unlinked(), [1]);
+      h.api.services = [
+        _service(1, 'gone'),
+        _service(2, 'next', url: 'https://sub.4g3.uk/dead2'),
+      ];
+      expect(await h.signIn.sync(), isTrue);
+      expect(_urls(h.container), ['https://sub.4g3.uk/gone']);
+      expect(unlinked(), [2], reason: 'kept beside a service that loaded');
     });
 
     test(

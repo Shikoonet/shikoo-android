@@ -5,6 +5,7 @@ import 'package:fl_clash/common/task_pool.dart';
 const pingConcurrency = 4;
 const pingEvery = Duration(minutes: 2);
 const refreshEvery = Duration(minutes: 10);
+const renewedEvery = Duration(minutes: 1);
 
 bool isDue(DateTime? last, DateTime now, Duration every) =>
     last == null || now.difference(last) >= every;

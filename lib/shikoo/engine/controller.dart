@@ -566,6 +566,8 @@ ShikooService _serviceFrom(
   );
 }
 
+bool profileFinished(Profile profile) => _serviceFrom(profile).finished;
+
 String _nameOf(Profile profile) =>
     profile.label == '${profile.id}' ? '' : profile.label;
 
@@ -740,6 +742,8 @@ class ShikooController {
   String? _removed;
   Future<void>? _refreshing;
   Future<void>? _refreshingDue;
+  final _renewed = <int>{};
+  final _renewedAt = <int, DateTime>{};
   bool _manualRefresh = false;
 
   SetupAction get _setup => _ref.read(setupActionProvider.notifier);
@@ -1243,19 +1247,34 @@ class ShikooController {
 
   /// Every service's usage and date, the one in use first; one at a time, as FlClash's own
   /// update does.
-  Future<void> refreshDue() => _refreshingDue ??= () async {
+  /// [renewed] skip the wait, once a [renewedEvery]: an update starts a sync that names them again.
+  Future<void> refreshDue({Set<int> renewed = const {}}) {
     final now = DateTime.now();
-    final current = _ref.read(currentProfileProvider);
-    if (isDue(current?.lastUpdateDate, now, refreshEvery)) {
-      await refreshService(manual: false);
-    }
-    for (final other in [..._ref.read(profilesProvider)]) {
-      if (other.id != current?.id &&
-          isDue(other.lastUpdateDate, now, refreshEvery)) {
-        await refreshOther(other.id);
+    for (final id in renewed) {
+      if (isDue(_renewedAt[id], now, renewedEvery)) {
+        _renewedAt[id] = now;
+        _renewed.add(id);
       }
     }
-  }().whenComplete(() => _refreshingDue = null);
+    return _refreshingDue ??= _refreshDue().whenComplete(() {
+      _refreshingDue = null;
+      if (_renewed.isNotEmpty) unawaited(refreshDue());
+    });
+  }
+
+  Future<void> _refreshDue() async {
+    final now = DateTime.now();
+    final forced = {..._renewed};
+    _renewed.clear();
+    bool due(Profile? profile) =>
+        forced.contains(profile?.id) ||
+        isDue(profile?.lastUpdateDate, now, refreshEvery);
+    final current = _ref.read(currentProfileProvider);
+    if (due(current)) await refreshService(manual: false);
+    for (final other in [..._ref.read(profilesProvider)]) {
+      if (other.id != current?.id && due(other)) await refreshOther(other.id);
+    }
+  }
 
   void selectService(int id) {
     clearNews();

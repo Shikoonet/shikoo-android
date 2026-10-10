@@ -118,6 +118,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         final controller = ref.read(shikooControllerProvider);
         if (!controller.foreground) return;
         unawaited(controller.refreshDue());
+        ref.read(shikooSignInProvider).onMinute();
         unawaited(ref.read(shikooUpdateProvider).check());
       });
       if (shikooDebug) _links = AppLinks().uriLinkStream.listen(_onDebugLink);
