@@ -400,6 +400,15 @@ void main() {
         expect(policy, isNot(contains('user.example')));
       },
     );
+
+    test('the core opens no DNS server, from the panel or from FlClash, '
+        'that other apps and the Wi-Fi could ask', () async {
+      for (final dns in [panelDns, null]) {
+        final made = (await config(dns))['dns'] as YamlMap;
+        expect(made['enable'], isTrue);
+        expect(made, isNot(contains('listen')));
+      }
+    });
   });
 
   group('the card says one sentence, the door first', () {
