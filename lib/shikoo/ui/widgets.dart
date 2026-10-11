@@ -1175,7 +1175,6 @@ class _TvScrollColumnState extends State<TvScrollColumn> {
   }
 
   void _onFocusInside(bool inside) {
-    // A dialog over the page takes the remote; the column stays where it was behind it.
     final covered = !(ModalRoute.isCurrentOf(context) ?? true);
     if (inside || covered || !_scroll.hasClients) return;
     if (MediaQuery.disableAnimationsOf(context)) {
