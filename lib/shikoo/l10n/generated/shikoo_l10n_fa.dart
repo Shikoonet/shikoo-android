@@ -12,6 +12,9 @@ class ShikooL10nFa extends ShikooL10n {
   String get appTitle => 'شیکونت';
 
   @override
+  String get appTitleTest => 'شیکونت آزمایشی';
+
+  @override
   String get settings => 'تنظیمات';
 
   @override

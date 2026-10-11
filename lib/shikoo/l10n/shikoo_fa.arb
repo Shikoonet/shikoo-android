@@ -1,6 +1,7 @@
 {
   "@@locale": "fa",
   "appTitle": "شیکونت",
+  "appTitleTest": "شیکونت آزمایشی",
   "settings": "تنظیمات",
   "renew": "تمدید",
   "support": "پشتیبانی",

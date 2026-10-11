@@ -104,6 +104,12 @@ abstract class ShikooL10n {
   /// **'ShikooNet'**
   String get appTitle;
 
+  /// The staging app (com.shikoonet.app.dev) everywhere it names itself, as its launcher label does, so the two are never mixed up on one device.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet Test'**
+  String get appTitleTest;
+
   /// No description provided for @settings.
   ///
   /// In en, this message translates to:

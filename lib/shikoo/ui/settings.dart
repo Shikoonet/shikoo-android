@@ -433,7 +433,7 @@ class ShikooAbout extends ConsumerWidget {
                   spacing: Space.s3,
                   children: [
                     Text(
-                      '${l.appTitle} ${_version(context, ref.watch(shikooVersionProvider))}',
+                      '${l.appName} ${_version(context, ref.watch(shikooVersionProvider))}',
                       style: t.text(t.s.title, weight: FontWeight.w700),
                     ),
                     Text(l.aboutFree, style: body),

@@ -1,6 +1,8 @@
 {
   "@@locale": "en",
   "appTitle": "ShikooNet",
+  "appTitleTest": "ShikooNet Test",
+  "@appTitleTest": {"description": "The staging app (com.shikoonet.app.dev) everywhere it names itself, as its launcher label does, so the two are never mixed up on one device."},
   "settings": "Settings",
   "renew": "Renew",
   "support": "Support",

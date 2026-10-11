@@ -199,7 +199,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       navigatorKey: globalState.navigatorKey,
       navigatorObservers: [shikooDiag.routes],
       onNavigationNotification: (_) => true,
-      onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
+      onGenerateTitle: (context) => ShikooL10n.of(context).appName,
       locale: Locale(look.language),
       supportedLocales: ShikooL10n.supportedLocales,
       localizationsDelegates: _delegates,

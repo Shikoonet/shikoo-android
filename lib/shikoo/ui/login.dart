@@ -808,7 +808,7 @@ class _BrandBlock extends StatelessWidget {
       children: [
         const BrandMark(size: ShikooSizes.markLg),
         const SizedBox(height: Space.s3 + Space.s2),
-        Text(l.appTitle, style: t.text(t.s.headline, weight: FontWeight.w800)),
+        Text(l.appName, style: t.text(t.s.headline, weight: FontWeight.w800)),
         const SizedBox(height: Space.s3),
         Text(
           l.loginTagline,

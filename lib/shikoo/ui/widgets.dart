@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -177,7 +178,7 @@ class Brand extends StatelessWidget {
         BrandMark(size: t.s.mark),
         const SizedBox(width: Space.s2),
         Text(
-          ShikooL10n.of(context).appTitle,
+          ShikooL10n.of(context).appName,
           style: t.text(t.s.title, weight: FontWeight.w800),
         ),
       ],

@@ -12,6 +12,9 @@ class ShikooL10nEn extends ShikooL10n {
   String get appTitle => 'ShikooNet';
 
   @override
+  String get appTitleTest => 'ShikooNet Test';
+
+  @override
   String get settings => 'Settings';
 
   @override

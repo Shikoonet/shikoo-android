@@ -2008,6 +2008,22 @@ void main() {
       }
     }
   });
+
+  testWidgets('the staging app names itself apart from the real one', (
+    tester,
+  ) async {
+    addTearDown(() => shikooStaging = false);
+    for (final (staging, fa, en) in [
+      (false, 'شیکونت', 'ShikooNet'),
+      (true, 'شیکونت آزمایشی', 'ShikooNet Test'),
+    ]) {
+      shikooStaging = staging;
+      await _pump(tester, _phone());
+      expect(find.text(fa), findsOneWidget, reason: 'staging $staging');
+      await _pump(tester, _phone(), locale: 'en');
+      expect(find.text(en), findsOneWidget, reason: 'staging $staging');
+    }
+  });
 }
 
 /// The open service and a folded one, `user789 · معمولی` (id 7).
