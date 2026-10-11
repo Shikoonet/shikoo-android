@@ -329,7 +329,7 @@ void main() {
     expect(await _press(tester, _up), 'دریافت');
     expect(await _press(tester, _up), 'تنظیمات');
     await _focus(tester, 'دریافت');
-    expect(await _press(tester, _down), 'به‌روزرسانی');
+    expect(await _press(tester, _down), 'پینگ');
     await _focus(tester, 'دریافت');
     expect(await _press(tester, _towardPower), 'power');
   });

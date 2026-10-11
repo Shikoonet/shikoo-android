@@ -130,8 +130,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     });
   }
 
-  /// The controller updates the subscription and pings when the app comes back; Android TV
-  /// apps are resumed far more often than started.
+  /// The controller updates the subscription when the app comes back; Android TV apps are
+  /// resumed far more often than started.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_attached) return;
@@ -199,7 +199,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       navigatorKey: globalState.navigatorKey,
       navigatorObservers: [shikooDiag.routes],
       onNavigationNotification: (_) => true,
-      onGenerateTitle: (context) => ShikooL10n.of(context).appTitle,
+      onGenerateTitle: (context) => ShikooL10n.of(context).appName,
       locale: Locale(look.language),
       supportedLocales: ShikooL10n.supportedLocales,
       localizationsDelegates: _delegates,

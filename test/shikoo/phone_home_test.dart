@@ -152,7 +152,7 @@ void main() {
     expect(find.text('تمدید'), findsNothing);
     expect(
       find.text(
-        'مصرف شده: ۳۳ از ۱۰۰ گیگ · اعتبار تا ۴ آبان ۱۴۰۵',
+        'مصرف شده: ۳۳ از ۱۰۰ گیگ · اعتبار تا ۴ آبان ۱۴۰۵',
         findRichText: true,
       ),
       findsOneWidget,
@@ -1277,9 +1277,16 @@ void main() {
     expect(name.overflow, isNot(TextOverflow.ellipsis));
     expect(name.data, contains('…'));
     expect(name.data, contains('123_2'), reason: 'the last five stay');
-    final search = tester.getRect(find.text('جست‌وجوی سرور'));
-    final pingAll = tester.getRect(find.text('پینگ همه'));
-    expect(pingAll.top, greaterThan(search.bottom), reason: 'ping-all wraps');
+    final card = tester.getRect(find.byType(ServiceCard));
+    for (final label in ['به‌روزرسانی سرورها', 'پینگ سرورها']) {
+      final button = tester.getRect(find.bySemanticsLabel(label));
+      expect(
+        card.left <= button.left && button.right <= card.right,
+        isTrue,
+        reason: '$label $button inside $card',
+      );
+    }
+    expect(find.text('پینگ همه'), findsNothing);
   });
 
   testWidgets('on the TV the remote starts on the first item of whatever '
@@ -1545,8 +1552,13 @@ void main() {
         ],
       ),
     );
-    expect(find.text('سرویس شیکونت'), findsOneWidget);
-    expect(find.text('سرویس شیکونت ۲'), findsOneWidget);
+    // The test font is wider than Vazirmatn: the folded card's name may be cut to fit.
+    expect(
+      tester
+          .widgetList<ServiceName>(find.byType(ServiceName))
+          .map((w) => w.name),
+      ['سرویس شیکونت', 'سرویس شیکونت ۲'],
+    );
   });
 
   testWidgets('a Latin name keeps its own order in Persian and English, the '
@@ -1795,6 +1807,307 @@ void main() {
     await tester.pumpAndSettle();
     expect(padding(), resting);
   });
+
+  testWidgets('the phone pings with a gauge beside update in every active '
+      'card, open or folded; one runs at a time, and its count replaces the '
+      'update time', (tester) async {
+    final controller = _Controller();
+    when(() => controller.pingAll()).thenAnswer((_) async {});
+    when(controller.refreshService).thenAnswer((_) async {});
+    final holder = await _pump(
+      tester,
+      _withOther(ShikooConnection.off),
+      controller: controller,
+    );
+    final ping = find.bySemanticsLabel('پینگ سرورها');
+    final update = find.bySemanticsLabel('به‌روزرسانی سرورها');
+    expect(ping, findsNWidgets(2), reason: 'the open card and the folded one');
+    expect(find.text('پینگ'), findsNothing, reason: 'the gauge alone');
+    expect(find.text('پینگ همه'), findsNothing);
+
+    await tester.tap(ping.first);
+    verify(() => controller.pingAll()).called(1);
+
+    holder.value = _withOther(
+      ShikooConnection.off,
+      pinging: (done: 4, total: 9),
+    );
+    await tester.pump();
+    expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
+    expect(find.textContaining('به‌روز شد'), findsOneWidget, reason: 'folded');
+    await tester.tap(update.first);
+    await tester.tap(ping.first);
+    verifyNever(controller.refreshService);
+    verifyNever(() => controller.pingAll());
+
+    holder.value = _withOther(
+      ShikooConnection.off,
+      refresh: ShikooRefresh.running,
+    );
+    await tester.pump();
+    await tester.tap(ping.first);
+    verifyNever(() => controller.pingAll());
+  });
+
+  testWidgets('the card in use folded during its ping keeps update greyed and '
+      'shows the count', (tester) async {
+    final controller = _Controller();
+    when(controller.refreshService).thenAnswer((_) async {});
+    await _pump(
+      tester,
+      _withOther(ShikooConnection.off, pinging: (done: 4, total: 9)),
+      controller: controller,
+    );
+    await tester.tap(_icon(ShikooIcon.chevronUp));
+    await tester.pumpAndSettle();
+    expect(find.byType(FoldedServiceCard), findsNWidgets(2));
+    expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('به‌روزرسانی سرورها').first);
+    await tester.pumpAndSettle();
+    verifyNever(controller.refreshService);
+    expect(
+      find.byType(FoldedServiceCard),
+      findsNWidgets(2),
+      reason: 'a greyed button opens no card',
+    );
+  });
+
+  testWidgets("a folded card's ping opens it and pings at once when off; "
+      'connected, it asks first, and «انصراف» does nothing', (tester) async {
+    for (final connection in [ShikooConnection.off, ShikooConnection.on]) {
+      final controller = _Controller();
+      await _pump(tester, _withOther(connection), controller: controller);
+      final folded = find.bySemanticsLabel('پینگ سرورها').last;
+      await tester.ensureVisible(folded);
+      await tester.tap(folded);
+      await tester.pumpAndSettle();
+      if (connection == ShikooConnection.off) {
+        expect(find.text('انتقال و پینگ'), findsNothing);
+        verify(() => controller.pingService(7)).called(1);
+        continue;
+      }
+      expect(
+        find.text('اتصال به «${bidiName('user789 · معمولی')}» برود؟'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('انصراف'));
+      await tester.pumpAndSettle();
+      verifyNever(() => controller.pingService(any()));
+      expect(find.text('انتقال و پینگ'), findsNothing);
+
+      await tester.tap(folded);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('انتقال و پینگ'));
+      await tester.pumpAndSettle();
+      verify(() => controller.pingService(7)).called(1);
+    }
+  });
+
+  testWidgets('on the TV ping is a text button in the open and folded cards, '
+      "its width kept while it spins; the folded card's is beside it toward "
+      'the power button, and connected the question starts on «انصراف»', (
+    tester,
+  ) async {
+    final controller = _Controller();
+    final holder = await _pump(
+      tester,
+      _withOther(ShikooConnection.on, isTV: true),
+      controller: controller,
+    );
+    String? focused() => FocusManager.instance.primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<ShikooButton>()
+        ?.label;
+    final pings = find.widgetWithText(ShikooButton, 'پینگ');
+    expect(pings, findsNWidgets(2));
+    final width = tester.getSize(pings.first).width;
+    holder.value = _withOther(
+      ShikooConnection.on,
+      isTV: true,
+      pinging: (done: 4, total: 9),
+    );
+    await tester.pump();
+    expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
+    expect(
+      find.descendant(of: pings.first, matching: find.byType(Spinner)),
+      findsOneWidget,
+    );
+    expect(tester.getSize(pings.first).width, width);
+
+    holder.value = _withOther(ShikooConnection.on, isTV: true);
+    await tester.pump();
+    final card = find
+        .descendant(
+          of: find.byType(FoldedServiceCard),
+          matching: find.byType(GestureDetector),
+        )
+        .first;
+    Focus.of(tester.element(card)).requestFocus();
+    await tester.pumpAndSettle();
+    final rings = find.descendant(
+      of: find.byType(FoldedServiceCard),
+      matching: find.byWidgetPredicate(
+        (w) => w is Positioned && w.child is IgnorePointer,
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(focused(), 'پینگ');
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<FoldedServiceCard>(),
+      isNotNull,
+    );
+    expect(rings, findsOneWidget, reason: 'its ping alone, not the card too');
+    final column = tester
+        .state<ScrollableState>(
+          find
+              .ancestor(
+                of: find.byType(ServiceCard),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    final scrolled = column.pixels;
+    expect(scrolled, greaterThan(0), reason: 'the folded card is low');
+    bool onFoldedPing() =>
+        focused() == 'پینگ' &&
+        FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<FoldedServiceCard>() !=
+            null;
+    for (final close in ['back', 'cancel']) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(focused(), 'انصراف');
+      expect(column.pixels, scrolled, reason: 'the column stays behind it');
+      if (close == 'back') {
+        await tester.binding.handlePopRoute();
+      } else {
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      }
+      await tester.pumpAndSettle();
+      expect(onFoldedPing(), isTrue, reason: '$close: on the same ping');
+    }
+    verifyNever(() => controller.pingService(any()));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(focused(), 'انتقال و پینگ');
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    verify(() => controller.pingService(7)).called(1);
+  });
+
+  testWidgets('a service whose link did not load has its own card: «باز نشد», '
+      'try again and support; only a link not made yet sends to the bot', (
+    tester,
+  ) async {
+    const account = ShikooAccount(
+      who: TelegramAccount(name: 'مریم'),
+      services: [
+        LinkedService(
+          id: 43,
+          title: 'user456 · طلایی',
+          status: 'active',
+          loadFailed: true,
+        ),
+        LinkedService(id: 44, title: 'الماس ۱ ماهه ۱۰ گیگ', status: 'active'),
+      ],
+    );
+    for (final isTV in [false, true]) {
+      await _pump(
+        tester,
+        ShikooState(
+          connection: ShikooConnection.off,
+          connectedFor: Duration.zero,
+          isTV: isTV,
+          servers: const [],
+        ),
+        account: account,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('باز نشد'), findsNWidgets(2), reason: 'chip and power');
+      expect(
+        find.text(
+          'لینکِ این سرویس هست، ولی سرورهایش الان باز نشد. اینترنت را بررسی '
+          'کن و «دوباره» را بزن.',
+        ),
+        findsOneWidget,
+      );
+      final failed = find.ancestor(
+        of: find.textContaining('لینکِ این سرویس هست'),
+        matching: find.byType(Column),
+      );
+      for (final label in ['دوباره', 'پشتیبانی']) {
+        expect(
+          find.descendant(
+            of: failed.first,
+            matching: find.widgetWithText(ShikooButton, label),
+          ),
+          findsOneWidget,
+          reason: '$label, TV $isTV',
+        );
+      }
+      expect(find.text('بدون لینک'), findsOneWidget);
+      expect(find.text(isTV ? 'ربات شیکونت' : 'باز کردن ربات'), findsOneWidget);
+      if (isTV) {
+        expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<ShikooButton>()
+              ?.label,
+          'دوباره',
+        );
+      }
+    }
+  });
+
+  testWidgets('the staging app names itself apart from the real one', (
+    tester,
+  ) async {
+    addTearDown(() => shikooStaging = false);
+    for (final (staging, fa, en) in [
+      (false, 'شیکونت', 'ShikooNet'),
+      (true, 'شیکونت آزمایشی', 'ShikooNet Test'),
+    ]) {
+      shikooStaging = staging;
+      await _pump(tester, _phone());
+      expect(find.text(fa), findsOneWidget, reason: 'staging $staging');
+      await _pump(tester, _phone(), locale: 'en');
+      expect(find.text(en), findsOneWidget, reason: 'staging $staging');
+    }
+  });
+}
+
+/// The open service and a folded one, `user789 · معمولی` (id 7).
+ShikooState _withOther(
+  ShikooConnection connection, {
+  bool isTV = false,
+  ({int done, int total})? pinging,
+  ShikooRefresh refresh = ShikooRefresh.idle,
+}) {
+  final state = _phone(isTV: isTV);
+  return ShikooState(
+    connection: connection,
+    connectedFor: const Duration(minutes: 1),
+    isTV: isTV,
+    servers: state.servers,
+    selected: state.selected,
+    service: state.service,
+    pinging: pinging,
+    refresh: refresh,
+    others: [
+      ShikooService(
+        id: 7,
+        name: 'user789 · معمولی',
+        usedBytes: 12 << 30,
+        totalBytes: 50 << 30,
+        expire: DateTime(2026, 12, 1, 12),
+        updatedAt: DateTime.now(),
+      ),
+    ],
+  );
 }
 
 bool _arc(Widget widget) =>

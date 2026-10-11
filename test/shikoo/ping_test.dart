@@ -107,14 +107,6 @@ void main() {
       isDue(now.subtract(const Duration(minutes: 10)), now, refreshEvery),
       isTrue,
     );
-    expect(
-      isDue(now.subtract(const Duration(minutes: 1)), now, pingEvery),
-      isFalse,
-    );
-    expect(
-      isDue(now.subtract(const Duration(minutes: 3)), now, pingEvery),
-      isTrue,
-    );
   });
 
   test("the panel's info rows are not servers", () {
@@ -210,23 +202,18 @@ void main() {
     });
   });
 
-  test('the pill finds, then names the server or says none answered', () {
+  test('the pill rests on «picked automatically»; it spins only while connect '
+      'waits, and says none answered once a ping or a connect found none', () {
     ShikooPick p({
       bool selected = false,
-      bool pinging = false,
-      bool roundEnded = true,
-      bool anyAnswer = false,
-    }) => derivePick(
-      selected: selected,
-      pinging: pinging,
-      roundEnded: roundEnded,
-      anyAnswer: anyAnswer,
-    );
+      bool waiting = false,
+      bool noAnswer = false,
+    }) => derivePick(selected: selected, waiting: waiting, noAnswer: noAnswer);
+    expect(p(), ShikooPick.auto, reason: 'nothing runs before Connect or Ping');
     expect(p(selected: true), ShikooPick.server);
-    expect(p(roundEnded: false), ShikooPick.finding);
-    expect(p(pinging: true), ShikooPick.finding);
-    expect(p(anyAnswer: true), ShikooPick.finding);
-    expect(p(), ShikooPick.none);
+    expect(p(selected: true, waiting: true), ShikooPick.server);
+    expect(p(waiting: true), ShikooPick.finding);
+    expect(p(noAnswer: true), ShikooPick.none);
   });
 
   test('connect pressed and nobody answered is an error', () {

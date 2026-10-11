@@ -74,6 +74,7 @@ class LinkedService {
     required this.status,
     this.profileId,
     this.expiresAt,
+    this.loadFailed = false,
   });
 
   /// The statuses of shikoo-platform's `/services` that mean ended; `on_hold` has not started.
@@ -91,6 +92,9 @@ class LinkedService {
   final String status;
   final int? profileId;
   final DateTime? expiresAt;
+
+  /// The panel gave a link whose servers did not load: the bot cannot help, a retry can.
+  final bool loadFailed;
 
   bool get renews => finishedStatuses.contains(status);
 
@@ -598,6 +602,7 @@ class ShikooSignIn {
                   status: s['status'] as String,
                   profileId: s['profileId'] as int?,
                   expiresAt: DateTime.tryParse(s['expiresAt'] as String? ?? ''),
+                  loadFailed: s['loadFailed'] == true,
                 ),
             ],
           ),
@@ -645,6 +650,7 @@ class ShikooSignIn {
               'status': s.status,
               'profileId': s.profileId,
               'expiresAt': s.expiresAt?.toIso8601String(),
+              'loadFailed': s.loadFailed,
             },
         ],
       }),
@@ -879,6 +885,7 @@ class ShikooSignIn {
       if (token != _token) return null;
       final was = before.remove(row.id);
       var profileId = _existing(was?.profileId);
+      var loadFailed = false;
       final url = row.subUrl == null ? null : shikooLink(row.subUrl!);
       if (url != null && _urlOf(profileId) != url) {
         final added = await _add(url, row.label);
@@ -888,7 +895,8 @@ class ShikooSignIn {
         }
         if (added == null) {
           failed = true;
-          if (profileId == null) unloaded++;
+          loadFailed = profileId == null;
+          if (loadFailed) unloaded++;
         } else {
           if (profileId != added) await _drop(profileId);
           profileId = added;
@@ -907,6 +915,7 @@ class ShikooSignIn {
           status: row.status,
           profileId: profileId,
           expiresAt: row.expiresAt,
+          loadFailed: loadFailed,
         ),
       );
     }

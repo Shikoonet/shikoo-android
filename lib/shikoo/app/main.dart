@@ -12,6 +12,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:rust_api/rust_api.dart';
@@ -43,6 +44,7 @@ void main() {
         if (clockTooEarly(DateTime.now())) await _untilClockRight();
         fillFlClashHooks();
         final container = await bootstrap.init(version);
+        shikooStaging = globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooSignInProvider).load();

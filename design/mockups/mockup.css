@@ -21,7 +21,7 @@
  *  ۱۴. کد ورود ......... .code-box .code + .is-expired ؛ .code-warn
  *  ۱۵. نتیجه ........... .hero-icon + .positive | .danger ؛ .progress
  *  ۱۶. ستون اسکرول ..... .tv-col + .is-scrolled ؛ .scroll-thumb
- *  ۱۷. سربرگ دوخطی ..... .svc-titles .svc-line .svc-sub (زمان به‌روزرسانی) + دکمهٔ به‌روزرسانی در .svc-head
+ *  ۱۷. سربرگ دوخطی ..... .svc-titles .svc-line .svc-sub (زمان به‌روزرسانی یا شمارش پینگ) + دکمهٔ به‌روزرسانی و پینگ در .svc-head ؛ غیرفعال: [disabled]
  *  ۱۸. سربرگ فهرست ..... .list-head ؛ .search + .is-active ؛ .list-caption
  *  ۱۹. پیام چندخطی ..... .notice.msg + .danger
  *  ۲۰. نام ربات ......... .code-bot (زیر کد ورود) ؛ فهرست نتیجه: .result-list ؛ دایرهٔ خنثی: .hero-icon.muted
@@ -104,6 +104,10 @@ ul { list-style: none; }
 .svc-name { flex: 1 1 auto; min-inline-size: 0; font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-snug); }
 .svc-name bdi, .finished-row .n bdi, .tier, .usage-row strong { white-space: nowrap; }
 .svc-head > .icon, .svc-head .icon-btn { color: var(--color-text-muted); }
+/* یک کار در هر لحظه: پینگ تا پایان به‌روزرسانی غیرفعال است، و برعکس */
+.svc-head [disabled] { color: var(--color-text-muted); box-shadow: inset 0 0 0 var(--border-width-control) var(--color-border); cursor: default; }
+.svc-head [disabled] .icon { color: var(--color-icon-disabled); }
+.svc-head .icon-btn[disabled] { box-shadow: none; }
 .svc-summary { margin-top: var(--space-1); padding-bottom: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .svc-summary strong { color: var(--color-text); }
 .svc-summary .warn { color: var(--color-warning); font-weight: var(--font-weight-bold); }
@@ -386,7 +390,7 @@ ul { list-style: none; }
 .tv .report-foot { flex-direction: row; align-items: center; padding: var(--space-3) 0 var(--ring); }
 .tv .report-foot .card { flex: 1; }
 
-/* ۱۸. سربرگ فهرست سرورها: جست‌وجو (فقط گوشی) یا عنوان (تلویزیون)، و «پینگ همه» */
+/* ۱۸. سربرگ فهرست سرورها: جست‌وجو (فقط گوشی) یا عنوان (تلویزیون) */
 .list-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
 .list-head, .svc { scroll-margin-top: var(--space-3); } /* جای نمونه در قاب اسکرول‌شده */
 .list-caption { flex: 1; min-inline-size: 0; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }

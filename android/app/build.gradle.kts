@@ -83,6 +83,10 @@ android {
     sourceSets {
         // Unit tests live under android/tests/ instead of each module's src/test.
         getByName("test").java.setSrcDirs(listOf("../tests/app"))
+        // Shikoo: without the release key the build is `.dev`, the staging app, named apart from the real one.
+        if (!hasReleaseSigning) {
+            getByName("release").res.srcDir("src/staging/res")
+        }
     }
 }
 

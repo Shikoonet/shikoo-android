@@ -65,6 +65,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _check = FocusNode();
   final _scroll = ScrollController();
   (int?, bool, bool)? _shown;
+
+  /// A folded card's ping opened its service: the remote goes to that service's «پینگ».
+  bool _toPing = false;
   final _news = ValueNotifier<ShikooSwitch?>(null);
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _bar;
 
@@ -125,15 +128,34 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
+  Future<void> _pingOther(
+    ShikooController controller,
+    ShikooState state,
+    ShikooService other,
+  ) async {
+    final connected = {
+      ShikooConnection.on,
+      ShikooConnection.connecting,
+    }.contains(state.connection);
+    if (connected && !await confirmPingMove(context, service: other)) return;
+    _toPing = state.isTV;
+    controller.pingService(other.id);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
   /// So the remote never stays on a button that just went away or went dead.
   void _focusFirst(ShikooState state, {required bool linkless}) {
     final service = state.service;
     final shown = (service?.id, restingFor(state) != null, linkless);
     if (!state.isTV || shown == _shown) return;
     _shown = shown;
+    final toPing = _toPing;
+    _toPing = false;
     final first = linkless
         ? _linkless
-        : (service != null ? (shown.$2 ? _card.renew : _power) : _settings);
+        : (service == null
+              ? _settings
+              : (shown.$2 ? _card.renew : (toPing ? _card.ping : _power)));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
         first.requestFocus();
@@ -204,6 +226,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         null => null,
         LinkedService(status: 'exhausted') => l.stateExhausted,
         LinkedService(renews: true) => l.powerExpired,
+        LinkedService(loadFailed: true) => l.loadFailedChip,
         _ => l.noLinkChip,
       },
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
@@ -216,6 +239,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       isTV: state.isTV,
       onOpen: () => _use(controller, other.id),
       onRefresh: () => unawaited(controller.refreshOther(other.id)),
+      onPing: other.ended == null
+          ? () => unawaited(_pingOther(controller, state, other))
+          : null,
     );
     _LinklessCard linkless(LinkedService linked) => _LinklessCard(
       service: linked,
@@ -356,7 +382,7 @@ class _PowerKeys extends StatelessWidget {
 }
 
 /// Toward the power button a card item goes there, or to the item beside it in its row
-/// first; down from renew is ping-all, not the first full-width row (tv-ping.html notes).
+/// first; up and down around the card's head as tv-ping.html's notes say.
 class _CardKeys extends StatelessWidget {
   const _CardKeys({
     required this.focus,
@@ -374,21 +400,27 @@ class _CardKeys extends StatelessWidget {
     final towardPower = rtl
         ? TraversalDirection.left
         : TraversalDirection.right;
+    final away = rtl ? TraversalDirection.right : TraversalDirection.left;
     return Actions(
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
             final from = primaryFocus;
-            final below = switch (from) {
-              _ when intent.direction != TraversalDirection.down => null,
-              final node when node == focus.renew => focus.pingAll,
-              final node when node == focus.refresh => focus.report,
+            final head = from == focus.refresh || from == focus.ping;
+            final next = switch (intent.direction) {
+              TraversalDirection.down when head =>
+                _onScreen(focus.report) ? focus.report : focus.support,
+              TraversalDirection.up
+                  when from == focus.renew || from == focus.support =>
+                _onScreen(focus.report) ? focus.report : focus.ping,
               _ => null,
             };
-            if (_onScreen(below)) {
-              below!.requestFocus();
+            if (_onScreen(next)) {
+              next!.requestFocus();
               return null;
             }
+            // The head ends at «به‌روزرسانی»; geometry would drop to renew below it.
+            if (from == focus.refresh && intent.direction == away) return null;
             if (intent.direction == towardPower &&
                 from != null &&
                 _onScreen(power)) {
@@ -780,6 +812,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
     final l = ShikooL10n.of(context);
     final _LinklessCard(:service, :bot, :isTV) = widget;
     final renews = service.renews;
+    final failed = service.loadFailed && !renews;
     return Container(
       padding: const EdgeInsets.all(Space.s4),
       decoration: ShapeDecoration(
@@ -810,15 +843,15 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                     vertical: Space.s1,
                   ),
                   decoration: ShapeDecoration(
-                    color: t.c.surfaceSunken,
+                    color: failed ? t.c.dangerSoft : t.c.surfaceSunken,
                     shape: const StadiumBorder(),
                   ),
                   child: Text(
-                    l.noLinkChip,
+                    failed ? l.loadFailedChip : l.noLinkChip,
                     style: t.text(
                       t.s.caption,
                       weight: FontWeight.w700,
-                      color: t.c.textMuted,
+                      color: failed ? t.c.danger : t.c.textMuted,
                     ),
                   ),
                 ),
@@ -831,6 +864,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
               ('exhausted', _, true) => l.summaryExhaustedTv,
               (_, true, false) => l.summaryExpiredNoDate,
               (_, true, true) => l.summaryExpiredNoDateTv,
+              _ when failed => l.loadFailedHelp,
               (_, _, false) => l.noLinkHelpTouch,
               (_, _, true) => l.noLinkHelpTv,
             },
@@ -844,34 +878,46 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           Row(
             spacing: Space.s2,
             children: [
-              Expanded(
-                child: ShikooButton(
-                  label: renews
-                      ? l.renew
-                      : (isTV ? l.openBotTv : l.openBotTouch),
-                  icon: isTV
-                      ? ShikooIcon.qr
-                      : (renews ? null : ShikooIcon.plane),
-                  primary: true,
-                  focusNode: widget.focusNode,
-                  onPressed: () => renews
-                      ? openLink(
-                          context,
-                          isTV: isTV,
-                          link: ShikooLinks.renewOne(service.id, bot),
-                          title: l.renewTitle,
-                          help: l.renewHelpDirect,
-                        )
-                      : openLink(
-                          context,
-                          isTV: isTV,
-                          link: ShikooLinks.openBot(bot),
-                          title: l.openBotTitleTv,
-                          help: l.openBotHelpTv,
-                        ),
+              if (failed)
+                Expanded(
+                  child: ShikooButton(
+                    label: l.retry,
+                    icon: ShikooIcon.refresh,
+                    primary: true,
+                    busy: _busy,
+                    focusNode: widget.focusNode,
+                    onPressed: _busy ? () {} : () => unawaited(_retry()),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ShikooButton(
+                    label: renews
+                        ? l.renew
+                        : (isTV ? l.openBotTv : l.openBotTouch),
+                    icon: isTV
+                        ? ShikooIcon.qr
+                        : (renews ? null : ShikooIcon.plane),
+                    primary: true,
+                    focusNode: widget.focusNode,
+                    onPressed: () => renews
+                        ? openLink(
+                            context,
+                            isTV: isTV,
+                            link: ShikooLinks.renewOne(service.id, bot),
+                            title: l.renewTitle,
+                            help: l.renewHelpDirect,
+                          )
+                        : openLink(
+                            context,
+                            isTV: isTV,
+                            link: ShikooLinks.openBot(bot),
+                            title: l.openBotTitleTv,
+                            help: l.openBotHelpTv,
+                          ),
+                  ),
                 ),
-              ),
-              if (renews)
+              if (renews || failed)
                 Expanded(
                   child: ShikooButton(
                     label: l.support,
@@ -887,7 +933,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                   ),
                 ),
               // The phone asks again by itself when it comes back from Telegram.
-              if (isTV)
+              if (isTV && !failed)
                 Expanded(
                   child: ShikooButton(
                     label: l.retry,

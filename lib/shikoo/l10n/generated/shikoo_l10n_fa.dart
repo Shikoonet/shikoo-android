@@ -12,6 +12,9 @@ class ShikooL10nFa extends ShikooL10n {
   String get appTitle => 'شیکونت';
 
   @override
+  String get appTitleTest => 'شیکونت آزمایشی';
+
+  @override
   String get settings => 'تنظیمات';
 
   @override
@@ -69,7 +72,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String jalaliDate(String day, String month, String year) {
-    return '$day $month $year';
+    return '$day $month $year';
   }
 
   @override
@@ -154,7 +157,7 @@ class ShikooL10nFa extends ShikooL10n {
         intl.NumberFormat.decimalPattern(localeName);
     final String countString = countNumberFormat.format(count);
 
-    return '$countString دقیقه پیش';
+    return '$countString دقیقه پیش';
   }
 
   @override
@@ -163,7 +166,7 @@ class ShikooL10nFa extends ShikooL10n {
         intl.NumberFormat.decimalPattern(localeName);
     final String countString = countNumberFormat.format(count);
 
-    return '$countString ساعت پیش';
+    return '$countString ساعت پیش';
   }
 
   @override
@@ -172,7 +175,7 @@ class ShikooL10nFa extends ShikooL10n {
         intl.NumberFormat.decimalPattern(localeName);
     final String countString = countNumberFormat.format(count);
 
-    return '$countString روز پیش';
+    return '$countString روز پیش';
   }
 
   @override
@@ -253,6 +256,9 @@ class ShikooL10nFa extends ShikooL10n {
   String get findingBest => 'در حال یافتن بهترین سرور…';
 
   @override
+  String get autoPick => 'سرور خودکار انتخاب می‌شود';
+
+  @override
   String get connectsToFirst => 'اولین سروری که جواب بدهد، وصل می‌شوی.';
 
   @override
@@ -279,7 +285,25 @@ class ShikooL10nFa extends ShikooL10n {
   String get sortsOnLeave => 'وقتی از فهرست بیرون بروی، مرتب می‌شود';
 
   @override
-  String get pingAll => 'پینگ همه';
+  String get sortsOnPing => 'با «پینگ» مرتب می‌شوند';
+
+  @override
+  String get ping => 'پینگ';
+
+  @override
+  String get pingServers => 'پینگ سرورها';
+
+  @override
+  String pingMoveTitle(String name) {
+    return 'اتصال به «$name» برود؟';
+  }
+
+  @override
+  String get pingMoveBody =>
+      'پینگ فقط برای سرویسی گرفته می‌شود که باز است. با باز شدنِ این سرویس، اتصال هم به آن می‌رود و از حجمِ همین سرویس خرج می‌شود.';
+
+  @override
+  String get pingMoveConfirm => 'انتقال و پینگ';
 
   @override
   String pingProgress(int done, int total) {
@@ -738,6 +762,13 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get noLinkHelpTv =>
       'یک بار از ربات سرویس را باز کن، بعد «دوباره» را بزن.';
+
+  @override
+  String get loadFailedChip => 'باز نشد';
+
+  @override
+  String get loadFailedHelp =>
+      'لینکِ این سرویس هست، ولی سرورهایش الان باز نشد. اینترنت را بررسی کن و «دوباره» را بزن.';
 
   @override
   String get openBotTouch => 'باز کردن ربات';

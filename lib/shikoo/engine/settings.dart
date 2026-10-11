@@ -101,6 +101,14 @@ ServiceTexts shikooServiceTexts(Locale? locale) {
   );
 }
 
+/// The staging app, `com.shikoonet.app.dev`; set once at start. On Sam's phone a code from one
+/// app was typed into the other's bot while both bore the same name.
+bool shikooStaging = false;
+
+extension ShikooAppName on ShikooL10n {
+  String get appName => shikooStaging ? appTitleTest : appTitle;
+}
+
 final shikooVersionProvider = Provider<String>(
   (ref) => globalState.packageInfo.version,
 );

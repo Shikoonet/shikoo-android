@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -101,7 +102,33 @@ class Pressable extends StatefulWidget {
 }
 
 class _PressableState extends State<Pressable> {
-  bool _focused = false;
+  bool _highlight = false;
+
+  /// Its own node only: a TV folded card keeps no ring while the remote is on its «پینگ».
+  bool get _focused =>
+      _highlight && (widget.focusNode?.hasPrimaryFocus ?? true);
+
+  void _changed() => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode?.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(Pressable old) {
+    super.didUpdateWidget(old);
+    if (old.focusNode == widget.focusNode) return;
+    old.focusNode?.removeListener(_changed);
+    widget.focusNode?.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode?.removeListener(_changed);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +140,7 @@ class _PressableState extends State<Pressable> {
       onFocusChange: (focused) {
         if (focused) revealWithRing(context);
       },
-      onShowFocusHighlight: (value) => setState(() => _focused = value),
+      onShowFocusHighlight: (value) => setState(() => _highlight = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
@@ -177,7 +204,7 @@ class Brand extends StatelessWidget {
         BrandMark(size: t.s.mark),
         const SizedBox(width: Space.s2),
         Text(
-          ShikooL10n.of(context).appTitle,
+          ShikooL10n.of(context).appName,
           style: t.text(t.s.title, weight: FontWeight.w800),
         ),
       ],
@@ -361,12 +388,13 @@ class ShikooButton extends StatelessWidget {
         ],
       ),
     );
-    if (!enabled) return face(false);
+    // Greyed out under the remote, it keeps the remote: the ring never vanishes from the screen.
+    if (!enabled && !(focusNode?.hasFocus ?? false)) return face(false);
     return Pressable(
       shape: RoundedSuperellipseBorder(borderRadius: radius),
       autofocus: autofocus,
       focusNode: focusNode,
-      onPressed: onPressed,
+      onPressed: onPressed ?? () {},
       builder: (context, focused) => small
           ? Padding(
               padding: EdgeInsets.symmetric(
@@ -393,7 +421,7 @@ class ShikooIconButton extends StatelessWidget {
 
   final ShikooIcon icon;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Color? color;
   final bool busy;
 
@@ -403,26 +431,39 @@ class ShikooIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final color = this.color ?? t.c.text;
+    final onPressed = this.onPressed;
+    final color = onPressed == null
+        ? t.c.iconDisabled
+        : (this.color ?? t.c.text);
     final ltr = Directionality.of(context) == TextDirection.ltr;
+    Widget face(BuildContext context, bool _) => Semantics(
+      button: true,
+      enabled: onPressed != null,
+      label: label,
+      child: SizedBox.square(
+        dimension: ShikooSizes.touch,
+        child: Center(
+          child: busy
+              ? Spinner(size: t.s.icon, color: color)
+              : Transform.flip(
+                  flipX: flipInLtr && ltr,
+                  child: SvgIcon(icon, size: t.s.icon, color: color),
+                ),
+        ),
+      ),
+    );
+    // Greyed, it still takes its tap: a folded card around it must not open.
+    if (onPressed == null) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: face(context, false),
+      );
+    }
     return Pressable(
       shape: const CircleBorder(),
       onPressed: onPressed,
-      builder: (context, _) => Semantics(
-        button: true,
-        label: label,
-        child: SizedBox.square(
-          dimension: ShikooSizes.touch,
-          child: Center(
-            child: busy
-                ? Spinner(size: t.s.icon, color: color)
-                : Transform.flip(
-                    flipX: flipInLtr && ltr,
-                    child: SvgIcon(icon, size: t.s.icon, color: color),
-                  ),
-          ),
-        ),
-      ),
+      builder: face,
     );
   }
 }
@@ -1070,6 +1111,11 @@ class NowPill extends StatelessWidget {
             const SizedBox(width: Space.s2),
             say(l.noServerAnswered, t.c.text),
           ],
+          ShikooPick.auto => [
+            SvgIcon(ShikooIcon.gauge, size: t.s.iconSm, color: t.c.textMuted),
+            const SizedBox(width: Space.s2),
+            say(l.autoPick, t.c.textMuted),
+          ],
           _ => [
             Spinner(size: t.s.iconSm, color: t.c.textMuted),
             const SizedBox(width: Space.s2),
@@ -1129,7 +1175,8 @@ class _TvScrollColumnState extends State<TvScrollColumn> {
   }
 
   void _onFocusInside(bool inside) {
-    if (inside || !_scroll.hasClients) return;
+    final covered = !(ModalRoute.isCurrentOf(context) ?? true);
+    if (inside || covered || !_scroll.hasClients) return;
     if (MediaQuery.disableAnimationsOf(context)) {
       _scroll.jumpTo(0);
     } else {

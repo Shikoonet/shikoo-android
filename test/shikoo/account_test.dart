@@ -895,6 +895,43 @@ void main() {
       expect(unlinked(), [2], reason: 'kept beside a service that loaded');
     });
 
+    test('a link that did not load is told apart from one the bot has not '
+        'made, also after a restart, until it loads', () async {
+      final h = await _harness();
+      h.api.services = [
+        _service(1, 'gone', url: 'https://sub.4g3.uk/dead'),
+        _service(2, 'botFirst', noUrl: true),
+      ];
+      await _signedIn(h);
+      Map<int, bool> failed(ProviderContainer container) => {
+        for (final s in container.read(shikooAccountProvider).withoutLink)
+          s.id: s.loadFailed,
+      };
+      expect(failed(h.container), {1: true, 2: false});
+
+      final restarted = ProviderContainer(
+        overrides: [
+          shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
+          shikooStateProvider.overrideWithValue(_state),
+          shikooControllerProvider.overrideWithValue(h.controller),
+          profilesProvider.overrideWith(
+            () => TestProfiles(h.container.read(profilesProvider)),
+          ),
+          profilesActionProvider.overrideWith(_Profiles.new),
+        ],
+      );
+      addTearDown(restarted.dispose);
+      await restarted.read(shikooSignInProvider).load();
+      expect(failed(restarted), {1: true, 2: false}, reason: 'offline restart');
+
+      h.api.services = [
+        _service(1, 'gone'),
+        _service(2, 'botFirst', noUrl: true),
+      ];
+      await h.signIn.sync();
+      expect(failed(h.container), {2: false}, reason: '1 loaded this time');
+    });
+
     test(
       'a service whose link the bot has not made yet still counts',
       () async {
