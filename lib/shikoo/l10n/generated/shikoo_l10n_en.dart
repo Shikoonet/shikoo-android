@@ -163,8 +163,8 @@ class ShikooL10nEn extends ShikooL10n {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$countString minutes ago',
-      one: '1 minute ago',
+      other: '$countString minutes ago',
+      one: '1 minute ago',
     );
     return '$_temp0';
   }
@@ -178,8 +178,8 @@ class ShikooL10nEn extends ShikooL10n {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$countString hours ago',
-      one: '1 hour ago',
+      other: '$countString hours ago',
+      one: '1 hour ago',
     );
     return '$_temp0';
   }
@@ -193,8 +193,8 @@ class ShikooL10nEn extends ShikooL10n {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$countString days ago',
-      one: '1 day ago',
+      other: '$countString days ago',
+      one: '1 day ago',
     );
     return '$_temp0';
   }
@@ -289,6 +289,9 @@ class ShikooL10nEn extends ShikooL10n {
   String get findingBest => 'Finding the best server…';
 
   @override
+  String get autoPick => 'The server is picked automatically';
+
+  @override
   String get connectsToFirst =>
       'You\'ll connect to the first server that answers.';
 
@@ -316,7 +319,25 @@ class ShikooL10nEn extends ShikooL10n {
   String get sortsOnLeave => 'Sorts when you leave the list';
 
   @override
-  String get pingAll => 'Ping all';
+  String get sortsOnPing => 'Press “Ping” to sort';
+
+  @override
+  String get ping => 'Ping';
+
+  @override
+  String get pingServers => 'Ping servers';
+
+  @override
+  String pingMoveTitle(String name) {
+    return 'Move the connection to “$name”?';
+  }
+
+  @override
+  String get pingMoveBody =>
+      'Ping works only on the open service. Opening this one also moves your connection to it, and the data comes out of this service.';
+
+  @override
+  String get pingMoveConfirm => 'Move and ping';
 
   @override
   String pingProgress(int done, int total) {
@@ -778,6 +799,13 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get noLinkHelpTv =>
       'Open this service once in the bot, then press “Try again”.';
+
+  @override
+  String get loadFailedChip => 'Didn\'t load';
+
+  @override
+  String get loadFailedHelp =>
+      'This service has a link, but its servers didn\'t load just now. Check your internet and try again.';
 
   @override
   String get openBotTouch => 'Open the bot';

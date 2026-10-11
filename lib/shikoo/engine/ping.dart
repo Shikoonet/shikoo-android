@@ -3,7 +3,6 @@ import 'package:fl_clash/common/task_pool.dart';
 
 /// One at a time let a dead server hold the rest for 8 s; FlClash's 16 gave false timeouts.
 const pingConcurrency = 4;
-const pingEvery = Duration(minutes: 2);
 const refreshEvery = Duration(minutes: 10);
 const renewedEvery = Duration(minutes: 1);
 

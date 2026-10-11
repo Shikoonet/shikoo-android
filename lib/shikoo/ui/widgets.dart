@@ -361,12 +361,13 @@ class ShikooButton extends StatelessWidget {
         ],
       ),
     );
-    if (!enabled) return face(false);
+    // Greyed out under the remote, it keeps the remote: the ring never vanishes from the screen.
+    if (!enabled && !(focusNode?.hasFocus ?? false)) return face(false);
     return Pressable(
       shape: RoundedSuperellipseBorder(borderRadius: radius),
       autofocus: autofocus,
       focusNode: focusNode,
-      onPressed: onPressed,
+      onPressed: onPressed ?? () {},
       builder: (context, focused) => small
           ? Padding(
               padding: EdgeInsets.symmetric(
@@ -393,7 +394,7 @@ class ShikooIconButton extends StatelessWidget {
 
   final ShikooIcon icon;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Color? color;
   final bool busy;
 
@@ -403,26 +404,32 @@ class ShikooIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final color = this.color ?? t.c.text;
+    final onPressed = this.onPressed;
+    final color = onPressed == null
+        ? t.c.iconDisabled
+        : (this.color ?? t.c.text);
     final ltr = Directionality.of(context) == TextDirection.ltr;
+    Widget face(BuildContext context, bool _) => Semantics(
+      button: true,
+      enabled: onPressed != null,
+      label: label,
+      child: SizedBox.square(
+        dimension: ShikooSizes.touch,
+        child: Center(
+          child: busy
+              ? Spinner(size: t.s.icon, color: color)
+              : Transform.flip(
+                  flipX: flipInLtr && ltr,
+                  child: SvgIcon(icon, size: t.s.icon, color: color),
+                ),
+        ),
+      ),
+    );
+    if (onPressed == null) return face(context, false);
     return Pressable(
       shape: const CircleBorder(),
       onPressed: onPressed,
-      builder: (context, _) => Semantics(
-        button: true,
-        label: label,
-        child: SizedBox.square(
-          dimension: ShikooSizes.touch,
-          child: Center(
-            child: busy
-                ? Spinner(size: t.s.icon, color: color)
-                : Transform.flip(
-                    flipX: flipInLtr && ltr,
-                    child: SvgIcon(icon, size: t.s.icon, color: color),
-                  ),
-          ),
-        ),
-      ),
+      builder: face,
     );
   }
 }
@@ -1069,6 +1076,11 @@ class NowPill extends StatelessWidget {
             SvgIcon(ShikooIcon.alert, size: t.s.iconSm, color: t.c.danger),
             const SizedBox(width: Space.s2),
             say(l.noServerAnswered, t.c.text),
+          ],
+          ShikooPick.auto => [
+            SvgIcon(ShikooIcon.gauge, size: t.s.iconSm, color: t.c.textMuted),
+            const SizedBox(width: Space.s2),
+            say(l.autoPick, t.c.textMuted),
           ],
           _ => [
             Spinner(size: t.s.iconSm, color: t.c.textMuted),

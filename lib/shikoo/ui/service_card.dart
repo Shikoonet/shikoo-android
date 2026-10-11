@@ -42,11 +42,11 @@ ShikooServiceStatus? restingFor(ShikooState state) {
   return busy.contains(state.connection) ? null : status;
 }
 
-/// The card nodes the remote is sent to by hand: one per server name, so a row is found
-/// wherever it sits, and the two buttons that geometry alone would skip.
+/// The card nodes the remote is sent to by hand; a row by its server's name, wherever it sits.
 class CardFocus {
   final renew = FocusNode();
-  final pingAll = FocusNode();
+  final support = FocusNode();
+  final ping = FocusNode();
   final refresh = FocusNode();
   final report = FocusNode();
   // ponytail: a removed server's node lives until the page goes; prune if lists churn a lot.
@@ -56,7 +56,8 @@ class CardFocus {
 
   void dispose() {
     renew.dispose();
-    pingAll.dispose();
+    support.dispose();
+    ping.dispose();
     refresh.dispose();
     report.dispose();
     for (final node in _rows.values) {
@@ -115,6 +116,9 @@ class _ServiceCardState extends State<ServiceCard> {
     final notice = state.notice;
     final revoked = service?.revoked ?? false;
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
+    final onPing = service?.ended == null
+        ? () => unawaited(controller.pingAll())
+        : null;
     if (service != null && !_open && !state.isTV) {
       return FoldedServiceCard(
         service: service,
@@ -122,6 +126,12 @@ class _ServiceCardState extends State<ServiceCard> {
         isTV: false,
         onOpen: () => setState(() => _open = true),
         onRefresh: () => unawaited(controller.refreshService()),
+        onPing: onPing == null
+            ? null
+            : () {
+                setState(() => _open = true);
+                onPing();
+              },
       );
     }
     return Container(
@@ -205,8 +215,11 @@ class _ServiceCardState extends State<ServiceCard> {
                     child: _Head(
                       service: service,
                       refreshNode: focus.refresh,
+                      pingNode: focus.ping,
                       refresh: state.refresh,
                       onRefresh: () => unawaited(controller.refreshService()),
+                      onPing: onPing,
+                      pinging: state.pinging,
                       isTV: state.isTV,
                       open: true,
                       onFold: () => setState(() => _open = false),
@@ -301,6 +314,7 @@ class _ServiceCardState extends State<ServiceCard> {
                         child: ShikooButton(
                           label: l.support,
                           icon: state.isTV ? ShikooIcon.qr : null,
+                          focusNode: focus.support,
                           onPressed: () => unawaited(
                             openSupport(
                               context,
@@ -336,8 +350,8 @@ class _ServiceCardState extends State<ServiceCard> {
 }
 
 /// A folded `.card.svc` (phone-home-long, tv-home-long): the head and `.svc-summary`. On the
-/// phone a tap anywhere but the update button opens it; on the TV the whole card is one item.
-class FoldedServiceCard extends StatelessWidget {
+/// phone a tap anywhere but its buttons opens it; on the TV its «پینگ» is a second item.
+class FoldedServiceCard extends StatefulWidget {
   const FoldedServiceCard({
     super.key,
     required this.service,
@@ -345,6 +359,7 @@ class FoldedServiceCard extends StatelessWidget {
     required this.isTV,
     required this.onOpen,
     this.onRefresh,
+    this.onPing,
   });
 
   final ShikooService service;
@@ -352,10 +367,50 @@ class FoldedServiceCard extends StatelessWidget {
   final bool isTV;
   final VoidCallback onOpen;
   final VoidCallback? onRefresh;
+  final VoidCallback? onPing;
+
+  @override
+  State<FoldedServiceCard> createState() => _FoldedServiceCardState();
+}
+
+class _FoldedServiceCardState extends State<FoldedServiceCard> {
+  final _card = FocusNode();
+
+  /// Only the card's own arrow reaches it: from the list above, down is the card.
+  final _ping = FocusNode(skipTraversal: true);
+
+  @override
+  void dispose() {
+    _card.dispose();
+    _ping.dispose();
+    super.dispose();
+  }
+
+  /// The ping sits inside the card's own rect, which geometry never finds from the card.
+  Object? _move(DirectionalFocusIntent intent) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final towardPower = rtl
+        ? TraversalDirection.left
+        : TraversalDirection.right;
+    final away = rtl ? TraversalDirection.right : TraversalDirection.left;
+    if (_card.hasPrimaryFocus &&
+        intent.direction == towardPower &&
+        (_ping.context?.mounted ?? false)) {
+      _ping.requestFocus();
+      return null;
+    }
+    if (_ping.hasPrimaryFocus && intent.direction == away) {
+      _card.requestFocus();
+      return null;
+    }
+    return Actions.maybeInvoke(context, intent);
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
+    final FoldedServiceCard(:service, :refresh, :isTV, :onOpen, :onPing) =
+        widget;
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.lg),
@@ -365,6 +420,13 @@ class FoldedServiceCard extends StatelessWidget {
             spacing: Space.s2,
             children: [
               Expanded(child: _NameLine(service: service)),
+              if (onPing != null)
+                ShikooButton(
+                  label: ShikooL10n.of(context).ping,
+                  icon: ShikooIcon.gauge,
+                  focusNode: _ping,
+                  onPressed: refresh == ShikooRefresh.running ? null : onPing,
+                ),
               SvgIcon(
                 ShikooIcon.chevronDown,
                 size: t.s.icon,
@@ -375,7 +437,8 @@ class FoldedServiceCard extends StatelessWidget {
         : _Head(
             service: service,
             refresh: refresh,
-            onRefresh: onRefresh ?? () {},
+            onRefresh: widget.onRefresh ?? () {},
+            onPing: onPing,
             isTV: false,
             open: false,
             onFold: onOpen,
@@ -403,17 +466,26 @@ class FoldedServiceCard extends StatelessWidget {
         ],
       ),
     );
-    return isTV
-        ? Pressable(
-            shape: shape,
-            onPressed: onOpen,
-            builder: (context, focused) => card(focused),
-          )
-        : GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onOpen,
-            child: card(false),
-          );
+    if (!isTV) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onOpen,
+        child: card(false),
+      );
+    }
+    return Actions(
+      actions: {
+        DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
+          onInvoke: _move,
+        ),
+      },
+      child: Pressable(
+        shape: shape,
+        focusNode: _card,
+        onPressed: onOpen,
+        builder: (context, focused) => card(focused),
+      ),
+    );
   }
 }
 
@@ -441,14 +513,17 @@ String agoText(ShikooL10n l, Duration ago) {
   return l.agoDays(ago.inDays);
 }
 
-/// `.svc-head`: `.svc-line` (name and status), `.svc-sub` (the last update) and the update
-/// button beside both; on the phone that button is an icon alone, then the fold arrow.
+/// `.svc-head`: `.svc-line`, `.svc-sub` (the last update or the ping's count), update and ping
+/// beside them, one at a time; on the phone each an icon alone, then the fold arrow.
 class _Head extends StatelessWidget {
   const _Head({
     required this.service,
     this.refreshNode,
+    this.pingNode,
     required this.refresh,
     required this.onRefresh,
+    this.onPing,
+    this.pinging,
     required this.isTV,
     required this.open,
     required this.onFold,
@@ -456,8 +531,11 @@ class _Head extends StatelessWidget {
 
   final ShikooService service;
   final FocusNode? refreshNode;
+  final FocusNode? pingNode;
   final ShikooRefresh refresh;
   final VoidCallback onRefresh;
+  final VoidCallback? onPing;
+  final ({int done, int total})? pinging;
   final bool isTV;
   final bool open;
   final VoidCallback onFold;
@@ -471,7 +549,9 @@ class _Head extends StatelessWidget {
         ? null
         : DateTime.now().difference(updatedAt);
     final ago = since == null ? null : agoText(l, since);
+    final pinging = this.pinging;
     final sub = switch (refresh) {
+      _ when pinging != null => l.pingProgress(pinging.done, pinging.total),
       _ when service.revoked => l.updateFailed,
       ShikooRefresh.running => l.updating,
       ShikooRefresh.failed when since == null || since.inMinutes < 1 =>
@@ -481,6 +561,10 @@ class _Head extends StatelessWidget {
       _ => null,
     };
     final busy = refresh == ShikooRefresh.running;
+    final measuring = pinging != null;
+    final onRefresh = measuring ? null : (busy ? () {} : this.onRefresh);
+    final onPing = this.onPing;
+    final ping = onPing == null || busy ? null : (measuring ? () {} : onPing);
     return Row(
       children: [
         Expanded(
@@ -499,22 +583,42 @@ class _Head extends StatelessWidget {
           ),
         ),
         const SizedBox(width: Space.s2),
-        if (isTV)
+        if (isTV) ...[
           ShikooButton(
             label: l.refresh,
             icon: ShikooIcon.refresh,
             busy: busy,
             focusNode: refreshNode,
-            onPressed: busy ? () {} : onRefresh,
-          )
-        else ...[
+            onPressed: onRefresh,
+          ),
+          if (onPing != null) ...[
+            const SizedBox(width: Space.s2),
+            ShikooButton(
+              label: l.ping,
+              icon: ShikooIcon.gauge,
+              busy: measuring,
+              focusNode: pingNode,
+              onPressed: ping,
+            ),
+          ],
+        ] else ...[
           ShikooIconButton(
             icon: ShikooIcon.refresh,
             label: l.refreshServers,
             color: t.c.textMuted,
             busy: busy,
-            onPressed: busy ? () {} : onRefresh,
+            onPressed: onRefresh,
           ),
+          if (onPing != null) ...[
+            const SizedBox(width: Space.s2),
+            ShikooIconButton(
+              icon: ShikooIcon.gauge,
+              label: l.pingServers,
+              color: t.c.textMuted,
+              busy: measuring,
+              onPressed: ping,
+            ),
+          ],
           // A bare icon in the mockup; its touch target reaches into the card's end inset.
           Pressable(
             shape: const StadiumBorder(),
@@ -908,7 +1012,6 @@ class _ServerListState extends State<_ServerList> {
       for (final name in kept)
         if (serverMatches(byName[name]!.label, _search.text)) name,
     ];
-    final pinging = state.pinging;
     final muted = t.text(t.s.bodySm, color: t.c.textMuted);
     // Rows slide to a new order, so each takes one height: the row's, or its text's at a large size.
     final extent = math.max(
@@ -926,8 +1029,6 @@ class _ServerListState extends State<_ServerList> {
       padding: const EdgeInsets.all(Space.s2),
       child: Text(text, style: muted),
     );
-    // tv-ping.html: with the remote on ping-all or a row, the list head goes to the top; a
-    // row it would push out of view scrolls back in by itself (Pressable).
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
@@ -945,43 +1046,29 @@ class _ServerListState extends State<_ServerList> {
               Space.s4,
               Space.s2,
             ),
-            child: _ListHead(
-              search: state.isTV
-                  ? Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: l.serversTitle,
-                            style: TextStyle(
-                              fontSize: t.s.body,
-                              fontWeight: FontWeight.w700,
-                              color: t.c.text,
-                            ),
+            child: state.isTV
+                ? Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: l.serversTitle,
+                          style: TextStyle(
+                            fontSize: t.s.body,
+                            fontWeight: FontWeight.w700,
+                            color: t.c.text,
                           ),
-                          TextSpan(
-                            text:
-                                ' · ${listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave}',
-                          ),
-                        ],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: muted,
-                    )
-                  : _SearchField(controller: _search),
-              wrap: !state.isTV,
-              pingAll: ShikooButton(
-                label: pinging == null
-                    ? l.pingAll
-                    : l.pingProgress(pinging.done, pinging.total),
-                icon: ShikooIcon.gauge,
-                busy: pinging != null,
-                focusNode: widget.focus.pingAll,
-                onPressed: pinging == null
-                    ? () => unawaited(widget.controller.pingAll())
-                    : () {},
-              ),
-            ),
+                        ),
+                        TextSpan(
+                          text:
+                              ' · ${!state.sorted ? l.sortsOnPing : (listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave)}',
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: muted,
+                  )
+                : _SearchField(controller: _search),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.s2),
@@ -1030,54 +1117,6 @@ class _ServerListState extends State<_ServerList> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// `.list-head`: at a large text size the phone's search takes its own line, as `flex: 1 1 10em`,
-/// and ping-all goes under it.
-class _ListHead extends StatelessWidget {
-  const _ListHead({
-    required this.search,
-    required this.pingAll,
-    required this.wrap,
-  });
-
-  final Widget search;
-  final Widget pingAll;
-  final bool wrap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    final scaler = MediaQuery.textScalerOf(context);
-    return LayoutBuilder(
-      builder: (context, box) {
-        final label = TextPainter(
-          text: TextSpan(
-            text: ShikooL10n.of(context).pingAll,
-            style: t.text(t.s.body, weight: FontWeight.w700),
-          ),
-          textDirection: Directionality.of(context),
-          textScaler: scaler,
-        )..layout();
-        final ping = label.width + t.s.icon + 3 * Space.s4;
-        label.dispose();
-        if (!wrap || box.maxWidth - ping >= 10 * scaler.scale(t.s.bodySm)) {
-          return Row(
-            spacing: Space.s2,
-            children: [
-              Expanded(child: search),
-              pingAll,
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: Space.s2,
-          children: [search, pingAll],
-        );
-      },
     );
   }
 }

@@ -44,6 +44,7 @@ ShikooState _tv(
   DateTime? updatedAt,
   String? supportUrl,
   String? announce,
+  bool sorted = true,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -64,6 +65,7 @@ ShikooState _tv(
   pinging: pinging,
   refresh: refresh,
   notice: notice,
+  sorted: sorted,
   lastError:
       error ??
       (connection == ShikooConnection.error
@@ -219,19 +221,21 @@ void main() {
       ('تنظیمات', _down, 'power'),
       ('به‌روزرسانی', _up, 'تنظیمات'),
       ('به‌روزرسانی', _down, 'پشتیبانی'),
-      ('به‌روزرسانی', _towardPower, 'power'),
-      ('تمدید', _up, 'به‌روزرسانی'),
-      ('پشتیبانی', _up, 'به‌روزرسانی'),
-      ('تمدید', _down, 'پینگ همه'),
-      ('پشتیبانی', _down, 'پینگ همه'),
+      ('به‌روزرسانی', _towardPower, 'پینگ'),
+      ('به‌روزرسانی', _towardCard, 'به‌روزرسانی'),
+      ('پینگ', _up, 'تنظیمات'),
+      ('پینگ', _down, 'پشتیبانی'),
+      ('پینگ', _towardPower, 'power'),
+      ('پینگ', _towardCard, 'به‌روزرسانی'),
+      ('تمدید', _up, 'پینگ'),
+      ('پشتیبانی', _up, 'پینگ'),
+      ('تمدید', _down, 'آلمان ۲'),
+      ('پشتیبانی', _down, 'آلمان ۲'),
       ('تمدید', _towardPower, 'پشتیبانی'),
       ('پشتیبانی', _towardPower, 'power'),
       ('پشتیبانی', _towardCard, 'تمدید'),
       ('تمدید', _towardCard, 'تمدید'),
-      ('پینگ همه', _up, 'پشتیبانی'),
-      ('پینگ همه', _down, 'آلمان ۲'),
-      ('پینگ همه', _towardPower, 'power'),
-      ('آلمان ۲', _up, 'پینگ همه'),
+      ('آلمان ۲', _up, 'پشتیبانی'),
       ('هلند ۱', _towardPower, 'power'),
     ];
     final wrong = <String>[];
@@ -243,15 +247,24 @@ void main() {
     expect(wrong, isEmpty);
   });
 
-  testWidgets('with no server chosen, the remote goes to the first row', (
-    tester,
-  ) async {
+  testWidgets('with no server chosen, the remote goes to the first row; the '
+      'pill rests, and spins only while connect waits', (tester) async {
     _tvScreen(tester);
-    await _pumpTvHome(
+    final holder = await _pumpTvHome(
       tester,
-      _tv(ShikooConnection.off, selected: null, pick: ShikooPick.finding),
+      _tv(ShikooConnection.off, selected: null, pick: ShikooPick.auto),
     );
     expect(await _press(tester, _towardCard), 'آلمان ۲');
+    expect(find.text('سرور خودکار انتخاب می‌شود'), findsOneWidget);
+    expect(find.byType(Spinner), findsNothing);
+
+    holder.value = _tv(
+      ShikooConnection.connecting,
+      selected: null,
+      pick: ShikooPick.finding,
+      waiting: true,
+    );
+    await tester.pump();
     expect(find.text('در حال یافتن بهترین سرور…'), findsOneWidget);
   });
 
@@ -377,7 +390,7 @@ void main() {
   testWidgets('a refresh that fails puts its message above the card\'s '
       'buttons and leaves the remote on the one it was on', (tester) async {
     final wrong = <String>[];
-    for (final at in ['پشتیبانی', 'تمدید', 'پینگ همه', 'فنلاند ۲']) {
+    for (final at in ['پشتیبانی', 'تمدید', 'پینگ', 'فنلاند ۲']) {
       _tvScreen(tester);
       final holder = await _pumpTvHome(tester, _tv(ShikooConnection.off));
       await _focus(tester, at);
@@ -474,7 +487,7 @@ void main() {
         updatedAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
     );
-    expect(find.text('به‌روز نشد، فهرستِ ۲ روز پیش'), findsOneWidget);
+    expect(find.text('به‌روز نشد، فهرستِ ۲\u00a0روز پیش'), findsOneWidget);
 
     await _pumpTvHome(
       tester,
@@ -512,9 +525,8 @@ void main() {
     },
   );
 
-  testWidgets('on ping-all or a row, the list head goes to the top', (
-    tester,
-  ) async {
+  testWidgets('on a row the list head goes to the top; on the head buttons the '
+      'column does', (tester) async {
     _tvScreen(tester);
     await _pumpTvHome(
       tester,
@@ -529,20 +541,23 @@ void main() {
     double headTop() =>
         tester.getTopLeft(find.textContaining('سریع‌ترین بالا')).dy -
         tester.getTopLeft(column).dy;
+    double cardTop() =>
+        tester.getTopLeft(find.byType(ServiceCard)).dy -
+        tester.getTopLeft(column).dy;
 
-    await _focus(tester, 'پینگ همه');
-    expect(headTop(), lessThan(Space.s4 * 2 + Space.s2));
+    await _focus(tester, 'پشتیبانی');
     expect(await _press(tester, _down), 'سرور 1');
     expect(headTop(), lessThan(Space.s4 * 2 + Space.s2));
 
-    await _focus(tester, 'سرور 12');
-    await _focus(tester, 'به‌روزرسانی');
-    expect(
-      tester.getTopLeft(find.byType(ServiceCard)).dy -
-          tester.getTopLeft(column).dy,
-      Space.s2,
-      reason: 'back on the update button, the column is at its very top',
-    );
+    for (final button in ['پینگ', 'به‌روزرسانی']) {
+      await _focus(tester, 'سرور 12');
+      await _focus(tester, button);
+      expect(
+        cardTop(),
+        Space.s2,
+        reason: 'back on $button, the column is at its very top',
+      );
+    }
   });
 
   testWidgets('the update names what changed', (tester) async {
@@ -606,7 +621,7 @@ void main() {
     );
     expect(find.text('Valid until Oct 26, 2026'), findsOneWidget);
     await _pumpTvHome(tester, _tv(ShikooConnection.off, expire: expire));
-    expect(find.text('اعتبار تا ۴ آبان ۱۴۰۵'), findsOneWidget);
+    expect(find.text('اعتبار تا ۴\u00a0آبان\u00a0۱۴۰۵'), findsOneWidget);
   });
 
   testWidgets('renew and support show a QR for the phone; Back closes it', (
@@ -640,9 +655,11 @@ void main() {
     await _press(tester, _ok);
     expect(qr(), ShikooLinks.support, reason: 'the panel sends a bare t.me');
     expect(
-      find.text(bidiName('user123 · الماس'), findRichText: true),
+      find.textContaining('er123\u2069 ·\u00A0\u2068الماس', findRichText: true),
       findsNWidgets(2),
-      reason: 'the card and the line under the QR',
+      reason:
+          'the card, its name cut to fit the test font, and the line under '
+          'the QR',
     );
     expect(await _press(tester, _ok), 'پشتیبانی', reason: 'Close');
 

@@ -348,6 +348,11 @@ void main() {
               ?.findAncestorWidgetOfExactType<ServiceCard>(),
           isNotNull,
         );
+        expect(
+          await _press(tester, LogicalKeyboardKey.arrowUp),
+          l.ping,
+          reason: "up from renew is the service card's own head first",
+        );
         await _press(tester, LogicalKeyboardKey.arrowUp);
         expect(_inCard(), isTrue);
       });

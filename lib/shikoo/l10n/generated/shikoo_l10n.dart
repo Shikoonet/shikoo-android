@@ -329,19 +329,19 @@ abstract class ShikooL10n {
   /// No description provided for @agoMinutes.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 minute ago} other{{count} minutes ago}}'**
+  /// **'{count, plural, =1{1 minute ago} other{{count} minutes ago}}'**
   String agoMinutes(int count);
 
   /// No description provided for @agoHours.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 hour ago} other{{count} hours ago}}'**
+  /// **'{count, plural, =1{1 hour ago} other{{count} hours ago}}'**
   String agoHours(int count);
 
   /// No description provided for @agoDays.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 day ago} other{{count} days ago}}'**
+  /// **'{count, plural, =1{1 day ago} other{{count} days ago}}'**
   String agoDays(int count);
 
   /// No description provided for @updateFailedTitle.
@@ -428,11 +428,17 @@ abstract class ShikooL10n {
   /// **'Still on “{name}”. Try another server.'**
   String switchKept(String name);
 
-  /// No description provided for @findingBest.
+  /// Under the round button only while a connect is waiting for the first server to answer; never at rest.
   ///
   /// In en, this message translates to:
   /// **'Finding the best server…'**
   String get findingBest;
+
+  /// Under the round button while no server is chosen yet. Still, no spinner: nothing runs until Connect or Ping.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is picked automatically'**
+  String get autoPick;
 
   /// No description provided for @connectsToFirst.
   ///
@@ -482,11 +488,41 @@ abstract class ShikooL10n {
   /// **'Sorts when you leave the list'**
   String get sortsOnLeave;
 
-  /// No description provided for @pingAll.
+  /// TV list caption before this service has been pinged.
   ///
   /// In en, this message translates to:
-  /// **'Ping all'**
-  String get pingAll;
+  /// **'Press “Ping” to sort'**
+  String get sortsOnPing;
+
+  /// TV button beside “Update” in every active service card, open or folded.
+  ///
+  /// In en, this message translates to:
+  /// **'Ping'**
+  String get ping;
+
+  /// Accessibility label of the icon-only ping button on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Ping servers'**
+  String get pingServers;
+
+  /// No description provided for @pingMoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move the connection to “{name}”?'**
+  String pingMoveTitle(String name);
+
+  /// Asked only when connected and Ping is pressed on a folded service.
+  ///
+  /// In en, this message translates to:
+  /// **'Ping works only on the open service. Opening this one also moves your connection to it, and the data comes out of this service.'**
+  String get pingMoveBody;
+
+  /// No description provided for @pingMoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Move and ping'**
+  String get pingMoveConfirm;
 
   /// No description provided for @pingProgress.
   ///
@@ -1267,6 +1303,18 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Open this service once in the bot, then press “Try again”.'**
   String get noLinkHelpTv;
+
+  /// A service the panel gave a link for, whose servers could not be fetched. Not the same as noLinkChip: the bot cannot help here.
+  ///
+  /// In en, this message translates to:
+  /// **'Didn\'t load'**
+  String get loadFailedChip;
+
+  /// No description provided for @loadFailedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'This service has a link, but its servers didn\'t load just now. Check your internet and try again.'**
+  String get loadFailedHelp;
 
   /// No description provided for @openBotTouch.
   ///
