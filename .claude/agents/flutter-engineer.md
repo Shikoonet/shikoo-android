@@ -24,7 +24,8 @@ skills: [agent-ground-rules, ponytail:ponytail]
 
 ## قواعد
 
-- **User-Agent فلکلش عوض نمی‌شود،** چون پنل قالب اشتراک را از روی آن انتخاب می‌کند.
+- **User-Agent همیشه با `FlClash/v…` شروع می‌شود،** چون PasarGuard قالب اشتراک را از روی شروع آن انتخاب می‌کند.
+  نشان `ShikooNet/<version>` در آخرش مجاز است (Sam، ۲۰۲۶-۱۰-۱۱).
 - افزودن پروفایل از راه همان مسیر خود FlClash است (`addProfileFormURL` در `lib/providers/actions/profiles.dart`)، با برچسب نام سرویس.
   FlClash هدر `profile-title` را نمی‌خواند و اسم پروفایل را عدد می‌گذارد. حجم و انقضا را از `subscription-userinfo` می‌خواند.
 - **تم:** همهٔ رنگ‌ها، فونت‌ها و گردی‌ها از یک `ThemeExtension` می‌آیند، ساخته‌شده از توکن‌های `design/tokens.css`.
