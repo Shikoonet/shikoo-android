@@ -130,8 +130,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     });
   }
 
-  /// The controller updates the subscription and pings when the app comes back; Android TV
-  /// apps are resumed far more often than started.
+  /// The controller updates the subscription when the app comes back; Android TV apps are
+  /// resumed far more often than started.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_attached) return;

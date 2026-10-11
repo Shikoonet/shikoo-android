@@ -294,13 +294,28 @@ void main() {
     unawaited(controller.connect());
     await pumpEventQueue();
     expect(setup.runs, isEmpty, reason: 'no tunnel before a server answered');
-    expect(container.read(shikooStateProvider).waiting, isTrue);
+    var state = container.read(shikooStateProvider);
+    expect(state.waiting, isTrue);
+    expect(state.pick, ShikooPick.finding);
+    expect(state.pinging, isNull, reason: "connect's probe is not a ping");
+    expect(
+      state.servers.where((s) => s.testing),
+      isEmpty,
+      reason: 'no spinner',
+    );
 
     netherlands.complete();
     await pumpEventQueue();
     expect(proxies.picked, ['هلند ۱'], reason: 'the first that answered');
     expect(setup.runs, [true]);
     verifyNever(() => core.asyncTestDelay(any(), _version));
+    state = container.read(shikooStateProvider);
+    expect(
+      [for (final s in state.servers) (s.name, s.ping)],
+      [('آلمان ۱', null), ('هلند ۱', 90)],
+      reason: 'only the winner has a number, and the panel order stays',
+    );
+    expect(state.sorted, isFalse);
 
     // Stops the tunnel wait, which no native service would ever end here.
     await controller.disconnect();
@@ -933,17 +948,18 @@ void main() {
     await controller.selectServer('هلند ۱');
     expect(probes, isEmpty, reason: 'off, a tap only chooses');
 
-    pings['هلند ۱'] = 226;
     setup.tunnel = DateTime(2026);
     await controller.connect();
     await pumpEventQueue();
     final state = container.read(shikooStateProvider);
     expect(state.connection, ShikooConnection.on);
     expect(probes, ['هلند ۱'], reason: 'connected: the selected server alone');
-    expect(state.selectedServer?.ping, 226);
-    expect(order().take(2), ['آلمان ۱', 'هلند ۱']);
+    expect(state.selectedServer?.ping, 10);
+    expect(order().take(2), [
+      'آلمان ۱',
+      'هلند ۱',
+    ], reason: 'faster now, yet its row stays until a ping');
 
-    pings['هلند ۱'] = 10;
     await controller.pingAll();
     expect(order().take(2), ['هلند ۱', 'آلمان ۱']);
     await controller.disconnect();
@@ -1555,6 +1571,37 @@ void main() {
     expect(state.selected, 'آلمان ۱', reason: "the customer's own stays");
     expect(state.selectedServer?.ping, -1, reason: 'with its warning');
     expect(state.connection, ShikooConnection.on);
+  });
+
+  test("connect's probe that answers after a switch picks nothing for the new "
+      'service, whose servers share its names', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final first = Completer<void>();
+    final second = Completer<void>();
+    var calls = 0;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (name != 'هلند ۱') return Delay(name: name, url: '', value: -1);
+      await (++calls == 1 ? first : second).future;
+      return Delay(name: name, url: '', value: 90);
+    });
+    final controller = container.read(shikooControllerProvider);
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    final other = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(other);
+    controller.selectService(other.id);
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).waiting, isTrue);
+
+    first.complete();
+    await pumpEventQueue();
+    expect(proxies.picked, isEmpty, reason: "the first service's answer");
+
+    second.complete();
+    await pumpEventQueue();
+    expect(proxies.picked, ['هلند ۱'], reason: 'its own probe');
+    await controller.disconnect();
   });
 
   test("a round that ends after a switch writes nothing on the new service's "

@@ -102,7 +102,33 @@ class Pressable extends StatefulWidget {
 }
 
 class _PressableState extends State<Pressable> {
-  bool _focused = false;
+  bool _highlight = false;
+
+  /// Its own node only: a TV folded card keeps no ring while the remote is on its «پینگ».
+  bool get _focused =>
+      _highlight && (widget.focusNode?.hasPrimaryFocus ?? true);
+
+  void _changed() => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode?.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(Pressable old) {
+    super.didUpdateWidget(old);
+    if (old.focusNode == widget.focusNode) return;
+    old.focusNode?.removeListener(_changed);
+    widget.focusNode?.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode?.removeListener(_changed);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +140,7 @@ class _PressableState extends State<Pressable> {
       onFocusChange: (focused) {
         if (focused) revealWithRing(context);
       },
-      onShowFocusHighlight: (value) => setState(() => _focused = value),
+      onShowFocusHighlight: (value) => setState(() => _highlight = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {

@@ -1920,6 +1920,12 @@ void main() {
         .first;
     Focus.of(tester.element(card)).requestFocus();
     await tester.pumpAndSettle();
+    final rings = find.descendant(
+      of: find.byType(FoldedServiceCard),
+      matching: find.byWidgetPredicate(
+        (w) => w is Positioned && w.child is IgnorePointer,
+      ),
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
     expect(focused(), 'پینگ');
@@ -1928,6 +1934,7 @@ void main() {
           ?.findAncestorWidgetOfExactType<FoldedServiceCard>(),
       isNotNull,
     );
+    expect(rings, findsOneWidget, reason: 'its ping alone, not the card too');
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(focused(), 'انصراف');
