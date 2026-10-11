@@ -1793,9 +1793,9 @@ void main() {
     expect(probes, isEmpty, reason: 'after an update');
   });
 
-  test('an update that takes the selected server away: from the last ping when '
-      'there is one; with none, off, the pill rests and nothing is pinged; '
-      "connected, a probe like connect's takes the first answer", () async {
+  test('an update that takes the selected server away pings that service once '
+      'and names the fastest of this round, not of an older one; connected, '
+      'the first answer takes the traffic and is then checked', () async {
     for (final mode in ['pinged', 'off', 'connected']) {
       final (:container, :core, :proxies, :setup) = _home();
       final panel = await _panel(container, core);
@@ -1807,11 +1807,24 @@ void main() {
                 .single
                 .copyWith(url: '$panel/none/a'),
           );
+      Group group(List<String> names) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final name in names) Proxy(name: name, type: 'Vless'),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']),
+      ];
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90, 'ترکیه ۱': 60};
       final probes = <String>[];
       when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
         final name = call.positionalArguments[1] as String;
         probes.add(name);
-        return Delay(name: name, url: '', value: name == 'هلند ۱' ? 90 : 50);
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
       });
       final controller = container.read(shikooControllerProvider);
       if (mode == 'pinged') {
@@ -1826,48 +1839,39 @@ void main() {
       }
       expect(container.read(shikooStateProvider).selected, 'آلمان ۱');
       probes.clear();
+      pings['هلند ۱'] = 30;
       setup.onApply = () => container.read(groupsProvider.notifier).value = [
-        const Group(
-          type: GroupType.Selector,
-          name: 'PROXY',
-          hidden: false,
-          all: [
-            Proxy(name: _version, type: 'Vless'),
-            Proxy(name: 'هلند ۱', type: 'Vless'),
-          ],
-        ),
+        group(['هلند ۱', 'ترکیه ۱']),
       ];
       await controller.refreshService();
       await pumpEventQueue();
       final state = container.read(shikooStateProvider);
-      switch (mode) {
-        case 'pinged':
-          expect(probes, isEmpty, reason: mode);
-          expect(state.selected, 'هلند ۱', reason: mode);
-          expect(
-            state.notice,
-            isA<SelectedReplaced>().having((n) => n.fastest, 'fastest', true),
-          );
-        case 'off':
-          expect(probes, isEmpty, reason: mode);
-          expect(state.selected, isNull, reason: mode);
-          expect(state.pick, ShikooPick.auto, reason: mode);
-          expect(
-            state.notice,
-            isA<ServersChanged>().having((n) => n.removed, 'removed', [
-              'آلمان ۱',
-            ]),
-          );
-        case 'connected':
-          expect(probes, ['هلند ۱'], reason: 'never row 1');
-          expect(state.selected, 'هلند ۱', reason: mode);
-          expect(state.connection, ShikooConnection.on);
-          expect(
-            state.notice,
-            isA<SelectedReplaced>()
-                .having((n) => n.fastest, 'fastest', false)
-                .having((n) => n.moved, 'moved', true),
-          );
+      expect(state.selected, 'هلند ۱', reason: "$mode: this round's fastest");
+      expect(probes.toSet(), {
+        'هلند ۱',
+        'ترکیه ۱',
+      }, reason: '$mode: one round, never row 1');
+      expect(state.sorted, isTrue, reason: mode);
+      if (mode == 'connected') {
+        expect(state.connection, ShikooConnection.on);
+        expect(
+          probes.where((name) => name == 'هلند ۱'),
+          hasLength(2),
+          reason: 'the round, then the check of the new server',
+        );
+        expect(
+          state.notice,
+          isA<SelectedReplaced>()
+              .having((n) => n.fastest, 'fastest', false)
+              .having((n) => n.moved, 'moved', true),
+        );
+      } else {
+        expect(
+          state.notice,
+          isA<SelectedReplaced>()
+              .having((n) => n.fastest, 'fastest', true)
+              .having((n) => n.moved, 'moved', false),
+        );
       }
     }
   });
@@ -2286,5 +2290,249 @@ void main() {
       ],
       [1, 2, 3],
     );
+  });
+
+  test('a connect still searching goes on when a ping opens another service '
+      'that has its own server: it connects with that one', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    var hold = Completer<void>()..complete();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      await hold.future;
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    final first = container.read(currentProfileIdProvider)!;
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(second);
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
+    controller.selectService(first);
+    await pumpEventQueue();
+
+    hold = Completer<void>();
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    controller.pingService(second.id);
+    await pumpEventQueue();
+    hold.complete();
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(setup.runs, [true], reason: 'not stuck on connecting');
+    expect(state.selected, 'هلند ۱', reason: "the second service's own");
+    expect(state.sorted, isTrue, reason: 'and the ping it was asked for');
+    await controller.disconnect();
+  });
+
+  test('a search the tunnel started after an update ends when another '
+      'service with its own server opens', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    container
+        .read(profilesProvider.notifier)
+        .put(
+          container
+              .read(profilesProvider)
+              .single
+              .copyWith(url: '$panel/none/a'),
+        );
+    var hold = Completer<void>()..complete();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      await hold.future;
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    final first = container.read(currentProfileIdProvider)!;
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(second);
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
+    controller.selectService(first);
+    await pumpEventQueue();
+    await controller.selectServer('آلمان ۱');
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+
+    hold = Completer<void>();
+    setup.onApply = () => container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: _version, type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    await controller.refreshService();
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).waiting, isTrue);
+    controller.pingService(second.id);
+    await pumpEventQueue();
+    hold.complete();
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(state.waiting, isFalse);
+    expect(state.connection, ShikooConnection.on);
+    expect(state.selected, 'هلند ۱');
+  });
+
+  test('a check of the selected server that answers after a switch writes '
+      "nothing on the new service's server of the same name, and starts no "
+      'round there', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    var record = false;
+    final gate = Completer<void>();
+    final after = <String>[];
+    var calls = 0;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (!record) {
+        return Delay(name: name, url: '', value: name == 'هلند ۱' ? 40 : 90);
+      }
+      if (++calls == 1) {
+        await gate.future;
+        return Delay(name: name, url: '', value: -1);
+      }
+      if (calls > 2) after.add(name);
+      return Delay(name: name, url: '', value: 777);
+    });
+    final controller = container.read(shikooControllerProvider);
+    final first = container.read(currentProfileIdProvider)!;
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(second);
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    await controller.pingAll();
+    expect(container.read(shikooStateProvider).selected, 'هلند ۱');
+    controller.selectService(first);
+    await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
+    setup.tunnel = DateTime(2026);
+    record = true;
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    gate.complete();
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(state.selected, 'هلند ۱');
+    expect(state.selectedServer?.ping, isNot(-1), reason: 'not the first one');
+    expect(after, isEmpty, reason: 'no round the customer did not ask for');
+    await controller.disconnect();
+  });
+
+  test('an update that changes the list during a ping keeps the answers of '
+      'the servers still in it', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    container
+        .read(profilesProvider.notifier)
+        .put(
+          container
+              .read(profilesProvider)
+              .single
+              .copyWith(url: '$panel/none/a'),
+        );
+    final gate = Completer<void>();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      await gate.future;
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    final round = controller.pingAll();
+    await pumpEventQueue();
+    setup.onApply = () => container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: _version, type: 'Vless'),
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+          Proxy(name: 'ترکیه ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    await controller.refreshService();
+    gate.complete();
+    await round;
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(state.pick, isNot(ShikooPick.none), reason: 'both answered');
+    expect(
+      {for (final s in state.servers) s.name: s.ping},
+      {'آلمان ۱': 50, 'هلند ۱': 50, 'ترکیه ۱': null},
+    );
+    expect(state.selected, 'آلمان ۱');
+  });
+
+  test("another service stops the old round's servers still queued", () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          for (var i = 1; i <= 6; i++) Proxy(name: 'سرور $i', type: 'Vless'),
+        ],
+      ),
+    ];
+    final gate = Completer<void>();
+    var calls = 0;
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      calls++;
+      await gate.future;
+      return Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      );
+    });
+    final controller = container.read(shikooControllerProvider);
+    final round = controller.pingAll();
+    await pumpEventQueue();
+    expect(calls, 4);
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    container.read(profilesProvider.notifier).put(second);
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    gate.complete();
+    await round;
+    await pumpEventQueue();
+    expect(calls, 4, reason: 'only those already under way');
+  });
+
+  test('a folded card whose ping opened nothing yet leaves no ping behind for '
+      'the service tapped next', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    final third = Profile.normal(url: 'https://panel.invalid/third');
+    container.read(profilesProvider.notifier)
+      ..put(second)
+      ..put(third);
+    controller
+      ..pingService(second.id)
+      ..selectService(third.id);
+    await pumpEventQueue();
+    expect(container.read(currentProfileIdProvider), third.id);
+    expect(probes, isEmpty);
   });
 }

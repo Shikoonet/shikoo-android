@@ -1849,6 +1849,23 @@ void main() {
     verifyNever(() => controller.pingAll());
   });
 
+  testWidgets('the card in use folded during its ping keeps update greyed and '
+      'shows the count', (tester) async {
+    final controller = _Controller();
+    when(controller.refreshService).thenAnswer((_) async {});
+    await _pump(
+      tester,
+      _withOther(ShikooConnection.off, pinging: (done: 4, total: 9)),
+      controller: controller,
+    );
+    await tester.tap(_icon(ShikooIcon.chevronUp));
+    await tester.pumpAndSettle();
+    expect(find.byType(FoldedServiceCard), findsNWidgets(2));
+    expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('به‌روزرسانی سرورها').first);
+    verifyNever(controller.refreshService);
+  });
+
   testWidgets("a folded card's ping opens it and pings at once when off; "
       'connected, it asks first, and «انصراف» does nothing', (tester) async {
     for (final connection in [ShikooConnection.off, ShikooConnection.on]) {
@@ -1935,12 +1952,36 @@ void main() {
       isNotNull,
     );
     expect(rings, findsOneWidget, reason: 'its ping alone, not the card too');
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    expect(focused(), 'انصراف');
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(focused(), 'پینگ', reason: 'Back is «انصراف», on the same ping');
+    final column = tester
+        .state<ScrollableState>(
+          find
+              .ancestor(
+                of: find.byType(ServiceCard),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    final scrolled = column.pixels;
+    expect(scrolled, greaterThan(0), reason: 'the folded card is low');
+    bool onFoldedPing() =>
+        focused() == 'پینگ' &&
+        FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<FoldedServiceCard>() !=
+            null;
+    for (final close in ['back', 'cancel']) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(focused(), 'انصراف');
+      expect(column.pixels, scrolled, reason: 'the column stays behind it');
+      if (close == 'back') {
+        await tester.binding.handlePopRoute();
+      } else {
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      }
+      await tester.pumpAndSettle();
+      expect(onFoldedPing(), isTrue, reason: '$close: on the same ping');
+    }
     verifyNever(() => controller.pingService(any()));
 
     await tester.sendKeyEvent(LogicalKeyboardKey.select);

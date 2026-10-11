@@ -727,10 +727,12 @@ class ShikooController {
 
   /// Bumped by every round and by a switch of service, whose round's answers go unread.
   int _roundNo = 0;
-  bool _inRound = false;
+  bool _pinging = false;
   bool _roundList = false;
 
   bool _again = false;
+
+  bool _checkNext = false;
 
   /// This round's answers: only these choose while it runs.
   final _heard = <String>{};
@@ -782,17 +784,12 @@ class ShikooController {
   void _nativeStart(DateTime? start) =>
       _ref.read(_nativeStartProvider.notifier).set(start);
 
-  bool get _pinging => _inRound;
-
   bool get _running =>
       _ref.read(runTimeProvider) != null ||
       _ref.read(_nativeStartProvider) != null;
 
   void _notice(ShikooNotice? notice) =>
       _ref.read(_noticeProvider.notifier).set(notice);
-
-  String get _listKey =>
-      '${_ref.read(currentProfileIdProvider)}\n${_sorted(_names(_group))}';
 
   /// News leaves with the app or the next update; a failed update stays until one succeeds.
   void clearNews() {
@@ -853,17 +850,18 @@ class ShikooController {
     if (_validSelection() == null && (_running || waiting)) {
       return _find(list: ping);
     }
+    final start = waiting && !_running;
+    if (waiting) start ? unawaited(_start()) : _set(const _Intent());
     if (ping) return unawaited(pingAll());
-    if (waiting && !_running) return unawaited(_start());
-    if (waiting) _set(const _Intent());
-    if (_running) unawaited(_checkSelected());
+    if (!start && _running) unawaited(_checkSelected());
   }
 
   /// Another service's servers may share these names: no number or order carries over.
   void _forgetRound() {
     _roundNo++;
-    _inRound = false;
+    _pinging = false;
     _again = false;
+    _checkNext = false;
     _heard.clear();
     _ref.read(_roundProvider.notifier).set(_noRound);
     _ref.read(_pingsProvider.notifier).set(const {});
@@ -1051,6 +1049,7 @@ class ShikooController {
     // changeProxy writes the selection before it awaits, so a second call sees it.
     unawaited(_choose(best));
     if (removed != null) {
+      _checkNext |= running;
       _notice(
         SelectedReplaced(
           removed: removed,
@@ -1072,8 +1071,7 @@ class ShikooController {
     }
     if (group == null || names.isEmpty || _staleGroups) return;
     final no = ++_roundNo;
-    final key = _listKey;
-    _inRound = true;
+    _pinging = true;
     _roundList = list;
     _heard.clear();
     final round = _ref.read(_roundProvider.notifier);
@@ -1082,7 +1080,7 @@ class ShikooController {
     }
     final url = _testUrl(group);
     try {
-      await pingServers(names, (name) => _probe(url, name), (name, ms) {
+      await pingServers(names, (name) => _probeFor(no, url, name), (name, ms) {
         if (no != _roundNo) return;
         if (!list) {
           final first =
@@ -1096,16 +1094,16 @@ class ShikooController {
           }
           return;
         }
-        final gone = key != _listKey;
+        final kept = _names(_group).contains(name);
         _heard.add(name);
-        if (!gone) _setPing(name, ms);
+        if (kept) _setPing(name, ms);
         final now = _ref.read(_roundProvider);
         round.set((
           pending: {...now.pending}..remove(name),
           total: now.total,
           ended: false,
         ));
-        if (gone || ms <= 0) return;
+        if (!kept || ms <= 0) return;
         if (_ref.read(_intentProvider).error == ShikooError.noServer) {
           _set(const _Intent());
         }
@@ -1117,7 +1115,7 @@ class ShikooController {
   }
 
   void _endRound(bool list) {
-    _inRound = false;
+    _pinging = false;
     if (list) {
       _sort();
       _ref.read(_roundProvider.notifier).set((
@@ -1135,6 +1133,8 @@ class ShikooController {
     } else if (list) {
       unawaited(_replaceSilentPick());
       _reconcile();
+      if (_checkNext) unawaited(_checkSelected());
+      _checkNext = false;
     }
   }
 
@@ -1151,8 +1151,12 @@ class ShikooController {
     final chosen = _validSelection();
     if (group == null || chosen == null || _pinging) return;
     final url = _testUrl(group);
-    await pingServers([chosen], (name) => _probe(url, name), _setPing);
-    if (chosen == _appPick &&
+    final no = _roundNo;
+    await pingServers([chosen], (name) => _probeFor(no, url, name), (name, ms) {
+      if (no == _roundNo) _setPing(name, ms);
+    });
+    if (no == _roundNo &&
+        chosen == _appPick &&
         chosen == _validSelection() &&
         (_ping(chosen) ?? 0) < 0) {
       unawaited(pingAll());
@@ -1180,6 +1184,9 @@ class ShikooController {
     unawaited(_choose(best));
     _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
   }
+
+  Future<int?> _probeFor(int no, String url, String name) async =>
+      no == _roundNo ? _probe(url, name) : null;
 
   /// WireGuard pings can fail while it carries traffic, so real traffic decides for the selection.
   Future<int?> _probe(String url, String name) async {
@@ -1419,10 +1426,10 @@ class ShikooController {
         when removed.contains(shift.to) || removed.contains(shift.from)) {
       _endSwitch();
     }
-    if (had != null &&
-        removed.contains(had) &&
-        (_running || fastest(after, _ping) != null)) {
+    if (had != null && removed.contains(had)) {
+      // One fresh round names the replacement; connected, its first answer takes the traffic.
       _removed = had;
+      _running ? _find(list: true) : unawaited(pingAll());
     } else if (added.isNotEmpty || removed.isNotEmpty) {
       _notice(ServersChanged(added: added.length, removed: removed));
     }

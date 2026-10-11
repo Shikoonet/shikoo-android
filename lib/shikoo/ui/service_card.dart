@@ -126,6 +126,7 @@ class _ServiceCardState extends State<ServiceCard> {
         isTV: false,
         onOpen: () => setState(() => _open = true),
         onRefresh: () => unawaited(controller.refreshService()),
+        pinging: state.pinging,
         onPing: onPing == null
             ? null
             : () {
@@ -360,6 +361,7 @@ class FoldedServiceCard extends StatefulWidget {
     required this.onOpen,
     this.onRefresh,
     this.onPing,
+    this.pinging,
   });
 
   final ShikooService service;
@@ -367,6 +369,7 @@ class FoldedServiceCard extends StatefulWidget {
   final bool isTV;
   final VoidCallback onOpen;
   final VoidCallback? onRefresh;
+  final ({int done, int total})? pinging;
   final VoidCallback? onPing;
 
   @override
@@ -439,6 +442,7 @@ class _FoldedServiceCardState extends State<FoldedServiceCard> {
             refresh: refresh,
             onRefresh: widget.onRefresh ?? () {},
             onPing: onPing,
+            pinging: widget.pinging,
             isTV: false,
             open: false,
             onFold: onOpen,
