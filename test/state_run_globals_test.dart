@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/providers/app.dart';
@@ -8,7 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod/riverpod.dart';
 
 final _packageInfo = PackageInfo(
-  appName: 'FlClash',
+  appName: 'ShikooNet',
   packageName: 'com.follow.clash',
   version: '1.2.3',
   buildNumber: '1',
@@ -44,7 +46,14 @@ void main() {
       setGlobalUa('');
 
       expect(globalState.ua, _packageInfo.ua);
-      expect(globalState.ua, contains('FlClash/v1.2.3'));
+    });
+
+    test('keeps the FlClash start panels match on and ends with ShikooNet', () {
+      expect(
+        _packageInfo.ua,
+        'FlClash/v1.2.3 clash-verge Platform/${Platform.operatingSystem} '
+        'ShikooNet/1.2.3',
+      );
     });
 
     test('prefers the configured global user agent', () {
