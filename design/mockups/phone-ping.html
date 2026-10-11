@@ -55,7 +55,7 @@
             <header class="svc-head">
               <div class="svc-titles">
                 <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-                <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
               </div>
               <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
               <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -90,7 +90,7 @@
     </div>
     <p class="note">کنار نام سرویس دو دکمه است. چرخان سرورها و نشانی‌های تازه را می‌گیرد (به‌روزرسانی). عقربه از همهٔ سرورهای همین سرویس پینگ می‌گیرد و بعد فهرست را از سریع به کند مرتب می‌کند. زیر نام، زمان آخرین به‌روزرسانی است.</p>
     <p class="note">اپ خودش پینگ نمی‌گیرد: نه با باز شدن، نه با برگشتن به اپ، نه با رفتن به سرویس دیگر، نه بعد از به‌روزرسانی. پیش از اولین پینگ، فهرست به ترتیب پنل است و هیچ عددی ندارد؛ زیر دکمهٔ گرد هم سرورِ انتخاب‌شده بی‌عدد است. عددِ همان یک سرور بعد از وصل شدن می‌آید.</p>
-    <p class="note">عددها تا پینگِ بعدیِ همان سرویس، یا تا بسته شدنِ کاملِ اپ، می‌مانند. سروری که به‌روزرسانی تازه آورده عدد ندارد و تا پینگِ بعدی ته فهرست است، کنار بی‌پاسخ‌ها، به ترتیب پنل.</p>
+    <p class="note">عددها تا پینگِ بعدیِ همان سرویس، یا تا بسته شدنِ کاملِ اپ، می‌مانند، بی‌زمان: جای آرامی کنار فهرست برایش نیست، و ترتیبِ سریع به کند چند ساعت بعد هم به کار می‌آید؛ یک بار زدنِ عقربه تازه‌اش می‌کند. سروری که به‌روزرسانی تازه آورده عدد ندارد و تا پینگِ بعدی ته فهرست است، کنار بی‌پاسخ‌ها، به ترتیب پنل.</p>
     <p class="note">بالای فهرست فقط جست‌وجو است. دکمهٔ «پینگ همه» برداشته شد، چون همان کار عقربه را می‌کرد: یک کار، یک دکمه، همیشه در سربرگ سرویس، چه کارت باز باشد چه جمع.</p>
     <p class="note"><b>پیشنهاد</b>کشیدن صفحه به پایین هم همین به‌روزرسانی را می‌کند، مثل بیشتر اپ‌های اندروید.</p>
 </figure>
@@ -214,7 +214,8 @@
     <p class="note">با «اتصال»، اپ همان لحظه سرورها را می‌سنجد و به اولین سروری که جواب بدهد وصل می‌شود (قاب بعدی). با عقربه، بعد از پینگ سریع‌ترین سرور انتخاب می‌شود و قرص نامش را می‌گیرد. زدنِ یک ردیف هم همان را انتخاب می‌کند.</p>
     <p class="note">همین قرص وقتی هم می‌آید که به‌روزرسانی سرورِ انتخاب‌شده را حذف کند و از پینگِ قبلی عددی در دست نباشد. اگر عدد باشد، سریع‌ترینِ زنده جایش انتخاب می‌شود (قاب «سرورهای تازه و حذف‌شده»). اگر در همان لحظه وصل باشی، اپ مثل «اتصال» می‌سنجد و اتصال به اولین جواب می‌رود.</p>
     <p class="note">رفتن به سرویس دیگر پینگ نمی‌گیرد. اگر آن سرویس قبلاً سروری داشته، همان انتخاب می‌ماند؛ اگر نه، همین قرص.</p>
-    <p class="note"><b>پیشنهاد</b>سروری که خودِ کاربر برگزیده و بعد از وصل شدن جواب نمی‌دهد، پیامی دو جمله‌ای می‌گیرد. اولی ««فنلاند ۲» جواب نداد.» و دومی بسته به حال اتصال: اگر قطع است «سریع‌ترین سرور، «آلمان ۲»، جایش انتخاب شد.» و اگر وصل است «اتصال همان لحظه به سریع‌ترین سرور، «آلمان ۲»، رفت.» اگر عددی در دست نیست، «سریع‌ترین» نمی‌آید و اپ مثل «اتصال» می‌سنجد.</p>
+    <p class="note">سروری که خودِ مشتری برگزیده هرگز خودکار عوض نمی‌شود: اگر بعد از وصل شدن جواب ندهد، «وصل» می‌ماند و زیر قرص می‌آید ««آمریکا ۱» جواب نمی‌دهد. سرور دیگری را از فهرست انتخاب کن.» (قاب آخر تلویزیون؛ گوشی همان را زیر قرص دارد).</p>
+    <p class="note"><b>پیشنهاد</b>سروری که خودِ اپ برگزیده جایش عوض می‌شود: اگر بعد از وصل شدن جواب ندهد، اپ یک بار همین سرویس را پینگ می‌گیرد، فهرست مرتب می‌شود و اتصال به سریع‌ترین می‌رود. پیامش دو جمله است: ««فنلاند ۲» جواب نداد.» و «اتصال همان لحظه به سریع‌ترین سرور، «آلمان ۲»، رفت.» این تنها پینگی است که اپ خودش می‌گیرد. اگر عقربهٔ مشتری در حالت قطع نشان دهد انتخابِ اپ بی‌پاسخ است، جمله دوم «سریع‌ترین سرور، «آلمان ۲»، جایش انتخاب شد.» است.</p>
     <p class="note">اپ هرگز ردیف اول را کورکورانه برنمی‌دارد: در اشتراک واقعی ردیف اول ردیف نسخه است، نه سرور. اپ خودش سرور را صریح انتخاب می‌کند و نمی‌گذارد موتور حدس بزند.</p>
     <p class="note"><b>پیشنهاد</b>ردیف‌هایی که سرور نیستند، مثل ردیف نسخه و «قبل از اتصال به‌روزرسانی کنید» که پنل برای اپ‌های عمومی می‌فرستد، در فهرست نمی‌آیند. اگر پنل حرفی برای مشتری دارد، جایش خط اطلاعیهٔ کارت است. این‌که اپ آن‌ها را چطور بشناسد، با برنامه‌نویس و پنل است.</p>
 </figure>
@@ -306,7 +307,7 @@
             <header class="svc-head">
               <div class="svc-titles">
                 <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-                <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
+                <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
               </div>
               <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
               <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -481,7 +482,7 @@
         <header class="svc-head">
           <div class="svc-titles">
             <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
           </div>
           <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
           <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -511,12 +512,12 @@
         <header class="svc-head">
           <div class="svc-titles">
             <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2><span class="chip chip-positive">فعال</span></div>
-            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
           </div>
           <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
           <svg class="icon"><use href="#i-chevron-down"/></svg>
         </header>
-        <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+        <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا   </p>
       </article>
       <article class="card svc">
         <header class="svc-head">
@@ -527,7 +528,7 @@
           <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-spin"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها" disabled><svg class="icon"><use href="#i-gauge"/></svg></button>
           <svg class="icon"><use href="#i-chevron-down"/></svg>
         </header>
-        <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+        <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا   </p>
       </article>
     </div>
     <p class="note">از بالا: کارت باز پیش از پینگ، در حال پینگ، در حال به‌روزرسانی؛ کارت جمع‌شده، و همان در حال به‌روزرسانی.</p>
@@ -553,12 +554,12 @@
         <header class="svc-head">
           <div class="svc-titles">
             <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2><span class="chip chip-positive">فعال</span></div>
-            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
           </div>
           <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
           <svg class="icon"><use href="#i-chevron-down"/></svg>
         </header>
-        <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+        <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا   </p>
       </article>
     </div>
     <p class="note">باریک‌ترین حالت: ۳۴۳ نقطه پهنا و قلم ۱٫۴۵. دو دکمه و فلش ثابت‌اند و نام و زیرنویس در جای باقی‌مانده چند خط می‌شوند؛ چیزی بریده نمی‌شود. هدف لمس هر دکمه ۴۸ است.</p>
@@ -645,7 +646,7 @@
               <header class="svc-head">
                 <div class="svc-titles">
                   <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
                 </div>
                 <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
                 <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -678,12 +679,12 @@
               <header class="svc-head">
                 <div class="svc-titles">
                   <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2><span class="chip chip-positive">فعال</span></div>
-                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
                 </div>
                 <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
                 <svg class="icon"><use href="#i-chevron-down"/></svg>
               </header>
-              <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+              <p class="svc-summary">مصرف شده: ۱۲ از ۵۰ گیگ · اعتبار تا   </p>
             </article>
           </div>
         </div>
@@ -706,7 +707,7 @@
   </figure>
 
   <figure class="shot">
-    <figcaption>وصل · بعد از «انتقال و پینگ»</figcaption>
+    <figcaption>وصل · بعد از «انتقال و پینگ» · اولین جواب وصل شد</figcaption>
     <div class="phone" data-frame="phone-ping-other-moved">
       <div class="statusbar"><span>۱۲:۴۰</span><svg><use href="#sb"/></svg></div>
       <div class="appbar">
@@ -714,16 +715,15 @@
         <button class="icon-btn" type="button" aria-label="تنظیمات"><svg class="icon"><use href="#i-gear"/></svg></button>
       </div>
       <div class="home">
-        <section class="power-zone is-connecting">
+        <section class="power-zone is-on">
           <div class="power-ring">
-            <svg class="arc" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="48" pathLength="100"/><circle class="head" cx="50" cy="50" r="48" pathLength="100" stroke-dasharray="28 72"/></svg>
             <button class="power" type="button">
               <svg class="icon"><use href="#i-power"/></svg>
-              <span class="power-label">در حال اتصال…</span>
-              <span class="power-sub">برای لغو بزن</span>
+              <span class="power-label">وصل</span>
+              <span class="timer">۰۰:۰۰:۰۴</span>
             </button>
           </div>
-          <span class="now is-finding"><svg class="icon"><use href="#i-spin"/></svg>در حال یافتن بهترین سرور…</span>
+          <span class="now"><svg class="flag"><use href="#f-nl"/></svg>هلند ۱<span class="ping">۷۹</span></span>
         </section>
         <article class="card svc">
           <header class="svc-head">
@@ -747,9 +747,9 @@
             <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>جست‌وجوی سرور</span></div>
           </div>
           <ul class="servers">
-            <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۱</span><span class="ping is-pending" aria-label="در حال سنجش"><svg class="icon"><use href="#i-spin"/></svg></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۱</span><span class="ping">۹۱</span><svg class="icon tick"><use href="#i-check"/></svg></li>
             <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲</span><span class="ping is-pending" aria-label="در حال سنجش"><svg class="icon"><use href="#i-spin"/></svg></span><svg class="icon tick"><use href="#i-check"/></svg></li>
-            <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping is-pending" aria-label="در حال سنجش"><svg class="icon"><use href="#i-spin"/></svg></span><svg class="icon tick"><use href="#i-check"/></svg></li>
+            <li class="server is-selected"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱</span><span class="ping">۷۹</span><svg class="icon tick"><use href="#i-check"/></svg></li>
             <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۲</span><span class="ping is-pending" aria-label="در حال سنجش"><svg class="icon"><use href="#i-spin"/></svg></span><svg class="icon tick"><use href="#i-check"/></svg></li>
             <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱</span><span class="ping is-pending" aria-label="در حال سنجش"><svg class="icon"><use href="#i-spin"/></svg></span><svg class="icon tick"><use href="#i-check"/></svg></li>
             <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۱</span><span class="ping is-pending" aria-label="در حال سنجش"><svg class="icon"><use href="#i-spin"/></svg></span><svg class="icon tick"><use href="#i-check"/></svg></li>
@@ -759,10 +759,10 @@
       </div>
       <div class="gesture"></div>
     </div>
-    <p class="note">سرویسِ تازه بالا باز است و پینگش شروع شده. این سرویس روی این گوشی هنوز سروری نداشت، پس اتصال تا اولین جوابِ همین پینگ «در حال اتصال…» است و به همان وصل می‌شود؛ بقیهٔ جواب‌ها فقط فهرست را مرتب می‌کنند. همان پینگ دو کار را با هم می‌کند و سرورها دو بار سنجیده نمی‌شوند.</p>
-    <p class="note">اگر این سرویس قبلاً سروری داشت، اتصال همان لحظه به آن می‌رود و دکمهٔ گرد «وصل» می‌ماند؛ قرص نام آن سرور را دارد و تا جوابِ پینگش می‌چرخد. اگر آن سرور بی‌پاسخ شد، همان پیامِ «جواب نداد» می‌آید و اتصال به سریع‌ترینِ همین پینگ می‌رود.</p>
-    <p class="note">زدنِ دکمهٔ گرد در این مدت مثل همیشه لغو می‌کند؛ پینگ ادامه می‌یابد و فقط فهرست را مرتب می‌کند. اگر هیچ سروری جواب نداد، قاب «هیچ سروری جواب نداد».</p>
-  </figure>
+    <p class="note">سرویسِ تازه بالا باز است و پینگش در جریان است. این سرویس روی این گوشی هنوز سروری نداشت، پس تا اولین جوابِ همین پینگ دکمهٔ گرد «در حال اتصال…» بود و قرص «در حال یافتن بهترین سرور…»؛ اولین جواب، «هلند ۱»، اتصال را گرفت. بقیهٔ جواب‌ها فقط فهرست را مرتب می‌کنند، پس سرورها دو بار سنجیده نمی‌شوند.</p>
+    <p class="note">زمان‌سنج از نو شروع شده، چون اتصال با اشتراکِ دیگری است. اگر این سرویس قبلاً سروری داشت، اتصال همان لحظه به آن می‌رفت و «وصل» هیچ لحظه نمی‌رفت؛ قرص تا جوابِ همین پینگ می‌چرخید. اگر آن سرور جواب نمی‌داد، همان قاعدهٔ همیشه: انتخابِ خودِ مشتری می‌ماند و پیامِ «جواب نمی‌دهد» می‌آید؛ انتخابِ اپ به سریع‌ترینِ همین پینگ می‌رود.</p>
+    <p class="note">فهرست تا پایانِ پینگ به ترتیب پنل می‌ماند و بعد مرتب می‌شود، با همان قاعدهٔ انگشتِ روی فهرست. اگر هیچ سروری جواب نداد، قاب «هیچ سروری جواب نداد».</p>
+</figure>
 
   <figure class="shot">
     <figcaption>جست‌وجو · فقط گوشی</figcaption>
@@ -788,7 +788,7 @@
             <header class="svc-head">
               <div class="svc-titles">
                 <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-                <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+                <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
               </div>
               <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
               <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -910,7 +910,7 @@
             <header class="svc-head">
               <div class="svc-titles">
                 <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-                <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
+                <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
               </div>
               <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
               <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -1024,7 +1024,7 @@
         <header class="svc-head">
           <div class="svc-titles">
             <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
+            <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
           </div>
           <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
           <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -1054,7 +1054,7 @@
         <header class="svc-head">
           <div class="svc-titles">
             <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-            <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
+            <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
           </div>
           <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
           <svg class="icon"><use href="#i-chevron-up"/></svg>
@@ -1064,7 +1064,7 @@
         <header class="svc-head">
           <div class="svc-titles">
             <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-            <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
+            <p class="svc-sub">به‌روز نشد، فهرستِ ۲ روز پیش</p>
           </div>
           <button class="icon-btn" type="button" aria-label="به‌روزرسانی سرورها"><svg class="icon"><use href="#i-refresh"/></svg></button><button class="icon-btn" type="button" aria-label="پینگ سرورها"><svg class="icon"><use href="#i-gauge"/></svg></button>
           <svg class="icon"><use href="#i-chevron-up"/></svg>

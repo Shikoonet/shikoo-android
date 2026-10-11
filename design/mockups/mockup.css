@@ -105,7 +105,8 @@ ul { list-style: none; }
 .svc-name bdi, .finished-row .n bdi, .tier, .usage-row strong { white-space: nowrap; }
 .svc-head > .icon, .svc-head .icon-btn { color: var(--color-text-muted); }
 /* یک کار در هر لحظه: پینگ تا پایان به‌روزرسانی غیرفعال است، و برعکس */
-.svc-head [disabled] { color: var(--color-icon-disabled); box-shadow: inset 0 0 0 var(--border-width-control) var(--color-border); cursor: default; }
+.svc-head [disabled] { color: var(--color-text-muted); box-shadow: inset 0 0 0 var(--border-width-control) var(--color-border); cursor: default; }
+.svc-head [disabled] .icon { color: var(--color-icon-disabled); }
 .svc-head .icon-btn[disabled] { box-shadow: none; }
 .svc-summary { margin-top: var(--space-1); padding-bottom: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .svc-summary strong { color: var(--color-text); }
