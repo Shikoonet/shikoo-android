@@ -452,7 +452,14 @@ class ShikooIconButton extends StatelessWidget {
         ),
       ),
     );
-    if (onPressed == null) return face(context, false);
+    // Greyed, it still takes its tap: a folded card around it must not open.
+    if (onPressed == null) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: face(context, false),
+      );
+    }
     return Pressable(
       shape: const CircleBorder(),
       onPressed: onPressed,

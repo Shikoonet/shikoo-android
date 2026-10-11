@@ -1863,7 +1863,13 @@ void main() {
     expect(find.byType(FoldedServiceCard), findsNWidgets(2));
     expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('به‌روزرسانی سرورها').first);
+    await tester.pumpAndSettle();
     verifyNever(controller.refreshService);
+    expect(
+      find.byType(FoldedServiceCard),
+      findsNWidgets(2),
+      reason: 'a greyed button opens no card',
+    );
   });
 
   testWidgets("a folded card's ping opens it and pings at once when off; "

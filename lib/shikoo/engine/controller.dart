@@ -1155,8 +1155,7 @@ class ShikooController {
     await pingServers([chosen], (name) => _probeFor(no, url, name), (name, ms) {
       if (no == _roundNo) _setPing(name, ms);
     });
-    if (no == _roundNo &&
-        chosen == _appPick &&
+    if (chosen == _appPick &&
         chosen == _validSelection() &&
         (_ping(chosen) ?? 0) < 0) {
       unawaited(pingAll());
