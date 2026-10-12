@@ -602,11 +602,7 @@ class ServiceName extends StatelessWidget {
           shown = '${user.substring(0, lo)}…$tail';
         }
         final text = [shown, ...rest].join(' · ');
-        return Text(
-          rest.isEmpty ? text : bidiName(text),
-          textAlign: textAlign,
-          style: style,
-        );
+        return Text(bidiName(text), textAlign: textAlign, style: style);
       },
     );
   }

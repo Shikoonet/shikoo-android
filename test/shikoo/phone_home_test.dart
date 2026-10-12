@@ -1583,7 +1583,7 @@ void main() {
     );
     expect(find.text('به‌روز نشد'), findsNWidgets(2));
     expect(find.textContaining('پیش'), findsNothing);
-    expect(find.text('سرویس شیکونت'), findsOneWidget);
+    expect(find.text(bidiName('سرویس شیکونت')), findsOneWidget);
   });
 
   testWidgets('a second nameless service reads «سرویس شیکونت ۲»', (
@@ -1661,6 +1661,7 @@ void main() {
           usedBytes: 1,
           totalBytes: 100,
         ),
+        ShikooService(id: 4, name: '7000123_2', usedBytes: 1, totalBytes: 100),
       ],
     );
     for (final locale in ['fa', 'en']) {
@@ -1689,6 +1690,12 @@ void main() {
         left('user123', 'u') > left('user123', 'ا'),
         rtl,
         reason: '$locale: a mixed name, the username first too',
+      );
+      expect(
+        left('7000123_2', '7') < left('7000123_2', '_') &&
+            left('7000123_2', '_') < left('7000123_2', '2', 1),
+        isTrue,
+        reason: '$locale: a pasted name without a tier keeps its order',
       );
     }
   });
