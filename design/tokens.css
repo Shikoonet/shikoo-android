@@ -47,6 +47,8 @@
   --color-selected-bar:   var(--color-positive);        /* نوار لبهٔ همان ردیف؛ ۵٫۳:۱ روی پس‌زمینه‌اش */
   --color-focus-ring:     light-dark(#1A1B19, #FFFFFF); /* حلقهٔ فوکوس تلویزیون؛ مستقل از رنگ برند */
   --color-focus-bg:       light-dark(#FFFFFF, #343A37); /* سطحِ ردیف یا دکمهٔ دورخط‌دارِ فوکوس‌دار */
+  --color-in-use:         var(--color-positive);        /* «در حال استفاده»: سرویسی که اتصال رویش است */
+  --color-in-use-idle:    var(--color-outline);         /* همان وقتی قطعی: سرویسی که دکمهٔ گرد وصلش می‌کند */
 
   /* ── رنگ: وضعیت ── */
   --color-positive:       light-dark(#117036, #3DD47A); /* وصل، فعال، پینگ خوب */
@@ -131,7 +133,10 @@
   --size-dialog: 340px;        /* پنجرهٔ تأیید */
   --size-hero-icon: 64px;      /* دایرهٔ تیک یا ضربدرِ صفحهٔ نتیجه */
   --size-radio: 20px;          /* دایرهٔ گزینه در فهرست «روش اتصال» */
-  --border-width-radio: 2px;
+  --border-width-radio: 2px;   /* لبهٔ دایرهٔ گزینه و مربع تیک */
+  --size-checkbox: 20px;       /* مربع تیکِ «کدام سرویس‌ها روی این گوشی باشد؟» */
+  --radius-checkbox: 4px;
+  --name-shrink-min: 0.75;     /* نام سرویس اگر در جایش جا نشد تا این اندازه ریز می‌شود، بعد از وسط کوتاه */
   --size-switch-w: 52px;       /* کلید روشن و خاموش */
   --size-switch-h: 32px;
   --size-switch-thumb: 24px;

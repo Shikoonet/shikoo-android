@@ -74,11 +74,52 @@ function mockScroll(view) {
   if (thumb) thumb.hidden = content.offsetHeight <= seen;
   if (thumb) Object.assign(thumb.style, { top: `${pad / 2 + (y * seen) / content.offsetHeight}px`, blockSize: `${(seen * seen) / content.offsetHeight}px` });
 }
+// نام سرویس در جای ثابتش (تصمیم ۲۰ مهر): حداکثر data-lines خط (پیش‌فرض ۲؛ می‌شکند فقط پیش از «·»).
+// اگر جا نشد، قلم پله‌پله تا --name-shrink-min ریز می‌شود؛ بعد نام کاربری (bdi) از وسط کوتاه می‌شود و پنج حرف
+// آخرش می‌ماند؛ و اگر باز جا نشد، رده (.tier) از ته «…» می‌گیرد. همان الگوریتمی که اپ با TextPainter دارد.
+function fitName(el) {
+  const user = el.querySelector('bdi');
+  const tier = el.querySelector('.tier');
+  for (const part of [user, tier]) if (part) part.textContent = part.dataset.full ??= part.textContent;
+  el.style.fontSize = '';
+  const base = parseFloat(getComputedStyle(el).fontSize);
+  const min = parseFloat(getComputedStyle(el).getPropertyValue('--name-shrink-min'));
+  const lines = Number(el.closest('[data-lines]')?.dataset.lines ?? 2);
+  const fits = () => el.scrollWidth <= el.clientWidth + 0.5 &&
+    Math.round(el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight)) <= lines;
+  for (let k = 1; k >= min - 0.001; k -= 0.05) {
+    el.style.fontSize = `${base * k}px`;
+    if (fits()) return;
+  }
+  const shorten = (part, ok, make, most) => {
+    const full = [...(part?.dataset.full ?? '')];
+    if (!part || ok() || most(full) < 1) return;
+    let lo = 0, hi = most(full);
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      part.textContent = make(full, mid);
+      ok() ? (lo = mid) : (hi = mid - 1);
+    }
+    part.textContent = make(full, lo);
+  };
+  // نام کاربری اول فقط تا جایی کوتاه می‌شود که خودش در یک خط جا شود؛ بقیه را رده می‌پردازد، که اگر حتی یک حرفش
+  // جا نشد کلاً می‌رود؛ در نامِ یک‌خطی، اگر باز جا نشد، نام کاربری باز هم کوتاه می‌شود.
+  const middle = (f, n) => `${f.slice(0, n).join('')}…${f.slice(-5).join('')}`;
+  shorten(user, () => user.getBoundingClientRect().width <= el.clientWidth + 0.5, middle, (f) => f.length - 6);
+  shorten(tier, fits, (f, n) => (n > 2 ? `${f.slice(0, n).join('')}…` : ''), (f) => f.length - 1);
+  if (user && !fits()) user.textContent = user.dataset.full;
+  shorten(user, fits, middle, (f) => f.length - 6);
+}
+const layoutAll = () => {
+  document.querySelectorAll('.svc-name').forEach(fitName);
+  scrollAll();
+};
+
 const scrollAll = () => document.querySelectorAll('[data-scroll-to]').forEach(mockScroll);
 
 document.addEventListener('DOMContentLoaded', () => {
   document.body.insertAdjacentHTML('afterbegin', SPRITE);
   document.querySelectorAll('svg.qr').forEach(drawQr);
 });
-window.addEventListener('load', () => document.fonts.ready.then(scrollAll));
-document.fonts.addEventListener('loadingdone', scrollAll);
+window.addEventListener('load', () => document.fonts.ready.then(layoutAll));
+document.fonts.addEventListener('loadingdone', layoutAll);
