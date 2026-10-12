@@ -1381,6 +1381,11 @@ void main() {
       'Norway 🦄': TextDirection.ltr,
       'Ireland ♡': TextDirection.ltr,
       'Poland 1': TextDirection.ltr,
+      '۲ Poland': TextDirection.ltr,
+      '٢ Poland': TextDirection.ltr,
+      '#۱ Poland': TextDirection.ltr,
+      '\u200FPoland 3': TextDirection.rtl,
+      '\u200Eهلند ۲': TextDirection.ltr,
       'سوئد ۳ Pro': TextDirection.rtl,
       '🔥 هلند ۱': TextDirection.rtl,
       'قبل از اتصال به‌روزرسانی کنید': TextDirection.rtl,
@@ -1402,6 +1407,7 @@ void main() {
           ],
           selected: mixed,
         );
+    final wrong = <String>[];
     for (final (locale, start) in [
       ('fa', TextAlign.right),
       ('en', TextAlign.left),
@@ -1409,13 +1415,15 @@ void main() {
       await _pump(tester, phone(), locale: locale);
       for (final MapEntry(key: name, value: direction) in names.entries) {
         final shown = tester.widgetList<Text>(find.text(name.trim()));
-        expect(shown, isNotEmpty, reason: name);
+        if (shown.isEmpty) wrong.add('$locale $name: not shown');
         for (final text in shown) {
-          expect(text.textDirection, direction, reason: '$locale $name');
-          expect(text.textAlign, start, reason: '$locale $name');
+          if (text.textDirection != direction || text.textAlign != start) {
+            wrong.add('$locale $name: ${text.textDirection} ${text.textAlign}');
+          }
         }
       }
     }
+    expect(wrong, isEmpty);
 
     await _pump(tester, phone(connection: ShikooConnection.on));
     expect(

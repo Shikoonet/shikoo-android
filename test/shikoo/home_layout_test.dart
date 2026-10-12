@@ -578,7 +578,26 @@ void main() {
       find.textContaining('«${bidiName('آمریکا ۲')}» دیگر در اشتراکت نیست.'),
       findsOneWidget,
     );
-    expect(find.textContaining('همان لحظه'), findsOneWidget);
+    final nl = bidiName('هلند ۱');
+    expect(find.textContaining('سرور، «$nl»، رفت.'), findsOneWidget);
+
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.on,
+        selected: 'هلند ۱',
+        notice: const SelectedReplaced(
+          removed: '🇺🇸 آمریکا ۲',
+          replacement: '🇳🇱 هلند ۱',
+          moved: true,
+          fastest: false,
+        ),
+      ),
+    );
+    expect(
+      find.textContaining('اتصال همان لحظه به «$nl» رفت.'),
+      findsOneWidget,
+    );
 
     await _pumpTvHome(
       tester,

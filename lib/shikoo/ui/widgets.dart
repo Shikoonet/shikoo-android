@@ -32,14 +32,15 @@ String localNumber(BuildContext context, num value, [String pattern = '0']) =>
     ).format(value);
 
 final _opensRtl = RegExp(
-  r'^\P{L}*[\p{Script=Arabic}\p{Script=Hebrew}]',
+  r'^[^\p{L}\u200E\u200F]*(?:\u200F|(?=\p{L})[\p{Script=Arabic}\p{Script=Hebrew}])',
   unicode: true,
 );
 
 /// A name from the subscription takes its first letter's direction, as Telegram and Happ show
-/// it: `NL 3 x ضریب مصرف` reads from the left, `آلمان ۲` stays whole in the English layout. It
-/// still lines up with the UI's start edge. [prose] counts words instead, so a Persian notice
-/// that opens with `V3.9.8` stays right to left.
+/// it: `NL 3 x ضریب مصرف` reads from the left, `آلمان ۲` stays whole in the English layout. A
+/// leading digit does not decide, even a Persian one; a leading RLM or LRM does. It still
+/// lines up with the UI's start edge. [prose] counts words instead, so a Persian notice that
+/// opens with `V3.9.8` stays right to left.
 Text nameText(
   BuildContext context,
   String name,
