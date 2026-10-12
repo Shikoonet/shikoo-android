@@ -434,18 +434,19 @@ ul { list-style: none; }
   content: ""; position: absolute; inset-block: var(--space-4); inset-inline-start: 0;
   inline-size: var(--size-selected-bar); border-radius: var(--radius-full); background: var(--color-in-use);
 }
-.svc.is-in-use.is-idle::before { background: var(--color-in-use-idle); }
 .overline { display: block; font-size: var(--text-caption); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); color: var(--color-in-use); }
-.is-idle .overline { color: var(--color-text-muted); }
 .svc-mark {
   flex: none; inline-size: calc(var(--size-icon) + var(--space-2)); block-size: calc(var(--size-icon) + var(--space-2));
   display: grid; place-items: center; border-radius: 50%; background: var(--color-positive-soft); color: var(--color-in-use);
 }
 .svc-mark .icon { --size-icon: var(--size-icon-sm); stroke-width: var(--icon-stroke-strong); }
-.svc-mark.is-idle { background: var(--color-surface-sunken); color: var(--color-text-muted); }
 .svc-line > .svc-mark { margin-inline-end: calc(var(--space-2) * -1 + var(--space-1)); }
 /* کارت بازِ سرویسی که اتصال رویش نیست: یک خط بالای فهرست؛ بعد از رسیدن اتصال، .positive */
 .notice.hint { scroll-margin-top: var(--space-3); }
+/* راهنما و خطی که جایش می‌آید یک جعبه دارند، به بلندیِ بلندترشان، تا هیچ ردیفی نپرد */
+.swap { display: grid; }
+.swap > * { grid-area: 1 / 1; }
+.swap > [aria-hidden="true"] { visibility: hidden; }
 .notice.hint .icon { color: var(--color-text-muted); }
 .notice.hint.positive .icon, .notice.hint.positive span { color: var(--color-positive); }
 /* نوار پایینِ گوشی برای جابه‌جایی سرور: رنگ متن روی پس‌زمینه، مثل اپ */
