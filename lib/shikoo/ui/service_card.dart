@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
-import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -738,23 +737,23 @@ class _Message extends StatelessWidget {
         :final fastest,
       ) =>
         (
-          l.selectedRemoved(withoutFlags(removed)),
+          l.selectedRemoved(serverName(removed)),
           !fastest
-              ? l.selectedMovedFirst(withoutFlags(replacement))
+              ? l.selectedMovedFirst(serverName(replacement))
               : moved
-              ? l.selectedMoved(withoutFlags(replacement))
-              : l.selectedReplaced(withoutFlags(replacement)),
+              ? l.selectedMoved(serverName(replacement))
+              : l.selectedReplaced(serverName(replacement)),
         ),
       SilentReplaced(:final silent, :final replacement, :final moved) => (
-        l.selectedNoAnswer(withoutFlags(silent)),
+        l.selectedNoAnswer(serverName(silent)),
         moved
-            ? l.selectedMoved(withoutFlags(replacement))
-            : l.selectedReplaced(withoutFlags(replacement)),
+            ? l.selectedMoved(serverName(replacement))
+            : l.selectedReplaced(serverName(replacement)),
       ),
       ServersChanged(:final added, :final removed) => (
         [
           if (added > 0) l.serversAdded(added),
-          if (removed.length == 1) l.serverRemoved(withoutFlags(removed.first)),
+          if (removed.length == 1) l.serverRemoved(serverName(removed.first)),
           if (removed.length > 1) l.serversRemoved(removed.length),
         ].join(' '),
         '',
@@ -962,6 +961,7 @@ class _Notice extends StatelessWidget {
               text,
               t.text(t.s.bodySm, height: Leading.snug),
               maxLines: null,
+              prose: true,
             ),
           ),
         ],

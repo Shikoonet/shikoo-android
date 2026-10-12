@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -30,19 +31,29 @@ String localNumber(BuildContext context, num value, [String pattern = '0']) =>
       Localizations.localeOf(context).languageCode,
     ).format(value);
 
-/// A name from the subscription keeps its own script's direction, so `آلمان ۲` stays whole in
-/// the English layout, while it still lines up with the UI's start edge.
+final _opensRtl = RegExp(
+  r'^[^\p{L}\u200E\u200F]*(?:\u200F|(?=\p{L})[\p{Script=Arabic}\p{Script=Hebrew}])',
+  unicode: true,
+);
+
+/// A name from the subscription takes its first letter's direction, as Telegram and Happ show
+/// it: `NL 3 x ضریب مصرف` reads from the left, `آلمان ۲` stays whole in the English layout. A
+/// leading digit does not decide, even a Persian one; a leading RLM or LRM does. It still
+/// lines up with the UI's start edge. [prose] counts words instead, so a Persian notice that
+/// opens with `V3.9.8` stays right to left.
 Text nameText(
   BuildContext context,
   String name,
   TextStyle style, {
   int? maxLines = 1,
+  bool prose = false,
 }) => Text(
   name,
   maxLines: maxLines,
   overflow: maxLines == null ? null : TextOverflow.ellipsis,
   style: style,
-  textDirection: Bidi.detectRtlDirectionality(name)
+  textDirection:
+      (prose ? Bidi.detectRtlDirectionality(name) : _opensRtl.hasMatch(name))
       ? TextDirection.rtl
       : TextDirection.ltr,
   textAlign: Directionality.of(context) == TextDirection.rtl
@@ -547,6 +558,9 @@ String bidiName(String name) => name
     .map((part) => '\u2068${part.replaceAll(' ', '\u00A0')}\u2069')
     .join(' ·\u00A0');
 
+/// A server's name inside a sentence, which it neither scrambles nor is scrambled by.
+String serverName(String name) => bidiName(withoutFlags(name));
+
 /// `.svc-name`: never cut at its end. A username too long for a line alone keeps its last five
 /// characters (`7000…123_2`), which tell the services of one account apart.
 class ServiceName extends StatelessWidget {
@@ -589,11 +603,7 @@ class ServiceName extends StatelessWidget {
           shown = '${user.substring(0, lo)}…$tail';
         }
         final text = [shown, ...rest].join(' · ');
-        return Text(
-          rest.isEmpty ? text : bidiName(text),
-          textAlign: textAlign,
-          style: style,
-        );
+        return Text(bidiName(text), textAlign: textAlign, style: style);
       },
     );
   }
