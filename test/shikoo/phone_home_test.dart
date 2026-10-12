@@ -1355,17 +1355,73 @@ void main() {
       lastError: ShikooError.connectTimeout,
       service: _phone().service,
     );
+    final de = bidiName('آلمان ۲');
     await _pump(tester, failed(isTV: false));
     expect(
       find.text(
-        'آلمان ۲ تا ۳۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری '
+        '$de تا ۳۰ ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری '
         'انتخاب کن.',
       ),
       findsOneWidget,
     );
     await _pump(tester, failed(isTV: true));
     expect(
-      find.text('آلمان ۲ تا ۳۰ ثانیه جواب نداد.\nسرور دیگری را امتحان کن.'),
+      find.text('$de تا ۳۰ ثانیه جواب نداد.\nسرور دیگری را امتحان کن.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets("a server's name reads from its first letter, as Telegram shows "
+      "it, at the layout's start edge, and stays whole inside a sentence", (
+    tester,
+  ) async {
+    const names = {
+      'NL 3 x ضریب مصرف ': TextDirection.ltr,
+      'Spain (Netflix+Twitch بدون تبلیغ)': TextDirection.ltr,
+      'Norway 🦄': TextDirection.ltr,
+      'Ireland ♡': TextDirection.ltr,
+      'Poland 1': TextDirection.ltr,
+      'سوئد ۳ Pro': TextDirection.rtl,
+      '🔥 هلند ۱': TextDirection.rtl,
+      'قبل از اتصال به‌روزرسانی کنید': TextDirection.rtl,
+    };
+    final mixed = names.keys.first;
+    ShikooState phone({ShikooConnection connection = ShikooConnection.off}) =>
+        ShikooState(
+          connection: connection,
+          connectedFor: Duration.zero,
+          isTV: false,
+          service: _phone().service,
+          servers: [
+            for (final name in names.keys)
+              ShikooServer(
+                name: name,
+                type: 'Vless',
+                ping: name == mixed ? -1 : 90,
+              ),
+          ],
+          selected: mixed,
+        );
+    for (final (locale, start) in [
+      ('fa', TextAlign.right),
+      ('en', TextAlign.left),
+    ]) {
+      await _pump(tester, phone(), locale: locale);
+      for (final MapEntry(key: name, value: direction) in names.entries) {
+        final shown = tester.widgetList<Text>(find.text(name.trim()));
+        expect(shown, isNotEmpty, reason: name);
+        for (final text in shown) {
+          expect(text.textDirection, direction, reason: '$locale $name');
+          expect(text.textAlign, start, reason: '$locale $name');
+        }
+      }
+    }
+
+    await _pump(tester, phone(connection: ShikooConnection.on));
+    expect(
+      find.textContaining(
+        '«\u2068NL\u00A03\u00A0x\u00A0ضریب\u00A0مصرف\u2069» جواب نمی‌دهد.',
+      ),
       findsOneWidget,
     );
   });

@@ -575,7 +575,7 @@ void main() {
       ),
     );
     expect(
-      find.textContaining('«آمریکا ۲» دیگر در اشتراکت نیست.'),
+      find.textContaining('«${bidiName('آمریکا ۲')}» دیگر در اشتراکت نیست.'),
       findsOneWidget,
     );
     expect(find.textContaining('همان لحظه'), findsOneWidget);
@@ -588,7 +588,7 @@ void main() {
       ),
     );
     expect(find.textContaining('۲ سرور تازه آمد.'), findsOneWidget);
-    expect(find.textContaining('«انگلیس» حذف شد.'), findsOneWidget);
+    expect(find.textContaining('«\u2068انگلیس\u2069» حذف شد.'), findsOneWidget);
   });
 
   testWidgets('every server silent: the pill says so, and the help is red', (
@@ -672,7 +672,8 @@ void main() {
     expect(qr(), 'https://t.me/shikoo_help');
   });
 
-  testWidgets("the panel's announcement shows every line", (tester) async {
+  testWidgets("the panel's announcement shows every line, right to left even "
+      'when it opens with a version', (tester) async {
     _tvScreen(tester);
     const announce =
         'آخرین نسخه کانفیگ: V3.7.9\nاگر نسخه شما پایین‌تر است، به‌روزرسانی کنید.';
@@ -680,15 +681,23 @@ void main() {
     final text = tester.renderObject<RenderParagraph>(find.text(announce));
     expect(text.didExceedMaxLines, isFalse);
     expect(text.size.height, greaterThan(text.preferredLineHeight * 1.5));
+
+    const opensLatin = 'V3.7.9 آخرین نسخهٔ کانفیگ است؛ به‌روزرسانی کنید.';
+    await _pumpTvHome(tester, _tv(ShikooConnection.off, announce: opensLatin));
+    expect(
+      tester.widget<Text>(find.text(opensLatin)).textDirection,
+      TextDirection.rtl,
+    );
   });
 
   testWidgets('a silent pick of the app says what took its place', (
     tester,
   ) async {
     _tvScreen(tester);
+    final de = bidiName('آلمان ۲');
     for (final (moved, second) in [
-      (false, 'سریع‌ترین سرور، «آلمان ۲»، جایش انتخاب شد.'),
-      (true, 'اتصال همان لحظه به سریع‌ترین سرور، «آلمان ۲»، رفت.'),
+      (false, 'سریع‌ترین سرور، «$de»، جایش انتخاب شد.'),
+      (true, 'اتصال همان لحظه به سریع‌ترین سرور، «$de»، رفت.'),
     ]) {
       await _pumpTvHome(
         tester,
@@ -702,7 +711,10 @@ void main() {
           ),
         ),
       );
-      expect(find.text('«فنلاند ۲» جواب نداد. $second'), findsOneWidget);
+      expect(
+        find.text('«${bidiName('فنلاند ۲')}» جواب نداد. $second'),
+        findsOneWidget,
+      );
     }
   });
 
@@ -722,7 +734,9 @@ void main() {
       ),
     );
     expect(find.text('وصل'), findsOneWidget);
-    final warning = find.textContaining('«shikoonetturkey» جواب نمی‌دهد.');
+    final warning = find.textContaining(
+      '«\u2068shikoonetturkey\u2069» جواب نمی‌دهد.',
+    );
     expect(warning, findsOneWidget);
     expect(tester.widget<Text>(warning).style?.color, ShikooColors.dark.danger);
 

@@ -6,7 +6,6 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
-import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -35,17 +34,15 @@ String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
 }
 
 /// A switch's sentences; a failure's first one is bold on the phone.
-List<String> switchNews(ShikooL10n l, ShikooSwitch shift) {
-  String name(String server) => bidiName(withoutFlags(server));
-  return switch (shift.stage) {
-    ShikooSwitchStage.moving => [l.switchingTo(name(shift.to))],
-    ShikooSwitchStage.done => [l.switchedTo(name(shift.to))],
-    ShikooSwitchStage.failed => [
-      l.selectedNoAnswer(name(shift.to)),
-      l.switchKept(name(shift.from)),
-    ],
-  };
-}
+List<String> switchNews(ShikooL10n l, ShikooSwitch shift) =>
+    switch (shift.stage) {
+      ShikooSwitchStage.moving => [l.switchingTo(serverName(shift.to))],
+      ShikooSwitchStage.done => [l.switchedTo(serverName(shift.to))],
+      ShikooSwitchStage.failed => [
+        l.selectedNoAnswer(serverName(shift.to)),
+        l.switchKept(serverName(shift.from)),
+      ],
+    };
 
 /// Home, laid out after `design/mockups/tv.html` (frames `tv-home-*`) and `phone.html`.
 class ShikooHome extends ConsumerStatefulWidget {
@@ -631,7 +628,7 @@ class _PowerZone extends StatelessWidget {
       _ when resting != null => l.renewToConnect,
       ShikooError.connectTimeout =>
         (state.isTV ? l.errorConnect : l.errorConnectTouch)(
-          selected?.label ?? '',
+          serverName(selected?.name ?? ''),
           connectTimeout.inSeconds,
         ),
       ShikooError.noServer when checked => null,
@@ -642,7 +639,7 @@ class _PowerZone extends StatelessWidget {
       ShikooError.serverChange => l.errorServer,
       null when state.waiting => l.connectsToFirst,
       null when shift != null => switchNews(l, shift).join(' '),
-      null when silent => l.selectedDown(selected!.label),
+      null when silent => l.selectedDown(serverName(selected!.name)),
       null =>
         state.isTV && state.connection == ShikooConnection.off
             ? l.tvHint
