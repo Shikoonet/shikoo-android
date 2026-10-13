@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
-  "chipInUse": "In use",
-  "@chipInUse": {"description": "Replaces the Active chip on the service the connection is on (filled), or that the round button connects while off (outlined). Recommended variant A of phone-four.html; variants B and C draw a side bar or an icon instead."},
+  "inUseLabel": "In use",
+  "@inUseLabel": {"description": "Small label above the name of the service the connection is on, with a bar on the card's start edge, open or folded; green when connected, grey while off (the service the round button connects). Only with two usable services or more. Variant B, Sam 2026-10-12."},
   "otherServiceHint": "Tap a server to move your connection to this service.",
   "@otherServiceHint": {"description": "Phone, above the server list of an open card whose service is not the one in use, only while connected or connecting."},
   "otherServiceNow": "You're now connected through this service.",

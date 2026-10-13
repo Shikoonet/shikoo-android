@@ -1,6 +1,6 @@
 {
   "@@locale": "fa",
-  "chipInUse": "در حال استفاده",
+  "inUseLabel": "در حال استفاده",
   "otherServiceHint": "با زدنِ یک سرور، اتصال به این سرویس می‌رود.",
   "otherServiceNow": "اتصال حالا از همین سرویس است.",
   "otherServiceCaptionTv": "با زدنِ یک سرور، اتصال به این سرویس می‌رود",
