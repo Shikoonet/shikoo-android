@@ -22,6 +22,6 @@
   "chipRevoked": "Link revoked",
   "@chipRevoked": {"description": "Phone, pasted services only: the chip when a refresh got 404 or 410, and the disabled round button's label when that service is selected."},
   "revokedTitle": "This link was revoked.",
-  "revokedHelp": "Remove it, or get a new link from the bot or your reseller and paste it in Settings.",
+  "revokedHelp": "Remove it, or get a new link from the bot or your reseller and paste it with the + at the top of the home screen.",
   "@revokedHelp": {"description": "After revokedTitle in the open card's message, and alone as the folded card's summary."}
 }

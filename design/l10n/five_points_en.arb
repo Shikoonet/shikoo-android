@@ -21,5 +21,7 @@
   "@orderTvHintRest": {"description": "TV order screen's top hint while no card is picked; up and down only move the focus then."},
   "orderTvHintMoving": "Up and down: move · OK: drop · Back: cancel",
   "orderTvPicked": "Moving",
-  "@orderTvPicked": {"description": "On the picked card, beside its up and down marks; the card is filled with the primary colour."}
+  "@orderTvPicked": {"description": "On the picked card, beside its up and down marks; the card is filled with the primary colour."},
+  "revokedHelp": "Remove it, or get a new link from the bot or your reseller and paste it with the + at the top of the home screen.",
+  "@revokedHelp": {"description": "A new value for the existing key (shikoo_*.arb, remove_service drafts): a signed-in phone has no paste row in Settings, but every home with a service card, so every revoked card, has the + beside Settings."}
 }
