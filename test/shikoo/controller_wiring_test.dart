@@ -14,6 +14,7 @@ import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -782,10 +783,13 @@ void main() {
   test('a paste with no link, or not a Shikoo one, sends no request', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final controller = container.read(shikooControllerProvider);
-    expect(await controller.pasteService(null), ShikooPasteError.empty);
-    expect(await controller.pasteService(' \n '), ShikooPasteError.empty);
+    expect((await controller.pasteService(null)).error, ShikooPasteError.empty);
     expect(
-      await controller.pasteService('https://example.com/sub/token'),
+      (await controller.pasteService(' \n ')).error,
+      ShikooPasteError.empty,
+    );
+    expect(
+      (await controller.pasteService('https://example.com/sub/token')).error,
       ShikooPasteError.notShikoo,
     );
     expect(container.read(profilesProvider), hasLength(1));
@@ -799,7 +803,9 @@ void main() {
       ]).container;
       final controller = container.read(shikooControllerProvider);
       expect(
-        await controller.pasteService('سرویسم: https://4g3.uk/sub/mine.'),
+        (await controller.pasteService(
+          'سرویسم: https://4g3.uk/sub/mine.',
+        )).error,
         isNull,
       );
       await controller.addService('https://4g3.uk/sub/account');
@@ -1728,7 +1734,7 @@ void main() {
     final emulator = 'http://10.0.2.2:$port';
     for (final link in ['file/user111/a', 'file/user111/b']) {
       expect(
-        await controller.pasteService('$emulator/$link', debug: true),
+        (await controller.pasteService('$emulator/$link', debug: true)).error,
         isNull,
       );
     }
@@ -2002,6 +2008,7 @@ void main() {
     for (final user in ['user111', 'user222']) {
       await controller.pasteService('$emulator/file/$user/a', debug: true);
     }
+    await pumpEventQueue();
     final [first, second] = container.read(profilesProvider);
     expect(container.read(currentProfileIdProvider), second.id);
     container.read(runTimeProvider.notifier).value = 1;
@@ -2022,6 +2029,102 @@ void main() {
     expect(container.read(shikooStateProvider).service, isNull);
     expect(await pastedProfiles(), isEmpty);
   });
+
+  test('the card order stays on this device: the one in use keeps its place, '
+      'a new service comes last, a gone one is skipped, and a restart reads '
+      'it back', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(shikooControllerProvider);
+    final first = container.read(currentProfileIdProvider)!;
+    final [second, third, fourth] = [
+      for (final name in ['b', 'c', 'd'])
+        Profile.normal(url: 'https://panel.invalid/$name'),
+    ];
+    final profiles = container.read(profilesProvider.notifier)
+      ..put(second)
+      ..put(third);
+    await pumpEventQueue();
+    List<int> cards() => [
+      for (final s in container.read(shikooStateProvider).listed) s.id,
+    ];
+    expect(container.read(serviceOrderProvider), [first, second.id, third.id]);
+
+    await container.read(savedOrderProvider.notifier).save([
+      third.id,
+      first,
+      second.id,
+    ]);
+    expect(container.read(serviceOrderProvider), [third.id, first, second.id]);
+    expect(cards(), [third.id, first, second.id]);
+    expect(container.read(shikooStateProvider).service!.id, first);
+
+    profiles.put(fourth);
+    await profiles.del(second.id);
+    expect(container.read(serviceOrderProvider), [third.id, first, fourth.id]);
+
+    final stored = (await SharedPreferences.getInstance()).getStringList(
+      shikooOrderKey,
+    );
+    final kept = container.read(profilesProvider);
+    final again = _home().container;
+    kept.forEach(again.read(profilesProvider.notifier).put);
+    SharedPreferences.setMockInitialValues({shikooOrderKey: stored!});
+    again.read(shikooControllerProvider);
+    await pumpEventQueue();
+    expect(again.read(serviceOrderProvider), [
+      third.id,
+      first,
+      again.read(currentProfileIdProvider),
+      fourth.id,
+    ], reason: 'the saved ids first, the others as they come');
+  });
+
+  test('a used-up service that is renewed comes back at the end of the '
+      'order', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    final first = container.read(currentProfileIdProvider)!;
+    await controller.addService('$panel/file/user111/a', null, false);
+    await controller.addService('$panel/file/user222/a', null, false);
+    final [one, two] = _pasted(container);
+    container
+        .read(profilesProvider.notifier)
+        .put(
+          one.copyWith(
+            subscriptionInfo: const SubscriptionInfo(download: 2, total: 1),
+          ),
+        );
+    expect(
+      profileFinished(container.read(profilesProvider).getProfile(one.id)!),
+      isTrue,
+    );
+    await container.read(savedOrderProvider.notifier).save([
+      one.id,
+      first,
+      two.id,
+    ]);
+
+    await controller.refreshOther(two.id);
+    expect(container.read(serviceOrderProvider), [one.id, first, two.id]);
+    await controller.refreshOther(one.id);
+    expect(container.read(serviceOrderProvider), [first, two.id, one.id]);
+  });
+
+  test(
+    "removing every service clears the order: it was the account's",
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final controller = container.read(shikooControllerProvider);
+      await container.read(savedOrderProvider.notifier).save([3, 2, 1]);
+      await controller.forgetServices();
+      expect(container.read(savedOrderProvider), isEmpty);
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(shikooOrderKey),
+        isEmpty,
+      );
+    },
+  );
 
   test("a failed update stays with its own service's card, not the next one "
       'in use', () async {
@@ -2758,6 +2861,76 @@ void main() {
         ('WG ۱', -1),
       ]);
       expect(t.fromFile, isEmpty, reason: 'the core holds it');
+    });
+
+    /// A pasted service's file holds «سوئد ۱»; its id is known only once it is saved.
+    Future<String> pasteable(
+      ProviderContainer container,
+      _Core core,
+      Map<int, List<String>> lists,
+    ) async {
+      final port = Uri.parse(await _panel(container, core)).port;
+      when(() => core.getConfig(any())).thenAnswer((call) async {
+        final path = '${call.positionalArguments.first}';
+        final id = lists.keys.firstWhere(
+          (id) => path.endsWith('$id.yaml'),
+          orElse: () => 0,
+        );
+        return config(lists[id] ?? const ['سوئد ۱'], '$id.invalid');
+      });
+      return 'http://10.0.2.2:$port';
+    }
+
+    test('a paste while connected opens its card last and measures it there; '
+        'the tunnel stays, and the same account pasted again is no second '
+        'card', () async {
+      final t = await twoServices();
+      final panel = await pasteable(t.container, t.core, t.lists);
+      final moves = <int?>[];
+      t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+      final pasted = await t.controller.pasteService(
+        '$panel/file/user333/a',
+        debug: true,
+      );
+      await pumpEventQueue();
+      var state = t.container.read(shikooStateProvider);
+      expect((pasted.error, pasted.added), (null, true));
+      expect(moves, isEmpty, reason: 'the service in use stays');
+      expect(t.setup.runs, isEmpty);
+      expect(
+        (state.connection, state.service!.id),
+        (ShikooConnection.on, t.first),
+      );
+      expect(state.others.last.id, pasted.id);
+      expect((state.open, state.opened?.id), (pasted.id, pasted.id));
+      expect(t.fromFile, contains('سوئد ۱'), reason: 'measured from its file');
+
+      final again = await t.controller.pasteService(
+        '$panel/file/user333/b',
+        debug: true,
+      );
+      await pumpEventQueue();
+      state = t.container.read(shikooStateProvider);
+      expect((again.id, again.added), (pasted.id, false));
+      expect(t.container.read(profilesProvider), hasLength(3));
+      expect(state.open, pasted.id);
+      expect(moves, isEmpty);
+    });
+
+    test('a paste while off makes the new service the one connect '
+        'uses', () async {
+      final t = await twoServices(connected: false);
+      final panel = await pasteable(t.container, t.core, t.lists);
+      final pasted = await t.controller.pasteService(
+        '$panel/file/user333/a',
+        debug: true,
+      );
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      expect(pasted.added, isTrue);
+      expect(state.service!.id, pasted.id);
+      expect(state.open, pasted.id);
+      expect(t.setup.runs, isEmpty, reason: 'nothing connects by itself');
     });
 
     test('a late answer lands on no same-named server of the other '

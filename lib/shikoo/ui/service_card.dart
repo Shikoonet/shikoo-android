@@ -244,7 +244,7 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: state.isTV
                         ? inset
                         : const EdgeInsetsDirectional.only(start: Space.s4),
-                    child: _InUse(live: inUse, child: head!),
+                    child: InUseMark(live: inUse, child: head!),
                   ),
                 ),
                 if (revoked)
@@ -376,12 +376,18 @@ class _ServiceCardState extends State<ServiceCard> {
 }
 
 /// `.svc.is-in-use` (phone-p2b-home): «در حال استفاده» over the name and a bar on the card's
-/// start edge beside the head, green while connected, grey otherwise (`.is-idle`). Without a
-/// mark [child] keeps its place in the tree, so the remote on it stays when the mark comes.
-class _InUse extends StatelessWidget {
-  const _InUse({required this.live, required this.child});
+/// start edge beside the head, green while connected, grey otherwise (`.is-idle`), or [color].
+/// Without a mark [child] keeps its place in the tree, so the remote on it stays when the mark comes.
+class InUseMark extends StatelessWidget {
+  const InUseMark({
+    super.key,
+    required this.live,
+    this.color,
+    required this.child,
+  });
 
   final bool? live;
+  final Color? color;
   final Widget child;
 
   @override
@@ -400,7 +406,7 @@ class _InUse extends StatelessWidget {
                 style: t.text(
                   t.s.caption,
                   weight: FontWeight.w700,
-                  color: live ? t.c.inUse : t.c.textMuted,
+                  color: color ?? (live ? t.c.inUse : t.c.textMuted),
                   height: Leading.tight,
                 ),
               ),
@@ -415,7 +421,7 @@ class _InUse extends StatelessWidget {
             child: Container(
               width: ShikooSizes.selectedBar,
               decoration: ShapeDecoration(
-                color: live ? t.c.inUse : t.c.inUseIdle,
+                color: color ?? (live ? t.c.inUse : t.c.inUseIdle),
                 shape: const StadiumBorder(),
               ),
             ),
@@ -564,7 +570,7 @@ class FoldedServiceCard extends StatelessWidget {
           padding: isTV
               ? const EdgeInsets.symmetric(horizontal: Space.s4)
               : const EdgeInsetsDirectional.only(start: Space.s4),
-          child: _InUse(live: inUse, child: head),
+          child: InUseMark(live: inUse, child: head),
         ),
       ),
     );

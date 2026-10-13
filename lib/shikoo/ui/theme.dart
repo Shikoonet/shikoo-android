@@ -178,6 +178,10 @@ class ShikooColors {
       ),
     ],
   );
+
+  /// The card picked up on the TV's order screen.
+  Color get picked => primary;
+  Color get onPicked => onPrimary;
 }
 
 /// Phone and TV share the names; the TV values are sized for three metres (`[data-device="tv"]`).

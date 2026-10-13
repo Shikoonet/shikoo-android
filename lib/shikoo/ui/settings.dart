@@ -12,6 +12,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
+import 'package:fl_clash/shikoo/ui/order.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -51,6 +52,34 @@ class ShikooSettings extends ConsumerWidget {
     ];
     final username = who?.username;
     final shown = who?.name ?? '@${username ?? ''}';
+    final order =
+        [?state.service, ...state.others].where((s) => !s.finished).length < 2
+        ? null
+        : _Group(
+            title: l.servicesGroup,
+            child: _Card(
+              rows: [
+                _Row(
+                  icon: ShikooIcon.handle,
+                  title: l.orderServices,
+                  subtitle: isTV
+                      ? l.orderServicesHelpTv
+                      : l.orderServicesHelpTouch,
+                  forward: true,
+                  onPressed: () => unawaited(
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ServiceOrder(),
+                        settings: const RouteSettings(name: 'order'),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+    // tv-p5-settings puts «سرویس‌ها» last in its column, phone-p5-settings under the language.
     final groups = [
       _Group(
         title: l.appearance,
@@ -73,8 +102,9 @@ class ShikooSettings extends ConsumerWidget {
           onSelect: (language) => unawaited(setLook.setLanguage(language)),
         ),
       ),
+      if (!isTV) ?order,
       PasteLink(
-        onAdded: () => Navigator.popUntil(context, (route) => route.isFirst),
+        onAdded: (_) => Navigator.popUntil(context, (route) => route.isFirst),
         builder: (context, busy, paste) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: Space.s6,
@@ -161,6 +191,7 @@ class ShikooSettings extends ConsumerWidget {
                 ],
               ),
             ),
+            if (isTV) ?order,
           ],
         ),
       ),
@@ -471,12 +502,14 @@ class SubPage extends StatelessWidget {
     required this.isTV,
     required this.child,
     this.scrolls = true,
+    this.hint,
   });
 
   final String title;
   final bool isTV;
   final Widget child;
   final bool scrolls;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -519,7 +552,7 @@ class SubPage extends StatelessWidget {
                           ? [
                               heading,
                               Text(
-                                l.backHintTv,
+                                hint ?? l.backHintTv,
                                 style: t.text(s.bodySm, color: t.c.textMuted),
                               ),
                             ]

@@ -12,6 +12,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -654,6 +655,25 @@ void main() {
         expect(_urls(h.container), ['https://4g3.uk/sub/pasted']);
         await h.signIn.signOut();
         expect(_urls(h.container), isEmpty);
+      },
+    );
+
+    test(
+      "signing out clears the card order, which was the account's",
+      () async {
+        final h = await _harness(
+          pasted: [Profile.normal(url: 'https://4g3.uk/sub/pasted')],
+        );
+        h.api.services = [_service(1, 'user123')];
+        await _signedIn(h);
+        await h.container.read(savedOrderProvider.notifier).save([2, 1]);
+        await h.signIn.signOut();
+        expect(h.container.read(savedOrderProvider), isEmpty);
+        expect(
+          (await SharedPreferences.getInstance()).getStringList(shikooOrderKey),
+          isEmpty,
+        );
+        expect(_urls(h.container), ['https://4g3.uk/sub/pasted']);
       },
     );
 

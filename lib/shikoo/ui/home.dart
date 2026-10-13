@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -13,6 +14,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
+import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
@@ -123,6 +125,55 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     if (_bar != null && (room - _room).abs() > 0.5) {
       setState(() => _room = room);
     }
+  }
+
+  /// phone-p4-added and phone-p4-duplicate: the bar says what the paste brought; home goes to it.
+  Future<void> _add() async {
+    final pasted = await Navigator.push<ShikooPasted>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AddService(),
+        settings: const RouteSettings(name: 'add'),
+      ),
+    );
+    if (pasted == null || !mounted) return;
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final state = ref.read(shikooStateProvider);
+    final service = [
+      ?state.service,
+      ...state.others,
+    ].firstWhereOrNull((s) => s.id == pasted.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.fromLTRB(t.s.safeX, 0, t.s.safeX, Space.s4),
+        backgroundColor: t.c.text,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+        content: Row(
+          spacing: Space.s3,
+          children: [
+            SvgIcon(ShikooIcon.check, size: t.s.icon, color: t.c.bg),
+            Expanded(
+              child: Text(
+                pasted.added && service != null
+                    ? l.serviceAdded(serviceTitle(context, service))
+                    : l.serviceAlreadyHere,
+                style: t.text(t.s.body, color: t.c.bg, height: Leading.body),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final card = _cards[pasted.id]?.currentContext;
+      if (card != null && card.mounted) {
+        unawaited(Scrollable.ensureVisible(card));
+      }
+    });
   }
 
   double? _edge(int? id, {bool bottom = false}) {
@@ -387,6 +438,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   card: card,
                   scroll: _scroll,
                   room: _room,
+                  // A home with no service has its own paste button in its card.
+                  onAdd: current == null && unlinked.isEmpty
+                      ? null
+                      : () => unawaited(_add()),
                 ),
         ),
       ),
@@ -597,6 +652,7 @@ class _PhoneLayout extends StatelessWidget {
     required this.card,
     required this.scroll,
     required this.room,
+    this.onAdd,
   });
 
   final Widget power;
@@ -605,6 +661,9 @@ class _PhoneLayout extends StatelessWidget {
 
   /// The switch bar's, which the last rows can rise above.
   final double room;
+
+  /// The «+» beside Settings (phone-p4a-home); none without it.
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -631,10 +690,21 @@ class _PhoneLayout extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Brand(),
-                  ShikooIconButton(
-                    icon: ShikooIcon.gear,
-                    label: ShikooL10n.of(context).settings,
-                    onPressed: () => openSettings(context),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onAdd case final onAdd?)
+                        ShikooIconButton(
+                          icon: ShikooIcon.plus,
+                          label: ShikooL10n.of(context).addServiceTooltip,
+                          onPressed: onAdd,
+                        ),
+                      ShikooIconButton(
+                        icon: ShikooIcon.gear,
+                        label: ShikooL10n.of(context).settings,
+                        onPressed: () => openSettings(context),
+                      ),
+                    ],
                   ),
                 ],
               ),

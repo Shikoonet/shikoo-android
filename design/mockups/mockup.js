@@ -80,8 +80,7 @@ function mockScroll(view) {
 }
 // نام سرویس در جای ثابتش (تصمیم ۲۰ مهر): حداکثر data-lines خط (پیش‌فرض ۲؛ می‌شکند فقط پیش از «·»).
 // اگر جا نشد، قلم پله‌پله تا --name-shrink-min ریز می‌شود؛ بعد نام کاربری (bdi) از وسط کوتاه می‌شود و پنج حرف
-// آخرش می‌ماند؛ و اگر باز جا نشد، رده (.tier) از ته «…» می‌گیرد. قاعدهٔ بستهٔ ۱ (شاخهٔ feat/service-name-row،
-// هنوز ادغام نشده).
+// آخرش می‌ماند؛ و اگر باز جا نشد، رده (.tier) از ته «…» می‌گیرد. همان قاعدهٔ ServiceName در اپ (بستهٔ ۱، PR #25).
 function fitName(el) {
   const user = el.querySelector('bdi');
   const tier = el.querySelector('.tier');

@@ -1409,7 +1409,7 @@ abstract class ShikooL10n {
   /// After revokedTitle in the open card's message, and alone as the folded card's summary.
   ///
   /// In en, this message translates to:
-  /// **'Remove it, or get a new link from the bot or your reseller and paste it in Settings.'**
+  /// **'Remove it, or get a new link from the bot or your reseller and paste it with the + at the top of the home screen.'**
   String get revokedHelp;
 
   /// Phone: errorConnect, which the TV keeps as two lines.
@@ -1909,6 +1909,90 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Internet settings'**
   String get probeNetSettings;
+
+  /// Screen-reader label of the «+» in the phone home's top bar, beside Settings. Phone only, and only while the home shows at least one service card; never on the TV.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a service by link'**
+  String get addServiceTooltip;
+
+  /// Top bar title of the screen «+» opens: today's paste block (pasteLink, its messages, reportSendToSupport or dateSettings) under this bar and addServiceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a service'**
+  String get addServiceTitle;
+
+  /// No description provided for @addServiceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this phone.'**
+  String get addServiceHelp;
+
+  /// Home's bottom bar after a paste added a new service; the screen has closed and the new card is open at the end of the list. New: today a paste shows no message.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” was added.'**
+  String serviceAdded(String name);
+
+  /// Instead of serviceAdded when the pasted link matches a service on this phone (same normalised link, or the same username on the same host); that card opens. Needs a new result from the paste call, which today answers the same for both.
+  ///
+  /// In en, this message translates to:
+  /// **'This service is already on this phone.'**
+  String get serviceAlreadyHere;
+
+  /// Settings group holding orderServices; shown with two services or more.
+  ///
+  /// In en, this message translates to:
+  /// **'Services'**
+  String get servicesGroup;
+
+  /// No description provided for @orderServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Order of services'**
+  String get orderServices;
+
+  /// No description provided for @orderServicesHelpTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'On this phone only'**
+  String get orderServicesHelpTouch;
+
+  /// No description provided for @orderServicesHelpTv.
+  ///
+  /// In en, this message translates to:
+  /// **'On this TV only'**
+  String get orderServicesHelpTv;
+
+  /// No description provided for @orderScreenHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold ≡ on a service and drag it up or down. The order is for this phone only and is saved at once.'**
+  String get orderScreenHelp;
+
+  /// Screen-reader label of a row's ≡ handle on the order screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag “{name}” to move it'**
+  String orderHandleLabel(String name);
+
+  /// TV order screen's top hint while no card is picked; up and down only move the focus then.
+  ///
+  /// In en, this message translates to:
+  /// **'OK: pick up to move'**
+  String get orderTvHintRest;
+
+  /// No description provided for @orderTvHintMoving.
+  ///
+  /// In en, this message translates to:
+  /// **'Up and down: move · OK: drop · Back: cancel'**
+  String get orderTvHintMoving;
+
+  /// On the picked card, beside its up and down marks; the card is filled with the primary colour.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving'**
+  String get orderTvPicked;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {
