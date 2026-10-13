@@ -641,9 +641,13 @@ void main() {
   });
 
   group('after approval', () {
-    test('an account without services says so', () async {
+    test('an account without services says so, and the first it buys '
+        'comes', () async {
       final h = await _harness();
       expect((await _signedIn(h))?.phase, LoginPhase.noService);
+      h.api.services = [_service(1, 'first')];
+      expect(await h.signIn.sync(), isTrue);
+      expect(_urls(h.container), ['https://sub.4g3.uk/first']);
     });
 
     test('a list that did not come can be asked for again', () async {
@@ -872,10 +876,12 @@ void main() {
       expect(h.container.read(shikooAccountProvider).who, isNull);
     });
 
-    test('with no choice made, a sync adds new links, keeps an expired service '
-        'for renewal, keeps a removed one without its link and drops what left '
-        'the list', () async {
+    test('with nothing fixed, as for an account that had no service at '
+        'sign-in, a sync adds new links, keeps an expired service for renewal, '
+        'keeps a removed one without its link and drops what left the '
+        'list', () async {
       final h = await _harness();
+      expect((await _signedIn(h))?.phase, LoginPhase.noService);
       h.api.services = [
         _service(1, 'stays'),
         _service(2, 'expires'),
@@ -883,10 +889,6 @@ void main() {
         _service(4, 'leaves'),
         _service(5, 'relinked'),
       ];
-      await h.signIn.start();
-      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
-      await _until(h.container, _at(LoginPhase.choosing));
-      h.signIn.finish();
       await h.signIn.sync();
       h.api.services = [
         _service(1, 'stays'),
@@ -937,7 +939,8 @@ void main() {
         _service(1, 'gone'),
         _service(2, 'next', url: 'https://sub.4g3.uk/dead2'),
       ];
-      expect(await h.signIn.sync(), isTrue);
+      await h.signIn.notMine();
+      expect(await _signedIn(h), isNull, reason: 'home: one of two loaded');
       expect(_urls(h.container), ['https://sub.4g3.uk/gone']);
       expect(unlinked(), [2], reason: 'kept beside a service that loaded');
     });
@@ -1324,16 +1327,41 @@ void main() {
       expect(h.container.read(shikooLoginProvider), isNull, reason: 'no list');
     });
 
-    test('a checklist left by Back chose nothing: every service comes, as '
-        'before it', () async {
+    test('a checklist the app closed on comes back on the next start, and '
+        'nothing comes until «ادامه»', () async {
       final h = await _harness();
       h.api.services = [_service(1, 'mother'), _service(2, 'child')];
       await h.signIn.start();
       h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
       await _until(h.container, _at(LoginPhase.choosing));
-      h.signIn.finish();
-      await _until(h.container, (_) => _urls(h.container).length == 2);
+      h.container.invalidate(shikooSignInProvider);
+      h.container.read(shikooLoginProvider.notifier).set(null);
+      final signIn = h.container.read(shikooSignInProvider);
+      await signIn.load();
+      final offered = await _until(h.container, _at(LoginPhase.choosing));
+      expect([for (final s in offered!.choices) s.id], [1, 2]);
+      expect(await signIn.sync(), isTrue);
+      expect(_urls(h.container), isEmpty);
+      verifyNever(() => h.controller.addService(any(), any(), any()));
+      await signIn.choose({2});
+      expect(_urls(h.container), ['https://sub.4g3.uk/child']);
       expect(h.container.read(shikooLoginProvider), isNull);
+    });
+
+    test('one service fixes the set: one bought later does not come by '
+        'itself; signing in again offers both', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'mother')];
+      expect((await _signedIn(h))?.phase, LoginPhase.approved);
+      h.api.services = [_service(1, 'mother'), _service(2, 'bought')];
+      expect(await h.signIn.sync(), isTrue);
+      expect(_urls(h.container), ['https://sub.4g3.uk/mother']);
+      expect(h.container.read(shikooAccountProvider).total, 2);
+      await h.signIn.signOut();
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
+      final offered = await _until(h.container, _at(LoginPhase.choosing));
+      expect([for (final s in offered!.choices) s.id], [1, 2]);
     });
 
     test('a background sync while the checklist shows adds nothing', () async {

@@ -212,6 +212,45 @@ void main() {
     verify(() => _signInOf(container).choose({13})).called(1);
   });
 
+  testWidgets('with pasted services Back from a sign-in result goes home to '
+      'them, but never from the checklist, which waits for «ادامه»', (
+    tester,
+  ) async {
+    final container = await _pump(tester, tv: false, login: _choosing);
+    container
+        .read(_stateCell.notifier)
+        .set(
+          const ShikooState(
+            connection: ShikooConnection.off,
+            connectedFor: Duration.zero,
+            isTV: false,
+            servers: [],
+            service: ShikooService(
+              name: 'pasted',
+              usedBytes: 0,
+              totalBytes: 0,
+              id: 1,
+            ),
+          ),
+        );
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    verifyNever(_signInOf(container).finish);
+    container
+        .read(shikooLoginProvider.notifier)
+        .set(
+          const ShikooLogin(
+            LoginPhase.approved,
+            account: _maryam,
+            services: ['user1 · الماس'],
+          ),
+        );
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    verify(_signInOf(container).finish).called(1);
+  });
+
   testWidgets('a new checklist starts all ticked again, whatever the last one '
       'left unticked', (tester) async {
     final container = await _pump(tester, tv: false, login: _choosing);

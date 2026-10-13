@@ -200,9 +200,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         : (_otherDevice
               ? _phoneOtherDevice(context, login)
               : _phone(context, login));
-    // Signing in from settings, with pasted services: Back goes home to them.
+    // Signing in from settings, with pasted services: Back goes home to them. A checklist is
+    // never left that way: Back closes the app, and it is still there on the next open.
     final home =
         login != null &&
+        login.phase != LoginPhase.choosing &&
         ref.watch(shikooStateProvider.select((s) => s.service != null));
     return PopScope(
       canPop: !_otherDevice && !home,

@@ -602,6 +602,7 @@ class ShikooSignIn {
       ShikooAccount account,
       Set<int?> brought,
       Set<int>? chosen,
+      bool choosing,
     })?
     stored;
     try {
@@ -637,6 +638,7 @@ class ShikooSignIn {
             final List<Object?> ids => {for (final id in ids) id! as int},
             _ => null,
           },
+          choosing: json['choosing'] == true,
         );
       }
     } catch (_) {
@@ -652,7 +654,9 @@ class ShikooSignIn {
     if (stored == null) return;
     _token = stored.token;
     _chosen = stored.chosen;
+    _choosing = stored.choosing;
     _setAccount(stored.account);
+    if (_choosing) unawaited(retry());
   }
 
   Future<void> _save() async {
@@ -683,6 +687,7 @@ class ShikooSignIn {
         ],
         'total': account.total,
         if (_chosen case final chosen?) 'chosen': [...chosen],
+        if (_choosing) 'choosing': true,
       }),
     );
   }
@@ -809,14 +814,9 @@ class ShikooSignIn {
   Future<({String code, bool linked})> report(Map<String, Object?> body) =>
       _api.report(body, token: _token);
 
-  /// A checklist left without «ادامه» chose nothing: every service comes, as before it.
   void finish() {
     _attempt++;
     _login(null);
-    if (_choosing) {
-      _choosing = false;
-      unawaited(sync());
-    }
   }
 
   Future<void> notMine() async {
@@ -942,6 +942,8 @@ class ShikooSignIn {
         return true;
       }
       _choosing = false;
+      // An account with none keeps nothing fixed: the service it buys next is its first.
+      if (listed case [final only]) _chosen = {only.id};
     }
     final chosen = _chosen;
     final before = {for (final s in _account.services) s.id: s};
