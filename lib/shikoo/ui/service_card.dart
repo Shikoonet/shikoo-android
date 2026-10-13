@@ -418,21 +418,31 @@ class _FoldedServiceCardState extends State<FoldedServiceCard> {
       borderRadius: BorderRadius.circular(Radii.lg),
     );
     final head = isTV
-        ? Row(
-            spacing: Space.s2,
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _NameLine(service: service)),
-              if (onPing != null)
-                ShikooButton(
-                  label: ShikooL10n.of(context).ping,
-                  icon: ShikooIcon.gauge,
-                  focusNode: _ping,
-                  onPressed: refresh == ShikooRefresh.running ? null : onPing,
+              _NameLine(
+                service: service,
+                arrow: SvgIcon(
+                  ShikooIcon.chevronDown,
+                  size: t.s.icon,
+                  color: t.c.textMuted,
                 ),
-              SvgIcon(
-                ShikooIcon.chevronDown,
-                size: t.s.icon,
-                color: t.c.textMuted,
+              ),
+              _StatusRow(
+                service: service,
+                height: t.s.button,
+                end: [
+                  if (onPing != null)
+                    ShikooButton(
+                      label: ShikooL10n.of(context).ping,
+                      icon: ShikooIcon.gauge,
+                      focusNode: _ping,
+                      onPressed: refresh == ShikooRefresh.running
+                          ? null
+                          : onPing,
+                    ),
+                ],
               ),
             ],
           )
@@ -492,21 +502,80 @@ class _FoldedServiceCardState extends State<FoldedServiceCard> {
   }
 }
 
-/// `.svc-line`: the name, then the status; what does not fit goes down, the status first.
+/// `.svc-line` in `.svc-head.is-stacked`: the name has the row to itself but the fold arrow.
 class _NameLine extends StatelessWidget {
-  const _NameLine({required this.service});
+  const _NameLine({required this.service, this.arrow});
 
   final ShikooService service;
+  final Widget? arrow;
 
   @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: Space.s2,
-    crossAxisAlignment: WrapCrossAlignment.center,
+  Widget build(BuildContext context) => Row(
     children: [
-      ServiceName(plainTitle(context, service)),
-      if (service.usageKnown) StatusChip(status: service.statusAt(shikooNow())),
+      Expanded(
+        child: ServiceName(plainTitle(context, service), twoLines: true),
+      ),
+      ?arrow,
     ],
   );
+}
+
+/// `.svc-row`: the status, [text] and [end] on a line as tall as [end]'s buttons; [text] goes
+/// under the status when it does not fit beside them (`.is-narrow`).
+class _StatusRow extends StatelessWidget {
+  const _StatusRow({
+    required this.service,
+    required this.height,
+    required this.end,
+    this.text,
+  });
+
+  final ShikooService service;
+  final double height;
+  final List<Widget> end;
+  final String? text;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final text = this.text;
+    final chip = service.usageKnown;
+    return Row(
+      crossAxisAlignment: chip
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
+      spacing: Space.s2,
+      children: [
+        Expanded(
+          child: Wrap(
+            spacing: Space.s2,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (chip)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: end.isEmpty ? 0 : height,
+                  ),
+                  child: Align(
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: StatusChip(status: service.statusAt(shikooNow())),
+                  ),
+                ),
+              if (text != null)
+                Text(
+                  text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.text(t.s.bodySm, color: t.c.textMuted),
+                ),
+            ],
+          ),
+        ),
+        ...end,
+      ],
+    );
+  }
 }
 
 String agoText(ShikooL10n l, Duration ago) {
@@ -516,8 +585,9 @@ String agoText(ShikooL10n l, Duration ago) {
   return l.agoDays(ago.inDays);
 }
 
-/// `.svc-head`: `.svc-line`, `.svc-sub` (the last update or the ping's count), update and ping
-/// beside them, one at a time; on the phone each an icon alone, then the fold arrow.
+/// `.svc-head.is-stacked`: `.svc-line` with the fold arrow on the phone, then `.svc-row`: the
+/// status, `.svc-sub` (the last update or the ping's count), update and ping, one at a time; on
+/// the phone each an icon alone.
 class _Head extends StatelessWidget {
   const _Head({
     required this.service,
@@ -568,85 +638,78 @@ class _Head extends StatelessWidget {
     final onRefresh = measuring ? null : (busy ? () {} : this.onRefresh);
     final onPing = this.onPing;
     final ping = onPing == null || busy ? null : (measuring ? () {} : onPing);
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _NameLine(service: service),
-              if (sub != null)
-                Text(
-                  sub,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.text(t.s.bodySm, color: t.c.textMuted),
-                ),
-            ],
+    final buttons = isTV
+        ? [
+            ShikooButton(
+              label: l.refresh,
+              icon: ShikooIcon.refresh,
+              busy: busy,
+              focusNode: refreshNode,
+              onPressed: onRefresh,
+            ),
+            if (onPing != null)
+              ShikooButton(
+                label: l.ping,
+                icon: ShikooIcon.gauge,
+                busy: measuring,
+                focusNode: pingNode,
+                onPressed: ping,
+              ),
+          ]
+        : [
+            ShikooIconButton(
+              icon: ShikooIcon.refresh,
+              label: l.refreshServers,
+              color: t.c.textMuted,
+              busy: busy,
+              onPressed: onRefresh,
+            ),
+            if (onPing != null)
+              ShikooIconButton(
+                icon: ShikooIcon.gauge,
+                label: l.pingServers,
+                color: t.c.textMuted,
+                busy: measuring,
+                onPressed: ping,
+              ),
+          ];
+    // A bare icon in the mockup; its touch target reaches into the card's end inset.
+    final arrow = Pressable(
+      shape: const StadiumBorder(),
+      onPressed: onFold,
+      builder: (context, _) => Semantics(
+        button: true,
+        expanded: open,
+        label: serviceTitle(context, service),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.only(
+            start: Space.s2,
+            end: Space.s4,
+          ),
+          child: SizedBox(
+            height: ShikooSizes.touch,
+            child: SvgIcon(
+              open ? ShikooIcon.chevronUp : ShikooIcon.chevronDown,
+              size: t.s.icon,
+              color: t.c.textMuted,
+            ),
           ),
         ),
-        const SizedBox(width: Space.s2),
-        if (isTV) ...[
-          ShikooButton(
-            label: l.refresh,
-            icon: ShikooIcon.refresh,
-            busy: busy,
-            focusNode: refreshNode,
-            onPressed: onRefresh,
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _NameLine(service: service, arrow: isTV ? null : arrow),
+        Padding(
+          padding: EdgeInsetsDirectional.only(end: isTV ? 0 : Space.s4),
+          child: _StatusRow(
+            service: service,
+            height: isTV ? t.s.button : ShikooSizes.touch,
+            text: sub,
+            end: buttons,
           ),
-          if (onPing != null) ...[
-            const SizedBox(width: Space.s2),
-            ShikooButton(
-              label: l.ping,
-              icon: ShikooIcon.gauge,
-              busy: measuring,
-              focusNode: pingNode,
-              onPressed: ping,
-            ),
-          ],
-        ] else ...[
-          ShikooIconButton(
-            icon: ShikooIcon.refresh,
-            label: l.refreshServers,
-            color: t.c.textMuted,
-            busy: busy,
-            onPressed: onRefresh,
-          ),
-          if (onPing != null) ...[
-            const SizedBox(width: Space.s2),
-            ShikooIconButton(
-              icon: ShikooIcon.gauge,
-              label: l.pingServers,
-              color: t.c.textMuted,
-              busy: measuring,
-              onPressed: ping,
-            ),
-          ],
-          // A bare icon in the mockup; its touch target reaches into the card's end inset.
-          Pressable(
-            shape: const StadiumBorder(),
-            onPressed: onFold,
-            builder: (context, _) => Semantics(
-              button: true,
-              expanded: open,
-              label: serviceTitle(context, service),
-              child: Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: Space.s2,
-                  end: Space.s4,
-                ),
-                child: SizedBox(
-                  height: ShikooSizes.touch,
-                  child: SvgIcon(
-                    open ? ShikooIcon.chevronUp : ShikooIcon.chevronDown,
-                    size: t.s.icon,
-                    color: t.c.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }
