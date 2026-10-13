@@ -626,6 +626,16 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String approvedBodyOneTv(String account) {
+    return 'این تلویزیون به حساب تلگرامِ $account وصل شد، با این سرویس:';
+  }
+
+  @override
+  String approvedBodyOneTouch(String account) {
+    return 'این گوشی به حساب تلگرامِ $account وصل شد، با این سرویس:';
+  }
+
+  @override
   String get servicesComing => 'سرویس‌هایت دارند می‌آیند…';
 
   @override
@@ -872,6 +882,45 @@ class ShikooL10nFa extends ShikooL10n {
 
     return 'و $countString سرویس دیگر';
   }
+
+  @override
+  String approvedBodyChooseTouch(String account) {
+    return 'این گوشی به حساب تلگرامِ $account وصل شد.';
+  }
+
+  @override
+  String approvedBodyChooseTv(String account) {
+    return 'این تلویزیون به حساب تلگرامِ $account وصل شد.';
+  }
+
+  @override
+  String get chooseServicesTouch => 'کدام سرویس‌ها روی این گوشی باشد؟';
+
+  @override
+  String get chooseServicesTv => 'کدام سرویس‌ها روی این تلویزیون باشد؟';
+
+  @override
+  String get chooseAtLeastOne => 'دست‌کم یک سرویس را تیک بزن.';
+
+  @override
+  String servicesHereTouch(int shown, int total) {
+    final intl.NumberFormat shownNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String shownString = shownNumberFormat.format(shown);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return 'روی این گوشی $shownString سرویس از $totalString سرویسِ حسابت هست. برای عوض کردن، خارج شو و دوباره وارد شو.';
+  }
+
+  @override
+  String get servicesAllHereTouch =>
+      'همهٔ سرویس‌های حسابت روی این گوشی است. برای عوض کردن، خارج شو و دوباره وارد شو.';
+
+  @override
+  String get changeServicesTv =>
+      'برای عوض کردن سرویس‌های این تلویزیون، خارج شو و دوباره وارد شو.';
 
   @override
   String get notificationStop => 'قطع اتصال';
