@@ -2579,6 +2579,64 @@ void main() {
     }
   });
 
+  testWidgets('on the phone a card opens with its name and arrow where they '
+      'were, and from its top edge to under the name is one fold button, a '
+      'finger tall', (tester) async {
+    for (final (id, user) in [(0, 'user123'), (7, 'user789')]) {
+      final controller = _Controller();
+      final holder = await _pump(
+        tester,
+        _cards(connection: ShikooConnection.on),
+        controller: controller,
+      );
+      Finder card() => find
+          .ancestor(
+            of: find.textContaining(user),
+            matching: find.byWidgetPredicate(
+              (w) => w is FoldedServiceCard || w is ServiceCard,
+            ),
+          )
+          .first;
+      Finder inside(Finder finder) =>
+          find.descendant(of: card(), matching: finder);
+      final arrow = find.byWidgetPredicate(
+        (w) =>
+            w is SvgIcon &&
+            {ShikooIcon.chevronDown, ShikooIcon.chevronUp}.contains(w.icon),
+      );
+      double nameTop() =>
+          tester.getTopLeft(inside(find.byType(ServiceName))).dy -
+          tester.getTopLeft(card()).dy;
+      final folded = (nameTop(), tester.getCenter(inside(arrow)));
+      holder.value = _cards(connection: ShikooConnection.on, open: id);
+      await tester.pumpAndSettle();
+      expect(nameTop(), closeTo(folded.$1, 0.5), reason: '$user: the name');
+      expect(
+        tester.getCenter(inside(arrow)),
+        within(distance: 0.5, from: folded.$2),
+        reason: '$user: the arrow',
+      );
+      final button = tester.getRect(
+        find
+            .ancestor(
+              of: inside(_icon(ShikooIcon.chevronUp)),
+              matching: find.byType(GestureDetector),
+            )
+            .first,
+      );
+      expect(button.top, closeTo(tester.getTopLeft(card()).dy, 0.5));
+      expect(button.height, greaterThanOrEqualTo(ShikooSizes.touch));
+      expect(
+        button.bottom,
+        greaterThanOrEqualTo(
+          tester.getRect(inside(find.byType(ServiceName))).bottom,
+        ),
+      );
+      await tester.tapAt(button.topCenter + const Offset(0, 4));
+      verify(() => controller.openService(null)).called(1);
+    }
+  });
+
   testWidgets('a folded summary breaks only before «·», whatever the width', (
     tester,
   ) async {

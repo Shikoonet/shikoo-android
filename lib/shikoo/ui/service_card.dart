@@ -165,9 +165,13 @@ class _ServiceCardState extends State<ServiceCard> {
             pinging: state.pinging,
             isTV: state.isTV,
             onFold: widget.onFold,
+            inUse: widget.onFold == null ? null : inUse,
           );
     return Container(
-      padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
+      padding: EdgeInsets.only(
+        top: head != null && widget.onFold != null ? 0 : Space.s4,
+        bottom: Space.s2,
+      ),
       decoration: ShapeDecoration(
         color: t.c.surface,
         shadows: t.c.cardShadow,
@@ -244,7 +248,9 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: state.isTV
                         ? inset
                         : const EdgeInsetsDirectional.only(start: Space.s4),
-                    child: InUseMark(live: inUse, child: head!),
+                    child: widget.onFold == null
+                        ? InUseMark(live: inUse, child: head!)
+                        : head!,
                   ),
                 ),
                 if (revoked)
@@ -390,46 +396,66 @@ class InUseMark extends StatelessWidget {
   final Color? color;
   final Widget child;
 
+  static Widget label(BuildContext context, bool live, [Color? color]) {
+    final t = ShikooTheme.of(context);
+    return Text(
+      ShikooL10n.of(context).inUseLabel,
+      style: t.text(
+        t.s.caption,
+        weight: FontWeight.w700,
+        color: color ?? (live ? t.c.inUse : t.c.textMuted),
+        height: Leading.tight,
+      ),
+    );
+  }
+
+  /// On the card's start edge, from [top] down.
+  static Widget bar(
+    BuildContext context,
+    bool live, {
+    Color? color,
+    double top = 0,
+  }) {
+    final t = ShikooTheme.of(context);
+    return PositionedDirectional(
+      start: -Space.s4,
+      top: top,
+      bottom: 0,
+      child: Container(
+        width: ShikooSizes.selectedBar,
+        decoration: ShapeDecoration(
+          color: color ?? (live ? t.c.inUse : t.c.inUseIdle),
+          shape: const StadiumBorder(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
     final live = this.live;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (live != null)
-              Text(
-                ShikooL10n.of(context).inUseLabel,
-                style: t.text(
-                  t.s.caption,
-                  weight: FontWeight.w700,
-                  color: color ?? (live ? t.c.inUse : t.c.textMuted),
-                  height: Leading.tight,
-                ),
-              ),
-            child,
-          ],
+          children: [?live == null ? null : label(context, live, color), child],
         ),
-        if (live != null)
-          PositionedDirectional(
-            start: -Space.s4,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              width: ShikooSizes.selectedBar,
-              decoration: ShapeDecoration(
-                color: color ?? (live ? t.c.inUse : t.c.inUseIdle),
-                shape: const StadiumBorder(),
-              ),
-            ),
-          ),
+        if (live != null) bar(context, live, color: color),
       ],
     );
   }
 }
+
+/// The phone's fold arrow, folded or open in the same place: an icon, as the whole head is the button.
+Widget _foldArrow(ShikooTheme t, {required bool open}) => Padding(
+  padding: const EdgeInsetsDirectional.only(start: Space.s2, end: Space.s4),
+  child: SvgIcon(
+    open ? ShikooIcon.chevronUp : ShikooIcon.chevronDown,
+    size: t.s.icon,
+    color: t.c.textMuted,
+  ),
+);
 
 /// `.notice.msg.hint` above another service's list: what a tap there does, then, once one did,
 /// `.positive` that it did. One box as tall as the taller text, so no row under it moves.
@@ -535,16 +561,7 @@ class FoldedServiceCard extends StatelessWidget {
       children: [
         _NameLine(
           service: service,
-          // The whole card is the button: the arrow is an icon, the row as tall as the name.
-          arrow: isTV
-              ? arrow
-              : Padding(
-                  padding: const EdgeInsetsDirectional.only(
-                    start: Space.s2,
-                    end: Space.s4,
-                  ),
-                  child: arrow,
-                ),
+          arrow: isTV ? arrow : _foldArrow(t, open: false),
         ),
         Padding(
           padding: EdgeInsetsDirectional.only(
@@ -747,6 +764,7 @@ class _Head extends StatelessWidget {
     this.pinging,
     required this.isTV,
     this.onFold,
+    this.inUse,
   });
 
   final ShikooService service;
@@ -757,7 +775,12 @@ class _Head extends StatelessWidget {
   final VoidCallback? onPing;
   final ({int done, int total})? pinging;
   final bool isTV;
+
+  /// The phone's: from the card's top edge to under the name folds the card.
   final VoidCallback? onFold;
+
+  /// The phone's in-use mark, inside the fold button; the TV's is [InUseMark] around the head.
+  final bool? inUse;
 
   @override
   Widget build(BuildContext context) {
@@ -819,41 +842,56 @@ class _Head extends StatelessWidget {
                 onPressed: ping,
               ),
           ];
+    final status = Padding(
+      padding: EdgeInsetsDirectional.only(end: isTV ? 0 : Space.s4),
+      child: _StatusRow(service: service, text: sub, end: buttons),
+    );
     final onFold = this.onFold;
-    // A bare icon in the mockup; its touch target reaches into the card's end inset.
-    final arrow = onFold == null
-        ? null
-        : Pressable(
-            shape: const StadiumBorder(),
-            onPressed: onFold,
-            builder: (context, _) => Semantics(
-              button: true,
-              expanded: true,
-              label: serviceTitle(context, service),
-              child: Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: Space.s2,
-                  end: Space.s4,
-                ),
-                child: SizedBox(
-                  height: ShikooSizes.touch,
-                  child: SvgIcon(
-                    ShikooIcon.chevronUp,
-                    size: t.s.icon,
-                    color: t.c.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          );
-    return Column(
+    if (onFold == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _NameLine(service: service),
+          status,
+        ],
+      );
+    }
+    final live = inUse;
+    final title = serviceTitle(context, service);
+    final head = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _NameLine(service: service, arrow: arrow),
-        Padding(
-          padding: EdgeInsetsDirectional.only(end: isTV ? 0 : Space.s4),
-          child: _StatusRow(service: service, text: sub, end: buttons),
+        Semantics(
+          button: true,
+          expanded: true,
+          label: live == null ? title : '${l.inUseLabel}\n$title',
+          excludeSemantics: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onFold,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: ShikooSizes.touch),
+              padding: const EdgeInsets.only(top: Space.s4),
+              alignment: AlignmentDirectional.topStart,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ?live == null ? null : InUseMark.label(context, live),
+                  _NameLine(service: service, arrow: _foldArrow(t, open: true)),
+                ],
+              ),
+            ),
+          ),
         ),
+        status,
+      ],
+    );
+    if (live == null) return head;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        head,
+        InUseMark.bar(context, live, top: Space.s4),
       ],
     );
   }
