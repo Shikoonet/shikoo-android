@@ -34,6 +34,10 @@ const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hidden=
 <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20h14"/></symbol>
 <symbol id="i-paste" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></symbol>
 <symbol id="i-report" viewBox="0 0 24 24"><path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6"/><path d="M9 16.5h4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+<symbol id="i-handle" viewBox="0 0 24 24"><path d="M5 8h14"/><path d="M5 12h14"/><path d="M5 16h14"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M6 13l6 6 6-6"/></symbol>
 <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
 <symbol id="f-de" viewBox="0 0 30 20"><rect width="30" height="20" fill="#FFCE00"/><rect width="30" height="13.34" fill="#DD0000"/><rect width="30" height="6.67" fill="#000"/></symbol>
 <symbol id="f-nl" viewBox="0 0 30 20"><rect width="30" height="20" fill="#21468B"/><rect width="30" height="13.34" fill="#FFF"/><rect width="30" height="6.67" fill="#AE1C28"/></symbol>
@@ -76,8 +80,8 @@ function mockScroll(view) {
 }
 // نام سرویس در جای ثابتش (تصمیم ۲۰ مهر): حداکثر data-lines خط (پیش‌فرض ۲؛ می‌شکند فقط پیش از «·»).
 // اگر جا نشد، قلم پله‌پله تا --name-shrink-min ریز می‌شود؛ بعد نام کاربری (bdi) از وسط کوتاه می‌شود و پنج حرف
-// آخرش می‌ماند؛ و اگر باز جا نشد، رده (.tier) از ته «…» می‌گیرد. اپ امروز فقط کوتاه کردن از وسط را دارد
-// (ServiceName در widgets.dart)؛ ریز شدن و بریدن رده هنوز ساخته نشده‌اند.
+// آخرش می‌ماند؛ و اگر باز جا نشد، رده (.tier) از ته «…» می‌گیرد. قاعدهٔ بستهٔ ۱ (شاخهٔ feat/service-name-row،
+// هنوز ادغام نشده).
 function fitName(el) {
   const user = el.querySelector('bdi');
   const tier = el.querySelector('.tier');
