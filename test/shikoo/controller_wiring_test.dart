@@ -14,6 +14,7 @@ import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -782,10 +783,13 @@ void main() {
   test('a paste with no link, or not a Shikoo one, sends no request', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final controller = container.read(shikooControllerProvider);
-    expect(await controller.pasteService(null), ShikooPasteError.empty);
-    expect(await controller.pasteService(' \n '), ShikooPasteError.empty);
+    expect((await controller.pasteService(null)).error, ShikooPasteError.empty);
     expect(
-      await controller.pasteService('https://example.com/sub/token'),
+      (await controller.pasteService(' \n ')).error,
+      ShikooPasteError.empty,
+    );
+    expect(
+      (await controller.pasteService('https://example.com/sub/token')).error,
       ShikooPasteError.notShikoo,
     );
     expect(container.read(profilesProvider), hasLength(1));
@@ -799,7 +803,9 @@ void main() {
       ]).container;
       final controller = container.read(shikooControllerProvider);
       expect(
-        await controller.pasteService('سرویسم: https://4g3.uk/sub/mine.'),
+        (await controller.pasteService(
+          'سرویسم: https://4g3.uk/sub/mine.',
+        )).error,
         isNull,
       );
       await controller.addService('https://4g3.uk/sub/account');
@@ -1728,7 +1734,7 @@ void main() {
     final emulator = 'http://10.0.2.2:$port';
     for (final link in ['file/user111/a', 'file/user111/b']) {
       expect(
-        await controller.pasteService('$emulator/$link', debug: true),
+        (await controller.pasteService('$emulator/$link', debug: true)).error,
         isNull,
       );
     }
@@ -1741,7 +1747,8 @@ void main() {
   });
 
   test('nothing is pinged by itself: not on open, nor on coming back, nor on '
-      'another service, nor after an update', () async {
+      'another service, nor after an update, nor with every card folded; '
+      'opening a card pings it', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final panel = await _panel(container, core);
     final first = container.read(profilesProvider).single;
@@ -1791,6 +1798,14 @@ void main() {
     expect(state.notice, isA<ServersChanged>());
     expect(state.selected, 'آلمان ۱');
     expect(probes, isEmpty, reason: 'after an update');
+
+    controller.openService(null);
+    await pumpEventQueue();
+    expect(probes, isEmpty, reason: 'every card folded');
+    controller.openService(first.id);
+    await pumpEventQueue();
+    expect(probes, unorderedEquals(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']));
+    expect(container.read(shikooStateProvider).sorted, isTrue);
   });
 
   test('an update that takes the selected server away pings that service once '
@@ -1982,6 +1997,27 @@ void main() {
     expect(service('user111').revoked, isFalse, reason: 'its new link');
   });
 
+  test('on the TV, which never pastes, a pasted link the panel stops '
+      'knowing is not marked revoked', () async {
+    final (:container, :core, :proxies, :setup) = _home([
+      shikooTvProvider.overrideWithValue(true),
+    ]);
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    await controller.pasteService(
+      'http://10.0.2.2:$port/file/user111/a',
+      debug: true,
+    );
+    ShikooService pasted() => container
+        .read(shikooStateProvider)
+        .listed
+        .firstWhere((s) => s.name == 'user111');
+
+    _gone.add('/file/user111/a');
+    await controller.refreshOther(pasted().id);
+    expect(pasted().revoked, isFalse);
+  });
+
   test('removing the service in use disconnects, the next card takes its '
       'place, and nothing reconnects', () async {
     final (:container, :core, :proxies, :setup) = _home();
@@ -1993,6 +2029,7 @@ void main() {
     for (final user in ['user111', 'user222']) {
       await controller.pasteService('$emulator/file/$user/a', debug: true);
     }
+    await pumpEventQueue();
     final [first, second] = container.read(profilesProvider);
     expect(container.read(currentProfileIdProvider), second.id);
     container.read(runTimeProvider.notifier).value = 1;
@@ -2013,6 +2050,102 @@ void main() {
     expect(container.read(shikooStateProvider).service, isNull);
     expect(await pastedProfiles(), isEmpty);
   });
+
+  test('the card order stays on this device: the one in use keeps its place, '
+      'a new service comes last, a gone one is skipped, and a restart reads '
+      'it back', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(shikooControllerProvider);
+    final first = container.read(currentProfileIdProvider)!;
+    final [second, third, fourth] = [
+      for (final name in ['b', 'c', 'd'])
+        Profile.normal(url: 'https://panel.invalid/$name'),
+    ];
+    final profiles = container.read(profilesProvider.notifier)
+      ..put(second)
+      ..put(third);
+    await pumpEventQueue();
+    List<int> cards() => [
+      for (final s in container.read(shikooStateProvider).listed) s.id,
+    ];
+    expect(container.read(serviceOrderProvider), [first, second.id, third.id]);
+
+    await container.read(savedOrderProvider.notifier).save([
+      third.id,
+      first,
+      second.id,
+    ]);
+    expect(container.read(serviceOrderProvider), [third.id, first, second.id]);
+    expect(cards(), [third.id, first, second.id]);
+    expect(container.read(shikooStateProvider).service!.id, first);
+
+    profiles.put(fourth);
+    await profiles.del(second.id);
+    expect(container.read(serviceOrderProvider), [third.id, first, fourth.id]);
+
+    final stored = (await SharedPreferences.getInstance()).getStringList(
+      shikooOrderKey,
+    );
+    final kept = container.read(profilesProvider);
+    final again = _home().container;
+    kept.forEach(again.read(profilesProvider.notifier).put);
+    SharedPreferences.setMockInitialValues({shikooOrderKey: stored!});
+    again.read(shikooControllerProvider);
+    await pumpEventQueue();
+    expect(again.read(serviceOrderProvider), [
+      third.id,
+      first,
+      again.read(currentProfileIdProvider),
+      fourth.id,
+    ], reason: 'the saved ids first, the others as they come');
+  });
+
+  test('a used-up service that is renewed comes back at the end of the '
+      'order', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    final first = container.read(currentProfileIdProvider)!;
+    await controller.addService('$panel/file/user111/a', null, false);
+    await controller.addService('$panel/file/user222/a', null, false);
+    final [one, two] = _pasted(container);
+    container
+        .read(profilesProvider.notifier)
+        .put(
+          one.copyWith(
+            subscriptionInfo: const SubscriptionInfo(download: 2, total: 1),
+          ),
+        );
+    expect(
+      profileFinished(container.read(profilesProvider).getProfile(one.id)!),
+      isTrue,
+    );
+    await container.read(savedOrderProvider.notifier).save([
+      one.id,
+      first,
+      two.id,
+    ]);
+
+    await controller.refreshOther(two.id);
+    expect(container.read(serviceOrderProvider), [one.id, first, two.id]);
+    await controller.refreshOther(one.id);
+    expect(container.read(serviceOrderProvider), [first, two.id, one.id]);
+  });
+
+  test(
+    "removing every service clears the order: it was the account's",
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final controller = container.read(shikooControllerProvider);
+      await container.read(savedOrderProvider.notifier).save([3, 2, 1]);
+      await controller.forgetServices();
+      expect(container.read(savedOrderProvider), isEmpty);
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(shikooOrderKey),
+        isEmpty,
+      );
+    },
+  );
 
   test("a failed update stays with its own service's card, not the next one "
       'in use', () async {
@@ -2292,8 +2425,8 @@ void main() {
     );
   });
 
-  test('a connect still searching goes on when a ping opens another service '
-      'that has its own server: it connects with that one', () async {
+  test('a connect still searching goes on with its own service when another '
+      'card opens', () async {
     final (:container, :core, :proxies, :setup) = _home();
     var hold = Completer<void>()..complete();
     when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
@@ -2314,19 +2447,23 @@ void main() {
     hold = Completer<void>();
     unawaited(controller.connect());
     await pumpEventQueue();
-    controller.pingService(second.id);
+    controller.openService(second.id);
     await pumpEventQueue();
     hold.complete();
     await pumpEventQueue();
     final state = container.read(shikooStateProvider);
     expect(setup.runs, [true], reason: 'not stuck on connecting');
-    expect(state.selected, 'هلند ۱', reason: "the second service's own");
-    expect(state.sorted, isTrue, reason: 'and the ping it was asked for');
+    expect((state.service!.id, state.open), (first, second.id));
+    expect(
+      state.selected,
+      isIn(['آلمان ۱', 'هلند ۱']),
+      reason: 'its first answer',
+    );
     await controller.disconnect();
   });
 
   test('a search the tunnel started after an update ends when another '
-      'service with its own server opens', () async {
+      'service with its own server becomes the one in use', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final panel = await _panel(container, core);
     container
@@ -2372,7 +2509,7 @@ void main() {
     await controller.refreshService();
     await pumpEventQueue();
     expect(container.read(shikooStateProvider).waiting, isTrue);
-    controller.pingService(second.id);
+    controller.selectService(second.id);
     await pumpEventQueue();
     hold.complete();
     await pumpEventQueue();
@@ -2512,8 +2649,8 @@ void main() {
     expect(calls, 4, reason: 'only those already under way');
   });
 
-  test('a folded card whose ping opened nothing yet leaves no ping behind for '
-      'the service tapped next', () async {
+  test('a card opened while off whose service has not come yet leaves no ping '
+      'behind for the service chosen next', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final probes = <String>[];
     when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
@@ -2529,10 +2666,580 @@ void main() {
       ..put(second)
       ..put(third);
     controller
-      ..pingService(second.id)
+      ..openService(second.id)
       ..selectService(third.id);
     await pumpEventQueue();
     expect(container.read(currentProfileIdProvider), third.id);
     expect(probes, isEmpty);
   });
+
+  group('another card opened', () {
+    const firstNames = [_version, 'آلمان ۱', 'هلند ۱'];
+    const secondNames = ['هلند ۱', 'ترکیه ۱', 'WG ۱'];
+    String typeOf(String name) => name.startsWith('WG') ? 'wireguard' : 'vless';
+    Map<String, dynamic> config(List<String> names, String server) => {
+      'proxies': [
+        for (final name in names)
+          {'name': name, 'type': typeOf(name), 'server': server, 'port': 443},
+      ],
+      'proxy-groups': [
+        {'name': 'PROXY', 'type': 'select', 'proxies': names},
+      ],
+    };
+    Group group(List<String> names) => Group(
+      type: GroupType.Selector,
+      name: 'PROXY',
+      hidden: false,
+      all: [
+        for (final name in names)
+          Proxy(
+            name: name,
+            type: typeOf(name) == 'wireguard' ? 'WireGuard' : 'Vless',
+          ),
+      ],
+    );
+    List<(String, int?)> pingsOf(List<ShikooServer> servers) => [
+      for (final server in servers) (server.name, server.ping),
+    ];
+
+    setUpAll(() => registerFallbackValue(<String, dynamic>{}));
+
+    Completer<void>? coreGate;
+    Completer<void>? fileGate;
+    Completer<void>? applyGate;
+
+    /// Two services sharing «هلند ۱»; the core holds only the one in use, as FlClash's does.
+    /// A test adds a third with [lists], [pings] and a profile.
+    Future<
+      ({
+        ProviderContainer container,
+        _Core core,
+        _Proxies proxies,
+        _Setup setup,
+        ShikooController controller,
+        int first,
+        int second,
+        Map<int, List<String>> lists,
+        Map<int, Map<String, int>> pings,
+        List<String> fromFile,
+      })
+    >
+    twoServices({bool connected = true}) async {
+      coreGate = null;
+      fileGate = null;
+      applyGate = null;
+      final lists = <int, List<String>>{};
+      final pings = <int, Map<String, int>>{};
+      final fromFile = <String>[];
+      final second = Profile.normal(url: 'https://panel.invalid/second');
+      final (:container, :core, :proxies, :setup) = _home([
+        serviceAppliedProvider.overrideWith(
+          (ref) => () async {
+            await applyGate?.future;
+            ref.read(groupsProvider.notifier).value = [
+              group(lists[ref.read(currentProfileIdProvider)]!),
+            ];
+          },
+        ),
+      ]);
+      final first = container.read(currentProfileIdProvider)!;
+      container.read(profilesProvider.notifier).put(second);
+      lists
+        ..[first] = firstNames
+        ..[second.id] = secondNames;
+      pings
+        ..[first] = {'آلمان ۱': 50, 'هلند ۱': 40}
+        ..[second.id] = {'هلند ۱': 300, 'ترکیه ۱': 80};
+      when(() => core.getConfig(any())).thenAnswer((call) async {
+        final path = '${call.positionalArguments.first}';
+        final id = lists.keys.firstWhere((id) => path.endsWith('$id.yaml'));
+        return config(lists[id]!, '$id.invalid');
+      });
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        final inUse = container.read(currentProfileIdProvider);
+        await coreGate?.future;
+        return Delay(name: name, url: '', value: pings[inUse]?[name] ?? -1);
+      });
+      when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
+        final proxy = call.positionalArguments[1] as Map<String, dynamic>;
+        final name = '${proxy['name']}';
+        final service = int.parse('${proxy['server']}'.split('.').first);
+        fromFile.add(name);
+        await fileGate?.future;
+        return Delay(name: name, url: '', value: pings[service]?[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await controller.pingAll();
+      if (connected) {
+        container.read(runTimeProvider.notifier).value = 1;
+        setup.tunnel = DateTime(2026);
+      }
+      await pumpEventQueue();
+      return (
+        container: container,
+        core: core,
+        proxies: proxies,
+        setup: setup,
+        controller: controller,
+        first: first,
+        second: second.id,
+        lists: lists,
+        pings: pings,
+        fromFile: fromFile,
+      );
+    }
+
+    test('connected, it is measured from its own file and sorted on its own; '
+        'the tunnel stays where it is', () async {
+      final t = await twoServices();
+      final moves = <int?>[];
+      t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+      fileGate = Completer<void>();
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      var state = t.container.read(shikooStateProvider);
+      expect(state.open, t.second);
+      expect(state.opened?.pinging, (done: 0, total: 3));
+      expect(state.opened!.servers.every((s) => s.testing), isTrue);
+
+      fileGate!.complete();
+      await pumpEventQueue();
+      state = t.container.read(shikooStateProvider);
+      expect(moves, isEmpty, reason: 'the service in use stays');
+      expect(t.proxies.picked, ['هلند ۱'], reason: 'no server chosen anew');
+      expect(t.setup.runs, isEmpty);
+      expect(state.connection, ShikooConnection.on);
+      expect(state.service!.id, t.first);
+      expect(pingsOf(state.opened!.servers), [
+        ('ترکیه ۱', 80),
+        ('هلند ۱', 300),
+        ('WG ۱', -1),
+      ]);
+      expect((state.opened!.sorted, state.opened!.pinging), (true, null));
+      expect(
+        t.fromFile,
+        unorderedEquals(['هلند ۱', 'ترکیه ۱', 'WG ۱', 'WG ۱']),
+      );
+      verifyNever(() => t.core.asyncTestDelay(any(), 'ترکیه ۱'));
+      expect(pingsOf(state.servers), [
+        ('هلند ۱', 40),
+        ('آلمان ۱', 50),
+      ], reason: 'the name both have keeps this service its own number');
+    });
+
+    test('a server tapped there takes the tunnel with that service, loaded '
+        'with it chosen; each service keeps its own numbers', () async {
+      final t = await twoServices();
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      final handed = <Map<String, String>>[];
+      t.container.listen(currentProfileIdProvider, (_, id) {
+        handed.add({
+          ...?t.container.read(profilesProvider).getProfile(id!)?.selectedMap,
+        });
+      });
+      await t.controller.selectServer('ترکیه ۱', service: t.second);
+      await pumpEventQueue();
+      var state = t.container.read(shikooStateProvider);
+      expect(handed, [
+        {'PROXY': 'ترکیه ۱'},
+      ], reason: 'what setup hands the core: no other server first');
+      expect(state.service!.id, t.second);
+      expect(state.selected, 'ترکیه ۱');
+      expect(state.switching?.stage, ShikooSwitchStage.done);
+      expect(state.opened, isNull, reason: 'it is the service in use now');
+      expect(t.setup.runs, isEmpty, reason: 'the tunnel stays up');
+      expect(pingsOf(state.servers), [
+        ('ترکیه ۱', 80),
+        ('هلند ۱', 300),
+        ('WG ۱', -1),
+      ], reason: 'its numbers and order came along');
+
+      t.controller.selectService(t.first);
+      t.container.read(groupsProvider.notifier).value = [group(firstNames)];
+      await pumpEventQueue();
+      state = t.container.read(shikooStateProvider);
+      expect(pingsOf(state.servers), [
+        ('هلند ۱', 40),
+        ('آلمان ۱', 50),
+      ], reason: 'and the first one its own, measured before the switch');
+    });
+
+    test('off, it is the service connect uses and the core pings it', () async {
+      final t = await twoServices(connected: false);
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.container.read(groupsProvider.notifier).value = [group(secondNames)];
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      expect(state.service!.id, t.second);
+      expect((state.open, state.opened), (t.second, null));
+      expect(state.sorted, isTrue);
+      expect(pingsOf(state.servers), [
+        ('ترکیه ۱', 80),
+        ('هلند ۱', 300),
+        ('WG ۱', -1),
+      ]);
+      expect(t.fromFile, isEmpty, reason: 'the core holds it');
+    });
+
+    /// A pasted service's file holds «سوئد ۱»; its id is known only once it is saved.
+    Future<String> pasteable(
+      ProviderContainer container,
+      _Core core,
+      Map<int, List<String>> lists,
+    ) async {
+      final port = Uri.parse(await _panel(container, core)).port;
+      when(() => core.getConfig(any())).thenAnswer((call) async {
+        final path = '${call.positionalArguments.first}';
+        final id = lists.keys.firstWhere(
+          (id) => path.endsWith('$id.yaml'),
+          orElse: () => 0,
+        );
+        return config(lists[id] ?? const ['سوئد ۱'], '$id.invalid');
+      });
+      return 'http://10.0.2.2:$port';
+    }
+
+    test('a paste while connected opens its card last and measures it there; '
+        'the tunnel stays, and the same account pasted again is no second '
+        'card', () async {
+      final t = await twoServices();
+      final panel = await pasteable(t.container, t.core, t.lists);
+      final moves = <int?>[];
+      t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+      final pasted = await t.controller.pasteService(
+        '$panel/file/user333/a',
+        debug: true,
+      );
+      await pumpEventQueue();
+      var state = t.container.read(shikooStateProvider);
+      expect((pasted.error, pasted.added), (null, true));
+      expect(moves, isEmpty, reason: 'the service in use stays');
+      expect(t.setup.runs, isEmpty);
+      expect(
+        (state.connection, state.service!.id),
+        (ShikooConnection.on, t.first),
+      );
+      expect(state.others.last.id, pasted.id);
+      expect((state.open, state.opened?.id), (pasted.id, pasted.id));
+      expect(t.fromFile, contains('سوئد ۱'), reason: 'measured from its file');
+
+      final again = await t.controller.pasteService(
+        '$panel/file/user333/b',
+        debug: true,
+      );
+      await pumpEventQueue();
+      state = t.container.read(shikooStateProvider);
+      expect((again.id, again.added), (pasted.id, false));
+      expect(t.container.read(profilesProvider), hasLength(3));
+      expect(state.open, pasted.id);
+      expect(moves, isEmpty);
+    });
+
+    test('a paste while off makes the new service the one connect '
+        'uses', () async {
+      final t = await twoServices(connected: false);
+      final panel = await pasteable(t.container, t.core, t.lists);
+      final pasted = await t.controller.pasteService(
+        '$panel/file/user333/a',
+        debug: true,
+      );
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      expect(pasted.added, isTrue);
+      expect(state.service!.id, pasted.id);
+      expect(state.open, pasted.id);
+      expect(t.setup.runs, isEmpty, reason: 'nothing connects by itself');
+    });
+
+    test('a late answer lands on no same-named server of the other '
+        'service', () async {
+      final t = await twoServices();
+      coreGate = Completer<void>();
+      final round = t.controller.pingAll();
+      await pumpEventQueue();
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      coreGate!.complete();
+      await round;
+      await pumpEventQueue();
+      var state = t.container.read(shikooStateProvider);
+      expect(
+        state.opened!.servers.firstWhere((s) => s.name == 'هلند ۱').ping,
+        300,
+      );
+      expect(state.servers.firstWhere((s) => s.name == 'هلند ۱').ping, 40);
+
+      t.pings[t.second]!['هلند ۱'] = 999;
+      fileGate = Completer<void>();
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.controller.openService(t.first);
+      await pumpEventQueue();
+      fileGate!.complete();
+      await pumpEventQueue();
+      state = t.container.read(shikooStateProvider);
+      expect(state.servers.firstWhere((s) => s.name == 'هلند ۱').ping, 40);
+      t.controller.selectService(t.second);
+      t.container.read(groupsProvider.notifier).value = [group(secondNames)];
+      coreGate = Completer<void>();
+      await pumpEventQueue();
+      state = t.container.read(shikooStateProvider);
+      expect(
+        state.servers.firstWhere((s) => s.name == 'هلند ۱').ping,
+        300,
+        reason: 'a list folded before its answers came reads none of them',
+      );
+      coreGate!.complete();
+      await pumpEventQueue();
+      await t.controller.disconnect();
+    });
+
+    test('a tapped server there that does not answer gets no traffic; a '
+        'WireGuard one is tried on real traffic, and the first service comes '
+        'back if none passes', () async {
+      final t = await twoServices();
+      final moves = <int?>[];
+      t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.pings[t.second]!['هلند ۱'] = -1;
+      fileGate = Completer<void>();
+      final tap = t.controller.selectServer('هلند ۱', service: t.second);
+      await pumpEventQueue();
+      var state = t.container.read(shikooStateProvider);
+      bool spins(List<ShikooServer> servers) =>
+          servers.firstWhere((s) => s.name == 'هلند ۱').testing;
+      expect(state.switching?.stage, ShikooSwitchStage.moving);
+      expect(spins(state.opened!.servers), isTrue);
+      expect(spins(state.servers), isFalse, reason: 'the same name in use');
+      fileGate!.complete();
+      await tap;
+      state = t.container.read(shikooStateProvider);
+      expect(moves, isEmpty);
+      expect(state.switching, (
+        to: 'هلند ۱',
+        from: 'هلند ۱',
+        stage: ShikooSwitchStage.failed,
+      ));
+      expect(
+        t.container.read(profilesProvider).getProfile(t.second)!.selectedMap,
+        isEmpty,
+      );
+
+      t.setup.traffic = false;
+      await t.controller.selectServer('WG ۱', service: t.second);
+      t.container.read(groupsProvider.notifier).value = [group(firstNames)];
+      await pumpEventQueue();
+      state = t.container.read(shikooStateProvider);
+      expect(moves, [t.second, t.first], reason: 'tried there, then back');
+      expect((state.service!.id, state.selected), (t.first, 'هلند ۱'));
+      expect(state.switching?.stage, ShikooSwitchStage.failed);
+
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.setup.traffic = true;
+      await t.controller.selectServer('WG ۱', service: t.second);
+      state = t.container.read(shikooStateProvider);
+      expect((state.service!.id, state.selected), (t.second, 'WG ۱'));
+      expect(state.switching?.stage, ShikooSwitchStage.done);
+      await pumpEventQueue();
+    });
+
+    test('once a tap there lands, the rest of that card\'s round probes '
+        'nothing from its file: a WireGuard key would meet itself', () async {
+      final t = await twoServices();
+      final slow = Completer<void>();
+      final landed = <String>[];
+      when(() => t.core.testProxyDelay(any(), any())).thenAnswer((call) async {
+        final proxy = call.positionalArguments[1] as Map<String, dynamic>;
+        final name = '${proxy['name']}';
+        if (t.container.read(currentProfileIdProvider) == t.second) {
+          landed.add(name);
+        }
+        if (name == 'ترکیه ۱') await slow.future;
+        final service = int.parse('${proxy['server']}'.split('.').first);
+        return Delay(name: name, url: '', value: t.pings[service]?[name] ?? -1);
+      });
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      await t.controller.selectServer('هلند ۱', service: t.second);
+      t.container.read(groupsProvider.notifier).value = [group(secondNames)];
+      await pumpEventQueue();
+      expect(t.container.read(currentProfileIdProvider), t.second);
+      slow.complete();
+      await pumpEventQueue();
+      expect(landed, isEmpty);
+    });
+
+    test('a WireGuard server there that carries no traffic gives the tunnel '
+        "back and leaves that service's own choice as it was", () async {
+      final t = await twoServices();
+      Profile second() =>
+          t.container.read(profilesProvider).getProfile(t.second)!;
+      t.container
+          .read(profilesProvider.notifier)
+          .put(second().copyWith(selectedMap: {'PROXY': 'ترکیه ۱'}));
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.setup.traffic = false;
+      await t.controller.selectServer('WG ۱', service: t.second);
+      t.container.read(groupsProvider.notifier).value = [group(firstNames)];
+      await pumpEventQueue();
+      expect(t.container.read(currentProfileIdProvider), t.first);
+      expect(second().selectedMap, {
+        'PROXY': 'ترکیه ۱',
+      }, reason: 'not the WireGuard server the next connect would land on');
+    });
+
+    test('a WireGuard check there that fails after a newer tap gives nothing '
+        'back: the last tap decides', () async {
+      final t = await twoServices();
+      final third = Profile.normal(url: 'https://panel.invalid/third');
+      t.lists[third.id] = ['سوئد ۱'];
+      t.pings[third.id] = {'سوئد ۱': 70};
+      t.container.read(profilesProvider.notifier).put(third);
+      final moves = <int?>[];
+      t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.setup
+        ..traffic = false
+        ..trafficGate = Completer<void>();
+      final wireGuard = t.controller.selectServer('WG ۱', service: t.second);
+      await pumpEventQueue();
+      expect(moves, [t.second]);
+
+      t.controller.openService(third.id);
+      await pumpEventQueue();
+      fileGate = Completer<void>();
+      final sweden = t.controller.selectServer('سوئد ۱', service: third.id);
+      await pumpEventQueue();
+      t.setup.trafficGate!.complete();
+      await wireGuard;
+      await pumpEventQueue();
+      expect(moves, [t.second], reason: 'the newer tap is still measured');
+
+      fileGate!.complete();
+      await sweden;
+      await pumpEventQueue();
+      expect(moves, [t.second, third.id]);
+      expect(t.container.read(shikooStateProvider).selected, 'سوئد ۱');
+    });
+
+    test('an ended service only opens: off it never becomes the one connect '
+        'uses, on it is not measured, and nothing is pinged', () async {
+      for (final connected in [false, true]) {
+        final t = await twoServices(connected: connected);
+        final second = t.container.read(profilesProvider).getProfile(t.second)!;
+        t.container
+            .read(profilesProvider.notifier)
+            .put(
+              second.copyWith(
+                subscriptionInfo: const SubscriptionInfo(expire: 1),
+              ),
+            );
+        await pumpEventQueue();
+        final moves = <int?>[];
+        t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+        clearInteractions(t.core);
+        t.controller.openService(t.second);
+        await pumpEventQueue();
+        final state = t.container.read(shikooStateProvider);
+        final where = connected ? 'connected' : 'off';
+        expect((state.open, state.service!.id), (t.second, t.first));
+        expect(moves, isEmpty, reason: where);
+        expect(t.fromFile, isEmpty, reason: where);
+        verifyNever(() => t.core.asyncTestDelay(any(), any()));
+      }
+    });
+
+    test(
+      'a tap there that moves the tunnel marks that card until it folds, the '
+      'app leaves or the tunnel stops; while the core loads the service it '
+      'keeps the list it showed',
+      () async {
+        final t = await twoServices();
+        Future<void> land(int id, String name) async {
+          t.controller.openService(id);
+          await pumpEventQueue();
+          await t.controller.selectServer(name, service: id);
+          await pumpEventQueue();
+        }
+
+        t.controller.openService(t.second);
+        await pumpEventQueue();
+        applyGate = Completer<void>();
+        final tap = t.controller.selectServer('ترکیه ۱', service: t.second);
+        await pumpEventQueue();
+        var state = t.container.read(shikooStateProvider);
+        expect(state.service!.id, t.second, reason: 'moved, the core not yet');
+        expect(state.landed, (id: t.second, arrived: false));
+        expect(state.opened?.id, t.second);
+        expect(
+          [for (final s in state.opened!.servers) s.name],
+          ['ترکیه ۱', 'هلند ۱', 'WG ۱'],
+          reason: "its own list, not the first service's still in the core",
+        );
+        applyGate!.complete();
+        await tap;
+        state = t.container.read(shikooStateProvider);
+        expect(state.landed, (id: t.second, arrived: true));
+        expect(state.opened, isNull);
+
+        t.controller.onBackground();
+        expect(t.container.read(shikooStateProvider).landed, isNull);
+        await land(t.first, 'آلمان ۱');
+        expect(t.container.read(shikooStateProvider).landed?.id, t.first);
+        t.controller.openService(null);
+        expect(t.container.read(shikooStateProvider).landed, isNull);
+        await land(t.second, 'ترکیه ۱');
+        expect(t.container.read(shikooStateProvider).landed?.id, t.second);
+        await t.controller.disconnect();
+        expect(t.container.read(shikooStateProvider).landed, isNull);
+      },
+    );
+
+    test('a WireGuard try there that gives the tunnel back leaves the card '
+        'open with its list and unmarked', () async {
+      final t = await twoServices();
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.setup.traffic = false;
+      await t.controller.selectServer('WG ۱', service: t.second);
+      t.container.read(groupsProvider.notifier).value = [group(firstNames)];
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      expect(state.service!.id, t.first);
+      expect((state.open, state.landed), (t.second, null));
+      expect(pingsOf(state.opened!.servers), [
+        ('ترکیه ۱', 80),
+        ('هلند ۱', 300),
+        ('WG ۱', -1),
+      ]);
+    });
+  });
+
+  test(
+    'the cards keep their order: the one in use stays where it is',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final first = container.read(currentProfileIdProvider)!;
+      final second = Profile.normal(url: 'https://panel.invalid/second');
+      final third = Profile.normal(url: 'https://panel.invalid/third');
+      container.read(profilesProvider.notifier)
+        ..put(second)
+        ..put(third);
+      container.read(shikooControllerProvider).selectService(second.id);
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect(state.service!.id, second.id);
+      expect(
+        [for (final s in state.listed) s.id],
+        [first, second.id, third.id],
+      );
+    },
+  );
 }

@@ -200,6 +200,10 @@ class CoreController {
     return _interface.asyncTestDelay(url, proxyName);
   }
 
+  Future<Delay?> getDelayOf(String url, Map<String, dynamic> proxy) async {
+    return _interface.testProxyDelay(url, proxy);
+  }
+
   Future<Map<String, dynamic>> getConfig(int id) async {
     final profilePath = await appPath.getProfilePath(id.toString());
     final data = Map<String, dynamic>.from(

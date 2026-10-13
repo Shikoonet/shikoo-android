@@ -331,16 +331,18 @@ class ShikooL10nEn extends ShikooL10n {
   String get pingServers => 'Ping servers';
 
   @override
-  String pingMoveTitle(String name) {
-    return 'Move the connection to “$name”?';
-  }
+  String get inUseLabel => 'In use';
 
   @override
-  String get pingMoveBody =>
-      'Ping works only on the open service. Opening this one also moves your connection to it, and the data comes out of this service.';
+  String get otherServiceHint =>
+      'Tap a server to move your connection to this service.';
 
   @override
-  String get pingMoveConfirm => 'Move and ping';
+  String get otherServiceNow => 'You\'re now connected through this service.';
+
+  @override
+  String get otherServiceCaptionTv =>
+      'Press a server to move your connection here';
 
   @override
   String pingProgress(int done, int total) {
@@ -869,7 +871,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get revokedHelp =>
-      'Remove it, or get a new link from the bot or your reseller and paste it in Settings.';
+      'Remove it, or get a new link from the bot or your reseller and paste it with the + at the top of the home screen.';
 
   @override
   String errorConnectTouch(String server, int seconds) {
@@ -1244,4 +1246,52 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get probeNetSettings => 'Internet settings';
+
+  @override
+  String get addServiceTooltip => 'Add a service by link';
+
+  @override
+  String get addServiceTitle => 'Add a service';
+
+  @override
+  String get addServiceHelp =>
+      'Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this phone.';
+
+  @override
+  String serviceAdded(String name) {
+    return '“$name” was added.';
+  }
+
+  @override
+  String get serviceAlreadyHere => 'This service is already on this phone.';
+
+  @override
+  String get servicesGroup => 'Services';
+
+  @override
+  String get orderServices => 'Order of services';
+
+  @override
+  String get orderServicesHelpTouch => 'On this phone only';
+
+  @override
+  String get orderServicesHelpTv => 'On this TV only';
+
+  @override
+  String get orderScreenHelp =>
+      'Hold ≡ on a service and drag it up or down. The order is for this phone only and is saved at once.';
+
+  @override
+  String orderHandleLabel(String name) {
+    return 'Drag “$name” to move it';
+  }
+
+  @override
+  String get orderTvHintRest => 'OK: pick up to move';
+
+  @override
+  String get orderTvHintMoving => 'Up and down: move · OK: drop · Back: cancel';
+
+  @override
+  String get orderTvPicked => 'Moving';
 }

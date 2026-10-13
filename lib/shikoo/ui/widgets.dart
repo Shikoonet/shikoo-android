@@ -115,7 +115,6 @@ class Pressable extends StatefulWidget {
 class _PressableState extends State<Pressable> {
   bool _highlight = false;
 
-  /// Its own node only: a TV folded card keeps no ring while the remote is on its «پینگ».
   bool get _focused =>
       _highlight && (widget.focusNode?.hasPrimaryFocus ?? true);
 

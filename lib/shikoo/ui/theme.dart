@@ -96,6 +96,11 @@ class ShikooColors {
   final List<BoxShadow> cardShadow;
   final List<BoxShadow> raisedShadow;
 
+  Color get inUse => positive;
+
+  /// The service the round button connects, while off.
+  Color get inUseIdle => outline;
+
   static const light = ShikooColors(
     bg: Color(0xFFF4F4F1),
     surface: Color(0xFFFFFFFF),
@@ -174,6 +179,10 @@ class ShikooColors {
       ),
     ],
   );
+
+  /// The card picked up on the TV's order screen.
+  Color get picked => primary;
+  Color get onPicked => onPrimary;
 }
 
 /// Phone and TV share the names; the TV values are sized for three metres (`[data-device="tv"]`).

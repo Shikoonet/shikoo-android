@@ -8,6 +8,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -121,6 +122,11 @@ ValueGetter<int> _clipboard(WidgetTester tester, String text) {
   return () => reads;
 }
 
+ShikooPasted _failed(ShikooPasteError error) =>
+    (error: error, id: null, added: false);
+
+const ShikooPasted _added = (error: null, id: 7, added: true);
+
 Finder _icon(ShikooIcon icon) =>
     find.byWidgetPredicate((w) => w is SvgIcon && w.icon == icon);
 
@@ -145,14 +151,15 @@ void main() {
   });
 
   testWidgets('the arrow folds the card to one line, and back', (tester) async {
-    await _pump(tester, _phone());
+    await _pump(tester, _phone(), controller: _Controller());
     await tester.tap(_icon(ShikooIcon.chevronUp));
     await tester.pumpAndSettle();
     expect(find.byType(ServerRow), findsNothing);
     expect(find.text('تمدید'), findsNothing);
     expect(
       find.text(
-        'مصرف شده: ۳۳ از ۱۰۰ گیگ · اعتبار تا ۴ آبان ۱۴۰۵',
+        '${_whole('مصرف شده: ۳۳ از ۱۰۰ گیگ')} '
+        '${_whole('· اعتبار تا ۴ آبان ۱۴۰۵')}',
         findRichText: true,
       ),
       findsOneWidget,
@@ -264,7 +271,7 @@ void main() {
     const clip = 'https://s.4g3.uk/sub/secret-token';
     final reads = _clipboard(tester, clip);
     final controller = _Controller();
-    final answer = Completer<ShikooPasteError?>();
+    final answer = Completer<ShikooPasted>();
     when(() => controller.pasteService(any())).thenAnswer((_) => answer.future);
     await _pump(tester, _noService, controller: controller);
     expect(reads(), 0);
@@ -288,7 +295,7 @@ void main() {
     expect(reads(), 1);
     verify(() => controller.pasteService(clip)).called(1);
     expect(find.text('در حال بررسی لینک…'), findsOneWidget);
-    answer.complete(ShikooPasteError.empty);
+    answer.complete(_failed(ShikooPasteError.empty));
     await tester.pumpAndSettle();
 
     for (final (error, strong) in [
@@ -299,7 +306,9 @@ void main() {
       (ShikooPasteError.clock, 'تاریخ و ساعت دستگاهت درست نیست.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {
-      when(() => controller.pasteService(any())).thenAnswer((_) async => error);
+      when(
+        () => controller.pasteService(any()),
+      ).thenAnswer((_) async => _failed(error));
       await tester.tap(find.text('چسباندن لینک اشتراک'));
       await tester.pumpAndSettle();
       final message = find.textContaining(strong, findRichText: true);
@@ -317,7 +326,7 @@ void main() {
       );
     }
 
-    final last = Completer<ShikooPasteError?>();
+    final last = Completer<ShikooPasted>();
     when(() => controller.pasteService(any())).thenAnswer((_) => last.future);
     await tester.tap(find.text('چسباندن لینک اشتراک'));
     await tester.pump();
@@ -326,7 +335,7 @@ void main() {
       findsNothing,
       reason: 'the next paste clears the last refusal',
     );
-    last.complete(null);
+    last.complete(_added);
     await tester.pumpAndSettle();
     expect(find.textContaining('اینترنت وصل نیست.'), findsNothing);
   });
@@ -337,7 +346,7 @@ void main() {
     final controller = _Controller();
     when(
       () => controller.pasteService(any()),
-    ).thenAnswer((_) async => ShikooPasteError.notShikoo);
+    ).thenAnswer((_) async => _failed(ShikooPasteError.notShikoo));
     await _pump(tester, _phone(), controller: controller);
     await tester.tap(_icon(ShikooIcon.gear));
     await tester.pumpAndSettle();
@@ -360,10 +369,225 @@ void main() {
       lessThan(tester.getTopLeft(paste).dy),
     );
 
-    when(() => controller.pasteService(any())).thenAnswer((_) async => null);
+    when(() => controller.pasteService(any())).thenAnswer((_) async => _added);
     await tester.tap(paste);
     await tester.pumpAndSettle();
     expect(find.byType(ShikooSettings), findsNothing);
+  });
+
+  testWidgets('«+» is on a phone home with a service card, signed in or not, '
+      'and never on the TV or beside the no-service paste card', (
+    tester,
+  ) async {
+    final plus = find.bySemanticsLabel('افزودن سرویس با لینک');
+    await _pump(tester, _phone());
+    expect(plus, findsOneWidget);
+    await _pump(
+      tester,
+      _noService,
+      account: const ShikooAccount(
+        services: [
+          LinkedService(id: 50, title: 'user777 · نقره‌ای', status: 'active'),
+        ],
+      ),
+    );
+    expect(plus, findsOneWidget, reason: 'a card of the account, no link yet');
+    await _pump(tester, _noService);
+    expect(_icon(ShikooIcon.plus), findsNothing);
+    await _pump(tester, _phone(isTV: true));
+    expect(_icon(ShikooIcon.plus), findsNothing);
+  });
+
+  testWidgets('Settings show «ترتیب سرویس‌ها» with two running services: under '
+      'the language on the phone, last in its column on the TV', (
+    tester,
+  ) async {
+    const usedUp = ShikooService(
+      id: 6,
+      name: 'user666 · برنزی',
+      usedBytes: 2,
+      totalBytes: 1,
+    );
+    const other = ShikooService(
+      id: 5,
+      name: 'user555 · نقره‌ای',
+      usedBytes: 0,
+      totalBytes: 0,
+    );
+    ShikooState home(List<ShikooService> others, {bool isTV = false}) {
+      final phone = _phone(isTV: isTV);
+      return ShikooState(
+        connection: phone.connection,
+        connectedFor: phone.connectedFor,
+        isTV: isTV,
+        service: phone.service,
+        servers: phone.servers,
+        others: others,
+      );
+    }
+
+    final row = find.text('ترتیب سرویس‌ها');
+    double top(Finder finder) => tester.getTopLeft(finder.first).dy;
+    await _pump(tester, home([usedUp]));
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    expect(row, findsNothing, reason: 'a used-up one is not ordered');
+
+    await _pump(tester, home([usedUp, other]));
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    expect(find.text('فقط روی همین گوشی'), findsOneWidget);
+    expect(top(row), greaterThan(top(find.text('English'))));
+    expect(top(row), lessThan(top(find.text('خروج'))));
+
+    await _pump(tester, home([other], isTV: true));
+    await tester.tap(find.text('تنظیمات'));
+    await tester.pumpAndSettle();
+    expect(find.text('فقط روی همین تلویزیون'), findsOneWidget);
+    expect(top(row), greaterThan(top(find.text('عیب‌یابی و گزارش'))));
+  });
+
+  group('«+» and the add screen', () {
+    const other = ShikooService(
+      id: 5,
+      name: 'user555 · نقره‌ای',
+      usedBytes: 0,
+      totalBytes: 0,
+    );
+    const pasted = ShikooService(
+      id: 9,
+      name: 'user999 · طلایی',
+      usedBytes: 0,
+      totalBytes: 0,
+    );
+    ShikooState home(List<ShikooService> others, {int? open}) {
+      final phone = _phone();
+      return ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: Duration.zero,
+        isTV: false,
+        service: phone.service,
+        servers: phone.servers,
+        selected: phone.selected,
+        others: others,
+        open: open,
+      );
+    }
+
+    /// Every card from the top, and the open one.
+    (List<int>, int?) cards(WidgetTester tester) {
+      final top = <int, double>{
+        for (final card in tester.widgetList<FoldedServiceCard>(
+          find.byType(FoldedServiceCard),
+        ))
+          card.service.id: tester.getTopLeft(find.byWidget(card)).dy,
+        for (final card in tester.widgetList<ServiceCard>(
+          find.byType(ServiceCard),
+        ))
+          card.state.service!.id: tester.getTopLeft(find.byWidget(card)).dy,
+      };
+      final open = tester.widgetList<ServiceCard>(find.byType(ServiceCard));
+      return (
+        top.keys.toList()..sort((a, b) => top[a]!.compareTo(top[b]!)),
+        open.singleOrNull?.state.service?.id,
+      );
+    }
+
+    /// Home with one other card; the paste answers [answer], having brought [after].
+    Future<_Controller> add(
+      WidgetTester tester,
+      ShikooPasted answer,
+      List<ShikooService> after,
+    ) async {
+      _clipboard(tester, 'https://s.4g3.uk/sub/secret-token');
+      final controller = _Controller();
+      late final ValueNotifier<ShikooState> holder;
+      when(() => controller.pasteService(any())).thenAnswer((_) async {
+        holder.value = home(after, open: answer.id);
+        return answer;
+      });
+      holder = await _pump(tester, home([other]), controller: controller);
+      await tester.tap(find.bySemanticsLabel('افزودن سرویس با لینک'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AddService), findsOneWidget);
+      expect(find.text('افزودن سرویس'), findsOneWidget);
+      expect(find.textContaining('لینک اشتراک شیکونتِ'), findsOneWidget);
+      await tester.tap(find.text('چسباندن لینک اشتراک'));
+      await tester.pumpAndSettle();
+      return controller;
+    }
+
+    testWidgets('a new service closes the screen, the bar names it, and its '
+        'card comes last, open', (tester) async {
+      await add(tester, (error: null, id: 9, added: true), [other, pasted]);
+      expect(find.byType(AddService), findsNothing);
+      expect(
+        find.text('سرویسِ «${bidiName('user999 · طلایی')}» اضافه شد.'),
+        findsOneWidget,
+      );
+      final (order, open) = cards(tester);
+      expect(order, [0, 5, 9]);
+      expect(open, 9, reason: 'the pasted card opens');
+      expect(find.textContaining('secret-token'), findsNothing);
+    });
+
+    testWidgets('a service already here says so and makes no second card', (
+      tester,
+    ) async {
+      await add(tester, (error: null, id: 5, added: false), [other]);
+      expect(find.byType(AddService), findsNothing);
+      expect(find.text('این سرویس از قبل روی این گوشی هست.'), findsOneWidget);
+      final (order, open) = cards(tester);
+      expect(order, [0, 5]);
+      expect(open, 5, reason: 'the pasted card opens');
+    });
+
+    testWidgets('a link that is not ShikooNet stays on the screen with its '
+        'message', (tester) async {
+      await add(
+        tester,
+        (error: ShikooPasteError.notShikoo, id: null, added: false),
+        [other],
+      );
+      expect(find.byType(AddService), findsOneWidget);
+      expect(
+        find.textContaining('این لینک شیکونت نیست.', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('leaving mid-check still adds the service, with no error and '
+        'no word from the screen that went', (tester) async {
+      final clipboard = Completer<Object?>();
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) => call.method == 'Clipboard.getData'
+            ? clipboard.future
+            : Future.value(),
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final controller = _Controller();
+      when(
+        () => controller.pasteService(any()),
+      ).thenAnswer((_) async => (error: null, id: 0, added: false));
+      await _pump(tester, home([other]), controller: controller);
+      await tester.tap(find.bySemanticsLabel('افزودن سرویس با لینک'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('چسباندن لینک اشتراک'));
+      await tester.pump();
+      await tester.tap(_icon(ShikooIcon.back));
+      await tester.pumpAndSettle();
+      expect(find.byType(AddService), findsNothing);
+
+      clipboard.complete({'text': 'https://s.4g3.uk/sub/x'});
+      await tester.pumpAndSettle();
+      verify(() => controller.pasteService('https://s.4g3.uk/sub/x')).called(1);
+      expect(tester.takeException(), isNull);
+      expect(find.text('این سرویس از قبل روی این گوشی هست.'), findsNothing);
+    });
   });
 
   testWidgets('the app is called ShikooNet, شیکونت in Persian, beside the fox '
@@ -477,114 +701,179 @@ void main() {
     );
   });
 
-  testWidgets('a folded card opens with a tap anywhere but its update button', (
-    tester,
-  ) async {
+  testWidgets('a folded card has its name and summary and nothing else to '
+      'press: a tap anywhere opens and pings it', (tester) async {
     final controller = _Controller();
-    when(controller.refreshService).thenAnswer((_) async {});
     await _pump(tester, _phone(), controller: controller);
+    expect(find.byType(ServiceCard), findsOneWidget, reason: 'one card: open');
+    expect(find.text('در حال استفاده'), findsNothing, reason: 'one card');
     await tester.tap(_icon(ShikooIcon.chevronUp));
     await tester.pumpAndSettle();
-    expect(find.byType(FoldedServiceCard), findsOneWidget);
-
-    await tester.tap(find.bySemanticsLabel('به‌روزرسانی سرورها'));
+    final folded = find.byType(FoldedServiceCard);
+    expect(folded, findsOneWidget);
+    for (final button in [ShikooIconButton, ShikooButton]) {
+      expect(
+        find.descendant(of: folded, matching: find.byType(button)),
+        findsNothing,
+        reason: 'no $button: no update, no ping',
+      );
+    }
+    expect(
+      find.descendant(of: folded, matching: find.byType(StatusChip)),
+      findsOneWidget,
+    );
+    await tester.tap(find.textContaining('مصرف', findRichText: true));
     await tester.pumpAndSettle();
-    verify(controller.refreshService).called(1);
-    expect(find.byType(FoldedServiceCard), findsOneWidget, reason: 'update');
-
-    await tester.tap(find.textContaining('مصرف شده', findRichText: true));
-    await tester.pumpAndSettle();
-    expect(find.byType(FoldedServiceCard), findsNothing);
+    verify(() => controller.openService(0)).called(1);
     expect(find.byType(ServerRow), findsNWidgets(3));
+  });
 
+  testWidgets('two services or more all start folded, in their own order with '
+      'the one in use where it is; a tap opens one, the open one folds, and '
+      'its arrow folds them all', (tester) async {
+    final controller = _Controller();
+    final holder = await _pump(
+      tester,
+      _cards(order: const [7, 0, 8]),
+      controller: controller,
+    );
+    expect(find.byType(ServiceCard), findsNothing);
+    expect(find.byType(FoldedServiceCard), findsNWidgets(3));
+    double top(String user) => tester.getTopLeft(find.textContaining(user)).dy;
+    expect(top('user789'), lessThan(top('user123')));
+    expect(top('user123'), lessThan(top('user456')));
+
+    await tester.tap(find.textContaining('user456'));
+    await tester.pumpAndSettle();
+    verify(() => controller.openService(8)).called(1);
+    verifyNever(() => controller.selectService(any()));
+
+    for (final (open, user) in [(8, 'user456'), (7, 'user789')]) {
+      holder.value = _cards(order: const [7, 0, 8], open: open);
+      await tester.pumpAndSettle();
+      expect(find.byType(FoldedServiceCard), findsNWidgets(2));
+      expect(
+        find.ancestor(
+          of: find.textContaining(user),
+          matching: find.byType(ServiceCard),
+        ),
+        findsOneWidget,
+        reason: 'only $user open',
+      );
+    }
     await tester.tap(_icon(ShikooIcon.chevronUp));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(bidiName('user123 · الماس')));
-    await tester.pumpAndSettle();
-    expect(find.byType(ServerRow), findsNWidgets(3), reason: 'the name');
+    verify(() => controller.openService(null)).called(1);
   });
 
-  testWidgets('other services fold under the one in use, and a tap on one '
-      'puts it in use', (tester) async {
+  testWidgets('a card opened below the open one keeps its top under the '
+      'finger while the other folds', (tester) async {
     final controller = _Controller();
-    final state = _phone();
-    await _pump(
+    final long = [
+      for (var i = 1; i <= 12; i++)
+        ShikooServer(name: 'سرور $i', type: 'Vless', ping: 80 + i),
+    ];
+    final holder = await _pump(
       tester,
-      ShikooState(
-        connection: state.connection,
-        connectedFor: state.connectedFor,
-        isTV: false,
-        servers: state.servers,
-        selected: state.selected,
-        service: state.service,
-        others: [
-          ShikooService(
-            id: 7,
-            name: 'user789 · معمولی',
-            usedBytes: (49.8 * (1 << 30)).round(),
-            totalBytes: 50 << 30,
-            expire: DateTime(2026, 12, 1, 12),
-          ),
-        ],
-      ),
+      _cards(order: const [7, 0, 8], open: 0, servers: long),
       controller: controller,
     );
-    expect(find.byType(FoldedServiceCard), findsOneWidget);
-    final folded = find.text(bidiName('user789 · معمولی'));
-    expect(
-      tester.getTopLeft(folded).dy,
-      greaterThan(tester.getBottomLeft(find.byType(ServerRow).last).dy),
+    when(() => controller.openService(8)).thenAnswer((_) {
+      holder.value = _cards(
+        order: const [7, 0, 8],
+        open: 8,
+        servers: long,
+        opened: 8,
+        openedServers: long,
+      );
+    });
+    tester.view.physicalSize = const Size(824, 1000);
+    await tester.pumpAndSettle();
+    final head = find.textContaining('user456');
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -10000),
     );
-    await tester.ensureVisible(folded);
-    await tester.tap(folded);
-    verify(() => controller.selectService(7)).called(1);
+    await tester.pumpAndSettle();
+    double top() => tester
+        .getTopLeft(
+          find.ancestor(
+            of: head,
+            matching: find.byWidgetPredicate(
+              (w) => w is FoldedServiceCard || w is ServiceCard,
+            ),
+          ),
+        )
+        .dy;
+    final before = top();
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    expect(top(), closeTo(before, 0.5));
   });
 
-  testWidgets('on the TV another service is one remote item under the list, '
-      'and OK puts it in use', (tester) async {
+  testWidgets('on the TV each folded card is one stop; toward the cards the '
+      'power button goes to the one in use, OK opens it with the remote on its '
+      'ping, down reaches support then the first server, and toward the power '
+      'button goes back', (tester) async {
     final controller = _Controller();
-    final state = _phone(isTV: true);
-    await _pump(
-      tester,
-      ShikooState(
-        connection: state.connection,
-        connectedFor: state.connectedFor,
-        isTV: true,
-        servers: state.servers,
-        selected: state.selected,
-        service: state.service,
-        others: const [
-          ShikooService(
-            id: 7,
-            name: 'user789 · معمولی',
-            usedBytes: 0,
-            totalBytes: 0,
-          ),
-        ],
-      ),
-      controller: controller,
+    ShikooState tv([int? open]) => _cards(
+      isTV: true,
+      order: const [7, 8, 0],
+      connection: ShikooConnection.on,
+      open: open,
+      pinging: open == null ? null : (done: 1, total: 3),
     );
-    Focus.of(
-      tester.element(
-        find
-            .descendant(
-              of: find.widgetWithText(ServerRow, 'آلمان ۱'),
-              matching: find.byType(GestureDetector),
-            )
-            .first,
-      ),
-    ).requestFocus();
+    final holder = await _pump(tester, tv(), controller: controller);
+    when(() => controller.openService(0)).thenAnswer((_) {
+      holder.value = tv(0);
+    });
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
+    String? focused() {
+      final at = FocusManager.instance.primaryFocus?.context;
+      if (at?.findAncestorWidgetOfExactType<PowerButton>() != null) {
+        return 'power';
+      }
+      if (at?.findAncestorWidgetOfExactType<ServerRow>() case final row?) {
+        return row.server.name;
+      }
+      if (at?.findAncestorWidgetOfExactType<FoldedServiceCard>()
+          case final card?) {
+        return card.service.name;
+      }
+      return at?.findAncestorWidgetOfExactType<ShikooButton>()?.label;
+    }
+
+    Future<String?> press(LogicalKeyboardKey key) async {
+      await tester.sendKeyEvent(key);
+      await tester.pumpAndSettle();
+      return focused();
+    }
+
+    expect(focused(), 'power');
     expect(
-      FocusManager.instance.primaryFocus?.context
-          ?.findAncestorWidgetOfExactType<FoldedServiceCard>(),
-      isNotNull,
+      await press(LogicalKeyboardKey.arrowRight),
+      'user123 · الماس',
+      reason: 'the card in use, not the first',
     );
-    expect(find.text('تازه'), findsNothing);
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    verify(() => controller.selectService(7)).called(1);
+    expect(await press(LogicalKeyboardKey.arrowUp), 'user456 · طلایی');
+    expect(await press(LogicalKeyboardKey.arrowDown), 'user123 · الماس');
+    expect(await press(LogicalKeyboardKey.select), 'پینگ');
+    verify(() => controller.openService(0)).called(1);
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ShikooButton, 'پینگ'),
+        matching: find.byType(Spinner),
+      ),
+      findsOneWidget,
+      reason: 'it spins at once',
+    );
+    expect(await press(LogicalKeyboardKey.arrowDown), 'پشتیبانی');
+    expect(await press(LogicalKeyboardKey.arrowDown), _servers.first.name);
+    expect(await press(LogicalKeyboardKey.arrowLeft), 'power');
+    expect(
+      await press(LogicalKeyboardKey.arrowRight),
+      'آلمان ۲',
+      reason: 'open, its selected server',
+    );
   });
 
   testWidgets('a used-up or expired service rests the power button and asks '
@@ -712,6 +1001,7 @@ void main() {
             totalBytes: 0,
           ),
         ],
+        open: 0,
       ),
       controller: controller,
     );
@@ -821,6 +1111,7 @@ void main() {
       ShikooService current,
       List<ShikooService> others, {
       ShikooConnection connection = ShikooConnection.off,
+      List<int> order = const [],
     }) => ShikooState(
       connection: connection,
       connectedFor: Duration.zero,
@@ -828,6 +1119,7 @@ void main() {
       servers: const [],
       service: current,
       others: others,
+      order: order,
     );
     const usedUp = ShikooService(
       id: 1,
@@ -851,6 +1143,12 @@ void main() {
       expire: now.subtract(const Duration(days: 2)),
     );
     expect(serviceInstead(state(usedUp, [endedLately, active])), 2);
+    const later = ShikooService(id: 5, name: 'e', usedBytes: 1, totalBytes: 9);
+    expect(
+      serviceInstead(state(usedUp, [active, later], order: [5, 1, 2])),
+      5,
+      reason: 'the first that can in the saved order',
+    );
     expect(
       serviceInstead(state(usedUp, [active], connection: ShikooConnection.on)),
       isNull,
@@ -1331,6 +1629,7 @@ void main() {
               updatedAt: now,
             ),
           ],
+          open: 1,
         ),
       );
       if (!isTV) tester.view.physicalSize = const Size(686, 1524);
@@ -1380,14 +1679,17 @@ void main() {
         final ping = isTV
             ? find.widgetWithText(ShikooButton, 'پینگ')
             : find.bySemanticsLabel('پینگ سرورها');
-        for (final under in [inside(find.byType(StatusChip)), inside(ping)]) {
+        for (final under in [
+          inside(find.byType(StatusChip)),
+          if (open) inside(ping),
+        ]) {
           expect(
             tester.getRect(under).top,
             greaterThanOrEqualTo(box.bottom),
             reason: '$where: $under under the name',
           );
         }
-        if (!isTV) {
+        if (!isTV && open) {
           final chip = tester.getRect(inside(find.byType(StatusChip)));
           final sub = tester.getRect(inside(find.textContaining('به‌روز شد')));
           expect(
@@ -1580,7 +1882,17 @@ void main() {
         servers: _servers,
         selected: 'آلمان ۲',
         service: revoked,
-        others: [revoked],
+        others: [
+          ShikooService(
+            id: 6,
+            name: 'user457 · طلایی',
+            usedBytes: 1,
+            totalBytes: 100,
+            pasted: true,
+            revoked: true,
+          ),
+        ],
+        open: 4,
       ),
       controller: controller,
     );
@@ -1599,11 +1911,16 @@ void main() {
     expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
     expect(
       find.text(
-        'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» '
-        'بچسبان.',
+        'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و با «+» بالای '
+        'خانه بچسبان.',
       ),
       findsOneWidget,
-      reason: 'the folded card',
+      reason: 'the folded card; Settings has no paste row once signed in',
+    );
+    expect(
+      find.bySemanticsLabel('افزودن سرویس با لینک'),
+      findsOneWidget,
+      reason: 'the «+» it names is there',
     );
     await tester.tap(find.widgetWithText(ShikooButton, 'حذف'));
     await tester.pumpAndSettle();
@@ -1686,38 +2003,42 @@ void main() {
     verify(() => controller.removeService(2)).called(1);
   });
 
-  testWidgets('a revoked card says only «به‌روز نشد», open or folded, and a '
-      'service without a name is «سرویس شیکونت»', (tester) async {
-    final updated = DateTime.now().subtract(const Duration(minutes: 10));
-    final revoked = ShikooService(
-      id: 4,
-      name: 'user456 · طلایی',
-      usedBytes: 1,
-      totalBytes: 100,
-      updatedAt: updated,
-      refresh: ShikooRefresh.failed,
-      pasted: true,
-      revoked: true,
-    );
-    await _pump(
-      tester,
-      ShikooState(
-        connection: ShikooConnection.off,
-        connectedFor: Duration.zero,
-        isTV: false,
-        servers: _servers,
+  testWidgets(
+    'a revoked card says only «به‌روز نشد» open, and folded no update '
+    'time at all; a service without a name is «سرویس شیکونت»',
+    (tester) async {
+      final updated = DateTime.now().subtract(const Duration(minutes: 10));
+      ShikooService revoked(int id) => ShikooService(
+        id: id,
+        name: 'user456 · طلایی',
+        usedBytes: 1,
+        totalBytes: 100,
+        updatedAt: updated,
         refresh: ShikooRefresh.failed,
-        service: revoked,
-        others: [
-          revoked,
-          const ShikooService(id: 5, name: '', usedBytes: 1, totalBytes: 100),
-        ],
-      ),
-    );
-    expect(find.text('به‌روز نشد'), findsNWidgets(2));
-    expect(find.textContaining('پیش'), findsNothing);
-    expect(find.text(bidiName('سرویس شیکونت')), findsOneWidget);
-  });
+        pasted: true,
+        revoked: true,
+      );
+      await _pump(
+        tester,
+        ShikooState(
+          connection: ShikooConnection.off,
+          connectedFor: Duration.zero,
+          isTV: false,
+          servers: _servers,
+          refresh: ShikooRefresh.failed,
+          service: revoked(4),
+          others: [
+            revoked(6),
+            const ShikooService(id: 5, name: '', usedBytes: 1, totalBytes: 100),
+          ],
+          open: 4,
+        ),
+      );
+      expect(find.text('به‌روز نشد'), findsOneWidget);
+      expect(find.textContaining('پیش'), findsNothing);
+      expect(find.text(bidiName('سرویس شیکونت')), findsOneWidget);
+    },
+  );
 
   testWidgets('a second nameless service reads «سرویس شیکونت ۲»', (
     tester,
@@ -2004,9 +2325,10 @@ void main() {
     expect(padding(), resting);
   });
 
-  testWidgets('the phone pings with a gauge beside update in every active '
-      'card, open or folded; one runs at a time, and its count replaces the '
-      'update time', (tester) async {
+  testWidgets('the phone pings with a gauge beside update in the open card '
+      'only; one runs at a time, and its count replaces the update time', (
+    tester,
+  ) async {
     final controller = _Controller();
     when(() => controller.pingAll()).thenAnswer((_) async {});
     when(controller.refreshService).thenAnswer((_) async {});
@@ -2017,11 +2339,11 @@ void main() {
     );
     final ping = find.bySemanticsLabel('پینگ سرورها');
     final update = find.bySemanticsLabel('به‌روزرسانی سرورها');
-    expect(ping, findsNWidgets(2), reason: 'the open card and the folded one');
+    expect(ping, findsOneWidget, reason: 'the open card, not the folded one');
     expect(find.text('پینگ'), findsNothing, reason: 'the gauge alone');
     expect(find.text('پینگ همه'), findsNothing);
 
-    await tester.tap(ping.first);
+    await tester.tap(ping);
     verify(() => controller.pingAll()).called(1);
 
     holder.value = _withOther(
@@ -2030,9 +2352,8 @@ void main() {
     );
     await tester.pump();
     expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
-    expect(find.textContaining('به‌روز شد'), findsOneWidget, reason: 'folded');
-    await tester.tap(update.first);
-    await tester.tap(ping.first);
+    await tester.tap(update);
+    await tester.tap(ping);
     verifyNever(controller.refreshService);
     verifyNever(() => controller.pingAll());
 
@@ -2041,82 +2362,105 @@ void main() {
       refresh: ShikooRefresh.running,
     );
     await tester.pump();
-    await tester.tap(ping.first);
+    await tester.tap(ping);
     verifyNever(() => controller.pingAll());
   });
 
-  testWidgets('the card in use folded during its ping keeps update greyed and '
-      'shows the count', (tester) async {
+  testWidgets('connected, a tap on a folded card only opens it: no question, '
+      'and the connection stays', (tester) async {
     final controller = _Controller();
-    when(controller.refreshService).thenAnswer((_) async {});
     await _pump(
       tester,
-      _withOther(ShikooConnection.off, pinging: (done: 4, total: 9)),
+      _withOther(ShikooConnection.on),
       controller: controller,
     );
-    await tester.tap(_icon(ShikooIcon.chevronUp));
+    final folded = find.textContaining('user789');
+    await tester.ensureVisible(folded);
+    await tester.tap(folded);
     await tester.pumpAndSettle();
-    expect(find.byType(FoldedServiceCard), findsNWidgets(2));
-    expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('به‌روزرسانی سرورها').first);
-    await tester.pumpAndSettle();
-    verifyNever(controller.refreshService);
+    verify(() => controller.openService(7)).called(1);
+    verifyNever(() => controller.selectService(any()));
+    verifyNever(
+      () => controller.selectServer(any(), service: any(named: 'service')),
+    );
     expect(
-      find.byType(FoldedServiceCard),
-      findsNWidgets(2),
-      reason: 'a greyed button opens no card',
+      ModalRoute.of(tester.element(find.byType(ShikooHome)))!.isCurrent,
+      isTrue,
+      reason: 'no dialog',
     );
   });
 
-  testWidgets("a folded card's ping opens it and pings at once when off; "
-      'connected, it asks first, and «انصراف» does nothing', (tester) async {
-    for (final connection in [ShikooConnection.off, ShikooConnection.on]) {
-      final controller = _Controller();
-      await _pump(tester, _withOther(connection), controller: controller);
-      final folded = find.bySemanticsLabel('پینگ سرورها').last;
-      await tester.ensureVisible(folded);
-      await tester.tap(folded);
-      await tester.pumpAndSettle();
-      if (connection == ShikooConnection.off) {
-        expect(find.text('انتقال و پینگ'), findsNothing);
-        verify(() => controller.pingService(7)).called(1);
-        continue;
-      }
-      expect(
-        find.text('اتصال به «${bidiName('user789 · معمولی')}» برود؟'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('انصراف'));
-      await tester.pumpAndSettle();
-      verifyNever(() => controller.pingService(any()));
-      expect(find.text('انتقال و پینگ'), findsNothing);
+  testWidgets('connected, another open card says a server there moves the '
+      'connection; a tap moves it with no question, and the same box then says '
+      'it did; off, it says nothing', (tester) async {
+    final controller = _Controller();
+    when(
+      () => controller.selectServer(any(), service: any(named: 'service')),
+    ).thenAnswer((_) async {});
+    const hint = 'با زدنِ یک سرور، اتصال به این سرویس می‌رود.';
+    const now = 'اتصال حالا از همین سرویس است.';
+    final holder = await _pump(
+      tester,
+      _cards(connection: ShikooConnection.on, open: 7, opened: 7),
+      controller: controller,
+    );
+    expect(find.text(hint), findsOneWidget);
+    expect(find.bySemanticsLabel(now), findsNothing, reason: 'held room only');
+    expect(
+      tester
+          .widgetList<ServerRow>(find.byType(ServerRow))
+          .where((r) => r.selected),
+      isEmpty,
+      reason: 'the connection is not on this service',
+    );
+    Rect box() => tester.getRect(
+      find
+          .ancestor(of: find.text(hint), matching: find.byType(Container))
+          .first,
+    );
+    final before = box();
+    final row = find.widgetWithText(ServerRow, 'ترکیه ۱');
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    verify(() => controller.selectServer('ترکیه ۱', service: 7)).called(1);
+    expect(
+      ModalRoute.of(tester.element(find.byType(ShikooHome)))!.isCurrent,
+      isTrue,
+      reason: 'no question',
+    );
 
-      await tester.ensureVisible(folded);
-      await tester.tap(folded);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('انتقال و پینگ'));
-      await tester.pumpAndSettle();
-      verify(() => controller.pingService(7)).called(1);
-    }
+    holder.value = _cards(
+      connection: ShikooConnection.on,
+      open: 7,
+      current: 7,
+      landed: (id: 7, arrived: true),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(now), findsOneWidget);
+    expect(box().height, before.height, reason: 'one box for both');
+
+    holder.value = _cards(open: 7, opened: 7);
+    await tester.pumpAndSettle();
+    expect(find.text(hint), findsNothing);
+    expect(find.text(now), findsNothing);
   });
 
-  testWidgets('on the TV ping is a text button in the open and folded cards, '
-      "its width kept while it spins; the folded card's is beside it toward "
-      'the power button, and connected the question starts on «انصراف»', (
-    tester,
-  ) async {
-    final controller = _Controller();
+  testWidgets('on the TV ping is a text button in the open card, its width '
+      'kept while it spins; a folded card has none; another card connected '
+      'says in its caption what a server there does', (tester) async {
     final holder = await _pump(
       tester,
       _withOther(ShikooConnection.on, isTV: true),
-      controller: controller,
+      controller: _Controller(),
     );
-    String? focused() => FocusManager.instance.primaryFocus?.context
-        ?.findAncestorWidgetOfExactType<ShikooButton>()
-        ?.label;
     final pings = find.widgetWithText(ShikooButton, 'پینگ');
-    expect(pings, findsNWidgets(2));
-    final width = tester.getSize(pings.first).width;
+    expect(pings, findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(FoldedServiceCard), matching: pings),
+      findsNothing,
+    );
+    final width = tester.getSize(pings).width;
     holder.value = _withOther(
       ShikooConnection.on,
       isTV: true,
@@ -2125,76 +2469,214 @@ void main() {
     await tester.pump();
     expect(find.text('پینگ ۴ از ۹'), findsOneWidget);
     expect(
-      find.descendant(of: pings.first, matching: find.byType(Spinner)),
+      find.descendant(of: pings, matching: find.byType(Spinner)),
       findsOneWidget,
     );
-    expect(tester.getSize(pings.first).width, width);
-
-    holder.value = _withOther(ShikooConnection.on, isTV: true);
-    await tester.pump();
-    final card = find
-        .descendant(
-          of: find.byType(FoldedServiceCard),
-          matching: find.byType(GestureDetector),
-        )
-        .first;
-    Focus.of(tester.element(card)).requestFocus();
-    await tester.pumpAndSettle();
-    final rings = find.descendant(
-      of: find.byType(FoldedServiceCard),
-      matching: find.byWidgetPredicate(
-        (w) => w is Positioned && w.child is IgnorePointer,
-      ),
-    );
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    expect(focused(), 'پینگ');
     expect(
-      FocusManager.instance.primaryFocus?.context
-          ?.findAncestorWidgetOfExactType<FoldedServiceCard>(),
-      isNotNull,
+      find.textContaining('سریع‌ترین بالا', findRichText: true),
+      findsOneWidget,
+      reason: 'the ping an open card starts sorts the list',
     );
-    expect(rings, findsOneWidget, reason: 'its ping alone, not the card too');
-    final column = tester
-        .state<ScrollableState>(
-          find
-              .ancestor(
-                of: find.byType(ServiceCard),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        )
-        .position;
-    final scrolled = column.pixels;
-    expect(scrolled, greaterThan(0), reason: 'the folded card is low');
-    bool onFoldedPing() =>
-        focused() == 'پینگ' &&
-        FocusManager.instance.primaryFocus?.context
-                ?.findAncestorWidgetOfExactType<FoldedServiceCard>() !=
-            null;
-    for (final close in ['back', 'cancel']) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.select);
-      await tester.pumpAndSettle();
-      expect(focused(), 'انصراف');
-      expect(column.pixels, scrolled, reason: 'the column stays behind it');
-      if (close == 'back') {
-        await tester.binding.handlePopRoute();
-      } else {
-        await tester.sendKeyEvent(LogicalKeyboardKey.select);
-      }
-      await tester.pumpAndSettle();
-      expect(onFoldedPing(), isTrue, reason: '$close: on the same ping');
-    }
-    verifyNever(() => controller.pingService(any()));
+    expect(tester.getSize(pings).width, width);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    holder.value = _cards(
+      isTV: true,
+      connection: ShikooConnection.on,
+      open: 7,
+      opened: 7,
+    );
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    expect(focused(), 'انتقال و پینگ');
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    verify(() => controller.pingService(7)).called(1);
+    expect(
+      find.textContaining(
+        'با زدنِ یک سرور، اتصال به این سرویس می‌رود',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the card in use has «در حال استفاده» over its name and a bar on '
+      'its start edge, open or folded: green connected, grey off, connecting '
+      'or failed', (tester) async {
+    for (final connection in ShikooConnection.values) {
+      final on = connection == ShikooConnection.on;
+      for (final open in [null, 0]) {
+        final where = '${connection.name}, ${open == null ? 'folded' : 'open'}';
+        await _pump(tester, _cards(connection: connection, open: open));
+        final card = find.ancestor(
+          of: find.textContaining('user123'),
+          matching: find.byType(open == null ? FoldedServiceCard : ServiceCard),
+        );
+        final label = find.descendant(
+          of: card,
+          matching: find.text('در حال استفاده'),
+        );
+        expect(label, findsOneWidget, reason: where);
+        expect(find.text('در حال استفاده'), findsOneWidget, reason: where);
+        expect(
+          tester.widget<Text>(label).style!.color,
+          on ? ShikooColors.light.positive : ShikooColors.light.textMuted,
+          reason: where,
+        );
+        final bar = find.descendant(
+          of: card,
+          matching: find.byWidgetPredicate(
+            (w) => w is PositionedDirectional && w.start == -Space.s4,
+          ),
+        );
+        final color =
+            ((tester.widget<PositionedDirectional>(bar).child as Container)
+                        .decoration!
+                    as ShapeDecoration)
+                .color;
+        expect(
+          color,
+          on ? ShikooColors.light.positive : ShikooColors.light.outline,
+          reason: where,
+        );
+        expect(
+          tester.getRect(bar).right,
+          closeTo(tester.getRect(card).right, 0.5),
+          reason: '$where: on the card\'s start edge',
+        );
+        expect(
+          tester.getRect(label).bottom,
+          lessThanOrEqualTo(
+            tester
+                .getRect(
+                  find.descendant(of: card, matching: find.byType(ServiceName)),
+                )
+                .top,
+          ),
+          reason: '$where: over the name',
+        );
+      }
+    }
+  });
+
+  testWidgets('a folded card on the phone is the button, so its arrow is an '
+      'icon with no 48-dp row: the name starts at the inset, or right under '
+      '«در حال استفاده»', (tester) async {
+    await _pump(tester, _cards(connection: ShikooConnection.on));
+    for (final (user, inUse) in [('user123', true), ('user789', false)]) {
+      final card = find.ancestor(
+        of: find.textContaining(user),
+        matching: find.byType(FoldedServiceCard),
+      );
+      Finder inside(Finder finder) =>
+          find.descendant(of: card, matching: finder);
+      final above = inUse
+          ? tester.getRect(inside(find.text('در حال استفاده'))).bottom
+          : tester.getTopLeft(card).dy + Space.s4;
+      expect(
+        tester.getTopLeft(inside(find.byType(ServiceName))).dy,
+        closeTo(above, 0.5),
+        reason: user,
+      );
+      expect(
+        tester.getSize(inside(_icon(ShikooIcon.chevronDown))).height,
+        ShikooSizes.phone.icon,
+      );
+    }
+  });
+
+  testWidgets('on the phone a card opens with its name and arrow where they '
+      'were, and from its top edge to under the name is one fold button, a '
+      'finger tall, which TalkBack presses too', (tester) async {
+    final semantics = tester.ensureSemantics();
+    for (final (id, user) in [(0, 'user123'), (7, 'user789')]) {
+      final controller = _Controller();
+      final holder = await _pump(
+        tester,
+        _cards(connection: ShikooConnection.on),
+        controller: controller,
+      );
+      Finder card() => find
+          .ancestor(
+            of: find.textContaining(user),
+            matching: find.byWidgetPredicate(
+              (w) => w is FoldedServiceCard || w is ServiceCard,
+            ),
+          )
+          .first;
+      Finder inside(Finder finder) =>
+          find.descendant(of: card(), matching: finder);
+      final arrow = find.byWidgetPredicate(
+        (w) =>
+            w is SvgIcon &&
+            {ShikooIcon.chevronDown, ShikooIcon.chevronUp}.contains(w.icon),
+      );
+      double nameTop() =>
+          tester.getTopLeft(inside(find.byType(ServiceName))).dy -
+          tester.getTopLeft(card()).dy;
+      final folded = (nameTop(), tester.getCenter(inside(arrow)));
+      holder.value = _cards(connection: ShikooConnection.on, open: id);
+      await tester.pumpAndSettle();
+      expect(nameTop(), closeTo(folded.$1, 0.5), reason: '$user: the name');
+      expect(
+        tester.getCenter(inside(arrow)),
+        within(distance: 0.5, from: folded.$2),
+        reason: '$user: the arrow',
+      );
+      final button = tester.getRect(
+        find
+            .ancestor(
+              of: inside(_icon(ShikooIcon.chevronUp)),
+              matching: find.byType(GestureDetector),
+            )
+            .first,
+      );
+      expect(button.top, closeTo(tester.getTopLeft(card()).dy, 0.5));
+      expect(button.height, greaterThanOrEqualTo(ShikooSizes.touch));
+      expect(
+        button.bottom,
+        greaterThanOrEqualTo(
+          tester.getRect(inside(find.byType(ServiceName))).bottom,
+        ),
+      );
+      await tester.tapAt(button.topCenter + const Offset(0, 4));
+      verify(() => controller.openService(null)).called(1);
+      final head = tester.getSemantics(
+        find.bySemanticsLabel(RegExp(user)).first,
+      );
+      expect(
+        head,
+        isSemantics(isButton: true, isExpanded: true, hasTapAction: true),
+        reason: user,
+      );
+      head.owner!.performAction(head.id, SemanticsAction.tap);
+      verify(() => controller.openService(null)).called(1);
+    }
+    semantics.dispose();
+  });
+
+  testWidgets('a folded summary breaks only before «·», whatever the width', (
+    tester,
+  ) async {
+    await _pump(tester, _cards());
+    var breaks = 0;
+    for (final width in [1000.0, 1100.0, 1200.0, 1600.0]) {
+      tester.view.physicalSize = Size(width, 1830);
+      await tester.pumpAndSettle();
+      for (final paragraph in tester.renderObjectList<RenderParagraph>(
+        find.textContaining('مصرف', findRichText: true),
+      )) {
+        final text = paragraph.text.toPlainText();
+        double top(int i) => paragraph
+            .getBoxesForSelection(
+              TextSelection(baseOffset: i, extentOffset: i + 1),
+            )
+            .first
+            .top;
+        for (var i = 1; i < text.length; i++) {
+          if (top(i) > top(i - 1) + 1) {
+            breaks++;
+            expect(text[i], '·', reason: '$width: «$text» breaks at $i');
+          }
+        }
+      }
+    }
+    expect(breaks, greaterThan(0), reason: 'some width broke the line');
   });
 
   testWidgets('a service whose link did not load has its own card: «باز نشد», '
@@ -2294,6 +2776,7 @@ ShikooState _withOther(
     service: state.service,
     pinging: pinging,
     refresh: refresh,
+    open: 0,
     others: [
       ShikooService(
         id: 7,
@@ -2304,6 +2787,59 @@ ShikooState _withOther(
         updatedAt: DateTime.now(),
       ),
     ],
+  );
+}
+
+String _whole(String text) => text.replaceAll(' ', '\u00A0');
+
+/// Three services: `user123 · الماس` (0) in use, `user789 · معمولی` (7) and
+/// `user456 · طلایی` (8); [opened] is the card given [openedServers].
+ShikooState _cards({
+  ShikooConnection connection = ShikooConnection.off,
+  bool isTV = false,
+  int? open,
+  int current = 0,
+  List<int> order = const [],
+  int? opened,
+  List<ShikooServer> servers = _servers,
+  List<ShikooServer> openedServers = const [
+    ShikooServer(name: 'ترکیه ۱', type: 'Vless', ping: 80),
+    ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 300),
+  ],
+  ShikooLanded? landed,
+  ({int done, int total})? pinging,
+}) {
+  ShikooService service(int id, String name, int used) => ShikooService(
+    id: id,
+    name: name,
+    usedBytes: used << 30,
+    totalBytes: 50 << 30,
+    expire: DateTime(2026, 12, 1, 12),
+    updatedAt: DateTime.now(),
+  );
+  final all = [
+    service(0, 'user123 · الماس', 33),
+    service(7, 'user789 · معمولی', 12),
+    service(8, 'user456 · طلایی', 3),
+  ];
+  return ShikooState(
+    connection: connection,
+    connectedFor: const Duration(minutes: 1),
+    isTV: isTV,
+    servers: servers,
+    selected: 'آلمان ۲',
+    service: all.firstWhere((s) => s.id == current),
+    others: [
+      for (final s in all)
+        if (s.id != current) s,
+    ],
+    open: open,
+    order: order,
+    pinging: pinging,
+    landed: landed,
+    opened: opened == null
+        ? null
+        : (id: opened, servers: openedServers, pinging: null, sorted: true),
   );
 }
 

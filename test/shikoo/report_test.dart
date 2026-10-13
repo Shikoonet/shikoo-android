@@ -192,9 +192,9 @@ Future<_Rig> _pump(
   final diag = _Diag();
   final controller = _Controller();
   when(controller.refreshService).thenAnswer((_) async {});
-  when(
-    () => controller.pasteService(any()),
-  ).thenAnswer((_) async => ShikooPasteError.notShikoo);
+  when(() => controller.pasteService(any())).thenAnswer(
+    (_) async => (error: ShikooPasteError.notShikoo, id: null, added: false),
+  );
   final container = ProviderContainer(
     overrides: [
       shikooStateProvider.overrideWithValue(state ?? _state(tv: tv)),
@@ -762,7 +762,10 @@ void main() {
             () => rig.container
                 .read(shikooControllerProvider)
                 .pasteService(any()),
-          ).thenAnswer((_) async => ShikooPasteError.clock);
+          ).thenAnswer(
+            (_) async =>
+                (error: ShikooPasteError.clock, id: null, added: false),
+          );
           tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
             SystemChannels.platform,
             (call) async => call.method == 'Clipboard.getData'

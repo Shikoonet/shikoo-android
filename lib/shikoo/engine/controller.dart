@@ -13,10 +13,12 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,6 +45,16 @@ enum ShikooSwitchStage { moving, done, failed }
 
 /// Connected, a tapped [to] gets the traffic only once it answers; [from] keeps it until then.
 typedef ShikooSwitch = ({String to, String from, ShikooSwitchStage stage});
+
+typedef ShikooLanded = ({int id, bool arrived});
+
+/// The open card's list while another service has the tunnel: measured there, never connected to.
+typedef ShikooOpened = ({
+  int id,
+  List<ShikooServer> servers,
+  ({int done, int total})? pinging,
+  bool sorted,
+});
 
 const connectTimeout = Duration(seconds: 30);
 
@@ -211,6 +223,10 @@ class ShikooState {
     this.others = const [],
     this.switching,
     this.sorted = false,
+    this.open,
+    this.opened,
+    this.order = const [],
+    this.landed,
   });
 
   final ShikooConnection connection;
@@ -238,8 +254,27 @@ class ShikooState {
 
   final bool sorted;
 
+  /// The card the customer opened; null with every card folded.
+  final int? open;
+
+  final ShikooOpened? opened;
+
+  final List<int> order;
+
+  final ShikooLanded? landed;
+
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
+
+  /// Every service in card order ([serviceOrderProvider]), the one in use keeping its place.
+  List<ShikooService> get listed {
+    final byId = {
+      for (final s in [?service, ...others]) s.id: s,
+    };
+    return [
+      for (final id in inOrder(order, [...byId.keys])) byId[id]!,
+    ];
+  }
 }
 
 @immutable
@@ -272,11 +307,23 @@ typedef _Round = ({Set<String> pending, int total, bool ended});
 const _Round _noRound = (pending: <String>{}, total: 0, ended: false);
 
 final _roundProvider = _cell<_Round>(_noRound);
-final _orderProvider = _cell<List<String>>(const []);
 
-/// Our own verdicts by name. FlClash's delay table also takes the core's group health checks
-/// (a "Fastest" group with its own timeout), which repainted healthy servers as dead.
-final _pingsProvider = _cell<Map<String, int>>(const {});
+final _orderProvider = _cell<Map<int, List<String>>>(const {});
+
+/// Our own verdicts by service, then name. FlClash's delay table also takes the core's group
+/// health checks (a "Fastest" group with its own timeout), which repainted healthy servers as dead.
+final _pingsProvider = _cell<Map<int, Map<String, int>>>(const {});
+final _openProvider = _cell<int?>(null);
+
+typedef _Opened = ({
+  int id,
+  String group,
+  String url,
+  Map<String, Map<String, dynamic>> proxies,
+});
+
+final _openedProvider = _cell<_Opened?>(null);
+final _openRoundProvider = _cell<_Round>(_noRound);
 final _refreshProvider = _cell(ShikooRefresh.idle);
 final _othersRefreshProvider = _cell<Map<int, ShikooRefresh>>(const {});
 final _freshProvider = _cell<Set<String>>(const {});
@@ -284,6 +331,10 @@ final _pastedProvider = _cell<Set<int>>(const {});
 final _revokedProvider = _cell<Set<int>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
 final _switchProvider = _cell<ShikooSwitch?>(null);
+final _landedProvider = _cell<ShikooLanded?>(null);
+
+/// The service whose server the switch is moving to, so a same-named row elsewhere keeps still.
+final _switchServiceProvider = _cell<int?>(null);
 
 /// The tunnel's real start; FlClash's run time starts at the press, before the consent dialog.
 final _nativeStartProvider = _cell<DateTime?>(null);
@@ -357,21 +408,29 @@ bool isServer(String type, String name) =>
 
 bool isInfoRow(String name) => _infoRowParts.any(name.contains);
 
-/// A config's first visible group, which the home lists, and its real servers.
-({String group, List<String> names})? mainGroupOf(Map<String, dynamic> config) {
-  final types = {
+typedef MainGroup = ({
+  String group,
+  String url,
+  Map<String, Map<String, dynamic>> servers,
+});
+
+/// A config's first visible group, which the home lists, and its real servers' mappings in order.
+MainGroup? mainGroupOf(Map<String, dynamic> config) {
+  final proxies = {
     for (final proxy in config['proxies'] as List? ?? const [])
-      if (proxy is Map) '${proxy['name']}': '${proxy['type']}',
+      if (proxy is Map) '${proxy['name']}': Map<String, dynamic>.from(proxy),
   };
   for (final group in config['proxy-groups'] as List? ?? const []) {
     if (group is! Map || group['hidden'] == true) continue;
     return (
       group: '${group['name']}',
-      names: [
+      url: '${group['url'] ?? ''}',
+      servers: {
         for (final name in group['proxies'] as List? ?? const [])
-          if (types['$name'] case final type? when isServer(type, '$name'))
-            '$name',
-      ],
+          if (proxies['$name'] case final proxy?
+              when isServer('${proxy['type']}', '$name'))
+            '$name': proxy,
+      },
     );
   }
   return null;
@@ -411,6 +470,9 @@ ShikooPick derivePick({
   return noAnswer ? ShikooPick.none : ShikooPick.auto;
 }
 
+/// [System.isTV], which tests override.
+final shikooTvProvider = Provider<bool>((_) => system.isTV);
+
 final shikooStateProvider = Provider<ShikooState>((ref) {
   final runTime = ref.watch(runTimeProvider);
   final nativeStart = ref.watch(_nativeStartProvider);
@@ -436,6 +498,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final group = _mainGroup(ref);
   final round = ref.watch(_roundProvider);
   final pings = ref.watch(_pingsProvider);
+  final orders = ref.watch(_orderProvider);
   final fresh = ref.watch(_freshProvider);
   final byName = {for (final proxy in _serversOf(group)) proxy.name: proxy};
   final chosen = group == null
@@ -443,20 +506,60 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       : ref.watch(selectedMapProvider)[group.name];
   final selected = byName.containsKey(chosen) ? chosen : null;
   final switching = ref.watch(_switchProvider);
-  bool testing(String name) =>
-      round.pending.contains(name) ||
-      (switching?.stage == ShikooSwitchStage.moving && switching?.to == name);
-  final servers = [
-    for (final name in keepOrder(ref.watch(_orderProvider), [...byName.keys]))
-      ShikooServer(
-        name: name,
-        type: byName[name]!.type,
-        ping: testing(name) ? null : pings[name],
-        testing: testing(name),
-        fresh: fresh.contains(name),
-      ),
-  ];
-  final pinging = round.total > 0;
+  final switchService = ref.watch(_switchServiceProvider);
+  List<ShikooServer> listOf(
+    int? id,
+    Map<String, String> types,
+    _Round round, {
+    Set<String> fresh = const {},
+  }) {
+    bool testing(String name) =>
+        round.pending.contains(name) ||
+        (switching?.stage == ShikooSwitchStage.moving &&
+            switching?.to == name &&
+            switchService == id);
+    return [
+      for (final name in keepOrder(orders[id] ?? const [], [...types.keys]))
+        ShikooServer(
+          name: name,
+          type: types[name]!,
+          ping: testing(name) ? null : pings[id]?[name],
+          testing: testing(name),
+          fresh: fresh.contains(name),
+        ),
+    ];
+  }
+
+  final servers = listOf(
+    profile?.id,
+    {for (final proxy in byName.values) proxy.name: proxy.type},
+    round,
+    fresh: fresh,
+  );
+  final ids = {for (final profile in ref.watch(profilesProvider)) profile.id};
+  final open = ref.watch(_openProvider);
+  final opened = ref.watch(_openedProvider);
+  final openRound = ref.watch(_openRoundProvider);
+  ShikooOpened? openedView(_Opened opened) {
+    // Moving into it, the core loads it only later: until the move lands its card keeps this list.
+    final landing =
+        switching?.stage == ShikooSwitchStage.moving &&
+        switchService == opened.id;
+    if ((opened.id == profile?.id && !landing) || !ids.contains(opened.id)) {
+      return null;
+    }
+    final servers = listOf(opened.id, {
+      for (final MapEntry(:key, :value) in opened.proxies.entries)
+        key: '${value['type']}',
+    }, openRound);
+    return (
+      id: opened.id,
+      servers: servers,
+      pinging: _progress(openRound, servers),
+      sorted: (orders[opened.id] ?? const []).isNotEmpty,
+    );
+  }
+
   return ShikooState(
     connection: deriveConnection(
       connecting: intent.connecting,
@@ -467,7 +570,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     connectedFor: nativeStart != null
         ? DateTime.now().difference(nativeStart)
         : Duration(milliseconds: runTime ?? 0),
-    isTV: system.isTV,
+    isTV: ref.watch(shikooTvProvider),
     service: profile == null ? null : of(profile),
     others: [
       for (final other in ref.watch(profilesProvider))
@@ -483,21 +586,28 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
           intent.error == ShikooError.noServer ||
           (round.ended && !servers.any((server) => (server.ping ?? 0) > 0)),
     ),
-    pinging: pinging
-        ? (
-            done: servers
-                .where((server) => !round.pending.contains(server.name))
-                .length,
-            total: servers.length,
-          )
-        : null,
+    pinging: _progress(round, servers),
     refresh: ref.watch(_refreshProvider),
     notice: ref.watch(_noticeProvider),
     waiting: intent.waiting,
     switching: switching,
-    sorted: ref.watch(_orderProvider).isNotEmpty,
+    sorted: (orders[profile?.id] ?? const []).isNotEmpty,
+    open: ids.contains(open) ? open : null,
+    opened: opened == null ? null : openedView(opened),
+    order: ref.watch(serviceOrderProvider),
+    landed: ref.watch(_landedProvider),
   );
 });
+
+({int done, int total})? _progress(_Round round, List<ShikooServer> servers) =>
+    round.total == 0
+    ? null
+    : (
+        done: servers
+            .where((server) => !round.pending.contains(server.name))
+            .length,
+        total: servers.length,
+      );
 
 final shikooControllerProvider = Provider<ShikooController>(
   ShikooController.new,
@@ -512,6 +622,15 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
 final trafficPassesProvider = Provider<Future<bool> Function()>(
   (_) =>
       () async => (await request.checkIp()).data != null,
+);
+
+/// FlClash loads a newly current profile in the next frame (CoreManager); an apply asked after
+/// that frame queues behind that load and returns once the core holds the profile.
+final serviceAppliedProvider = Provider<Future<void> Function()>(
+  (ref) => () async {
+    await SchedulerBinding.instance.endOfFrame;
+    await ref.read(setupActionProvider.notifier).applyProfile(silence: true);
+  },
 );
 
 /// Polls [runTime] until native reports a running tunnel. Flutter's own run state is set
@@ -643,7 +762,9 @@ int? serviceInstead(ShikooState state) {
   final current = state.service;
   final busy = {ShikooConnection.on, ShikooConnection.connecting};
   if (current?.ended == null || busy.contains(state.connection)) return null;
-  final usable = state.others.firstWhereOrNull((other) => other.ended == null);
+  final usable = state.listed.firstWhereOrNull(
+    (other) => other.id != current!.id && other.ended == null,
+  );
   if (usable != null) return usable.id;
   final latest = finishedOrder([
     for (final service in [current!, ...state.others])
@@ -700,6 +821,7 @@ class ShikooController {
     app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(_loadPasted);
+    scheduleMicrotask(() => _ref.read(savedOrderProvider.notifier).load());
     scheduleMicrotask(() async {
       final stored = (await SharedPreferences.getInstance()).getString(
         _appPicksKey,
@@ -740,6 +862,8 @@ class ShikooController {
   bool _arrived = false;
   bool _pingOnArrival = false;
 
+  int _openNo = 0;
+
   int _tap = 0;
   Timer? _switched;
   String? _awaiting;
@@ -761,7 +885,9 @@ class ShikooController {
 
   void _set(_Intent intent) => _ref.read(_intentProvider.notifier).set(intent);
 
-  String get _service => '${_ref.read(currentProfileIdProvider)}';
+  int? get _current => _ref.read(currentProfileIdProvider);
+
+  String get _service => '$_current';
 
   String? get _appPick => _appPickByService[_service];
 
@@ -800,13 +926,18 @@ class ShikooController {
   /// A switch's outcome leaves with the app as well, one under way does not.
   void onBackground() {
     clearNews();
+    _ref.read(_landedProvider.notifier).set(null);
     if (_ref.read(_switchProvider)?.stage != ShikooSwitchStage.moving) {
       _endSwitch();
     }
   }
 
-  void _switching(ShikooSwitch? next) =>
-      _ref.read(_switchProvider.notifier).set(next);
+  void _switching(ShikooSwitch? next, [int? service]) {
+    _ref.read(_switchProvider.notifier).set(next);
+    _ref
+        .read(_switchServiceProvider.notifier)
+        .set(next == null ? null : service);
+  }
 
   int _endSwitch() {
     _switched?.cancel();
@@ -820,7 +951,10 @@ class ShikooController {
 
   String _testUrl(Group group) => _ref.read(realTestUrlProvider(group.testUrl));
 
-  int? _ping(String name) => _ref.read(_pingsProvider)[name];
+  int? _ping(String name) => _pingOf(_current, name);
+
+  int? _pingOf(int? service, String name) =>
+      _ref.read(_pingsProvider)[service]?[name];
 
   String? _validSelection() {
     final group = _group;
@@ -856,7 +990,7 @@ class ShikooController {
     if (!start && _running) unawaited(_checkSelected());
   }
 
-  /// Another service's servers may share these names: no number or order carries over.
+  /// The old service's round goes unread; numbers and order stay with the service they measured.
   void _forgetRound() {
     _roundNo++;
     _pinging = false;
@@ -864,8 +998,10 @@ class ShikooController {
     _checkNext = false;
     _heard.clear();
     _ref.read(_roundProvider.notifier).set(_noRound);
-    _ref.read(_pingsProvider.notifier).set(const {});
-    _ref.read(_orderProvider.notifier).set(const []);
+    if (_ref.read(_openProvider) == _current) {
+      _openNo++;
+      _ref.read(_openRoundProvider.notifier).set(_noRound);
+    }
     if (_ref.read(_intentProvider).error == ShikooError.noServer) {
       _set(const _Intent());
     }
@@ -918,6 +1054,7 @@ class ShikooController {
   Future<void> disconnect() async {
     _attempt++;
     _endSwitch();
+    _ref.read(_landedProvider.notifier).set(null);
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
@@ -933,14 +1070,31 @@ class ShikooController {
     _savePicks(const {});
     _notice(null);
     _forgetRound();
+    openService(null);
+    _ref.read(_pingsProvider.notifier).set(const {});
+    _ref.read(_orderProvider.notifier).set(const {});
     _ref.read(_freshProvider.notifier).set(const {});
     _ref.read(_othersRefreshProvider.notifier).set(const {});
+    await _ref.read(savedOrderProvider.notifier).save(const []);
   }
 
   /// The user's choice, which the app never replaces; connected, a dead one never gets the traffic.
-  Future<void> selectServer(String name) async {
+  /// A [service] other than the one in use is the open card's: choosing there is choosing it too.
+  Future<void> selectServer(String name, {int? service}) async {
+    final elsewhere = service != null && service != _current;
+    final other = elsewhere ? _ref.read(_openedProvider) : null;
+    if (elsewhere &&
+        (other == null ||
+            other.id != service ||
+            !other.proxies.containsKey(name))) {
+      return;
+    }
     final shift = _ref.read(_switchProvider);
-    if (shift?.stage == ShikooSwitchStage.moving && shift?.to == name) return;
+    if (shift?.stage == ShikooSwitchStage.moving &&
+        shift?.to == name &&
+        _ref.read(_switchServiceProvider) == (other?.id ?? _current)) {
+      return;
+    }
     final tap = _endSwitch();
     if (_ref.read(_noticeProvider)
         case SilentReplaced() || SelectedReplaced()) {
@@ -948,52 +1102,117 @@ class ShikooController {
     }
     final from = _validSelection();
     final connected = _running && !_ref.read(_intentProvider).connecting;
-    if (connected && from != null && from != name) {
-      return _switchTo(name, from, tap);
+    if (connected && from != null && (other != null || from != name)) {
+      return _switchTo(name, from, tap, other);
     }
+    if (other != null) return _moveTo(other, name);
     _pickedByApp(null);
     await _choose(name);
     if (connected) await _checkSelected();
   }
 
-  Future<void> _switchTo(String name, String from, int tap) async {
+  Future<void> _switchTo(
+    String name,
+    String from,
+    int tap, [
+    _Opened? other,
+  ]) async {
+    final home = _current;
+    final target = other?.id ?? home;
     void show(ShikooSwitchStage stage) {
       if (tap != _tap) return;
       final now = stage == ShikooSwitchStage.failed ? _validSelection() : null;
-      _switching((to: name, from: now ?? from, stage: stage));
+      _switching((to: name, from: now ?? from, stage: stage), target);
     }
 
     show(ShikooSwitchStage.moving);
-    final url = _testUrl(_group!);
+    final mapping = other?.proxies[name];
+    final url = other?.url ?? _testUrl(_group!);
     var ms = -1;
-    await pingServers([name], (name) => _probe(url, name), (_, answer) {
-      ms = answer;
-    });
+    await pingServers(
+      [name],
+      (name) => mapping == null ? _probe(url, name) : _probeOther(url, mapping),
+      (_, answer) {
+        ms = answer;
+      },
+    );
     if (tap != _tap) return;
-    final proxy = _serversOf(
-      _group,
-    ).firstWhereOrNull((proxy) => proxy.name == name);
-    if (proxy == null) return _switching(null);
-    if (ms <= 0 && proxy.type != 'WireGuard') {
-      _setPing(name, -1);
+    final type =
+        mapping?['type'] ??
+        _serversOf(
+          _group,
+        ).firstWhereOrNull((proxy) => proxy.name == name)?.type;
+    if (type == null) return _switching(null);
+    if (ms <= 0 && '$type'.toLowerCase() != 'wireguard') {
+      _setPing(target, name, -1);
       return show(ShikooSwitchStage.failed);
     }
-    if (ms > 0) _setPing(name, ms);
-    await _choose(name);
+    if (ms > 0) _setPing(target, name, ms);
+    final before = other == null
+        ? null
+        : (
+            selected: _ref
+                .read(profilesProvider)
+                .getProfile(other.id)
+                ?.selectedMap[other.group],
+            pick: _appPickByService['${other.id}'],
+          );
+    if (other == null) {
+      await _choose(name);
+    } else {
+      _ref.read(_landedProvider.notifier).set((id: other.id, arrived: false));
+      await _moveTo(other, name);
+      await _ref.read(serviceAppliedProvider)();
+    }
     if (ms <= 0) {
       // WireGuard pings can fail while it carries traffic (c19fdfc): real traffic decides.
       if (!await _ref.read(trafficPassesProvider)()) {
-        if (_validSelection() == name && _running) await _choose(from);
-        _setPing(name, -1);
+        if (_current == target && _validSelection() == name && _running) {
+          if (other == null) {
+            await _choose(from);
+          } else if (home != null && before != null && tap == _tap) {
+            await _use(home);
+            _setChoice(other.id, other.group, before.selected, before.pick);
+            _ref.read(_landedProvider.notifier).set(null);
+          }
+        }
+        _setPing(target, name, -1);
         return show(ShikooSwitchStage.failed);
       }
-      _setPing(name, math.max(_ping(name) ?? 0, 0));
+      _setPing(target, name, math.max(_pingOf(target, name) ?? 0, 0));
     }
     if (tap != _tap) return;
-    if (_validSelection() != name) return _switching(null);
+    if (_current != target || _validSelection() != name) {
+      return _switching(null);
+    }
     _pickedByApp(null);
     show(ShikooSwitchStage.done);
+    if (other != null && _ref.read(_landedProvider)?.id == other.id) {
+      _ref.read(_landedProvider.notifier).set((id: other.id, arrived: true));
+    }
     _switched = Timer(switchedFor, () => _switching(null));
+  }
+
+  /// The core loads [other] with [name] chosen already, so no other server of it gets traffic first.
+  Future<void> _moveTo(_Opened other, String name) async {
+    if (_ref.read(profilesProvider).getProfile(other.id) == null) return;
+    clearNews();
+    _setChoice(other.id, other.group, name, null);
+    await _use(other.id);
+  }
+
+  /// A service's server as setup hands it to the core, and whether the app or the user chose it.
+  void _setChoice(int id, String group, String? name, String? appPick) {
+    final profile = _ref.read(profilesProvider).getProfile(id);
+    if (profile == null) return;
+    final selected = {...profile.selectedMap}..remove(group);
+    _ref
+        .read(profilesProvider.notifier)
+        .put(profile.copyWith(selectedMap: {...selected, group: ?name}));
+    _savePicks({
+      ...{..._appPickByService}..remove('$id'),
+      '$id': ?appPick,
+    });
   }
 
   Future<void> _choose(String name) async {
@@ -1071,6 +1290,7 @@ class ShikooController {
     }
     if (group == null || names.isEmpty || _staleGroups) return;
     final no = ++_roundNo;
+    final service = _current;
     _pinging = true;
     _roundList = list;
     _heard.clear();
@@ -1089,14 +1309,14 @@ class ShikooController {
               _ref.read(_intentProvider).waiting;
           if (first) {
             _heard.add(name);
-            _setPing(name, ms);
+            _setPing(service, name, ms);
             _reconcile();
           }
           return;
         }
         final kept = _names(_group).contains(name);
         _heard.add(name);
-        if (kept) _setPing(name, ms);
+        if (kept) _setPing(service, name, ms);
         final now = _ref.read(_roundProvider);
         round.set((
           pending: {...now.pending}..remove(name),
@@ -1138,12 +1358,14 @@ class ShikooController {
     }
   }
 
-  void _setPing(String name, int ms) => _ref
-      .read(_pingsProvider.notifier)
-      .set(
-        {..._ref.read(_pingsProvider), name: ms}
-          ..removeWhere((_, ms) => ms == 0),
-      );
+  void _setPing(int? service, String name, int ms) {
+    if (service == null) return;
+    final all = _ref.read(_pingsProvider);
+    _ref.read(_pingsProvider.notifier).set({
+      ...all,
+      service: {...?all[service], name: ms}..removeWhere((_, ms) => ms == 0),
+    });
+  }
 
   Future<void> _checkSelected() async {
     if (_staleGroups) return;
@@ -1152,8 +1374,9 @@ class ShikooController {
     if (group == null || chosen == null || _pinging) return;
     final url = _testUrl(group);
     final no = _roundNo;
+    final service = _current;
     await pingServers([chosen], (name) => _probeFor(no, url, name), (name, ms) {
-      if (no == _roundNo) _setPing(name, ms);
+      if (no == _roundNo) _setPing(service, name, ms);
     });
     if (chosen == _appPick &&
         chosen == _validSelection() &&
@@ -1165,7 +1388,15 @@ class ShikooController {
   void _sort() {
     final group = _group;
     if (group == null) return;
-    _ref.read(_orderProvider.notifier).set(sortByPing(_names(group), _ping));
+    _setOrder(_current, sortByPing(_names(group), _ping));
+  }
+
+  void _setOrder(int? service, List<String> order) {
+    if (service == null) return;
+    _ref.read(_orderProvider.notifier).set({
+      ..._ref.read(_orderProvider),
+      service: order,
+    });
   }
 
   Future<void> _replaceSilentPick() async {
@@ -1242,6 +1473,7 @@ class ShikooController {
   void _failed(int id, Object error) {
     shikooDiag.refreshed(id, error);
     if (addFailure(error) == ShikooPasteError.revoked &&
+        !_ref.read(shikooTvProvider) &&
         _ref.read(_pastedProvider).contains(id)) {
       _revoked(id, revoked: true);
     }
@@ -1252,8 +1484,9 @@ class ShikooController {
     if (id == _ref.read(currentProfileIdProvider)) {
       if (_running || _ref.read(_intentProvider).connecting) await disconnect();
       final next = _ref
-          .read(profilesProvider)
-          .firstWhereOrNull((profile) => profile.id != id);
+          .read(shikooStateProvider)
+          .listed
+          .firstWhereOrNull((service) => service.id != id);
       if (next != null) {
         await _use(next.id);
       }
@@ -1318,16 +1551,78 @@ class ShikooController {
     unawaited(_use(id));
   }
 
-  void pingService(int id) {
-    if (id == _ref.read(currentProfileIdProvider)) return unawaited(pingAll());
-    selectService(id);
-    _pingOnArrival = true;
+  /// Off, the card opened is the one connect uses; on, the tunnel stays. Null folds every card.
+  void openService(int? id) {
+    _ref.read(_openProvider.notifier).set(id);
+    _ref.read(_landedProvider.notifier).set(null);
+    _closeOpened();
+    final service = _ref
+        .read(shikooStateProvider)
+        .listed
+        .firstWhereOrNull((s) => s.id == id);
+    if (service == null || service.ended != null) return;
+    if (service.id == _current) return unawaited(pingAll());
+    if (!_running && !_ref.read(_intentProvider).connecting) {
+      selectService(service.id);
+      _pingOnArrival = true;
+      return;
+    }
+    unawaited(_pingOther(service.id));
+  }
+
+  void _closeOpened() {
+    _openNo++;
+    _ref.read(_openedProvider.notifier).set(null);
+    _ref.read(_openRoundProvider.notifier).set(_noRound);
+  }
+
+  Future<void> _pingOther(int id) async {
+    final no = _openNo;
+    final main = await _mainGroupOf(id);
+    if (no != _openNo || main == null || main.servers.isEmpty) return;
+    final _Opened opened = (
+      id: id,
+      group: main.group,
+      url: _ref.read(realTestUrlProvider(main.url)),
+      proxies: main.servers,
+    );
+    final names = [...opened.proxies.keys];
+    final round = _ref.read(_openRoundProvider.notifier);
+    _ref.read(_openedProvider.notifier).set(opened);
+    round.set((pending: names.toSet(), total: names.length, ended: false));
+    await pingServers(
+      names,
+      (name) async =>
+          no == _openNo ? _probeOther(opened.url, opened.proxies[name]!) : null,
+      (name, ms) {
+        if (no != _openNo) return;
+        _setPing(id, name, ms);
+        final now = _ref.read(_openRoundProvider);
+        round.set((
+          pending: {...now.pending}..remove(name),
+          total: now.total,
+          ended: false,
+        ));
+      },
+    );
+    if (no != _openNo) return;
+    _setOrder(id, sortByPing(names, (name) => _pingOf(id, name)));
+    round.set((pending: const {}, total: 0, ended: true));
+  }
+
+  Future<int?> _probeOther(String url, Map<String, dynamic> proxy) async {
+    try {
+      return (await _ref.read(coreHandlerProvider).getDelayOf(url, proxy))
+          ?.value;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _use(int id) async {
     final main = await _mainGroupOf(id);
-    if (main != null && main.names.isNotEmpty) {
-      final names = _sorted(main.names);
+    if (main != null && main.servers.isNotEmpty) {
+      final names = _sorted(main.servers.keys);
       if (names != _sorted(_names(_group))) {
         _awaiting = names;
         _awaitingUntil = DateTime.now().add(const Duration(seconds: 15));
@@ -1347,7 +1642,7 @@ class ShikooController {
     return _awaiting != null;
   }
 
-  Future<({String group, List<String> names})?> _mainGroupOf(int id) async {
+  Future<MainGroup?> _mainGroupOf(int id) async {
     try {
       return mainGroupOf(await _ref.read(coreHandlerProvider).getConfig(id));
     } catch (_) {
@@ -1481,6 +1776,11 @@ class ShikooController {
     }
     _revoked(profile.id, revoked: false);
     _updated(profile.id);
+    if (existing != null &&
+        profileFinished(existing) &&
+        !profileFinished(profile)) {
+      await _ref.read(savedOrderProvider.notifier).forget(existing.id);
+    }
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
@@ -1530,21 +1830,30 @@ class ShikooController {
   }
 
   /// What the user pasted holds a token: nothing here shows or logs it.
-  Future<ShikooPasteError?> pasteService(
+  Future<ShikooPasted> pasteService(
     String? text, {
     bool debug = shikooDebug,
   }) async {
-    if (text == null || text.trim().isEmpty) return ShikooPasteError.empty;
-    final link = shikooLink(text, debug: debug);
-    if (link == null) return ShikooPasteError.notShikoo;
-    final failure = await addService(link);
-    if (failure == null) {
-      await markPasted([
-        for (final profile in _ref.read(profilesProvider))
-          if (normalLink(profile.url) == normalLink(link)) profile.id,
-      ]);
-      await _loadPasted();
+    ShikooPasted failed(ShikooPasteError error) =>
+        (error: error, id: null, added: false);
+    if (text == null || text.trim().isEmpty) {
+      return failed(ShikooPasteError.empty);
     }
-    return failure;
+    final link = shikooLink(text, debug: debug);
+    if (link == null) return failed(ShikooPasteError.notShikoo);
+    final before = {
+      for (final profile in _ref.read(profilesProvider)) profile.id,
+    };
+    final failure = await addService(link, null, false);
+    if (failure != null) return failed(failure);
+    final ids = [
+      for (final profile in _ref.read(profilesProvider))
+        if (normalLink(profile.url) == normalLink(link)) profile.id,
+    ];
+    await markPasted(ids);
+    await _loadPasted();
+    final id = ids.firstOrNull;
+    if (id != null) openService(id);
+    return (error: null, id: id, added: id != null && !before.contains(id));
   }
 }

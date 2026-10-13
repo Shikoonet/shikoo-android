@@ -13,6 +13,7 @@ import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
+import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -827,6 +828,8 @@ class ShikooSignIn {
     _setAccount(const ShikooAccount());
     _login(null);
     await _save();
+    // The order leaves with the account it arranged; pasted cards that stay go back to arrival order.
+    await _ref.read(savedOrderProvider.notifier).save(const []);
     if (token != null) unawaited(_logout(token));
     for (final profile in [..._ref.read(profilesProvider)]) {
       await _drop(profile.id);

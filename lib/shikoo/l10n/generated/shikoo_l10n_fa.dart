@@ -294,16 +294,17 @@ class ShikooL10nFa extends ShikooL10n {
   String get pingServers => 'پینگ سرورها';
 
   @override
-  String pingMoveTitle(String name) {
-    return 'اتصال به «$name» برود؟';
-  }
+  String get inUseLabel => 'در حال استفاده';
 
   @override
-  String get pingMoveBody =>
-      'پینگ فقط برای سرویسی گرفته می‌شود که باز است. با باز شدنِ این سرویس، اتصال هم به آن می‌رود و از حجمِ همین سرویس خرج می‌شود.';
+  String get otherServiceHint => 'با زدنِ یک سرور، اتصال به این سرویس می‌رود.';
 
   @override
-  String get pingMoveConfirm => 'انتقال و پینگ';
+  String get otherServiceNow => 'اتصال حالا از همین سرویس است.';
+
+  @override
+  String get otherServiceCaptionTv =>
+      'با زدنِ یک سرور، اتصال به این سرویس می‌رود';
 
   @override
   String pingProgress(int done, int total) {
@@ -830,7 +831,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get revokedHelp =>
-      'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» بچسبان.';
+      'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و با «+» بالای خانه بچسبان.';
 
   @override
   String errorConnectTouch(String server, int seconds) {
@@ -1191,4 +1192,53 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get probeNetSettings => 'تنظیمات اینترنت';
+
+  @override
+  String get addServiceTooltip => 'افزودن سرویس با لینک';
+
+  @override
+  String get addServiceTitle => 'افزودن سرویس';
+
+  @override
+  String get addServiceHelp =>
+      'لینک اشتراک شیکونتِ سرویسِ دیگرت را کپی کن، بعد این دکمه را بزن. سرویس کنار بقیه، روی همین گوشی می‌آید.';
+
+  @override
+  String serviceAdded(String name) {
+    return 'سرویسِ «$name» اضافه شد.';
+  }
+
+  @override
+  String get serviceAlreadyHere => 'این سرویس از قبل روی این گوشی هست.';
+
+  @override
+  String get servicesGroup => 'سرویس‌ها';
+
+  @override
+  String get orderServices => 'ترتیب سرویس‌ها';
+
+  @override
+  String get orderServicesHelpTouch => 'فقط روی همین گوشی';
+
+  @override
+  String get orderServicesHelpTv => 'فقط روی همین تلویزیون';
+
+  @override
+  String get orderScreenHelp =>
+      'هر سرویس را با ≡ بگیر و بالا یا پایین ببر. ترتیب فقط روی همین گوشی است و همان لحظه ذخیره می‌شود.';
+
+  @override
+  String orderHandleLabel(String name) {
+    return 'کشیدن «$name» برای جابه‌جایی';
+  }
+
+  @override
+  String get orderTvHintRest => 'تأیید: برداشتن برای جابه‌جایی';
+
+  @override
+  String get orderTvHintMoving =>
+      'بالا و پایین: جابه‌جا کردن · تأیید: گذاشتن · بازگشت: لغو';
+
+  @override
+  String get orderTvPicked => 'در حال جابه‌جایی';
 }

@@ -426,14 +426,17 @@ ul { list-style: none; }
 .svc-head.is-stacked > .svc-row:has(> .svc-summary) { padding-top: var(--space-1); padding-bottom: var(--space-2); }
 .svc-head > .svc-line:only-child { flex: 1; min-inline-size: 0; }
 .svc-head > .svc-line:only-child > .svc-name { flex: 1 1 auto; }
-/* «در حال استفاده»: سرویسی که اتصال رویش است؛ .is-idle وقتی قطعی (سرویسی که دکمهٔ گرد وصلش می‌کند) */
+/* «در حال استفاده» (انتخاب ۲۰ مهر): نوار در لبهٔ شروعِ سربرگ کارت و برچسب کوچک بالای نام؛ .is-idle وقتی قطعی،
+   یعنی سرویسی که دکمهٔ گرد وصلش می‌کند. نوار فقط کنار سربرگ است تا در کارت باز کنار نوار سرورِ انتخاب‌شده ننشیند.
+   .chip-in-use و .svc-mark فقط در گزینه‌هایی‌اند که انتخاب نشدند. */
 .chip-in-use { background: var(--color-in-use); color: var(--color-on-positive); }
-.chip-in-use.is-idle { background: none; color: var(--color-text); box-shadow: inset 0 0 0 var(--border-width-control) var(--color-in-use-idle); }
-.svc { position: relative; }
-.svc.is-in-use::before {
-  content: ""; position: absolute; inset-block: var(--space-4); inset-inline-start: 0;
+.svc.is-in-use > .svc-head { position: relative; }
+.svc.is-in-use > .svc-head::before {
+  content: ""; position: absolute; inset-block: 0; inset-inline-start: calc(var(--space-4) * -1);
   inline-size: var(--size-selected-bar); border-radius: var(--radius-full); background: var(--color-in-use);
 }
+.svc.is-in-use.is-idle > .svc-head::before { background: var(--color-in-use-idle); }
+.is-idle .overline { color: var(--color-text-muted); }
 .overline { display: block; font-size: var(--text-caption); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); color: var(--color-in-use); }
 .svc-mark {
   flex: none; inline-size: calc(var(--size-icon) + var(--space-2)); block-size: calc(var(--size-icon) + var(--space-2));
@@ -488,6 +491,47 @@ ul { list-style: none; }
 .tv-choose .actions { margin-top: var(--space-2); padding-bottom: 0; }
 .tv-choose .actions .btn { flex: none; }
 .tv .choose-q { font-size: var(--text-title); }
+
+/* ۲۵. نکته‌های ۲۱ مهر: افزودن سرویس با لینک، و ترتیب سرویس‌ها */
+.appbar-actions { display: flex; align-items: center; }
+.add-card {
+  display: flex; align-items: center; gap: var(--space-3); inline-size: 100%; padding: var(--space-4);
+  border-radius: var(--radius-lg); border: var(--border-width-control) dashed var(--color-outline);
+}
+.add-card .t { flex: 1; display: flex; flex-direction: column; font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.add-card small { font-size: var(--text-body-sm); font-weight: var(--font-weight-regular); color: var(--color-text-muted); }
+.svc-list-head { display: flex; align-items: center; justify-content: space-between; margin-block: calc(var(--space-2) * -1); }
+.svc-list-head h3 { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); color: var(--color-text-muted); }
+/* برگهٔ پایین (فقط گوشی): از لبهٔ پایین بالا می‌آید؛ با دکمهٔ برگشت یا زدنِ بیرونش بسته می‌شود */
+.scrim.is-sheet { display: flex; align-items: flex-end; padding: 0; }
+.bottom-sheet {
+  inline-size: 100%; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-6) var(--space-10);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--color-surface); box-shadow: var(--shadow-raised);
+}
+.cards-stack .bottom-sheet { border-radius: var(--radius-lg); padding-bottom: var(--space-6); }
+.bottom-sheet .grab { align-self: center; inline-size: var(--space-8); block-size: var(--space-1); border-radius: var(--radius-full); background: var(--color-outline); }
+.bottom-sheet h2 { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.bottom-sheet .lead { font-size: var(--text-body-sm); line-height: var(--leading-body); color: var(--color-text-muted); }
+:is(.bottom-sheet, .add-screen) .notice { margin: 0; }
+:is(.bottom-sheet, .add-screen) .msg-action { margin-block: calc(var(--space-3) * -1); }
+.choose .row .chip { align-self: flex-start; margin-top: var(--space-1); }
+/* ترتیب: کارتِ در حال کشیدن (گوشی)، و کارتی که روی تلویزیون برداشته شده: پُر از رنگ اصلی با ▲▼، تا از سه متری با کارتِ فقط فوکوس‌دار فرق کند */
+.svc.is-dragging { background: var(--color-focus-bg); box-shadow: var(--shadow-raised); }
+.svc.is-picked { background: var(--color-picked-bg); color: var(--color-on-picked); box-shadow: var(--shadow-raised); }
+.svc.is-picked .icon { color: inherit; }
+.picked-marks { flex: none; display: flex; flex-direction: column; }
+.picked-marks .icon { margin-block: calc(var(--space-1) * -1); stroke-width: var(--icon-stroke-strong); }
+.svc.is-dragging { scale: 1.02; }
+.order-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.tv-order { inline-size: var(--size-pane); min-block-size: 0; display: flex; flex-direction: column; }
+.tv-order > .tv-col { flex: 1; }
+:is(.bottom-sheet, .svc-list-head, .add-screen) .btn { --size-button: var(--size-touch); }
+/* صفحهٔ «افزودن سرویس»: همان بخشِ چسباندنِ اپ، زیر یک نوار بالا */
+.add-screen { display: flex; flex-direction: column; gap: var(--space-4); }
+.cards-stack > .add-screen + .add-screen { padding-top: var(--space-4); border-top: var(--border-width) solid var(--color-border); }
+.order-list .svc-row { padding-bottom: var(--space-2); }
+.picked-hint { font-size: var(--text-body-sm); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+
 /* لایهٔ ارائه: برچسب گزینه‌ها */
 .pick { display: inline-block; margin-inline-end: 8px; padding: 0 12px; border-radius: var(--radius-full); font-size: 14px; color: var(--color-text); box-shadow: inset 0 0 0 var(--border-width) var(--color-outline); }
 .pick.is-mine { color: var(--color-bg); background: var(--color-text); box-shadow: none; }

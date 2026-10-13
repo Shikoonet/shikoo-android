@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
+import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/services.dart';
@@ -25,7 +26,7 @@ class PasteLink extends ConsumerStatefulWidget {
 
   final Widget Function(BuildContext context, bool busy, VoidCallback paste)
   builder;
-  final VoidCallback? onAdded;
+  final ValueChanged<ShikooPasted>? onAdded;
 
   /// Off on the sign-in page, whose pictures could hold a live code; [dateButton], where date settings show already.
   final bool report;
@@ -39,8 +40,10 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
   bool _busy = false;
   ShikooPasteError? _error;
 
+  /// Leaving mid-check does not stop it: the service is still added, so [ref] is read first.
   Future<void> _paste() async {
     if (_busy) return;
+    final controller = ref.read(shikooControllerProvider);
     setState(() {
       _busy = true;
       _error = null;
@@ -51,13 +54,13 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
     } on PlatformException {
       text = null;
     }
-    final error = await ref.read(shikooControllerProvider).pasteService(text);
+    final pasted = await controller.pasteService(text);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _error = error;
+      _error = pasted.error;
     });
-    if (error == null) widget.onAdded?.call();
+    if (pasted.error == null) widget.onAdded?.call(pasted);
   }
 
   @override
@@ -102,6 +105,45 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
           ),
         widget.builder(context, _busy, () => unawaited(_paste())),
       ],
+    );
+  }
+}
+
+/// `phone-p4-screen`, from home's «+»: it closes with what the paste brought, for home to say.
+class AddService extends StatelessWidget {
+  const AddService({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    return SubPage(
+      title: l.addServiceTitle,
+      isTV: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s4,
+        children: [
+          Text(
+            l.addServiceHelp,
+            style: t.text(
+              t.s.bodySm,
+              color: t.c.textMuted,
+              height: Leading.body,
+            ),
+          ),
+          PasteLink(
+            onAdded: (pasted) => Navigator.pop(context, pasted),
+            builder: (context, busy, paste) => ShikooButton(
+              label: busy ? l.pasteChecking : l.pasteLink,
+              icon: ShikooIcon.paste,
+              primary: true,
+              busy: busy,
+              onPressed: paste,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
