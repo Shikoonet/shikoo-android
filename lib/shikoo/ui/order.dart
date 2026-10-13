@@ -95,6 +95,16 @@ class _ServiceOrderState extends ConsumerState<ServiceOrder> {
       picked: service.id == _picked,
     );
     if (!state.isTV) {
+      final grip = SizedBox.square(
+        dimension: ShikooSizes.touch,
+        child: Center(
+          child: SvgIcon(
+            ShikooIcon.handle,
+            size: t.s.icon,
+            color: t.c.textMuted,
+          ),
+        ),
+      );
       return SubPage(
         title: l.orderServices,
         isTV: false,
@@ -125,7 +135,7 @@ class _ServiceOrderState extends ConsumerState<ServiceOrder> {
           },
           proxyDecorator: (_, index, _) => Material(
             type: MaterialType.transparency,
-            child: card(shown[index], raised: true),
+            child: card(shown[index], raised: true, handle: grip),
           ),
           children: [
             for (final (i, service) in shown.indexed)
@@ -140,16 +150,7 @@ class _ServiceOrderState extends ConsumerState<ServiceOrder> {
                       button: true,
                       label: l.orderHandleLabel(plainTitle(context, service)),
                       excludeSemantics: true,
-                      child: SizedBox.square(
-                        dimension: ShikooSizes.touch,
-                        child: Center(
-                          child: SvgIcon(
-                            ShikooIcon.handle,
-                            size: t.s.icon,
-                            color: t.c.textMuted,
-                          ),
-                        ),
-                      ),
+                      child: grip,
                     ),
                   ),
                 ),
