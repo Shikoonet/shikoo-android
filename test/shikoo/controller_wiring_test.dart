@@ -3048,6 +3048,32 @@ void main() {
       await pumpEventQueue();
     });
 
+    test('once a tap there lands, the rest of that card\'s round probes '
+        'nothing from its file: a WireGuard key would meet itself', () async {
+      final t = await twoServices();
+      final slow = Completer<void>();
+      final landed = <String>[];
+      when(() => t.core.testProxyDelay(any(), any())).thenAnswer((call) async {
+        final proxy = call.positionalArguments[1] as Map<String, dynamic>;
+        final name = '${proxy['name']}';
+        if (t.container.read(currentProfileIdProvider) == t.second) {
+          landed.add(name);
+        }
+        if (name == 'ترکیه ۱') await slow.future;
+        final service = int.parse('${proxy['server']}'.split('.').first);
+        return Delay(name: name, url: '', value: t.pings[service]?[name] ?? -1);
+      });
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      await t.controller.selectServer('هلند ۱', service: t.second);
+      t.container.read(groupsProvider.notifier).value = [group(secondNames)];
+      await pumpEventQueue();
+      expect(t.container.read(currentProfileIdProvider), t.second);
+      slow.complete();
+      await pumpEventQueue();
+      expect(landed, isEmpty);
+    });
+
     test('a WireGuard server there that carries no traffic gives the tunnel '
         "back and leaves that service's own choice as it was", () async {
       final t = await twoServices();

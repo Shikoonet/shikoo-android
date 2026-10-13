@@ -1111,6 +1111,7 @@ void main() {
       ShikooService current,
       List<ShikooService> others, {
       ShikooConnection connection = ShikooConnection.off,
+      List<int> order = const [],
     }) => ShikooState(
       connection: connection,
       connectedFor: Duration.zero,
@@ -1118,6 +1119,7 @@ void main() {
       servers: const [],
       service: current,
       others: others,
+      order: order,
     );
     const usedUp = ShikooService(
       id: 1,
@@ -1141,6 +1143,12 @@ void main() {
       expire: now.subtract(const Duration(days: 2)),
     );
     expect(serviceInstead(state(usedUp, [endedLately, active])), 2);
+    const later = ShikooService(id: 5, name: 'e', usedBytes: 1, totalBytes: 9);
+    expect(
+      serviceInstead(state(usedUp, [active, later], order: [5, 1, 2])),
+      5,
+      reason: 'the first that can in the saved order',
+    );
     expect(
       serviceInstead(state(usedUp, [active], connection: ShikooConnection.on)),
       isNull,
@@ -2488,20 +2496,13 @@ void main() {
   });
 
   testWidgets('the card in use has «در حال استفاده» over its name and a bar on '
-      'its start edge, open or folded: green connected, grey off', (
-    tester,
-  ) async {
-    for (final on in [true, false]) {
+      'its start edge, open or folded: green connected, grey off, connecting '
+      'or failed', (tester) async {
+    for (final connection in ShikooConnection.values) {
+      final on = connection == ShikooConnection.on;
       for (final open in [null, 0]) {
-        final where =
-            '${on ? 'on' : 'off'}, ${open == null ? 'folded' : 'open'}';
-        await _pump(
-          tester,
-          _cards(
-            connection: on ? ShikooConnection.on : ShikooConnection.off,
-            open: open,
-          ),
-        );
+        final where = '${connection.name}, ${open == null ? 'folded' : 'open'}';
+        await _pump(tester, _cards(connection: connection, open: open));
         final card = find.ancestor(
           of: find.textContaining('user123'),
           matching: find.byType(open == null ? FoldedServiceCard : ServiceCard),
@@ -2581,7 +2582,8 @@ void main() {
 
   testWidgets('on the phone a card opens with its name and arrow where they '
       'were, and from its top edge to under the name is one fold button, a '
-      'finger tall', (tester) async {
+      'finger tall, which TalkBack presses too', (tester) async {
+    final semantics = tester.ensureSemantics();
     for (final (id, user) in [(0, 'user123'), (7, 'user789')]) {
       final controller = _Controller();
       final holder = await _pump(
@@ -2634,7 +2636,18 @@ void main() {
       );
       await tester.tapAt(button.topCenter + const Offset(0, 4));
       verify(() => controller.openService(null)).called(1);
+      final head = tester.getSemantics(
+        find.bySemanticsLabel(RegExp(user)).first,
+      );
+      expect(
+        head,
+        isSemantics(isButton: true, isExpanded: true, hasTapAction: true),
+        reason: user,
+      );
+      head.owner!.performAction(head.id, SemanticsAction.tap);
+      verify(() => controller.openService(null)).called(1);
     }
+    semantics.dispose();
   });
 
   testWidgets('a folded summary breaks only before «·», whatever the width', (

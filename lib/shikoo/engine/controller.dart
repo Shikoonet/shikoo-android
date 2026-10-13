@@ -998,6 +998,10 @@ class ShikooController {
     _checkNext = false;
     _heard.clear();
     _ref.read(_roundProvider.notifier).set(_noRound);
+    if (_ref.read(_openProvider) == _current) {
+      _openNo++;
+      _ref.read(_openRoundProvider.notifier).set(_noRound);
+    }
     if (_ref.read(_intentProvider).error == ShikooError.noServer) {
       _set(const _Intent());
     }

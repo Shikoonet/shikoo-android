@@ -866,6 +866,7 @@ class _Head extends StatelessWidget {
           expanded: true,
           label: live == null ? title : '${l.inUseLabel}\n$title',
           excludeSemantics: true,
+          onTap: onFold,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onFold,
