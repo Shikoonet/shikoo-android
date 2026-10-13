@@ -28,7 +28,6 @@ $A install -r /d/dev/shikoo-spike/apk/FlClash-0.8.98-android-x86_64.apk
 - فقط با `adb -s emulator-<پورت> emu kill`، نه با `Stop-Process`، `taskkill` یا بستن تسک.
   - با `-read-only` (چند نمونهٔ هم‌زمان از یک AVD) هر نوشتهٔ دستگاه در `%TEMP%\AndroidEmulator\TMP*.tmp.qcow2` روی درایو C می‌رود و در یک آزمون به ۱ تا ۳ گیگ می‌رسد.
   - آزمایش ۲۰۲۶-۱۰-۱۳ روی `shikoo-phone`: بعد از `emu kill`، ۰ از ۴ فایل ماند؛ بعد از `Stop-Process`، هر ۴ فایل ماند.
-  - از ۲۰۲۶-۱۰-۰۶ تا ۱۳ این فایل‌ها ۸۹ گیگ جا گذاشتند.
 - اگر دستگاه جواب نداد و ناچار شدی پروسه را بکشی، جامانده‌ها را در PowerShell پاک کن:
   `Get-ChildItem "$env:TEMP\AndroidEmulator" -Filter *.qcow2 | ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -ErrorAction Stop } catch {} }`
   فایل دستگاهی که هنوز روشن است قفل است و پاک نمی‌شود، پس به کار دستیار دیگر آسیبی نمی‌رسد (آزمایش ۲۰۲۶-۱۰-۱۳: ۳ از ۳ رد شد و دستگاه کار کرد).
