@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
 
@@ -418,21 +419,30 @@ class _FoldedServiceCardState extends State<FoldedServiceCard> {
       borderRadius: BorderRadius.circular(Radii.lg),
     );
     final head = isTV
-        ? Row(
-            spacing: Space.s2,
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _NameLine(service: service)),
-              if (onPing != null)
-                ShikooButton(
-                  label: ShikooL10n.of(context).ping,
-                  icon: ShikooIcon.gauge,
-                  focusNode: _ping,
-                  onPressed: refresh == ShikooRefresh.running ? null : onPing,
+              _NameLine(
+                service: service,
+                arrow: SvgIcon(
+                  ShikooIcon.chevronDown,
+                  size: t.s.icon,
+                  color: t.c.textMuted,
                 ),
-              SvgIcon(
-                ShikooIcon.chevronDown,
-                size: t.s.icon,
-                color: t.c.textMuted,
+              ),
+              _StatusRow(
+                service: service,
+                end: [
+                  if (onPing != null)
+                    ShikooButton(
+                      label: ShikooL10n.of(context).ping,
+                      icon: ShikooIcon.gauge,
+                      focusNode: _ping,
+                      onPressed: refresh == ShikooRefresh.running
+                          ? null
+                          : onPing,
+                    ),
+                ],
               ),
             ],
           )
@@ -492,21 +502,140 @@ class _FoldedServiceCardState extends State<FoldedServiceCard> {
   }
 }
 
-/// `.svc-line`: the name, then the status; what does not fit goes down, the status first.
+/// `.svc-line` in `.svc-head.is-stacked`: the name has the row to itself but the fold arrow.
 class _NameLine extends StatelessWidget {
-  const _NameLine({required this.service});
+  const _NameLine({required this.service, this.arrow});
 
   final ShikooService service;
+  final Widget? arrow;
 
   @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: Space.s2,
-    crossAxisAlignment: WrapCrossAlignment.center,
+  Widget build(BuildContext context) => Row(
     children: [
-      ServiceName(plainTitle(context, service)),
-      if (service.usageKnown) StatusChip(status: service.statusAt(shikooNow())),
+      Expanded(
+        child: ServiceName(plainTitle(context, service), twoLines: true),
+      ),
+      ?arrow,
     ],
   );
+}
+
+/// `.svc-row`: the status, [text] and [end]'s buttons on one line; [text] goes alone onto the next
+/// line, full width, when it does not fit between them (`.is-narrow`).
+class _StatusRow extends StatelessWidget {
+  const _StatusRow({required this.service, required this.end, this.text});
+
+  final ShikooService service;
+  final List<Widget> end;
+  final String? text;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final text = this.text;
+    return _RowOrUnder(
+      children: [
+        if (service.usageKnown)
+          StatusChip(status: service.statusAt(shikooNow()))
+        else
+          const SizedBox.shrink(),
+        if (text != null)
+          Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: t.text(t.s.bodySm, color: t.c.textMuted),
+          )
+        else
+          const SizedBox.shrink(),
+        Row(mainAxisSize: MainAxisSize.min, spacing: Space.s2, children: end),
+      ],
+    );
+  }
+}
+
+/// Lead and end on a line, centred on the taller; the middle child between them when its widest
+/// fits, else under them. Rows and Wraps cannot give the middle the full width only when it moves.
+class _RowOrUnder extends MultiChildRenderObjectWidget {
+  const _RowOrUnder({required super.children}) : assert(children.length == 3);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderRowOrUnder(Directionality.of(context));
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderRowOrUnder row) =>
+      row.direction = Directionality.of(context);
+}
+
+class _RenderRowOrUnder extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  _RenderRowOrUnder(this._direction);
+
+  TextDirection _direction;
+
+  set direction(TextDirection value) {
+    if (value == _direction) return;
+    _direction = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MultiChildLayoutParentData) {
+      child.parentData = MultiChildLayoutParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final [lead, middle, end] = getChildrenAsList();
+    final width = constraints.maxWidth;
+    lead.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
+    end.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
+    double gap(RenderBox box) => box.size.width > 0 ? Space.s2 : 0;
+    final room =
+        width - lead.size.width - gap(lead) - end.size.width - gap(end);
+    final inline = middle.getMaxIntrinsicWidth(double.infinity) <= room;
+    middle.layout(
+      BoxConstraints(maxWidth: inline ? room : width),
+      parentUsesSize: true,
+    );
+    final line = [
+      lead.size.height,
+      end.size.height,
+      if (inline) middle.size.height,
+    ].reduce(math.max);
+    void place(RenderBox box, double x, double y) =>
+        (box.parentData! as MultiChildLayoutParentData).offset = Offset(
+          _direction == TextDirection.rtl ? width - x - box.size.width : x,
+          y,
+        );
+    place(lead, 0, (line - lead.size.height) / 2);
+    place(end, width - end.size.width, (line - end.size.height) / 2);
+    if (inline) {
+      place(
+        middle,
+        lead.size.width + gap(lead),
+        (line - middle.size.height) / 2,
+      );
+    } else {
+      place(middle, 0, line);
+    }
+    size = constraints.constrain(
+      Size(width, inline ? line : line + middle.size.height),
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 String agoText(ShikooL10n l, Duration ago) {
@@ -516,8 +645,9 @@ String agoText(ShikooL10n l, Duration ago) {
   return l.agoDays(ago.inDays);
 }
 
-/// `.svc-head`: `.svc-line`, `.svc-sub` (the last update or the ping's count), update and ping
-/// beside them, one at a time; on the phone each an icon alone, then the fold arrow.
+/// `.svc-head.is-stacked`: `.svc-line` with the fold arrow on the phone, then `.svc-row`: the
+/// status, `.svc-sub` (the last update or the ping's count), update and ping, one at a time; on
+/// the phone each an icon alone.
 class _Head extends StatelessWidget {
   const _Head({
     required this.service,
@@ -568,85 +698,73 @@ class _Head extends StatelessWidget {
     final onRefresh = measuring ? null : (busy ? () {} : this.onRefresh);
     final onPing = this.onPing;
     final ping = onPing == null || busy ? null : (measuring ? () {} : onPing);
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _NameLine(service: service),
-              if (sub != null)
-                Text(
-                  sub,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.text(t.s.bodySm, color: t.c.textMuted),
-                ),
-            ],
+    final buttons = isTV
+        ? [
+            ShikooButton(
+              label: l.refresh,
+              icon: ShikooIcon.refresh,
+              busy: busy,
+              focusNode: refreshNode,
+              onPressed: onRefresh,
+            ),
+            if (onPing != null)
+              ShikooButton(
+                label: l.ping,
+                icon: ShikooIcon.gauge,
+                busy: measuring,
+                focusNode: pingNode,
+                onPressed: ping,
+              ),
+          ]
+        : [
+            ShikooIconButton(
+              icon: ShikooIcon.refresh,
+              label: l.refreshServers,
+              color: t.c.textMuted,
+              busy: busy,
+              onPressed: onRefresh,
+            ),
+            if (onPing != null)
+              ShikooIconButton(
+                icon: ShikooIcon.gauge,
+                label: l.pingServers,
+                color: t.c.textMuted,
+                busy: measuring,
+                onPressed: ping,
+              ),
+          ];
+    // A bare icon in the mockup; its touch target reaches into the card's end inset.
+    final arrow = Pressable(
+      shape: const StadiumBorder(),
+      onPressed: onFold,
+      builder: (context, _) => Semantics(
+        button: true,
+        expanded: open,
+        label: serviceTitle(context, service),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.only(
+            start: Space.s2,
+            end: Space.s4,
+          ),
+          child: SizedBox(
+            height: ShikooSizes.touch,
+            child: SvgIcon(
+              open ? ShikooIcon.chevronUp : ShikooIcon.chevronDown,
+              size: t.s.icon,
+              color: t.c.textMuted,
+            ),
           ),
         ),
-        const SizedBox(width: Space.s2),
-        if (isTV) ...[
-          ShikooButton(
-            label: l.refresh,
-            icon: ShikooIcon.refresh,
-            busy: busy,
-            focusNode: refreshNode,
-            onPressed: onRefresh,
-          ),
-          if (onPing != null) ...[
-            const SizedBox(width: Space.s2),
-            ShikooButton(
-              label: l.ping,
-              icon: ShikooIcon.gauge,
-              busy: measuring,
-              focusNode: pingNode,
-              onPressed: ping,
-            ),
-          ],
-        ] else ...[
-          ShikooIconButton(
-            icon: ShikooIcon.refresh,
-            label: l.refreshServers,
-            color: t.c.textMuted,
-            busy: busy,
-            onPressed: onRefresh,
-          ),
-          if (onPing != null) ...[
-            const SizedBox(width: Space.s2),
-            ShikooIconButton(
-              icon: ShikooIcon.gauge,
-              label: l.pingServers,
-              color: t.c.textMuted,
-              busy: measuring,
-              onPressed: ping,
-            ),
-          ],
-          // A bare icon in the mockup; its touch target reaches into the card's end inset.
-          Pressable(
-            shape: const StadiumBorder(),
-            onPressed: onFold,
-            builder: (context, _) => Semantics(
-              button: true,
-              expanded: open,
-              label: serviceTitle(context, service),
-              child: Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: Space.s2,
-                  end: Space.s4,
-                ),
-                child: SizedBox(
-                  height: ShikooSizes.touch,
-                  child: SvgIcon(
-                    open ? ShikooIcon.chevronUp : ShikooIcon.chevronDown,
-                    size: t.s.icon,
-                    color: t.c.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _NameLine(service: service, arrow: isTV ? null : arrow),
+        Padding(
+          padding: EdgeInsetsDirectional.only(end: isTV ? 0 : Space.s4),
+          child: _StatusRow(service: service, text: sub, end: buttons),
+        ),
       ],
     );
   }
