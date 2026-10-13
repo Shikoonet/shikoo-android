@@ -535,7 +535,7 @@ class FoldedServiceCard extends StatelessWidget {
       children: [
         _NameLine(
           service: service,
-          // Where the open card's arrow is, so it does not move when the card opens.
+          // The whole card is the button: the arrow is an icon, the row as tall as the name.
           arrow: isTV
               ? arrow
               : Padding(
@@ -543,7 +543,7 @@ class FoldedServiceCard extends StatelessWidget {
                     start: Space.s2,
                     end: Space.s4,
                   ),
-                  child: SizedBox(height: ShikooSizes.touch, child: arrow),
+                  child: arrow,
                 ),
         ),
         Padding(
@@ -1239,7 +1239,7 @@ class _ServerListState extends State<_ServerList> {
     }.contains(state.connection);
     final caption = widget.other && busy
         ? l.otherServiceCaptionTv
-        : !state.sorted
+        : !state.sorted && state.pinging == null
         ? l.sortsOnPing
         : (listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave);
     // Rows slide to a new order, so each takes one height: the row's, or its text's at a large size.

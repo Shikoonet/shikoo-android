@@ -2454,6 +2454,11 @@ void main() {
       find.descendant(of: pings, matching: find.byType(Spinner)),
       findsOneWidget,
     );
+    expect(
+      find.textContaining('سریع‌ترین بالا', findRichText: true),
+      findsOneWidget,
+      reason: 'the ping an open card starts sorts the list',
+    );
     expect(tester.getSize(pings).width, width);
 
     holder.value = _cards(
@@ -2535,6 +2540,32 @@ void main() {
           reason: '$where: over the name',
         );
       }
+    }
+  });
+
+  testWidgets('a folded card on the phone is the button, so its arrow is an '
+      'icon with no 48-dp row: the name starts at the inset, or right under '
+      '«در حال استفاده»', (tester) async {
+    await _pump(tester, _cards(connection: ShikooConnection.on));
+    for (final (user, inUse) in [('user123', true), ('user789', false)]) {
+      final card = find.ancestor(
+        of: find.textContaining(user),
+        matching: find.byType(FoldedServiceCard),
+      );
+      Finder inside(Finder finder) =>
+          find.descendant(of: card, matching: finder);
+      final above = inUse
+          ? tester.getRect(inside(find.text('در حال استفاده'))).bottom
+          : tester.getTopLeft(card).dy + Space.s4;
+      expect(
+        tester.getTopLeft(inside(find.byType(ServiceName))).dy,
+        closeTo(above, 0.5),
+        reason: user,
+      );
+      expect(
+        tester.getSize(inside(_icon(ShikooIcon.chevronDown))).height,
+        ShikooSizes.phone.icon,
+      );
     }
   });
 
