@@ -149,6 +149,43 @@ String? _focusedRow() {
 void main() {
   setUpAll(() => registerFallbackValue(<int>{}));
 
+  testWidgets('a long name on the checklist and on the one-service result '
+      'follows the cards: two lines at most, the tier on the second', (
+    tester,
+  ) async {
+    const long = '5550123_7000000123_101 · 🥇سرویس تیتانیوم - مولتی لوکیشن🎯';
+    for (final tv in [false, true]) {
+      for (final login in [
+        const ShikooLogin(
+          LoginPhase.choosing,
+          account: _maryam,
+          choices: [
+            LinkedService(id: 1, title: long, status: 'active'),
+            LinkedService(id: 2, title: 'user2 · الماس', status: 'active'),
+          ],
+        ),
+        const ShikooLogin(
+          LoginPhase.approved,
+          account: _maryam,
+          services: [long],
+        ),
+      ]) {
+        await _pump(tester, tv: tv, login: login);
+        final name = tester.widget<Text>(
+          find.descendant(
+            of: find.byWidgetPredicate(
+              (w) => w is ServiceName && w.name == long,
+            ),
+            matching: find.byType(Text),
+          ),
+        );
+        final reason = 'tv $tv, ${login.phase}';
+        expect(name.maxLines, 2, reason: reason);
+        expect(name.data, contains('\n· '), reason: reason);
+      }
+    }
+  });
+
   testWidgets('two services or more come as a checklist, all ticked, an ended '
       'one with home\'s chip; a tap unticks one, and «ادامه» keeps the '
       'ticked', (tester) async {

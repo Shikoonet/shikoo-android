@@ -1135,7 +1135,12 @@ class _ServicesBelow extends StatelessWidget {
         spacing: Space.s1,
         children: [
           for (final title in more > 0 ? services.take(3) : services)
-            ServiceName(title, style: style, textAlign: TextAlign.center),
+            ServiceName(
+              title,
+              style: style,
+              textAlign: TextAlign.center,
+              twoLines: true,
+            ),
           if (more > 0)
             Text(
               l.approvedMoreServices(more),
@@ -1319,6 +1324,7 @@ class _ChoiceRow extends StatelessWidget {
                           weight: FontWeight.w700,
                           height: Leading.snug,
                         ),
+                        twoLines: true,
                       ),
                       if (service.renews)
                         StatusChip(
