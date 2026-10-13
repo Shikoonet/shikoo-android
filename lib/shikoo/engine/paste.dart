@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum ShikooPasteError { empty, notShikoo, revoked, unavailable, offline, clock }
 
+/// Why a paste failed, or the service it brought: [added] here, or on this device already.
+typedef ShikooPasted = ({ShikooPasteError? error, int? id, bool added});
+
 // ponytail: only the test link's domain; needs every domain Sam names, and moves with the panel.
 const shikooSubscriptionDomains = ['4g3.uk'];
 

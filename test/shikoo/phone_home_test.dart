@@ -8,6 +8,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -120,6 +121,11 @@ ValueGetter<int> _clipboard(WidgetTester tester, String text) {
   );
   return () => reads;
 }
+
+ShikooPasted _failed(ShikooPasteError error) =>
+    (error: error, id: null, added: false);
+
+const ShikooPasted _added = (error: null, id: 7, added: true);
 
 Finder _icon(ShikooIcon icon) =>
     find.byWidgetPredicate((w) => w is SvgIcon && w.icon == icon);
@@ -264,7 +270,7 @@ void main() {
     const clip = 'https://s.4g3.uk/sub/secret-token';
     final reads = _clipboard(tester, clip);
     final controller = _Controller();
-    final answer = Completer<ShikooPasteError?>();
+    final answer = Completer<ShikooPasted>();
     when(() => controller.pasteService(any())).thenAnswer((_) => answer.future);
     await _pump(tester, _noService, controller: controller);
     expect(reads(), 0);
@@ -288,7 +294,7 @@ void main() {
     expect(reads(), 1);
     verify(() => controller.pasteService(clip)).called(1);
     expect(find.text('در حال بررسی لینک…'), findsOneWidget);
-    answer.complete(ShikooPasteError.empty);
+    answer.complete(_failed(ShikooPasteError.empty));
     await tester.pumpAndSettle();
 
     for (final (error, strong) in [
@@ -299,7 +305,9 @@ void main() {
       (ShikooPasteError.clock, 'تاریخ و ساعت دستگاهت درست نیست.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {
-      when(() => controller.pasteService(any())).thenAnswer((_) async => error);
+      when(
+        () => controller.pasteService(any()),
+      ).thenAnswer((_) async => _failed(error));
       await tester.tap(find.text('چسباندن لینک اشتراک'));
       await tester.pumpAndSettle();
       final message = find.textContaining(strong, findRichText: true);
@@ -317,7 +325,7 @@ void main() {
       );
     }
 
-    final last = Completer<ShikooPasteError?>();
+    final last = Completer<ShikooPasted>();
     when(() => controller.pasteService(any())).thenAnswer((_) => last.future);
     await tester.tap(find.text('چسباندن لینک اشتراک'));
     await tester.pump();
@@ -326,7 +334,7 @@ void main() {
       findsNothing,
       reason: 'the next paste clears the last refusal',
     );
-    last.complete(null);
+    last.complete(_added);
     await tester.pumpAndSettle();
     expect(find.textContaining('اینترنت وصل نیست.'), findsNothing);
   });
@@ -337,7 +345,7 @@ void main() {
     final controller = _Controller();
     when(
       () => controller.pasteService(any()),
-    ).thenAnswer((_) async => ShikooPasteError.notShikoo);
+    ).thenAnswer((_) async => _failed(ShikooPasteError.notShikoo));
     await _pump(tester, _phone(), controller: controller);
     await tester.tap(_icon(ShikooIcon.gear));
     await tester.pumpAndSettle();
@@ -360,10 +368,208 @@ void main() {
       lessThan(tester.getTopLeft(paste).dy),
     );
 
-    when(() => controller.pasteService(any())).thenAnswer((_) async => null);
+    when(() => controller.pasteService(any())).thenAnswer((_) async => _added);
     await tester.tap(paste);
     await tester.pumpAndSettle();
     expect(find.byType(ShikooSettings), findsNothing);
+  });
+
+  testWidgets('«+» is on a phone home with a service card, signed in or not, '
+      'and never on the TV or beside the no-service paste card', (
+    tester,
+  ) async {
+    final plus = find.bySemanticsLabel('افزودن سرویس با لینک');
+    await _pump(tester, _phone());
+    expect(plus, findsOneWidget);
+    await _pump(
+      tester,
+      _noService,
+      account: const ShikooAccount(
+        services: [
+          LinkedService(id: 50, title: 'user777 · نقره‌ای', status: 'active'),
+        ],
+      ),
+    );
+    expect(plus, findsOneWidget, reason: 'a card of the account, no link yet');
+    await _pump(tester, _noService);
+    expect(_icon(ShikooIcon.plus), findsNothing);
+    await _pump(tester, _phone(isTV: true));
+    expect(_icon(ShikooIcon.plus), findsNothing);
+  });
+
+  testWidgets('Settings show «ترتیب سرویس‌ها» with two running services: under '
+      'the language on the phone, last in its column on the TV', (
+    tester,
+  ) async {
+    const usedUp = ShikooService(
+      id: 6,
+      name: 'user666 · برنزی',
+      usedBytes: 2,
+      totalBytes: 1,
+    );
+    const other = ShikooService(
+      id: 5,
+      name: 'user555 · نقره‌ای',
+      usedBytes: 0,
+      totalBytes: 0,
+    );
+    ShikooState home(List<ShikooService> others, {bool isTV = false}) {
+      final phone = _phone(isTV: isTV);
+      return ShikooState(
+        connection: phone.connection,
+        connectedFor: phone.connectedFor,
+        isTV: isTV,
+        service: phone.service,
+        servers: phone.servers,
+        others: others,
+      );
+    }
+
+    final row = find.text('ترتیب سرویس‌ها');
+    double top(Finder finder) => tester.getTopLeft(finder.first).dy;
+    await _pump(tester, home([usedUp]));
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    expect(row, findsNothing, reason: 'a used-up one is not ordered');
+
+    await _pump(tester, home([usedUp, other]));
+    await tester.tap(_icon(ShikooIcon.gear));
+    await tester.pumpAndSettle();
+    expect(find.text('فقط روی همین گوشی'), findsOneWidget);
+    expect(top(row), greaterThan(top(find.text('English'))));
+    expect(top(row), lessThan(top(find.text('خروج'))));
+
+    await _pump(tester, home([other], isTV: true));
+    await tester.tap(find.text('تنظیمات'));
+    await tester.pumpAndSettle();
+    expect(find.text('فقط روی همین تلویزیون'), findsOneWidget);
+    expect(top(row), greaterThan(top(find.text('عیب‌یابی و گزارش'))));
+  });
+
+  group('«+» and the add screen', () {
+    const other = ShikooService(
+      id: 5,
+      name: 'user555 · نقره‌ای',
+      usedBytes: 0,
+      totalBytes: 0,
+    );
+    const pasted = ShikooService(
+      id: 9,
+      name: 'user999 · طلایی',
+      usedBytes: 0,
+      totalBytes: 0,
+    );
+    ShikooState home(List<ShikooService> others) {
+      final phone = _phone();
+      return ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: Duration.zero,
+        isTV: false,
+        service: phone.service,
+        servers: phone.servers,
+        selected: phone.selected,
+        others: others,
+      );
+    }
+
+    List<int> cards(WidgetTester tester) => [
+      for (final card in tester.widgetList<FoldedServiceCard>(
+        find.byType(FoldedServiceCard),
+      ))
+        card.service.id,
+    ];
+
+    /// Home with one other card; the paste answers [answer], having brought [after].
+    Future<_Controller> add(
+      WidgetTester tester,
+      ShikooPasted answer,
+      List<ShikooService> after,
+    ) async {
+      _clipboard(tester, 'https://s.4g3.uk/sub/secret-token');
+      final controller = _Controller();
+      late final ValueNotifier<ShikooState> holder;
+      when(() => controller.pasteService(any())).thenAnswer((_) async {
+        holder.value = home(after);
+        return answer;
+      });
+      holder = await _pump(tester, home([other]), controller: controller);
+      await tester.tap(find.bySemanticsLabel('افزودن سرویس با لینک'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AddService), findsOneWidget);
+      expect(find.text('افزودن سرویس'), findsOneWidget);
+      expect(find.textContaining('لینک اشتراک شیکونتِ'), findsOneWidget);
+      await tester.tap(find.text('چسباندن لینک اشتراک'));
+      await tester.pumpAndSettle();
+      return controller;
+    }
+
+    testWidgets('a new service closes the screen, the bar names it, and its '
+        'card comes last', (tester) async {
+      await add(tester, (error: null, id: 9, added: true), [other, pasted]);
+      expect(find.byType(AddService), findsNothing);
+      expect(
+        find.text('سرویسِ «${bidiName('user999 · طلایی')}» اضافه شد.'),
+        findsOneWidget,
+      );
+      expect(cards(tester), [5, 9]);
+      expect(find.textContaining('secret-token'), findsNothing);
+    });
+
+    testWidgets('a service already here says so and makes no second card', (
+      tester,
+    ) async {
+      await add(tester, (error: null, id: 5, added: false), [other]);
+      expect(find.byType(AddService), findsNothing);
+      expect(find.text('این سرویس از قبل روی این گوشی هست.'), findsOneWidget);
+      expect(cards(tester), [5]);
+    });
+
+    testWidgets('a link that is not ShikooNet stays on the screen with its '
+        'message', (tester) async {
+      await add(
+        tester,
+        (error: ShikooPasteError.notShikoo, id: null, added: false),
+        [other],
+      );
+      expect(find.byType(AddService), findsOneWidget);
+      expect(
+        find.textContaining('این لینک شیکونت نیست.', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('leaving mid-check still adds the service, with no error and '
+        'no word from the screen that went', (tester) async {
+      final clipboard = Completer<Object?>();
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) => call.method == 'Clipboard.getData'
+            ? clipboard.future
+            : Future.value(),
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final controller = _Controller();
+      when(
+        () => controller.pasteService(any()),
+      ).thenAnswer((_) async => (error: null, id: 0, added: false));
+      await _pump(tester, home([other]), controller: controller);
+      await tester.tap(find.bySemanticsLabel('افزودن سرویس با لینک'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('چسباندن لینک اشتراک'));
+      await tester.pump();
+      await tester.tap(_icon(ShikooIcon.back));
+      await tester.pumpAndSettle();
+      expect(find.byType(AddService), findsNothing);
+
+      clipboard.complete({'text': 'https://s.4g3.uk/sub/x'});
+      await tester.pumpAndSettle();
+      verify(() => controller.pasteService('https://s.4g3.uk/sub/x')).called(1);
+      expect(tester.takeException(), isNull);
+      expect(find.text('این سرویس از قبل روی این گوشی هست.'), findsNothing);
+    });
   });
 
   testWidgets('the app is called ShikooNet, شیکونت in Persian, beside the fox '
@@ -1599,11 +1805,16 @@ void main() {
     expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
     expect(
       find.text(
-        'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» '
-        'بچسبان.',
+        'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و با «+» بالای '
+        'خانه بچسبان.',
       ),
       findsOneWidget,
-      reason: 'the folded card',
+      reason: 'the folded card; Settings has no paste row once signed in',
+    );
+    expect(
+      find.bySemanticsLabel('افزودن سرویس با لینک'),
+      findsOneWidget,
+      reason: 'the «+» it names is there',
     );
     await tester.tap(find.widgetWithText(ShikooButton, 'حذف'));
     await tester.pumpAndSettle();

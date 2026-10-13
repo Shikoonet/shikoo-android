@@ -13,6 +13,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -544,8 +545,10 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     isTV: system.isTV,
     service: profile == null ? null : of(profile),
     others: [
-      for (final other in ref.watch(profilesProvider))
-        if (other.id != profile?.id) of(other),
+      for (final id in ref.watch(serviceOrderProvider))
+        if (ref.watch(profilesProvider).getProfile(id) case final other?
+            when id != profile?.id)
+          of(other),
     ],
     servers: servers,
     selected: selected,
@@ -788,6 +791,7 @@ class ShikooController {
     app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(_loadPasted);
+    scheduleMicrotask(() => _ref.read(savedOrderProvider.notifier).load());
     scheduleMicrotask(() async {
       final stored = (await SharedPreferences.getInstance()).getString(
         _appPicksKey,
@@ -1036,6 +1040,7 @@ class ShikooController {
     _ref.read(_orderProvider.notifier).set(const {});
     _ref.read(_freshProvider.notifier).set(const {});
     _ref.read(_othersRefreshProvider.notifier).set(const {});
+    await _ref.read(savedOrderProvider.notifier).save(const []);
   }
 
   /// The user's choice, which the app never replaces; connected, a dead one never gets the traffic.
@@ -1428,6 +1433,7 @@ class ShikooController {
   void _failed(int id, Object error) {
     shikooDiag.refreshed(id, error);
     if (addFailure(error) == ShikooPasteError.revoked &&
+        !system.isTV &&
         _ref.read(_pastedProvider).contains(id)) {
       _revoked(id, revoked: true);
     }
@@ -1728,6 +1734,11 @@ class ShikooController {
     }
     _revoked(profile.id, revoked: false);
     _updated(profile.id);
+    if (existing != null &&
+        profileFinished(existing) &&
+        !profileFinished(profile)) {
+      await _ref.read(savedOrderProvider.notifier).forget(existing.id);
+    }
     _ref.read(profilesActionProvider.notifier).putProfile(profile);
     await _ref.read(_extrasProvider.notifier).put(profile.id, (
       announce: headerText(header('announce')),
@@ -1777,21 +1788,30 @@ class ShikooController {
   }
 
   /// What the user pasted holds a token: nothing here shows or logs it.
-  Future<ShikooPasteError?> pasteService(
+  Future<ShikooPasted> pasteService(
     String? text, {
     bool debug = shikooDebug,
   }) async {
-    if (text == null || text.trim().isEmpty) return ShikooPasteError.empty;
-    final link = shikooLink(text, debug: debug);
-    if (link == null) return ShikooPasteError.notShikoo;
-    final failure = await addService(link);
-    if (failure == null) {
-      await markPasted([
-        for (final profile in _ref.read(profilesProvider))
-          if (normalLink(profile.url) == normalLink(link)) profile.id,
-      ]);
-      await _loadPasted();
+    ShikooPasted failed(ShikooPasteError error) =>
+        (error: error, id: null, added: false);
+    if (text == null || text.trim().isEmpty) {
+      return failed(ShikooPasteError.empty);
     }
-    return failure;
+    final link = shikooLink(text, debug: debug);
+    if (link == null) return failed(ShikooPasteError.notShikoo);
+    final before = {
+      for (final profile in _ref.read(profilesProvider)) profile.id,
+    };
+    final failure = await addService(link, null, false);
+    if (failure != null) return failed(failure);
+    final ids = [
+      for (final profile in _ref.read(profilesProvider))
+        if (normalLink(profile.url) == normalLink(link)) profile.id,
+    ];
+    await markPasted(ids);
+    await _loadPasted();
+    final id = ids.firstOrNull;
+    if (id != null) openService(id);
+    return (error: null, id: id, added: id != null && !before.contains(id));
   }
 }

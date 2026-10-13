@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -292,6 +293,9 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get pingServers => 'پینگ سرورها';
+
+  @override
+  String get inUseLabel => 'در حال استفاده';
 
   @override
   String pingMoveTitle(String name) {
@@ -820,7 +824,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get revokedHelp =>
-      'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و در «تنظیمات» بچسبان.';
+      'حذفش کن، یا لینک تازه را از ربات یا نماینده‌ات بگیر و با «+» بالای خانه بچسبان.';
 
   @override
   String errorConnectTouch(String server, int seconds) {
@@ -1142,4 +1146,53 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get probeNetSettings => 'تنظیمات اینترنت';
+
+  @override
+  String get addServiceTooltip => 'افزودن سرویس با لینک';
+
+  @override
+  String get addServiceTitle => 'افزودن سرویس';
+
+  @override
+  String get addServiceHelp =>
+      'لینک اشتراک شیکونتِ سرویسِ دیگرت را کپی کن، بعد این دکمه را بزن. سرویس کنار بقیه، روی همین گوشی می‌آید.';
+
+  @override
+  String serviceAdded(String name) {
+    return 'سرویسِ «$name» اضافه شد.';
+  }
+
+  @override
+  String get serviceAlreadyHere => 'این سرویس از قبل روی این گوشی هست.';
+
+  @override
+  String get servicesGroup => 'سرویس‌ها';
+
+  @override
+  String get orderServices => 'ترتیب سرویس‌ها';
+
+  @override
+  String get orderServicesHelpTouch => 'فقط روی همین گوشی';
+
+  @override
+  String get orderServicesHelpTv => 'فقط روی همین تلویزیون';
+
+  @override
+  String get orderScreenHelp =>
+      'هر سرویس را با ≡ بگیر و بالا یا پایین ببر. ترتیب فقط روی همین گوشی است و همان لحظه ذخیره می‌شود.';
+
+  @override
+  String orderHandleLabel(String name) {
+    return 'کشیدن «$name» برای جابه‌جایی';
+  }
+
+  @override
+  String get orderTvHintRest => 'تأیید: برداشتن برای جابه‌جایی';
+
+  @override
+  String get orderTvHintMoving =>
+      'بالا و پایین: جابه‌جا کردن · تأیید: گذاشتن · بازگشت: لغو';
+
+  @override
+  String get orderTvPicked => 'در حال جابه‌جایی';
 }
