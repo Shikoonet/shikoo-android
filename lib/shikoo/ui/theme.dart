@@ -311,6 +311,9 @@ class ShikooSizes {
 
   /// `--text-scale-max-round`: the round button's text grows no further, its circle being fixed.
   static const roundTextScaleMax = 1.15;
+
+  /// `--name-shrink-min`: the smallest a card's service name gets before it is cut.
+  static const nameShrinkMin = 0.75;
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
   static const dot = 8.0;
