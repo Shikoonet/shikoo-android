@@ -358,8 +358,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           icon: ShikooIcon.check,
           tone: ResultTone.positive,
           title: l.approvedTitle,
-          body: sayWith(l.approvedBodyTouch, _account(l, account)),
-          below: _ServicesBelow(login: login!),
+          body: sayWith(
+            login!.services.length == 1
+                ? l.approvedBodyOneTouch
+                : l.approvedBodyTouch,
+            _account(l, account),
+          ),
+          below: _ServicesBelow(login: login),
         ),
         [
           if (phase == LoginPhase.approved)
@@ -804,7 +809,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           icon: ShikooIcon.check,
           tone: ResultTone.positive,
           title: l.approvedTitle,
-          body: sayWith(l.approvedBodyTv, account),
+          body: sayWith(
+            login.services.length == 1 ? l.approvedBodyOneTv : l.approvedBodyTv,
+            account,
+          ),
           below: _ServicesBelow(login: login),
         ),
         [
@@ -1177,7 +1185,7 @@ class _Checklist extends StatelessWidget {
           for (final (i, service) in choices.indexed) ...[
             if (i > 0) Container(height: 1, color: t.c.border),
             _ChoiceRow(
-              title: service.title,
+              service: service,
               ticked: !unticked.contains(service.id),
               focusNode: i == 0 ? firstNode : null,
               onPressed: () => onToggle(service.id),
@@ -1228,16 +1236,16 @@ class _Checklist extends StatelessWidget {
   }
 }
 
-/// `.choose .row`: the tick, then the service's name.
+/// `.choose .row`: the tick, then the service's name and, for one that ended, home's chip.
 class _ChoiceRow extends StatelessWidget {
   const _ChoiceRow({
-    required this.title,
+    required this.service,
     required this.ticked,
     required this.onPressed,
     this.focusNode,
   });
 
-  final String title;
+  final LinkedService service;
   final bool ticked;
   final VoidCallback onPressed;
   final FocusNode? focusNode;
@@ -1297,13 +1305,26 @@ class _ChoiceRow extends StatelessWidget {
                       : null,
                 ),
                 Expanded(
-                  child: ServiceName(
-                    title,
-                    style: t.text(
-                      s.body,
-                      weight: FontWeight.w700,
-                      height: Leading.snug,
-                    ),
+                  child: Wrap(
+                    spacing: Space.s2,
+                    runSpacing: Space.s1,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ServiceName(
+                        service.title,
+                        style: t.text(
+                          s.body,
+                          weight: FontWeight.w700,
+                          height: Leading.snug,
+                        ),
+                      ),
+                      if (service.renews)
+                        StatusChip(
+                          status: service.status == 'exhausted'
+                              ? ShikooServiceStatus.exhausted
+                              : ShikooServiceStatus.expired,
+                        ),
+                    ],
                   ),
                 ),
               ],

@@ -626,6 +626,16 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String approvedBodyOneTv(String account) {
+    return 'این تلویزیون به حساب تلگرامِ $account وصل شد، با این سرویس:';
+  }
+
+  @override
+  String approvedBodyOneTouch(String account) {
+    return 'این گوشی به حساب تلگرامِ $account وصل شد، با این سرویس:';
+  }
+
+  @override
   String get servicesComing => 'سرویس‌هایت دارند می‌آیند…';
 
   @override

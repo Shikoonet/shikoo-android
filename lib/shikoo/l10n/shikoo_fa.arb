@@ -164,6 +164,8 @@
   "approvedTitle": "ورود انجام شد",
   "approvedBodyTv": "این تلویزیون به حساب تلگرامِ {account} وصل شد، با\u00a0این\u00a0سرویس‌ها:",
   "approvedBodyTouch": "این گوشی به حساب تلگرامِ {account} وصل شد، با\u00a0این\u00a0سرویس‌ها:",
+  "approvedBodyOneTv": "این تلویزیون به حساب تلگرامِ {account} وصل شد، با\u00a0این\u00a0سرویس:",
+  "approvedBodyOneTouch": "این گوشی به حساب تلگرامِ {account} وصل شد، با\u00a0این\u00a0سرویس:",
   "servicesComing": "سرویس‌هایت دارند می‌آیند…",
   "continueButton": "ادامه",
   "notMyAccount": "این حساب من نیست",

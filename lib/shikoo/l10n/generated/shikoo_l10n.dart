@@ -1082,6 +1082,18 @@ abstract class ShikooL10n {
   /// **'This phone is now linked to the Telegram account {account}, with these services:'**
   String approvedBodyTouch(String account);
 
+  /// approvedBodyTv when the account has one service, which the list under it shows.
+  ///
+  /// In en, this message translates to:
+  /// **'This TV is now linked to the Telegram account {account}, with this service:'**
+  String approvedBodyOneTv(String account);
+
+  /// No description provided for @approvedBodyOneTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone is now linked to the Telegram account {account}, with this service:'**
+  String approvedBodyOneTouch(String account);
+
   /// No description provided for @servicesComing.
   ///
   /// In en, this message translates to:

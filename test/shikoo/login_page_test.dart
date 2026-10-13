@@ -149,8 +149,9 @@ String? _focusedRow() {
 void main() {
   setUpAll(() => registerFallbackValue(<int>{}));
 
-  testWidgets('two services or more come as a checklist, all ticked; a tap '
-      'unticks one, and «ادامه» keeps the ticked', (tester) async {
+  testWidgets('two services or more come as a checklist, all ticked, an ended '
+      'one with home\'s chip; a tap unticks one, and «ادامه» keeps the '
+      'ticked', (tester) async {
     final container = await _pump(tester, tv: false, login: _choosing);
     expect(find.text('کدام سرویس‌ها روی این گوشی باشد؟'), findsOneWidget);
     expect(find.textContaining('وصل شد.', findRichText: true), findsOneWidget);
@@ -158,6 +159,9 @@ void main() {
       expect(find.text(bidiName(service.title)), findsOneWidget);
     }
     expect(_ticks(tester), 5);
+    expect(find.byType(StatusChip), findsNWidgets(2));
+    expect(find.text('تاریخ انقضا گذشته'), findsOneWidget);
+    expect(find.text('حجم تمام شده'), findsOneWidget);
     expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsNothing);
     await tester.tap(find.text(bidiName('user2 · الماس')));
     await tester.pumpAndSettle();
@@ -166,8 +170,8 @@ void main() {
     verify(() => _signInOf(container).choose({11, 13, 14, 15})).called(1);
   });
 
-  testWidgets('with nothing ticked «ادامه» is grey and says why; one tick '
-      'brings it back', (tester) async {
+  testWidgets('with nothing ticked «ادامه» is grey and says why; one tick, '
+      'even of an ended service, brings it back', (tester) async {
     final container = await _pump(tester, tv: false, login: _choosing);
     for (final service in _five) {
       await tester.tap(find.text(bidiName(service.title)));
@@ -179,11 +183,46 @@ void main() {
     expect(tester.widget<ShikooButton>(go).onPressed, isNull);
     await tester.tap(go);
     verifyNever(() => _signInOf(container).choose(any()));
-    await tester.tap(find.text(bidiName('user4 · الماس')));
+    await tester.tap(find.text(bidiName('user3 · الماس')));
     await tester.pumpAndSettle();
     expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsNothing);
     await tester.tap(go);
-    verify(() => _signInOf(container).choose({14})).called(1);
+    verify(() => _signInOf(container).choose({13})).called(1);
+  });
+
+  testWidgets('approved with one service, phone and TV say «با این سرویس»; '
+      'with more, «با این سرویس‌ها»', (tester) async {
+    const one = 'با این سرویس:';
+    const many = 'با این سرویس‌ها:';
+    for (final tv in [false, true]) {
+      for (final services in [
+        ['user1 · الماس'],
+        ['user1 · الماس', 'user2 · الماس'],
+      ]) {
+        await _pump(
+          tester,
+          tv: tv,
+          login: ShikooLogin(
+            LoginPhase.approved,
+            account: _maryam,
+            services: services,
+          ),
+        );
+        final said = services.length == 1 ? one : many;
+        expect(
+          find.textContaining(said, findRichText: true),
+          findsOneWidget,
+          reason: 'tv $tv, ${services.length} services',
+        );
+        expect(
+          find.textContaining(
+            services.length == 1 ? many : one,
+            findRichText: true,
+          ),
+          findsNothing,
+        );
+      }
+    }
   });
 
   testWidgets('on the TV the remote starts on «ادامه», goes left through «این '

@@ -664,6 +664,16 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String approvedBodyOneTv(String account) {
+    return 'This TV is now linked to the Telegram account $account, with this service:';
+  }
+
+  @override
+  String approvedBodyOneTouch(String account) {
+    return 'This phone is now linked to the Telegram account $account, with this service:';
+  }
+
+  @override
   String get servicesComing => 'Your services are on their way…';
 
   @override
