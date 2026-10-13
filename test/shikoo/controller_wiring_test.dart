@@ -1741,7 +1741,8 @@ void main() {
   });
 
   test('nothing is pinged by itself: not on open, nor on coming back, nor on '
-      'another service, nor after an update', () async {
+      'another service, nor after an update, nor with every card folded; '
+      'opening a card pings it', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final panel = await _panel(container, core);
     final first = container.read(profilesProvider).single;
@@ -1791,6 +1792,14 @@ void main() {
     expect(state.notice, isA<ServersChanged>());
     expect(state.selected, 'آلمان ۱');
     expect(probes, isEmpty, reason: 'after an update');
+
+    controller.openService(null);
+    await pumpEventQueue();
+    expect(probes, isEmpty, reason: 'every card folded');
+    controller.openService(first.id);
+    await pumpEventQueue();
+    expect(probes, unorderedEquals(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']));
+    expect(container.read(shikooStateProvider).sorted, isTrue);
   });
 
   test('an update that takes the selected server away pings that service once '
@@ -2292,8 +2301,8 @@ void main() {
     );
   });
 
-  test('a connect still searching goes on when a ping opens another service '
-      'that has its own server: it connects with that one', () async {
+  test('a connect still searching goes on with its own service when another '
+      'card opens', () async {
     final (:container, :core, :proxies, :setup) = _home();
     var hold = Completer<void>()..complete();
     when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
@@ -2314,19 +2323,23 @@ void main() {
     hold = Completer<void>();
     unawaited(controller.connect());
     await pumpEventQueue();
-    controller.pingService(second.id);
+    controller.openService(second.id);
     await pumpEventQueue();
     hold.complete();
     await pumpEventQueue();
     final state = container.read(shikooStateProvider);
     expect(setup.runs, [true], reason: 'not stuck on connecting');
-    expect(state.selected, 'هلند ۱', reason: "the second service's own");
-    expect(state.sorted, isTrue, reason: 'and the ping it was asked for');
+    expect((state.service!.id, state.open), (first, second.id));
+    expect(
+      state.selected,
+      isIn(['آلمان ۱', 'هلند ۱']),
+      reason: 'its first answer',
+    );
     await controller.disconnect();
   });
 
   test('a search the tunnel started after an update ends when another '
-      'service with its own server opens', () async {
+      'service with its own server becomes the one in use', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final panel = await _panel(container, core);
     container
@@ -2372,7 +2385,7 @@ void main() {
     await controller.refreshService();
     await pumpEventQueue();
     expect(container.read(shikooStateProvider).waiting, isTrue);
-    controller.pingService(second.id);
+    controller.selectService(second.id);
     await pumpEventQueue();
     hold.complete();
     await pumpEventQueue();
@@ -2512,8 +2525,8 @@ void main() {
     expect(calls, 4, reason: 'only those already under way');
   });
 
-  test('a folded card whose ping opened nothing yet leaves no ping behind for '
-      'the service tapped next', () async {
+  test('a card opened while off whose service has not come yet leaves no ping '
+      'behind for the service chosen next', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final probes = <String>[];
     when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
@@ -2529,7 +2542,7 @@ void main() {
       ..put(second)
       ..put(third);
     controller
-      ..pingService(second.id)
+      ..openService(second.id)
       ..selectService(third.id);
     await pumpEventQueue();
     expect(container.read(currentProfileIdProvider), third.id);
@@ -2569,6 +2582,7 @@ void main() {
 
     Completer<void>? coreGate;
     Completer<void>? fileGate;
+    Completer<void>? applyGate;
 
     /// Two services sharing «هلند ۱»; the core holds only the one in use, as FlClash's does.
     /// A test adds a third with [lists], [pings] and a profile.
@@ -2589,6 +2603,7 @@ void main() {
     twoServices({bool connected = true}) async {
       coreGate = null;
       fileGate = null;
+      applyGate = null;
       final lists = <int, List<String>>{};
       final pings = <int, Map<String, int>>{};
       final fromFile = <String>[];
@@ -2596,6 +2611,7 @@ void main() {
       final (:container, :core, :proxies, :setup) = _home([
         serviceAppliedProvider.overrideWith(
           (ref) => () async {
+            await applyGate?.future;
             ref.read(groupsProvider.notifier).value = [
               group(lists[ref.read(currentProfileIdProvider)]!),
             ];
@@ -2892,5 +2908,118 @@ void main() {
       expect(moves, [t.second, third.id]);
       expect(t.container.read(shikooStateProvider).selected, 'سوئد ۱');
     });
+
+    test('an ended service only opens: off it never becomes the one connect '
+        'uses, on it is not measured, and nothing is pinged', () async {
+      for (final connected in [false, true]) {
+        final t = await twoServices(connected: connected);
+        final second = t.container.read(profilesProvider).getProfile(t.second)!;
+        t.container
+            .read(profilesProvider.notifier)
+            .put(
+              second.copyWith(
+                subscriptionInfo: const SubscriptionInfo(expire: 1),
+              ),
+            );
+        await pumpEventQueue();
+        final moves = <int?>[];
+        t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+        clearInteractions(t.core);
+        t.controller.openService(t.second);
+        await pumpEventQueue();
+        final state = t.container.read(shikooStateProvider);
+        final where = connected ? 'connected' : 'off';
+        expect((state.open, state.service!.id), (t.second, t.first));
+        expect(moves, isEmpty, reason: where);
+        expect(t.fromFile, isEmpty, reason: where);
+        verifyNever(() => t.core.asyncTestDelay(any(), any()));
+      }
+    });
+
+    test(
+      'a tap there that moves the tunnel marks that card until it folds, the '
+      'app leaves or the tunnel stops; while the core loads the service it '
+      'keeps the list it showed',
+      () async {
+        final t = await twoServices();
+        Future<void> land(int id, String name) async {
+          t.controller.openService(id);
+          await pumpEventQueue();
+          await t.controller.selectServer(name, service: id);
+          await pumpEventQueue();
+        }
+
+        t.controller.openService(t.second);
+        await pumpEventQueue();
+        applyGate = Completer<void>();
+        final tap = t.controller.selectServer('ترکیه ۱', service: t.second);
+        await pumpEventQueue();
+        var state = t.container.read(shikooStateProvider);
+        expect(state.service!.id, t.second, reason: 'moved, the core not yet');
+        expect(state.landed, (id: t.second, arrived: false));
+        expect(state.opened?.id, t.second);
+        expect(
+          [for (final s in state.opened!.servers) s.name],
+          ['ترکیه ۱', 'هلند ۱', 'WG ۱'],
+          reason: "its own list, not the first service's still in the core",
+        );
+        applyGate!.complete();
+        await tap;
+        state = t.container.read(shikooStateProvider);
+        expect(state.landed, (id: t.second, arrived: true));
+        expect(state.opened, isNull);
+
+        t.controller.onBackground();
+        expect(t.container.read(shikooStateProvider).landed, isNull);
+        await land(t.first, 'آلمان ۱');
+        expect(t.container.read(shikooStateProvider).landed?.id, t.first);
+        t.controller.openService(null);
+        expect(t.container.read(shikooStateProvider).landed, isNull);
+        await land(t.second, 'ترکیه ۱');
+        expect(t.container.read(shikooStateProvider).landed?.id, t.second);
+        await t.controller.disconnect();
+        expect(t.container.read(shikooStateProvider).landed, isNull);
+      },
+    );
+
+    test('a WireGuard try there that gives the tunnel back leaves the card '
+        'open with its list and unmarked', () async {
+      final t = await twoServices();
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.setup.traffic = false;
+      await t.controller.selectServer('WG ۱', service: t.second);
+      t.container.read(groupsProvider.notifier).value = [group(firstNames)];
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      expect(state.service!.id, t.first);
+      expect((state.open, state.landed), (t.second, null));
+      expect(pingsOf(state.opened!.servers), [
+        ('ترکیه ۱', 80),
+        ('هلند ۱', 300),
+        ('WG ۱', -1),
+      ]);
+    });
   });
+
+  test(
+    'the cards keep their order: the one in use stays where it is',
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final first = container.read(currentProfileIdProvider)!;
+      final second = Profile.normal(url: 'https://panel.invalid/second');
+      final third = Profile.normal(url: 'https://panel.invalid/third');
+      container.read(profilesProvider.notifier)
+        ..put(second)
+        ..put(third);
+      container.read(shikooControllerProvider).selectService(second.id);
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect(state.service!.id, second.id);
+      expect(
+        [for (final s in state.listed) s.id],
+        [first, second.id, third.id],
+      );
+    },
+  );
 }

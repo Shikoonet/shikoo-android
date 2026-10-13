@@ -19,6 +19,7 @@ import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -60,11 +61,15 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _crashSend = FocusNode();
   final _crashNo = FocusNode();
   final _check = FocusNode();
+  final _inUse = FocusNode();
   final _scroll = ScrollController();
+  final _cards = <int, GlobalKey>{};
   (int?, bool, bool)? _shown;
 
-  /// A folded card's ping opened its service: the remote goes to that service's «پینگ».
-  bool _toPing = false;
+  /// The only card, folded by its arrow; two cards or more fold and open as the controller says.
+  bool _folded = false;
+
+  ({int id, double? top})? _opening;
   final _news = ValueNotifier<ShikooSwitch?>(null);
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _bar;
 
@@ -80,6 +85,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     _crashSend.dispose();
     _crashNo.dispose();
     _check.dispose();
+    _inUse.dispose();
     _scroll.dispose();
     _news.dispose();
     super.dispose();
@@ -119,25 +125,49 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     }
   }
 
-  /// phone-home-long: the chosen service opens at the top, under the power button.
-  void _use(ShikooController controller, int service) {
-    controller.selectService(service);
-    if (_scroll.hasClients) _scroll.jumpTo(0);
+  double? _edge(int? id, {bool bottom = false}) {
+    final box = _cards[id]?.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    return box.localToGlobal(Offset(0, bottom ? box.size.height : 0)).dy;
   }
 
-  Future<void> _pingOther(
-    ShikooController controller,
-    ShikooState state,
-    ShikooService other,
-  ) async {
-    final connected = {
-      ShikooConnection.on,
-      ShikooConnection.connecting,
-    }.contains(state.connection);
-    if (connected && !await confirmPingMove(context, service: other)) return;
-    _toPing = state.isTV;
-    controller.pingService(other.id);
-    if (_scroll.hasClients) _scroll.jumpTo(0);
+  /// phone-p2-open-other: the page never scrolls by itself; [id]'s card edge goes back to [from].
+  void _keepAt(int? id, double? from, {bool bottom = false}) {
+    if (from == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final to = _edge(id, bottom: bottom);
+      if (to == null || !_scroll.hasClients) return;
+      final position = _scroll.position;
+      position.jumpTo(
+        clampDouble(
+          position.pixels + to - from,
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+    });
+  }
+
+  void _open(ShikooController controller, int id) {
+    _opening = (id: id, top: _edge(id));
+    setState(() => _folded = false);
+    controller.openService(id);
+  }
+
+  /// tv-p2-open-other: the remote lands on the opened card's «پینگ»; the phone keeps its head still.
+  void _onOpened(ShikooState state) {
+    final opening = _opening;
+    if (opening == null || state.open != opening.id) return;
+    _opening = null;
+    if (!state.isTV) return _keepAt(opening.id, opening.top);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final first = [
+        _card.ping,
+        _card.renew,
+        _card.support,
+      ].firstWhereOrNull((node) => _onScreen(node) && node.canRequestFocus);
+      if (first != null) jumpFocus(first.context!, first);
+    });
   }
 
   /// So the remote never stays on a button that just went away or went dead.
@@ -145,14 +175,19 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final service = state.service;
     final shown = (service?.id, restingFor(state) != null, linkless);
     if (!state.isTV || shown == _shown) return;
+    final focused = FocusManager.instance.primaryFocus;
+    // The open card became the one in use, by a server pressed there: the remote stays on it.
+    final stays =
+        _shown != null &&
+        service?.id == state.open &&
+        !shown.$2 &&
+        focused is! FocusScopeNode &&
+        _onScreen(focused);
     _shown = shown;
-    final toPing = _toPing;
-    _toPing = false;
+    if (stays) return;
     final first = linkless
         ? _linkless
-        : (service == null
-              ? _settings
-              : (shown.$2 ? _card.renew : (toPing ? _card.ping : _power)));
+        : (service == null ? _settings : (shown.$2 ? _card.renew : _power));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
         first.requestFocus();
@@ -166,6 +201,15 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       shikooStateProvider.select((state) => state.switching),
       (_, next) => _onSwitch(next),
     );
+    ref.listen(shikooStateProvider.select((state) => state.service?.id), (
+      before,
+      now,
+    ) {
+      final state = ref.read(shikooStateProvider);
+      if (before != null && state.connection == ShikooConnection.on) {
+        _keepAt(state.open, _edge(state.open, bottom: true), bottom: true);
+      }
+    });
     final state = ref.watch(shikooStateProvider);
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
@@ -215,6 +259,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     ];
     final first = linkedTop ?? (hasService ? null : noLink.firstOrNull);
     _focusFirst(state, linkless: first != null);
+    _onOpened(state);
     final power = _PowerZone(
       state: state,
       controller: controller,
@@ -229,17 +274,6 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
       checked: check != null,
     );
-    FoldedServiceCard folded(ShikooService other) => FoldedServiceCard(
-      key: ValueKey(other.id),
-      service: other,
-      refresh: other.refresh,
-      isTV: state.isTV,
-      onOpen: () => _use(controller, other.id),
-      onRefresh: () => unawaited(controller.refreshOther(other.id)),
-      onPing: other.ended == null
-          ? () => unawaited(_pingOther(controller, state, other))
-          : null,
-    );
     _LinklessCard linkless(LinkedService linked) => _LinklessCard(
       service: linked,
       bot: account.bot,
@@ -253,6 +287,55 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             : row.linked != linkedTop)
           row,
     ];
+    final listed = state.listed;
+    final cards = [
+      for (final service in listed)
+        if (service.ended == null || (service.id == current?.id && hasService))
+          service,
+    ];
+    final revoked = [
+      for (final service in listed)
+        if (service.ended == ShikooServiceStatus.revoked &&
+            !cards.contains(service))
+          service,
+    ];
+    final accordion = cards.length + revoked.length > 1;
+    final inUseOpen = !accordion || state.open == current?.id;
+    Widget serviceCard(ShikooService service) {
+      final inUse = service.id == current?.id;
+      final mark = accordion && inUse
+          ? state.connection == ShikooConnection.on
+          : null;
+      final open = accordion ? state.open == service.id : !_folded;
+      return KeyedSubtree(
+        key: _cards.putIfAbsent(service.id, GlobalKey.new),
+        child: open
+            ? ServiceCard(
+                state: inUse && state.opened?.id != service.id
+                    ? state
+                    : _openedState(state, service),
+                controller: controller,
+                focus: _card,
+                serviceId: account.serviceOf(service.id),
+                bot: account.bot,
+                other: !inUse,
+                inUse: mark,
+                onFold: state.isTV
+                    ? null
+                    : () => accordion
+                          ? controller.openService(null)
+                          : setState(() => _folded = true),
+              )
+            : FoldedServiceCard(
+                service: service,
+                isTV: state.isTV,
+                inUse: mark,
+                focusNode: inUse ? _inUse : null,
+                onOpen: () => _open(controller, service.id),
+              ),
+      );
+    }
+
     final card = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.s3,
@@ -268,20 +351,11 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           ),
         if (update != null) UpdateCard(offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
-        if (hasService || (unlinked.isEmpty && current == null))
-          ServiceCard(
-            key: ValueKey(current?.id),
-            state: state,
-            controller: controller,
-            focus: _card,
-            serviceId: account.serviceOf(current?.id),
-            bot: account.bot,
-          ),
-        for (final other in state.others)
-          if (other.ended == null) folded(other),
+        if (unlinked.isEmpty && current == null)
+          ServiceCard(state: state, controller: controller, focus: _card),
+        for (final service in cards) serviceCard(service),
         for (final linked in noLink) linkless(linked),
-        for (final other in [if (!hasService) ?current, ...state.others])
-          if (other.ended == ShikooServiceStatus.revoked) folded(other),
+        for (final service in revoked) serviceCard(service),
         if (rows.isNotEmpty)
           _FinishedServices(rows: rows, bot: account.bot, isTV: state.isTV),
       ],
@@ -300,7 +374,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                     targets: [
                       _crashSend,
                       _check,
-                      if (towardCard != null) _card.row(towardCard),
+                      if (inUseOpen && towardCard != null)
+                        _card.row(towardCard),
+                      _inUse,
                     ],
                     child: power,
                   ),
@@ -316,6 +392,23 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       ),
     );
   }
+}
+
+/// Another service's card: its own numbers from [ShikooState.opened], none until they come.
+ShikooState _openedState(ShikooState state, ShikooService service) {
+  final opened = state.opened?.id == service.id ? state.opened : null;
+  return ShikooState(
+    connection: state.connection,
+    connectedFor: state.connectedFor,
+    isTV: state.isTV,
+    service: service,
+    servers: opened?.servers ?? const [],
+    pinging: opened?.pinging,
+    sorted: opened?.sorted ?? false,
+    refresh: service.id == state.service?.id ? state.refresh : service.refresh,
+    open: state.open,
+    landed: state.landed,
+  );
 }
 
 /// A node keeps the context of its widget after the widget is gone.

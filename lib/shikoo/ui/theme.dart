@@ -95,6 +95,11 @@ class ShikooColors {
   final List<BoxShadow> cardShadow;
   final List<BoxShadow> raisedShadow;
 
+  Color get inUse => positive;
+
+  /// The service the round button connects, while off.
+  Color get inUseIdle => outline;
+
   static const light = ShikooColors(
     bg: Color(0xFFF4F4F1),
     surface: Color(0xFFFFFFFF),

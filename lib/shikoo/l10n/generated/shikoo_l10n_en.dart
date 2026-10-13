@@ -331,16 +331,18 @@ class ShikooL10nEn extends ShikooL10n {
   String get pingServers => 'Ping servers';
 
   @override
-  String pingMoveTitle(String name) {
-    return 'Move the connection to “$name”?';
-  }
+  String get inUseLabel => 'In use';
 
   @override
-  String get pingMoveBody =>
-      'Ping works only on the open service. Opening this one also moves your connection to it, and the data comes out of this service.';
+  String get otherServiceHint =>
+      'Tap a server to move your connection to this service.';
 
   @override
-  String get pingMoveConfirm => 'Move and ping';
+  String get otherServiceNow => 'You\'re now connected through this service.';
+
+  @override
+  String get otherServiceCaptionTv =>
+      'Press a server to move your connection here';
 
   @override
   String pingProgress(int done, int total) {

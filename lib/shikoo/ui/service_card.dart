@@ -14,7 +14,7 @@ import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show clampDouble, listEquals;
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
@@ -77,6 +77,9 @@ class ServiceCard extends StatefulWidget {
     required this.focus,
     this.serviceId,
     this.bot,
+    this.other = false,
+    this.inUse,
+    this.onFold,
   });
 
   final ShikooState state;
@@ -87,13 +90,20 @@ class ServiceCard extends StatefulWidget {
   final int? serviceId;
   final String? bot;
 
+  /// [state] is another service's, opened while the connection is on the one in use.
+  final bool other;
+
+  /// The in-use mark: none, green (connected) or grey.
+  final bool? inUse;
+
+  /// The phone's arrow; the TV folds an open card only by opening another.
+  final VoidCallback? onFold;
+
   @override
   State<ServiceCard> createState() => _ServiceCardState();
 }
 
 class _ServiceCardState extends State<ServiceCard> {
-  bool _open = true;
-
   /// A message leaving from above the list moves the remote's row up, under the top bar.
   @override
   void didUpdateWidget(ServiceCard old) {
@@ -107,34 +117,55 @@ class _ServiceCardState extends State<ServiceCard> {
     }
   }
 
+  /// The column brings the card's top under its top edge, as far as it can scroll.
+  void _toTop() {
+    final box = context.findRenderObject();
+    final position = Scrollable.maybeOf(context)?.position;
+    if (box is! RenderBox || position == null) return;
+    final to =
+        RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset -
+        Space.s2;
+    position.jumpTo(
+      clampDouble(to, position.minScrollExtent, position.maxScrollExtent),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    final ServiceCard(:state, :controller, :focus) = widget;
+    final ServiceCard(:state, :controller, :focus, :other, :inUse) = widget;
     final service = state.service;
     final notice = state.notice;
     final revoked = service?.revoked ?? false;
+    final busy = {
+      ShikooConnection.on,
+      ShikooConnection.connecting,
+    }.contains(state.connection);
+    final landed = state.landed?.id == service?.id ? state.landed : null;
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
-    final onPing = service?.ended == null
-        ? () => unawaited(controller.pingAll())
-        : null;
-    if (service != null && !_open && !state.isTV) {
-      return FoldedServiceCard(
-        service: service,
-        refresh: state.refresh,
-        isTV: false,
-        onOpen: () => setState(() => _open = true),
-        onRefresh: () => unawaited(controller.refreshService()),
-        pinging: state.pinging,
-        onPing: onPing == null
-            ? null
-            : () {
-                setState(() => _open = true);
-                onPing();
-              },
-      );
-    }
+    final onPing = service?.ended != null
+        ? null
+        : other
+        ? () => controller.openService(service!.id)
+        : () => unawaited(controller.pingAll());
+    final head = service == null
+        ? null
+        : _Head(
+            service: service,
+            refreshNode: focus.refresh,
+            pingNode: focus.ping,
+            refresh: state.refresh,
+            onRefresh: () => unawaited(
+              other
+                  ? controller.refreshOther(service.id)
+                  : controller.refreshService(),
+            ),
+            onPing: onPing,
+            pinging: state.pinging,
+            isTV: state.isTV,
+            onFold: widget.onFold,
+          );
     return Container(
       padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
       decoration: ShapeDecoration(
@@ -207,24 +238,13 @@ class _ServiceCardState extends State<ServiceCard> {
                   skipTraversal: true,
                   includeSemantics: false,
                   onFocusChange: (inside) {
-                    if (inside) Scrollable.maybeOf(context)?.position.jumpTo(0);
+                    if (inside) _toTop();
                   },
                   child: Padding(
                     padding: state.isTV
                         ? inset
                         : const EdgeInsetsDirectional.only(start: Space.s4),
-                    child: _Head(
-                      service: service,
-                      refreshNode: focus.refresh,
-                      pingNode: focus.ping,
-                      refresh: state.refresh,
-                      onRefresh: () => unawaited(controller.refreshService()),
-                      onPing: onPing,
-                      pinging: state.pinging,
-                      isTV: state.isTV,
-                      open: true,
-                      onFold: () => setState(() => _open = false),
-                    ),
+                    child: _InUse(live: inUse, child: head!),
                   ),
                 ),
                 if (revoked)
@@ -272,10 +292,7 @@ class _ServiceCardState extends State<ServiceCard> {
                                 context,
                                 controller: controller,
                                 service: service,
-                                connected: {
-                                  ShikooConnection.on,
-                                  ShikooConnection.connecting,
-                                }.contains(state.connection),
+                                connected: busy,
                               ),
                             ),
                           ),
@@ -330,11 +347,19 @@ class _ServiceCardState extends State<ServiceCard> {
                     ],
                   ),
                 ),
+                if (service.ended == null &&
+                    !state.isTV &&
+                    (landed != null || (other && busy)))
+                  Padding(
+                    padding: inset.copyWith(top: Space.s3),
+                    child: _Hint(now: landed?.arrived ?? false),
+                  ),
                 if (service.ended == null)
                   _ServerList(
                     state: state,
                     controller: controller,
                     focus: focus,
+                    other: other,
                   )
                 else if (!revoked)
                   Padding(
@@ -350,133 +375,195 @@ class _ServiceCardState extends State<ServiceCard> {
   }
 }
 
-/// A folded `.card.svc` (phone-home-long, tv-home-long): the head and `.svc-summary`. On the
-/// phone a tap anywhere but its buttons opens it; on the TV its «پینگ» is a second item.
-class FoldedServiceCard extends StatefulWidget {
-  const FoldedServiceCard({
-    super.key,
-    required this.service,
-    required this.refresh,
-    required this.isTV,
-    required this.onOpen,
-    this.onRefresh,
-    this.onPing,
-    this.pinging,
-  });
+/// `.svc.is-in-use` (phone-p2b-home): «در حال استفاده» over the name and a bar on the card's
+/// start edge beside the head, green while connected, grey otherwise (`.is-idle`). Without a
+/// mark [child] keeps its place in the tree, so the remote on it stays when the mark comes.
+class _InUse extends StatelessWidget {
+  const _InUse({required this.live, required this.child});
 
-  final ShikooService service;
-  final ShikooRefresh refresh;
-  final bool isTV;
-  final VoidCallback onOpen;
-  final VoidCallback? onRefresh;
-  final ({int done, int total})? pinging;
-  final VoidCallback? onPing;
-
-  @override
-  State<FoldedServiceCard> createState() => _FoldedServiceCardState();
-}
-
-class _FoldedServiceCardState extends State<FoldedServiceCard> {
-  final _card = FocusNode();
-
-  /// Only the card's own arrow reaches it: from the list above, down is the card.
-  final _ping = FocusNode(skipTraversal: true);
-
-  @override
-  void dispose() {
-    _card.dispose();
-    _ping.dispose();
-    super.dispose();
-  }
-
-  /// The ping sits inside the card's own rect, which geometry never finds from the card.
-  Object? _move(DirectionalFocusIntent intent) {
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    final towardPower = rtl
-        ? TraversalDirection.left
-        : TraversalDirection.right;
-    final away = rtl ? TraversalDirection.right : TraversalDirection.left;
-    if (_card.hasPrimaryFocus &&
-        intent.direction == towardPower &&
-        (_ping.context?.mounted ?? false)) {
-      _ping.requestFocus();
-      return null;
-    }
-    if (_ping.hasPrimaryFocus && intent.direction == away) {
-      _card.requestFocus();
-      return null;
-    }
-    return Actions.maybeInvoke(context, intent);
-  }
+  final bool? live;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final FoldedServiceCard(:service, :refresh, :isTV, :onOpen, :onPing) =
-        widget;
-    const inset = EdgeInsets.symmetric(horizontal: Space.s4);
+    final live = this.live;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (live != null)
+              Text(
+                ShikooL10n.of(context).inUseLabel,
+                style: t.text(
+                  t.s.caption,
+                  weight: FontWeight.w700,
+                  color: live ? t.c.inUse : t.c.textMuted,
+                  height: Leading.tight,
+                ),
+              ),
+            child,
+          ],
+        ),
+        if (live != null)
+          PositionedDirectional(
+            start: -Space.s4,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: ShikooSizes.selectedBar,
+              decoration: ShapeDecoration(
+                color: live ? t.c.inUse : t.c.inUseIdle,
+                shape: const StadiumBorder(),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// `.notice.msg.hint` above another service's list: what a tap there does, then, once one did,
+/// `.positive` that it did. One box as tall as the taller text, so no row under it moves.
+class _Hint extends StatelessWidget {
+  const _Hint({required this.now});
+
+  final bool now;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final color = now ? t.c.positive : t.c.textMuted;
+    final style = t.text(
+      t.s.bodySm,
+      color: now ? t.c.positive : null,
+      height: Leading.body,
+    );
+    final [shown, hidden] = now
+        ? [l.otherServiceNow, l.otherServiceHint]
+        : [l.otherServiceHint, l.otherServiceNow];
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s3,
+        vertical: Space.s2,
+      ),
+      decoration: ShapeDecoration(
+        color: t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.sm),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: Space.s2,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              top:
+                  (MediaQuery.textScalerOf(context).scale(t.s.bodySm) *
+                          Leading.body -
+                      t.s.iconSm) /
+                  2,
+            ),
+            child: SvgIcon(
+              now ? ShikooIcon.check : ShikooIcon.power,
+              size: t.s.iconSm,
+              color: color,
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                Visibility.maintain(
+                  visible: false,
+                  child: Text(hidden, style: style),
+                ),
+                Text(shown, style: style),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A folded `.card.svc` (phone-p2b-home, tv-p2b-home): the name and `.svc-summary`, nothing to
+/// press but the card itself, which opens it; on the TV one remote stop.
+class FoldedServiceCard extends StatelessWidget {
+  const FoldedServiceCard({
+    super.key,
+    required this.service,
+    required this.isTV,
+    required this.onOpen,
+    this.inUse,
+    this.focusNode,
+  });
+
+  final ShikooService service;
+  final bool isTV;
+  final VoidCallback onOpen;
+
+  /// The in-use mark: none, green (connected) or grey.
+  final bool? inUse;
+  final FocusNode? focusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.lg),
     );
-    final head = isTV
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _NameLine(
-                service: service,
-                arrow: SvgIcon(
-                  ShikooIcon.chevronDown,
-                  size: t.s.icon,
-                  color: t.c.textMuted,
+    final arrow = SvgIcon(
+      ShikooIcon.chevronDown,
+      size: t.s.icon,
+      color: t.c.textMuted,
+    );
+    final head = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _NameLine(
+          service: service,
+          // Where the open card's arrow is, so it does not move when the card opens.
+          arrow: isTV
+              ? arrow
+              : Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    start: Space.s2,
+                    end: Space.s4,
+                  ),
+                  child: SizedBox(height: ShikooSizes.touch, child: arrow),
                 ),
-              ),
-              _StatusRow(
-                service: service,
-                end: [
-                  if (onPing != null)
-                    ShikooButton(
-                      label: ShikooL10n.of(context).ping,
-                      icon: ShikooIcon.gauge,
-                      focusNode: _ping,
-                      onPressed: refresh == ShikooRefresh.running
-                          ? null
-                          : onPing,
-                    ),
-                ],
-              ),
-            ],
-          )
-        : _Head(
-            service: service,
-            refresh: refresh,
-            onRefresh: widget.onRefresh ?? () {},
-            onPing: onPing,
-            pinging: widget.pinging,
-            isTV: false,
-            open: false,
-            onFold: onOpen,
-          );
-    Widget card(bool focused) => Container(
-      padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
-      decoration: ShapeDecoration(
-        color: focused ? t.c.focusBg : t.c.surface,
-        shadows: focused ? t.c.raisedShadow : t.c.cardShadow,
-        shape: shape,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: isTV
-                ? inset
-                : const EdgeInsetsDirectional.only(start: Space.s4),
-            child: head,
+        ),
+        Padding(
+          padding: EdgeInsetsDirectional.only(
+            top: Space.s1,
+            bottom: Space.s2,
+            end: isTV ? 0 : Space.s4,
           ),
-          Padding(
-            padding: inset,
-            child: _Summary(service: service),
-          ),
-        ],
+          child: _Summary(service: service),
+        ),
+      ],
+    );
+    Widget card(bool focused) => Semantics(
+      button: true,
+      expanded: false,
+      child: Container(
+        padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
+        decoration: ShapeDecoration(
+          color: focused ? t.c.focusBg : t.c.surface,
+          shadows: focused ? t.c.raisedShadow : t.c.cardShadow,
+          shape: shape,
+        ),
+        child: Padding(
+          padding: isTV
+              ? const EdgeInsets.symmetric(horizontal: Space.s4)
+              : const EdgeInsetsDirectional.only(start: Space.s4),
+          child: _InUse(live: inUse, child: head),
+        ),
       ),
     );
     if (!isTV) {
@@ -486,18 +573,11 @@ class _FoldedServiceCardState extends State<FoldedServiceCard> {
         child: card(false),
       );
     }
-    return Actions(
-      actions: {
-        DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
-          onInvoke: _move,
-        ),
-      },
-      child: Pressable(
-        shape: shape,
-        focusNode: _card,
-        onPressed: onOpen,
-        builder: (context, focused) => card(focused),
-      ),
+    return Pressable(
+      shape: shape,
+      focusNode: focusNode,
+      onPressed: onOpen,
+      builder: (context, focused) => card(focused),
     );
   }
 }
@@ -658,8 +738,7 @@ class _Head extends StatelessWidget {
     this.onPing,
     this.pinging,
     required this.isTV,
-    required this.open,
-    required this.onFold,
+    this.onFold,
   });
 
   final ShikooService service;
@@ -670,8 +749,7 @@ class _Head extends StatelessWidget {
   final VoidCallback? onPing;
   final ({int done, int total})? pinging;
   final bool isTV;
-  final bool open;
-  final VoidCallback onFold;
+  final VoidCallback? onFold;
 
   @override
   Widget build(BuildContext context) {
@@ -733,34 +811,37 @@ class _Head extends StatelessWidget {
                 onPressed: ping,
               ),
           ];
+    final onFold = this.onFold;
     // A bare icon in the mockup; its touch target reaches into the card's end inset.
-    final arrow = Pressable(
-      shape: const StadiumBorder(),
-      onPressed: onFold,
-      builder: (context, _) => Semantics(
-        button: true,
-        expanded: open,
-        label: serviceTitle(context, service),
-        child: Padding(
-          padding: const EdgeInsetsDirectional.only(
-            start: Space.s2,
-            end: Space.s4,
-          ),
-          child: SizedBox(
-            height: ShikooSizes.touch,
-            child: SvgIcon(
-              open ? ShikooIcon.chevronUp : ShikooIcon.chevronDown,
-              size: t.s.icon,
-              color: t.c.textMuted,
+    final arrow = onFold == null
+        ? null
+        : Pressable(
+            shape: const StadiumBorder(),
+            onPressed: onFold,
+            builder: (context, _) => Semantics(
+              button: true,
+              expanded: true,
+              label: serviceTitle(context, service),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  start: Space.s2,
+                  end: Space.s4,
+                ),
+                child: SizedBox(
+                  height: ShikooSizes.touch,
+                  child: SvgIcon(
+                    ShikooIcon.chevronUp,
+                    size: t.s.icon,
+                    color: t.c.textMuted,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-    );
+          );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _NameLine(service: service, arrow: isTV ? null : arrow),
+        _NameLine(service: service, arrow: arrow),
         Padding(
           padding: EdgeInsetsDirectional.only(end: isTV ? 0 : Space.s4),
           child: _StatusRow(service: service, text: sub, end: buttons),
@@ -770,7 +851,8 @@ class _Head extends StatelessWidget {
   }
 }
 
-/// `.svc-summary`: a folded card's volume and validity on one line.
+/// `.svc-row` with `.svc-summary`: the status, then volume and validity, which breaks only
+/// before «·», as a name does ([bidiName]).
 class _Summary extends StatelessWidget {
   const _Summary({required this.service});
 
@@ -780,46 +862,52 @@ class _Summary extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    if (!service.usageKnown && !service.revoked) {
-      return const SizedBox(height: Space.s2);
-    }
-    final ended = service.ended;
-    if (ended != null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: Space.s1, bottom: Space.s2),
-        child: Text(switch (ended) {
-          ShikooServiceStatus.revoked => l.revokedHelp,
-          ShikooServiceStatus.expired => l.summaryExpired(
-            _date(context, l, service.expire!),
-          ),
-          _ => l.summaryExhausted,
-        }, style: t.text(t.s.bodySm, color: t.c.textMuted)),
-      );
-    }
+    if (!service.usageKnown && !service.revoked) return const SizedBox.shrink();
+    String whole(String text) => text.replaceAll(' ', '\u00A0');
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');
     final total = service.totalBytes;
     final used = service.usedBytes;
     final expire = service.expire;
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s1, bottom: Space.s2),
-      child: Text.rich(
+    final List<InlineSpan> text = switch (service.ended) {
+      ShikooServiceStatus.revoked => [TextSpan(text: l.revokedHelp)],
+      ShikooServiceStatus.expired => [
+        TextSpan(text: l.summaryExpired(_date(context, l, expire!))),
+      ],
+      ShikooServiceStatus.exhausted => [TextSpan(text: l.summaryExhausted)],
+      _ => [
+        TextSpan(text: whole('${l.usedLabel} ')),
         TextSpan(
-          children: [
-            TextSpan(text: '${l.usedLabel} '),
-            TextSpan(
-              text: total > 0
-                  ? '${gb(used)} ${l.ofTotalGb(gb(total))}'
-                  : l.gb(gb(used)),
-              style: total > 0 && used / total >= _nearlyUsed
-                  ? TextStyle(color: t.c.warning, fontWeight: FontWeight.w700)
-                  : null,
-            ),
-            if (expire != null)
-              TextSpan(text: ' · ${l.validUntil(_date(context, l, expire))}'),
-          ],
+          text: whole(
+            total > 0
+                ? '${gb(used)} ${l.ofTotalGb(gb(total))}'
+                : l.gb(gb(used)),
+          ),
+          style: total > 0 && used / total >= _nearlyUsed
+              ? TextStyle(color: t.c.warning, fontWeight: FontWeight.w700)
+              : null,
         ),
-        style: t.text(t.s.bodySm, color: t.c.textMuted),
-      ),
+        if (expire != null)
+          TextSpan(
+            text: ' ${whole('· ${l.validUntil(_date(context, l, expire))}')}',
+          ),
+      ],
+    };
+    return Row(
+      spacing: Space.s2,
+      children: [
+        if (service.usageKnown)
+          StatusChip(status: service.statusAt(shikooNow())),
+        Expanded(
+          child: Text.rich(
+            TextSpan(children: text),
+            style: t.text(
+              t.s.bodySm,
+              color: t.c.textMuted,
+              height: Leading.tight,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1095,11 +1183,13 @@ class _ServerList extends StatefulWidget {
     required this.state,
     required this.controller,
     required this.focus,
+    required this.other,
   });
 
   final ShikooState state;
   final ShikooController controller;
   final CardFocus focus;
+  final bool other;
 
   @override
   State<_ServerList> createState() => _ServerListState();
@@ -1135,6 +1225,15 @@ class _ServerListState extends State<_ServerList> {
         if (serverMatches(byName[name]!.label, _search.text)) name,
     ];
     final muted = t.text(t.s.bodySm, color: t.c.textMuted);
+    final busy = {
+      ShikooConnection.on,
+      ShikooConnection.connecting,
+    }.contains(state.connection);
+    final caption = widget.other && busy
+        ? l.otherServiceCaptionTv
+        : !state.sorted
+        ? l.sortsOnPing
+        : (listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave);
     // Rows slide to a new order, so each takes one height: the row's, or its text's at a large size.
     final extent = math.max(
       t.s.row,
@@ -1180,10 +1279,7 @@ class _ServerListState extends State<_ServerList> {
                             color: t.c.text,
                           ),
                         ),
-                        TextSpan(
-                          text:
-                              ' · ${!state.sorted ? l.sortsOnPing : (listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave)}',
-                        ),
+                        TextSpan(text: ' · $caption'),
                       ],
                     ),
                     maxLines: 1,
@@ -1227,7 +1323,12 @@ class _ServerListState extends State<_ServerList> {
                                   isNew: byName[name]!.fresh && !state.isTV,
                                   focusNode: widget.focus.row(name),
                                   onPressed: () => unawaited(
-                                    widget.controller.selectServer(name),
+                                    widget.controller.selectServer(
+                                      name,
+                                      service: widget.other
+                                          ? state.service?.id
+                                          : null,
+                                    ),
                                   ),
                                 ),
                               ),

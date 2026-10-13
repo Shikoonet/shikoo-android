@@ -500,7 +500,7 @@ abstract class ShikooL10n {
   /// **'Press “Ping” to sort'**
   String get sortsOnPing;
 
-  /// TV button beside “Update” in every active service card, open or folded.
+  /// TV button beside “Update” in an open active service card.
   ///
   /// In en, this message translates to:
   /// **'Ping'**
@@ -512,23 +512,29 @@ abstract class ShikooL10n {
   /// **'Ping servers'**
   String get pingServers;
 
-  /// No description provided for @pingMoveTitle.
+  /// Small label above the name of the service the connection is on, with a bar on the card's start edge, open or folded; green when connected, grey otherwise (the service the round button connects). Only with two service cards or more.
   ///
   /// In en, this message translates to:
-  /// **'Move the connection to “{name}”?'**
-  String pingMoveTitle(String name);
+  /// **'In use'**
+  String get inUseLabel;
 
-  /// Asked only when connected and Ping is pressed on a folded service.
+  /// Phone, above the server list of an open card whose service is not the one in use, only while connected or connecting.
   ///
   /// In en, this message translates to:
-  /// **'Ping works only on the open service. Opening this one also moves your connection to it, and the data comes out of this service.'**
-  String get pingMoveBody;
+  /// **'Tap a server to move your connection to this service.'**
+  String get otherServiceHint;
 
-  /// No description provided for @pingMoveConfirm.
+  /// The same line after a server of that card took the connection. Both texts share one box as tall as the longer, so no row moves. Gone once the card folds or the app goes to the background.
   ///
   /// In en, this message translates to:
-  /// **'Move and ping'**
-  String get pingMoveConfirm;
+  /// **'You\'re now connected through this service.'**
+  String get otherServiceNow;
+
+  /// TV, the list caption of an open card whose service is not the one in use, while connected or connecting; it gives way to fastestFirst once a server there took the connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Press a server to move your connection here'**
+  String get otherServiceCaptionTv;
 
   /// No description provided for @pingProgress.
   ///

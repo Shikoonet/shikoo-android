@@ -45,6 +45,8 @@ enum ShikooSwitchStage { moving, done, failed }
 /// Connected, a tapped [to] gets the traffic only once it answers; [from] keeps it until then.
 typedef ShikooSwitch = ({String to, String from, ShikooSwitchStage stage});
 
+typedef ShikooLanded = ({int id, bool arrived});
+
 /// The open card's list while another service has the tunnel: measured there, never connected to.
 typedef ShikooOpened = ({
   int id,
@@ -222,6 +224,8 @@ class ShikooState {
     this.sorted = false,
     this.open,
     this.opened,
+    this.order = const [],
+    this.landed,
   });
 
   final ShikooConnection connection;
@@ -254,8 +258,20 @@ class ShikooState {
 
   final ShikooOpened? opened;
 
+  final List<int> order;
+
+  final ShikooLanded? landed;
+
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
+
+  List<ShikooService> get listed {
+    final all = [?service, ...others];
+    return [
+      for (final id in order) ?all.firstWhereOrNull((s) => s.id == id),
+      ...all.where((s) => !order.contains(s.id)),
+    ];
+  }
 }
 
 @immutable
@@ -312,6 +328,12 @@ final _pastedProvider = _cell<Set<int>>(const {});
 final _revokedProvider = _cell<Set<int>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
 final _switchProvider = _cell<ShikooSwitch?>(null);
+final _landedProvider = _cell<ShikooLanded?>(null);
+
+/// The cards' order, the one place it is decided: the in-use card keeps its place in it.
+final shikooOrderProvider = Provider<List<int>>(
+  (ref) => [for (final profile in ref.watch(profilesProvider)) profile.id],
+);
 
 /// The service whose server the switch is moving to, so a same-named row elsewhere keeps still.
 final _switchServiceProvider = _cell<int?>(null);
@@ -518,7 +540,13 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final opened = ref.watch(_openedProvider);
   final openRound = ref.watch(_openRoundProvider);
   ShikooOpened? openedView(_Opened opened) {
-    if (opened.id == profile?.id || !ids.contains(opened.id)) return null;
+    // Moving into it, the core loads it only later: until the move lands its card keeps this list.
+    final landing =
+        switching?.stage == ShikooSwitchStage.moving &&
+        switchService == opened.id;
+    if ((opened.id == profile?.id && !landing) || !ids.contains(opened.id)) {
+      return null;
+    }
     final servers = listOf(opened.id, {
       for (final MapEntry(:key, :value) in opened.proxies.entries)
         key: '${value['type']}',
@@ -565,6 +593,8 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     sorted: (orders[profile?.id] ?? const []).isNotEmpty,
     open: ids.contains(open) ? open : null,
     opened: opened == null ? null : openedView(opened),
+    order: ref.watch(shikooOrderProvider),
+    landed: ref.watch(_landedProvider),
   );
 });
 
@@ -731,7 +761,9 @@ int? serviceInstead(ShikooState state) {
   final current = state.service;
   final busy = {ShikooConnection.on, ShikooConnection.connecting};
   if (current?.ended == null || busy.contains(state.connection)) return null;
-  final usable = state.others.firstWhereOrNull((other) => other.ended == null);
+  final usable = state.listed.firstWhereOrNull(
+    (other) => other.id != current!.id && other.ended == null,
+  );
   if (usable != null) return usable.id;
   final latest = finishedOrder([
     for (final service in [current!, ...state.others])
@@ -892,6 +924,7 @@ class ShikooController {
   /// A switch's outcome leaves with the app as well, one under way does not.
   void onBackground() {
     clearNews();
+    _ref.read(_landedProvider.notifier).set(null);
     if (_ref.read(_switchProvider)?.stage != ShikooSwitchStage.moving) {
       _endSwitch();
     }
@@ -963,7 +996,6 @@ class ShikooController {
     _checkNext = false;
     _heard.clear();
     _ref.read(_roundProvider.notifier).set(_noRound);
-    if (_ref.read(_openedProvider)?.id == _current) _closeOpened();
     if (_ref.read(_intentProvider).error == ShikooError.noServer) {
       _set(const _Intent());
     }
@@ -1016,6 +1048,7 @@ class ShikooController {
   Future<void> disconnect() async {
     _attempt++;
     _endSwitch();
+    _ref.read(_landedProvider.notifier).set(null);
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
@@ -1120,6 +1153,7 @@ class ShikooController {
     if (other == null) {
       await _choose(name);
     } else {
+      _ref.read(_landedProvider.notifier).set((id: other.id, arrived: false));
       await _moveTo(other, name);
       await _ref.read(serviceAppliedProvider)();
     }
@@ -1132,6 +1166,7 @@ class ShikooController {
           } else if (home != null && before != null && tap == _tap) {
             await _use(home);
             _setChoice(other.id, other.group, before.selected, before.pick);
+            _ref.read(_landedProvider.notifier).set(null);
           }
         }
         _setPing(target, name, -1);
@@ -1145,6 +1180,9 @@ class ShikooController {
     }
     _pickedByApp(null);
     show(ShikooSwitchStage.done);
+    if (other != null && _ref.read(_landedProvider)?.id == other.id) {
+      _ref.read(_landedProvider.notifier).set((id: other.id, arrived: true));
+    }
     _switched = Timer(switchedFor, () => _switching(null));
   }
 
@@ -1438,8 +1476,9 @@ class ShikooController {
     if (id == _ref.read(currentProfileIdProvider)) {
       if (_running || _ref.read(_intentProvider).connecting) await disconnect();
       final next = _ref
-          .read(profilesProvider)
-          .firstWhereOrNull((profile) => profile.id != id);
+          .read(shikooStateProvider)
+          .listed
+          .firstWhereOrNull((service) => service.id != id);
       if (next != null) {
         await _use(next.id);
       }
@@ -1504,22 +1543,23 @@ class ShikooController {
     unawaited(_use(id));
   }
 
-  void pingService(int id) {
-    if (id == _ref.read(currentProfileIdProvider)) return unawaited(pingAll());
-    selectService(id);
-    _pingOnArrival = true;
-  }
-
   /// Off, the card opened is the one connect uses; on, the tunnel stays. Null folds every card.
   void openService(int? id) {
     _ref.read(_openProvider.notifier).set(id);
+    _ref.read(_landedProvider.notifier).set(null);
     _closeOpened();
-    if (id == null) return;
-    if (id == _current) return unawaited(pingAll());
+    final service = _ref
+        .read(shikooStateProvider)
+        .listed
+        .firstWhereOrNull((s) => s.id == id);
+    if (service == null || service.ended != null) return;
+    if (service.id == _current) return unawaited(pingAll());
     if (!_running && !_ref.read(_intentProvider).connecting) {
-      return pingService(id);
+      selectService(service.id);
+      _pingOnArrival = true;
+      return;
     }
-    unawaited(_pingOther(id));
+    unawaited(_pingOther(service.id));
   }
 
   void _closeOpened() {

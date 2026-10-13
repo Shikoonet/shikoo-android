@@ -294,16 +294,17 @@ class ShikooL10nFa extends ShikooL10n {
   String get pingServers => 'پینگ سرورها';
 
   @override
-  String pingMoveTitle(String name) {
-    return 'اتصال به «$name» برود؟';
-  }
+  String get inUseLabel => 'در حال استفاده';
 
   @override
-  String get pingMoveBody =>
-      'پینگ فقط برای سرویسی گرفته می‌شود که باز است. با باز شدنِ این سرویس، اتصال هم به آن می‌رود و از حجمِ همین سرویس خرج می‌شود.';
+  String get otherServiceHint => 'با زدنِ یک سرور، اتصال به این سرویس می‌رود.';
 
   @override
-  String get pingMoveConfirm => 'انتقال و پینگ';
+  String get otherServiceNow => 'اتصال حالا از همین سرویس است.';
+
+  @override
+  String get otherServiceCaptionTv =>
+      'با زدنِ یک سرور، اتصال به این سرویس می‌رود';
 
   @override
   String pingProgress(int done, int total) {

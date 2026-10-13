@@ -214,55 +214,6 @@ class _QrPainter extends CustomPainter {
   bool shouldRepaint(_QrPainter old) => old.image != image;
 }
 
-/// phone-ping-other-confirm; «انصراف» first, so a second press never spends another subscription.
-Future<bool> confirmPingMove(
-  BuildContext context, {
-  required ShikooService service,
-}) async {
-  final sure = await showShikooDialog<bool>(
-    context,
-    children: (context) {
-      final t = ShikooTheme.of(context);
-      final l = ShikooL10n.of(context);
-      return [
-        Text(
-          l.pingMoveTitle(serviceTitle(context, service)),
-          style: t.text(t.s.title, weight: FontWeight.w700),
-        ),
-        Text(
-          l.pingMoveBody,
-          style: t.text(
-            t.s.dialogText,
-            color: t.c.textMuted,
-            height: Leading.body,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: Space.s2),
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: Space.s2,
-            runSpacing: Space.s2,
-            children: [
-              ShikooButton(
-                label: l.cancelButton,
-                autofocus: true,
-                onPressed: () => Navigator.pop(context, false),
-              ),
-              ShikooButton(
-                label: l.pingMoveConfirm,
-                primary: true,
-                onPressed: () => Navigator.pop(context, true),
-              ),
-            ],
-          ),
-        ),
-      ];
-    },
-  );
-  return sure ?? false;
-}
-
 /// phone-remove-confirm: «انصراف» has the focus, «حذف» is red and last. True once removed.
 Future<bool> confirmRemove(
   BuildContext context, {
