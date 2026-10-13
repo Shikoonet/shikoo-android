@@ -298,16 +298,30 @@ Future<ShikooLogin?> _until(
 bool Function(ShikooLogin?) _at(LoginPhase phase) =>
     (login) => login?.phase == phase;
 
+/// «ادامه» on a checklist left as it came: every service ticked.
+Future<void> _tickAll(_Harness h) async {
+  final offered = await _until(h.container, _at(LoginPhase.choosing));
+  unawaited(h.signIn.choose({for (final s in offered!.choices) s.id}));
+}
+
+/// Signed in and past the checklist, if the account has one; null once home.
 Future<ShikooLogin?> _signedIn(_Harness h, {String? name = 'مریم'}) async {
   await h.signIn.start();
   h.api.codes[h.api.lastCode]!.approvedBy = (name: name, username: 'maryam_k');
+  const ends = {
+    LoginPhase.approved,
+    LoginPhase.noService,
+    LoginPhase.servicesFailed,
+  };
+  final login = await _until(
+    h.container,
+    (login) => {...ends, LoginPhase.choosing}.contains(login?.phase),
+  );
+  if (login?.phase != LoginPhase.choosing) return login;
+  await _tickAll(h);
   return _until(
     h.container,
-    (login) => const {
-      LoginPhase.approved,
-      LoginPhase.noService,
-      LoginPhase.servicesFailed,
-    }.contains(login?.phase),
+    (login) => login == null || ends.contains(login.phase),
   );
 }
 
@@ -356,8 +370,9 @@ void main() {
   });
 
   group('signing in', () {
-    test('a code shows, waits, and once approved brings the account and its '
-        'services; the device and its kind reach the server', () async {
+    test('a code shows, waits, and once approved offers the account\'s '
+        'services, adding none until «ادامه»; then they come and it goes '
+        'home. The device and its kind reach the server', () async {
       final h = await _harness();
       h.api.services = [_service(1, 'user123'), _service(2, 'user789')];
       final link = await h.signIn.start();
@@ -373,10 +388,24 @@ void main() {
         name: 'مریم',
         username: 'maryam_k',
       );
-      final approved = await _until(h.container, _at(LoginPhase.approved));
-      expect(approved!.account?.name, 'مریم');
-      expect(approved.account?.username, 'maryam_k');
-      expect(approved.services, ['user123 · الماس', 'user789 · الماس']);
+      final offered = await _until(h.container, _at(LoginPhase.choosing));
+      expect(offered!.account?.name, 'مریم');
+      expect(offered.account?.username, 'maryam_k');
+      expect(
+        [for (final s in offered.choices) (s.id, s.title)],
+        [(1, 'user123 · الماس'), (2, 'user789 · الماس')],
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.container.read(shikooLoginProvider)?.phase, LoginPhase.choosing);
+      expect(_urls(h.container), isEmpty);
+      verifyNever(() => h.controller.addService(any(), any(), any()));
+      final saved = (await SharedPreferences.getInstance()).getString(
+        'shikoo.account',
+      );
+      expect(saved, contains(h.api.live.keys.single));
+
+      await h.signIn.choose({1, 2});
+      expect(h.container.read(shikooLoginProvider), isNull, reason: 'home');
       expect(_urls(h.container), [
         'https://sub.4g3.uk/user123',
         'https://sub.4g3.uk/user789',
@@ -384,14 +413,25 @@ void main() {
       verify(
         () => h.controller.addService(any(), 'user123 · الماس', false),
       ).called(1);
-      final saved = (await SharedPreferences.getInstance()).getString(
-        'shikoo.account',
-      );
-      expect(saved, contains(h.api.live.keys.single));
-
-      h.signIn.finish();
-      expect(h.container.read(shikooLoginProvider), isNull);
       expect(h.container.read(shikooAccountProvider).who?.name, 'مریم');
+    });
+
+    test('one service skips the checklist: it comes at once, «ادامه» as '
+        'before', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'user123')];
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'مریم', username: 'm');
+      final login = await _until(
+        h.container,
+        (login) => const {
+          LoginPhase.choosing,
+          LoginPhase.approved,
+        }.contains(login?.phase),
+      );
+      expect(login?.phase, LoginPhase.approved);
+      expect(login?.services, ['user123 · الماس']);
+      expect(_urls(h.container), ['https://sub.4g3.uk/user123']);
     });
 
     test(
@@ -694,22 +734,24 @@ void main() {
       },
     );
 
-    test(
-      'an expired or used-up service with no link still comes, to renew',
-      () async {
-        final h = await _harness();
-        h.api.services = [
-          _service(51, 'user555', status: 'expired', noUrl: true),
-          _service(52, 'user666', status: 'exhausted', noUrl: true),
-        ];
-        final login = await _signedIn(h);
-        expect(login?.phase, LoginPhase.approved);
-        expect(login?.services, ['user555 · الماس', 'user666 · الماس']);
-        final unlinked = h.container.read(shikooAccountProvider).withoutLink;
-        expect([for (final s in unlinked) s.renews], [true, true]);
-        verifyNever(() => h.controller.addService(any(), any(), any()));
-      },
-    );
+    test('an expired or used-up service with no link is on the checklist and '
+        'still comes, to renew', () async {
+      final h = await _harness();
+      h.api.services = [
+        _service(51, 'user555', status: 'expired', noUrl: true),
+        _service(52, 'user666', status: 'exhausted', noUrl: true),
+        _service(53, 'removed', status: 'removed', noUrl: true),
+        _service(54, 'pending', status: 'pending', noUrl: true),
+      ];
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
+      final offered = await _until(h.container, _at(LoginPhase.choosing));
+      expect([for (final s in offered!.choices) s.id], [51, 52, 53]);
+      await h.signIn.choose({51, 52});
+      final unlinked = h.container.read(shikooAccountProvider).withoutLink;
+      expect([for (final s in unlinked) s.renews], [true, true]);
+      verifyNever(() => h.controller.addService(any(), any(), any()));
+    });
 
     test(
       'renewed, a service without a link gets one on the next sync',
@@ -804,7 +846,7 @@ void main() {
         _service(3, 'empty', url: ''),
         _service(4, 'long', url: 'https://sub.4g3.uk/${'a' * 5000}'),
       ];
-      expect((await _signedIn(h))?.phase, LoginPhase.approved);
+      expect(await _signedIn(h), isNull, reason: 'home, past the checklist');
       verifyNever(() => h.controller.addService(any(), any(), any()));
       expect(_urls(h.container), isEmpty);
       expect(
@@ -827,50 +869,52 @@ void main() {
       expect(h.container.read(shikooAccountProvider).who, isNull);
     });
 
-    test(
-      'a sync adds new links, keeps an expired service for renewal, keeps '
-      'a removed one without its link and drops what left the list',
-      () async {
-        final h = await _harness();
-        h.api.services = [
-          _service(1, 'stays'),
-          _service(2, 'expires'),
-          _service(3, 'removed'),
-          _service(4, 'leaves'),
-          _service(5, 'relinked'),
-        ];
-        await _signedIn(h);
-        h.api.services = [
-          _service(1, 'stays'),
-          _service(2, 'expires', status: 'expired', noUrl: true),
-          _service(3, 'removed', status: 'removed', noUrl: true),
-          _service(5, 'relinked', url: 'https://sub.4g3.uk/new-link'),
-          _service(6, 'botFirst', noUrl: true),
-          _service(7, 'fresh'),
-        ];
-        expect(await h.signIn.sync(), isTrue);
-        expect(
-          _urls(h.container),
-          unorderedEquals([
-            'https://sub.4g3.uk/stays',
-            'https://sub.4g3.uk/expires',
-            'https://sub.4g3.uk/new-link',
-            'https://sub.4g3.uk/fresh',
-          ]),
-        );
-        final account = h.container.read(shikooAccountProvider);
-        expect(account.withoutLink.map((s) => s.title), [
-          'removed · الماس',
-          'botFirst · الماس',
-        ]);
-        expect(account.withoutLink.map((s) => s.renews), [true, false]);
-        expect(account.bot, 'Test_Shikoo_bot');
-        final expired = h.container
-            .read(profilesProvider)
-            .firstWhere((p) => p.url.endsWith('expires'));
-        expect(account.serviceOf(expired.id), 2);
-      },
-    );
+    test('with no choice made, a sync adds new links, keeps an expired service '
+        'for renewal, keeps a removed one without its link and drops what left '
+        'the list', () async {
+      final h = await _harness();
+      h.api.services = [
+        _service(1, 'stays'),
+        _service(2, 'expires'),
+        _service(3, 'removed'),
+        _service(4, 'leaves'),
+        _service(5, 'relinked'),
+      ];
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
+      await _until(h.container, _at(LoginPhase.choosing));
+      h.signIn.finish();
+      await h.signIn.sync();
+      h.api.services = [
+        _service(1, 'stays'),
+        _service(2, 'expires', status: 'expired', noUrl: true),
+        _service(3, 'removed', status: 'removed', noUrl: true),
+        _service(5, 'relinked', url: 'https://sub.4g3.uk/new-link'),
+        _service(6, 'botFirst', noUrl: true),
+        _service(7, 'fresh'),
+      ];
+      expect(await h.signIn.sync(), isTrue);
+      expect(
+        _urls(h.container),
+        unorderedEquals([
+          'https://sub.4g3.uk/stays',
+          'https://sub.4g3.uk/expires',
+          'https://sub.4g3.uk/new-link',
+          'https://sub.4g3.uk/fresh',
+        ]),
+      );
+      final account = h.container.read(shikooAccountProvider);
+      expect(account.withoutLink.map((s) => s.title), [
+        'removed · الماس',
+        'botFirst · الماس',
+      ]);
+      expect(account.withoutLink.map((s) => s.renews), [true, false]);
+      expect(account.bot, 'Test_Shikoo_bot');
+      final expired = h.container
+          .read(profilesProvider)
+          .firstWhere((p) => p.url.endsWith('expires'));
+      expect(account.serviceOf(expired.id), 2);
+    });
 
     test('a link that would not load stays, without a link, for the next sync '
         'to load; alone it fails the sign-in', () async {
@@ -962,6 +1006,7 @@ void main() {
             name: 'Stranger',
             username: 's',
           );
+          await _tickAll(h);
           await reachedB.future.timeout(const Duration(seconds: 5));
           expect(_urls(h.container), ['https://sub.4g3.uk/A']);
           await (leave == 'signing out'
@@ -994,6 +1039,7 @@ void main() {
         name: 'Stranger',
         username: 's',
       );
+      await _tickAll(h);
       await reachedB.future.timeout(const Duration(seconds: 5));
       await h.signIn.notMine();
       h.api.services = [_service(3, 'C')];
@@ -1039,6 +1085,7 @@ void main() {
         name: 'Stranger',
         username: 's',
       );
+      await _tickAll(h);
       await reachedB.future.timeout(const Duration(seconds: 5));
       final restarted = ProviderContainer(
         overrides: [
@@ -1161,6 +1208,153 @@ void main() {
         restarted.read(shikooAccountProvider).services.single.profileId,
         isNotNull,
       );
+    });
+  });
+
+  group('the services this device keeps', () {
+    Future<_Harness> chose(Set<int> ids) async {
+      final h = await _harness();
+      h.api.services = [
+        _service(1, 'mother'),
+        _service(2, 'child'),
+        _service(3, 'ended', status: 'expired', noUrl: true),
+      ];
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
+      await _until(h.container, _at(LoginPhase.choosing));
+      await h.signIn.choose(ids);
+      return h;
+    }
+
+    ProviderContainer restart(_Harness h) {
+      final restarted = ProviderContainer(
+        overrides: [
+          shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
+          shikooStateProvider.overrideWithValue(_state),
+          shikooControllerProvider.overrideWithValue(h.controller),
+          profilesProvider.overrideWith(
+            () => TestProfiles([...h.container.read(profilesProvider)]),
+          ),
+          profilesActionProvider.overrideWith(_Profiles.new),
+        ],
+      );
+      addTearDown(restarted.dispose);
+      return restarted;
+    }
+
+    test('only the ticked come; the rest are nowhere on the device, and the '
+        'account still counts them', () async {
+      final h = await chose({2, 3});
+      expect(_urls(h.container), ['https://sub.4g3.uk/child']);
+      final account = h.container.read(shikooAccountProvider);
+      expect([for (final s in account.services) s.id], [2, 3]);
+      expect([for (final s in account.withoutLink) s.id], [3]);
+      expect(account.total, 3);
+      verifyNever(
+        () => h.controller.addService(any(), 'mother · الماس', any()),
+      );
+    });
+
+    test('a service bought later is not added by itself; a renewed one, the '
+        'same id with a link again, is', () async {
+      final h = await chose({2, 3});
+      h.api.services = [
+        _service(1, 'mother'),
+        _service(2, 'child'),
+        _service(3, 'ended'),
+        _service(4, 'bought'),
+      ];
+      expect(await h.signIn.sync(), isTrue);
+      expect(
+        _urls(h.container),
+        unorderedEquals([
+          'https://sub.4g3.uk/child',
+          'https://sub.4g3.uk/ended',
+        ]),
+      );
+      final account = h.container.read(shikooAccountProvider);
+      expect([for (final s in account.services) s.id], [2, 3]);
+      expect(account.total, 4);
+    });
+
+    test('the choice outlives a restart', () async {
+      final h = await chose({2});
+      final stored = jsonDecode(
+        (await SharedPreferences.getInstance()).getString('shikoo.account')!,
+      );
+      expect(stored['chosen'], [2]);
+      final restarted = restart(h);
+      final signIn = restarted.read(shikooSignInProvider);
+      await signIn.load();
+      h.api.services = [...h.api.services, _service(4, 'bought')];
+      expect(await signIn.sync(), isTrue);
+      expect(_urls(restarted), ['https://sub.4g3.uk/child']);
+      expect(restarted.read(shikooAccountProvider).total, 4);
+    });
+
+    test('signing out forgets the choice: the next sign-in offers every '
+        'service again', () async {
+      final h = await chose({2});
+      await h.signIn.signOut();
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('shikoo.account'), isNull);
+      expect(_urls(h.container), isEmpty);
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
+      final offered = await _until(h.container, _at(LoginPhase.choosing));
+      expect([for (final s in offered!.choices) s.id], [1, 2, 3]);
+      expect(_urls(h.container), isEmpty);
+
+      await h.signIn.notMine();
+      h.api.services = [_service(1, 'mother')];
+      expect((await _signedIn(h))?.phase, LoginPhase.approved);
+      expect(_urls(h.container), ['https://sub.4g3.uk/mother']);
+    });
+
+    test('an account signed in before the checklist keeps every service, '
+        'those bought later too', () async {
+      final h = await _harness();
+      SharedPreferences.setMockInitialValues({
+        'shikoo.account': jsonEncode({
+          'token': 'old',
+          'name': 'مریم',
+          'services': [
+            {'id': 1, 'title': 'mother · الماس', 'status': 'active'},
+          ],
+        }),
+      });
+      h.api.live['old'] = true;
+      h.api.services = [_service(1, 'mother'), _service(2, 'bought')];
+      await h.signIn.load();
+      expect(await h.signIn.sync(), isTrue);
+      expect(_urls(h.container), [
+        'https://sub.4g3.uk/mother',
+        'https://sub.4g3.uk/bought',
+      ]);
+      expect(h.container.read(shikooLoginProvider), isNull, reason: 'no list');
+    });
+
+    test('a checklist left by Back chose nothing: every service comes, as '
+        'before it', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'mother'), _service(2, 'child')];
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
+      await _until(h.container, _at(LoginPhase.choosing));
+      h.signIn.finish();
+      await _until(h.container, (_) => _urls(h.container).length == 2);
+      expect(h.container.read(shikooLoginProvider), isNull);
+    });
+
+    test('a background sync while the checklist shows adds nothing', () async {
+      final h = await _harness();
+      h.api.services = [_service(1, 'mother'), _service(2, 'child')];
+      await h.signIn.start();
+      h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
+      await _until(h.container, _at(LoginPhase.choosing));
+      expect(await h.signIn.sync(), isTrue);
+      expect(_urls(h.container), isEmpty);
+      expect(h.container.read(shikooLoginProvider)?.phase, LoginPhase.choosing);
     });
   });
 

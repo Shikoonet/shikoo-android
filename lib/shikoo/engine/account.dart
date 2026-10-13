@@ -31,6 +31,7 @@ enum LoginPhase {
   expired,
   rejected,
   syncing,
+  choosing,
   approved,
   servicesFailed,
   noService,
@@ -54,6 +55,7 @@ class ShikooLogin {
     this.botUrl,
     this.account,
     this.services = const [],
+    this.choices = const [],
     this.clock = false,
   });
 
@@ -63,6 +65,7 @@ class ShikooLogin {
   final String? botUrl;
   final TelegramAccount? account;
   final List<String> services;
+  final List<LinkedService> choices;
   final bool clock;
 }
 
@@ -148,12 +151,20 @@ List<Finished> finishedOrder(Iterable<Finished> all, DateTime now) {
 
 @immutable
 class ShikooAccount {
-  const ShikooAccount({this.who, this.bot, this.services = const []});
+  const ShikooAccount({
+    this.who,
+    this.bot,
+    this.services = const [],
+    this.total = 0,
+  });
 
   /// Signed in when not null.
   final TelegramAccount? who;
   final String? bot;
   final List<LinkedService> services;
+
+  /// The account's services at the last sync, with those left off this device at sign-in.
+  final int total;
 
   List<LinkedService> get withoutLink => [
     for (final service in services)
@@ -563,6 +574,11 @@ class ShikooSignIn {
   LoginCode? _live;
   bool _servicesClock = false;
 
+  /// The checklist's pick; null, as for a sign-in before it, is every service, later ones too.
+  Set<int>? _chosen;
+  bool _choosing = false;
+  List<LinkedService> _offer = const [];
+
   /// A newer code, a sign-out or a paste ends whatever the one before was waiting for.
   int _attempt = 0;
   DateTime? _lastSync;
@@ -581,7 +597,13 @@ class ShikooSignIn {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
-    ({String token, ShikooAccount account, Set<int?> brought})? stored;
+    ({
+      String token,
+      ShikooAccount account,
+      Set<int?> brought,
+      Set<int>? chosen,
+    })?
+    stored;
     try {
       if (raw != null) {
         final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -605,10 +627,15 @@ class ShikooSignIn {
                   loadFailed: s['loadFailed'] == true,
                 ),
             ],
+            total: json['total'] as int? ?? 0,
           ),
           brought: {
             for (final s in services)
               if (s['owned'] != false) s['profileId'] as int?,
+          },
+          chosen: switch (json['chosen']) {
+            final List<Object?> ids => {for (final id in ids) id! as int},
+            _ => null,
           },
         );
       }
@@ -624,6 +651,7 @@ class ShikooSignIn {
     }
     if (stored == null) return;
     _token = stored.token;
+    _chosen = stored.chosen;
     _setAccount(stored.account);
   }
 
@@ -653,6 +681,8 @@ class ShikooSignIn {
               'loadFailed': s.loadFailed,
             },
         ],
+        'total': account.total,
+        if (_chosen case final chosen?) 'chosen': [...chosen],
       }),
     );
   }
@@ -729,12 +759,21 @@ class ShikooSignIn {
     // Without the list, the next start would read this account as an older version's.
     await markPasted(const []);
     _token = token;
+    _chosen = null;
+    _choosing = true;
     _setAccount(ShikooAccount(who: who ?? const TelegramAccount()));
     await _save();
     await retry();
   }
 
-  Future<void> retry() async {
+  Future<void> choose(Set<int> ids) async {
+    _chosen = ids;
+    _choosing = false;
+    await _save();
+    await retry(home: true);
+  }
+
+  Future<void> retry({bool home = false}) async {
     final attempt = _attempt;
     _login(ShikooLogin(LoginPhase.syncing, account: _account.who));
     final synced = await sync();
@@ -747,10 +786,16 @@ class ShikooSignIn {
         account: account.who,
         clock: _servicesClock,
       ),
+      true when _choosing => ShikooLogin(
+        LoginPhase.choosing,
+        account: account.who,
+        choices: _offer,
+      ),
       true when account.services.isEmpty => ShikooLogin(
         LoginPhase.noService,
         account: account.who,
       ),
+      true when home => null,
       true => ShikooLogin(
         LoginPhase.approved,
         account: account.who,
@@ -764,9 +809,14 @@ class ShikooSignIn {
   Future<({String code, bool linked})> report(Map<String, Object?> body) =>
       _api.report(body, token: _token);
 
+  /// A checklist left without «ادامه» chose nothing: every service comes, as before it.
   void finish() {
     _attempt++;
     _login(null);
+    if (_choosing) {
+      _choosing = false;
+      unawaited(sync());
+    }
   }
 
   Future<void> notMine() async {
@@ -876,17 +926,36 @@ class ShikooSignIn {
       await notMine();
       return null;
     }
+    final listed = [
+      for (final row in answer.services)
+        if (_linkOf(row) != null ||
+            _keepsLink.contains(row.status) ||
+            LinkedService.finishedStatuses.contains(row.status))
+          row,
+    ];
+    if (_choosing) {
+      if (listed.length > 1) {
+        _offer = [
+          for (final row in listed)
+            LinkedService(id: row.id, title: row.label, status: row.status),
+        ];
+        return true;
+      }
+      _choosing = false;
+    }
+    final chosen = _chosen;
     final before = {for (final s in _account.services) s.id: s};
     final kept = <LinkedService>[];
     final renewed = <int>{};
     var failed = false;
     var unloaded = 0;
-    for (final row in answer.services) {
+    for (final row in listed) {
       if (token != _token) return null;
+      if (chosen != null && !chosen.contains(row.id)) continue;
       final was = before.remove(row.id);
       var profileId = _existing(was?.profileId);
       var loadFailed = false;
-      final url = row.subUrl == null ? null : shikooLink(row.subUrl!);
+      final url = _linkOf(row);
       if (url != null && _urlOf(profileId) != url) {
         final added = await _add(url, row.label);
         if (token != _token) {
@@ -903,7 +972,6 @@ class ShikooSignIn {
         }
       } else if (url == null && !_keepsLink.contains(row.status)) {
         await _drop(profileId);
-        if (!LinkedService.finishedStatuses.contains(row.status)) continue;
         profileId = null;
       } else if (url != null && _ended(profileId)) {
         renewed.add(profileId!);
@@ -928,6 +996,7 @@ class ShikooSignIn {
         who: _account.who,
         bot: answer.bot ?? _account.bot,
         services: kept,
+        total: listed.length,
       ),
     );
     await _save();
@@ -938,6 +1007,9 @@ class ShikooSignIn {
     }
     return !(failed && kept.length == unloaded);
   }
+
+  static String? _linkOf(AccountServiceRow row) =>
+      row.subUrl == null ? null : shikooLink(row.subUrl!);
 
   int? _existing(int? profileId) =>
       _ref.read(profilesProvider).any((p) => p.id == profileId)

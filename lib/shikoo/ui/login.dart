@@ -17,6 +17,7 @@ import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -78,6 +79,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _newCodeNode = FocusNode();
   final _retryNode = FocusNode();
   final _resultNode = FocusNode();
+  final _chooseNode = FocusNode();
+  final _notMineNode = FocusNode();
+  final _firstChoiceNode = FocusNode();
+
+  /// Every service starts ticked; these were unticked on the checklist.
+  final _unticked = <int>{};
 
   ShikooSignIn get _signIn => ref.read(shikooSignInProvider);
 
@@ -95,6 +102,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.didUpdateWidget(oldWidget);
     _startOnTv();
     if (!_coding.contains(widget.login?.phase)) _otherDevice = false;
+    if (widget.login?.phase != LoginPhase.choosing) _unticked.clear();
     if (_first(oldWidget.login?.phase) != _first(widget.login?.phase)) {
       _focusFirst();
     }
@@ -106,6 +114,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _newCodeNode.dispose();
     _retryNode.dispose();
     _resultNode.dispose();
+    _chooseNode.dispose();
+    _notMineNode.dispose();
+    _firstChoiceNode.dispose();
     super.dispose();
   }
 
@@ -114,8 +125,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     null || LoginPhase.starting || LoginPhase.waiting => _supportNode,
     LoginPhase.expired => _newCodeNode,
     LoginPhase.startFailed => _retryNode,
+    LoginPhase.choosing => _chooseNode,
     _ => _resultNode,
   };
+
+  void _toggle(int id) => setState(() {
+    if (!_unticked.remove(id)) _unticked.add(id);
+  });
+
+  /// Null while nothing is ticked, which greys «ادامه» out.
+  VoidCallback? _choose(ShikooLogin login) {
+    final ticked = {
+      for (final service in login.choices)
+        if (!_unticked.contains(service.id)) service.id,
+    };
+    return ticked.isEmpty ? null : () => unawaited(_signIn.choose(ticked));
+  }
 
   void _focusFirst() {
     if (!_isTV) return;
@@ -241,7 +266,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       busy: starting,
       onPressed: starting ? () {} : onPressed,
     );
-    Widget primary(String label, VoidCallback onPressed, {ShikooIcon? icon}) =>
+    Widget primary(String label, VoidCallback? onPressed, {ShikooIcon? icon}) =>
         ShikooButton(
           label: label,
           icon: icon,
@@ -342,6 +367,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           outline(l.notMyAccount, () => unawaited(_signIn.notMine())),
         ],
       ),
+      LoginPhase.choosing => (
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.s4,
+          children: [
+            ResultBlock(
+              icon: ShikooIcon.check,
+              tone: ResultTone.positive,
+              title: l.approvedTitle,
+              body: sayWith(l.approvedBodyChooseTouch, _account(l, account)),
+            ),
+            _checklist(login!),
+          ],
+        ),
+        [
+          primary(l.continueButton, _choose(login)),
+          outline(l.notMyAccount, () => unawaited(_signIn.notMine())),
+        ],
+      ),
       LoginPhase.servicesFailed => (
         ResultBlock(
           icon: ShikooIcon.alert,
@@ -387,6 +431,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     };
     final language = !const {
       LoginPhase.syncing,
+      LoginPhase.choosing,
       LoginPhase.approved,
       LoginPhase.servicesFailed,
       LoginPhase.noService,
@@ -394,6 +439,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return SafeArea(
       minimum: const EdgeInsets.only(bottom: Space.s8),
       child: FillPage(
+        packed: phase == LoginPhase.choosing,
         padding: const EdgeInsets.fromLTRB(Space.s6, Space.s2, Space.s6, 0),
         top: language
             ? Align(
@@ -614,7 +660,111 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
+  Widget _checklist(ShikooLogin login) => _Checklist(
+    choices: login.choices,
+    unticked: _unticked,
+    onToggle: _toggle,
+    firstNode: _firstChoiceNode,
+  );
+
+  /// [key] takes the remote to [to], where the frame says, not to the nearest box; the buttons
+  /// may wrap under large text.
+  Widget _redirect(
+    LogicalKeyboardKey key,
+    FocusNode Function() to,
+    Widget child,
+  ) => Focus(
+    canRequestFocus: false,
+    skipTraversal: true,
+    onKeyEvent: (_, event) {
+      if (event is KeyUpEvent || event.logicalKey != key) {
+        return KeyEventResult.ignored;
+      }
+      jumpFocus(context, to());
+      return KeyEventResult.handled;
+    },
+    child: child,
+  );
+
+  /// `tv-p3a-login`: the result and its buttons at the start, the checklist beside them.
+  Widget _tvChoose(BuildContext context, ShikooLogin login) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final go = _choose(login);
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final toStart = rtl
+        ? LogicalKeyboardKey.arrowRight
+        : LogicalKeyboardKey.arrowLeft;
+    final toEnd = rtl
+        ? LogicalKeyboardKey.arrowLeft
+        : LogicalKeyboardKey.arrowRight;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
+      child: Row(
+        spacing: Space.s10,
+        children: [
+          Expanded(
+            child: ShrinkToFit(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Space.s2),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: Space.s4,
+                  children: [
+                    ResultBlock(
+                      icon: ShikooIcon.check,
+                      tone: ResultTone.positive,
+                      title: l.approvedTitle,
+                      body: sayWith(
+                        l.approvedBodyChooseTv,
+                        _account(l, login.account),
+                      ),
+                      start: true,
+                    ),
+                    _redirect(
+                      toEnd,
+                      () => _chooseNode.hasPrimaryFocus
+                          ? _notMineNode
+                          : _firstChoiceNode,
+                      Wrap(
+                        spacing: Space.s2,
+                        runSpacing: Space.s2,
+                        children: [
+                          ShikooButton(
+                            label: l.continueButton,
+                            primary: true,
+                            focusNode: _chooseNode,
+                            onPressed: go,
+                          ),
+                          ShikooButton(
+                            label: l.notMyAccount,
+                            focusNode: _notMineNode,
+                            onPressed: () => unawaited(_signIn.notMine()),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: t.s.pane,
+            child: _redirect(
+              toStart,
+              () => go == null ? _notMineNode : _chooseNode,
+              _checklist(login),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _tvResult(BuildContext context, ShikooLogin login) {
+    if (login.phase == LoginPhase.choosing) return _tvChoose(context, login);
     final l = ShikooL10n.of(context);
     final account = _account(l, login.account);
     Widget Function(FocusNode?) button(
@@ -758,12 +908,16 @@ class FillPage extends StatelessWidget {
     required this.top,
     required this.middle,
     required this.bottom,
+    this.packed = false,
   });
 
   final EdgeInsets padding;
   final Widget top;
   final Widget middle;
   final List<Widget> bottom;
+
+  /// `.login.is-choosing`: from the top, the buttons right under the list.
+  final bool packed;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -776,7 +930,9 @@ class FillPage extends StatelessWidget {
         // spaceBetween, not IntrinsicHeight and Expanded: ServiceName lays out by its width.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: packed
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.spaceBetween,
           children: [
             top,
             Padding(
@@ -833,6 +989,7 @@ class ResultBlock extends StatelessWidget {
     this.more,
     this.below,
     this.spin = false,
+    this.start = false,
   });
 
   final ShikooIcon icon;
@@ -842,6 +999,9 @@ class ResultBlock extends StatelessWidget {
   final List<InlineSpan> body;
   final String? more;
   final Widget? below;
+
+  /// `.login-copy`: lined up at the start, beside a list, not centred.
+  final bool start;
 
   @override
   Widget build(BuildContext context) {
@@ -861,10 +1021,14 @@ class ResultBlock extends StatelessWidget {
     );
     final more = this.more;
     final below = this.below;
+    final align = start ? TextAlign.start : TextAlign.center;
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: tv ? s.dialog : double.infinity),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: start
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         spacing: Space.s3,
         children: [
           Container(
@@ -885,18 +1049,17 @@ class ResultBlock extends StatelessWidget {
             padding: EdgeInsets.only(top: tv ? 0 : Space.s2),
             child: Text(
               title,
-              textAlign: TextAlign.center,
+              textAlign: align,
               style: t.text(s.headline, weight: FontWeight.w800),
             ),
           ),
           if (body.isNotEmpty)
             Text.rich(
               TextSpan(children: body),
-              textAlign: TextAlign.center,
+              textAlign: align,
               style: paragraph,
             ),
-          if (more != null)
-            Text(more, textAlign: TextAlign.center, style: paragraph),
+          if (more != null) Text(more, textAlign: align, style: paragraph),
           ?below,
         ],
       ),
@@ -973,6 +1136,180 @@ class _ServicesBelow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// `.choose`: the question, a ticked row for each of the account's services, finished ones too,
+/// and under them why «ادامه» is grey. On a TV more than five scroll under the remote.
+class _Checklist extends StatelessWidget {
+  const _Checklist({
+    required this.choices,
+    required this.unticked,
+    required this.onToggle,
+    required this.firstNode,
+  });
+
+  final List<LinkedService> choices;
+  final Set<int> unticked;
+  final ValueChanged<int> onToggle;
+  final FocusNode firstNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final s = t.s;
+    final tv = identical(s, ShikooSizes.tv);
+    final inset = EdgeInsets.symmetric(horizontal: tv ? ShikooSizes.ring : 0);
+    final card = DecoratedBox(
+      decoration: ShapeDecoration(
+        color: t.c.surface,
+        shadows: t.c.cardShadow,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, service) in choices.indexed) ...[
+            if (i > 0) Container(height: 1, color: t.c.border),
+            _ChoiceRow(
+              title: service.title,
+              ticked: !unticked.contains(service.id),
+              focusNode: i == 0 ? firstNode : null,
+              onPressed: () => onToggle(service.id),
+            ),
+          ],
+        ],
+      ),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: Space.s2,
+      children: [
+        Padding(
+          padding: inset,
+          child: Text(
+            tv ? l.chooseServicesTv : l.chooseServicesTouch,
+            style: t.text(
+              tv ? s.title : s.body,
+              weight: FontWeight.w700,
+              height: Leading.tight,
+            ),
+          ),
+        ),
+        if (tv)
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(ShikooSizes.ring),
+              child: card,
+            ),
+          )
+        else
+          card,
+        if (choices.every((service) => unticked.contains(service.id)))
+          Padding(
+            padding: inset,
+            child: Text(
+              l.chooseAtLeastOne,
+              style: t.text(
+                s.bodySm,
+                color: t.c.textMuted,
+                height: Leading.tight,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// `.choose .row`: the tick, then the service's name.
+class _ChoiceRow extends StatelessWidget {
+  const _ChoiceRow({
+    required this.title,
+    required this.ticked,
+    required this.onPressed,
+    this.focusNode,
+  });
+
+  final String title;
+  final bool ticked;
+  final VoidCallback onPressed;
+  final FocusNode? focusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final c = t.c;
+    final s = t.s;
+    final shape = RoundedSuperellipseBorder(
+      borderRadius: BorderRadius.circular(Radii.md),
+    );
+    return MergeSemantics(
+      child: Semantics(
+        checked: ticked,
+        child: Pressable(
+          focusNode: focusNode,
+          shape: shape,
+          onPressed: onPressed,
+          builder: (context, focused) => Container(
+            constraints: BoxConstraints(minHeight: s.row),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s4,
+              vertical: Space.s2,
+            ),
+            decoration: ShapeDecoration(
+              color: focused ? c.focusBg : null,
+              shadows: focused ? c.raisedShadow : null,
+              shape: shape,
+            ),
+            child: Row(
+              spacing: Space.s3,
+              children: [
+                Container(
+                  width: ShikooSizes.checkbox,
+                  height: ShikooSizes.checkbox,
+                  alignment: Alignment.center,
+                  decoration: ShapeDecoration(
+                    color: ticked ? c.primary : null,
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(Radii.checkbox),
+                      side: ticked
+                          ? BorderSide.none
+                          : BorderSide(
+                              color: c.outline,
+                              width: ShikooSizes.borderRadio,
+                            ),
+                    ),
+                  ),
+                  child: ticked
+                      ? SvgIcon(
+                          ShikooIcon.check,
+                          size: ShikooSizes.checkbox - Space.s1,
+                          stroke: ShikooSizes.iconStrokeStrong,
+                          color: c.onPrimary,
+                        )
+                      : null,
+                ),
+                Expanded(
+                  child: ServiceName(
+                    title,
+                    style: t.text(
+                      s.body,
+                      weight: FontWeight.w700,
+                      height: Leading.snug,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

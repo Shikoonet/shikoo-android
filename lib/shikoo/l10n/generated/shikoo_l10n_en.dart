@@ -925,6 +925,45 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String approvedBodyChooseTouch(String account) {
+    return 'This phone is now linked to the Telegram account $account.';
+  }
+
+  @override
+  String approvedBodyChooseTv(String account) {
+    return 'This TV is now linked to the Telegram account $account.';
+  }
+
+  @override
+  String get chooseServicesTouch => 'Which services should this phone have?';
+
+  @override
+  String get chooseServicesTv => 'Which services should this TV have?';
+
+  @override
+  String get chooseAtLeastOne => 'Tick at least one service.';
+
+  @override
+  String servicesHereTouch(int shown, int total) {
+    final intl.NumberFormat shownNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String shownString = shownNumberFormat.format(shown);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return '$shownString of your account\'s $totalString services are on this phone. To change them, sign out and sign in again.';
+  }
+
+  @override
+  String get servicesAllHereTouch =>
+      'All your account\'s services are on this phone. To change them, sign out and sign in again.';
+
+  @override
+  String get changeServicesTv =>
+      'To change this TV\'s services, sign out and sign in again.';
+
+  @override
   String get notificationStop => 'Disconnect';
 
   @override

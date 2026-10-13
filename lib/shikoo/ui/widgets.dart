@@ -335,8 +335,9 @@ class ShikooButton extends StatelessWidget {
         : primary
         ? t.c.onPrimary
         : (danger ? t.c.onDanger : (dangerText ? t.c.danger : t.c.text));
+    // `.btn-primary[disabled]`: a grey face, so it is never read as the outline button beside it.
     final fill = !enabled
-        ? null
+        ? (primary ? t.c.surfaceSunken : null)
         : telegram
         ? ShikooColors.telegram
         : primary
