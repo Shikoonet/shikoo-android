@@ -1277,6 +1277,11 @@ void main() {
     expect(name.overflow, isNot(TextOverflow.ellipsis));
     expect(name.data, contains('…'));
     expect(name.data, contains('123_2'), reason: 'the last five stay');
+    expect(
+      name.style!.fontSize,
+      ShikooSizes.phone.title * ShikooSizes.nameShrinkMin,
+      reason: 'the font shrinks before the cut',
+    );
     final card = tester.getRect(find.byType(ServiceCard));
     for (final label in ['به‌روزرسانی سرورها', 'پینگ سرورها']) {
       final button = tester.getRect(find.bySemanticsLabel(label));
@@ -1287,6 +1292,126 @@ void main() {
       );
     }
     expect(find.text('پینگ همه'), findsNothing);
+  });
+
+  testWidgets('a long name has a row of its own, two lines at most, the font '
+      'at its smallest before any cut, and the status and buttons under it, '
+      'the update time under them in full width when it does not fit: open '
+      'or folded, in large text on a small phone and on the TV', (
+    tester,
+  ) async {
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    const tier = '🥇سرویس تیتانیوم - مولتی لوکیشن🎯';
+    final now = DateTime.now();
+    for (final isTV in [false, true]) {
+      tester.platformDispatcher.textScaleFactorTestValue = isTV ? 1 : 1.45;
+      await _pump(
+        tester,
+        ShikooState(
+          connection: ShikooConnection.off,
+          connectedFor: Duration.zero,
+          isTV: isTV,
+          servers: _servers,
+          selected: 'آلمان ۲',
+          service: ShikooService(
+            id: 1,
+            name: '5550123_7000000123_101 · $tier',
+            usedBytes: 41 << 30,
+            totalBytes: 200 << 30,
+            expire: now.add(const Duration(days: 30)),
+            updatedAt: now,
+          ),
+          others: [
+            ShikooService(
+              id: 2,
+              name: '2059054_7000000123_102 · $tier',
+              usedBytes: 88 << 30,
+              totalBytes: 200 << 30,
+              expire: now.add(const Duration(days: 79)),
+              updatedAt: now,
+            ),
+          ],
+        ),
+      );
+      if (!isTV) tester.view.physicalSize = const Size(686, 1524);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final title = isTV ? ShikooSizes.tv.title : ShikooSizes.phone.title;
+      for (final (card, open) in [
+        (find.byType(ServiceCard), true),
+        (find.byType(FoldedServiceCard), false),
+      ]) {
+        final where = '${isTV ? 'TV' : 'phone'} ${open ? 'open' : 'folded'}';
+        Finder inside(Finder finder) =>
+            find.descendant(of: card, matching: finder);
+        final text = inside(
+          find.descendant(
+            of: find.byType(ServiceName),
+            matching: find.byType(Text),
+          ),
+        );
+        final name = tester.widget<Text>(text);
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: text, matching: find.byType(RichText)),
+        );
+        final lines = paragraph
+            .getBoxesForSelection(
+              TextSelection(
+                baseOffset: 0,
+                extentOffset: paragraph.text.toPlainText().length,
+              ),
+            )
+            .map((box) => box.top.round())
+            .toSet();
+        expect(lines.length, lessThanOrEqualTo(2), reason: where);
+        expect(name.data, contains('…'), reason: '$where: the test font');
+        expect(
+          name.style!.fontSize,
+          title * ShikooSizes.nameShrinkMin,
+          reason: '$where: at its smallest before the cut',
+        );
+        final box = tester.getRect(text);
+        expect(
+          tester.getRect(card).contains(box.topLeft) &&
+              tester.getRect(card).contains(box.bottomRight),
+          isTrue,
+          reason: '$where: $box',
+        );
+        final ping = isTV
+            ? find.widgetWithText(ShikooButton, 'پینگ')
+            : find.bySemanticsLabel('پینگ سرورها');
+        for (final under in [inside(find.byType(StatusChip)), inside(ping)]) {
+          expect(
+            tester.getRect(under).top,
+            greaterThanOrEqualTo(box.bottom),
+            reason: '$where: $under under the name',
+          );
+        }
+        if (!isTV) {
+          final chip = tester.getRect(inside(find.byType(StatusChip)));
+          final sub = tester.getRect(inside(find.textContaining('به‌روز شد')));
+          expect(
+            sub.top >= chip.bottom &&
+                sub.left < tester.getRect(inside(ping)).right,
+            isTrue,
+            reason: '$where: the update time under the line, full width: $sub',
+          );
+        }
+        final arrow = inside(
+          _icon(open ? ShikooIcon.chevronUp : ShikooIcon.chevronDown),
+        );
+        if (isTV && open) {
+          expect(arrow, findsNothing);
+        } else {
+          final y = tester.getCenter(arrow).dy;
+          expect(
+            box.top < y && y < box.bottom,
+            isTrue,
+            reason: '$where: the arrow beside the name',
+          );
+        }
+      }
+    }
   });
 
   testWidgets('on the TV the remote starts on the first item of whatever '
@@ -1966,6 +2091,7 @@ void main() {
       verifyNever(() => controller.pingService(any()));
       expect(find.text('انتقال و پینگ'), findsNothing);
 
+      await tester.ensureVisible(folded);
       await tester.tap(folded);
       await tester.pumpAndSettle();
       await tester.tap(find.text('انتقال و پینگ'));

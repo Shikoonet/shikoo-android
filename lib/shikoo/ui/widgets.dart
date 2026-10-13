@@ -562,13 +562,21 @@ String bidiName(String name) => name
 String serverName(String name) => bidiName(withoutFlags(name));
 
 /// `.svc-name`: never cut at its end. A username too long for a line alone keeps its last five
-/// characters (`7000…123_2`), which tell the services of one account apart.
+/// characters (`7000…123_2`), which tell the services of one account apart. [twoLines] keeps a
+/// card's name to two lines: smaller, down to [ShikooSizes.nameShrinkMin], then cut, then «…».
 class ServiceName extends StatelessWidget {
-  const ServiceName(this.name, {super.key, this.style, this.textAlign});
+  const ServiceName(
+    this.name, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.twoLines = false,
+  });
 
   final String name;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final bool twoLines;
 
   @override
   Widget build(BuildContext context) {
@@ -579,31 +587,65 @@ class ServiceName extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final [user, ...rest] = name.split(' · ');
-        bool fits(String text) {
+        bool fits(String text, [TextStyle? at]) {
           final painter = TextPainter(
-            text: TextSpan(text: text, style: style),
+            text: TextSpan(text: text, style: at ?? style),
             textDirection: Directionality.of(context),
             textScaler: MediaQuery.textScalerOf(context),
-            maxLines: 1,
           )..layout();
           final width = painter.width;
           painter.dispose();
           return width <= box.maxWidth;
         }
 
-        var shown = user;
-        if (user.length > 6 && !fits(user)) {
+        String cut(String user, [TextStyle? at]) {
+          if (user.length <= 6 || fits(user, at)) return user;
           final tail = user.substring(user.length - 5);
           var lo = 0;
           var hi = user.length - 6;
           while (lo < hi) {
             final mid = (lo + hi + 1) ~/ 2;
-            fits('${user.substring(0, mid)}…$tail') ? lo = mid : hi = mid - 1;
+            fits('${user.substring(0, mid)}…$tail', at)
+                ? lo = mid
+                : hi = mid - 1;
           }
-          shown = '${user.substring(0, lo)}…$tail';
+          return '${user.substring(0, lo)}…$tail';
         }
-        final text = [shown, ...rest].join(' · ');
-        return Text(bidiName(text), textAlign: textAlign, style: style);
+
+        if (!twoLines) {
+          final text = [cut(user), ...rest].join(' · ');
+          return Text(bidiName(text), textAlign: textAlign, style: style);
+        }
+        final tier = rest.join(' · ');
+        String? placed(String user, String tier, TextStyle at) {
+          final one = bidiName(tier.isEmpty ? user : '$user · $tier');
+          if (fits(one, at)) return one;
+          final two = one.replaceFirst(' ·\u00A0', '\n·\u00A0');
+          return two != one && fits(two, at) ? two : null;
+        }
+
+        Widget shown(String text, TextStyle at) =>
+            Text(text, textAlign: textAlign, style: at, maxLines: 2);
+        const min = ShikooSizes.nameShrinkMin;
+        final steps = ((1 - min) / 0.05).round();
+        TextStyle sized(double k) =>
+            style.copyWith(fontSize: style.fontSize! * k);
+        for (var i = 0; i <= steps; i++) {
+          final at = sized(1 - (1 - min) * i / steps);
+          if (placed(user, tier, at) case final text?) return shown(text, at);
+        }
+        final at = sized(min);
+        final short = cut(user, at);
+        final letters = tier.characters;
+        String tierOf(int n) =>
+            n == letters.length ? tier : (n == 0 ? '' : '${letters.take(n)}…');
+        var lo = 0;
+        var hi = letters.length;
+        while (lo < hi) {
+          final mid = (lo + hi + 1) ~/ 2;
+          placed(short, tierOf(mid), at) != null ? lo = mid : hi = mid - 1;
+        }
+        return shown(placed(short, tierOf(lo), at) ?? bidiName(short), at);
       },
     );
   }
