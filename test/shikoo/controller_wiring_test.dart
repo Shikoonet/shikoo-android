@@ -1997,6 +1997,27 @@ void main() {
     expect(service('user111').revoked, isFalse, reason: 'its new link');
   });
 
+  test('on the TV, which never pastes, a pasted link the panel stops '
+      'knowing is not marked revoked', () async {
+    final (:container, :core, :proxies, :setup) = _home([
+      shikooTvProvider.overrideWithValue(true),
+    ]);
+    final port = Uri.parse(await _panel(container, core)).port;
+    final controller = container.read(shikooControllerProvider);
+    await controller.pasteService(
+      'http://10.0.2.2:$port/file/user111/a',
+      debug: true,
+    );
+    ShikooService pasted() => container
+        .read(shikooStateProvider)
+        .listed
+        .firstWhere((s) => s.name == 'user111');
+
+    _gone.add('/file/user111/a');
+    await controller.refreshOther(pasted().id);
+    expect(pasted().revoked, isFalse);
+  });
+
   test('removing the service in use disconnects, the next card takes its '
       'place, and nothing reconnects', () async {
     final (:container, :core, :proxies, :setup) = _home();

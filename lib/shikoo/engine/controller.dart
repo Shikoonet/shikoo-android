@@ -470,6 +470,9 @@ ShikooPick derivePick({
   return noAnswer ? ShikooPick.none : ShikooPick.auto;
 }
 
+/// [System.isTV], which tests override.
+final shikooTvProvider = Provider<bool>((_) => system.isTV);
+
 final shikooStateProvider = Provider<ShikooState>((ref) {
   final runTime = ref.watch(runTimeProvider);
   final nativeStart = ref.watch(_nativeStartProvider);
@@ -567,7 +570,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     connectedFor: nativeStart != null
         ? DateTime.now().difference(nativeStart)
         : Duration(milliseconds: runTime ?? 0),
-    isTV: system.isTV,
+    isTV: ref.watch(shikooTvProvider),
     service: profile == null ? null : of(profile),
     others: [
       for (final other in ref.watch(profilesProvider))
@@ -1466,7 +1469,7 @@ class ShikooController {
   void _failed(int id, Object error) {
     shikooDiag.refreshed(id, error);
     if (addFailure(error) == ShikooPasteError.revoked &&
-        !system.isTV &&
+        !_ref.read(shikooTvProvider) &&
         _ref.read(_pastedProvider).contains(id)) {
       _revoked(id, revoked: true);
     }
