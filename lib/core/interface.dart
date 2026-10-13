@@ -358,7 +358,8 @@ abstract class CoreHandlerInterface with CoreInterface {
     return data == null ? null : Delay.fromJson(data);
   }
 
-  /// Not through [_invokeMethod], whose log line would carry the server's keys.
+  /// Not through [_invokeMethod], which logs its arguments, the server's keys here, whenever
+  /// `watchExecution` is on; this call never does.
   @override
   Future<Delay?> testProxyDelay(String url, Map<String, dynamic> proxy) async {
     final data = await invokeMethod<Map<String, dynamic>>(
