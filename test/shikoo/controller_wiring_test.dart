@@ -2571,6 +2571,7 @@ void main() {
     Completer<void>? fileGate;
 
     /// Two services sharing «هلند ۱»; the core holds only the one in use, as FlClash's does.
+    /// A test adds a third with [lists], [pings] and a profile.
     Future<
       ({
         ProviderContainer container,
@@ -2580,6 +2581,7 @@ void main() {
         ShikooController controller,
         int first,
         int second,
+        Map<int, List<String>> lists,
         Map<int, Map<String, int>> pings,
         List<String> fromFile,
       })
@@ -2587,30 +2589,32 @@ void main() {
     twoServices({bool connected = true}) async {
       coreGate = null;
       fileGate = null;
+      final lists = <int, List<String>>{};
       final pings = <int, Map<String, int>>{};
       final fromFile = <String>[];
       final second = Profile.normal(url: 'https://panel.invalid/second');
       final (:container, :core, :proxies, :setup) = _home([
         serviceAppliedProvider.overrideWith(
           (ref) => () async {
-            final inUse = ref.read(currentProfileIdProvider) == second.id;
             ref.read(groupsProvider.notifier).value = [
-              group(inUse ? secondNames : firstNames),
+              group(lists[ref.read(currentProfileIdProvider)]!),
             ];
           },
         ),
       ]);
       final first = container.read(currentProfileIdProvider)!;
       container.read(profilesProvider.notifier).put(second);
+      lists
+        ..[first] = firstNames
+        ..[second.id] = secondNames;
       pings
         ..[first] = {'آلمان ۱': 50, 'هلند ۱': 40}
         ..[second.id] = {'هلند ۱': 300, 'ترکیه ۱': 80};
-      when(() => core.getConfig(any())).thenAnswer(
-        (call) async =>
-            '${call.positionalArguments.first}'.endsWith('${second.id}.yaml')
-            ? config(secondNames, 'second.invalid')
-            : config(firstNames, 'first.invalid'),
-      );
+      when(() => core.getConfig(any())).thenAnswer((call) async {
+        final path = '${call.positionalArguments.first}';
+        final id = lists.keys.firstWhere((id) => path.endsWith('$id.yaml'));
+        return config(lists[id]!, '$id.invalid');
+      });
       when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
         final name = call.positionalArguments[1] as String;
         final inUse = container.read(currentProfileIdProvider);
@@ -2620,7 +2624,7 @@ void main() {
       when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
         final proxy = call.positionalArguments[1] as Map<String, dynamic>;
         final name = '${proxy['name']}';
-        final service = proxy['server'] == 'second.invalid' ? second.id : first;
+        final service = int.parse('${proxy['server']}'.split('.').first);
         fromFile.add(name);
         await fileGate?.future;
         return Delay(name: name, url: '', value: pings[service]?[name] ?? -1);
@@ -2640,6 +2644,7 @@ void main() {
         controller: controller,
         first: first,
         second: second.id,
+        lists: lists,
         pings: pings,
         fromFile: fromFile,
       );
@@ -2831,6 +2836,61 @@ void main() {
       expect((state.service!.id, state.selected), (t.second, 'WG ۱'));
       expect(state.switching?.stage, ShikooSwitchStage.done);
       await pumpEventQueue();
+    });
+
+    test('a WireGuard server there that carries no traffic gives the tunnel '
+        "back and leaves that service's own choice as it was", () async {
+      final t = await twoServices();
+      Profile second() =>
+          t.container.read(profilesProvider).getProfile(t.second)!;
+      t.container
+          .read(profilesProvider.notifier)
+          .put(second().copyWith(selectedMap: {'PROXY': 'ترکیه ۱'}));
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.setup.traffic = false;
+      await t.controller.selectServer('WG ۱', service: t.second);
+      t.container.read(groupsProvider.notifier).value = [group(firstNames)];
+      await pumpEventQueue();
+      expect(t.container.read(currentProfileIdProvider), t.first);
+      expect(second().selectedMap, {
+        'PROXY': 'ترکیه ۱',
+      }, reason: 'not the WireGuard server the next connect would land on');
+    });
+
+    test('a WireGuard check there that fails after a newer tap gives nothing '
+        'back: the last tap decides', () async {
+      final t = await twoServices();
+      final third = Profile.normal(url: 'https://panel.invalid/third');
+      t.lists[third.id] = ['سوئد ۱'];
+      t.pings[third.id] = {'سوئد ۱': 70};
+      t.container.read(profilesProvider.notifier).put(third);
+      final moves = <int?>[];
+      t.container.listen(currentProfileIdProvider, (_, id) => moves.add(id));
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      t.setup
+        ..traffic = false
+        ..trafficGate = Completer<void>();
+      final wireGuard = t.controller.selectServer('WG ۱', service: t.second);
+      await pumpEventQueue();
+      expect(moves, [t.second]);
+
+      t.controller.openService(third.id);
+      await pumpEventQueue();
+      fileGate = Completer<void>();
+      final sweden = t.controller.selectServer('سوئد ۱', service: third.id);
+      await pumpEventQueue();
+      t.setup.trafficGate!.complete();
+      await wireGuard;
+      await pumpEventQueue();
+      expect(moves, [t.second], reason: 'the newer tap is still measured');
+
+      fileGate!.complete();
+      await sweden;
+      await pumpEventQueue();
+      expect(moves, [t.second, third.id]);
+      expect(t.container.read(shikooStateProvider).selected, 'سوئد ۱');
     });
   });
 }

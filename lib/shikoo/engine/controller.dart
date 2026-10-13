@@ -1108,6 +1108,15 @@ class ShikooController {
       return show(ShikooSwitchStage.failed);
     }
     if (ms > 0) _setPing(target, name, ms);
+    final before = other == null
+        ? null
+        : (
+            selected: _ref
+                .read(profilesProvider)
+                .getProfile(other.id)
+                ?.selectedMap[other.group],
+            pick: _appPickByService['${other.id}'],
+          );
     if (other == null) {
       await _choose(name);
     } else {
@@ -1120,8 +1129,9 @@ class ShikooController {
         if (_current == target && _validSelection() == name && _running) {
           if (other == null) {
             await _choose(from);
-          } else if (home != null) {
+          } else if (home != null && before != null && tap == _tap) {
             await _use(home);
+            _setChoice(other.id, other.group, before.selected, before.pick);
           }
         }
         _setPing(target, name, -1);
@@ -1140,18 +1150,24 @@ class ShikooController {
 
   /// The core loads [other] with [name] chosen already, so no other server of it gets traffic first.
   Future<void> _moveTo(_Opened other, String name) async {
-    final profile = _ref.read(profilesProvider).getProfile(other.id);
-    if (profile == null) return;
+    if (_ref.read(profilesProvider).getProfile(other.id) == null) return;
     clearNews();
+    _setChoice(other.id, other.group, name, null);
+    await _use(other.id);
+  }
+
+  /// A service's server as setup hands it to the core, and whether the app or the user chose it.
+  void _setChoice(int id, String group, String? name, String? appPick) {
+    final profile = _ref.read(profilesProvider).getProfile(id);
+    if (profile == null) return;
+    final selected = {...profile.selectedMap}..remove(group);
     _ref
         .read(profilesProvider.notifier)
-        .put(
-          profile.copyWith(
-            selectedMap: {...profile.selectedMap, other.group: name},
-          ),
-        );
-    _savePicks({..._appPickByService}..remove('${other.id}'));
-    await _use(other.id);
+        .put(profile.copyWith(selectedMap: {...selected, group: ?name}));
+    _savePicks({
+      ...{..._appPickByService}..remove('$id'),
+      '$id': ?appPick,
+    });
   }
 
   Future<void> _choose(String name) async {
