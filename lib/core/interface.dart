@@ -27,6 +27,8 @@ mixin CoreInterface {
 
   Future<Delay?> asyncTestDelay(String url, String proxyName);
 
+  Future<Delay?> testProxyDelay(String url, Map<String, dynamic> proxy);
+
   Future<String> updateConfig(UpdateParams updateParams);
 
   Future<String> setupConfig(SetupParams setupParams);
@@ -351,6 +353,21 @@ abstract class CoreHandlerInterface with CoreInterface {
     final data = await _invokeMethod<Map<String, dynamic>>(
       method: CoreMethod.asyncTestDelay,
       arguments: delayParams,
+      timeout: delayTestGuardDuration,
+    );
+    return data == null ? null : Delay.fromJson(data);
+  }
+
+  /// Not through [_invokeMethod], whose log line would carry the server's keys.
+  @override
+  Future<Delay?> testProxyDelay(String url, Map<String, dynamic> proxy) async {
+    final data = await invokeMethod<Map<String, dynamic>>(
+      method: CoreMethod.testProxyDelay,
+      arguments: {
+        'proxy': proxy,
+        'timeout': delayTestTimeoutDuration.inMilliseconds,
+        'test-url': url,
+      },
       timeout: delayTestGuardDuration,
     );
     return data == null ? null : Delay.fromJson(data);
