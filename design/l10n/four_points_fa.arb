@@ -1,0 +1,15 @@
+{
+  "@@locale": "fa",
+  "chipInUse": "در حال استفاده",
+  "otherServiceHint": "با زدنِ یک سرور، اتصال به این سرویس می‌رود.",
+  "otherServiceNow": "اتصال حالا از همین سرویس است.",
+  "otherServiceCaptionTv": "با زدنِ یک سرور، اتصال به این سرویس می‌رود",
+  "approvedBodyChooseTouch": "این گوشی به حساب تلگرامِ {account} وصل شد.",
+  "approvedBodyChooseTv": "این تلویزیون به حساب تلگرامِ {account} وصل شد.",
+  "chooseServicesTouch": "کدام سرویس‌ها روی این گوشی باشد؟",
+  "chooseServicesTv": "کدام سرویس‌ها روی این تلویزیون باشد؟",
+  "chooseAtLeastOne": "دست‌کم یک سرویس را تیک بزن.",
+  "servicesHereTouch": "روی این گوشی {shown} سرویس از {total} سرویسِ حسابت هست. برای عوض کردن، خارج شو و دوباره وارد شو.",
+  "servicesAllHereTouch": "همهٔ سرویس‌های حسابت روی این گوشی است. برای عوض کردن، خارج شو و دوباره وارد شو.",
+  "changeServicesTv": "برای عوض کردن سرویس‌های این تلویزیون، خارج شو و دوباره وارد شو."
+}

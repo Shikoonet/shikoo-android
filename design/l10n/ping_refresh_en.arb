@@ -54,14 +54,9 @@
   "sortsOnPing": "Press “Ping” to sort",
   "@sortsOnPing": {"description": "TV list caption before this service has been pinged."},
   "ping": "Ping",
-  "@ping": {"description": "TV button beside “Update” in every active service card, open or folded."},
+  "@ping": {"description": "TV button beside “Update” in the open card of every active service; a folded card has none, since opening it pings."},
   "pingServers": "Ping servers",
   "@pingServers": {"description": "Accessibility label of the icon-only ping button on the phone."},
-  "pingMoveTitle": "Move the connection to “{name}”?",
-  "@pingMoveTitle": {"placeholders": {"name": {"type": "String"}}},
-  "pingMoveBody": "Ping works only on the open service. Opening this one also moves your connection to it, and the data comes out of this service.",
-  "@pingMoveBody": {"description": "Asked only when connected and Ping is pressed on a folded service."},
-  "pingMoveConfirm": "Move and ping",
   "pingProgress": "Ping {done} of {total}",
   "@pingProgress": {
     "placeholders": {

@@ -27,6 +27,8 @@
     <a href="tv-ping.html">پینگ تلویزیون</a>
     <a href="tv-update.html">به‌روزرسانی تلویزیون</a>
     <a href="tv-report.html">گزارش تلویزیون</a>
+    <a href="phone-four.html">گزینه‌های ۲۰ مهر، گوشی</a>
+    <a href="tv-four.html">گزینه‌های ۲۰ مهر، تلویزیون</a>
   </nav>
   <button class="theme-toggle" type="button" onclick="toggleTheme()">روشن / تیره</button>
 </header>
@@ -217,54 +219,67 @@
 
   <!-- فهرست بلند و چند سرویس -->
   <figure class="shot">
-    <figcaption>خانه · فهرست بلند و چند سرویس · ستون اسکرول‌شده</figcaption>
+    <figcaption>خانه · فهرست بلند و چند سرویس · ستون اسکرول‌شده · ریموت روی کارتِ جمع‌شده</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-home-long">
       <header class="tv-top">
         <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
         <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gear"/></svg>تنظیمات</button>
       </header>
       <div class="tv-home">
-        <div class="tv-col" data-scroll-to=".finished">
+        <div class="tv-col" data-scroll-to=".svc:nth-child(1) .server:nth-child(7)">
           <div class="tv-col-content">
             <article class="card svc">
-              <header class="svc-head">
-                <div class="svc-titles">
-                  <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">user123</bdi> · الماس</h2><span class="chip chip-positive">فعال</span></div>
-                  <p class="svc-sub">به‌روز شد، ۵ دقیقه پیش</p>
-                </div>
-                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button>
-                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ</button>
+              <header class="svc-head is-stacked">
+                <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">5550123_7000000123_101</bdi> <span class="tier">· 🥇سرویس تیتانیوم - مولتی لوکیشن🎯</span></h2></div>
+                <div class="svc-row"><span class="chip chip-in-use">در حال استفاده</span><p class="svc-sub">به‌روز شد، ۵&nbsp;دقیقه پیش</p><span class="end"><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-refresh"/></svg>به‌روزرسانی</button><button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ</button></span></div>
               </header>
               <div class="usage">
-                <div class="usage-row"><span>مصرف شده: <strong>۳۳</strong> از ۱۰۰ گیگ</span><span>باقی‌مانده: <strong>۶۷ گیگ</strong></span></div>
-                <div class="bar"><span style="inline-size: 33%"></span></div>
-                <div class="usage-row"><span>اعتبار تا ۳ آبان ۱۴۰۵</span><span>۲۳ روز باقی‌مانده</span></div>
+                <div class="usage-row"><span>مصرف شده: <strong>۴۱</strong> از ۲۰۰ گیگ</span><span>باقی‌مانده: <strong>۱۵۹ گیگ</strong></span></div>
+                <div class="bar"><span style="inline-size: 20%"></span></div>
+                <div class="usage-row"><span>اعتبار تا ۲۰ آبان ۱۴۰۵</span><span>۳۰ روز باقی‌مانده</span></div>
               </div>
-              <p class="notice"><svg class="icon"><use href="#i-bell"/></svg><span>امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود</span></p>
               <div class="actions">
                 <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-qr"/></svg>تمدید</button>
                 <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-qr"/></svg>پشتیبانی</button>
               </div>
+              <div class="list-head">
+                <p class="list-caption"><strong>سرورها</strong> · سریع‌ترین بالا</p>
+              </div>
               <ul class="servers">
-                <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۷۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name">آلمان ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۸۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۳۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name">فنلاند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۱۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۱<bdi class="proto">V2Ray</bdi></span><span class="ping">۹۶</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name">هلند ۲<bdi class="proto">V2Ray</bdi></span><span class="ping">۱۰۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server is-focused"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۱<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۲۴۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name">آمریکا ۲<bdi class="proto">V2Ray</bdi></span><span class="ping ok">۱۸۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
-                <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name">انگلیس<bdi class="proto">V2Ray</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name"><bdi>Finland 2</bdi></span><span class="ping">۷۱</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server is-selected"><svg class="flag"><use href="#f-de"/></svg><span class="name"><bdi>Germany 2</bdi></span><span class="ping">۸۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-de"/></svg><span class="name"><bdi>Germany 1</bdi></span><span class="ping">۹۴</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-fi"/></svg><span class="name"><bdi>Finland 1</bdi></span><span class="ping">۱۰۲</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name"><bdi>NL 1</bdi></span><span class="ping">۱۱۸</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name"><bdi>NL 2</bdi></span><span class="ping ok">۱۳۵</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-nl"/></svg><span class="name"><bdi>NL 3 x ضریب مصرف</bdi></span><span class="ping ok">۱۶۵</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-us"/></svg><span class="name"><bdi>USA 2</bdi></span><span class="ping ok">۲۱۰</span><svg class="icon tick"><use href="#i-check"/></svg></li>
+                <li class="server"><svg class="flag"><use href="#f-gb"/></svg><span class="name"><bdi>UK</bdi></span><span class="ping bad">بی‌پاسخ</span><svg class="icon tick"><use href="#i-check"/></svg></li>
               </ul>
             </article>
-            <article class="card svc">
-              <header class="svc-head">
-                <h2 class="svc-name"><bdi dir="ltr">user789</bdi> · معمولی</h2>
-                <span class="chip chip-positive">فعال</span>
-                <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-gauge"/></svg>پینگ</button>
-                <svg class="icon"><use href="#i-chevron-down"/></svg>
+            <article class="card svc is-focused">
+              <header class="svc-head is-stacked">
+                <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000000123_700a</bdi> <span class="tier">· وایرگارد-ترید</span></h2><svg class="icon"><use href="#i-chevron-down"/></svg></div>
+                <div class="svc-row"><span class="chip chip-positive">فعال</span><p class="svc-summary"><span>مصرف شده: ۱۲ از ۵۰ گیگ</span> <span>· اعتبار تا ۵ آبان ۱۴۰۵</span></p></div>
               </header>
-              <p class="svc-summary">مصرف شده <span class="warn">۴۹٫۸ از ۵۰ گیگ</span> · اعتبار تا ۱۰ آذر ۱۴۰۵</p>
+            </article>
+            <article class="card svc">
+              <header class="svc-head is-stacked">
+                <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000000123_3d1d</bdi> <span class="tier">· وایرگارد-ترید</span></h2><svg class="icon"><use href="#i-chevron-down"/></svg></div>
+                <div class="svc-row"><span class="chip chip-positive">فعال</span><p class="svc-summary"><span>مصرف شده: ۳ از ۵۰ گیگ</span> <span>· اعتبار تا ۱۲ آذر ۱۴۰۵</span></p></div>
+              </header>
+            </article>
+            <article class="card svc">
+              <header class="svc-head is-stacked">
+                <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">7000000123_c0e0</bdi> <span class="tier">· الماس</span></h2><svg class="icon"><use href="#i-chevron-down"/></svg></div>
+                <div class="svc-row"><span class="chip chip-positive">فعال</span><p class="svc-summary"><span>مصرف شده: <span class="warn">۲۷ از ۳۰ گیگ</span></span> <span>· اعتبار تا ۲۸ مهر ۱۴۰۵</span></p></div>
+              </header>
+            </article>
+            <article class="card svc">
+              <header class="svc-head is-stacked">
+                <div class="svc-line"><h2 class="svc-name"><bdi dir="ltr">2059054_7000000123_102</bdi> <span class="tier">· 🥇سرویس تیتانیوم - مولتی لوکیشن🎯</span></h2><svg class="icon"><use href="#i-chevron-down"/></svg></div>
+                <div class="svc-row"><span class="chip chip-positive">فعال</span><p class="svc-summary"><span>مصرف شده: ۸۸ از ۲۰۰ گیگ</span> <span>· اعتبار تا ۱ دی ۱۴۰۵</span></p></div>
+              </header>
             </article>
             <section class="card finished">
               <button class="finished-head" type="button" aria-expanded="false"><span>سرویس‌های تمام‌شده (۱)</span><svg class="icon"><use href="#i-chevron-down"/></svg></button>
@@ -273,20 +288,14 @@
           <span class="scroll-thumb"></span>
         </div>
         <section class="tv-power is-on">
-          <div class="power-ring">
-            <button class="power" type="button">
-              <svg class="icon"><use href="#i-power"/></svg>
-              <span class="power-label">وصل</span>
-              <span class="timer">۰۰:۱۲:۴۷</span>
-            </button>
-          </div>
-          <span class="now"><svg class="flag"><use href="#f-de"/></svg>آلمان ۲<span class="ping">۸۴</span></span>
+          <div class="power-ring"><button class="power" type="button"><svg class="icon"><use href="#i-power"/></svg><span class="power-label">وصل</span><span class="timer">۰۰:۱۲:۴۷</span></button></div>
+          <span class="now"><svg class="flag"><use href="#f-de"/></svg><bdi>Germany 2</bdi><span class="ping">۸۸</span></span>
         </section>
       </div>
     </div>
-    <p class="note">ریموت پایین رفته و ستون همراهش اسکرول شده: لبهٔ بالا محو است و نشانگر اسکرول کنار ستون است. زیر سرورها، سرویس‌های دیگر جمع‌شده‌اند؛ دکمهٔ وسط هر کدام را باز می‌کند. سرویسِ تاریخ‌گذشته در ردیف «سرویس‌های تمام‌شده» ته ستون است.</p>
+    <p class="note">کارتِ «در حال استفاده» باز است و ریموت از آخرین سرورش پایین آمده، روی کارتِ جمع‌شدهٔ بعدی؛ ستون همراهش اسکرول شده: لبهٔ بالا محو است و نشانگر اسکرول کنار ستون است. دکمهٔ وسط این کارت را باز می‌کند، کارت باز را جمع می‌کند و پینگِ همین سرویس را می‌گیرد؛ اتصال جابه‌جا نمی‌شود (صفحهٔ «پینگ تلویزیون»). سرویسِ تاریخ‌گذشته در ردیف «سرویس‌های تمام‌شده» ته ستون است.</p>
     <p class="note">وقتی ریموت از ستون بیرون می‌رود، ستون به بالا برمی‌گردد.</p>
-    <p class="note">کارت جمع‌شده نام، برچسب، «پینگ»، فلش و خط خلاصه دارد؛ نه زمان به‌روزرسانی، نه دکمه‌اش. هر دکمهٔ اضافه یک ایستگاه دیگر برای ریموت است، پس فقط «پینگ» آمده، چون هر سرویس باید دکمهٔ پینگ خودش را داشته باشد. به‌روزرسانی بعد از باز شدنِ کارت در دسترس است. رفتار «پینگ»ِ کارت جمع‌شده در صفحهٔ «پینگ تلویزیون» است.</p>
+    <p class="note">کارت جمع‌شده نام، برچسب، فلش و خط خلاصه دارد و فقط یک ایستگاه ریموت است. «پینگ»ِ کارت جمع‌شده برداشته شد، چون باز شدنِ کارت خودش پینگ می‌گیرد؛ به‌روزرسانی و پینگ بعد از باز شدن در سربرگ‌اند. نام در ردیف خودش، و برچسب «در حال استفاده»، پیشنهادهای صفحهٔ «گزینه‌های تلویزیون»‌اند.</p>
   </figure>
 
   <!-- سرویس‌های تمام‌شده: یک ردیف ته ستون -->
@@ -615,6 +624,7 @@
                 <span class="t"><span>خروج</span><small>سرویس‌ها از این تلویزیون برداشته می‌شوند؛ خودِ اشتراک‌هایت سر جایشان‌اند.</small></span>
               </button>
             </div>
+            <p class="group-note">برای عوض کردن سرویس‌های این تلویزیون، خارج شو و دوباره وارد شو.</p>
             <h3 class="group-title">پشتیبانی</h3>
             <div class="card">
               <button class="row" type="button"><svg class="icon"><use href="#i-report"/></svg><span class="t"><span>عیب‌یابی و گزارش</span><small>اگر برنامه درست کار نمی‌کند</small></span><svg class="icon"><use href="#i-chevron-fwd"/></svg></button>
@@ -636,6 +646,7 @@
       </div>
     </div>
     <p class="note">دو ستون: ظاهر و زبان در ردیف بالا، حساب و اپ زیرشان. ریموت چپ و راست بین دو ستون می‌رود و بالا و پایین در هر ستون. معمولاً همه‌چیز در یک صفحه جا می‌شود؛ اگر کارت «نسخهٔ تازه» زیر «اپ» بیاید، صفحه با ریموت اسکرول می‌شود (صفحهٔ «به‌روزرسانی تلویزیون»).</p>
+    <p class="note">زیر کارت «حساب» یک خط می‌گوید سرویس‌های این تلویزیون چطور عوض می‌شوند: خروج و ورود دوباره، که فهرست تیک‌دار را دوباره نشان می‌دهد. شمارِ سرویس‌ها، که گوشی کنار همین جمله دارد، این‌جا نیامده تا ستون در ۵۴۰ نقطه جا شود. فقط نوشته است و ریموت رویش نمی‌ایستد. با یک سرویس در حساب، این خط نیست.</p>
     <p class="note">«وارد شده با» فقط نوشته است و ریموت رویش نمی‌ایستد. پایین از «خودکار» مستقیم به «خروج» می‌رود. پنجرهٔ تأیید خروج همان پنجرهٔ گوشی است، با «این تلویزیون» به‌جای «این دستگاه».</p>
     <p class="note"><b>پیشنهاد</b>«خروج» به سمت سرورِ ورود بستگی دارد که تازه شروع شده.</p>
     <p class="note">«پشتیبانی» در ستون راست، زیر «حساب»: یک ردیف، «عیب‌یابی و گزارش». پایین از «خروج» به آن می‌رسد. همین بخش در همهٔ حالت‌های تنظیمات تلویزیون هست.</p>
@@ -1027,26 +1038,32 @@
 
   <!-- ورود: تأیید شد -->
   <figure class="shot">
-    <figcaption>ورود · در تلگرام «تأیید» زده شد</figcaption>
+    <figcaption>ورود · در تلگرام «تأیید» زده شد · ریموت روی «ادامه»</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-login-approved">
       <header class="tv-top">
         <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
       </header>
-      <div class="tv-result">
-        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
-        <h1>ورود انجام شد</h1>
-        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</p>
-        <ul class="card result-list">
-          <li><bdi dir="ltr">user123</bdi> · الماس</li>
-          <li><bdi dir="ltr">user789</bdi> · معمولی</li>
-        </ul>
-        <div class="actions">
-          <button class="btn btn-primary is-focused" type="button">ادامه</button>
-          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+      <div class="tv-choose">
+        <div class="login-copy">
+          <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+          <h1>ورود انجام شد</h1>
+          <p>این تلویزیون به حساب تلگرامِ <strong>مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد.</p>
+          <div class="actions">
+            <button class="btn btn-primary is-focused" type="button">ادامه</button>
+            <button class="btn btn-outline" type="button">این حساب من نیست</button>
+          </div>
         </div>
+        <section class="choose">
+          <h2 class="choose-q">کدام سرویس‌ها روی این تلویزیون باشد؟</h2>
+          <div class="card">
+            <button class="row" type="button" role="checkbox" aria-checked="true"><span class="checkbox"><svg class="icon"><use href="#i-check"/></svg></span><span class="t"><span class="svc-name"><bdi dir="ltr">user123</bdi> <span class="tier">· الماس</span></span></span></button>
+            <button class="row" type="button" role="checkbox" aria-checked="true"><span class="checkbox"><svg class="icon"><use href="#i-check"/></svg></span><span class="t"><span class="svc-name"><bdi dir="ltr">user789</bdi> <span class="tier">· معمولی</span></span></span></button>
+          </div>
+        </section>
       </div>
     </div>
-    <p class="note">«این حساب من نیست» تلویزیون را از آن حساب جدا می‌کند، سرویس‌های آن حساب را روی تلویزیون نگه نمی‌دارد و به صفحهٔ ورود با کد تازه برمی‌گردد. ریموت اول روی «ادامه» است؛ چپ به «این حساب من نیست». نام کاربری کنار نام نمایشی است، چون نام نمایشی یکتا نیست؛ اگر نیست، فقط نام.</p>
+    <p class="note">«این حساب من نیست» تلویزیون را از آن حساب جدا می‌کند، سرویس‌های آن حساب را روی تلویزیون نگه نمی‌دارد و به صفحهٔ ورود با کد تازه برمی‌گردد. ریموت اول روی «ادامه» است؛ چپ به «این حساب من نیست» و چپِ بعدی به اولین ردیف فهرست. در فهرست بالا و پایین، و دکمهٔ وسط تیک را می‌گذارد یا برمی‌دارد؛ از هر ردیف، راست مستقیم به «ادامه». نام کاربری کنار نام نمایشی است، چون نام نمایشی یکتا نیست؛ اگر نیست، فقط نام.</p>
+    <p class="note">با دو سرویس یا بیشتر، فهرست تیک‌دار است (تصمیم ۲۰ مهر): همه از اول تیک‌دار، پس یک دکمهٔ وسط یعنی همهٔ سرویس‌ها، مثل امروز. اپ فقط تیک‌خورده‌ها را می‌آورد و با «خروج» انتخاب پاک می‌شود. با یک سرویس، صفحه همان امروز است: یک نام، بی‌تیک.</p>
     <p class="note">صفحه نام حساب و سرویس‌ها را نشان می‌دهد و تا «ادامه» زده نشود به خانه نمی‌رود. اگر کسی کدِ این تلویزیون را گرفته و با حساب خودش تأیید کرده باشد، همین‌جا نامِ غریبه دیده می‌شود.</p>
     <p class="note">تا سرویس‌ها برسند، به‌جای فهرست نوار پیشرفت و «سرویس‌هایت دارند می‌آیند…» است و «ادامه» هنوز نیست، ولی «این حساب من نیست» هست. اگر تا ۲۰ ثانیه نرسیدند، قاب «سرویس‌ها نرسیدند». بعد از «ادامه»، خانه با ریموت روی دکمهٔ گرد.</p>
     <p class="note"><b>پیشنهاد</b>پیام تأیید در ربات هم بگوید چه دستگاهی وصل می‌شود و هشدار دهد که کدی را که کس دیگری فرستاده تأیید نکن. کار سمت سرور است.</p>
@@ -1054,55 +1071,36 @@
 
   <!-- ورود: تأیید شد، با چهار سرویس -->
   <figure class="shot">
-    <figcaption>ورود · تأیید شد، با چهار سرویس و نام‌های بلند</figcaption>
+    <figcaption>ورود · تأیید شد، با پنج سرویس و نام‌های بلند · ریموت روی «ادامه»</figcaption>
     <div class="tv" data-device="tv" data-frame="tv-login-approved-many">
       <header class="tv-top">
         <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
       </header>
-      <div class="tv-result">
-        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
-        <h1>ورود انجام شد</h1>
-        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</p>
-        <ul class="card result-list">
-          <li><bdi dir="ltr">user5551234_a1f0</bdi> · پاسارگاد</li>
-          <li><bdi dir="ltr">user5551234_e7f9</bdi> · پاسارگاد</li>
-          <li><bdi dir="ltr">user5551234_f38a</bdi> · پاسارگاد</li>
-          <li><bdi dir="ltr">user5551234_5551234_2</bdi> · اولین خرید</li>
-        </ul>
-        <div class="actions">
-          <button class="btn btn-primary is-focused" type="button">ادامه</button>
-          <button class="btn btn-outline" type="button">این حساب من نیست</button>
+      <div class="tv-choose">
+        <div class="login-copy">
+          <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
+          <h1>ورود انجام شد</h1>
+          <p>این تلویزیون به حساب تلگرامِ <strong>مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد.</p>
+          <div class="actions">
+            <button class="btn btn-primary is-focused" type="button">ادامه</button>
+            <button class="btn btn-outline" type="button">این حساب من نیست</button>
+          </div>
         </div>
+        <section class="choose">
+          <h2 class="choose-q">کدام سرویس‌ها روی این تلویزیون باشد؟</h2>
+          <div class="card">
+            <button class="row" type="button" role="checkbox" aria-checked="true"><span class="checkbox"><svg class="icon"><use href="#i-check"/></svg></span><span class="t"><span class="svc-name"><bdi dir="ltr">5550123_7000000123_101</bdi> <span class="tier">· 🥇سرویس تیتانیوم - مولتی لوکیشن🎯</span></span></span></button>
+            <button class="row" type="button" role="checkbox" aria-checked="true"><span class="checkbox"><svg class="icon"><use href="#i-check"/></svg></span><span class="t"><span class="svc-name"><bdi dir="ltr">7000000123_700a</bdi> <span class="tier">· وایرگارد-ترید</span></span></span></button>
+            <button class="row" type="button" role="checkbox" aria-checked="true"><span class="checkbox"><svg class="icon"><use href="#i-check"/></svg></span><span class="t"><span class="svc-name"><bdi dir="ltr">7000000123_3d1d</bdi> <span class="tier">· وایرگارد-ترید</span></span></span></button>
+            <button class="row" type="button" role="checkbox" aria-checked="true"><span class="checkbox"><svg class="icon"><use href="#i-check"/></svg></span><span class="t"><span class="svc-name"><bdi dir="ltr">7000000123_c0e0</bdi> <span class="tier">· الماس</span></span></span></button>
+            <button class="row" type="button" role="checkbox" aria-checked="true"><span class="checkbox"><svg class="icon"><use href="#i-check"/></svg></span><span class="t"><span class="svc-name"><bdi dir="ltr">2059054_7000000123_102</bdi> <span class="tier">· 🥇سرویس تیتانیوم - مولتی لوکیشن🎯</span></span></span></button>
+          </div>
+        </section>
       </div>
     </div>
-    <p class="note">روی باکسِ واقعی (۹۶۰ در ۵۴۰) با چهار سرویس، دایرهٔ تیک از بالا و دکمه‌ها از پایین بیرون زدند. حالا: دایرهٔ صفحه‌های نتیجهٔ تلویزیون ۶۴ است، نه ۹۶؛ فاصلهٔ اجزا ۱۲ است، نه ۱۶؛ فهرست حداکثر چهار خط دارد (قاب بعدی). سربرگِ همهٔ صفحه‌های تلویزیون ۵۰ واحد است، نه ۴۰، تا حلقهٔ فوکوسِ «تنظیمات» هم داخل حاشیهٔ امن بماند؛ ستون‌های تنظیمات هم به همان اندازه از لبه فاصله دارند. پس جای این صفحه، میان سربرگ و حاشیهٔ امن پایین، ۴۳۶ واحد است؛ خودش ۴۳۴ است و حلقهٔ فوکوسِ «ادامه» ۴ واحد بالای حاشیهٔ امن می‌ماند. سنجشِ خودکار عکس‌ها هم حالا هر جزء تلویزیون را با حلقه‌اش در حاشیهٔ امن می‌سنجد.</p>
-    <p class="note">نام‌ها کوتاه نمی‌شوند و «…» نمی‌گیرند، چون تفاوتِ دو سرویس شاید فقط در چهار حرف آخر باشد. عرض فهرست حدود ۶۰ حرف جا دارد.</p>
-    <p class="note">هر صفحه با بیشترین محتوای ممکن روی ۹۶۰ در ۵۴۰ سنجیده شود، نه با نمونهٔ دوسرویسی. آزمون اپ هم یک حالت چهارسرویسی با نام بلند داشته باشد.</p>
-  </figure>
-  <!-- ورود: تأیید شد، با پنج سرویس -->
-  <figure class="shot">
-    <figcaption>ورود · تأیید شد، با پنج سرویس: سه نام و «و ۲ سرویس دیگر»</figcaption>
-    <div class="tv" data-device="tv" data-frame="tv-login-approved-more">
-      <header class="tv-top">
-        <div class="brand"><span class="mark">ش</span><span>شیکونت</span></div>
-      </header>
-      <div class="tv-result">
-        <span class="hero-icon positive"><svg class="icon"><use href="#i-check"/></svg></span>
-        <h1>ورود انجام شد</h1>
-        <p>این تلویزیون به حساب تلگرامِ <strong class="for">مریم</strong> (<bdi dir="ltr">@maryam_k</bdi>) وصل شد، با این سرویس‌ها:</p>
-        <ul class="card result-list">
-          <li><bdi dir="ltr">user5551234_a1f0</bdi> · پاسارگاد</li>
-          <li><bdi dir="ltr">user5551234_e7f9</bdi> · پاسارگاد</li>
-          <li><bdi dir="ltr">user5551234_f38a</bdi> · پاسارگاد</li>
-          <li class="more">و ۲ سرویس دیگر</li>
-        </ul>
-        <div class="actions">
-          <button class="btn btn-primary is-focused" type="button">ادامه</button>
-          <button class="btn btn-outline" type="button">این حساب من نیست</button>
-        </div>
-      </div>
-    </div>
-    <p class="note">با پنج سرویس یا بیشتر: سه نام اول، و خط چهارم «و ۲ سرویس دیگر» به همان اندازه، کم‌رنگ و نازک. ارتفاعش همان قاب چهارسرویسی است. باقی سرویس‌ها بعد از «ادامه» در خانه‌اند.</p>
+    <p class="note">متن و دکمه‌ها در سمت شروع، فهرست در سمت دیگر، تا با پنج سرویس و دو نامِ بلند همه در ۵۴۰ نقطه جا شوند و دایرهٔ تیک و دکمه‌ها بیرون نزنند. نام‌ها همان قانون نام سرویس را دارند: حداکثر دو خط، ریزتر، بعد کوتاه از وسط.</p>
+    <p class="note">با بیش از پنج سرویس، فهرست مثل ستونِ خانه با ریموت اسکرول می‌شود و ردیفِ زیر ریموت همیشه دیده می‌شود. «و ۲ سرویس دیگر» دیگر نیست، چون هر سرویس باید تیکِ خودش را داشته باشد.</p>
+    <p class="note">هر صفحه با بیشترین محتوای ممکن روی ۹۶۰ در ۵۴۰ سنجیده شود، نه با نمونهٔ دوسرویسی. آزمون اپ هم یک حالت پنج‌سرویسی با نام بلند داشته باشد.</p>
   </figure>
 
   <!-- ورود: سرویس‌ها نرسیدند -->

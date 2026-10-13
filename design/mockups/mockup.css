@@ -110,6 +110,7 @@ ul { list-style: none; }
 .svc-head .icon-btn[disabled] { box-shadow: none; }
 .svc-summary { margin-top: var(--space-1); padding-bottom: var(--space-2); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .svc-summary strong { color: var(--color-text); }
+.svc-summary > span { display: inline-block; max-inline-size: 100%; } /* خلاصه پیش از «·» می‌شکند؛ وسط هر تکه فقط اگر خودش در خط جا نشود */
 .svc-summary .warn { color: var(--color-warning); font-weight: var(--font-weight-bold); }
 .svc-protos { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 .state-msg { margin-top: var(--space-2); font-size: var(--text-body-sm); color: var(--color-text-muted); }
@@ -308,9 +309,11 @@ ul { list-style: none; }
 .tv-col.is-scrolled, .report-body.is-scrolled { mask-image: linear-gradient(to bottom, transparent, black var(--size-fade)); }
 .scroll-thumb { position: absolute; inset-inline-end: 0; inline-size: var(--size-scroll-thumb); border-radius: var(--radius-full); background: var(--color-outline); }
 
-/* ۱۷. سربرگ دوخطی: نام و وضعیت، و زیرش زمان آخرین به‌روزرسانی؛ دکمهٔ به‌روزرسانی کنار هر دو */
+/* ۱۷. سربرگ دوخطی: نام و وضعیت، و زیرش زمان آخرین به‌روزرسانی؛ دکمهٔ به‌روزرسانی کنار هر دو.
+   نام جای ثابت دارد و برچسب هرگز به خط بعد نمی‌رود؛ نامِ بلند ریز و کوتاه می‌شود (mockup.js، fitName). */
 .svc-titles { flex: 1; min-inline-size: 0; }
-.svc-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
+.svc-line { display: flex; align-items: center; gap: 0 var(--space-2); }
+.svc-line > .chip { flex: none; }
 .svc-sub { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
 
 /* ۲۱. سرویس‌های تمام‌شده */
@@ -410,6 +413,85 @@ ul { list-style: none; }
 .notice.msg span { white-space: normal; text-overflow: clip; line-height: inherit; }
 .notice.danger { background: var(--color-danger-soft); }
 .notice.danger .icon, .notice.danger strong { color: var(--color-danger); }
+
+/* ۲۴. چهار نکتهٔ ۲۰ مهر */
+/* نام در ردیف خودش، تمام‌پهنا؛ برچسب، زمان یا خلاصه و دکمه‌ها در ردیف زیرش. .is-narrow: زمان در خط سوم */
+.svc-head.is-stacked { flex-direction: column; align-items: stretch; gap: 0; }
+.svc-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "chip text end"; align-items: center; gap: 0 var(--space-2); }
+.svc-row > .chip { grid-area: chip; }
+.svc-row > :is(.svc-sub, .svc-summary) { grid-area: text; margin: 0; padding: 0; }
+.svc-row > .end { grid-area: end; display: flex; align-items: center; gap: var(--space-2); }
+.svc-row.is-narrow { grid-template-areas: "chip . end" "text text text"; }
+.svc-head.is-stacked > .svc-line { min-block-size: var(--size-icon); }
+.svc-head.is-stacked > .svc-row:has(> .svc-summary) { padding-top: var(--space-1); padding-bottom: var(--space-2); }
+.svc-head > .svc-line:only-child { flex: 1; min-inline-size: 0; }
+.svc-head > .svc-line:only-child > .svc-name { flex: 1 1 auto; }
+/* «در حال استفاده»: سرویسی که اتصال رویش است؛ .is-idle وقتی قطعی (سرویسی که دکمهٔ گرد وصلش می‌کند) */
+.chip-in-use { background: var(--color-in-use); color: var(--color-on-positive); }
+.chip-in-use.is-idle { background: none; color: var(--color-text); box-shadow: inset 0 0 0 var(--border-width-control) var(--color-in-use-idle); }
+.svc { position: relative; }
+.svc.is-in-use::before {
+  content: ""; position: absolute; inset-block: var(--space-4); inset-inline-start: 0;
+  inline-size: var(--size-selected-bar); border-radius: var(--radius-full); background: var(--color-in-use);
+}
+.overline { display: block; font-size: var(--text-caption); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); color: var(--color-in-use); }
+.svc-mark {
+  flex: none; inline-size: calc(var(--size-icon) + var(--space-2)); block-size: calc(var(--size-icon) + var(--space-2));
+  display: grid; place-items: center; border-radius: 50%; background: var(--color-positive-soft); color: var(--color-in-use);
+}
+.svc-mark .icon { --size-icon: var(--size-icon-sm); stroke-width: var(--icon-stroke-strong); }
+.svc-line > .svc-mark { margin-inline-end: calc(var(--space-2) * -1 + var(--space-1)); }
+/* کارت بازِ سرویسی که اتصال رویش نیست: یک خط بالای فهرست؛ بعد از رسیدن اتصال، .positive */
+.notice.hint { scroll-margin-top: var(--space-3); }
+/* راهنما و خطی که جایش می‌آید یک جعبه دارند، به بلندیِ بلندترشان، تا هیچ ردیفی نپرد */
+.swap { display: grid; }
+.swap > * { grid-area: 1 / 1; }
+.swap > [aria-hidden="true"] { visibility: hidden; }
+.notice.hint .icon { color: var(--color-text-muted); }
+.notice.hint.positive .icon, .notice.hint.positive span { color: var(--color-positive); }
+/* نوار پایینِ گوشی برای جابه‌جایی سرور: رنگ متن روی پس‌زمینه، مثل اپ */
+.snackbar {
+  position: absolute; z-index: 6; inset-inline: var(--safe-x); bottom: var(--space-8);
+  display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md); background: var(--color-text); color: var(--color-bg); box-shadow: var(--shadow-raised);
+  font-size: var(--text-body); line-height: var(--leading-body);
+}
+.snackbar .icon { margin-block-start: calc((1lh - var(--size-icon)) / 2); }
+/* «کدام سرویس‌ها روی این گوشی باشد؟» */
+.checkbox {
+  inline-size: var(--size-checkbox); block-size: var(--size-checkbox); flex: none; display: grid; place-items: center;
+  border-radius: var(--radius-checkbox); box-shadow: inset 0 0 0 var(--border-width-radio) var(--color-outline); color: var(--color-on-primary);
+}
+.checkbox .icon { --size-icon: calc(var(--size-checkbox) - var(--space-1)); stroke-width: var(--icon-stroke-strong); color: var(--color-on-primary); visibility: hidden; }
+[aria-checked="true"] > .checkbox { background: var(--color-primary); box-shadow: none; }
+[aria-checked="true"] > .checkbox .icon { visibility: visible; }
+.choose { display: flex; flex-direction: column; gap: var(--space-2); }
+.choose-q { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.choose-cards { display: flex; flex-direction: column; gap: var(--space-2); }
+.choose .row { padding-block: var(--space-2); }
+.choose .row .t { min-inline-size: 0; }
+.choose .svc-name { font-size: var(--text-body); }
+.choose-help { font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.btn-primary[disabled] { background: var(--color-surface-sunken); color: var(--color-text-muted); cursor: default; }
+.login.is-choosing { padding-top: var(--space-4); }
+.login.is-choosing .login-brand { flex: none; }
+.step { flex: 1; min-block-size: 0; display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--safe-x); }
+.step-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) 0 var(--space-10); }
+.step-foot .btn { --size-button: var(--size-touch); inline-size: 100%; }
+.group-note { margin: var(--space-2) var(--space-2) 0; font-size: var(--text-body-sm); line-height: var(--leading-tight); color: var(--color-text-muted); }
+.group-note + .group-title { margin-top: var(--space-4); }
+.svc.is-focused { background: var(--color-focus-bg); }
+/* ورودِ تلویزیون با فهرست تیک‌دار: متن و دکمه‌ها در سمت شروع، فهرست در سمت دیگر */
+.tv-choose { flex: 1; min-block-size: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--size-pane); align-items: center; gap: var(--space-10); padding-inline: var(--ring); }
+.tv-choose .login-copy p { color: var(--color-text-muted); line-height: var(--leading-body); }
+.tv-choose .login-copy strong { color: var(--color-text); }
+.tv-choose .actions { margin-top: var(--space-2); padding-bottom: 0; }
+.tv-choose .actions .btn { flex: none; }
+.tv .choose-q { font-size: var(--text-title); }
+/* لایهٔ ارائه: برچسب گزینه‌ها */
+.pick { display: inline-block; margin-inline-end: 8px; padding: 0 12px; border-radius: var(--radius-full); font-size: 14px; color: var(--color-text); box-shadow: inset 0 0 0 var(--border-width) var(--color-outline); }
+.pick.is-mine { color: var(--color-bg); background: var(--color-text); box-shadow: none; }
+.sheet-section { flex-basis: 100%; font-size: 18px; line-height: 28px; font-weight: var(--font-weight-black); padding-top: 16px; border-top: 2px solid var(--color-border); }
 
 /* فوکوس ریموت (فقط تلویزیون): حلقهٔ ضخیم + سایهٔ برجسته؛ ردیف و دکمهٔ دورخط‌دار سطح روشن هم می‌گیرند */
 .is-focused {
