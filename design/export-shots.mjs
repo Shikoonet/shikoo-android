@@ -69,12 +69,14 @@ const PAGES = [
   { name: 'phone-update', width: 2300 },
   { name: 'phone-report', width: 2300 },
   { name: 'phone-four', width: 2300 },
+  { name: 'phone-five', width: 2300 },
   { name: 'tv', width: 2040 },
   { name: 'tv-states', width: 2040 },
   { name: 'tv-ping', width: 2040 },
   { name: 'tv-update', width: 2040 },
   { name: 'tv-report', width: 2040 },
   { name: 'tv-four', width: 2040 },
+  { name: 'tv-five', width: 2040 },
 ];
 const WEIGHTS = ['400', '500', '700', '800'];
 const problems = [];

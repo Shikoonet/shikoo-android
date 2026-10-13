@@ -6,6 +6,8 @@
   "otherServiceCaptionTv": "با زدنِ یک سرور، اتصال به این سرویس می‌رود",
   "approvedBodyChooseTouch": "این گوشی به حساب تلگرامِ {account} وصل شد.",
   "approvedBodyChooseTv": "این تلویزیون به حساب تلگرامِ {account} وصل شد.",
+  "approvedBodyOneTouch": "این گوشی به حساب تلگرامِ {account} وصل شد، با\u00a0این\u00a0سرویس:",
+  "approvedBodyOneTv": "این تلویزیون به حساب تلگرامِ {account} وصل شد، با\u00a0این\u00a0سرویس:",
   "chooseServicesTouch": "کدام سرویس‌ها روی این گوشی باشد؟",
   "chooseServicesTv": "کدام سرویس‌ها روی این تلویزیون باشد؟",
   "chooseAtLeastOne": "دست‌کم یک سرویس را تیک بزن.",
