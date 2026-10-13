@@ -401,21 +401,30 @@ class ShikooButton extends StatelessWidget {
       ),
     );
     // Greyed out under the remote, it keeps the remote: the ring never vanishes from the screen.
-    if (!enabled && !(focusNode?.hasFocus ?? false)) return face(false);
-    return Pressable(
-      shape: RoundedSuperellipseBorder(borderRadius: radius),
-      autofocus: autofocus,
-      focusNode: focusNode,
-      onPressed: onPressed ?? () {},
-      builder: (context, focused) => small
-          ? Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: (ShikooSizes.touch - t.s.buttonSm) / 2,
-              ),
-              child: face(focused),
-            )
-          : face(focused),
-    );
+    final button = !enabled && !(focusNode?.hasFocus ?? false)
+        ? face(false)
+        : Pressable(
+            shape: RoundedSuperellipseBorder(borderRadius: radius),
+            autofocus: autofocus,
+            focusNode: focusNode,
+            onPressed: onPressed ?? () {},
+            builder: (context, focused) => small
+                ? Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: (ShikooSizes.touch - t.s.buttonSm) / 2,
+                    ),
+                    child: face(focused),
+                  )
+                : face(focused),
+          );
+    return enabled
+        ? button
+        : Semantics(
+            container: true,
+            button: true,
+            enabled: false,
+            child: button,
+          );
   }
 }
 

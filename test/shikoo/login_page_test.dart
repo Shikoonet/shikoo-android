@@ -180,14 +180,50 @@ void main() {
     expect(_ticks(tester), 0);
     expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsOneWidget);
     final go = find.widgetWithText(ShikooButton, 'ادامه');
+    Color? fill() =>
+        (tester
+                    .widget<Container>(
+                      find
+                          .descendant(of: go, matching: find.byType(Container))
+                          .first,
+                    )
+                    .decoration
+                as ShapeDecoration?)
+            ?.color;
+    final semantics = tester.ensureSemantics();
     expect(tester.widget<ShikooButton>(go).onPressed, isNull);
+    expect(
+      fill(),
+      ShikooColors.light.surfaceSunken,
+      reason: 'grey, no outline',
+    );
+    expect(
+      tester.getSemantics(go),
+      isSemantics(isButton: true, hasEnabledState: true, isEnabled: false),
+    );
+    semantics.dispose();
     await tester.tap(go);
     verifyNever(() => _signInOf(container).choose(any()));
     await tester.tap(find.text(bidiName('user3 · الماس')));
     await tester.pumpAndSettle();
     expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsNothing);
+    expect(fill(), ShikooColors.light.primary);
     await tester.tap(go);
     verify(() => _signInOf(container).choose({13})).called(1);
+  });
+
+  testWidgets('a new checklist starts all ticked again, whatever the last one '
+      'left unticked', (tester) async {
+    final container = await _pump(tester, tv: false, login: _choosing);
+    await tester.tap(find.text(bidiName('user2 · الماس')));
+    await tester.pumpAndSettle();
+    expect(_ticks(tester), 4);
+    final login = container.read(shikooLoginProvider.notifier)
+      ..set(const ShikooLogin(LoginPhase.syncing, account: _maryam));
+    await tester.pumpAndSettle();
+    login.set(_choosing);
+    await tester.pumpAndSettle();
+    expect(_ticks(tester), 5);
   });
 
   testWidgets('approved with one service, phone and TV say «با این سرویس»; '

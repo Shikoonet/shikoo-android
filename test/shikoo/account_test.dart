@@ -746,7 +746,10 @@ void main() {
       await h.signIn.start();
       h.api.codes[h.api.lastCode]!.approvedBy = (name: 'م', username: 'm');
       final offered = await _until(h.container, _at(LoginPhase.choosing));
-      expect([for (final s in offered!.choices) s.id], [51, 52, 53]);
+      expect(
+        [for (final s in offered!.choices) (s.id, s.status)],
+        [(51, 'expired'), (52, 'exhausted'), (53, 'removed')],
+      );
       await h.signIn.choose({51, 52});
       final unlinked = h.container.read(shikooAccountProvider).withoutLink;
       expect([for (final s in unlinked) s.renews], [true, true]);
@@ -1226,22 +1229,6 @@ void main() {
       return h;
     }
 
-    ProviderContainer restart(_Harness h) {
-      final restarted = ProviderContainer(
-        overrides: [
-          shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
-          shikooStateProvider.overrideWithValue(_state),
-          shikooControllerProvider.overrideWithValue(h.controller),
-          profilesProvider.overrideWith(
-            () => TestProfiles([...h.container.read(profilesProvider)]),
-          ),
-          profilesActionProvider.overrideWith(_Profiles.new),
-        ],
-      );
-      addTearDown(restarted.dispose);
-      return restarted;
-    }
-
     test('only the ticked come; the rest are nowhere on the device, and the '
         'account still counts them', () async {
       final h = await chose({2, 3});
@@ -1283,13 +1270,16 @@ void main() {
         (await SharedPreferences.getInstance()).getString('shikoo.account')!,
       );
       expect(stored['chosen'], [2]);
-      final restarted = restart(h);
-      final signIn = restarted.read(shikooSignInProvider);
+      // A new sign-in over the same profiles, as after a restart: only what it loads is left.
+      h.container.invalidate(shikooSignInProvider);
+      final signIn = h.container.read(shikooSignInProvider);
       await signIn.load();
       h.api.services = [...h.api.services, _service(4, 'bought')];
       expect(await signIn.sync(), isTrue);
-      expect(_urls(restarted), ['https://sub.4g3.uk/child']);
-      expect(restarted.read(shikooAccountProvider).total, 4);
+      expect(_urls(h.container), ['https://sub.4g3.uk/child']);
+      final account = h.container.read(shikooAccountProvider);
+      expect([for (final s in account.services) s.id], [2]);
+      expect(account.total, 4);
     });
 
     test('signing out forgets the choice: the next sign-in offers every '
