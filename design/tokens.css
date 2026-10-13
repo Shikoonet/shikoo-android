@@ -49,6 +49,8 @@
   --color-focus-bg:       light-dark(#FFFFFF, #343A37); /* سطحِ ردیف یا دکمهٔ دورخط‌دارِ فوکوس‌دار */
   --color-in-use:         var(--color-positive);        /* «در حال استفاده»: سرویسی که اتصال رویش است */
   --color-in-use-idle:    var(--color-outline);         /* همان وقتی قطعی: سرویسی که دکمهٔ گرد وصلش می‌کند */
+  --color-picked-bg:      var(--color-primary);         /* کارتِ برداشته‌شده در صفحهٔ ترتیبِ تلویزیون */
+  --color-on-picked:      var(--color-on-primary);
 
   /* ── رنگ: وضعیت ── */
   --color-positive:       light-dark(#117036, #3DD47A); /* وصل، فعال، پینگ خوب */
