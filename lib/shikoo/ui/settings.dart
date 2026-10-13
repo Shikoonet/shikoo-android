@@ -80,6 +80,14 @@ class ShikooSettings extends ConsumerWidget {
             ),
           );
     // tv-p5-settings puts «سرویس‌ها» last in its column, phone-p5-settings under the language.
+    final here = account.services.length;
+    final servicesNote = who == null || account.total < 2
+        ? null
+        : isTV
+        ? l.changeServicesTv
+        : here < account.total
+        ? l.servicesHereTouch(here, account.total)
+        : l.servicesAllHereTouch;
     final groups = [
       _Group(
         title: l.appearance,
@@ -129,6 +137,7 @@ class ShikooSettings extends ConsumerWidget {
               ),
             _Group(
               title: l.account,
+              note: servicesNote,
               child: _Card(
                 rows: [
                   if (who != null)
@@ -783,12 +792,13 @@ class _ColumnPolicy extends ReadingOrderTraversalPolicy {
   }
 }
 
-/// `.group-title` over its control.
+/// `.group-title` over its control, and a `.group-note` under it.
 class _Group extends StatelessWidget {
-  const _Group({required this.title, required this.child});
+  const _Group({required this.title, required this.child, this.note});
 
   final String title;
   final Widget child;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -809,6 +819,18 @@ class _Group extends StatelessWidget {
           ),
         ),
         child,
+        if (note case final note?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.s2, Space.s2, Space.s2, 0),
+            child: Text(
+              note,
+              style: t.text(
+                t.s.bodySm,
+                color: t.c.textMuted,
+                height: Leading.tight,
+              ),
+            ),
+          ),
       ],
     );
   }

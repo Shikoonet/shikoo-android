@@ -34,6 +34,7 @@ abstract final class Radii {
   static const sm = 8.0;
   static const md = 12.0;
   static const lg = 20.0;
+  static const checkbox = 4.0;
   static const markRatio = 0.28;
 }
 
@@ -342,6 +343,7 @@ class ShikooSizes {
   static const switchH = 32.0;
   static const switchThumb = 24.0;
   static const borderRadio = 2.0;
+  static const checkbox = 20.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;
 

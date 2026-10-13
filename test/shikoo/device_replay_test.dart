@@ -689,6 +689,79 @@ void main() {
     await check([_button(_l.continueButton), _button(_l.notMyAccount)]);
   });
 
+  _everywhere('the sign-in checklist of five long names', (
+    tester,
+    device,
+    check,
+  ) async {
+    final names = [
+      ..._names,
+      '5550123_7000000123_101 · 🥇سرویس تیتانیوم - مولتی لوکیشن🎯',
+    ];
+    await _pump(
+      tester,
+      device,
+      const ShikooRoot(),
+      login: ShikooLogin(
+        LoginPhase.choosing,
+        account: _maryam,
+        choices: [
+          for (final (i, name) in names.indexed)
+            LinkedService(id: i, title: name, status: 'active'),
+        ],
+      ),
+    );
+    await check([
+      _button(_l.continueButton),
+      _button(_l.notMyAccount),
+      find.byType(ServiceName).first,
+      find.byType(ServiceName).last,
+    ]);
+  });
+
+  testWidgets('settings say how many of the account\'s services this phone '
+      'keeps, or that it keeps all; the TV only how to change them; one '
+      'service, no line', (tester) async {
+    const one = LinkedService(id: 1, title: 'a', status: 'active');
+    const two = LinkedService(id: 2, title: 'b', status: 'active');
+    final cases = {
+      (false, const ShikooAccount(who: _maryam, services: [one], total: 5)):
+          'روی این گوشی ۱ سرویس از ۵ سرویسِ حسابت هست. برای عوض کردن، خارج شو '
+          'و دوباره وارد شو.',
+      (
+        false,
+        const ShikooAccount(who: _maryam, services: [one, two], total: 2),
+      ): _l.servicesAllHereTouch,
+      (true, const ShikooAccount(who: _maryam, services: [one], total: 5)):
+          _l.changeServicesTv,
+      (false, const ShikooAccount(who: _maryam, services: [one], total: 1)):
+          null,
+      (true, const ShikooAccount(who: _maryam, services: [one], total: 1)):
+          null,
+    };
+    final notes = [
+      _l.servicesHereTouch(1, 5),
+      _l.servicesAllHereTouch,
+      _l.changeServicesTv,
+    ];
+    for (final MapEntry(key: (tv, account), value: note) in cases.entries) {
+      await _pump(
+        tester,
+        tv ? _devices.first : _devices.last,
+        const ShikooSettings(),
+        state: _home(tv),
+        account: account,
+      );
+      for (final text in notes) {
+        expect(
+          find.text(text),
+          text == note ? findsOneWidget : findsNothing,
+          reason: 'tv $tv, ${account.services.length} of ${account.total}',
+        );
+      }
+    }
+  });
+
   _everywhere('home with the update, the servers and finished services', (
     tester,
     device,
@@ -715,11 +788,16 @@ void main() {
       device,
       const ShikooSettings(),
       state: _home(device.tv),
-      account: const ShikooAccount(who: _maryam),
+      account: const ShikooAccount(
+        who: _maryam,
+        services: [LinkedService(id: 1, title: 'a', status: 'active')],
+        total: 5,
+      ),
     );
     await check([
       find.text(_l.settingsCheckUpdate),
       find.text(_l.about),
+      find.text(device.tv ? _l.changeServicesTv : _l.servicesHereTouch(1, 5)),
       find.text(_l.logout),
     ]);
     await tester.tap(find.text(_l.logout));

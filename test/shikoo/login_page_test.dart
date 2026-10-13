@@ -46,6 +46,7 @@ Future<ProviderContainer> _pump(
   required bool tv,
   ShikooLogin? login,
   ShikooAccount account = const ShikooAccount(),
+  String language = shikooDefaultLanguage,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -58,6 +59,7 @@ Future<ProviderContainer> _pump(
   final signIn = _SignIn();
   when(signIn.start).thenAnswer((_) async => null);
   when(signIn.notMine).thenAnswer((_) async {});
+  when(() => signIn.choose(any())).thenAnswer((_) async {});
   final container = ProviderContainer(
     overrides: [
       noShots,
@@ -82,7 +84,7 @@ Future<ProviderContainer> _pump(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        locale: const Locale(shikooDefaultLanguage),
+        locale: Locale(language),
         supportedLocales: ShikooL10n.supportedLocales,
         localizationsDelegates: const [
           ShikooL10n.delegate,
@@ -105,7 +107,293 @@ String? _focusedButton() =>
         ?.findAncestorWidgetOfExactType<ShikooButton>()
         ?.label;
 
+const _five = [
+  LinkedService(id: 11, title: 'user1 · الماس', status: 'active'),
+  LinkedService(id: 12, title: 'user2 · الماس', status: 'active'),
+  LinkedService(id: 13, title: 'user3 · الماس', status: 'expired'),
+  LinkedService(id: 14, title: 'user4 · الماس', status: 'active'),
+  LinkedService(id: 15, title: 'user5 · الماس', status: 'exhausted'),
+];
+
+const _choosing = ShikooLogin(
+  LoginPhase.choosing,
+  account: _maryam,
+  choices: _five,
+);
+
+/// The ticks drawn in the checklist's boxes; the result's own check is larger.
+int _ticks(WidgetTester tester) => tester
+    .widgetList<SvgIcon>(find.byType(SvgIcon))
+    .where(
+      (icon) =>
+          icon.icon == ShikooIcon.check &&
+          icon.size == ShikooSizes.checkbox - Space.s1,
+    )
+    .length;
+
+/// The service row the remote is on, by its name.
+String? _focusedRow() {
+  final context = FocusManager.instance.primaryFocus?.context as Element?;
+  String? name;
+  if (context == null) return null;
+  void find(Element element) {
+    final widget = element.widget;
+    if (widget is ServiceName) name ??= widget.name;
+    element.visitChildElements(find);
+  }
+
+  find(context);
+  return name;
+}
+
 void main() {
+  setUpAll(() => registerFallbackValue(<int>{}));
+
+  testWidgets('a long name on the checklist and on the one-service result '
+      'follows the cards: two lines at most, the tier on the second', (
+    tester,
+  ) async {
+    const long = '5550123_7000000123_101 · 🥇سرویس تیتانیوم - مولتی لوکیشن🎯';
+    for (final tv in [false, true]) {
+      for (final login in [
+        const ShikooLogin(
+          LoginPhase.choosing,
+          account: _maryam,
+          choices: [
+            LinkedService(id: 1, title: long, status: 'active'),
+            LinkedService(id: 2, title: 'user2 · الماس', status: 'active'),
+          ],
+        ),
+        const ShikooLogin(
+          LoginPhase.approved,
+          account: _maryam,
+          services: [long],
+        ),
+      ]) {
+        await _pump(tester, tv: tv, login: login);
+        final name = tester.widget<Text>(
+          find.descendant(
+            of: find.byWidgetPredicate(
+              (w) => w is ServiceName && w.name == long,
+            ),
+            matching: find.byType(Text),
+          ),
+        );
+        final reason = 'tv $tv, ${login.phase}';
+        expect(name.maxLines, 2, reason: reason);
+        expect(name.data, contains('\n· '), reason: reason);
+      }
+    }
+  });
+
+  testWidgets('two services or more come as a checklist, all ticked, an ended '
+      'one with home\'s chip; a tap unticks one, and «ادامه» keeps the '
+      'ticked', (tester) async {
+    final container = await _pump(tester, tv: false, login: _choosing);
+    expect(find.text('کدام سرویس‌ها روی این گوشی باشد؟'), findsOneWidget);
+    expect(find.textContaining('وصل شد.', findRichText: true), findsOneWidget);
+    for (final service in _five) {
+      expect(find.text(bidiName(service.title)), findsOneWidget);
+    }
+    expect(_ticks(tester), 5);
+    expect(find.byType(StatusChip), findsNWidgets(2));
+    expect(find.text('تاریخ انقضا گذشته'), findsOneWidget);
+    expect(find.text('حجم تمام شده'), findsOneWidget);
+    expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsNothing);
+    await tester.tap(find.text(bidiName('user2 · الماس')));
+    await tester.pumpAndSettle();
+    expect(_ticks(tester), 4);
+    await tester.tap(find.widgetWithText(ShikooButton, 'ادامه'));
+    verify(() => _signInOf(container).choose({11, 13, 14, 15})).called(1);
+  });
+
+  testWidgets('with nothing ticked «ادامه» is grey and says why; one tick, '
+      'even of an ended service, brings it back', (tester) async {
+    final container = await _pump(tester, tv: false, login: _choosing);
+    for (final service in _five) {
+      await tester.tap(find.text(bidiName(service.title)));
+    }
+    await tester.pumpAndSettle();
+    expect(_ticks(tester), 0);
+    expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsOneWidget);
+    final go = find.widgetWithText(ShikooButton, 'ادامه');
+    Color? fill() =>
+        (tester
+                    .widget<Container>(
+                      find
+                          .descendant(of: go, matching: find.byType(Container))
+                          .first,
+                    )
+                    .decoration
+                as ShapeDecoration?)
+            ?.color;
+    final semantics = tester.ensureSemantics();
+    expect(tester.widget<ShikooButton>(go).onPressed, isNull);
+    expect(
+      fill(),
+      ShikooColors.light.surfaceSunken,
+      reason: 'grey, no outline',
+    );
+    expect(
+      tester.getSemantics(go),
+      isSemantics(isButton: true, hasEnabledState: true, isEnabled: false),
+    );
+    semantics.dispose();
+    await tester.tap(go);
+    verifyNever(() => _signInOf(container).choose(any()));
+    await tester.tap(find.text(bidiName('user3 · الماس')));
+    await tester.pumpAndSettle();
+    expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsNothing);
+    expect(fill(), ShikooColors.light.primary);
+    await tester.tap(go);
+    verify(() => _signInOf(container).choose({13})).called(1);
+  });
+
+  testWidgets('with pasted services Back from a sign-in result goes home to '
+      'them, but never from the checklist, which waits for «ادامه»', (
+    tester,
+  ) async {
+    final container = await _pump(tester, tv: false, login: _choosing);
+    container
+        .read(_stateCell.notifier)
+        .set(
+          const ShikooState(
+            connection: ShikooConnection.off,
+            connectedFor: Duration.zero,
+            isTV: false,
+            servers: [],
+            service: ShikooService(
+              name: 'pasted',
+              usedBytes: 0,
+              totalBytes: 0,
+              id: 1,
+            ),
+          ),
+        );
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    verifyNever(_signInOf(container).finish);
+    container
+        .read(shikooLoginProvider.notifier)
+        .set(
+          const ShikooLogin(
+            LoginPhase.approved,
+            account: _maryam,
+            services: ['user1 · الماس'],
+          ),
+        );
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    verify(_signInOf(container).finish).called(1);
+  });
+
+  testWidgets('a new checklist starts all ticked again, whatever the last one '
+      'left unticked', (tester) async {
+    final container = await _pump(tester, tv: false, login: _choosing);
+    await tester.tap(find.text(bidiName('user2 · الماس')));
+    await tester.pumpAndSettle();
+    expect(_ticks(tester), 4);
+    final login = container.read(shikooLoginProvider.notifier)
+      ..set(const ShikooLogin(LoginPhase.syncing, account: _maryam));
+    await tester.pumpAndSettle();
+    login.set(_choosing);
+    await tester.pumpAndSettle();
+    expect(_ticks(tester), 5);
+  });
+
+  testWidgets('approved with one service, phone and TV say «با این سرویس»; '
+      'with more, «با این سرویس‌ها»', (tester) async {
+    const one = 'با این سرویس:';
+    const many = 'با این سرویس‌ها:';
+    for (final tv in [false, true]) {
+      for (final services in [
+        ['user1 · الماس'],
+        ['user1 · الماس', 'user2 · الماس'],
+      ]) {
+        await _pump(
+          tester,
+          tv: tv,
+          login: ShikooLogin(
+            LoginPhase.approved,
+            account: _maryam,
+            services: services,
+          ),
+        );
+        final said = services.length == 1 ? one : many;
+        expect(
+          find.textContaining(said, findRichText: true),
+          findsOneWidget,
+          reason: 'tv $tv, ${services.length} services',
+        );
+        expect(
+          find.textContaining(
+            services.length == 1 ? many : one,
+            findRichText: true,
+          ),
+          findsNothing,
+        );
+      }
+    }
+  });
+
+  testWidgets('on the TV the remote starts on «ادامه», goes left through «این '
+      'حساب من نیست» to the first service, and right from any service straight '
+      'back; with nothing ticked, right lands on «این حساب من نیست»', (
+    tester,
+  ) async {
+    final container = await _pump(tester, tv: true, login: _choosing);
+    Future<void> press(LogicalKeyboardKey key) async {
+      await tester.sendKeyEvent(key);
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('کدام سرویس‌ها روی این تلویزیون باشد؟'), findsOneWidget);
+    expect(_focusedButton(), 'ادامه');
+    await press(LogicalKeyboardKey.arrowLeft);
+    expect(_focusedButton(), 'این حساب من نیست');
+    await press(LogicalKeyboardKey.arrowLeft);
+    expect(_focusedRow(), 'user1 · الماس');
+    await press(LogicalKeyboardKey.arrowDown);
+    await press(LogicalKeyboardKey.arrowDown);
+    await press(LogicalKeyboardKey.arrowDown);
+    expect(_focusedRow(), 'user4 · الماس');
+    await press(LogicalKeyboardKey.select);
+    expect(_ticks(tester), 4);
+    await press(LogicalKeyboardKey.arrowRight);
+    expect(_focusedButton(), 'ادامه');
+    await press(LogicalKeyboardKey.select);
+    verify(() => _signInOf(container).choose({11, 12, 13, 15})).called(1);
+
+    await press(LogicalKeyboardKey.arrowLeft);
+    await press(LogicalKeyboardKey.arrowLeft);
+    for (final row in ['user1', 'user2', 'user3', 'user4', 'user5']) {
+      if (row != 'user4') await press(LogicalKeyboardKey.select);
+      if (row != 'user5') await press(LogicalKeyboardKey.arrowDown);
+    }
+    expect(_ticks(tester), 0);
+    expect(find.text('دست‌کم یک سرویس را تیک بزن.'), findsOneWidget);
+    expect(_focusedRow(), 'user5 · الماس');
+    await press(LogicalKeyboardKey.arrowRight);
+    expect(_focusedButton(), 'این حساب من نیست');
+    await press(LogicalKeyboardKey.arrowRight);
+    expect(_focusedButton(), 'این حساب من نیست', reason: 'passes «ادامه» by');
+  });
+
+  testWidgets('in English the TV checklist mirrors: left from a service goes '
+      'to «Continue»', (tester) async {
+    await _pump(tester, tv: true, login: _choosing, language: 'en');
+    expect(find.text('Which services should this TV have?'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(_focusedRow(), 'user1 · الماس');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(_focusedButton(), 'Continue');
+  });
+
   testWidgets('sign-in shows the fox mark, not the letter, on the phone and '
       'the TV', (tester) async {
     for (final tv in [false, true]) {

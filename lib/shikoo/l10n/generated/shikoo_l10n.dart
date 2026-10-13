@@ -1088,6 +1088,18 @@ abstract class ShikooL10n {
   /// **'This phone is now linked to the Telegram account {account}, with these services:'**
   String approvedBodyTouch(String account);
 
+  /// approvedBodyTv when the account has one service, which the list under it shows.
+  ///
+  /// In en, this message translates to:
+  /// **'This TV is now linked to the Telegram account {account}, with this service:'**
+  String approvedBodyOneTv(String account);
+
+  /// No description provided for @approvedBodyOneTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone is now linked to the Telegram account {account}, with this service:'**
+  String approvedBodyOneTouch(String account);
+
   /// No description provided for @servicesComing.
   ///
   /// In en, this message translates to:
@@ -1465,6 +1477,54 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'{count, plural, =1{and 1 more service} other{and {count} more services}}'**
   String approvedMoreServices(int count);
+
+  /// Above the checklist, when the account has two services or more; one service keeps approvedBodyTouch and its list.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone is now linked to the Telegram account {account}.'**
+  String approvedBodyChooseTouch(String account);
+
+  /// No description provided for @approvedBodyChooseTv.
+  ///
+  /// In en, this message translates to:
+  /// **'This TV is now linked to the Telegram account {account}.'**
+  String approvedBodyChooseTv(String account);
+
+  /// No description provided for @chooseServicesTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Which services should this phone have?'**
+  String get chooseServicesTouch;
+
+  /// No description provided for @chooseServicesTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Which services should this TV have?'**
+  String get chooseServicesTv;
+
+  /// Under the checklist while nothing is ticked; continueButton is disabled meanwhile.
+  ///
+  /// In en, this message translates to:
+  /// **'Tick at least one service.'**
+  String get chooseAtLeastOne;
+
+  /// Settings, under the Account card, when some services were left out at sign-in; absent when the account has one service.
+  ///
+  /// In en, this message translates to:
+  /// **'{shown} of your account\'s {total} services are on this phone. To change them, sign out and sign in again.'**
+  String servicesHereTouch(int shown, int total);
+
+  /// Settings, under the Account card, when the account has two services or more and none was left out.
+  ///
+  /// In en, this message translates to:
+  /// **'All your account\'s services are on this phone. To change them, sign out and sign in again.'**
+  String get servicesAllHereTouch;
+
+  /// TV settings, under the Account card, when the account has two services or more; no count, so the column fits 540 dp.
+  ///
+  /// In en, this message translates to:
+  /// **'To change this TV\'s services, sign out and sign in again.'**
+  String get changeServicesTv;
 
   /// The button on Android's ongoing VPN notification.
   ///
