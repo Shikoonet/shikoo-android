@@ -1295,8 +1295,9 @@ void main() {
   });
 
   testWidgets('a long name has a row of its own, two lines at most, the font '
-      'at its smallest before any cut, and the status and buttons under it: '
-      'open or folded, in large text on a small phone and on the TV', (
+      'at its smallest before any cut, and the status and buttons under it, '
+      'the update time under them in full width when it does not fit: open '
+      'or folded, in large text on a small phone and on the TV', (
     tester,
   ) async {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -1384,6 +1385,16 @@ void main() {
             tester.getRect(under).top,
             greaterThanOrEqualTo(box.bottom),
             reason: '$where: $under under the name',
+          );
+        }
+        if (!isTV) {
+          final chip = tester.getRect(inside(find.byType(StatusChip)));
+          final sub = tester.getRect(inside(find.textContaining('به‌روز شد')));
+          expect(
+            sub.top >= chip.bottom &&
+                sub.left < tester.getRect(inside(ping)).right,
+            isTrue,
+            reason: '$where: the update time under the line, full width: $sub',
           );
         }
         final arrow = inside(

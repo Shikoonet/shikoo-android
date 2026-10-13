@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
 
@@ -431,7 +432,6 @@ class _FoldedServiceCardState extends State<FoldedServiceCard> {
               ),
               _StatusRow(
                 service: service,
-                height: t.s.button,
                 end: [
                   if (onPing != null)
                     ShikooButton(
@@ -520,18 +520,12 @@ class _NameLine extends StatelessWidget {
   );
 }
 
-/// `.svc-row`: the status, [text] and [end] on a line as tall as [end]'s buttons; [text] goes
-/// under the status when it does not fit beside them (`.is-narrow`).
+/// `.svc-row`: the status, [text] and [end]'s buttons on one line; [text] goes alone onto the next
+/// line, full width, when it does not fit between them (`.is-narrow`).
 class _StatusRow extends StatelessWidget {
-  const _StatusRow({
-    required this.service,
-    required this.height,
-    required this.end,
-    this.text,
-  });
+  const _StatusRow({required this.service, required this.end, this.text});
 
   final ShikooService service;
-  final double height;
   final List<Widget> end;
   final String? text;
 
@@ -539,43 +533,109 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final text = this.text;
-    final chip = service.usageKnown;
-    return Row(
-      crossAxisAlignment: chip
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
-      spacing: Space.s2,
+    return _RowOrUnder(
       children: [
-        Expanded(
-          child: Wrap(
-            spacing: Space.s2,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (chip)
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: end.isEmpty ? 0 : height,
-                  ),
-                  child: Align(
-                    widthFactor: 1,
-                    heightFactor: 1,
-                    child: StatusChip(status: service.statusAt(shikooNow())),
-                  ),
-                ),
-              if (text != null)
-                Text(
-                  text,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.text(t.s.bodySm, color: t.c.textMuted),
-                ),
-            ],
-          ),
-        ),
-        ...end,
+        if (service.usageKnown)
+          StatusChip(status: service.statusAt(shikooNow()))
+        else
+          const SizedBox.shrink(),
+        if (text != null)
+          Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: t.text(t.s.bodySm, color: t.c.textMuted),
+          )
+        else
+          const SizedBox.shrink(),
+        Row(mainAxisSize: MainAxisSize.min, spacing: Space.s2, children: end),
       ],
     );
   }
+}
+
+/// Lead and end on a line, centred on the taller; the middle child between them when its widest
+/// fits, else under them. Rows and Wraps cannot give the middle the full width only when it moves.
+class _RowOrUnder extends MultiChildRenderObjectWidget {
+  const _RowOrUnder({required super.children}) : assert(children.length == 3);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderRowOrUnder(Directionality.of(context));
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderRowOrUnder row) =>
+      row.direction = Directionality.of(context);
+}
+
+class _RenderRowOrUnder extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  _RenderRowOrUnder(this._direction);
+
+  TextDirection _direction;
+
+  set direction(TextDirection value) {
+    if (value == _direction) return;
+    _direction = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MultiChildLayoutParentData) {
+      child.parentData = MultiChildLayoutParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final [lead, middle, end] = getChildrenAsList();
+    final width = constraints.maxWidth;
+    lead.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
+    end.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
+    double gap(RenderBox box) => box.size.width > 0 ? Space.s2 : 0;
+    final room =
+        width - lead.size.width - gap(lead) - end.size.width - gap(end);
+    final inline = middle.getMaxIntrinsicWidth(double.infinity) <= room;
+    middle.layout(
+      BoxConstraints(maxWidth: inline ? room : width),
+      parentUsesSize: true,
+    );
+    final line = [
+      lead.size.height,
+      end.size.height,
+      if (inline) middle.size.height,
+    ].reduce(math.max);
+    void place(RenderBox box, double x, double y) =>
+        (box.parentData! as MultiChildLayoutParentData).offset = Offset(
+          _direction == TextDirection.rtl ? width - x - box.size.width : x,
+          y,
+        );
+    place(lead, 0, (line - lead.size.height) / 2);
+    place(end, width - end.size.width, (line - end.size.height) / 2);
+    if (inline) {
+      place(
+        middle,
+        lead.size.width + gap(lead),
+        (line - middle.size.height) / 2,
+      );
+    } else {
+      place(middle, 0, line);
+    }
+    size = constraints.constrain(
+      Size(width, inline ? line : line + middle.size.height),
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 String agoText(ShikooL10n l, Duration ago) {
@@ -703,12 +763,7 @@ class _Head extends StatelessWidget {
         _NameLine(service: service, arrow: isTV ? null : arrow),
         Padding(
           padding: EdgeInsetsDirectional.only(end: isTV ? 0 : Space.s4),
-          child: _StatusRow(
-            service: service,
-            height: isTV ? t.s.button : ShikooSizes.touch,
-            text: sub,
-            end: buttons,
-          ),
+          child: _StatusRow(service: service, text: sub, end: buttons),
         ),
       ],
     );
