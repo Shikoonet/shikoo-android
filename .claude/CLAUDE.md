@@ -33,10 +33,10 @@
   4. اگر رد شد، یک دور اصلاح با همان دستیار. اگر باز هم رد شد، از Sam بپرس.
   5. رهبر به شکل ساده به Sam گزارش می‌دهد (حافظه: explain-in-plain-words).
   6. **پاک‌کاری** (Sam، ۲۰۲۶-۱۰-۱۳؛ کلون‌های رهاشده و فایل‌های گوشی ساختگی در دو هفته حدود ۴۰۰ گیگ از درایو C گرفتند):
-     وقتی همهٔ کامیت‌های یک کار در گیت‌هاب یا کلون ویندوز بود، رهبر همهٔ پوشه‌های WSL آن کار را پاک می‌کند (فهرست: `ls -d ~/src/*<کار>*`، مثل `shikoo-<کار>`، `<کار>-ci`، `vfy-<کار>-mut`).
+     وقتی همهٔ کامیت‌های یک کار در گیت‌هاب یا کلون ویندوز بود، رهبر همهٔ پوشه‌های WSL آن کار را پاک می‌کند (فهرست: `ls -d ~/src/*<کار> ~/src/*<کار>-*`، مثل `shikoo-<کار>`، `<کار>-ci`، `vfy-<کار>-mut`).
      پیش از پاک کردن هر پوشه:
-     - `git status --short` خالی باشد.
-     - بعد از `git fetch origin` در کلون ویندوز، این دستور چیزی چاپ نکند: `for r in $(git -C <پوشه> rev-parse --branches HEAD); do git -C /mnt/d/Projects/ShikooNet/shikoo-android cat-file -e "$r^{commit}" || echo "$r"; done`
+     - `git status --short --ignore-submodules=dirty` خالی باشد. وصله‌های هسته (` m core/Clash.Meta`) را `tools/core-patches/apply.sh` دوباره می‌سازد.
+     - بعد از `git fetch origin` در کلون ویندوز، این دستور چیزی چاپ نکند: `for r in $(git -C <پوشه> rev-parse --branches HEAD); do git -C /mnt/d/Projects/ShikooNet/shikoo-android cat-file -e "$r^{commit}" 2>/dev/null || echo "$r"; done`
      - هیچ اسکریپتِ کارِ در جریان آن مسیر را نام نبرد: `grep -l "src/<نام>" ~/src/*.sh`
      - worktree را با `git worktree remove` پاک کن، نه `rm -rf`.
      جای پاک‌شده داخل WSL تا دیسک مجازی فشرده نشود به C برنمی‌گردد. فشرده کردن وقتی است که هیچ ساخت یا آزمونی در WSL در جریان نیست: `wsl --shutdown`، بعد فشرده‌سازی با اجازهٔ مدیر ویندوز.
