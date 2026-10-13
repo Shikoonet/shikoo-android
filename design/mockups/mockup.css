@@ -491,6 +491,45 @@ ul { list-style: none; }
 .tv-choose .actions { margin-top: var(--space-2); padding-bottom: 0; }
 .tv-choose .actions .btn { flex: none; }
 .tv .choose-q { font-size: var(--text-title); }
+
+/* ۲۵. نکته‌های ۲۱ مهر: افزودن سرویس با لینک، و ترتیب سرویس‌ها */
+.appbar-actions { display: flex; align-items: center; }
+.add-card {
+  display: flex; align-items: center; gap: var(--space-3); inline-size: 100%; padding: var(--space-4);
+  border-radius: var(--radius-lg); border: var(--border-width-control) dashed var(--color-outline);
+}
+.add-card .t { flex: 1; display: flex; flex-direction: column; font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.add-card small { font-size: var(--text-body-sm); font-weight: var(--font-weight-regular); color: var(--color-text-muted); }
+.svc-list-head { display: flex; align-items: center; justify-content: space-between; margin-block: calc(var(--space-2) * -1); }
+.svc-list-head h3 { font-size: var(--text-body); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); color: var(--color-text-muted); }
+/* برگهٔ پایین (فقط گوشی): از لبهٔ پایین بالا می‌آید؛ با دکمهٔ برگشت یا زدنِ بیرونش بسته می‌شود */
+.scrim.is-sheet { display: flex; align-items: flex-end; padding: 0; }
+.bottom-sheet {
+  inline-size: 100%; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-6) var(--space-10);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--color-surface); box-shadow: var(--shadow-raised);
+}
+.cards-stack .bottom-sheet { border-radius: var(--radius-lg); padding-bottom: var(--space-6); }
+.bottom-sheet .grab { align-self: center; inline-size: var(--space-8); block-size: var(--space-1); border-radius: var(--radius-full); background: var(--color-outline); }
+.bottom-sheet h2 { font-size: var(--text-title); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+.bottom-sheet .lead { font-size: var(--text-body-sm); line-height: var(--leading-body); color: var(--color-text-muted); }
+.bottom-sheet .notice { margin: 0; }
+.bottom-sheet .msg-action { margin-block: calc(var(--space-3) * -1); }
+.choose .row .chip { align-self: flex-start; margin-top: var(--space-1); }
+/* ترتیب: کارتِ در حال کشیدن (گوشی)، و کارتی که روی تلویزیون برداشته شده: پُر از رنگ اصلی با ▲▼، تا از سه متری با کارتِ فقط فوکوس‌دار فرق کند */
+.svc.is-dragging { background: var(--color-focus-bg); box-shadow: var(--shadow-raised); }
+.svc.is-picked { background: var(--color-picked-bg); color: var(--color-on-picked); box-shadow: var(--shadow-raised); }
+.svc.is-picked .icon { color: inherit; }
+.picked-marks { flex: none; display: flex; flex-direction: column; }
+.picked-marks .icon { margin-block: calc(var(--space-1) * -1); stroke-width: var(--icon-stroke-strong); }
+.svc.is-dragging { scale: 1.02; }
+.order-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.tv-order { inline-size: var(--size-pane); min-block-size: 0; display: flex; flex-direction: column; }
+.tv-order > .tv-col { flex: 1; }
+:is(.bottom-sheet, .svc-list-head, .alt-login) .btn { --size-button: var(--size-touch); }
+.alt-login .btn { align-self: stretch; }
+.order-list .svc-row { padding-bottom: var(--space-2); }
+.picked-hint { font-size: var(--text-body-sm); font-weight: var(--font-weight-bold); line-height: var(--leading-tight); }
+
 /* لایهٔ ارائه: برچسب گزینه‌ها */
 .pick { display: inline-block; margin-inline-end: 8px; padding: 0 12px; border-radius: var(--radius-full); font-size: 14px; color: var(--color-text); box-shadow: inset 0 0 0 var(--border-width) var(--color-outline); }
 .pick.is-mine { color: var(--color-bg); background: var(--color-text); box-shadow: none; }
