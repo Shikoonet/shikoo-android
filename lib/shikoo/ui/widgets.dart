@@ -115,7 +115,6 @@ class Pressable extends StatefulWidget {
 class _PressableState extends State<Pressable> {
   bool _highlight = false;
 
-  /// Its own node only: no ring round a surface while the remote is on a button inside it.
   bool get _focused =>
       _highlight && (widget.focusNode?.hasPrimaryFocus ?? true);
 

@@ -765,7 +765,7 @@ void main() {
     verify(() => controller.openService(null)).called(1);
   });
 
-  testWidgets('a card opened above the open one keeps its head under the '
+  testWidgets('a card opened below the open one keeps its top under the '
       'finger while the other folds', (tester) async {
     final controller = _Controller();
     final long = [
@@ -794,10 +794,20 @@ void main() {
       const Offset(0, -10000),
     );
     await tester.pumpAndSettle();
-    final before = tester.getTopLeft(head).dy;
+    double top() => tester
+        .getTopLeft(
+          find.ancestor(
+            of: head,
+            matching: find.byWidgetPredicate(
+              (w) => w is FoldedServiceCard || w is ServiceCard,
+            ),
+          ),
+        )
+        .dy;
+    final before = top();
     await tester.tap(head);
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(head).dy, closeTo(before, 0.5));
+    expect(top(), closeTo(before, 0.5));
   });
 
   testWidgets('on the TV each folded card is one stop; toward the cards the '
