@@ -477,9 +477,11 @@ class _Hint extends StatelessWidget {
           Expanded(
             child: Stack(
               children: [
-                Visibility.maintain(
-                  visible: false,
-                  child: Text(hidden, style: style),
+                ExcludeSemantics(
+                  child: Visibility.maintain(
+                    visible: false,
+                    child: Text(hidden, style: style),
+                  ),
                 ),
                 Text(shown, style: style),
               ],

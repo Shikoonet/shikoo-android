@@ -2159,6 +2159,7 @@ void main() {
       controller: controller,
     );
     expect(find.text(hint), findsOneWidget);
+    expect(find.bySemanticsLabel(now), findsNothing, reason: 'held room only');
     expect(
       tester
           .widgetList<ServerRow>(find.byType(ServerRow))
