@@ -39,6 +39,8 @@ const _servers = [
   ShikooServer(name: 'آلمان ۱', type: 'Vless', ping: 142),
 ];
 
+final _today = DateTime(2026, 10, 16, 12);
+
 ShikooState _phone({
   List<ShikooServer> servers = _servers,
   bool isTV = false,
@@ -137,6 +139,10 @@ List<String> _rowOrder(WidgetTester tester) => [
 ];
 
 void main() {
+  // As in the app: expiry counts on shikooNow(), updatedAt on DateTime.now().
+  setUp(() => shikooSkew = _today.difference(DateTime.now()));
+  tearDown(() => shikooSkew = Duration.zero);
+
   testWidgets('on the phone renew and support open Telegram with no QR icon, '
       'and the update is an icon alone', (tester) async {
     await _pump(tester, _phone());
@@ -916,7 +922,7 @@ void main() {
     });
     expect(spans.single.style?.color, ShikooColors.light.danger);
 
-    final lastMonth = DateTime.now().subtract(const Duration(days: 20));
+    final lastMonth = shikooNow().subtract(const Duration(days: 20));
     await _pump(
       tester,
       ended(
@@ -1107,7 +1113,7 @@ void main() {
 
   test('while off, a selection that cannot connect gives way to one that can, '
       'or with none to the one that ended last', () {
-    final now = DateTime.now();
+    final now = shikooNow();
     ShikooState state(
       ShikooService current,
       List<ShikooService> others, {
@@ -1164,7 +1170,7 @@ void main() {
       'the customer, and every finished one in one folded row at the end', (
     tester,
   ) async {
-    final now = DateTime.now();
+    final now = shikooNow();
     ShikooService service(
       int id,
       String name, {
@@ -1276,7 +1282,7 @@ void main() {
 
   testWidgets('with nothing to connect, the service of the full card is never '
       'in the finished row too, and the row counts the rest', (tester) async {
-    final now = DateTime.now();
+    final now = shikooNow();
     ShikooService ended(
       int id,
       String name, {
@@ -1388,7 +1394,7 @@ void main() {
 
   testWidgets('an ended service of the account counts by its status and its '
       'expires_at; one on hold is waiting, whatever its date', (tester) async {
-    final now = DateTime.now().toUtc();
+    final now = shikooNow().toUtc();
     LinkedService linked(int id, String status, {int? daysAgo}) =>
         LinkedService(
           id: id,
@@ -1485,7 +1491,7 @@ void main() {
   testWidgets('a finished row the door says the bot will not renew has '
       'support, on this device or not; one it will renew, or one it says '
       'nothing of, keeps renewal', (tester) async {
-    final lastMonth = DateTime.now().subtract(const Duration(days: 20));
+    final lastMonth = shikooNow().subtract(const Duration(days: 20));
     ShikooService device(int id) => ShikooService(
       id: id,
       name: 'dev$id · طلایی',
@@ -1717,7 +1723,7 @@ void main() {
       'whatever its date; hidden only 30 days after a past one', (
     tester,
   ) async {
-    final now = DateTime.now().toUtc();
+    final now = shikooNow().toUtc();
     await _pump(
       tester,
       _phone(),
@@ -1760,7 +1766,7 @@ void main() {
 
   testWidgets('a finished row opened at the end of the page scrolls itself '
       'into view', (tester) async {
-    final now = DateTime.now();
+    final now = shikooNow();
     await _pump(
       tester,
       ShikooState(
@@ -1797,7 +1803,7 @@ void main() {
   ) async {
     tester.platformDispatcher.textScaleFactorTestValue = 1.45;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    final now = DateTime.now();
+    final now = shikooNow();
     await _pump(
       tester,
       ShikooState(
@@ -1812,7 +1818,7 @@ void main() {
           usedBytes: 12 << 30,
           totalBytes: 50 << 30,
           expire: now.add(const Duration(days: 67)),
-          updatedAt: now,
+          updatedAt: DateTime.now(),
         ),
         others: [
           ShikooService(
@@ -1883,7 +1889,7 @@ void main() {
   ) async {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     const tier = '🥇سرویس تیتانیوم - مولتی لوکیشن🎯';
-    final now = DateTime.now();
+    final now = shikooNow();
     for (final isTV in [false, true]) {
       tester.platformDispatcher.textScaleFactorTestValue = isTV ? 1 : 1.45;
       await _pump(
@@ -1900,7 +1906,7 @@ void main() {
             usedBytes: 41 << 30,
             totalBytes: 200 << 30,
             expire: now.add(const Duration(days: 30)),
-            updatedAt: now,
+            updatedAt: DateTime.now(),
           ),
           others: [
             ShikooService(
@@ -1909,7 +1915,7 @@ void main() {
               usedBytes: 88 << 30,
               totalBytes: 200 << 30,
               expire: now.add(const Duration(days: 79)),
-              updatedAt: now,
+              updatedAt: DateTime.now(),
             ),
           ],
           open: 1,
