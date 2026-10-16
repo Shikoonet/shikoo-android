@@ -77,6 +77,7 @@ class ServiceCard extends StatefulWidget {
     required this.focus,
     this.serviceId,
     this.bot,
+    this.renews = true,
     this.other = false,
     this.inUse,
     this.onFold,
@@ -89,6 +90,7 @@ class ServiceCard extends StatefulWidget {
   /// The bot's id for the service, once sign-in brought it: renew opens that service alone.
   final int? serviceId;
   final String? bot;
+  final bool renews;
 
   /// [state] is another service's, opened while the connection is on the one in use.
   final bool other;
@@ -138,6 +140,7 @@ class _ServiceCardState extends State<ServiceCard> {
     final service = state.service;
     final notice = state.notice;
     final revoked = service?.revoked ?? false;
+    final supportOnly = !revoked && !widget.renews;
     final busy = {
       ShikooConnection.on,
       ShikooConnection.connecting,
@@ -303,7 +306,7 @@ class _ServiceCardState extends State<ServiceCard> {
                             ),
                           ),
                         )
-                      else
+                      else if (!supportOnly)
                         Expanded(
                           child: ShikooButton(
                             label: l.renew,
@@ -333,7 +336,7 @@ class _ServiceCardState extends State<ServiceCard> {
                             },
                           ),
                         ),
-                      const SizedBox(width: Space.s2),
+                      if (!supportOnly) const SizedBox(width: Space.s2),
                       Expanded(
                         child: ShikooButton(
                           label: l.support,

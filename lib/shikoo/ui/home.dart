@@ -25,8 +25,6 @@ import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-bool _renews(Finished row) => row.linked?.renews ?? true;
-
 String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   final ended = row.ended;
   if (row.linked?.disabled ?? false) return l.finishedDisabled;
@@ -68,7 +66,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _inUse = FocusNode();
   final _scroll = ScrollController();
   final _cards = <int, GlobalKey>{};
-  (int?, bool, bool)? _shown;
+  (int?, bool, bool, bool)? _shown;
 
   /// The only card, folded by its arrow; two cards or more fold and open as the controller says.
   bool _folded = false;
@@ -242,9 +240,13 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   }
 
   /// So the remote never stays on a button that just went away or went dead.
-  void _focusFirst(ShikooState state, {required bool linkless}) {
+  void _focusFirst(
+    ShikooState state, {
+    required bool linkless,
+    required bool renews,
+  }) {
     final service = state.service;
-    final shown = (service?.id, restingFor(state) != null, linkless);
+    final shown = (service?.id, restingFor(state) != null, linkless, renews);
     if (!state.isTV || shown == _shown) return;
     final focused = FocusManager.instance.primaryFocus;
     // The open card became the one in use, by a server pressed there: the remote stays on it.
@@ -256,9 +258,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         _onScreen(focused);
     _shown = shown;
     if (stays) return;
+    final resting = renews ? _card.renew : _card.support;
     final first = linkless
         ? _linkless
-        : (service == null ? _settings : (shown.$2 ? _card.renew : _power));
+        : (service == null ? _settings : (shown.$2 ? resting : _power));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
         first.requestFocus();
@@ -329,12 +332,14 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         if (!linked.finished) linked,
     ];
     final first = linkedTop ?? (hasService ? null : noLink.firstOrNull);
-    _focusFirst(state, linkless: first != null);
+    final renews = account.renewsOn(current?.id);
+    _focusFirst(state, linkless: first != null, renews: renews);
     _onOpened(state);
     final power = _PowerZone(
       state: state,
       controller: controller,
       focusNode: _power,
+      renews: renews,
       restingLabel: switch (first) {
         null => null,
         LinkedService(status: 'exhausted') => l.stateExhausted,
@@ -390,6 +395,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                 focus: _card,
                 serviceId: account.serviceOf(service.id),
                 bot: account.bot,
+                renews: account.renewsOn(service.id),
                 other: !inUse,
                 inUse: mark,
                 onFold: state.isTV
@@ -429,7 +435,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         for (final linked in noLink) linkless(linked),
         for (final service in revoked) serviceCard(service),
         if (rows.isNotEmpty)
-          _FinishedServices(rows: rows, bot: account.bot, isTV: state.isTV),
+          _FinishedServices(rows: rows, account: account, isTV: state.isTV),
       ],
     );
     final towardCard = state.selected ?? state.servers.firstOrNull?.name;
@@ -754,6 +760,7 @@ class _PowerZone extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.focusNode,
+    required this.renews,
     this.restingLabel,
     this.restingMessage,
     this.checked = false,
@@ -762,6 +769,7 @@ class _PowerZone extends StatelessWidget {
   final ShikooState state;
   final ShikooController controller;
   final FocusNode focusNode;
+  final bool renews;
   final String? restingLabel;
   final String? restingMessage;
 
@@ -809,7 +817,7 @@ class _PowerZone extends StatelessWidget {
         : shift.stage == ShikooSwitchStage.failed;
     final message = switch (state.lastError) {
       _ when resting == ShikooServiceStatus.revoked => null,
-      _ when resting != null => l.renewToConnect,
+      _ when resting != null => renews ? l.renewToConnect : null,
       ShikooError.connectTimeout =>
         (state.isTV ? l.errorConnect : l.errorConnectTouch)(
           serverName(selected?.name ?? ''),
@@ -1140,12 +1148,12 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
 class _FinishedServices extends StatefulWidget {
   const _FinishedServices({
     required this.rows,
-    required this.bot,
+    required this.account,
     required this.isTV,
   });
 
   final List<Finished> rows;
-  final String? bot;
+  final ShikooAccount account;
   final bool isTV;
 
   @override
@@ -1180,6 +1188,9 @@ class _FinishedServicesState extends State<_FinishedServices> {
     });
   }
 
+  bool _renews(Finished row) =>
+      row.linked?.renews ?? widget.account.renewsOn(row.profileId);
+
   void _renew(Finished row) {
     if (!_renews(row)) {
       unawaited(
@@ -1200,7 +1211,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
       isTV: widget.isTV,
       link: id == null
           ? ShikooLinks.renew
-          : ShikooLinks.renewOne(id, widget.bot),
+          : ShikooLinks.renewOne(id, widget.account.bot),
       title: l.renewTitle,
       help: id == null ? l.renewHelpList : l.renewHelpDirect,
       below: id == null ? l.renewPickInList(bidiName(user)) : null,

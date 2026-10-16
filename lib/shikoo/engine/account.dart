@@ -104,12 +104,13 @@ class LinkedService {
   /// The door's answer by the bot's own renewal rule; null from a door older than it.
   final bool? renewable;
 
+  bool get botRenews => renewable != false;
+
   bool get finished => finishedStatuses.contains(status);
 
   /// The bot renews a disabled service but not a removed one, and a failed one never ran.
   bool get renews =>
-      renewable != false &&
-      const {'expired', 'exhausted', 'disabled'}.contains(status);
+      botRenews && const {'expired', 'exhausted', 'disabled'}.contains(status);
 
   /// Turned off by the shop, maybe before its end date: no «ended N days ago».
   bool get disabled => const {'removed', 'disabled', 'failed'}.contains(status);
@@ -181,9 +182,13 @@ class ShikooAccount {
       if (service.profileId == null) service,
   ];
 
-  int? serviceOf(int? profileId) => profileId == null
+  LinkedService? _linked(int? profileId) => profileId == null
       ? null
-      : services.firstWhereOrNull((s) => s.profileId == profileId)?.id;
+      : services.firstWhereOrNull((s) => s.profileId == profileId);
+
+  int? serviceOf(int? profileId) => _linked(profileId)?.id;
+
+  bool renewsOn(int? profileId) => _linked(profileId)?.botRenews ?? true;
 }
 
 final shikooAccountProvider =
@@ -641,7 +646,10 @@ class ShikooSignIn {
                   profileId: s['profileId'] as int?,
                   expiresAt: DateTime.tryParse(s['expiresAt'] as String? ?? ''),
                   loadFailed: s['loadFailed'] == true,
-                  renewable: s['renewable'] as bool?,
+                  renewable: switch (s['renewable']) {
+                    final bool renewable => renewable,
+                    _ => null,
+                  },
                 ),
             ],
             total: json['total'] as int? ?? 0,

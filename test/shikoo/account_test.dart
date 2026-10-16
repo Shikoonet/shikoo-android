@@ -792,14 +792,33 @@ void main() {
         _service(4, 'oldGone', status: 'removed', noUrl: true),
         said(_service(5, 'junk', status: 'disabled', noUrl: true), 'false'),
         said(_service(6, 'zero', status: 'exhausted', noUrl: true), 0),
+        said(_service(7, 'gone', status: 'removed', noUrl: true), true),
+        said(_service(8, 'running', status: 'active', noUrl: true), true),
       ];
       await _signedIn(h);
-      const renews = {1: false, 2: true, 3: true, 4: false, 5: true, 6: true};
+      const renews = {
+        1: false,
+        2: true,
+        3: true,
+        4: false,
+        5: true,
+        6: true,
+        7: false,
+        8: false,
+      };
       Map<int, bool> renewsIn(ProviderContainer container) => {
         for (final s in container.read(shikooAccountProvider).services)
           s.id: s.renews,
       };
       expect(renewsIn(h.container), renews);
+      final prefs = await SharedPreferences.getInstance();
+      final stored =
+          jsonDecode(prefs.getString('shikoo.account')!)
+              as Map<String, dynamic>;
+      for (final s in stored['services'] as List) {
+        (s as Map<String, dynamic>)['renewable'] ??= 'yes';
+      }
+      await prefs.setString('shikoo.account', jsonEncode(stored));
 
       final restarted = ProviderContainer(
         overrides: [
@@ -814,7 +833,11 @@ void main() {
       );
       addTearDown(restarted.dispose);
       await restarted.read(shikooSignInProvider).load();
-      expect(renewsIn(restarted), renews, reason: 'offline restart');
+      expect(
+        renewsIn(restarted),
+        renews,
+        reason: 'offline restart, junk where nothing was stored',
+      );
     });
 
     test(
