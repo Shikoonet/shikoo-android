@@ -247,6 +247,41 @@ void main() {
     expect(wrong, isEmpty);
   });
 
+  testWidgets('back from another app with no focus left, the remote is on '
+      'connect again; a focus that stayed is kept (#32)', (tester) async {
+    _tvScreen(tester);
+    await _pumpTvHome(tester, _tv(ShikooConnection.on));
+    await tester.pumpAndSettle();
+    expect(_focused(), 'power');
+    Future<void> awayAndBack({required bool focusLost}) async {
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      if (focusLost) FocusManager.instance.rootScope.requestScopeFocus();
+      await tester.pump();
+      for (final state in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+    }
+
+    await _focus(tester, 'هلند ۱');
+    await awayAndBack(focusLost: true);
+    expect(_focused(), 'power', reason: 'as on the box: nothing was focused');
+
+    await _focus(tester, 'هلند ۱');
+    await awayAndBack(focusLost: false);
+    expect(_focused(), 'هلند ۱');
+  });
+
   testWidgets('with no server chosen, the remote goes to the first row; the '
       'pill rests, and spins only while connect waits', (tester) async {
     _tvScreen(tester);

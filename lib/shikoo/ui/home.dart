@@ -80,8 +80,26 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   /// From the bar's top to the screen's bottom, so the list can end above it.
   double _room = 0;
 
+  late final AppLifecycleListener _resume;
+
+  @override
+  void initState() {
+    super.initState();
+    _resume = AppLifecycleListener(onResume: _refocus);
+  }
+
+  /// Back from another app the box can hold no focus at all, and the next key then lands in
+  /// the list: the remote starts again where it does on opening.
+  void _refocus() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    final focused = FocusManager.instance.primaryFocus;
+    if (!mounted || !ref.read(shikooStateProvider).isTV) return;
+    if (focused is! FocusScopeNode && _onScreen(focused)) return;
+    setState(() => _shown = null);
+  });
+
   @override
   void dispose() {
+    _resume.dispose();
     _card.dispose();
     _power.dispose();
     _settings.dispose();
