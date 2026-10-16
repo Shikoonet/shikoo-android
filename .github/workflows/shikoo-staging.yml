@@ -10,8 +10,9 @@ on:
 permissions:
   contents: read
 
+# a dispatch from another branch is a dry run: it must neither wait behind nor cancel a pending release or promote
 concurrency:
-  group: shikoo-release
+  group: ${{ github.ref == 'refs/heads/main' && 'shikoo-release' || format('shikoo-dry-run-{0}', github.ref) }}
   cancel-in-progress: false
 
 env:
@@ -28,7 +29,7 @@ env:
   STAGING_CERT_DN: CN=ShikooNet Staging
 
 jobs:
-  build:
+  commit:
     if: >-
       (github.event_name == 'workflow_run'
         && github.event.workflow_run.conclusion == 'success'
@@ -36,11 +37,15 @@ jobs:
         && github.event.workflow_run.head_branch == 'main')
       || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 10
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
+      vn: ${{ steps.commit.outputs.vn }}
+      publish: ${{ steps.commit.outputs.publish }}
+      api: ${{ steps.server.outputs.api }}
+      bot: ${{ steps.server.outputs.bot }}
     permissions:
-      contents: write
+      contents: read
       actions: read
       pull-requests: read
     steps:
@@ -53,9 +58,11 @@ jobs:
           REF: ${{ github.ref }}
         run: |
           set -euo pipefail
+          vn=$VERSION_PREFIX.$GITHUB_RUN_NUMBER
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$REF" != refs/heads/main ]; then
-            echo "::error::Shikoo Staging runs from refs/heads/main; this dispatch came from $REF"
-            exit 1
+            echo "::notice::dry run from $REF: builds and checks $GITHUB_SHA, publishes nothing"
+            printf 'sha=%s\nvn=%s\npublish=false\n' "$GITHUB_SHA" "$vn" >>"$GITHUB_OUTPUT"
+            exit 0
           fi
           sha=${RUN_SHA:-$(gh api "repos/$GH_REPO/commits/main" --jq .sha)}
           gh run list --workflow shikoo-ci.yml --commit "$sha" --branch main --event push --status success \
@@ -63,9 +70,36 @@ jobs:
             { echo "::error::CI has not passed on $sha as a push to main"; exit 1; }
           [ "$(gh api "repos/$GH_REPO/commits/$sha/pulls" --jq '[.[] | select(.merged_at)] | length')" -gt 0 ] ||
             { echo "::error::$sha came from no merged pull request; a direct push to main is not released"; exit 1; }
-          echo "sha=$sha" >>"$GITHUB_OUTPUT"
-          printf 'SHA=%s\nVN=%s\n' "$sha" "$VERSION_PREFIX.$GITHUB_RUN_NUMBER" >>"$GITHUB_ENV"
+          printf 'sha=%s\nvn=%s\npublish=true\n' "$sha" "$vn" >>"$GITHUB_OUTPUT"
 
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.commit.outputs.sha }}
+          persist-credentials: false
+
+      - id: server
+        name: The app takes its server and bot from the build, and staging points away from production
+        run: |
+          set -euo pipefail
+          for key in SHIKOO_API SHIKOO_BOT; do
+            grep -rqzP "fromEnvironment\s*\(\s*'$key'" lib/shikoo ||
+              { echo "::error::lib/shikoo does not read $key from the build"; exit 1; }
+          done
+          api=${STAGING_API%/} bot=${STAGING_BOT#@}
+          [ "${api,,}" != "${PRODUCTION_API,,}" ] && [ "${bot,,}" != "${PRODUCTION_BOT,,}" ] ||
+            { echo "::error::staging must not point at the production server or bot"; exit 1; }
+          printf 'api=%s\nbot=%s\n' "$api" "$bot" >>"$GITHUB_OUTPUT"
+
+  build:
+    needs: commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        flavor: [staging, production]
+    env:
+      VN: ${{ needs.commit.outputs.vn }}
+    steps:
       - name: Free disk space, which one cold Android build overruns on a hosted runner (run 37618279233)
         run: |
           df -h /
@@ -76,30 +110,31 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.commit.outputs.sha }}
+          ref: ${{ needs.commit.outputs.sha }}
           submodules: recursive
           persist-credentials: false
 
       - run: bash tools/core-patches/apply.sh
-
-      - name: The app takes its server and bot from the build, and staging points away from production
-        run: |
-          set -euo pipefail
-          for key in SHIKOO_API SHIKOO_BOT; do
-            grep -rqzP "fromEnvironment\s*\(\s*'$key'" lib/shikoo ||
-              { echo "::error::lib/shikoo does not read $key from the build"; exit 1; }
-          done
-          api=${STAGING_API%/} bot=${STAGING_BOT#@}
-          [ "${api,,}" != "${PRODUCTION_API,,}" ] && [ "${bot,,}" != "${PRODUCTION_BOT,,}" ] ||
-            { echo "::error::staging must not point at the production server or bot"; exit 1; }
-          printf 'API=%s\nBOT=%s\n' "$api" "$bot" >>"$GITHUB_ENV"
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: core/go.sum
 
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # staging builds every ABI production does and x86_64 too, so only its cache is saved
+      - if: matrix.flavor == 'staging'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            .dart_tool/hooks_runner
+            .dart_tool/setup_build_cache
+            libclash
+          key: native-${{ hashFiles('core/**', 'build_config.yaml', 'plugins/setup/**', 'plugins/rust_api/rust/**') }}
+          restore-keys: native-
+
+      - if: matrix.flavor == 'production'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -128,8 +163,11 @@ jobs:
 
       # no keystore.jks yet, so FlClash's gradle signs with the debug config and adds the .dev suffix
       - name: Staging APKs
+        if: matrix.flavor == 'staging'
         env:
           STAGING_KEYSTORE_B64: ${{ secrets.SHIKOO_STAGING_KEYSTORE_B64 }}
+          API: ${{ needs.commit.outputs.api }}
+          BOT: ${{ needs.commit.outputs.bot }}
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
           # AGP takes its debug keystore from here first; unset, from $XDG_CONFIG_HOME/.android, which the image sets
           ANDROID_USER_HOME: ${{ runner.temp }}/android-user
@@ -146,6 +184,7 @@ jobs:
           done
 
       - name: Production APKs
+        if: matrix.flavor == 'production'
         env:
           KEYSTORE_B64: ${{ secrets.SHIKOO_RELEASE_KEYSTORE_B64 }}
           STORE_PASSWORD: ${{ secrets.SHIKOO_RELEASE_STORE_PASSWORD }}
@@ -158,6 +197,7 @@ jobs:
             echo "::warning::no release key yet (SHIKOO_RELEASE_KEYSTORE_B64): staging only, nothing to promote"
             exit 0
           fi
+          mkdir -p out
           base64 -d <<<"$KEYSTORE_B64" >android/app/keystore.jks
           printf '\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" >>android/local.properties
           flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm,android-arm64 \
@@ -169,6 +209,36 @@ jobs:
       - name: Forget the keys
         if: always()
         run: rm -rf android/app/keystore.jks android/local.properties "$RUNNER_TEMP/android-user"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: apks-${{ matrix.flavor }}
+          path: out/*.apk
+          retention-days: 1
+          compression-level: 0
+
+  release:
+    needs: [commit, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: write
+    env:
+      SHA: ${{ needs.commit.outputs.sha }}
+      VN: ${{ needs.commit.outputs.vn }}
+      API: ${{ needs.commit.outputs.api }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.commit.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: apks-*
+          merge-multiple: true
+          path: out
 
       - name: Check every APK, and record what was built
         run: |
@@ -210,6 +280,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY" >out/NOTES.md
 
       - name: Staging pre-release
+        if: needs.commit.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -217,14 +288,27 @@ jobs:
           gh release create "staging-$VN" out/*.apk out/SHA256SUMS --prerelease \
             --target "$SHA" --title "ShikooNet $VN (staging)" --notes-file out/NOTES.md
 
+      # the production APKs are signed with the release key; past this job only the pre-release keeps them
+      - name: Forget the APKs handed between jobs
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[].id' |
+            xargs -r -I{} gh api -X DELETE "repos/$GH_REPO/actions/artifacts/{}"
+
   door:
-    needs: build
+    needs: [commit, release]
+    if: needs.commit.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    environment: staging
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.build.outputs.sha }}
+          ref: ${{ needs.commit.outputs.sha }}
           persist-credentials: false
 
       - name: The staging APKs of this run, to the staging door
