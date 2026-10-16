@@ -302,6 +302,9 @@ NotifierProvider<ShikooCell<T>, T> _cell<T>(T initial) =>
 
 final _intentProvider = _cell(const _Intent());
 
+/// A server chosen while another change is in the core, shown until its own is sent.
+final _wantedProvider = _cell<String?>(null);
+
 typedef _Round = ({Set<String> pending, int total, bool ended});
 
 const _Round _noRound = (pending: <String>{}, total: 0, ended: false);
@@ -503,7 +506,8 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final byName = {for (final proxy in _serversOf(group)) proxy.name: proxy};
   final chosen = group == null
       ? null
-      : ref.watch(selectedMapProvider)[group.name];
+      : ref.watch(_wantedProvider) ??
+            ref.watch(selectedMapProvider)[group.name];
   final selected = byName.containsKey(chosen) ? chosen : null;
   final switching = ref.watch(_switchProvider);
   final switchService = ref.watch(_switchServiceProvider);
@@ -869,6 +873,7 @@ class ShikooController {
 
   /// The core runs each change on its own goroutine: two at once may land in either order.
   Future<void>? _changing;
+  String? _pickInCore;
   Timer? _switched;
   String? _awaiting;
   DateTime _awaitingUntil = DateTime(0);
@@ -1226,19 +1231,25 @@ class ShikooController {
     final group = _group;
     if (group == null) return;
     final no = ++_chooseNo;
+    if (_changing == null) _pickInCore = _appPick;
+    if (byApp != null) _pickedByApp(byApp ? name : null);
+    final pick = _appPick;
+    final wanted = _ref.read(_wantedProvider.notifier);
     if (_changing case final earlier?) {
+      wanted.set(name);
       await earlier;
       if (no != _chooseNo) return;
     }
-    final pick = _appPick;
-    if (byApp != null) _pickedByApp(byApp ? name : null);
-    await (_changing = _proxies
+    final change = _changing = _proxies
         .changeProxy(groupName: group.name, proxyName: name)
-        .whenComplete(() => _changing = null));
+        .whenComplete(() => _changing = null);
+    wanted.set(null);
+    await change;
     _proxies.updateGroupsDebounce();
     final applied = _ref.read(selectedProxyNameProvider(group.name)) == name;
-    if (!applied) _pickedByApp(pick);
+    if (applied) _pickInCore = pick;
     if (no != _chooseNo) return;
+    if (!applied) _pickedByApp(_pickInCore);
     final intent = _ref.read(_intentProvider);
     final error = applied ? null : ShikooError.serverChange;
     if (intent.waiting && _validSelection() != null) {
@@ -1284,7 +1295,6 @@ class ShikooController {
     }
     final removed = _removed;
     _removed = null;
-    // changeProxy writes the selection before it awaits, so a second call sees it.
     unawaited(_choose(best, byApp: true));
     if (removed != null) {
       _checkNext |= running;

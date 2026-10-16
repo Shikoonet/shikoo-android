@@ -695,6 +695,101 @@ void main() {
     expect(container.read(shikooStateProvider).selected, 'فنلاند ۱');
   });
 
+  test("a server the customer taps while the app's change is still in the "
+      'core shows at once and stays when an ordinary server answers after, '
+      'usage-multiplier or not (#29)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    const three = 'NL 3 x ضریب مصرف';
+    for (final tapped in [three, 'آلمان ۱']) {
+      final (:container, :core, :proxies, :setup) = _home();
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: four, type: 'Vless'),
+            Proxy(name: three, type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+            Proxy(name: 'آلمان ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      final netherlands = Completer<void>();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        if (name == 'هلند ۱') await netherlands.future;
+        final ms = {four: 60, 'هلند ۱': 70}[name] ?? -1;
+        return Delay(name: name, url: '', value: ms);
+      });
+      final held = proxies.gates[four] = Completer();
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      unawaited(controller.connect());
+      await pumpEventQueue();
+
+      unawaited(controller.selectServer(tapped));
+      await pumpEventQueue();
+      expect(container.read(shikooStateProvider).selected, tapped);
+      netherlands.complete();
+      await pumpEventQueue();
+      held.complete();
+      await pumpEventQueue();
+      final prefs = await SharedPreferences.getInstance();
+      expect(proxies.picked, [four, tapped], reason: tapped);
+      expect(container.read(shikooStateProvider).selected, tapped);
+      expect(prefs.getString('shikoo.appPicks'), '{}', reason: 'a hand pick');
+      expect(setup.runs, [true]);
+
+      await controller.disconnect();
+    }
+  });
+
+  test('the first ordinary server to answer takes over from a '
+      'usage-multiplier first answer still in the core; one answering later '
+      'changes nothing (#29)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: four, type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    final answers = {'هلند ۱': Completer<void>(), 'آلمان ۱': Completer<void>()};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      await answers[name]?.future;
+      return Delay(name: name, url: '', value: name == four ? 60 : 50);
+    });
+    final held = proxies.gates[four] = Completer();
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    unawaited(controller.connect());
+    await pumpEventQueue();
+
+    for (final answer in answers.values) {
+      answer.complete();
+      await pumpEventQueue();
+    }
+    expect(container.read(shikooStateProvider).selected, 'هلند ۱');
+    held.complete();
+    await pumpEventQueue();
+    final id = container.read(currentProfileIdProvider);
+    final prefs = await SharedPreferences.getInstance();
+    expect(proxies.picked, [four, 'هلند ۱']);
+    expect(container.read(shikooStateProvider).selected, 'هلند ۱');
+    expect(prefs.getString('shikoo.appPicks'), '{"$id":"هلند ۱"}');
+
+    await controller.disconnect();
+  });
+
   test('the app keeps its own pick across rounds: no change while only '
       'usage-multiplier servers answer, and the ordinary server it moves to '
       'is replaced when it goes silent (#29)', () async {
