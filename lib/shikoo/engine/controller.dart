@@ -866,6 +866,9 @@ class ShikooController {
 
   int _tap = 0;
   int _chooseNo = 0;
+
+  /// The core runs each change on its own goroutine: two at once may land in either order.
+  Future<void>? _changing;
   Timer? _switched;
   String? _awaiting;
   DateTime _awaitingUntil = DateTime(0);
@@ -1109,8 +1112,7 @@ class ShikooController {
       return _switchTo(name, from, tap, other);
     }
     if (other != null) return _moveTo(other, name);
-    _pickedByApp(null);
-    await _choose(name);
+    await _choose(name, byApp: false);
     if (connected) await _checkSelected();
   }
 
@@ -1218,25 +1220,35 @@ class ShikooController {
     });
   }
 
-  Future<void> _choose(String name) async {
+  Future<void> _choose(String name, {bool? byApp}) async {
     final group = _group;
     if (group == null) return;
     final no = ++_chooseNo;
-    await _proxies.changeProxy(groupName: group.name, proxyName: name);
-    _proxies.updateGroupsDebounce();
-    // Only the newest change speaks: the core answers each on its own goroutine, in any order.
-    if (no != _chooseNo) return;
-    final applied = _ref.read(selectedProxyNameProvider(group.name)) == name;
-    final intent = _ref.read(_intentProvider);
-    if (applied && intent.waiting) {
-      // Up already, as after a switch of service: the answer takes the traffic, no new start.
-      return _running ? _set(const _Intent()) : unawaited(_start());
+    if (_changing case final earlier?) {
+      await earlier;
+      if (no != _chooseNo) return;
     }
+    final pick = _appPick;
+    if (byApp != null) _pickedByApp(byApp ? name : null);
+    await (_changing = _proxies
+        .changeProxy(groupName: group.name, proxyName: name)
+        .whenComplete(() => _changing = null));
+    _proxies.updateGroupsDebounce();
+    final applied = _ref.read(selectedProxyNameProvider(group.name)) == name;
+    if (!applied) _pickedByApp(pick);
+    if (no != _chooseNo) return;
+    final intent = _ref.read(_intentProvider);
+    final error = applied ? null : ShikooError.serverChange;
+    if (intent.waiting && _validSelection() != null) {
+      // Up already, as after a switch of service: the answer takes the traffic, no new start.
+      return _running ? _set(_Intent(error: error)) : unawaited(_start());
+    }
+    final waiting = intent.waiting && _pinging;
     _set(
       _Intent(
-        connecting: intent.connecting,
-        waiting: intent.waiting,
-        error: applied ? null : ShikooError.serverChange,
+        connecting: intent.waiting ? waiting : intent.connecting,
+        waiting: waiting,
+        error: error,
       ),
     );
   }
@@ -1270,9 +1282,8 @@ class ShikooController {
     }
     final removed = _removed;
     _removed = null;
-    _pickedByApp(best);
     // changeProxy writes the selection before it awaits, so a second call sees it.
-    unawaited(_choose(best));
+    unawaited(_choose(best, byApp: true));
     if (removed != null) {
       _checkNext |= running;
       _notice(
@@ -1403,17 +1414,14 @@ class ShikooController {
     });
   }
 
-  /// The app's own usage-multiplier pick gives way to an ordinary [to]; a user's own stays.
   bool _leaveMultiplied(String? to) {
     final chosen = _validSelection();
     if (to == null || multiplied(to) || chosen == null) return false;
     if (chosen != _appPick || !multiplied(chosen)) return false;
-    _pickedByApp(to);
-    unawaited(_choose(to));
+    unawaited(_choose(to, byApp: true));
     return true;
   }
 
-  /// Connect searches as for a new customer instead of starting on the app's own multiplied pick.
   void _setAsideMultiplied() {
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick || !multiplied(chosen)) return;
@@ -1435,8 +1443,7 @@ class ShikooController {
     if (_validSelection() != chosen) return;
     final best = fastest(_names(_group), _ping);
     if (best == null) return;
-    _pickedByApp(best);
-    unawaited(_choose(best));
+    unawaited(_choose(best, byApp: true));
     _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
   }
 
