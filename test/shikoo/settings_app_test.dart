@@ -30,7 +30,12 @@ const _clock =
     'تاریخ و ساعت دستگاهت درست نیست. '
     'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
 const _dateSettings = 'تنظیمات تاریخ و ساعت';
-const _core = '\u2066FlClash\u00A0$flclashVersion\u2069';
+
+/// `flutter test --dart-define=SHIKOO_CORE=70f0570` checks the stamped row; a plain run, the fallback.
+const _stamp = String.fromEnvironment('SHIKOO_CORE');
+const _core = _stamp == ''
+    ? '\u2066mihomo\u2069'
+    : '\u2066mihomo\u00A0$_stamp\u2069';
 
 const _release = AppRelease(
   versionName: '1.0.58',

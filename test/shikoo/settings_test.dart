@@ -101,11 +101,17 @@ void main() {
     await loadShikooFonts();
   });
 
-  test('the core row names the FlClash in pubspec.yaml, which each upstream '
-      'tag raises', () {
+  test('the support report names the FlClash in pubspec.yaml, which each '
+      'upstream tag raises', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
     final name = RegExp(r'^version:\s*([^+\s]+)', multiLine: true);
     expect(flclashVersion, name.firstMatch(pubspec)![1]);
+  });
+
+  test('the core row names the commit the build stamped, and a build without '
+      'the stamp names no number (#32)', () {
+    expect(coreName('70f0570'), 'mihomo\u00A070f0570');
+    expect(coreName(''), 'mihomo');
   });
 
   setUp(() => SharedPreferences.setMockInitialValues({}));

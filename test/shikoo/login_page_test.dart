@@ -848,6 +848,82 @@ void main() {
     );
   });
 
+  testWidgets('a service the shop turned off reads «غیرفعال شد» on the card '
+      'before its end date; a disabled one renews, a removed or failed one '
+      'has support only (#31)', (tester) async {
+    final later = DateTime.now().add(const Duration(days: 24));
+    for (final (status, tv) in [
+      ('removed', true),
+      ('failed', false),
+      ('disabled', true),
+      ('disabled', false),
+    ]) {
+      await _pump(
+        tester,
+        tv: tv,
+        account: ShikooAccount(
+          who: _maryam,
+          bot: 'Test_Shikoo_bot',
+          services: [
+            LinkedService(
+              id: 41,
+              title: 'user123 · الماس',
+              status: status,
+              expiresAt: later,
+            ),
+          ],
+        ),
+      );
+      final renews = status == 'disabled';
+      final why = '$status, ${tv ? 'TV' : 'phone'}';
+      expect(find.text('غیرفعال شد'), findsNWidgets(2), reason: why);
+      expect(find.text('تاریخ انقضا گذشته'), findsNothing, reason: why);
+      expect(find.textContaining('اعتبار'), findsNothing, reason: why);
+      expect(
+        find.text(switch ((renews, tv)) {
+          (false, _) =>
+            'غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.',
+          (true, false) => 'غیرفعال شد. با تمدید دوباره فعال می‌شود.',
+          (true, true) => 'غیرفعال شد. بعد از تمدید، «دوباره» را بزن.',
+        }),
+        findsOneWidget,
+        reason: why,
+      );
+      expect(
+        find.widgetWithText(ShikooButton, 'تمدید'),
+        renews ? findsOneWidget : findsNothing,
+        reason: why,
+      );
+      expect(
+        find.text('با «تمدید» دوباره وصل می‌شوی.'),
+        renews ? findsOneWidget : findsNothing,
+        reason: why,
+      );
+      expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
+      if (tv) expect(_focusedButton(), renews ? 'تمدید' : 'پشتیبانی');
+    }
+  });
+
+  testWidgets('in the sign-in checklist a service the shop turned off reads '
+      '«غیرفعال شد», not expired (#31)', (tester) async {
+    await _pump(
+      tester,
+      tv: false,
+      login: const ShikooLogin(
+        LoginPhase.choosing,
+        account: _maryam,
+        choices: [
+          LinkedService(id: 21, title: 'user1 · الماس', status: 'removed'),
+          LinkedService(id: 22, title: 'user2 · الماس', status: 'failed'),
+          LinkedService(id: 23, title: 'user3 · الماس', status: 'disabled'),
+          LinkedService(id: 24, title: 'user4 · الماس', status: 'expired'),
+        ],
+      ),
+    );
+    expect(find.text('غیرفعال شد'), findsNWidgets(3));
+    expect(find.text('تاریخ انقضا گذشته'), findsOneWidget);
+  });
+
   testWidgets('while a code comes the way without Telegram greys out too; a '
       'code that did not come takes the line about sending it', (tester) async {
     final container = await _pump(

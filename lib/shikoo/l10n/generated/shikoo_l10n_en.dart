@@ -840,6 +840,17 @@ class ShikooL10nEn extends ShikooL10n {
       'Out of data. After renewing, press “Try again”.';
 
   @override
+  String get summaryDisabled => 'Disabled. Renew to use it again.';
+
+  @override
+  String get summaryDisabledTv =>
+      'Disabled. After renewing, press “Try again”.';
+
+  @override
+  String get summaryRemoved =>
+      'Disabled, and it can\'t be renewed. Press “Support” to follow it up.';
+
+  @override
   String get pastedServicesTitle => 'Services added by link';
 
   @override

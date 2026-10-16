@@ -1558,6 +1558,33 @@ void main() {
     expect(container.read(shikooStateProvider).switching, isNull);
   });
 
+  test('connected, a tapped server that does not answer says so for a few '
+      'seconds too, and the tunnel stays where it was (#32)', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: name == 'هلند ۱' ? -1 : 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.pingAll();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+
+    await controller.selectServer('هلند ۱');
+    expect(container.read(shikooStateProvider).switching, (
+      to: 'هلند ۱',
+      from: 'آلمان ۱',
+      stage: ShikooSwitchStage.failed,
+    ));
+
+    await Future<void>.delayed(switchedFor);
+    final state = container.read(shikooStateProvider);
+    expect(state.switching, isNull);
+    expect(state.selected, 'آلمان ۱');
+    expect(proxies.picked, ['آلمان ۱']);
+  });
+
   test('a WireGuard server whose ping fails is tried on real traffic: it stays '
       'if traffic passes, else the old one comes back; known by its type, not '
       'its name', () async {

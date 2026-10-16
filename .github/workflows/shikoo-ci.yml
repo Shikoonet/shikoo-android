@@ -121,7 +121,9 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm --dart-define=APP_ENV=stable
+      - run: |
+          flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm --dart-define=APP_ENV=stable \
+            --dart-define=SHIKOO_CORE="$(git rev-parse --short=7 HEAD:core/Clash.Meta)"
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
 

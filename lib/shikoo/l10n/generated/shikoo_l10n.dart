@@ -1370,6 +1370,24 @@ abstract class ShikooL10n {
   /// **'Out of data. After renewing, press “Try again”.'**
   String get summaryExhaustedTv;
 
+  /// No description provided for @summaryDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled. Renew to use it again.'**
+  String get summaryDisabled;
+
+  /// No description provided for @summaryDisabledTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled. After renewing, press “Try again”.'**
+  String get summaryDisabledTv;
+
+  /// A service removed in the panel, or one that never started: the bot renews neither, so the card has Support instead of Renew.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled, and it can\'t be renewed. Press “Support” to follow it up.'**
+  String get summaryRemoved;
+
   /// Settings section, phone only. Lists only services whose sole source on this phone is a pasted link; absent when there are none.
   ///
   /// In en, this message translates to:
@@ -1706,7 +1724,7 @@ abstract class ShikooL10n {
   /// **'Core'**
   String get settingsCore;
 
-  /// Under "Core" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from the constant flclashVersion in lib/shikoo/engine/settings.dart; a test fails until it matches the version in pubspec.yaml, which each merged upstream tag raises. There is no separate core download.
+  /// Under "Core" in Settings › App, whose value names the mihomo core by the core/Clash.Meta commit the release build stamps (e.g. mihomo 70f0570), or plain mihomo in a build without the stamp. There is no separate core download.
   ///
   /// In en, this message translates to:
   /// **'Updates together with the app.'**
