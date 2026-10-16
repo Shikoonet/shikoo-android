@@ -780,6 +780,43 @@ void main() {
       verifyNever(() => h.controller.addService(any(), any(), any()));
     });
 
+    test('the door says whether the bot renews; without the word, or with '
+        'junk in it, the status decides, and a restart keeps it', () async {
+      final h = await _harness();
+      Map<String, Object?> said(Map<String, Object?> row, Object? renewable) =>
+          {...row, 'renewable': renewable};
+      h.api.services = [
+        said(_service(1, 'adminOff', status: 'disabled', noUrl: true), false),
+        said(_service(2, 'late', status: 'expired', noUrl: true), true),
+        _service(3, 'oldLate', status: 'expired', noUrl: true),
+        _service(4, 'oldGone', status: 'removed', noUrl: true),
+        said(_service(5, 'junk', status: 'disabled', noUrl: true), 'false'),
+        said(_service(6, 'zero', status: 'exhausted', noUrl: true), 0),
+      ];
+      await _signedIn(h);
+      const renews = {1: false, 2: true, 3: true, 4: false, 5: true, 6: true};
+      Map<int, bool> renewsIn(ProviderContainer container) => {
+        for (final s in container.read(shikooAccountProvider).services)
+          s.id: s.renews,
+      };
+      expect(renewsIn(h.container), renews);
+
+      final restarted = ProviderContainer(
+        overrides: [
+          shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
+          shikooStateProvider.overrideWithValue(_state),
+          shikooControllerProvider.overrideWithValue(h.controller),
+          profilesProvider.overrideWith(
+            () => TestProfiles(h.container.read(profilesProvider)),
+          ),
+          profilesActionProvider.overrideWith(_Profiles.new),
+        ],
+      );
+      addTearDown(restarted.dispose);
+      await restarted.read(shikooSignInProvider).load();
+      expect(renewsIn(restarted), renews, reason: 'offline restart');
+    });
+
     test(
       'renewed, a service without a link gets one on the next sync',
       () async {

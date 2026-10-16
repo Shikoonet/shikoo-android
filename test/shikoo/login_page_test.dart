@@ -904,6 +904,63 @@ void main() {
     }
   });
 
+  testWidgets('a service the door says the bot will not renew has support '
+      'only on the card, whatever its status; one it will renew keeps '
+      'renewal', (tester) async {
+    for (final (status, renewable, tv) in [
+      ('disabled', false, true),
+      ('disabled', false, false),
+      ('exhausted', false, false),
+      ('expired', true, true),
+    ]) {
+      await _pump(
+        tester,
+        tv: tv,
+        account: ShikooAccount(
+          who: _maryam,
+          bot: 'Test_Shikoo_bot',
+          services: [
+            LinkedService(
+              id: 41,
+              title: 'user123 · الماس',
+              status: status,
+              renewable: renewable,
+            ),
+          ],
+        ),
+      );
+      final why = '$status, renewable $renewable, ${tv ? 'TV' : 'phone'}';
+      expect(
+        find.widgetWithText(ShikooButton, 'تمدید'),
+        renewable ? findsOneWidget : findsNothing,
+        reason: why,
+      );
+      expect(
+        find.text('با «تمدید» دوباره وصل می‌شوی.'),
+        renewable ? findsOneWidget : findsNothing,
+        reason: why,
+      );
+      expect(
+        find.text(
+          'غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.',
+        ),
+        renewable ? findsNothing : findsOneWidget,
+        reason: why,
+      );
+      expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
+      if (tv) {
+        expect(_focusedButton(), renewable ? 'تمدید' : 'پشتیبانی', reason: why);
+      }
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      'https://t.me/Test_Shikoo_bot?start=rnw_41',
+      reason: 'the last one, expired on the TV, is renewed in the bot',
+    );
+  });
+
   testWidgets('in the sign-in checklist a service the shop turned off reads '
       '«غیرفعال شد», not expired (#31)', (tester) async {
     await _pump(

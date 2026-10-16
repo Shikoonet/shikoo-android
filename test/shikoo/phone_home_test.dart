@@ -1482,6 +1482,59 @@ void main() {
     );
   });
 
+  testWidgets('a finished row the door says the bot will not renew has '
+      'support; one it will renew keeps renewal', (tester) async {
+    await _pump(
+      tester,
+      _phone(),
+      account: const ShikooAccount(
+        services: [
+          LinkedService(
+            id: 1,
+            title: 'acct1 · off',
+            status: 'disabled',
+            renewable: false,
+          ),
+          LinkedService(
+            id: 2,
+            title: 'acct2 · late',
+            status: 'expired',
+            renewable: true,
+          ),
+          LinkedService(
+            id: 3,
+            title: 'acct3 · used',
+            status: 'exhausted',
+            renewable: false,
+          ),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۳)');
+    await tester.ensureVisible(head);
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    String action(String name) => tester
+        .widget<ShikooButton>(
+          find.descendant(
+            of: find.ancestor(
+              of: find.textContaining(name).first,
+              matching: find.byWidgetPredicate(
+                (w) => w is Row && w.children.any((c) => c is ShikooButton),
+              ),
+            ),
+            matching: find.byType(ShikooButton),
+          ),
+        )
+        .label;
+    expect(
+      {
+        for (final row in ['acct1', 'acct2', 'acct3']) row: action(row),
+      },
+      {'acct1': 'پشتیبانی', 'acct2': 'تمدید', 'acct3': 'پشتیبانی'},
+    );
+  });
+
   testWidgets('a service the shop turned off reads «غیرفعال شد» and comes last '
       'whatever its date; hidden only 30 days after a past one', (
     tester,

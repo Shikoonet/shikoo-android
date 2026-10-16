@@ -1039,9 +1039,9 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           const SizedBox(height: Space.s2),
           Text(
             switch ((service.status, finished, isTV)) {
+              _ when supportOnly => l.summaryRemoved,
               ('exhausted', _, false) => l.summaryExhausted,
               ('exhausted', _, true) => l.summaryExhaustedTv,
-              _ when supportOnly => l.summaryRemoved,
               ('disabled', _, false) => l.summaryDisabled,
               ('disabled', _, true) => l.summaryDisabledTv,
               (_, true, false) => l.summaryExpiredNoDate,
