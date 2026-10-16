@@ -1123,6 +1123,9 @@ class ShikooController {
       if (tap != _tap) return;
       final now = stage == ShikooSwitchStage.failed ? _validSelection() : null;
       _switching((to: name, from: now ?? from, stage: stage), target);
+      if (stage != ShikooSwitchStage.moving) {
+        _switched = Timer(switchedFor, () => _switching(null));
+      }
     }
 
     show(ShikooSwitchStage.moving);
@@ -1190,7 +1193,6 @@ class ShikooController {
     if (other != null && _ref.read(_landedProvider)?.id == other.id) {
       _ref.read(_landedProvider.notifier).set((id: other.id, arrived: true));
     }
-    _switched = Timer(switchedFor, () => _switching(null));
   }
 
   /// The core loads [other] with [name] chosen already, so no other server of it gets traffic first.
