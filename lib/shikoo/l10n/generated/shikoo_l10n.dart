@@ -1388,6 +1388,12 @@ abstract class ShikooL10n {
   /// **'Disabled, and it can\'t be renewed. Press “Support” to follow it up.'**
   String get summaryRemoved;
 
+  /// A used-up or expired service the bot will not renew (the app door says renewable: false): the card has Support instead of Renew.
+  ///
+  /// In en, this message translates to:
+  /// **'This service can\'t be renewed; ask “Support” to continue.'**
+  String get summaryNotRenewable;
+
   /// Settings section, phone only. Lists only services whose sole source on this phone is a pasted link; absent when there are none.
   ///
   /// In en, this message translates to:

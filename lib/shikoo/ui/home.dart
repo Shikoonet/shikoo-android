@@ -407,6 +407,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             : FoldedServiceCard(
                 service: service,
                 isTV: state.isTV,
+                renews: account.renewsOn(service.id),
                 inUse: mark,
                 focusNode: inUse ? _inUse : null,
                 onOpen: () => _open(controller, service.id),
@@ -1047,6 +1048,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           const SizedBox(height: Space.s2),
           Text(
             switch ((service.status, finished, isTV)) {
+              _ when supportOnly && !service.disabled => l.summaryNotRenewable,
               _ when supportOnly => l.summaryRemoved,
               ('exhausted', _, false) => l.summaryExhausted,
               ('exhausted', _, true) => l.summaryExhaustedTv,

@@ -1649,6 +1649,70 @@ void main() {
     );
   });
 
+  testWidgets('a used-up card on this device the bot will not renew says so, '
+      'folded and open, instead of asking for renewal', (tester) async {
+    const notRenewable =
+        'این سرویس تمدید نمی‌شود؛ برای ادامه از «پشتیبانی» بپرس.';
+    ShikooState usedUp({required int open}) => ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: false,
+      servers: _servers,
+      service: const ShikooService(
+        name: 'user123 · الماس',
+        usedBytes: 100 << 30,
+        totalBytes: 100 << 30,
+      ),
+      others: const [
+        ShikooService(
+          id: 7,
+          name: 'user789 · معمولی',
+          usedBytes: 0,
+          totalBytes: 0,
+        ),
+      ],
+      open: open,
+    );
+    for (final renewable in [false, null]) {
+      final renews = renewable == null;
+      final account = ShikooAccount(
+        services: [
+          LinkedService(
+            id: 50,
+            title: 'user123 · الماس',
+            status: 'active',
+            profileId: 0,
+            renewable: renewable,
+          ),
+        ],
+      );
+      await _pump(tester, usedUp(open: 7), account: account);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('حجمش تمام شد. با تمدید دوباره فعال می‌شود.'),
+        renews ? findsOneWidget : findsNothing,
+        reason: 'renewable $renewable, folded',
+      );
+      expect(
+        find.text(notRenewable),
+        renews ? findsNothing : findsOneWidget,
+        reason: 'renewable $renewable, folded',
+      );
+      await _pump(tester, usedUp(open: 0), account: account);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('فهرست سرورها بعد از تمدید برمی‌گردد.'),
+        renews ? findsOneWidget : findsNothing,
+        reason: 'renewable $renewable, open',
+      );
+      expect(
+        find.text(notRenewable),
+        renews ? findsNothing : findsOneWidget,
+        reason: 'renewable $renewable, open',
+      );
+    }
+  });
+
   testWidgets('a service the shop turned off reads «غیرفعال شد» and comes last '
       'whatever its date; hidden only 30 days after a past one', (
     tester,

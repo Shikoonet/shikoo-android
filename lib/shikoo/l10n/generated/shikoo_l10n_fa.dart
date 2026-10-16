@@ -810,6 +810,10 @@ class ShikooL10nFa extends ShikooL10n {
       'غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.';
 
   @override
+  String get summaryNotRenewable =>
+      'این سرویس تمدید نمی‌شود؛ برای ادامه از «پشتیبانی» بپرس.';
+
+  @override
   String get pastedServicesTitle => 'سرویس‌های اضافه‌شده با لینک';
 
   @override

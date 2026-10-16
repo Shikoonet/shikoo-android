@@ -275,6 +275,8 @@
   "summaryDisabledTv": "Disabled. After renewing, press “Try again”.",
   "summaryRemoved": "Disabled, and it can't be renewed. Press “Support” to follow it up.",
   "@summaryRemoved": {"description": "A service removed in the panel, or one that never started: the bot renews neither, so the card has Support instead of Renew."},
+  "summaryNotRenewable": "This service can't be renewed; ask “Support” to continue.",
+  "@summaryNotRenewable": {"description": "A used-up or expired service the bot will not renew (the app door says renewable: false): the card has Support instead of Renew."},
   "pastedServicesTitle": "Services added by link",
   "@pastedServicesTitle": {"description": "Settings section, phone only. Lists only services whose sole source on this phone is a pasted link; absent when there are none."},
   "removeService": "Remove",

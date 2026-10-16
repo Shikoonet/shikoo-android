@@ -215,6 +215,7 @@
   "summaryDisabled": "غیرفعال شد. با تمدید دوباره فعال می‌شود.",
   "summaryDisabledTv": "غیرفعال شد. بعد از تمدید، «دوباره» را بزن.",
   "summaryRemoved": "غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.",
+  "summaryNotRenewable": "این سرویس تمدید نمی‌شود؛ برای ادامه از «پشتیبانی» بپرس.",
   "pastedServicesTitle": "سرویس‌های اضافه‌شده با لینک",
   "removeService": "حذف",
   "removeServiceLabel": "حذف {name}",

@@ -907,11 +907,21 @@ void main() {
   testWidgets('a service the door says the bot will not renew has support '
       'only on the card, whatever its status; one it will renew keeps '
       'renewal', (tester) async {
-    for (final (status, renewable, tv) in [
-      ('disabled', false, true),
-      ('disabled', false, false),
-      ('exhausted', false, false),
-      ('expired', true, true),
+    const removed =
+        'غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.';
+    const notRenewable =
+        'این سرویس تمدید نمی‌شود؛ برای ادامه از «پشتیبانی» بپرس.';
+    for (final (status, renewable, tv, summary) in [
+      ('disabled', false, true, removed),
+      ('disabled', false, false, removed),
+      ('exhausted', false, false, notRenewable),
+      ('exhausted', null, false, 'حجمش تمام شد. با تمدید دوباره فعال می‌شود.'),
+      (
+        'expired',
+        true,
+        true,
+        'اعتبارش تمام شد. بعد از تمدید، «دوباره» را بزن.',
+      ),
     ]) {
       await _pump(
         tester,
@@ -929,27 +939,22 @@ void main() {
           ],
         ),
       );
+      final renews = renewable != false;
       final why = '$status, renewable $renewable, ${tv ? 'TV' : 'phone'}';
       expect(
         find.widgetWithText(ShikooButton, 'تمدید'),
-        renewable ? findsOneWidget : findsNothing,
+        renews ? findsOneWidget : findsNothing,
         reason: why,
       );
       expect(
         find.text('با «تمدید» دوباره وصل می‌شوی.'),
-        renewable ? findsOneWidget : findsNothing,
+        renews ? findsOneWidget : findsNothing,
         reason: why,
       );
-      expect(
-        find.text(
-          'غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.',
-        ),
-        renewable ? findsNothing : findsOneWidget,
-        reason: why,
-      );
+      expect(find.text(summary), findsOneWidget, reason: why);
       expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
       if (tv) {
-        expect(_focusedButton(), renewable ? 'تمدید' : 'پشتیبانی', reason: why);
+        expect(_focusedButton(), renews ? 'تمدید' : 'پشتیبانی', reason: why);
       }
     }
     await tester.sendKeyEvent(LogicalKeyboardKey.select);

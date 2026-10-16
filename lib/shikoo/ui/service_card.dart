@@ -374,7 +374,9 @@ class _ServiceCardState extends State<ServiceCard> {
                   Padding(
                     padding: inset.copyWith(top: Space.s3, bottom: Space.s2),
                     child: Text(
-                      l.serversAfterRenew,
+                      widget.renews
+                          ? l.serversAfterRenew
+                          : l.summaryNotRenewable,
                       style: t.text(t.s.bodySm, color: t.c.textMuted),
                     ),
                   ),
@@ -536,6 +538,7 @@ class FoldedServiceCard extends StatelessWidget {
     required this.service,
     required this.isTV,
     required this.onOpen,
+    this.renews = true,
     this.inUse,
     this.focusNode,
   });
@@ -543,6 +546,7 @@ class FoldedServiceCard extends StatelessWidget {
   final ShikooService service;
   final bool isTV;
   final VoidCallback onOpen;
+  final bool renews;
 
   /// The in-use mark: none, green (connected) or grey.
   final bool? inUse;
@@ -572,7 +576,7 @@ class FoldedServiceCard extends StatelessWidget {
             bottom: Space.s2,
             end: isTV ? 0 : Space.s4,
           ),
-          child: _Summary(service: service),
+          child: _Summary(service: service, renews: renews),
         ),
       ],
     );
@@ -904,9 +908,10 @@ class _Head extends StatelessWidget {
 /// `.svc-row` with `.svc-summary`: the status, then volume and validity, which breaks only
 /// before «·», as a name does ([bidiName]).
 class _Summary extends StatelessWidget {
-  const _Summary({required this.service});
+  const _Summary({required this.service, required this.renews});
 
   final ShikooService service;
+  final bool renews;
 
   @override
   Widget build(BuildContext context) {
@@ -920,6 +925,9 @@ class _Summary extends StatelessWidget {
     final expire = service.expire;
     final List<InlineSpan> text = switch (service.ended) {
       ShikooServiceStatus.revoked => [TextSpan(text: l.revokedHelp)],
+      ShikooServiceStatus.expired || ShikooServiceStatus.exhausted
+          when !renews =>
+        [TextSpan(text: l.summaryNotRenewable)],
       ShikooServiceStatus.expired => [
         TextSpan(text: l.summaryExpired(_date(context, l, expire!))),
       ],
