@@ -1706,7 +1706,7 @@ abstract class ShikooL10n {
   /// **'Core'**
   String get settingsCore;
 
-  /// Under "Core" in Settings › App, whose value is the FlClash version (e.g. FlClash 0.8.99) from the constant flclashVersion in lib/shikoo/engine/settings.dart; a test fails until it matches the version in pubspec.yaml, which each merged upstream tag raises. There is no separate core download.
+  /// Under "Core" in Settings › App, whose value names the mihomo core by the core/Clash.Meta commit the release build stamps (e.g. mihomo 70f0570), or plain mihomo in a build without the stamp. There is no separate core download.
   ///
   /// In en, this message translates to:
   /// **'Updates together with the app.'**

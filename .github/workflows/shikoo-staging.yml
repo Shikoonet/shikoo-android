@@ -82,6 +82,9 @@ jobs:
 
       - run: bash tools/core-patches/apply.sh
 
+      - name: The core commit, which Settings shows under «هسته»
+        run: echo "CORE=$(git rev-parse --short=7 HEAD:core/Clash.Meta)" >>"$GITHUB_ENV"
+
       - name: The app takes its server and bot from the build, and staging points away from production
         run: |
           set -euo pipefail
@@ -140,7 +143,8 @@ jobs:
           base64 -d <<<"$STAGING_KEYSTORE_B64" >"$ANDROID_USER_HOME/debug.keystore"
           flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm,android-arm64,android-x64 \
             --build-name "$VN" --build-number "$GITHUB_RUN_NUMBER" \
-            --dart-define=APP_ENV=stable --dart-define=SHIKOO_API="$API" --dart-define=SHIKOO_BOT="$BOT"
+            --dart-define=APP_ENV=stable --dart-define=SHIKOO_API="$API" --dart-define=SHIKOO_BOT="$BOT" \
+            --dart-define=SHIKOO_CORE="$CORE"
           for abi in armeabi-v7a arm64-v8a x86_64; do
             mv "build/app/outputs/flutter-apk/app-$abi-release.apk" "out/ShikooNet-$VN-staging-$abi.apk"
           done
@@ -161,7 +165,7 @@ jobs:
           base64 -d <<<"$KEYSTORE_B64" >android/app/keystore.jks
           printf '\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" >>android/local.properties
           flutter build apk -t lib/shikoo/app/main.dart --release --split-per-abi --target-platform android-arm,android-arm64 \
-            --build-name "$VN" --build-number "$GITHUB_RUN_NUMBER" --dart-define=APP_ENV=stable
+            --build-name "$VN" --build-number "$GITHUB_RUN_NUMBER" --dart-define=APP_ENV=stable --dart-define=SHIKOO_CORE="$CORE"
           for abi in armeabi-v7a arm64-v8a; do
             mv "build/app/outputs/flutter-apk/app-$abi-release.apk" "out/ShikooNet-$VN-$abi.apk"
           done
@@ -196,6 +200,11 @@ jobs:
               *-staging-*) [ "$n" -gt 0 ] && [ "$pkg" = "$APP_ID.dev" ] ;;
               *) [ "$n" -eq 0 ] && [ "$pkg" = "$APP_ID" ] ;;
             esac || { echo "::error::$apk is $pkg and carries the staging server $n times"; exit 1; }
+            core=$(git rev-parse --short=7 HEAD:core/Clash.Meta)
+            # The row's text holds a bidi isolate, so the compiler keeps it as a two-byte string.
+            wide=$(sed 's/./&\\x00/g' <<<"$core")
+            [ "$(unzip -p "$apk" 'lib/*/libapp.so' | LC_ALL=C grep -caP "$core|$wide" || true)" -gt 0 ] ||
+              { echo "::error::$apk does not name its core commit $core under «هسته»"; exit 1; }
           done
           (cd out && sha256sum ./*.apk | sed 's| \./| |' >SHA256SUMS)
           {

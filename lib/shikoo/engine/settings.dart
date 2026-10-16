@@ -115,3 +115,9 @@ final shikooVersionProvider = Provider<String>(
 
 /// The FlClash under this build; a test holds it to `pubspec.yaml`, which each upstream tag raises.
 const flclashVersion = '0.8.98';
+
+/// The `core/Clash.Meta` commit the release workflows stamp (`--dart-define=SHIKOO_CORE`) and then
+/// look for in every APK. The fork has no version of its own: its `constant.Version` is a stale
+/// "1.10.0" that no build sets, so a build without the stamp names no number at all.
+String coreName([String stamp = const String.fromEnvironment('SHIKOO_CORE')]) =>
+    stamp.isEmpty ? 'mihomo' : 'mihomo\u00A0$stamp';
