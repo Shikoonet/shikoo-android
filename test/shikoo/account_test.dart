@@ -933,7 +933,7 @@ void main() {
         'removed · الماس',
         'botFirst · الماس',
       ]);
-      expect(account.withoutLink.map((s) => s.renews), [true, false]);
+      expect(account.withoutLink.map((s) => s.finished), [true, false]);
       expect(account.bot, 'Test_Shikoo_bot');
       final expired = h.container
           .read(profilesProvider)

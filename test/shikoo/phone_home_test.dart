@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
@@ -1428,6 +1429,57 @@ void main() {
     expect(find.textContaining('acct4'), findsNothing, reason: '40 days');
     expect(find.text('حجم تمام شد'), findsOneWidget);
     expect(find.text('غیرفعال شد'), findsNWidgets(3));
+    String action(String name) => tester
+        .widget<ShikooButton>(
+          find.descendant(
+            of: find.ancestor(
+              of: find.textContaining(name).first,
+              matching: find.byWidgetPredicate(
+                (w) => w is Row && w.children.any((c) => c is ShikooButton),
+              ),
+            ),
+            matching: find.byType(ShikooButton),
+          ),
+        )
+        .label;
+    expect(
+      {
+        for (final row in ['acct6', 'acct1', 'acct2', 'acct3'])
+          row: action(row),
+      },
+      {
+        'acct6': 'تمدید',
+        'acct1': 'پشتیبانی',
+        'acct2': 'تمدید',
+        'acct3': 'پشتیبانی',
+      },
+      reason: 'the bot renews neither a removed nor a failed service (#31)',
+    );
+  });
+
+  testWidgets('on the TV, OK on a removed service of the finished row opens '
+      "support, not the bot's renewal (#31)", (tester) async {
+    await _pump(
+      tester,
+      _phone(isTV: true),
+      account: const ShikooAccount(
+        bot: 'Test_Shikoo_bot',
+        services: [
+          LinkedService(id: 7, title: 'acct7 · removed', status: 'removed'),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۱)');
+    Focus.of(tester.element(head)).requestFocus();
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+    }
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      ShikooLinks.support,
+    );
   });
 
   testWidgets('a service the shop turned off reads «غیرفعال شد» and comes last '

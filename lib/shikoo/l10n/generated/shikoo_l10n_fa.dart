@@ -800,6 +800,16 @@ class ShikooL10nFa extends ShikooL10n {
       'حجمش تمام شد. بعد از تمدید، «دوباره» را بزن.';
 
   @override
+  String get summaryDisabled => 'غیرفعال شد. با تمدید دوباره فعال می‌شود.';
+
+  @override
+  String get summaryDisabledTv => 'غیرفعال شد. بعد از تمدید، «دوباره» را بزن.';
+
+  @override
+  String get summaryRemoved =>
+      'غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.';
+
+  @override
   String get pastedServicesTitle => 'سرویس‌های اضافه‌شده با لینک';
 
   @override

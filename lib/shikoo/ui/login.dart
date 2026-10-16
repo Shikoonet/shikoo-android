@@ -1326,12 +1326,7 @@ class _ChoiceRow extends StatelessWidget {
                         ),
                         twoLines: true,
                       ),
-                      if (service.renews)
-                        StatusChip(
-                          status: service.status == 'exhausted'
-                              ? ShikooServiceStatus.exhausted
-                              : ShikooServiceStatus.expired,
-                        ),
+                      if (service.finished) StatusChip.linked(service),
                     ],
                   ),
                 ),
