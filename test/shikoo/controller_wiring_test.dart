@@ -12,6 +12,7 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
+import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
@@ -31,15 +32,26 @@ class _Core extends Mock implements CoreHandlerInterface {}
 class _Proxies extends ProxiesAction {
   final picked = <String>[];
 
+  /// Holds a change in the core until completed; the core answers each change on its own.
+  final gates = <String, Completer<void>>{};
+
+  /// Changes the core refuses: as in FlClash's own, the selection before comes back.
+  final refused = <String>{};
+
   @override
   Future<void> changeProxy({
     required String groupName,
     required String proxyName,
   }) async {
     picked.add(proxyName);
-    ref
-        .read(profilesActionProvider.notifier)
-        .updateCurrentSelectedMap(groupName, proxyName);
+    final before = ref.read(selectedMapProvider)[groupName] ?? '';
+    final profiles = ref.read(profilesActionProvider.notifier);
+    profiles.updateCurrentSelectedMap(groupName, proxyName);
+    final gate = gates[proxyName];
+    if (gate != null) await gate.future;
+    if (refused.contains(proxyName)) {
+      profiles.updateCurrentSelectedMap(groupName, before);
+    }
   }
 
   @override
@@ -522,6 +534,141 @@ void main() {
     expect(
       container.read(shikooStateProvider).notice,
       isA<SilentReplaced>().having((n) => n.replacement, 'to', 'هلند ۱'),
+    );
+  });
+
+  test('the search moves off a usage-multiplier first answer while the core '
+      'still applies it: whichever change the core answers first, connecting '
+      'or connected, no false error (#29)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    for (final connected in [false, true]) {
+      for (final fourFirst in [true, false]) {
+        final (:container, :core, :proxies, :setup) = _home();
+        container.read(groupsProvider.notifier).value = [
+          const Group(
+            type: GroupType.Selector,
+            name: 'PROXY',
+            hidden: false,
+            all: [
+              Proxy(name: four, type: 'Vless'),
+              Proxy(name: 'هلند ۱', type: 'Vless'),
+            ],
+          ),
+        ];
+        final netherlands = Completer<void>();
+        when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+          final name = call.positionalArguments[1] as String;
+          if (name != four) await netherlands.future;
+          return Delay(name: name, url: '', value: name == four ? 60 : 70);
+        });
+        proxies.gates.addAll({four: Completer(), 'هلند ۱': Completer()});
+        final errors = <ShikooError?>[];
+        container.listen(
+          shikooStateProvider.select((s) => s.lastError),
+          (_, error) => errors.add(error),
+        );
+        final controller = container.read(shikooControllerProvider);
+        await pumpEventQueue();
+        if (connected) {
+          setup.tunnel = DateTime(2026);
+          container.read(runTimeProvider.notifier).value = 1;
+        } else {
+          unawaited(controller.connect());
+        }
+        await pumpEventQueue();
+        netherlands.complete();
+        await pumpEventQueue();
+        expect(proxies.picked, [four, 'هلند ۱']);
+
+        for (final name in fourFirst ? [four, 'هلند ۱'] : ['هلند ۱', four]) {
+          proxies.gates[name]!.complete();
+          await pumpEventQueue();
+        }
+        final state = container.read(shikooStateProvider);
+        final reason = 'connected=$connected fourFirst=$fourFirst';
+        expect(
+          errors,
+          isNot(contains(ShikooError.serverChange)),
+          reason: reason,
+        );
+        expect((state.selected, state.lastError), ('هلند ۱', null));
+        expect(setup.runs, connected ? isEmpty : [true], reason: reason);
+        expect(
+          state.servers.firstWhere((s) => s.name == 'هلند ۱').ping,
+          70,
+          reason: 'the server moved to keeps the ping it answered with',
+        );
+
+        await controller.disconnect();
+      }
+    }
+  });
+
+  test('a server change the core refuses still says so', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    container
+        .read(profilesActionProvider.notifier)
+        .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+
+    proxies.refused.add('هلند ۱');
+    await controller.selectServer('هلند ۱');
+    final state = container.read(shikooStateProvider);
+    expect(
+      (state.selected, state.lastError),
+      ('آلمان ۱', ShikooError.serverChange),
+    );
+  });
+
+  test('the app keeps its own pick across rounds: no change while only '
+      'usage-multiplier servers answer, and the ordinary server it moves to '
+      'is replaced when it goes silent (#29)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    const three = 'NL 3 x ضریب مصرف';
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: four, type: 'Vless'),
+          Proxy(name: three, type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    final pings = {four: 60};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.pingAll();
+    expect(proxies.picked, [four]);
+
+    pings[three] = 40;
+    await controller.pingAll();
+    await pumpEventQueue();
+    expect(proxies.picked, [four], reason: 'a change cuts every connection');
+
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    pings['هلند ۱'] = 90;
+    await controller.pingAll();
+    await pumpEventQueue();
+    expect(proxies.picked, [four, 'هلند ۱']);
+
+    pings['هلند ۱'] = -1;
+    pings['آلمان ۱'] = 50;
+    await controller.pingAll();
+    await pumpEventQueue();
+    expect(proxies.picked, [four, 'هلند ۱', 'آلمان ۱']);
+    expect(
+      container.read(shikooStateProvider).notice,
+      isA<SilentReplaced>().having((n) => n.silent, 'from', 'هلند ۱'),
     );
   });
 

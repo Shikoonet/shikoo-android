@@ -865,6 +865,7 @@ class ShikooController {
   int _openNo = 0;
 
   int _tap = 0;
+  int _chooseNo = 0;
   Timer? _switched;
   String? _awaiting;
   DateTime _awaitingUntil = DateTime(0);
@@ -1218,8 +1219,11 @@ class ShikooController {
   Future<void> _choose(String name) async {
     final group = _group;
     if (group == null) return;
+    final no = ++_chooseNo;
     await _proxies.changeProxy(groupName: group.name, proxyName: name);
     _proxies.updateGroupsDebounce();
+    // Only the newest change speaks: the core answers each on its own goroutine, in any order.
+    if (no != _chooseNo) return;
     final applied = _ref.read(selectedProxyNameProvider(group.name)) == name;
     final intent = _ref.read(_intentProvider);
     if (applied && intent.waiting) {
