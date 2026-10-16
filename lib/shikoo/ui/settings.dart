@@ -392,7 +392,7 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
               _Row(
                 title: l.settingsCore,
                 subtitle: l.settingsCoreHelp,
-                value: '\u2066FlClash\u00A0$flclashVersion\u2069',
+                value: '\u2066${coreName()}\u2069',
               ),
               if (update == null)
                 _Row(
