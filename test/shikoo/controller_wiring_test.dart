@@ -673,6 +673,99 @@ void main() {
   });
 
   test(
+    "connect sets aside the app's own usage-multiplier pick and searches "
+    'as for a new customer, also when pressed before the servers are known: '
+    'the first answer at once, then an ordinary server, now the pick (#29)',
+    () async {
+      const four = 'ضریب مصرف NE 4 x';
+      const servers = [
+        Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: four, type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      for (final early in [false, true]) {
+        final (:container, :core, :proxies, :setup) = _home();
+        container.read(groupsProvider.notifier).value = early ? [] : servers;
+        final id = container.read(currentProfileIdProvider);
+        SharedPreferences.setMockInitialValues({
+          'shikoo.appPicks': '{"$id":"$four"}',
+        });
+        container
+            .read(profilesActionProvider.notifier)
+            .updateCurrentSelectedMap('PROXY', four);
+        when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+          final name = call.positionalArguments[1] as String;
+          return Delay(name: name, url: '', value: name == four ? 60 : 90);
+        });
+        final controller = container.read(shikooControllerProvider);
+        await pumpEventQueue();
+
+        unawaited(controller.connect());
+        await pumpEventQueue();
+        if (early) container.read(groupsProvider.notifier).value = servers;
+        await pumpEventQueue();
+        expect(proxies.picked, [four, 'هلند ۱'], reason: 'early=$early');
+        expect(setup.runs, [true]);
+        expect(container.read(shikooStateProvider).selected, 'هلند ۱');
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('shikoo.appPicks'), '{"$id":"هلند ۱"}');
+
+        await controller.disconnect();
+      }
+    },
+  );
+
+  test('connect starts at once, with no search, on a usage-multiplier server '
+      "the customer chose and on the app's own ordinary pick (#29)", () async {
+    const four = 'ضریب مصرف NE 4 x';
+    for (final (server, appPick) in [(four, null), ('هلند ۱', 'هلند ۱')]) {
+      final (:container, :core, :proxies, :setup) = _home();
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: four, type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      final id = container.read(currentProfileIdProvider);
+      SharedPreferences.setMockInitialValues({
+        if (appPick != null) 'shikoo.appPicks': '{"$id":"$appPick"}',
+      });
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', server);
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 60,
+        ),
+      );
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      verifyNever(() => core.asyncTestDelay(any(), any()));
+      expect(proxies.picked, isEmpty, reason: server);
+      expect(setup.runs, [true]);
+      expect(container.read(shikooStateProvider).selected, server);
+
+      await controller.disconnect();
+    }
+  });
+
+  test(
     'connect during a round waits for its answers, not the round before',
     () async {
       final (:container, :core, :proxies, :setup) = _home();

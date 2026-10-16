@@ -966,6 +966,7 @@ class ShikooController {
 
   Future<void> connect() async {
     if (_ref.read(currentProfileProvider) == null) return;
+    _setAsideMultiplied();
     if (_validSelection() != null) return _start();
     _find();
   }
@@ -982,6 +983,7 @@ class ShikooController {
     final ping = _pingOnArrival;
     _pingOnArrival = false;
     final waiting = _ref.read(_intentProvider).waiting;
+    if (waiting && !_running) _setAsideMultiplied();
     if (_validSelection() == null && (_running || waiting)) {
       return _find(list: ping);
     }
@@ -1409,6 +1411,13 @@ class ShikooController {
     _pickedByApp(to);
     unawaited(_choose(to));
     return true;
+  }
+
+  /// Connect searches as for a new customer instead of starting on the app's own multiplied pick.
+  void _setAsideMultiplied() {
+    final chosen = _validSelection();
+    if (chosen == null || chosen != _appPick || !multiplied(chosen)) return;
+    _setChoice(_current!, _group!.name, null, null);
   }
 
   Future<void> _replaceSilentPick() async {
