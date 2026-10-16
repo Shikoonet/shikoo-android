@@ -87,11 +87,30 @@ void main() {
 
   test('the app picks a usage-multiplier server only when no other answered '
       '(#29)', () {
-    const panel = ['ضریب مصرف NE 4 x', 'ضریب مصرف FR 4 x', 'Germany 3'];
+    const panel = ['NL 3 x ضریب مصرف', 'ضریب مصرف FR 4 x', 'Germany 3'];
     final pings = {panel[0]: 60, panel[1]: 70, panel[2]: 113};
     expect(fastest(panel, (n) => pings[n]), 'Germany 3');
     pings['Germany 3'] = -1;
-    expect(fastest(panel, (n) => pings[n]), 'ضریب مصرف NE 4 x');
+    expect(fastest(panel, (n) => pings[n]), 'NL 3 x ضریب مصرف');
+  });
+
+  test('a usage multiplier is known wherever «ضریب» stands in the name, and '
+      'with either yeh (#29)', () {
+    for (final name in [
+      'ضریب مصرف NE 4 x',
+      'NL 3 x ضریب مصرف',
+      '🇩🇪 آلمان ۴ x ضریب مصرف',
+      'ضر\u064Aب مصرف FR 4 x',
+    ]) {
+      expect(multiplied(name), isTrue, reason: name);
+    }
+    for (final name in [
+      'Germany 3',
+      'Germany همراه',
+      'Italy (Gemini+YouTube بدون تبلیغ)',
+    ]) {
+      expect(multiplied(name), isFalse, reason: name);
+    }
   });
 
   test('keepOrder keeps the sorted order and appends new servers', () {
@@ -210,22 +229,17 @@ void main() {
       expect(pick(silent, pinging: false, urgent: false), isNull);
     });
 
-    test('connect pressed: a usage-multiplier first answer waits for the '
-        'round, and is taken when it ends with no other answer (#29)', () {
+    test('connect pressed: a usage-multiplier first answer is taken at once; '
+        'an ordinary server that answered too wins (#29)', () {
       const four = 'ضریب مصرف NE 4 x';
-      String? connecting(Map<String, int> pings, {required bool pinging}) =>
-          pickNow(
-            names: const [four, 'هلند ۱'],
-            ping: (n) => pings[n],
-            pinging: pinging,
-            urgent: true,
-          );
-      expect(connecting(const {four: 60}, pinging: true), isNull);
-      expect(
-        connecting(const {four: 60, 'هلند ۱': 90}, pinging: true),
-        'هلند ۱',
+      String? connecting(Map<String, int> pings) => pickNow(
+        names: const [four, 'هلند ۱'],
+        ping: (n) => pings[n],
+        pinging: true,
+        urgent: true,
       );
-      expect(connecting(const {four: 60}, pinging: false), four);
+      expect(connecting(const {four: 60}), four, reason: 'connect never waits');
+      expect(connecting(const {four: 60, 'هلند ۱': 90}), 'هلند ۱');
     });
   });
 

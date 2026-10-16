@@ -44,8 +44,10 @@ int _sortKey(int? ms) => ms != null && ms > 0 ? ms : 1 << 30;
 List<String> sortByPing(List<String> panel, int? Function(String name) ping) =>
     panel.sortedBy((name) => _sortKey(ping(name)));
 
-/// The panel's own wording, as in «ضریب مصرف NE 4 x»: the volume runs out that many times faster.
-bool multiplied(String name) => name.contains('ضریب');
+/// The panel's own wording, as in «ضریب مصرف NE 4 x», wherever it stands and with either yeh: the
+/// volume runs out that many times faster.
+bool multiplied(String name) =>
+    name.replaceAll('\u064A', '\u06CC').contains('ضریب');
 
 /// The app's own pick: a multiplied server only when no other answered.
 String? fastest(List<String> panel, int? Function(String name) ping) {

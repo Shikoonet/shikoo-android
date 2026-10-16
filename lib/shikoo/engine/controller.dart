@@ -750,17 +750,12 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
 }
 
 /// Never row 1, the core's fallback: with connect pressed the first answer, else the fastest.
-/// A multiplied first answer waits for the round's end, in case another server answers.
 String? pickNow({
   required List<String> names,
   required int? Function(String name) ping,
   required bool pinging,
   required bool urgent,
-}) {
-  if (pinging && !urgent) return null;
-  final best = fastest(names, ping);
-  return pinging && best != null && multiplied(best) ? null : best;
-}
+}) => pinging && !urgent ? null : fastest(names, ping);
 
 /// While off, a selection that cannot connect gives way to one that can, else to the last ended.
 int? serviceInstead(ShikooState state) {
@@ -1240,18 +1235,17 @@ class ShikooController {
     );
   }
 
-  /// [ended]: connect's probe is over, and a server it did not hear keeps an older number.
-  void _reconcile({bool ended = false}) {
+  void _reconcile() {
     final group = _group;
     if (group == null || _staleGroups || _validSelection() != null) return;
     final names = _names(group);
     if (names.isEmpty) return;
     final running = _running;
     final intent = _ref.read(_intentProvider);
-    final pinging = !ended && (_pinging || _again);
+    final pinging = _pinging || _again;
     // Connect pressed while finding takes this round's first answer, not the round before's best.
     int? ping(String name) =>
-        !pinging && !ended || _heard.contains(name) ? _ping(name) : null;
+        !pinging || _heard.contains(name) ? _ping(name) : null;
     final best = pickNow(
       names: names,
       ping: ping,
@@ -1309,15 +1303,13 @@ class ShikooController {
       await pingServers(names, (name) => _probeFor(no, url, name), (name, ms) {
         if (no != _roundNo) return;
         if (!list) {
+          if (ms <= 0) return;
           final first =
-              ms > 0 &&
-              _validSelection() == null &&
-              _ref.read(_intentProvider).waiting;
-          if (first) {
-            _heard.add(name);
-            _setPing(service, name, ms);
-            _reconcile();
-          }
+              _validSelection() == null && _ref.read(_intentProvider).waiting;
+          if (!first && !_leaveMultiplied(name)) return;
+          _heard.add(name);
+          _setPing(service, name, ms);
+          if (first) _reconcile();
           return;
         }
         final kept = _names(_group).contains(name);
@@ -1351,10 +1343,7 @@ class ShikooController {
       ));
     } else if (_validSelection() == null &&
         _ref.read(_intentProvider).waiting) {
-      _reconcile(ended: true);
-      if (_validSelection() == null) {
-        _set(const _Intent(error: ShikooError.noServer));
-      }
+      _set(const _Intent(error: ShikooError.noServer));
     }
     if (_again) {
       _again = false;
@@ -1408,12 +1397,26 @@ class ShikooController {
     });
   }
 
+  /// The app's own usage-multiplier pick gives way to an ordinary [to]; a user's own stays.
+  bool _leaveMultiplied(String? to) {
+    final chosen = _validSelection();
+    if (to == null || multiplied(to) || chosen == null) return false;
+    if (chosen != _appPick || !multiplied(chosen)) return false;
+    _pickedByApp(to);
+    unawaited(_choose(to));
+    return true;
+  }
+
   Future<void> _replaceSilentPick() async {
     if (_staleGroups) return;
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
-    if (ms == null || ms > 0) return;
+    if (ms == null) return;
+    if (ms > 0) {
+      _leaveMultiplied(fastest(_names(_group), _ping));
+      return;
+    }
     // Flutter says running from the press on; a probe under the consent dialog proves nothing.
     if (_running && await _nativeRunTime() == null) return;
     if (_validSelection() != chosen) return;
