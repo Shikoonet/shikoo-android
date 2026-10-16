@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Fails if an APK carries Firebase, Crashlytics, ML Kit or Google datatransport again, or asks for the
-# ad, camera or location permissions. Run it on every APK after merging FlClash (SHIKOO_PATCHES.md 5-8).
+# Fails if an APK carries Firebase, Crashlytics, ML Kit or Google datatransport again, asks for the ad, camera,
+# location, all-packages or battery-exemption permissions, or exposes FlClash's files provider or clash:// links.
+# Run it on every APK after merging FlClash (SHIKOO_PATCHES.md 5-8 and 30).
 #   bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 set -euo pipefail
 
@@ -20,8 +21,8 @@ for apk in "$@"; do
   hits=$(
     set -e
     find_in 'libcrashlytics|transport-|firebase-|mlkit' "$files"
-    find_in 'ad_id|adservices|permission\.camera|_location' "$badging"
-    find_in 'firebase|crashlytics|mlkit|datatransport|measurement|GoogleApiActivity|gms\.version|androidx\.camera' "$manifest" |
+    find_in 'ad_id|adservices|permission\.camera|_location|query_all_packages|get_installed_apps|ignore_battery' "$badging"
+    find_in 'firebase|crashlytics|mlkit|datatransport|measurement|GoogleApiActivity|gms\.version|androidx\.camera|FilesProvider|DOCUMENTS_PROVIDER|scheme\(0x[0-9a-f]+\)="(clash|clashmeta|flclash)"|install-config' "$manifest" |
       sed -E 's/ \(Raw: .*//'
   )
   if [ -n "$hits" ]; then

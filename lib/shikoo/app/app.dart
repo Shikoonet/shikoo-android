@@ -75,6 +75,13 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
   openLogs: true,
 );
 
+/// FlClash asks Android which app owns every connection (`find-process-mode: always`) for per-app rules Shikoo never
+/// has; without QUERY_ALL_PACKAGES the answer is empty for other apps anyway.
+PatchClashConfig shikooClashConfig(PatchClashConfig c) => c.copyWith(
+  logLevel: LogLevel.warning,
+  findProcessMode: FindProcessMode.off,
+);
+
 /// A TV is often left on the home screen for hours: its services stay as fresh as on open.
 void everyMinute(ProviderContainer container) {
   final controller = container.read(shikooControllerProvider);
@@ -112,9 +119,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       // Saved only because AppStateManager is mounted by now (engine map section 1).
       ref.read(appSettingProvider.notifier).update(shikooAppSettings);
       await afterAttach(bootstrap.attach(), globalState.container);
-      ref
-          .read(patchClashConfigProvider.notifier)
-          .update((c) => c.copyWith(logLevel: LogLevel.warning));
+      ref.read(patchClashConfigProvider.notifier).update(shikooClashConfig);
       unawaited(shikooDiag.attach(globalState.container));
       shikooDiag.watchUi();
       _attached = true;
