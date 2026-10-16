@@ -851,6 +851,10 @@ class ShikooL10nEn extends ShikooL10n {
       'Disabled, and it can\'t be renewed. Press “Support” to follow it up.';
 
   @override
+  String get summaryNotRenewable =>
+      'This service can\'t be renewed; ask “Support” to continue.';
+
+  @override
   String get pastedServicesTitle => 'Services added by link';
 
   @override

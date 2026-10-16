@@ -1482,6 +1482,237 @@ void main() {
     );
   });
 
+  testWidgets('a finished row the door says the bot will not renew has '
+      'support, on this device or not; one it will renew, or one it says '
+      'nothing of, keeps renewal', (tester) async {
+    final lastMonth = DateTime.now().subtract(const Duration(days: 20));
+    ShikooService device(int id) => ShikooService(
+      id: id,
+      name: 'dev$id · طلایی',
+      usedBytes: 1,
+      totalBytes: 100,
+      expire: lastMonth,
+    );
+    await _pump(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: _servers,
+        service: _phone().service,
+        others: [device(4), device(5)],
+      ),
+      account: const ShikooAccount(
+        services: [
+          LinkedService(
+            id: 40,
+            title: 'dev4 · طلایی',
+            status: 'active',
+            profileId: 4,
+            renewable: false,
+          ),
+          LinkedService(
+            id: 50,
+            title: 'dev5 · طلایی',
+            status: 'active',
+            profileId: 5,
+          ),
+          LinkedService(
+            id: 1,
+            title: 'acct1 · off',
+            status: 'disabled',
+            renewable: false,
+          ),
+          LinkedService(
+            id: 2,
+            title: 'acct2 · late',
+            status: 'expired',
+            renewable: true,
+          ),
+          LinkedService(
+            id: 3,
+            title: 'acct3 · used',
+            status: 'exhausted',
+            renewable: false,
+          ),
+        ],
+      ),
+    );
+    final head = find.text('سرویس‌های تمام‌شده (۵)');
+    await tester.ensureVisible(head);
+    await tester.tap(head);
+    await tester.pumpAndSettle();
+    String action(String name) => tester
+        .widget<ShikooButton>(
+          find.descendant(
+            of: find.ancestor(
+              of: find.textContaining(name).first,
+              matching: find.byWidgetPredicate(
+                (w) => w is Row && w.children.any((c) => c is ShikooButton),
+              ),
+            ),
+            matching: find.byType(ShikooButton),
+          ),
+        )
+        .label;
+    expect(
+      {
+        for (final row in ['acct1', 'acct2', 'acct3', 'dev4', 'dev5'])
+          row: action(row),
+      },
+      {
+        'acct1': 'پشتیبانی',
+        'acct2': 'تمدید',
+        'acct3': 'پشتیبانی',
+        'dev4': 'پشتیبانی',
+        'dev5': 'تمدید',
+      },
+    );
+  });
+
+  testWidgets('a card on this device the door says the bot will not renew has '
+      'support alone, the remote resting on it and no line asking for '
+      'renewal; without the word the card is as before', (tester) async {
+    ShikooAccount account(bool? renewable) => ShikooAccount(
+      bot: 'Test_Shikoo_bot',
+      services: [
+        LinkedService(
+          id: 50,
+          title: 'user123 · الماس',
+          status: 'active',
+          profileId: 0,
+          renewable: renewable,
+        ),
+      ],
+    );
+    String? focused() => FocusManager.instance.primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<ShikooButton>()
+        ?.label;
+    final usedUp = ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: true,
+      servers: _servers,
+      selected: 'آلمان ۲',
+      service: ShikooService(
+        name: 'user123 · الماس',
+        usedBytes: 100 << 30,
+        totalBytes: 100 << 30,
+        expire: DateTime(2099),
+      ),
+    );
+    for (final renewable in [false, null]) {
+      final renews = renewable == null;
+      for (final tv in [false, true]) {
+        final why = 'renewable $renewable, active, ${tv ? 'TV' : 'phone'}';
+        await _pump(tester, _phone(isTV: tv), account: account(renewable));
+        await tester.pumpAndSettle();
+        expect(
+          find.widgetWithText(ShikooButton, 'تمدید'),
+          renews ? findsOneWidget : findsNothing,
+          reason: why,
+        );
+        expect(
+          find.widgetWithText(ShikooButton, 'پشتیبانی'),
+          findsOneWidget,
+          reason: why,
+        );
+        if (!tv) continue;
+        tester
+            .widget<ServerRow>(find.byType(ServerRow).first)
+            .focusNode!
+            .requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        expect(focused(), 'پشتیبانی', reason: '$why, up from the first server');
+      }
+      final why = 'renewable $renewable, used up, TV';
+      await _pump(tester, usedUp, account: account(renewable));
+      await tester.pumpAndSettle();
+      expect(focused(), renews ? 'تمدید' : 'پشتیبانی', reason: why);
+      expect(
+        find.text('با «تمدید» دوباره وصل می‌شوی.'),
+        renews ? findsOneWidget : findsNothing,
+        reason: why,
+      );
+    }
+    ProviderScope.containerOf(
+      tester.element(find.byType(ShikooHome)),
+    ).read(shikooAccountProvider.notifier).set(account(false));
+    await tester.pumpAndSettle();
+    expect(
+      focused(),
+      'پشتیبانی',
+      reason: 'a sync takes renewal away under the remote',
+    );
+  });
+
+  testWidgets('a used-up card on this device the bot will not renew says so, '
+      'folded and open, instead of asking for renewal', (tester) async {
+    const notRenewable =
+        'این سرویس تمدید نمی‌شود؛ برای ادامه از «پشتیبانی» بپرس.';
+    ShikooState usedUp({required int open}) => ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: false,
+      servers: _servers,
+      service: const ShikooService(
+        name: 'user123 · الماس',
+        usedBytes: 100 << 30,
+        totalBytes: 100 << 30,
+      ),
+      others: const [
+        ShikooService(
+          id: 7,
+          name: 'user789 · معمولی',
+          usedBytes: 0,
+          totalBytes: 0,
+        ),
+      ],
+      open: open,
+    );
+    for (final renewable in [false, null]) {
+      final renews = renewable == null;
+      final account = ShikooAccount(
+        services: [
+          LinkedService(
+            id: 50,
+            title: 'user123 · الماس',
+            status: 'active',
+            profileId: 0,
+            renewable: renewable,
+          ),
+        ],
+      );
+      await _pump(tester, usedUp(open: 7), account: account);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('حجمش تمام شد. با تمدید دوباره فعال می‌شود.'),
+        renews ? findsOneWidget : findsNothing,
+        reason: 'renewable $renewable, folded',
+      );
+      expect(
+        find.text(notRenewable),
+        renews ? findsNothing : findsOneWidget,
+        reason: 'renewable $renewable, folded',
+      );
+      await _pump(tester, usedUp(open: 0), account: account);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('فهرست سرورها بعد از تمدید برمی‌گردد.'),
+        renews ? findsOneWidget : findsNothing,
+        reason: 'renewable $renewable, open',
+      );
+      expect(
+        find.text(notRenewable),
+        renews ? findsNothing : findsOneWidget,
+        reason: 'renewable $renewable, open',
+      );
+    }
+  });
+
   testWidgets('a service the shop turned off reads «غیرفعال شد» and comes last '
       'whatever its date; hidden only 30 days after a past one', (
     tester,

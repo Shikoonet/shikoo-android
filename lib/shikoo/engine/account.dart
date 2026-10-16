@@ -79,6 +79,7 @@ class LinkedService {
     this.profileId,
     this.expiresAt,
     this.loadFailed = false,
+    this.renewable,
   });
 
   /// The statuses of shikoo-platform's `/services` that mean ended; `on_hold` has not started.
@@ -100,11 +101,16 @@ class LinkedService {
   /// The panel gave a link whose servers did not load: the bot cannot help, a retry can.
   final bool loadFailed;
 
+  /// The door's answer by the bot's own renewal rule; null from a door older than it.
+  final bool? renewable;
+
+  bool get botRenews => renewable != false;
+
   bool get finished => finishedStatuses.contains(status);
 
   /// The bot renews a disabled service but not a removed one, and a failed one never ran.
   bool get renews =>
-      const {'expired', 'exhausted', 'disabled'}.contains(status);
+      botRenews && const {'expired', 'exhausted', 'disabled'}.contains(status);
 
   /// Turned off by the shop, maybe before its end date: no «ended N days ago».
   bool get disabled => const {'removed', 'disabled', 'failed'}.contains(status);
@@ -176,9 +182,13 @@ class ShikooAccount {
       if (service.profileId == null) service,
   ];
 
-  int? serviceOf(int? profileId) => profileId == null
+  LinkedService? _linked(int? profileId) => profileId == null
       ? null
-      : services.firstWhereOrNull((s) => s.profileId == profileId)?.id;
+      : services.firstWhereOrNull((s) => s.profileId == profileId);
+
+  int? serviceOf(int? profileId) => _linked(profileId)?.id;
+
+  bool renewsOn(int? profileId) => _linked(profileId)?.botRenews ?? true;
 }
 
 final shikooAccountProvider =
@@ -260,6 +270,10 @@ class AccountServiceRow {
       expiresAt = switch (json['expires_at']) {
         final String at => DateTime.tryParse(at),
         _ => null,
+      },
+      renewable = switch (json['renewable']) {
+        final bool renewable => renewable,
+        _ => null,
       };
 
   final int id;
@@ -268,6 +282,7 @@ class AccountServiceRow {
   final String status;
   final String? subUrl;
   final DateTime? expiresAt;
+  final bool? renewable;
 
   String get label => location == null ? title : '$title · $location';
 }
@@ -631,6 +646,10 @@ class ShikooSignIn {
                   profileId: s['profileId'] as int?,
                   expiresAt: DateTime.tryParse(s['expiresAt'] as String? ?? ''),
                   loadFailed: s['loadFailed'] == true,
+                  renewable: switch (s['renewable']) {
+                    final bool renewable => renewable,
+                    _ => null,
+                  },
                 ),
             ],
             total: json['total'] as int? ?? 0,
@@ -688,6 +707,7 @@ class ShikooSignIn {
               'profileId': s.profileId,
               'expiresAt': s.expiresAt?.toIso8601String(),
               'loadFailed': s.loadFailed,
+              'renewable': s.renewable,
             },
         ],
         'total': account.total,
@@ -993,6 +1013,7 @@ class ShikooSignIn {
           profileId: profileId,
           expiresAt: row.expiresAt,
           loadFailed: loadFailed,
+          renewable: row.renewable,
         ),
       );
     }
