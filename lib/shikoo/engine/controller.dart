@@ -302,6 +302,9 @@ NotifierProvider<ShikooCell<T>, T> _cell<T>(T initial) =>
 
 final _intentProvider = _cell(const _Intent());
 
+/// A server chosen while another change is in the core, shown until its own is sent.
+final _wantedProvider = _cell<String?>(null);
+
 typedef _Round = ({Set<String> pending, int total, bool ended});
 
 const _Round _noRound = (pending: <String>{}, total: 0, ended: false);
@@ -503,7 +506,8 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final byName = {for (final proxy in _serversOf(group)) proxy.name: proxy};
   final chosen = group == null
       ? null
-      : ref.watch(selectedMapProvider)[group.name];
+      : ref.watch(_wantedProvider) ??
+            ref.watch(selectedMapProvider)[group.name];
   final selected = byName.containsKey(chosen) ? chosen : null;
   final switching = ref.watch(_switchProvider);
   final switchService = ref.watch(_switchServiceProvider);
@@ -865,6 +869,11 @@ class ShikooController {
   int _openNo = 0;
 
   int _tap = 0;
+  int _chooseNo = 0;
+
+  /// The core runs each change on its own goroutine: two at once may land in either order.
+  Future<void>? _changing;
+  String? _pickInCore;
   Timer? _switched;
   String? _awaiting;
   DateTime _awaitingUntil = DateTime(0);
@@ -965,6 +974,7 @@ class ShikooController {
 
   Future<void> connect() async {
     if (_ref.read(currentProfileProvider) == null) return;
+    _setAsideMultiplied();
     if (_validSelection() != null) return _start();
     _find();
   }
@@ -981,6 +991,7 @@ class ShikooController {
     final ping = _pingOnArrival;
     _pingOnArrival = false;
     final waiting = _ref.read(_intentProvider).waiting;
+    if (waiting && !_running) _setAsideMultiplied();
     if (_validSelection() == null && (_running || waiting)) {
       return _find(list: ping);
     }
@@ -1007,9 +1018,9 @@ class ShikooController {
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
-    _set(const _Intent(connecting: true));
+    _set(_Intent(connecting: true, error: error));
     bool started;
     try {
       started = await _setup.setRunning(
@@ -1030,7 +1041,7 @@ class ShikooController {
     if (attempt != _attempt) return;
     if (since != null) {
       _nativeStart(since);
-      _set(const _Intent());
+      _set(_Intent(error: error));
       unawaited(_checkSelected());
       return;
     }
@@ -1106,8 +1117,7 @@ class ShikooController {
       return _switchTo(name, from, tap, other);
     }
     if (other != null) return _moveTo(other, name);
-    _pickedByApp(null);
-    await _choose(name);
+    await _choose(name, byApp: false);
     if (connected) await _checkSelected();
   }
 
@@ -1217,22 +1227,43 @@ class ShikooController {
     });
   }
 
-  Future<void> _choose(String name) async {
+  Future<void> _choose(String name, {bool? byApp}) async {
     final group = _group;
     if (group == null) return;
-    await _proxies.changeProxy(groupName: group.name, proxyName: name);
+    final no = ++_chooseNo;
+    if (_changing == null) _pickInCore = _appPick;
+    if (byApp != null) _pickedByApp(byApp ? name : null);
+    final pick = _appPick;
+    final wanted = _ref.read(_wantedProvider.notifier);
+    if (_changing case final earlier?) {
+      wanted.set(name);
+      await earlier;
+      if (no != _chooseNo) return;
+    }
+    final change = _changing = _proxies
+        .changeProxy(groupName: group.name, proxyName: name)
+        .whenComplete(() => _changing = null);
+    wanted.set(null);
+    await change;
     _proxies.updateGroupsDebounce();
     final applied = _ref.read(selectedProxyNameProvider(group.name)) == name;
+    if (applied) _pickInCore = pick;
+    if (no != _chooseNo) return;
+    if (!applied) _pickedByApp(_pickInCore);
     final intent = _ref.read(_intentProvider);
-    if (applied && intent.waiting) {
+    final error = applied ? null : ShikooError.serverChange;
+    if (intent.waiting && _validSelection() != null) {
       // Up already, as after a switch of service: the answer takes the traffic, no new start.
-      return _running ? _set(const _Intent()) : unawaited(_start());
+      return _running
+          ? _set(_Intent(error: error))
+          : unawaited(_start(byApp == false ? error : null));
     }
+    final waiting = intent.waiting && _pinging;
     _set(
       _Intent(
-        connecting: intent.connecting,
-        waiting: intent.waiting,
-        error: applied ? null : ShikooError.serverChange,
+        connecting: intent.waiting ? waiting : intent.connecting,
+        waiting: waiting,
+        error: error,
       ),
     );
   }
@@ -1266,9 +1297,7 @@ class ShikooController {
     }
     final removed = _removed;
     _removed = null;
-    _pickedByApp(best);
-    // changeProxy writes the selection before it awaits, so a second call sees it.
-    unawaited(_choose(best));
+    unawaited(_choose(best, byApp: true));
     if (removed != null) {
       _checkNext |= running;
       _notice(
@@ -1305,15 +1334,13 @@ class ShikooController {
       await pingServers(names, (name) => _probeFor(no, url, name), (name, ms) {
         if (no != _roundNo) return;
         if (!list) {
+          if (ms <= 0) return;
           final first =
-              ms > 0 &&
-              _validSelection() == null &&
-              _ref.read(_intentProvider).waiting;
-          if (first) {
-            _heard.add(name);
-            _setPing(service, name, ms);
-            _reconcile();
-          }
+              _validSelection() == null && _ref.read(_intentProvider).waiting;
+          if (!first && !_leaveMultiplied(name)) return;
+          _heard.add(name);
+          _setPing(service, name, ms);
+          if (first) _reconcile();
           return;
         }
         final kept = _names(_group).contains(name);
@@ -1346,6 +1373,7 @@ class ShikooController {
         ended: true,
       ));
     } else if (_validSelection() == null &&
+        _ref.read(_wantedProvider) == null &&
         _ref.read(_intentProvider).waiting) {
       _set(const _Intent(error: ShikooError.noServer));
     }
@@ -1401,19 +1429,36 @@ class ShikooController {
     });
   }
 
+  bool _leaveMultiplied(String? to) {
+    final chosen = _validSelection();
+    if (to == null || multiplied(to) || chosen == null) return false;
+    if (chosen != _appPick || !multiplied(chosen)) return false;
+    unawaited(_choose(to, byApp: true));
+    return true;
+  }
+
+  void _setAsideMultiplied() {
+    final chosen = _validSelection();
+    if (chosen == null || chosen != _appPick || !multiplied(chosen)) return;
+    _setChoice(_current!, _group!.name, null, null);
+  }
+
   Future<void> _replaceSilentPick() async {
     if (_staleGroups) return;
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
-    if (ms == null || ms > 0) return;
+    if (ms == null) return;
+    if (ms > 0) {
+      _leaveMultiplied(fastest(_names(_group), _ping));
+      return;
+    }
     // Flutter says running from the press on; a probe under the consent dialog proves nothing.
     if (_running && await _nativeRunTime() == null) return;
     if (_validSelection() != chosen) return;
     final best = fastest(_names(_group), _ping);
     if (best == null) return;
-    _pickedByApp(best);
-    unawaited(_choose(best));
+    unawaited(_choose(best, byApp: true));
     _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
   }
 
