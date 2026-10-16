@@ -85,6 +85,15 @@ void main() {
     });
   });
 
+  test('the app picks a usage-multiplier server only when no other answered '
+      '(#29)', () {
+    const panel = ['ضریب مصرف NE 4 x', 'ضریب مصرف FR 4 x', 'Germany 3'];
+    final pings = {panel[0]: 60, panel[1]: 70, panel[2]: 113};
+    expect(fastest(panel, (n) => pings[n]), 'Germany 3');
+    pings['Germany 3'] = -1;
+    expect(fastest(panel, (n) => pings[n]), 'ضریب مصرف NE 4 x');
+  });
+
   test('keepOrder keeps the sorted order and appends new servers', () {
     expect(keepOrder(['c', 'a', 'b'], ['a', 'b', 'c', 'd']), [
       'c',
@@ -199,6 +208,24 @@ void main() {
       final silent = {for (final name in _panel) name: -1};
       expect(pick(silent, pinging: false, urgent: true), isNull);
       expect(pick(silent, pinging: false, urgent: false), isNull);
+    });
+
+    test('connect pressed: a usage-multiplier first answer waits for the '
+        'round, and is taken when it ends with no other answer (#29)', () {
+      const four = 'ضریب مصرف NE 4 x';
+      String? connecting(Map<String, int> pings, {required bool pinging}) =>
+          pickNow(
+            names: const [four, 'هلند ۱'],
+            ping: (n) => pings[n],
+            pinging: pinging,
+            urgent: true,
+          );
+      expect(connecting(const {four: 60}, pinging: true), isNull);
+      expect(
+        connecting(const {four: 60, 'هلند ۱': 90}, pinging: true),
+        'هلند ۱',
+      );
+      expect(connecting(const {four: 60}, pinging: false), four);
     });
   });
 

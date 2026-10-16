@@ -750,12 +750,17 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
 }
 
 /// Never row 1, the core's fallback: with connect pressed the first answer, else the fastest.
+/// A multiplied first answer waits for the round's end, in case another server answers.
 String? pickNow({
   required List<String> names,
   required int? Function(String name) ping,
   required bool pinging,
   required bool urgent,
-}) => pinging && !urgent ? null : fastest(names, ping);
+}) {
+  if (pinging && !urgent) return null;
+  final best = fastest(names, ping);
+  return pinging && best != null && multiplied(best) ? null : best;
+}
 
 /// While off, a selection that cannot connect gives way to one that can, else to the last ended.
 int? serviceInstead(ShikooState state) {
@@ -1235,17 +1240,18 @@ class ShikooController {
     );
   }
 
-  void _reconcile() {
+  /// [ended]: connect's probe is over, and a server it did not hear keeps an older number.
+  void _reconcile({bool ended = false}) {
     final group = _group;
     if (group == null || _staleGroups || _validSelection() != null) return;
     final names = _names(group);
     if (names.isEmpty) return;
     final running = _running;
     final intent = _ref.read(_intentProvider);
-    final pinging = _pinging || _again;
+    final pinging = !ended && (_pinging || _again);
     // Connect pressed while finding takes this round's first answer, not the round before's best.
     int? ping(String name) =>
-        !pinging || _heard.contains(name) ? _ping(name) : null;
+        !pinging && !ended || _heard.contains(name) ? _ping(name) : null;
     final best = pickNow(
       names: names,
       ping: ping,
@@ -1345,7 +1351,10 @@ class ShikooController {
       ));
     } else if (_validSelection() == null &&
         _ref.read(_intentProvider).waiting) {
-      _set(const _Intent(error: ShikooError.noServer));
+      _reconcile(ended: true);
+      if (_validSelection() == null) {
+        _set(const _Intent(error: ShikooError.noServer));
+      }
     }
     if (_again) {
       _again = false;

@@ -44,8 +44,15 @@ int _sortKey(int? ms) => ms != null && ms > 0 ? ms : 1 << 30;
 List<String> sortByPing(List<String> panel, int? Function(String name) ping) =>
     panel.sortedBy((name) => _sortKey(ping(name)));
 
-String? fastest(List<String> panel, int? Function(String name) ping) =>
-    minBy(panel.where((name) => (ping(name) ?? 0) > 0), (name) => ping(name)!);
+/// The panel's own wording, as in «ضریب مصرف NE 4 x»: the volume runs out that many times faster.
+bool multiplied(String name) => name.contains('ضریب');
+
+/// The app's own pick: a multiplied server only when no other answered.
+String? fastest(List<String> panel, int? Function(String name) ping) {
+  int ms(String name) => ping(name)!;
+  final answered = panel.where((name) => (ping(name) ?? 0) > 0);
+  return minBy(answered.whereNot(multiplied), ms) ?? minBy(answered, ms);
+}
 
 List<String> keepOrder(List<String> order, List<String> panel) => [
   ...order.where(panel.contains),

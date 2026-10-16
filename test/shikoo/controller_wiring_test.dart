@@ -322,6 +322,58 @@ void main() {
     await controller.disconnect();
   });
 
+  test('connect passes over a usage-multiplier server that answers first, and '
+      'takes it only when no other server answers (#29)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    for (final netherlandsUp in [true, false]) {
+      final (:container, :core, :proxies, :setup) = _home();
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: four, type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      var firstRound = true;
+      final netherlands = Completer<void>();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        if (name == four) return Delay(name: name, url: '', value: 60);
+        if (!firstRound) await netherlands.future;
+        final up = firstRound || netherlandsUp;
+        return Delay(name: name, url: '', value: up ? 90 : -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await controller.pingAll();
+      expect(proxies.picked, ['هلند ۱'], reason: 'a ping round skips the 4x');
+
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'سرور حذف‌شده');
+      firstRound = false;
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(proxies.picked, ['هلند ۱'], reason: 'the 4x answer waits');
+
+      netherlands.complete();
+      await pumpEventQueue();
+      expect(
+        proxies.picked,
+        ['هلند ۱', if (netherlandsUp) 'هلند ۱' else four],
+        reason: netherlandsUp
+            ? 'another server answered'
+            : 'هلند ۱ answered only the round before',
+      );
+      expect(setup.runs, [true]);
+
+      await controller.disconnect();
+    }
+  });
+
   test(
     'connect during a round waits for its answers, not the round before',
     () async {
