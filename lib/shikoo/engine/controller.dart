@@ -1018,9 +1018,9 @@ class ShikooController {
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
-    _set(const _Intent(connecting: true));
+    _set(_Intent(connecting: true, error: error));
     bool started;
     try {
       started = await _setup.setRunning(
@@ -1041,7 +1041,7 @@ class ShikooController {
     if (attempt != _attempt) return;
     if (since != null) {
       _nativeStart(since);
-      _set(const _Intent());
+      _set(_Intent(error: error));
       unawaited(_checkSelected());
       return;
     }
@@ -1254,7 +1254,9 @@ class ShikooController {
     final error = applied ? null : ShikooError.serverChange;
     if (intent.waiting && _validSelection() != null) {
       // Up already, as after a switch of service: the answer takes the traffic, no new start.
-      return _running ? _set(_Intent(error: error)) : unawaited(_start());
+      return _running
+          ? _set(_Intent(error: error))
+          : unawaited(_start(byApp == false ? error : null));
     }
     final waiting = intent.waiting && _pinging;
     _set(
@@ -1371,6 +1373,7 @@ class ShikooController {
         ended: true,
       ));
     } else if (_validSelection() == null &&
+        _ref.read(_wantedProvider) == null &&
         _ref.read(_intentProvider).waiting) {
       _set(const _Intent(error: ShikooError.noServer));
     }

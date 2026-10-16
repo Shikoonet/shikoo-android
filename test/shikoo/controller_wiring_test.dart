@@ -790,6 +790,107 @@ void main() {
     await controller.disconnect();
   });
 
+  test('connect pressed again while the first search\'s 4x change is still in '
+      'the core: a change still waiting to be sent keeps the search going, '
+      'and it connects once that change is sent (#29)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: four, type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    final netherlands = Completer<void>();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (name == 'هلند ۱') await netherlands.future;
+      return Delay(name: name, url: '', value: name == four ? 60 : 90);
+    });
+    final held = proxies.gates[four] = Completer();
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    await controller.disconnect();
+    unawaited(controller.connect());
+    await pumpEventQueue();
+
+    netherlands.complete();
+    await pumpEventQueue();
+    var state = container.read(shikooStateProvider);
+    expect((state.waiting, state.lastError), (true, null));
+    held.complete();
+    await pumpEventQueue();
+    state = container.read(shikooStateProvider);
+    expect(proxies.picked, [four, 'هلند ۱']);
+    expect(
+      (state.selected, state.connection),
+      ('هلند ۱', ShikooConnection.connecting),
+    );
+    expect(setup.runs, [false, true]);
+
+    await controller.disconnect();
+  });
+
+  test("a tap the core refuses while connect searches connects on the app's "
+      'server it falls back to, and says the tap failed', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: four, type: 'Vless'),
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: name == four ? 60 : -1);
+    });
+    final held = proxies.gates[four] = Completer();
+    proxies.refused.add('آلمان ۱');
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    unawaited(controller.connect());
+    await pumpEventQueue();
+
+    unawaited(controller.selectServer('آلمان ۱'));
+    await pumpEventQueue();
+    held.complete();
+    await pumpEventQueue();
+    var state = container.read(shikooStateProvider);
+    final id = container.read(currentProfileIdProvider);
+    final prefs = await SharedPreferences.getInstance();
+    expect(proxies.picked, [four, 'آلمان ۱']);
+    expect(
+      (state.selected, state.connection, state.lastError),
+      (four, ShikooConnection.connecting, ShikooError.serverChange),
+    );
+    expect(setup.runs, [true]);
+    expect(prefs.getString('shikoo.appPicks'), '{"$id":"$four"}');
+
+    setup.tunnel = DateTime(2026);
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    state = container.read(shikooStateProvider);
+    expect(
+      (state.connection, state.lastError),
+      (ShikooConnection.on, ShikooError.serverChange),
+      reason: 'still said once connected',
+    );
+
+    await controller.disconnect();
+  });
+
   test('the app keeps its own pick across rounds: no change while only '
       'usage-multiplier servers answer, and the ordinary server it moves to '
       'is replaced when it goes silent (#29)', () async {
