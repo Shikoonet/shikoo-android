@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -682,9 +683,17 @@ String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
     };
 
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.status});
+  const StatusChip({super.key, required this.status}) : disabled = false;
+
+  /// A finished service of the account; one the shop turned off reads «غیرفعال شد», not expired.
+  StatusChip.linked(LinkedService service, {super.key})
+    : status = service.status == 'exhausted'
+          ? ShikooServiceStatus.exhausted
+          : ShikooServiceStatus.expired,
+      disabled = service.disabled;
 
   final ShikooServiceStatus status;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
@@ -701,7 +710,7 @@ class StatusChip extends StatelessWidget {
         shape: const StadiumBorder(),
       ),
       child: Text(
-        statusLabel(l, status),
+        disabled ? l.finishedDisabled : statusLabel(l, status),
         style: t.text(
           t.s.caption,
           weight: FontWeight.w700,

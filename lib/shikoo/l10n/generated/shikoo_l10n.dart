@@ -1370,6 +1370,24 @@ abstract class ShikooL10n {
   /// **'Out of data. After renewing, press “Try again”.'**
   String get summaryExhaustedTv;
 
+  /// No description provided for @summaryDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled. Renew to use it again.'**
+  String get summaryDisabled;
+
+  /// No description provided for @summaryDisabledTv.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled. After renewing, press “Try again”.'**
+  String get summaryDisabledTv;
+
+  /// A service removed in the panel, or one that never started: the bot renews neither, so the card has Support instead of Renew.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled, and it can\'t be renewed. Press “Support” to follow it up.'**
+  String get summaryRemoved;
+
   /// Settings section, phone only. Lists only services whose sole source on this phone is a pasted link; absent when there are none.
   ///
   /// In en, this message translates to:

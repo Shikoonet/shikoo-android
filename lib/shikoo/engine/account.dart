@@ -100,7 +100,11 @@ class LinkedService {
   /// The panel gave a link whose servers did not load: the bot cannot help, a retry can.
   final bool loadFailed;
 
-  bool get renews => finishedStatuses.contains(status);
+  bool get finished => finishedStatuses.contains(status);
+
+  /// The bot renews a disabled service but not a removed one, and a failed one never ran.
+  bool get renews =>
+      const {'expired', 'exhausted', 'disabled'}.contains(status);
 
   /// Turned off by the shop, maybe before its end date: no «ended N days ago».
   bool get disabled => const {'removed', 'disabled', 'failed'}.contains(status);

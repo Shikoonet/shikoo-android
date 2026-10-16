@@ -25,6 +25,8 @@ import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+bool _renews(Finished row) => row.linked?.renews ?? true;
+
 String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   final ended = row.ended;
   if (row.linked?.disabled ?? false) return l.finishedDisabled;
@@ -281,7 +283,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             renewId: account.serviceOf(service.id),
           ),
       for (final linked in unlinked)
-        if (linked.renews)
+        if (linked.finished)
           (
             name: linked.title,
             exhausted: linked.status == 'exhausted',
@@ -306,7 +308,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final hasService = current != null && linkedTop == null;
     final noLink = [
       for (final linked in unlinked)
-        if (!linked.renews) linked,
+        if (!linked.finished) linked,
     ];
     final first = linkedTop ?? (hasService ? null : noLink.firstOrNull);
     _focusFirst(state, linkless: first != null);
@@ -318,7 +320,8 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       restingLabel: switch (first) {
         null => null,
         LinkedService(status: 'exhausted') => l.stateExhausted,
-        LinkedService(renews: true) => l.powerExpired,
+        LinkedService(disabled: true) => l.finishedDisabled,
+        LinkedService(finished: true) => l.powerExpired,
         LinkedService(loadFailed: true) => l.loadFailedChip,
         _ => l.noLinkChip,
       },
@@ -971,8 +974,10 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final _LinklessCard(:service, :bot, :isTV) = widget;
+    final finished = service.finished;
     final renews = service.renews;
-    final failed = service.loadFailed && !renews;
+    final supportOnly = finished && !renews;
+    final failed = service.loadFailed && !finished;
     return Container(
       padding: const EdgeInsets.all(Space.s4),
       decoration: ShapeDecoration(
@@ -990,12 +995,8 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ServiceName(service.title),
-              if (renews)
-                StatusChip(
-                  status: service.status == 'exhausted'
-                      ? ShikooServiceStatus.exhausted
-                      : ShikooServiceStatus.expired,
-                )
+              if (finished)
+                StatusChip.linked(service)
               else
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1019,9 +1020,12 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           ),
           const SizedBox(height: Space.s2),
           Text(
-            switch ((service.status, renews, isTV)) {
+            switch ((service.status, finished, isTV)) {
               ('exhausted', _, false) => l.summaryExhausted,
               ('exhausted', _, true) => l.summaryExhaustedTv,
+              _ when supportOnly => l.summaryRemoved,
+              ('disabled', _, false) => l.summaryDisabled,
+              ('disabled', _, true) => l.summaryDisabledTv,
               (_, true, false) => l.summaryExpiredNoDate,
               (_, true, true) => l.summaryExpiredNoDateTv,
               _ when failed => l.loadFailedHelp,
@@ -1049,7 +1053,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                     onPressed: _busy ? () {} : () => unawaited(_retry()),
                   ),
                 )
-              else
+              else if (!supportOnly)
                 Expanded(
                   child: ShikooButton(
                     label: renews
@@ -1077,11 +1081,13 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                           ),
                   ),
                 ),
-              if (renews || failed)
+              if (finished || failed)
                 Expanded(
                   child: ShikooButton(
                     label: l.support,
                     icon: isTV ? ShikooIcon.qr : null,
+                    primary: supportOnly,
+                    focusNode: supportOnly ? widget.focusNode : null,
                     onPressed: () => unawaited(
                       openSupport(
                         context,
@@ -1157,6 +1163,17 @@ class _FinishedServicesState extends State<_FinishedServices> {
   }
 
   void _renew(Finished row) {
+    if (!_renews(row)) {
+      unawaited(
+        openSupport(
+          context,
+          isTV: widget.isTV,
+          below: bidiName(row.name),
+          trigger: 'support',
+        ),
+      );
+      return;
+    }
     final l = ShikooL10n.of(context);
     final id = row.renewId;
     final user = usernameOf(row.name);
@@ -1221,7 +1238,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
             ExcludeFocus(
               child: IgnorePointer(
                 child: ShikooButton(
-                  label: l.renew,
+                  label: _renews(row) ? l.renew : l.support,
                   icon: ShikooIcon.qr,
                   small: true,
                   onPressed: () {},
@@ -1230,7 +1247,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
             )
           else
             ShikooButton(
-              label: l.renew,
+              label: _renews(row) ? l.renew : l.support,
               small: true,
               onPressed: () => _renew(row),
             ),
