@@ -75,6 +75,8 @@ bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 - `dart setup.dart android` همچنان اپ خود FlClash را می‌سازد. برای اینکه آن هم اپ شیکو بسازد، یا `setup.dart` وصله می‌خورد (و دو تست `test/setup_test.dart`)، یا `lib/main.dart`. فعلاً لازم نیست.
 - ترجمه‌ها: `lib/shikoo/l10n/*.arb`. بعد از هر تغییر: `bash tools/shikoo-l10n.sh` (پوشهٔ `generated/` را می‌سازد).
 - برند: همهٔ آیکون‌ها، بنر تلویزیون، آیکون اعلان و نشان داخل اپ از `assets/brand/logo-source.jpg` می‌آیند. بعد از عوض کردن آن: `uv run tools/shikoo-brand.py` (پایتون ۳٫۱۲، Pillow، potracer و numpy در `tools/shikoo-brand.py.lock` قفل شده‌اند؛ بعد از عوض کردن وابستگی‌ها: `uv lock --script tools/shikoo-brand.py`).
+- ویندوز: یک بار «حالت توسعه‌دهنده» را روشن کن، بعد `pwsh -File tools/windows-toolchain.ps1` بزن. Visual Studio Build Tools، Rust و Inno Setup در `D:\dev\windows-toolchain` نصب می‌شوند، و Visual Studio یک بار اجازهٔ مدیر می‌خواهد. وصله‌های هسته را از WSL بزن: `wsl.exe -d Ubuntu --exec bash -c 'cd /mnt/d/<پوشه> && bash tools/core-patches/apply.sh'`. بعد در Git Bash: `source /d/dev/android-toolchain/env.sh && source /d/dev/windows-toolchain/env.sh`، و `flutter build windows --release -t lib/shikoo/app/main.dart --dart-define=APP_ENV=stable`.
+  حذف: Build Tools 2022 را از Visual Studio Installer و Inno Setup را از «تنظیمات › برنامه‌ها» پاک کن. بعد `rmdir %USERPROFILE%\.rustup %USERPROFILE%\.cargo` (پیوندند) و `go env -u GOMODCACHE GOCACHE` را بزن، و پوشهٔ `D:\dev\windows-toolchain` را پاک کن.
 
 **فایل‌های تازهٔ شیکو داخل پوشه‌های FlClash** (فایلی از FlClash عوض نشده؛ در ادغام تداخلی نمی‌سازند):
 
