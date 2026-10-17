@@ -257,6 +257,7 @@ Future<_Harness> _harness({
   List<String> plants = const [],
   Object? Function(MethodCall call)? native,
   Set<String>? machine,
+  Future<List<String>> Function(ProviderContainer)? windows,
 }) async {
   SharedPreferences.setMockInitialValues({
     'shikoo.account': jsonEncode({
@@ -348,7 +349,12 @@ Future<_Harness> _harness({
     ..pollEvery = const Duration(hours: 1);
   await signIn.load();
   await signIn.start();
-  return _Harness(home, container, ShikooDiag(machine: machine), sent);
+  return _Harness(
+    home,
+    container,
+    ShikooDiag(machine: machine, windows: windows),
+    sent,
+  );
 }
 
 Response<Object?> _reportAnswer(RequestOptions options) => Response(
@@ -904,6 +910,73 @@ void main() {
         ..release();
       final ring = File('${home.path}/shikoo/diag.log').readAsStringSync();
       expect(ring, contains('init failed for · on ·'));
+    },
+  );
+
+  test('Windows proxy and helper read as ours, other or off', () {
+    List<String> lines(
+      int? enable,
+      String? server,
+      String? pac, {
+      bool installed = false,
+      bool running = false,
+    }) => windowsLines(
+      proxyEnable: enable,
+      proxyServer: server,
+      pac: pac,
+      port: 7890,
+      installed: installed,
+      running: running,
+    );
+    expect(lines(1, '127.0.0.1:7890', null, installed: true, running: true), [
+      'windows proxy ours',
+      'helper service running',
+    ]);
+    expect(lines(1, '127.0.0.1:10808', null, installed: true), [
+      'windows proxy other',
+      'helper service installed',
+    ]);
+    expect(lines(0, null, 'http://127.0.0.1:1080/pac'), [
+      'windows proxy other',
+      'helper service missing',
+    ]);
+    expect(lines(0, '127.0.0.1:7890', ''), [
+      'windows proxy off',
+      'helper service missing',
+    ]);
+    expect(lines(null, null, null).first, 'windows proxy off');
+  });
+
+  test(
+    "a Windows report says another app's proxy, never its address",
+    () async {
+      final h = await _harness(
+        windows: (_) async => windowsLines(
+          proxyEnable: 1,
+          proxyServer: '10.9.8.7:10808',
+          pac: 'http://pac.vhostpac.ir/p.pac',
+          port: 7890,
+          installed: true,
+          running: false,
+        ),
+      );
+      await h.diag.start(h.home.path);
+      await h.diag.attach(h.container);
+
+      final report = await h.diag.report(trigger: 'test', about: _windowsAbout);
+
+      final log = (report['log']! as List).cast<String>();
+      expect(
+        log.map((line) => line.substring(21)),
+        containsAllInOrder([
+          'T windows proxy other',
+          'T helper service installed',
+        ]),
+      );
+      final json = jsonEncode(report);
+      for (final needle in ['10.9.8.7', '10808', 'vhostpac']) {
+        expect(json, isNot(contains(needle)), reason: needle);
+      }
     },
   );
 

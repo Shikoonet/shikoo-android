@@ -403,6 +403,11 @@ The same report and the same keys: the door's sections are `.strict()`, so a PC 
   known values, matched as whole words of any length, so they leave every line, crash text, server label and service
   name; a path is `·` by shape already.
 - «تنظیمات اینترنت» opens `ms-settings:network-status`.
+- Each report adds two `T` lines: `windows proxy ours|other|off` (`ours` is enabled at `127.0.0.1:<mixed-port>`;
+  another app's proxy or setup script is `other`, its address left out) and `helper service running|installed|missing`
+  (FlClash's own ping, else the service's registry key). The door has no key for either.
+- The `screen` tile in the preview stays empty on Windows; hiding it, and «اینترنت گوشی» in the login error, belong to
+  the UI work.
 
 ## Must be proven on a real device
 

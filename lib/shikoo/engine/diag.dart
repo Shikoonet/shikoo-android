@@ -11,7 +11,10 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:fl_clash/common/boot_record.dart' show AppExitReason;
+import 'package:fl_clash/common/constant.dart' show appHelperService;
 import 'package:fl_clash/common/system.dart';
+import 'package:fl_clash/core/desktop/helper_client.dart'
+    show HelperReadiness, helperClient;
 import 'package:fl_clash/core/event.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -27,6 +30,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:win32_registry/win32_registry.dart'
+    show CURRENT_USER, LOCAL_MACHINE;
 
 /// docs/app-diagnostics.md: a clean record kept on the device, sent to the door only when the
 /// customer taps. The door's side of the report is shikoo-platform's `appReport.ts`.
@@ -91,6 +96,61 @@ Set<String> windowsNames(Map<String, String> env, String host) => {
 };
 
 String reportAbi(Abi abi) => '$abi'.replaceFirst('windows_', 'windows-');
+
+/// Another app's proxy is only `other`: its address never leaves the PC.
+List<String> windowsLines({
+  required int? proxyEnable,
+  required String? proxyServer,
+  required String? pac,
+  required int port,
+  required bool installed,
+  required bool running,
+}) {
+  final on = proxyEnable == 1;
+  final proxy = on && proxyServer == '127.0.0.1:$port'
+      ? 'ours'
+      : on || (pac ?? '').isNotEmpty
+      ? 'other'
+      : 'off';
+  final helper = running
+      ? 'running'
+      : installed
+      ? 'installed'
+      : 'missing';
+  return ['windows proxy $proxy', 'helper service $helper'];
+}
+
+Future<List<String>> _readWindows(ProviderContainer container) async {
+  var installed = true;
+  try {
+    LOCAL_MACHINE
+        .open(r'SYSTEM\CurrentControlSet\Services\' + appHelperService)
+        .close();
+  } catch (_) {
+    installed = false;
+  }
+  final running =
+      await helperClient.readiness(
+        timeout: const Duration(seconds: 2),
+        logFailure: false,
+      ) ==
+      HelperReadiness.ready;
+  final internet = CURRENT_USER.open(
+    r'Software\Microsoft\Windows\CurrentVersion\Internet Settings',
+  );
+  try {
+    return windowsLines(
+      proxyEnable: internet.getInt('ProxyEnable'),
+      proxyServer: internet.getString('ProxyServer'),
+      pac: internet.getString('AutoConfigURL'),
+      port: container.read(patchClashConfigProvider).mixedPort,
+      installed: installed,
+      running: running,
+    );
+  } finally {
+    internet.close();
+  }
+}
 
 String _eachWord(String text, String Function(String word) clean) =>
     text.splitMapJoin(_space, onMatch: (m) => m[0]!, onNonMatch: clean);
@@ -595,12 +655,17 @@ typedef _Line = (DateTime, String, String);
 /// to `<support dir>/shikoo/diag.log`. Kinds: `A` app log, `C` core, `E` Dart error,
 /// `T` timeline, `U` UI event.
 class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
-  ShikooDiag({Set<String>? machine})
-    : _machine =
-          machine ??
-          (Platform.isWindows
-              ? windowsNames(Platform.environment, Platform.localHostname)
-              : const {});
+  ShikooDiag({
+    Set<String>? machine,
+    Future<List<String>> Function(ProviderContainer)? windows,
+  }) : _machine =
+           machine ??
+           (Platform.isWindows
+               ? windowsNames(Platform.environment, Platform.localHostname)
+               : const {}),
+       _windows = windows ?? (Platform.isWindows ? _readWindows : null);
+
+  final Future<List<String>> Function(ProviderContainer)? _windows;
 
   static const _channel = MethodChannel('shikoo/diag');
   static const _ringBytes = 256 * 1024;
@@ -1128,6 +1193,12 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     ProbeChecks? checks,
   }) async {
     final probed = checks ?? await runProbes();
+    try {
+      for (final line
+          in await _windows?.call(_container!) ?? const <String>[]) {
+        add('T', line);
+      }
+    } catch (_) {}
     _flushRepeat();
     final now = DateTime.now();
     final known = _knownNow();
