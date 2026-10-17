@@ -189,7 +189,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 Padding(
                   padding: inset,
                   child: Text(
-                    state.isTV ? l.noServiceTitleTv : l.noServiceTitleTouch,
+                    state.isTV
+                        ? l.noServiceTitleTv
+                        : (shikooDesktop
+                              ? l.noServiceTitleDesktop
+                              : l.noServiceTitleTouch),
                     style: t.text(
                       t.s.title,
                       weight: FontWeight.w700,

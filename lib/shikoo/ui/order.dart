@@ -118,7 +118,7 @@ class _ServiceOrderState extends ConsumerState<ServiceOrder> {
           header: Padding(
             padding: const EdgeInsets.only(bottom: Space.s4),
             child: Text(
-              l.orderScreenHelp,
+              (shikooDesktop ? l.orderScreenHelpDesktop : l.orderScreenHelp),
               style: t.text(
                 t.s.bodySm,
                 color: t.c.textMuted,

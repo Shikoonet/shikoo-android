@@ -14,6 +14,7 @@ import 'package:fl_clash/manager/status_manager.dart' show StatusManager;
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -130,6 +131,7 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
   autoCheckUpdate: false,
   dashboardWidgets: const [],
   openLogs: true,
+  silentLaunch: shikooAutostarted,
 );
 
 /// FlClash asks Android which app owns every connection (`find-process-mode: always`) for per-app rules Shikoo never
@@ -279,6 +281,9 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         managers: (page) => buildManagerStack(
           isDesktop: system.isDesktop,
           onConnectivityChanged: _onConnectivityChanged,
+          desktopFrame: system.isWindows
+              ? (page) => ShikooWindow(child: page)
+              : null,
           child: page,
         ),
       ),

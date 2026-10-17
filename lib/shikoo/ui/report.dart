@@ -574,7 +574,7 @@ class _Preview extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final s = t.s;
-    final toggle = _SwitchRow(
+    final toggle = SwitchRow(
       label: l.reportImagesSwitch,
       on: images,
       onChanged: onImages,
@@ -640,17 +640,37 @@ class _Preview extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: s.safeX),
-            child: TvScrollColumn(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: Space.s4,
-                children: [
-                  _Pictures(shots: shots, on: images),
-                  toggle,
-                  note,
-                ],
-              ),
-            ),
+            // A window is far shorter than a phone: there the picture gives way, so the note is never cut.
+            child: shikooDesktop
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: Space.s4,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: _Pictures(
+                            shots: shots,
+                            on: images,
+                            shrinks: true,
+                          ),
+                        ),
+                      ),
+                      toggle,
+                      note,
+                    ],
+                  )
+                : TvScrollColumn(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: Space.s4,
+                      children: [
+                        _Pictures(shots: shots, on: images),
+                        toggle,
+                        note,
+                      ],
+                    ),
+                  ),
           ),
         ),
         Padding(
@@ -744,23 +764,27 @@ class _Pictures extends StatelessWidget {
       spacing: Space.s3,
       children: [
         picture(shots.app, l.reportImageApp),
-        picture(shots.screen, l.reportImageScreen),
+        // Windows has no copy of the screen to give.
+        if (!shikooDesktop) picture(shots.screen, l.reportImageScreen),
       ],
     );
   }
 }
 
 /// `.card` › `.row[role=switch]`: the whole row toggles, and the remote stays on it.
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
+class SwitchRow extends StatelessWidget {
+  const SwitchRow({
+    super.key,
     required this.label,
     required this.on,
     required this.onChanged,
+    this.help,
   });
 
   final String label;
   final bool on;
   final ValueChanged<bool> onChanged;
+  final String? help;
 
   @override
   Widget build(BuildContext context) {
@@ -791,7 +815,16 @@ class _SwitchRow extends StatelessWidget {
           child: Row(
             spacing: Space.s3,
             children: [
-              Expanded(child: Text(label, style: t.text(s.body))),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: t.text(s.body)),
+                    if (help case final help?)
+                      Text(help, style: t.text(s.bodySm, color: t.c.textMuted)),
+                  ],
+                ),
+              ),
               Container(
                 width: ShikooSizes.switchW,
                 height: ShikooSizes.switchH,

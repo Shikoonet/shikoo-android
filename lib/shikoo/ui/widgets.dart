@@ -901,7 +901,8 @@ class _PowerButtonState extends State<PowerButton>
           ),
           if (enabled)
             Pressable(
-              autofocus: true,
+              // A window shows the ring from the start, before any key is pressed.
+              autofocus: !shikooDesktop,
               focusNode: widget.focusNode,
               shape: const CircleBorder(),
               onPressed: onPressed,

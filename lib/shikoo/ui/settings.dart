@@ -64,7 +64,9 @@ class ShikooSettings extends ConsumerWidget {
                   title: l.orderServices,
                   subtitle: isTV
                       ? l.orderServicesHelpTv
-                      : l.orderServicesHelpTouch,
+                      : (shikooDesktop
+                            ? l.orderServicesHelpDesktop
+                            : l.orderServicesHelpTouch),
                   forward: true,
                   onPressed: () => unawaited(
                     Navigator.push(
@@ -86,8 +88,11 @@ class ShikooSettings extends ConsumerWidget {
         : isTV
         ? l.changeServicesTv
         : here < account.total
-        ? l.servicesHereTouch(here, account.total)
-        : l.servicesAllHereTouch;
+        ? (shikooDesktop ? l.servicesHereDesktop : l.servicesHereTouch)(
+            here,
+            account.total,
+          )
+        : (shikooDesktop ? l.servicesAllHereDesktop : l.servicesAllHereTouch);
     final groups = [
       _Group(
         title: l.appearance,
@@ -110,6 +115,16 @@ class ShikooSettings extends ConsumerWidget {
           onSelect: (language) => unawaited(setLook.setLanguage(language)),
         ),
       ),
+      if (shikooDesktop)
+        _Group(
+          title: l.windowsGroup,
+          child: SwitchRow(
+            label: l.autoStart,
+            help: l.autoStartHelp,
+            on: ref.watch(shikooAutoStartProvider),
+            onChanged: (on) => setAutoStart(ref, on),
+          ),
+        ),
       if (!isTV) ?order,
       PasteLink(
         onAdded: (_) => Navigator.popUntil(context, (route) => route.isFirst),
@@ -178,7 +193,10 @@ class ShikooSettings extends ConsumerWidget {
                       (true, true) => l.logoutHelpSignedInTv,
                       (true, false) => l.logoutHelpSignedInTouch,
                       (false, true) => l.logoutHelpTv,
-                      (false, false) => l.logoutHelpTouch,
+                      (false, false) =>
+                        (shikooDesktop
+                            ? l.logoutHelpDesktop
+                            : l.logoutHelpTouch),
                     },
                     onPressed: () =>
                         unawaited(_logOut(context, ref, isTV, who != null)),
@@ -280,7 +298,11 @@ class ShikooSettings extends ConsumerWidget {
           Text(
             signedIn
                 ? l.logoutSignedInTitle
-                : (isTV ? l.logoutTitleTv : l.logoutTitleTouch),
+                : (isTV
+                      ? l.logoutTitleTv
+                      : (shikooDesktop
+                            ? l.logoutTitleDesktop
+                            : l.logoutTitleTouch)),
             style: t.text(t.s.title, weight: FontWeight.w700),
           ),
           Text(
@@ -288,7 +310,8 @@ class ShikooSettings extends ConsumerWidget {
               (true, true) => l.logoutSignedInBodyTv,
               (true, false) => l.logoutSignedInBodyTouch,
               (false, true) => l.logoutBodyTv,
-              (false, false) => l.logoutBodyTouch,
+              (false, false) =>
+                (shikooDesktop ? l.logoutBodyDesktop : l.logoutBodyTouch),
             },
             style: t.text(
               t.s.dialogText,
@@ -849,7 +872,9 @@ class Segmented<T> extends StatefulWidget {
 
   final Map<T, String> options;
   final T selected;
-  final ValueChanged<T> onSelect;
+
+  /// Null greys every option out, as the mode switch while connecting.
+  final ValueChanged<T>? onSelect;
 
   /// Lands the remote on the chosen option.
   final bool autofocus;
@@ -881,7 +906,7 @@ class _SegmentedState<T> extends State<Segmented<T>> {
       borderRadius: BorderRadius.circular(Radii.sm),
     );
     // The remote coming from another row lands on the chosen option, not the nearest one.
-    return Focus(
+    final segmented = Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onFocusChange: (inside) {
@@ -907,12 +932,13 @@ class _SegmentedState<T> extends State<Segmented<T>> {
                   focusNode: _nodes.putIfAbsent(value, FocusNode.new),
                   autofocus: autofocus && value == selected,
                   shape: shape,
-                  onPressed: () => onSelect(value),
+                  onPressed: () => onSelect?.call(value),
                   builder: (context, focused) {
                     final chosen = value == selected;
                     return Semantics(
                       selected: chosen,
                       button: true,
+                      enabled: onSelect != null,
                       child: Container(
                         height: small ? null : t.s.button,
                         padding: small
@@ -937,7 +963,9 @@ class _SegmentedState<T> extends State<Segmented<T>> {
                           style: t.text(
                             small ? t.s.bodySm : t.s.body,
                             weight: chosen ? FontWeight.w700 : FontWeight.w500,
-                            color: chosen ? t.c.text : t.c.textMuted,
+                            color: onSelect == null
+                                ? (chosen ? t.c.textMuted : t.c.iconDisabled)
+                                : (chosen ? t.c.text : t.c.textMuted),
                           ),
                         ),
                       ),
@@ -949,6 +977,9 @@ class _SegmentedState<T> extends State<Segmented<T>> {
         ),
       ),
     );
+    return onSelect == null
+        ? IgnorePointer(child: ExcludeFocus(child: segmented))
+        : segmented;
   }
 }
 

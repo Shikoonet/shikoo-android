@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:fl_clash/common/dialog.dart';
+import 'package:fl_clash/common/exception.dart';
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/manager/core_manager.dart';
 import 'package:fl_clash/manager/status_manager.dart';
 import 'package:fl_clash/models/models.dart';
@@ -26,6 +28,7 @@ const _wg =
     '[WG](germany) peer(AbCd…WxYz) - Failed to send data packets: write udp '
     '198.51.100.7:42484->203.0.113.5:51820: write: network is unreachable';
 const _warning = 'VPN config change detected';
+const _blocked = 'Windows refused to run FlClashCore.exe (error 1260).';
 
 void main() {
   testWidgets("the core's errors and FlClash's warnings reach the log, not the "
@@ -87,18 +90,24 @@ void main() {
       )
       ..sendEvent(const CoreEvent(type: CoreEventType.crash, data: 'boom'));
     dialogs.showNotifier(_warning, level: MessageLevel.warning);
+    await AppLocalizations.load(const Locale('en'));
+    await globalState.safeRun<void>(
+      () => throw const MessageException(_blocked),
+    );
     await tester.pumpAndSettle();
     debugPrint = print;
 
     expect(find.textContaining('Failed to send'), findsNothing);
     expect(find.text('boom'), findsNothing);
     expect(find.text(_warning), findsNothing);
+    expect(find.textContaining('FlClash'), findsNothing);
     expect(
       printed,
       containsAll([
         '[APP] message: $_wg',
         '[APP] message: boom',
         '[APP] message: $_warning',
+        '[APP] message: $_blocked',
       ]),
     );
     expect(

@@ -2083,6 +2083,294 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Moving'**
   String get orderTvPicked;
+
+  /// No description provided for @noServerAnsweredHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Check this computer\'s internet.\nIf it works, ask Support.'**
+  String get noServerAnsweredHelpDesktop;
+
+  /// No description provided for @logoutHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the services from this computer.'**
+  String get logoutHelpDesktop;
+
+  /// No description provided for @logoutBodyDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be disconnected and the services removed from this computer. The services themselves stay as they are; they come back with the same link or with Telegram.'**
+  String get logoutBodyDesktop;
+
+  /// No description provided for @logoutTitleDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the services from this computer?'**
+  String get logoutTitleDesktop;
+
+  /// No description provided for @noServiceTitleDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'No service on this computer'**
+  String get noServiceTitleDesktop;
+
+  /// No description provided for @approvedBodyDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'This computer is now linked to the Telegram account {account}, with these services:'**
+  String approvedBodyDesktop(String account);
+
+  /// No description provided for @approvedBodyOneDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'This computer is now linked to the Telegram account {account}, with this service:'**
+  String approvedBodyOneDesktop(String account);
+
+  /// No description provided for @servicesFailedBodyDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'You signed in with the Telegram account {account}, but the list of services didn\'t come from the server. Check this computer\'s internet and try again.'**
+  String servicesFailedBodyDesktop(String account);
+
+  /// No description provided for @rejectedBodyDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'“Decline” was tapped in Telegram, so this computer isn\'t linked. If that was a mistake, try again.'**
+  String get rejectedBodyDesktop;
+
+  /// No description provided for @codeFailedHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your computer\'s internet and press again.'**
+  String get codeFailedHelpDesktop;
+
+  /// No description provided for @approvedBodyChooseDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'This computer is now linked to the Telegram account {account}.'**
+  String approvedBodyChooseDesktop(String account);
+
+  /// No description provided for @chooseServicesDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Which services should this computer have?'**
+  String get chooseServicesDesktop;
+
+  /// No description provided for @servicesHereDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'{shown} of your account\'s {total} services are on this computer. To change them, sign out and sign in again.'**
+  String servicesHereDesktop(int shown, int total);
+
+  /// No description provided for @servicesAllHereDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'All your account\'s services are on this computer. To change them, sign out and sign in again.'**
+  String get servicesAllHereDesktop;
+
+  /// No description provided for @orderServicesHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'On this computer only'**
+  String get orderServicesHelpDesktop;
+
+  /// No description provided for @noTelegramHereDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'No Telegram on this computer?'**
+  String get noTelegramHereDesktop;
+
+  /// No description provided for @pasteOfflineHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your computer\'s internet and press again.'**
+  String get pasteOfflineHelpDesktop;
+
+  /// No description provided for @addServiceHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this computer.'**
+  String get addServiceHelpDesktop;
+
+  /// No description provided for @serviceAlreadyHereDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'This service is already on this computer.'**
+  String get serviceAlreadyHereDesktop;
+
+  /// No description provided for @removeServiceBodyDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s removed from this computer. The service itself stays as it is and comes back with the same link.'**
+  String get removeServiceBodyDesktop;
+
+  /// No description provided for @removeServiceBodyConnectedDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be disconnected and this service removed from this computer. The service itself stays as it is and comes back with the same link.'**
+  String get removeServiceBodyConnectedDesktop;
+
+  /// No description provided for @orderScreenHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold ≡ on a service and drag it up or down. The order is for this computer only and is saved at once.'**
+  String get orderScreenHelpDesktop;
+
+  /// No description provided for @vpnRefusedDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission for the tunnel wasn\'t given.\nConnect again and press Yes in Windows\' window, or choose Proxy.'**
+  String get vpnRefusedDesktop;
+
+  /// No description provided for @vpnMissingDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'The tunnel didn\'t start on this computer.\nChoose Proxy, or ask Support.'**
+  String get vpnMissingDesktop;
+
+  /// No description provided for @modeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection method'**
+  String get modeLabel;
+
+  /// No description provided for @modeProxy.
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy'**
+  String get modeProxy;
+
+  /// No description provided for @modeTunnel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tunnel'**
+  String get modeTunnel;
+
+  /// No description provided for @modeProxyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the browser and apps that follow Windows\' proxy.'**
+  String get modeProxyHint;
+
+  /// No description provided for @modeTunnelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Every app goes through ShikooNet, games too.'**
+  String get modeTunnelHint;
+
+  /// No description provided for @trayOff.
+  ///
+  /// In en, this message translates to:
+  /// **'{app} · Off'**
+  String trayOff(String app);
+
+  /// No description provided for @trayConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'{app} · Connecting'**
+  String trayConnecting(String app);
+
+  /// No description provided for @trayOn.
+  ///
+  /// In en, this message translates to:
+  /// **'{app} · Connected, {server}'**
+  String trayOn(String app, String server);
+
+  /// No description provided for @trayHeadOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get trayHeadOff;
+
+  /// No description provided for @trayHeadConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting · {server}'**
+  String trayHeadConnecting(String server);
+
+  /// No description provided for @trayHeadOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected · {server}'**
+  String trayHeadOn(String server);
+
+  /// No description provided for @trayConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get trayConnect;
+
+  /// No description provided for @trayDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get trayDisconnect;
+
+  /// No description provided for @trayOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {app}'**
+  String trayOpen(String app);
+
+  /// No description provided for @trayExit.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit'**
+  String get trayExit;
+
+  /// No description provided for @closedToTrayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{app} is beside the clock'**
+  String closedToTrayTitle(String app);
+
+  /// No description provided for @closedToTrayBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection stays on. To open it, double-click the {app} icon beside the clock. To close it fully, right-click the icon and choose Exit.'**
+  String closedToTrayBody(String app);
+
+  /// No description provided for @windowMinimize.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize'**
+  String get windowMinimize;
+
+  /// No description provided for @windowMaximize.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximize'**
+  String get windowMaximize;
+
+  /// No description provided for @windowRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get windowRestore;
+
+  /// No description provided for @windowClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get windowClose;
+
+  /// No description provided for @windowsGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows'**
+  String get windowsGroup;
+
+  /// No description provided for @autoStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Open with Windows'**
+  String get autoStart;
+
+  /// No description provided for @autoStartHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Beside the clock, not connected'**
+  String get autoStartHelp;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

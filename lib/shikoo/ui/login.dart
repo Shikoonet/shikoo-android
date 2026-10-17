@@ -285,7 +285,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
     void signIn() => unawaited(_telegram());
     final elsewhere = LinkButton(
-      label: l.noTelegramHere,
+      label: (shikooDesktop ? l.noTelegramHereDesktop : l.noTelegramHere),
       onPressed: starting ? null : _showOtherDevice,
     );
     final (Widget middle, List<Widget> actions) = switch (phase) {
@@ -309,7 +309,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             icon: ShikooIcon.alert,
             danger: true,
             strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
-            rest: clock ? l.clockWrongHelp : l.codeFailedHelpTouch,
+            rest: clock
+                ? l.clockWrongHelp
+                : (shikooDesktop
+                      ? l.codeFailedHelpDesktop
+                      : l.codeFailedHelpTouch),
           ),
           if (clock)
             const DateSettingsButton()
@@ -351,7 +355,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           icon: ShikooIcon.x,
           tone: ResultTone.danger,
           title: l.rejectedTitle,
-          body: [TextSpan(text: l.rejectedBodyTouch)],
+          body: [
+            TextSpan(
+              text: (shikooDesktop
+                  ? l.rejectedBodyDesktop
+                  : l.rejectedBodyTouch),
+            ),
+          ],
         ),
         [telegram(l.loginTelegram, signIn), _paste(enabled: true)],
       ),
@@ -362,8 +372,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           title: l.approvedTitle,
           body: sayWith(
             login!.services.length == 1
-                ? l.approvedBodyOneTouch
-                : l.approvedBodyTouch,
+                ? (shikooDesktop
+                      ? l.approvedBodyOneDesktop
+                      : l.approvedBodyOneTouch)
+                : (shikooDesktop ? l.approvedBodyDesktop : l.approvedBodyTouch),
             _account(l, account),
           ),
           below: _ServicesBelow(login: login),
@@ -383,7 +395,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               icon: ShikooIcon.check,
               tone: ResultTone.positive,
               title: l.approvedTitle,
-              body: sayWith(l.approvedBodyChooseTouch, _account(l, account)),
+              body: sayWith(
+                (shikooDesktop
+                    ? l.approvedBodyChooseDesktop
+                    : l.approvedBodyChooseTouch),
+                _account(l, account),
+              ),
             ),
             _checklist(login!),
           ],
@@ -400,7 +417,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           title: l.servicesFailedTitle,
           body: clock
               ? [TextSpan(text: clockText(l))]
-              : sayWith(l.servicesFailedBodyTouch, _account(l, account)),
+              : sayWith(
+                  (shikooDesktop
+                      ? l.servicesFailedBodyDesktop
+                      : l.servicesFailedBodyTouch),
+                  _account(l, account),
+                ),
         ),
         [
           primary(
@@ -530,7 +552,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   Text(
                     phase != LoginPhase.startFailed
                         ? l.otherDeviceFine
-                        : (login!.clock ? clockText(l) : l.codeFailedHelpTouch),
+                        : (login!.clock
+                              ? clockText(l)
+                              : (shikooDesktop
+                                    ? l.codeFailedHelpDesktop
+                                    : l.codeFailedHelpTouch)),
                     textAlign: TextAlign.center,
                     style: t.text(
                       s.bodySm,
@@ -1209,7 +1235,11 @@ class _Checklist extends StatelessWidget {
         Padding(
           padding: inset,
           child: Text(
-            tv ? l.chooseServicesTv : l.chooseServicesTouch,
+            tv
+                ? l.chooseServicesTv
+                : (shikooDesktop
+                      ? l.chooseServicesDesktop
+                      : l.chooseServicesTouch),
             style: t.text(
               tv ? s.title : s.body,
               weight: FontWeight.w700,
