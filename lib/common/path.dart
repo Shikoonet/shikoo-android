@@ -58,7 +58,7 @@ class AppPath {
   }
 
   String get corePath {
-    return join(executableDirPath, 'FlClashCore$executableExtension');
+    return join(executableDirPath, 'ShikooNetCore$executableExtension');
   }
 
   String get helperPath {
