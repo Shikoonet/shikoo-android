@@ -116,23 +116,27 @@ index 7a2244b..528b301 100644
  		session := s.tcpNat.LookupBack(connPort)
 diff --git a/stack_system_listen_test.go b/stack_system_listen_test.go
 new file mode 100644
-index 0000000..e45f7f2
+index 0000000..ddae74f
 --- /dev/null
 +++ b/stack_system_listen_test.go
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,119 @@
 +//go:build linux
 +
 +package tun
 +
 +import (
 +	"context"
++	"errors"
 +	"net"
++	"sync/atomic"
 +	"syscall"
 +	"testing"
 +	"time"
 +
 +	"github.com/metacubex/sing/common/logger"
 +)
++
++var loopbacks = map[string]string{"tcp4": "127.0.0.1:0", "tcp6": "[::1]:0"}
 +
 +func dialed(network, address string) error {
 +	conn, err := net.DialTimeout(network, address, time.Second)
@@ -142,39 +146,61 @@ index 0000000..e45f7f2
 +	return err
 +}
 +
-+// Shutting a listening socket down takes it out of LISTEN like netd's SOCK_DESTROY does, so Accept fails with EINVAL.
-+func TestAcceptLoopListensAgainOnTheSamePort(t *testing.T) {
-+	for network, loopback := range map[string]string{"tcp4": "127.0.0.1:0", "tcp6": "[::1]:0"} {
-+		t.Run(network, func(t *testing.T) {
-+			ctx, cancel := context.WithCancel(context.Background())
-+			defer cancel()
-+			listener, err := net.Listen(network, loopback)
-+			if err != nil {
-+				t.Skip(err)
-+			}
-+			address := listener.Addr().String()
-+			s := &System{ctx: ctx, logger: logger.NOP(), tcpNat: NewNat(ctx, time.Minute)}
-+			field := map[string]*net.Listener{"tcp4": &s.tcpListener, "tcp6": &s.tcpListener6}[network]
-+			*field = listener
-+			done := make(chan struct{})
-+			go func() {
-+				s.acceptLoop(network, listener)
-+				close(done)
-+			}()
-+			if err = dialed(network, address); err != nil {
-+				t.Fatal(err)
-+			}
++// startAcceptLoop runs acceptLoop on a loopback listener set as the stack's listener for network; done closes when
++// the loop returns.
++func startAcceptLoop(t *testing.T, network string, control func(string, string, syscall.RawConn) error) (*System, net.Listener, *net.Listener, chan struct{}) {
++	ctx, cancel := context.WithCancel(context.Background())
++	t.Cleanup(cancel)
++	listener, err := net.Listen(network, loopbacks[network])
++	if err != nil {
++		t.Skip(err)
++	}
++	s := &System{ctx: ctx, logger: logger.NOP(), tcpNat: NewNat(ctx, time.Minute)}
++	s.listenConfig.Control = control
++	field := map[string]*net.Listener{"tcp4": &s.tcpListener, "tcp6": &s.tcpListener6}[network]
++	*field = listener
++	done := make(chan struct{})
++	go func() {
++		s.acceptLoop(network, listener)
++		close(done)
++	}()
++	return s, listener, field, done
++}
 +
-+			raw, err := listener.(*net.TCPListener).SyscallConn()
-+			if err != nil {
++// Shutting a listening socket down takes it out of LISTEN like netd's SOCK_DESTROY does, so Accept fails with EINVAL.
++func kill(t *testing.T, listener net.Listener) {
++	raw, err := listener.(*net.TCPListener).SyscallConn()
++	if err != nil {
++		t.Fatal(err)
++	}
++	_ = raw.Control(func(fd uintptr) { err = syscall.Shutdown(int(fd), syscall.SHUT_RD) })
++	if err != nil {
++		t.Fatal(err)
++	}
++}
++
++func stoppedAfterClose(t *testing.T, network, address string, done chan struct{}) {
++	select {
++	case <-done:
++	case <-time.After(2 * time.Second):
++		t.Fatal("accept loop still runs after Close")
++	}
++	if dialed(network, address) == nil {
++		t.Fatalf("%s still accepts after Close", address)
++	}
++}
++
++func TestAcceptLoopListensAgainOnTheSamePort(t *testing.T) {
++	for network := range loopbacks {
++		t.Run(network, func(t *testing.T) {
++			s, listener, field, done := startAcceptLoop(t, network, nil)
++			address := listener.Addr().String()
++			if err := dialed(network, address); err != nil {
 +				t.Fatal(err)
 +			}
-+			_ = raw.Control(func(fd uintptr) { err = syscall.Shutdown(int(fd), syscall.SHUT_RD) })
-+			if err != nil {
-+				t.Fatal(err)
-+			}
++			kill(t, listener)
 +			deadline := time.Now().Add(2 * time.Second)
-+			for err = dialed(network, address); err != nil; err = dialed(network, address) {
++			for err := dialed(network, address); err != nil; err = dialed(network, address) {
 +				if time.Now().After(deadline) {
 +					t.Fatalf("%s still refuses connections: %v", address, err)
 +				}
@@ -186,16 +212,30 @@ index 0000000..e45f7f2
 +			if !replaced {
 +				t.Fatal("Close would still close the dead listener and leave the new one open")
 +			}
-+
 +			_ = s.Close()
-+			select {
-+			case <-done:
-+			case <-time.After(2 * time.Second):
-+				t.Fatal("accept loop still runs after Close")
-+			}
-+			if dialed(network, address) == nil {
-+				t.Fatalf("%s still accepts after Close", address)
-+			}
++			stoppedAfterClose(t, network, address, done)
++		})
++	}
++}
++
++// A Close that lands while listenAgain waits between failed listens must win over the listen that comes after it.
++func TestCloseDuringListenAgainLeavesNothingOpen(t *testing.T) {
++	for network := range loopbacks {
++		t.Run(network, func(t *testing.T) {
++			var blocked atomic.Bool
++			blocked.Store(true)
++			s, listener, _, done := startAcceptLoop(t, network, func(string, string, syscall.RawConn) error {
++				if blocked.Load() {
++					return errors.New("listen blocked by the test")
++				}
++				return nil
++			})
++			address := listener.Addr().String()
++			kill(t, listener)
++			time.Sleep(150 * time.Millisecond)
++			_ = s.Close()
++			blocked.Store(false)
++			stoppedAfterClose(t, network, address, done)
 +		})
 +	}
 +}
