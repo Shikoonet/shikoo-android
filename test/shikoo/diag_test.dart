@@ -927,6 +927,7 @@ void main() {
         'کاربر علی، وارد شد': 'کاربر ·، وارد شد',
         'a\u00a0ali\u202fb\u3000علی': 'a\u00a0·\u202fb\u3000·',
         'علیرضا و vali': 'علیرضا و vali',
+        'علی\u200cرضا ali12 ali\u0301': 'علی\u200cرضا ali12 ali\u0301',
       };
       for (final line in cases.keys) {
         diag.add('A', line);
@@ -947,7 +948,8 @@ void main() {
     final h = await _harness(machine: {_winUser, _winPc});
     final stamp = '${_now.toUtc().toIso8601String().substring(0, 19)}Z';
     (File('${h.dir}/diag.log')..createSync(recursive: true)).writeAsStringSync(
-      '$stamp A user ali on $_winPc before this build\n',
+      '$stamp A user ali on $_winPc before this build\n'
+      '$stamp A ali first\n',
     );
     await h.diag.start(h.home.path);
     await h.diag.attach(h.container);
@@ -956,7 +958,10 @@ void main() {
 
     expect(
       (report['log']! as List).cast<String>(),
-      contains('$stamp A user · on · before this build'),
+      containsAll([
+        '$stamp A user · on · before this build',
+        '$stamp A · first',
+      ]),
     );
   });
 
