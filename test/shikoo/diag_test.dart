@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -255,6 +256,7 @@ Future<_Harness> _harness({
   ShikooState? state,
   List<String> plants = const [],
   Object? Function(MethodCall call)? native,
+  Set<String>? machine,
 }) async {
   SharedPreferences.setMockInitialValues({
     'shikoo.account': jsonEncode({
@@ -346,7 +348,7 @@ Future<_Harness> _harness({
     ..pollEvery = const Duration(hours: 1);
   await signIn.load();
   await signIn.start();
-  return _Harness(home, container, ShikooDiag(), sent);
+  return _Harness(home, container, ShikooDiag(machine: machine), sent);
 }
 
 Response<Object?> _reportAnswer(RequestOptions options) => Response(
@@ -432,6 +434,74 @@ final _about = aboutSections(
   now: _now,
   locale: 'fa-IR',
 );
+
+const _winUser = 'ali';
+const _winPc = 'DESKTOP-7G3K2LQ';
+
+final _windowsAbout = aboutSections(
+  device: WindowsDeviceInfo(
+    computerName: _winPc,
+    numberOfCores: 8,
+    systemMemoryInMegabytes: 16384,
+    userName: _winUser,
+    majorVersion: 10,
+    minorVersion: 0,
+    buildNumber: 26100,
+    platformId: 2,
+    csdVersion: '',
+    servicePackMajor: 0,
+    servicePackMinor: 0,
+    suitMask: 0,
+    productType: 1,
+    reserved: 0,
+    buildLab: '',
+    buildLabEx: '',
+    digitalProductId: Uint8List(0),
+    displayVersion: '24H2',
+    editionId: 'Professional',
+    installDate: DateTime(2025),
+    productId: '',
+    productName: 'Windows 11 Pro',
+    registeredOwner: 'Ali Rezaei',
+    releaseId: '2009',
+    deviceId: '',
+  ),
+  tv: false,
+  version: '1.0.3',
+  build: 3,
+  abi: reportAbi(Abi.windowsX64),
+  signedIn: false,
+  look: (theme: ThemeMode.system, language: 'fa'),
+  media: const MediaQueryData(size: Size(1280, 800)),
+  transports: const [ConnectivityResult.ethernet],
+  native: null,
+  backend: 'unknown',
+  now: _now,
+  locale: 'fa-IR',
+);
+
+/// The PC's own names and the paths that carry them; the profile folder is not the user name.
+const _windowsPlants = [
+  r'open C:\Users\Ali Rezaei\AppData\Roaming\com.shikoonet.app\shikoo\diag.log failed',
+  r"PathNotFoundException: Cannot open file, path = 'C:\Users\ali\Downloads\a.txt' (errno = 2)",
+  'temp C:/Users/ali/AppData/Local/Temp/core.log',
+  r'\\?\C:\Users\ali\AppData\Local\ShikooNet\FlClashCore.exe',
+  'file:///C:/Users/ali/Desktop/sub.yaml',
+  'user ali on $_winPc',
+  'Ali Rezaei signed in',
+  'host desktop-7g3k2lq.local up',
+  'ali',
+  'ali is alive',
+];
+const _windowsNeedles = [
+  'Rezaei',
+  '7G3K2LQ',
+  'Users',
+  'AppData',
+  'Downloads',
+  'sub.yaml',
+  'metacubex',
+];
 
 Future<Uint8List> _noisePng(int side) async {
   final noise = Random(side);
@@ -755,52 +825,72 @@ void main() {
   });
 
   test('a Windows PC reports its version in keys the door takes', () {
-    final about = aboutSections(
-      device: WindowsDeviceInfo(
-        computerName: 'DESKTOP-7G3K2LQ',
-        numberOfCores: 8,
-        systemMemoryInMegabytes: 16384,
-        userName: 'sam',
-        majorVersion: 10,
-        minorVersion: 0,
-        buildNumber: 26100,
-        platformId: 2,
-        csdVersion: '',
-        servicePackMajor: 0,
-        servicePackMinor: 0,
-        suitMask: 0,
-        productType: 1,
-        reserved: 0,
-        buildLab: '',
-        buildLabEx: '',
-        digitalProductId: Uint8List(0),
-        displayVersion: '24H2',
-        editionId: 'Professional',
-        installDate: DateTime(2025),
-        productId: '',
-        productName: 'Windows 10 Pro',
-        registeredOwner: 'sam',
-        releaseId: '2009',
-        deviceId: '',
-      ),
-      tv: false,
-      version: '1.0.3',
-      build: 3,
-      abi: 'windowsX64',
-      signedIn: false,
-      look: (theme: ThemeMode.system, language: 'fa'),
-      media: const MediaQueryData(size: Size(1280, 800)),
-      transports: const [ConnectivityResult.ethernet],
-      native: null,
-      backend: 'unknown',
-      now: _now,
-      locale: 'fa-IR',
-    );
-    final device = about['device']! as Map<String, Object?>;
+    final device = _windowsAbout['device']! as Map<String, Object?>;
     expect(device, containsPair('release', '10.0.26100'));
     expect(device, containsPair('ram_total_mb', 16384));
     expect(_doorKeys, containsAll(_keysOf({'device': device})));
   });
+
+  test('a PC names itself windows-x64; Android keeps its own ABI name', () {
+    expect((_windowsAbout['app']! as Map)['abi'], 'windows-x64');
+    expect(reportAbi(Abi.windowsArm64), 'windows-arm64');
+    expect(reportAbi(Abi.androidArm64), 'android_arm64');
+    expect(reportAbi(Abi.androidArm), 'android_arm');
+  });
+
+  test(
+    'no Windows path, user or computer name reaches the report from any source',
+    () async {
+      final names = windowsNames({
+        'USERNAME': _winUser,
+        'COMPUTERNAME': _winPc,
+        'USERPROFILE': r'C:\Users\Ali Rezaei',
+      }, 'desktop-7g3k2lq');
+      expect(names, {_winUser, _winPc, 'desktop-7g3k2lq', 'Ali Rezaei'});
+      final h = await _harness(plants: _windowsPlants, machine: names);
+      final diag = h.diag;
+      for (final plant in _windowsPlants) {
+        diag.add('A', 'before start $plant');
+      }
+      await diag.start(h.home.path);
+      for (final plant in _windowsPlants) {
+        diag.add('A', 'before attach $plant');
+      }
+      File('${h.home.path}/go-crash.txt').writeAsStringSync(
+        '${[for (final plant in _windowsPlants) 'panic: $plant'].join('\n')}\n\n'
+        'goroutine 1 [running]:\nmain.handleCrash(...)\n'
+        '\tC:/Users/ali/go/pkg/mod/github.com/metacubex/mihomo@v1.19.0/'
+        'tunnel/tunnel.go:630 +0x1d\n',
+      );
+      await diag.attach(h.container);
+      for (final plant in _windowsPlants) {
+        diag
+          ..add('A', 'after attach $plant')
+          ..add('T', 'timeline $plant')
+          ..add('U', 'push $plant')
+          ..onLog(Log(logLevel: LogLevel.warning, payload: plant, dateTime: ''))
+          ..error(
+            StateError(plant),
+            StackTrace.fromString('#0      Foo.bar ($plant)'),
+          );
+      }
+
+      final report = await diag.report(trigger: 'test', about: _windowsAbout);
+      final json = jsonEncode(report);
+
+      expect([
+        for (final n in _windowsNeedles)
+          if (_leaked(json, n)) n,
+      ], isEmpty);
+      expect(
+        RegExp(r'(?<![a-z])ali(?![a-z])', caseSensitive: false).hasMatch(json),
+        isFalse,
+      );
+      expect(json, contains('· is alive'));
+      expect(json, contains('tunnel.go:630'));
+      expect(report['crashes'], hasLength(1));
+    },
+  );
 
   test('the three probes go into the report as the door reads them', () async {
     final h = await _harness();

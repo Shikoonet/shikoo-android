@@ -386,6 +386,24 @@ WP1 and WP6 write in shikoo-platform, outside the Telegram sign-in exception: ea
 Internet is WP5; the clock message is `fix/wrong-clock`. Every settings intent falls back to `ACTION_SETTINGS` when a
 TV lacks it.
 
+## Windows
+
+The same report and the same keys: the door's sections are `.strict()`, so a PC sends only keys Android sends too.
+
+- `app.abi` is `windows-x64` (Dart's `Abi` name with a dash), which the panel reads as a computer; Android keeps
+  `android_arm64` and the rest.
+- `device`: `model` (the product name; `device_info_plus` turns «Windows 10» into «11» from build 22000), `release`
+  (`major.minor.build`), `ram_total_mb`. The computer name, user name, registered owner and product and device ids
+  are never read into the report.
+- No Kotlin, so no logcat tail, exit records, SIMs, power, Private DNS, Data Saver, navigation mode, renderer
+  (`unknown`) or `screen` image; those keys stay out rather than guessed. The `app` image works as on Android.
+- The core is a process of its own: its stderr reaches the record as `A` lines (`DirectCoreLauncher` →
+  `commonPrint.log`), its log as `C`, and `handleInitClash` gives it the same `<home>/go-crash.txt`.
+- The user name, the profile folder's name (a renamed account keeps the old one), `COMPUTERNAME` and the host name are
+  known values, matched as whole words of any length, so they leave every line, crash text, server label and service
+  name; a path is `·` by shape already.
+- «تنظیمات اینترنت» opens `ms-settings:network-status`.
+
 ## Must be proven on a real device
 
 - Android 12 TV (the jumping one, spinner gone): the renderer line is readable by the app in a release build; the two

@@ -26,6 +26,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// docs/app-diagnostics.md: a clean record kept on the device, sent to the door only when the
 /// customer taps. The door's side of the report is shikoo-platform's `appReport.ts`.
@@ -59,16 +60,37 @@ final _kept = RegExp(
   unicode: true,
 );
 
-/// Each secret the app holds, longest first, case-insensitively; null when it holds none.
-RegExp? _knownPattern(Iterable<String> values) {
-  final list = {
-    for (final value in values)
-      if (value.length >= 4) value,
-  }.sorted((a, b) => b.length - a.length);
-  return list.isEmpty
-      ? null
-      : RegExp(list.map(RegExp.escape).join('|'), caseSensitive: false);
+/// Each secret of 4+ characters anywhere, longest first, and [words] only as whole words.
+RegExp? _knownPattern(
+  Iterable<String> values, [
+  Iterable<String> words = const [],
+]) {
+  const edge = r'[\w\u0080-\uffff]';
+  List<String> longestFirst(Iterable<String> items) =>
+      items.sorted((a, b) => b.length - a.length);
+  final parts = [
+    ...longestFirst({
+      for (final value in values)
+        if (value.length >= 4) value,
+    }).map(RegExp.escape),
+    for (final word in longestFirst(words))
+      '(?<!$edge)${RegExp.escape(word)}(?!$edge)',
+  ];
+  return parts.isEmpty ? null : RegExp(parts.join('|'), caseSensitive: false);
 }
+
+/// The Windows user, its profile folder (a renamed account keeps the old one) and the PC's names.
+Set<String> windowsNames(Map<String, String> env, String host) => {
+  for (final raw in [
+    env['USERNAME'],
+    env['COMPUTERNAME'],
+    host,
+    env['USERPROFILE']?.split(RegExp(r'[\\/]')).last,
+  ])
+    if (raw?.trim() case final name? when name.isNotEmpty) name,
+};
+
+String reportAbi(Abi abi) => '$abi'.replaceFirst('windows_', 'windows-');
 
 String _eachWord(String text, String Function(String word) clean) =>
     text.splitMapJoin(_space, onMatch: (m) => m[0]!, onNonMatch: clean);
@@ -267,7 +289,13 @@ class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
 final shikooProbeProvider =
     NotifierProvider<ShikooProbes, AsyncValue<ProbeChecks>?>(ShikooProbes.new);
 
-Future<void> openNetworkSettings() => ShikooDiag._invoke<bool>('netSettings');
+Future<void> openNetworkSettings() async {
+  if (Platform.isWindows) {
+    await launchUrl(Uri.parse('ms-settings:network-status'));
+    return;
+  }
+  await ShikooDiag._invoke<bool>('netSettings');
+}
 
 String _backendOf(String? rendererLine) =>
     switch (rendererLine?.toLowerCase()) {
@@ -567,6 +595,13 @@ typedef _Line = (DateTime, String, String);
 /// to `<support dir>/shikoo/diag.log`. Kinds: `A` app log, `C` core, `E` Dart error,
 /// `T` timeline, `U` UI event.
 class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
+  ShikooDiag({Set<String>? machine})
+    : _machine =
+          machine ??
+          (Platform.isWindows
+              ? windowsNames(Platform.environment, Platform.localHostname)
+              : const {});
+
   static const _channel = MethodChannel('shikoo/diag');
   static const _ringBytes = 256 * 1024;
   static const keep = Duration(days: 7);
@@ -586,7 +621,8 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   bool _holding = true;
   ProviderContainer? _container;
   final _secrets = <String>{};
-  RegExp? _known;
+  final Set<String> _machine;
+  late RegExp? _known = _knownPattern(const [], _machine);
   String? _lastKind;
   String? _lastText;
   int _repeats = 0;
@@ -688,7 +724,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
 
   RegExp? _knownNow() {
     final container = _container;
-    if (container == null) return null;
+    if (container == null) return _known;
     final before = _secrets.length;
     try {
       _secrets.addAll(container.read(shikooSignInProvider).secrets);
@@ -706,7 +742,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       }
     } catch (_) {}
     // Kept once seen: a crash file read later still holds a password or token since replaced.
-    if (_secrets.length != before) _known = _knownPattern(_secrets);
+    if (_secrets.length != before) _known = _knownPattern(_secrets, _machine);
     return _known;
   }
 
@@ -714,7 +750,10 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   String _username(String name) {
     final lower = name.toLowerCase();
     return _usernameShape.hasMatch(name) &&
-            !_secrets.any((secret) => secret.toLowerCase() == lower)
+            ![
+              ..._secrets,
+              ..._machine,
+            ].any((secret) => secret.toLowerCase() == lower)
         ? name
         : _bullet;
   }
@@ -1001,7 +1040,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       tv: system.isTV,
       version: container.read(shikooVersionProvider),
       build: int.tryParse(globalState.packageInfo.buildNumber),
-      abi: '${Abi.current()}',
+      abi: reportAbi(Abi.current()),
       signedIn: container.read(shikooAccountProvider).who != null,
       look: container.read(shikooLookProvider),
       media: MediaQueryData.fromView(view),
