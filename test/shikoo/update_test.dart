@@ -1,14 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:fl_clash/providers/providers.dart' show versionProvider;
+import 'package:fl_clash/providers/providers.dart'
+    show runTimeProvider, versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart' show shikooSkew;
+import 'package:fl_clash/shikoo/engine/controller.dart'
+    show ShikooController, shikooControllerProvider;
+import 'package:fl_clash/shikoo/engine/diag.dart'
+    show ShikooDiag, shikooDiagProvider;
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,10 +21,46 @@ import 'package:riverpod/riverpod.dart';
 final _apk = Uint8List.fromList(List.generate(20000, (i) => i * 7 % 256));
 final _sha = '${sha256.convert(_apk)}';
 
-const _key = 'test-key';
+/// Stands in for RSA, which the core's tests check against openssl: a seal holds only for its own key and message.
+String _sealOf(String key, String message) => 'seal($key|$message)';
 
-/// Stands in for Ed25519, which the core's tests check against RFC 8032: only [_key] seals.
-String _sealOf(String message) => 'seal($message)';
+String _message(int code, String sha) => 'shikoonet-windows-update:$code:$sha';
+
+/// The connection, in the order the update drives it.
+class _Controller implements ShikooController {
+  _Controller(this.events, this.onDisconnect);
+
+  final List<String> events;
+  void Function() onDisconnect;
+
+  @override
+  Future<void> disconnect() async {
+    events.add('disconnect');
+    onDisconnect();
+  }
+
+  @override
+  Future<void> connect() async => events.add('connect');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Diag extends ShikooDiag {
+  final lines = <String>[];
+
+  @override
+  void add(String kind, String text, {DateTime? at}) =>
+      lines.add('$kind $text');
+}
+
+/// Inno's loader: it exits only when it did not install, as installing kills the app.
+class _Installer extends Fake implements Process {
+  final exited = Completer<int>();
+
+  @override
+  Future<int> get exitCode => exited.future;
+}
 
 /// The app door as docs/app-update.md pins it: the manifest, and `/dl/` with Range.
 class _Door implements HttpClientAdapter {
@@ -163,8 +203,11 @@ void main() {
   late bool installerOpens;
   late List<String> seals;
   late bool? coreAnswers;
-  late List<String> ran;
-  late bool windowsStarts;
+  late List<String> events;
+  late List<List<String>> started;
+  late _Installer installer;
+  late bool startFails;
+  late _Diag diag;
 
   setUp(() async {
     door = _Door();
@@ -177,8 +220,11 @@ void main() {
     installerOpens = true;
     seals = [];
     coreAnswers = true;
-    ran = [];
-    windowsStarts = true;
+    events = [];
+    started = [];
+    installer = _Installer();
+    startFails = false;
+    diag = _Diag();
     const channel = MethodChannel('shikoo/update');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -206,25 +252,40 @@ void main() {
       overrides: [
         shikooApiProvider.overrideWithValue(ShikooApi(bases, dio)),
         versionProvider.overrideWithBuild((_, _) => sdk),
+        shikooControllerProvider.overrideWithValue(
+          _Controller(
+            events,
+            () => container.read(runTimeProvider.notifier).value = null,
+          ),
+        ),
+        shikooDiagProvider.overrideWithValue(diag),
       ],
     );
     addTearDown(container.dispose);
+    container.listen(runTimeProvider, (_, _) {});
     return container.read(shikooUpdateProvider)
       ..abi = abi
       ..installed = installed
       ..cacheDir = (() async => cache)
       ..now = (() => clock)
-      ..sealKey = _key
+      ..sealKey = windowsSealKeyStaging
       ..checkSeal = (key, message, sig) async {
         seals.add(message);
-        return coreAnswers == null
-            ? null
-            : key == _key && sig == _sealOf(message);
+        return coreAnswers == null ? null : sig == _sealOf(key, message);
       }
-      ..runInstaller = (exe) async {
-        ran.add(exe);
-        return windowsStarts;
+      ..startInstaller = (exe, arguments) async {
+        events.add('start');
+        started.add([exe, ...arguments]);
+        if (startFails) throw const ProcessException('setup', [], 'refused');
+        return installer;
       };
+  }
+
+  Future<void> until(bool Function() done) async {
+    for (var i = 0; i < 500 && !done(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(done(), isTrue);
   }
 
   UpdateOffer? offer() => container.read(shikooUpdateOfferProvider);
@@ -596,19 +657,31 @@ void main() {
     });
   });
 
-  test('each build reads only its own entry', () {
-    expect(abiNames, {
-      Abi.androidArm: 'armeabi-v7a',
-      Abi.androidArm64: 'arm64-v8a',
-      Abi.androidX64: 'x86_64',
-      Abi.windowsX64: 'windows-x64',
-    });
-    expect(abiNames[Abi.windowsArm64], isNull);
+  test('the pinned keys are the Android signing keys, each on its own '
+      'door', () {
+    String spki(String key) => '${sha256.convert(base64.decode(key))}';
+    expect(
+      spki(windowsSealKeyProduction),
+      '429266157daac075aff8ee48280015479b62a8cb481cb2f216b5b54295fa3813',
+    );
+    expect(
+      spki(windowsSealKeyStaging),
+      '6ccafa8996adb23850ffcec057ea17247a908ebce7f5c5e064d1adaef7550e46',
+    );
+    expect(sealKeyFor(testDoor: false), windowsSealKeyProduction);
+    expect(sealKeyFor(testDoor: true), windowsSealKeyStaging);
+    final built = ProviderContainer();
+    addTearDown(built.dispose);
+    expect(
+      built.read(shikooUpdateProvider).sealKey,
+      windowsSealKeyProduction,
+      reason: 'flutter test passes no SHIKOO_API',
+    );
   });
 
   group('windows', () {
     const windows = 'windows-x64';
-    final message = '56:$_sha';
+    final message = _message(56, _sha);
 
     File exe() => File('${cache.path}/update/$_sha.exe');
 
@@ -618,7 +691,7 @@ void main() {
         ..code = 56
         ..minimum = 0
         ..entryVersion = '1.0.56'
-        ..sig = _sealOf(message)
+        ..sig = _sealOf(windowsSealKeyStaging, message)
         ..others = {
           'arm64-v8a': {
             'version_code': 57,
@@ -655,26 +728,39 @@ void main() {
       },
     );
 
-    test('a seal that is missing, wrong or made for another number is never '
-        'offered, forced or not', () async {
+    test('a seal that is missing, wrong, unprefixed or made for another '
+        'number or file is never offered, forced or not', () async {
       door.minimum = 56;
-      for (final sig in [null, 'seal(57:$_sha)', 'seal($_sha)', 'x' * 88]) {
+      for (final sig in [
+        null,
+        _sealOf(windowsSealKeyStaging, _message(57, _sha)),
+        _sealOf(windowsSealKeyStaging, _message(56, 'ab' * 32)),
+        _sealOf(windowsSealKeyStaging, '56:$_sha'),
+        'x' * 344,
+      ]) {
         door.sig = sig;
         expect(await onWindows().checkNow(), isNull, reason: '$sig');
         expect(offer(), isNull, reason: '$sig');
       }
-      door.sig = _sealOf(message);
+      expect(diag.lines.toSet(), {'T update 56 not sealed'});
+      door.sig = _sealOf(windowsSealKeyStaging, message);
       await onWindows().check();
       expect(offer()!.forced, isTrue);
     });
 
-    test('without the real key nothing is offered, whatever the door '
-        'signed', () async {
-      final update = onWindows()..sealKey = windowsSealKey;
-      await update.check();
-      expect(windowsSealKey, isEmpty);
+    test('the production seal never passes on a staging build, nor the other '
+        'way', () async {
+      door.sig = _sealOf(windowsSealKeyProduction, message);
+      await onWindows().check();
       expect(offer(), isNull);
-      expect(seals, isEmpty);
+
+      door.sig = _sealOf(windowsSealKeyStaging, message);
+      await (onWindows()..sealKey = windowsSealKeyProduction).check();
+      expect(offer(), isNull);
+
+      door.sig = _sealOf(windowsSealKeyProduction, message);
+      await (onWindows()..sealKey = windowsSealKeyProduction).check();
+      expect(offer()!.release.versionCode, 56);
     });
 
     test(
@@ -723,47 +809,116 @@ void main() {
       expect(offer()!.phase, UpdatePhase.ready);
     });
 
-    test('installs the checked file with no Android permission and no '
-        'channel', () async {
+    Future<ShikooUpdate> ready({bool connected = true}) async {
       final update = onWindows();
       await update.check();
       await update.download();
-      expect(await update.install(), InstallAsk.nothing);
-      expect(ran, [exe().path]);
-      expect(native, isEmpty);
-      expect(offer()!.phase, UpdatePhase.ready);
-      expect(offer()!.error, isNull);
+      if (connected) container.read(runTimeProvider.notifier).value = 1;
+      return update;
+    }
+
+    test('checks the seal while connected, then disconnects and starts the '
+        'quiet installer, never the Android permission', () async {
+      final update = await ready();
+      final installing = update.install();
+      await until(() => started.isNotEmpty);
+      expect(events, ['disconnect', 'start']);
+      expect(started.single, [
+        exe().path,
+        '/SILENT',
+        '/SUPPRESSMSGBOXES',
+        '/NORESTART',
+      ]);
       expect(seals, [message, message]);
+      expect(native, isEmpty);
+      installer.exited.complete(0);
+      expect(await installing, InstallAsk.nothing);
     });
 
-    test('a file changed after the download is deleted, never run', () async {
-      final update = onWindows();
-      await update.check();
-      await update.download();
-      exe().writeAsBytesSync([..._apk.sublist(0, 19999), 0]);
+    test('a file swapped while disconnecting is deleted, never started, and '
+        'the connection comes back', () async {
+      final update = await ready();
+      final controller =
+          container.read(shikooControllerProvider) as _Controller;
+      final cleared = controller.onDisconnect;
+      controller.onDisconnect = () {
+        cleared();
+        exe().writeAsBytesSync(utf8.encode('not the sealed file'));
+      };
       await update.install();
-      expect(ran, isEmpty);
+      expect(events, ['disconnect', 'connect']);
+      expect(started, isEmpty);
       expect(exe().existsSync(), isFalse);
       expect(offer()!.phase, UpdatePhase.offered);
       expect(offer()!.error, UpdateError.checksum);
     });
 
-    test('a seal the core no longer confirms, or an installer Windows would '
-        'not start, says the installer did not open', () async {
-      final update = onWindows();
-      await update.check();
-      await update.download();
+    test(
+      'a file changed before the install is deleted, with no disconnect',
+      () async {
+        final update = await ready();
+        exe().writeAsBytesSync([..._apk.sublist(0, 19999), 0]);
+        await update.install();
+        expect(events, isEmpty);
+        expect(exe().existsSync(), isFalse);
+        expect(offer()!.error, UpdateError.checksum);
+      },
+    );
+
+    test('a seal the core no longer confirms keeps the connection and starts '
+        'nothing', () async {
+      final update = await ready();
       coreAnswers = null;
       await update.install();
-      expect(ran, isEmpty);
-      expect(offer()!.error, UpdateError.install);
-
-      coreAnswers = true;
-      windowsStarts = false;
-      await update.install();
-      expect(ran, [exe().path]);
+      expect(events, isEmpty);
       expect(offer()!.phase, UpdatePhase.ready);
       expect(offer()!.error, UpdateError.install);
+    });
+
+    test('an installer that exits while the app lives, refused at UAC, '
+        'reconnects and says the installer did not open', () async {
+      final update = await ready();
+      final installing = update.install();
+      await until(() => started.isNotEmpty);
+      installer.exited.complete(2);
+      await installing;
+      expect(events, ['disconnect', 'start', 'connect']);
+      expect(offer()!.phase, UpdatePhase.ready);
+      expect(offer()!.error, UpdateError.install);
+    });
+
+    test('one Windows would not start is the same', () async {
+      startFails = true;
+      final update = await ready();
+      await update.install();
+      expect(events, ['disconnect', 'start', 'connect']);
+      expect(offer()!.error, UpdateError.install);
+    });
+
+    test('only a connection that was on comes back, and not over one the '
+        'user started since', () async {
+      startFails = true;
+      await (await ready(connected: false)).install();
+      expect(events, ['disconnect', 'start']);
+
+      events.clear();
+      final update = await ready();
+      final controller =
+          container.read(shikooControllerProvider) as _Controller;
+      controller.onDisconnect = () {};
+      await update.install();
+      expect(events, ['disconnect', 'start']);
+    });
+
+    test('a second tap while installing starts nothing more', () async {
+      final update = await ready();
+      final first = update.install();
+      final second = update.install();
+      await until(() => started.isNotEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      installer.exited.complete(1);
+      await Future.wait([first, second]);
+      expect(started, hasLength(1));
     });
   });
 }

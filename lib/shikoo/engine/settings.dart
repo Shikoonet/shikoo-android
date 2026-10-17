@@ -28,6 +28,8 @@ const shikooApiBases = [
   _apiOverride == '' ? 'https://app.chopon.uk' : _apiOverride,
 ];
 
+const shikooTestDoor = _apiOverride != '';
+
 /// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.
 String? usableLink(String? url) {
   final uri = Uri.tryParse(url ?? '');

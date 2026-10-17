@@ -6,13 +6,14 @@ import 'dart:isolate';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:fl_clash/providers/providers.dart'
-    show coreHandlerProvider, versionProvider;
+    show coreHandlerProvider, runTimeProvider, versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart' show clockFailed;
 import 'package:fl_clash/shikoo/engine/controller.dart'
     show ShikooCell, shikooControllerProvider;
-import 'package:fl_clash/shikoo/engine/diag.dart' show shikooDiag;
+import 'package:fl_clash/shikoo/engine/diag.dart' show shikooDiagProvider;
 import 'package:fl_clash/shikoo/engine/ping.dart' show isDue;
+import 'package:fl_clash/shikoo/engine/settings.dart' show shikooTestDoor;
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -22,18 +23,16 @@ import 'package:path_provider/path_provider.dart';
 
 const updateEvery = Duration(hours: 6);
 
-/// Base64 of the Ed25519 public key whose signature a Windows installer needs. Empty: Windows installs no update.
-const windowsSealKey = '';
-
 @visibleForTesting
-const abiNames = {
+String sealKeyFor({required bool testDoor}) =>
+    testDoor ? windowsSealKeyStaging : windowsSealKeyProduction;
+
+const _abiNames = {
   Abi.androidArm: 'armeabi-v7a',
   Abi.androidArm64: 'arm64-v8a',
   Abi.androidX64: 'x86_64',
   Abi.windowsX64: 'windows-x64',
 };
-
-const _quietInstall = ['/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART'];
 
 enum UpdatePhase { offered, downloading, ready }
 
@@ -88,7 +87,7 @@ class ShikooUpdate {
 
   /// The running process's ABI: a 32-bit build on a 64-bit phone stays 32-bit.
   @visibleForTesting
-  late String abi = abiNames[Abi.current()] ?? '';
+  late String abi = _abiNames[Abi.current()] ?? '';
 
   /// Its versionCode; a local build's (2026091401 and up) is above every release's.
   @visibleForTesting
@@ -101,18 +100,21 @@ class ShikooUpdate {
   DateTime Function() now = DateTime.now;
 
   @visibleForTesting
-  String sealKey = windowsSealKey;
+  String sealKey = sealKeyFor(testDoor: shikooTestDoor);
 
   @visibleForTesting
   late Future<bool?> Function(String key, String message, String sig)
   checkSeal = _ref.read(coreHandlerProvider).checkSeal;
 
   @visibleForTesting
-  late Future<bool> Function(String exe) runInstaller = _disconnectAndInstall;
+  Future<Process> Function(String exe, List<String> arguments) startInstaller =
+      (exe, arguments) =>
+          Process.start(exe, arguments, mode: ProcessStartMode.inheritStdio);
 
   DateTime? _checked;
   Future<UpdateError?>? _checking;
   Future<void>? _downloading;
+  Future<void>? _installing;
   CancelToken? _cancel;
   bool _awaitingPermission = false;
 
@@ -180,7 +182,9 @@ class ShikooUpdate {
       final sealed = await _sealed(release);
       if (sealed == null) return UpdateError.network;
       if (!sealed) {
-        shikooDiag.add('T', 'update ${release.versionCode} not sealed');
+        _ref
+            .read(shikooDiagProvider)
+            .add('T', 'update ${release.versionCode} not sealed');
         release = null;
       }
     }
@@ -189,14 +193,13 @@ class ShikooUpdate {
     return null;
   }
 
-  /// `<versionCode>:<sha256>`, so an old build's seal cannot pass for a newer number.
   Future<bool?> _sealed(AppRelease release) async {
     final sig = release.sig;
-    if (sealKey.isEmpty || sig == null) return false;
+    if (sig == null) return false;
     try {
       return await checkSeal(
         sealKey,
-        '${release.versionCode}:${release.sha256}',
+        'shikoonet-windows-update:${release.versionCode}:${release.sha256}',
         sig,
       );
     } catch (_) {
@@ -392,28 +395,42 @@ class ShikooUpdate {
         error: opened ? null : UpdateError.install,
       );
     }
-    // Any program of this user can write here, and the installer runs as admin; Android checks its own APKs.
-    if (await _sha256Of(file.path) != release.sha256) {
-      await file.delete();
-      return _move(
-        UpdatePhase.offered,
-        received: 0,
-        error: UpdateError.checksum,
-      );
-    }
-    final opened =
-        await _sealed(release) == true && await runInstaller(file.path);
-    _move(UpdatePhase.ready, error: opened ? null : UpdateError.install);
+    return _installing ??= _installWindows(
+      file,
+      release,
+    ).whenComplete(() => _installing = null);
   }
 
-  Future<bool> _disconnectAndInstall(String exe) async {
-    await _ref.read(shikooControllerProvider).disconnect();
-    try {
-      await Process.start(exe, _quietInstall, mode: ProcessStartMode.detached);
-      return true;
-    } on ProcessException {
-      return false;
+  Future<void> _installWindows(File file, AppRelease release) async {
+    void damaged() {
+      if (file.existsSync()) file.deleteSync();
+      _move(UpdatePhase.offered, received: 0, error: UpdateError.checksum);
     }
+
+    if (await _sha256Of(file.path) != release.sha256) return damaged();
+    if (await _sealed(release) != true) {
+      return _move(UpdatePhase.ready, error: UpdateError.install);
+    }
+    final wasOn = _ref.read(runTimeProvider) != null;
+    final controller = _ref.read(shikooControllerProvider);
+    await controller.disconnect();
+    final same = '${sha256.convert(file.readAsBytesSync())}' == release.sha256;
+    final installer = same
+        ? startInstaller(file.path, [
+            '/SILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+          ])
+        : null;
+    // The installer's PrepareToInstall kills this app: an exit seen here means it never installed.
+    try {
+      await (await installer)?.exitCode;
+    } on ProcessException catch (_) {}
+    if (wasOn && _ref.read(runTimeProvider) == null) {
+      unawaited(controller.connect());
+    }
+    if (!same) return damaged();
+    _move(UpdatePhase.ready, error: UpdateError.install);
   }
 
   Future<bool> _native(String method, [Object? arguments]) async {
@@ -424,3 +441,8 @@ class ShikooUpdate {
     }
   }
 }
+
+// dart format off
+/// Base64 SubjectPublicKeyInfo of the Android signing keys, `CN=ShikooNet` and `CN=ShikooNet Staging`; CI greps these two lines.
+const windowsSealKeyProduction = 'MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvz9upEmGJR+ztlRWX0Dxic10CU995o1UtojYE4T6JwmbkyxHFn7m53kJsUNpY+69n1WmN8GprvH67tZPfizJL9GjR42tXY9qt6UdBzOaSb1EcRzYVvPMdjPO6fb5tuwSikm+UrmO1ry+6KeYqIx5pcpfpIFUCZe9u6QYxCREVGY4AgrZ7KKMVSvK5B1AmwAFHw87gq8863wka28oBtr6GU9NW4ruC/iwQ3B/200AT67uY9qM7XNVQmtsqzt1AncCr65xZ20l+GlVr8+Mq2lZkl95SxIgpCE6cwk/k4NtMeuJyV3PFtKEUbyZSa6jvD11garS5GL/Fgx17c81tPkDQ675ODVAvDN3WIX/Lc2O0xJBrw2FFwchPLtXCnx6d4kqtEderugOnzkJy1kOaDmWNYcbAO5eOPtQUJnrpTV6mlS+qKYsnjlnCfKUxQ7y7AEuvEWFq5vrMpAcBWRIHgGZL8hy9p4q/UHTkZ7gxumYEDNlDViiCUGYodiwqEQ6WREjepFJf2Eze8LOC/EOtm9Jzg4kANjkwdcvcP0EdFPI4l3TxbpzZ3chX3JB0V+aTIHjpGq3U7UsR2oRPewiS9D5qvQPtiRQispHzR3W25y1CJU/JXVTsrUdWXPoYQeVC0O0zhF2IaU3X4sDLsz9jfchSasNt7BmHSuBGr1ap1QRi80CAwEAAQ==';
+const windowsSealKeyStaging = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyrjHPpyE7NsQHBPbefTqkO29s35v7M5HcV74NYA4DIBwgd3BVB/OS3NKh4akrtb+iB9uhXosGz8fIjiQIxGnq2UXoC4e9IRxoMxN6zrH72onEcaW0UIPK+L3J5alHW+Avi3Bt6IXCF/lPITfw01DWBbUmQL5myAvBpazGEeDqYcuLRcG3YsZxFuHePO1xVZaSD4uQ3rS4iAHx1YhoJ2TvH7buF71B9wcQ0FDoszyZFhYo48J4+S4UmJAkM8nCJnmcwWWWsU2M/3kBkXuFuLtLa/bqBFlfS9nYrLJI7ajnEtRv8BVkw7wcDgdyn3zk4S59xC2O3idrBe9svrtDcvziQIDAQAB';

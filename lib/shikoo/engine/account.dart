@@ -323,7 +323,7 @@ class AppRelease {
   final String sha256;
   final String url;
 
-  /// Base64 Ed25519 over `<versionCode>:<sha256>`; Windows installs only what our key signed.
+  /// Base64 RSA PKCS#1 v1.5 over SHA-256 by the Android signing key; Windows installs only what it signed.
   final String? sig;
 }
 

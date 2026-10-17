@@ -1,11 +1,14 @@
 package main
 
 import (
-	"crypto/ed25519"
+	"crypto"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 )
 
-// checkSeal is Go's crypto/ed25519 for the Windows updater; Dart has no Ed25519 of its own.
+// checkSeal is RSA PKCS#1 v1.5 over SHA-256 for the Windows updater, against an Android signing key's public half.
 const checkSealMethod CoreMethod = "checkSeal"
 
 type CheckSealParams struct {
@@ -21,13 +24,19 @@ func init() {
 }
 
 func checkSeal(params *CheckSealParams) bool {
-	key, err := base64.StdEncoding.DecodeString(params.Key)
-	if err != nil || len(key) != ed25519.PublicKeySize {
+	der, err := base64.StdEncoding.DecodeString(params.Key)
+	if err != nil {
+		return false
+	}
+	parsed, err := x509.ParsePKIXPublicKey(der)
+	key, ok := parsed.(*rsa.PublicKey)
+	if err != nil || !ok || key.N.BitLen() < 2048 {
 		return false
 	}
 	sig, err := base64.StdEncoding.DecodeString(params.Sig)
-	if err != nil || len(sig) != ed25519.SignatureSize {
+	if err != nil {
 		return false
 	}
-	return ed25519.Verify(key, []byte(params.Message), sig)
+	digest := sha256.Sum256([]byte(params.Message))
+	return rsa.VerifyPKCS1v15(key, crypto.SHA256, digest[:], sig) == nil
 }

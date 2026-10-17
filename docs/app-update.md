@@ -69,16 +69,26 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 - Entry `apks["windows-x64"]` (`Abi.windowsX64`; Windows on Arm has no entry and gets nothing). Its own
   `version_name` wins over the manifest's, which a Windows-only publish leaves at the Android version. Own code:
   `packageInfo.buildNumber`, the `+N` of the exe's ProductVersion (`--build-number`).
-- Seal: `sig` is base64 Ed25519 over the ASCII `"<version_code>:<sha256>"`, checked against `windowsSealKey` in
-  `lib/shikoo/engine/update.dart` by the core's `checkSeal` (Go `crypto/ed25519`, `core/shikoo_seal.go`). Empty key,
-  no `sig`, or a wrong one: not offered at all (so never forced), one diag line `update <code> not sealed`. A core
-  that does not answer fails the check as the network and is asked again within a minute.
+- Seal (Sam: the Android signing keys, no key of its own): `sig` is base64 RSA PKCS#1 v1.5 over SHA-256, as
+  `openssl dgst -sha256 -sign` makes it, of the ASCII `shikoonet-windows-update:<version_code>:<sha256 lowercase hex>`.
+  The prefix keeps it apart from anything else the Android key signs; the number keeps an old build's seal off a newer
+  one. The core's `checkSeal` (`core/shikoo_seal.go`: `x509.ParsePKIXPublicKey`, RSA of 2048 bits or more,
+  `rsa.VerifyPKCS1v15`) checks it against `windowsSealKeyProduction` (`CN=ShikooNet`, RSA 4096) or
+  `windowsSealKeyStaging` (`CN=ShikooNet Staging`, RSA 2048) in `lib/shikoo/engine/update.dart`: base64
+  SubjectPublicKeyInfo, one line each, which CI greps. The key goes with the door: a build given `SHIKOO_API` (staging,
+  or a local test) takes the staging key. No `sig`, or a wrong one: not offered at all (so never forced), one diag
+  line `update <code> not sealed`. A core that does not answer fails the check as the network, asked again within a
+  minute.
 - Download as on Android, to `<cache>/update/<sha256>.exe` (`%LOCALAPPDATA%\ShikooNet\ShikooNet\update`).
-- Install: re-hash the file (any program of the user can write there, and the installer runs as admin) and re-check
-  the seal, then the controller's `disconnect()`, then the Inno installer with `/SILENT /SUPPRESSMSGBOXES /NORESTART`,
-  detached. Its loader is `asInvoker` and raises the UAC prompt itself; `PrepareToInstall` kills `ShikooNet.exe`.
-  No Android permission dialog. Relaunch after a silent install needs the installer's `[Run]` entry without
-  `skipifsilent`.
+- Install, one at a time: hash the file and check the seal while still connected (a refused seal leaves the
+  connection alone), then the controller's `disconnect()`, then hash the file again synchronously and start the Inno
+  installer with `/SILENT /SUPPRESSMSGBOXES /NORESTART` with no `await` in between. Any program of the user can write
+  the cache, and the installer runs as admin. A very small window remains between that hash and Windows opening the
+  file; only Authenticode signing closes it. The loader is `asInvoker` and raises the UAC prompt itself;
+  `PrepareToInstall` kills `ShikooNet.exe`, so the loader exiting while the app still runs means it did not install
+  (UAC refused, or Windows would not start it): the connection comes back if it was on and nothing turned it on since,
+  and the card shows `updateInstallFailed`. No Android permission dialog. Relaunch after a silent install is the
+  installer's `[Run]` entry with `skipifnotsilent` (`win/brand`).
 
 ### Pipeline (`chore/release-pipeline`)
 
