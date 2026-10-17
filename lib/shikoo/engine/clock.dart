@@ -1,7 +1,8 @@
-import 'dart:io' show HttpDate, HttpException, HttpHeaders;
+import 'dart:io' show HttpDate, HttpException, HttpHeaders, Platform;
 
 import 'package:dio/dio.dart';
 import 'package:fl_clash/plugins/app.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ponytail: raised by hand; the core panics as it loads before mid-2012 (xhttp/browser.go:71).
 final shikooClockFloor = DateTime.utc(2026, 9, 1);
@@ -65,5 +66,9 @@ Future<bool> clockFailed(Object error, String url) async {
 }
 
 Future<void> openDateSettings() async {
+  if (Platform.isWindows) {
+    await launchUrl(Uri.parse('ms-settings:dateandtime'));
+    return;
+  }
   await app?.methodChannel.invokeMethod<bool>('openDateSettings');
 }

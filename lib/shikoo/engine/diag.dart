@@ -450,7 +450,7 @@ Map<String, Object?> _box(EdgeInsets e) => {
 /// The report's app, device, screen, graphics, network and power sections from typed values;
 /// [native] is `ShikooDiag.kt`'s `state`.
 Map<String, Object?> aboutSections({
-  required AndroidDeviceInfo device,
+  required BaseDeviceInfo device,
   required bool tv,
   required String version,
   required int? build,
@@ -481,18 +481,30 @@ Map<String, Object?> aboutSections({
     },
     'device': {
       'tv': tv,
-      'manufacturer': device.manufacturer,
-      'brand': device.brand,
-      'model': device.model,
-      'device': device.device,
-      'release': device.version.release,
-      'sdk': device.version.sdkInt,
-      'security_patch': device.version.securityPatch,
-      'abis': device.supportedAbis,
-      'low_ram': device.isLowRamDevice,
-      'ram_total_mb': device.physicalRamSize,
-      'ram_free_mb': device.availableRamSize,
-      'disk_free_mb': device.freeDiskSize ~/ (1024 * 1024),
+      ...switch (device) {
+        final AndroidDeviceInfo device => {
+          'manufacturer': device.manufacturer,
+          'brand': device.brand,
+          'model': device.model,
+          'device': device.device,
+          'release': device.version.release,
+          'sdk': device.version.sdkInt,
+          'security_patch': device.version.securityPatch,
+          'abis': device.supportedAbis,
+          'low_ram': device.isLowRamDevice,
+          'ram_total_mb': device.physicalRamSize,
+          'ram_free_mb': device.availableRamSize,
+          'disk_free_mb': device.freeDiskSize ~/ (1024 * 1024),
+        },
+        // The door refuses the whole report over a key it does not know.
+        final WindowsDeviceInfo device => {
+          'model': device.productName,
+          'release':
+              '${device.majorVersion}.${device.minorVersion}.${device.buildNumber}',
+          'ram_total_mb': device.systemMemoryInMegabytes,
+        },
+        _ => const <String, Object?>{},
+      },
       'time_zone': now.timeZoneName,
       'tz_offset_min': now.timeZoneOffset.inMinutes,
       'locale': locale,
@@ -985,7 +997,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     final container = _container!;
     final view = WidgetsBinding.instance.platformDispatcher.views.first;
     return aboutSections(
-      device: await DeviceInfoPlugin().androidInfo,
+      device: await DeviceInfoPlugin().deviceInfo,
       tv: system.isTV,
       version: container.read(shikooVersionProvider),
       build: int.tryParse(globalState.packageInfo.buildNumber),

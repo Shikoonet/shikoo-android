@@ -4,6 +4,7 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
@@ -60,6 +61,7 @@ void main() {
         commonPrint.log('init failed: $e $s', logLevel: LogLevel.error);
         shikooDiag.release();
         runApp(const ShikooInitErrorApp());
+        unawaited(window?.showInitFailure());
       }
     },
     (error, stack) {
@@ -94,6 +96,8 @@ Future<void> _untilClockRight() async {
       look: look,
     ),
   );
+  // The desktop window shows itself only once bootstrap ran.
+  unawaited(window?.showInitFailure());
   await right.future;
 }
 

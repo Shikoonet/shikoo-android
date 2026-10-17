@@ -265,7 +265,7 @@ Future<_Harness> _harness({
     overrides: [
       shikooApiProvider.overrideWithValue(ShikooApi(bases ?? [api.base], dio)),
       shikooDeviceProvider.overrideWithValue(
-        () async => (name: 'Xiaomi MIBOX4', tv: true),
+        () async => (name: 'Xiaomi MIBOX4', kind: 'tv'),
       ),
       shikooControllerProvider.overrideWithValue(controller),
       shikooStateProvider.overrideWithValue(_state),
@@ -351,22 +351,30 @@ void main() {
         ('小米', '盒子'): 'Android phone',
       };
       for (final MapEntry(key: (maker, model), value: name) in cases.entries) {
-        final made = deviceName(maker, model, tv: false);
+        final made = deviceName(maker, model, kind: 'phone');
         expect(made, name);
         expect(_serverName.hasMatch(made), isTrue, reason: made);
       }
+    });
+
+    test('a Windows PC goes by its computer name', () {
+      expect(
+        deviceName('', 'DESKTOP-7G3K2LQ', kind: 'desktop'),
+        'DESKTOP-7G3K2LQ',
+      );
+      expect(deviceName('', 'میز کار', kind: 'desktop'), 'Windows PC');
     });
 
     test('is cut to 40 and never empty', () {
       final long = deviceName(
         'Very Long Manufacturer',
         'Model ' * 20,
-        tv: true,
+        kind: 'tv',
       );
       expect(long.length, lessThanOrEqualTo(40));
       expect(_serverName.hasMatch(long), isTrue);
-      expect(deviceName('تلویزیون', '۴۳ اینچ', tv: true), 'Android TV');
-      expect(deviceName('', '...', tv: false), 'Android phone');
+      expect(deviceName('تلویزیون', '۴۳ اینچ', kind: 'tv'), 'Android TV');
+      expect(deviceName('', '...', kind: 'phone'), 'Android phone');
     });
   });
 
@@ -516,7 +524,7 @@ void main() {
       h.api.clock = () => DateTime.now().add(const Duration(hours: 3));
       final code = await h.container
           .read(shikooApiProvider)
-          .start(deviceName: 'Xiaomi MIBOX4', tv: true);
+          .start(deviceName: 'Xiaomi MIBOX4', kind: 'tv');
       expect(code.lifetime.inSeconds, closeTo(h.api.life.inSeconds, 2));
     });
 
@@ -633,8 +641,8 @@ void main() {
         await api.open();
         addTearDown(api.close);
         final client = ShikooApi(['http://127.0.0.1:${dead.port}', api.base]);
-        await client.start(deviceName: 'x', tv: false);
-        await client.start(deviceName: 'x', tv: false);
+        await client.start(deviceName: 'x', kind: 'phone');
+        await client.start(deviceName: 'x', kind: 'phone');
         expect(api.names, ['x', 'x']);
         expect(knocks, 1);
       },

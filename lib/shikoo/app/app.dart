@@ -27,6 +27,7 @@ import 'package:fl_clash/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:proxy/proxy_platform_interface.dart';
 
 const _delegates = <LocalizationsDelegate<dynamic>>[
   ShikooL10n.delegate,
@@ -38,6 +39,55 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
 void fillFlClashHooks() {
   serviceTexts = shikooServiceTexts;
   StatusManager.showMessages = false;
+  if (Platform.isWindows) {
+    ProxyPlatform.instance = ShikooSystemProxy(
+      ProxyPlatform.instance,
+      () => globalState.container.read(patchClashConfigProvider).mixedPort,
+    );
+  }
+}
+
+final _regValue = RegExp(
+  r'^\s+(ProxyEnable|ProxyServer)\s+REG_\w+\s+(.*?)\s*$',
+  multiLine: true,
+);
+
+bool proxyIsOurs(String internetSettings, int port) {
+  final values = {
+    for (final m in _regValue.allMatches(internetSettings)) m[1]!: m[2]!,
+  };
+  return values['ProxyEnable'] == '0x1' &&
+      values['ProxyServer'] == '127.0.0.1:$port';
+}
+
+Future<String> _internetSettings() async {
+  try {
+    final result = await Process.run('reg', [
+      'query',
+      r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
+    ]);
+    return '${result.stdout}';
+  } catch (_) {
+    return '';
+  }
+}
+
+/// FlClash turns Windows' proxy off at every launch, exit and disconnect, whichever app set it.
+class ShikooSystemProxy extends ProxyPlatform {
+  ShikooSystemProxy(this._inner, this._port, {this.read = _internetSettings});
+
+  final ProxyPlatform _inner;
+  final int Function() _port;
+  final Future<String> Function() read;
+
+  @override
+  Future<bool> startProxy(int port, List<String> bypassDomain) =>
+      _inner.startProxy(port, bypassDomain);
+
+  // ponytail: off, not the setting from before this app; restoring that waits on Sam.
+  @override
+  Future<bool> stopProxy() async =>
+      !proxyIsOurs(await read(), _port()) || await _inner.stopProxy();
 }
 
 /// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
@@ -49,20 +99,27 @@ Future<bool?>? registerShortcut(App? plugin, String language) =>
 /// stopLog of its default wait for the core together, then race in goroutines of their own, and the report loses every core line.
 Future<void> afterAttach(
   Future<void> attached,
-  ProviderContainer container,
-) async {
+  ProviderContainer container, {
+  required bool desktop,
+}) async {
   await attached;
   container.read(coreHandlerProvider).startLog();
-  container.read(networkSettingProvider.notifier).update((s) {
-    if (s.authentication.credentials.isNotEmpty) return s;
-    return s.copyWith(
-      authentication: AuthenticationProps(
-        enable: true,
-        username: generateRandomSecret(8),
-        password: generateRandomSecret(16),
-      ),
-    );
-  });
+  container
+      .read(networkSettingProvider.notifier)
+      .update((s) => portLock(s, desktop: desktop));
+}
+
+/// Windows' system proxy carries no password (a 407 for every app); `allow-lan` keeps the port local.
+NetworkProps portLock(NetworkProps s, {required bool desktop}) {
+  if (desktop) return s.copyWith(authentication: const AuthenticationProps());
+  if (s.authentication.credentials.isNotEmpty) return s;
+  return s.copyWith(
+    authentication: AuthenticationProps(
+      enable: true,
+      username: generateRandomSecret(8),
+      password: generateRandomSecret(16),
+    ),
+  );
 }
 
 /// Without FlClash's IP-lookup card on the dashboard, FlClash never looks the IP up; Shikoo shows no IP, and the lookup went out from the customer's own address.
@@ -80,6 +137,7 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
 PatchClashConfig shikooClashConfig(PatchClashConfig c) => c.copyWith(
   logLevel: LogLevel.warning,
   findProcessMode: FindProcessMode.off,
+  allowLan: false,
 );
 
 /// A TV is often left on the home screen for hours: its services stay as fresh as on open.
@@ -118,7 +176,11 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       if (globalState.navigatorKey.currentContext == null) exit(0);
       // Saved only because AppStateManager is mounted by now (engine map section 1).
       ref.read(appSettingProvider.notifier).update(shikooAppSettings);
-      await afterAttach(bootstrap.attach(), globalState.container);
+      await afterAttach(
+        bootstrap.attach(),
+        globalState.container,
+        desktop: system.isDesktop,
+      );
       ref.read(patchClashConfigProvider.notifier).update(shikooClashConfig);
       unawaited(shikooDiag.attach(globalState.container));
       shikooDiag.watchUi();
@@ -215,7 +277,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         context,
         child!,
         managers: (page) => buildManagerStack(
-          isDesktop: false,
+          isDesktop: system.isDesktop,
           onConnectivityChanged: _onConnectivityChanged,
           child: page,
         ),

@@ -206,23 +206,37 @@ final _notAllowed = RegExp(r'[^A-Za-z0-9 _()-]+');
 
 /// What the bot shows under «وصل شود؟». The server takes only ASCII letters, digits, space and
 /// `_ ( ) -`, 1 to 40 of them: `.` `+` `@` `/` `:` would make Telegram links.
-String deviceName(String manufacturer, String model, {required bool tv}) {
+String deviceName(String manufacturer, String model, {required String kind}) {
   final full = model.toLowerCase().startsWith(manufacturer.toLowerCase())
       ? model
       : '$manufacturer $model';
   final name = full.replaceAll(_notAllowed, ' ').replaceAll(RegExp(' +'), ' ');
   final cut = (name.length > 40 ? name.substring(0, 40) : name).trim();
-  return cut.isNotEmpty ? cut : (tv ? 'Android TV' : 'Android phone');
+  return cut.isNotEmpty ? cut : _unnamed[kind]!;
 }
 
+const _unnamed = {
+  'phone': 'Android phone',
+  'tv': 'Android TV',
+  'desktop': 'Windows PC',
+};
+
+/// [kind] is the door's `device_kind`; a Windows PC goes by the name Windows gives it.
 final shikooDeviceProvider =
-    Provider<Future<({String name, bool tv})> Function()>(
+    Provider<Future<({String name, String kind})> Function()>(
       (_) => () async {
+        if (system.isWindows) {
+          final info = await DeviceInfoPlugin().windowsInfo;
+          return (
+            name: deviceName('', info.computerName, kind: 'desktop'),
+            kind: 'desktop',
+          );
+        }
         final info = await DeviceInfoPlugin().androidInfo;
-        final tv = system.isTV;
+        final kind = system.isTV ? 'tv' : 'phone';
         return (
-          name: deviceName(info.manufacturer, info.model, tv: tv),
-          tv: tv,
+          name: deviceName(info.manufacturer, info.model, kind: kind),
+          kind: kind,
         );
       },
     );
@@ -380,12 +394,12 @@ class ShikooApi {
 
   Future<LoginCode> start({
     required String deviceName,
-    required bool tv,
+    required String kind,
   }) async {
     final response = await _call(
       'POST',
       '/login/start',
-      body: {'device_name': deviceName, 'device_kind': tv ? 'tv' : 'phone'},
+      body: {'device_name': deviceName, 'device_kind': kind},
     );
     final body = _json(response);
     if (response.statusCode != 200 || body == null) {
@@ -724,7 +738,9 @@ class ShikooSignIn {
     try {
       final code = await _ref
           .read(shikooDeviceProvider)()
-          .then((device) => _api.start(deviceName: device.name, tv: device.tv))
+          .then(
+            (device) => _api.start(deviceName: device.name, kind: device.kind),
+          )
           .timeout(startLimit);
       _live = code;
       if (attempt != _attempt) return null;

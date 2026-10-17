@@ -233,6 +233,9 @@ void main() {
         door.manifestStatus = 200;
         await start(abi: 'x86_64').check();
         expect(offer(), isNull);
+
+        await start(abi: '').check();
+        expect(offer(), isNull, reason: 'Windows has no Android ABI');
       },
     );
 
