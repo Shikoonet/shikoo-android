@@ -14,6 +14,7 @@ import 'package:fl_clash/manager/status_manager.dart' show StatusManager;
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -45,49 +46,6 @@ void fillFlClashHooks() {
       () => globalState.container.read(patchClashConfigProvider).mixedPort,
     );
   }
-}
-
-final _regValue = RegExp(
-  r'^\s+(ProxyEnable|ProxyServer)\s+REG_\w+\s+(.*?)\s*$',
-  multiLine: true,
-);
-
-bool proxyIsOurs(String internetSettings, int port) {
-  final values = {
-    for (final m in _regValue.allMatches(internetSettings)) m[1]!: m[2]!,
-  };
-  return values['ProxyEnable'] == '0x1' &&
-      values['ProxyServer'] == '127.0.0.1:$port';
-}
-
-Future<String> _internetSettings() async {
-  try {
-    final result = await Process.run('reg', [
-      'query',
-      r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
-    ]);
-    return '${result.stdout}';
-  } catch (_) {
-    return '';
-  }
-}
-
-/// FlClash turns Windows' proxy off at every launch, exit and disconnect, whichever app set it.
-class ShikooSystemProxy extends ProxyPlatform {
-  ShikooSystemProxy(this._inner, this._port, {this.read = _internetSettings});
-
-  final ProxyPlatform _inner;
-  final int Function() _port;
-  final Future<String> Function() read;
-
-  @override
-  Future<bool> startProxy(int port, List<String> bypassDomain) =>
-      _inner.startProxy(port, bypassDomain);
-
-  // ponytail: off, not the setting from before this app; restoring that waits on Sam.
-  @override
-  Future<bool> stopProxy() async =>
-      !proxyIsOurs(await read(), _port()) || await _inner.stopProxy();
 }
 
 /// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
@@ -134,11 +92,19 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
 
 /// FlClash asks Android which app owns every connection (`find-process-mode: always`) for per-app rules Shikoo never
 /// has; without QUERY_ALL_PACKAGES the answer is empty for other apps anyway.
-PatchClashConfig shikooClashConfig(PatchClashConfig c) => c.copyWith(
+/// A desktop's port is Shikoo's own: FlClash and Clash take 7890 and 7891, Happ, v2rayN and Pat-N 10808, and a
+/// machine may set the ephemeral range as low as 1024 to 15000.
+PatchClashConfig shikooClashConfig(
+  PatchClashConfig c, {
+  bool desktop = false,
+}) => c.copyWith(
   logLevel: LogLevel.warning,
   findProcessMode: FindProcessMode.off,
   allowLan: false,
+  mixedPort: desktop ? shikooDesktopPort : c.mixedPort,
 );
+
+const shikooDesktopPort = 17470;
 
 /// A TV is often left on the home screen for hours: its services stay as fresh as on open.
 void everyMinute(ProviderContainer container) {
@@ -181,7 +147,9 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         globalState.container,
         desktop: system.isDesktop,
       );
-      ref.read(patchClashConfigProvider.notifier).update(shikooClashConfig);
+      ref
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => shikooClashConfig(c, desktop: system.isDesktop));
       unawaited(shikooDiag.attach(globalState.container));
       shikooDiag.watchUi();
       _attached = true;

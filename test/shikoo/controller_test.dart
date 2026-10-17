@@ -2,6 +2,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -118,6 +119,33 @@ void main() {
       container.read(coreStatusProvider.notifier).value = CoreStatus.connected;
       container.read(runTimeProvider.notifier).value = null;
       expect(await native(), isNull, reason: 'stopped');
+    });
+
+    test('a desktop tunnel is up only once its adapter is', () async {
+      final adapters = <String>{};
+      final asked = <String>[];
+      final container = ProviderContainer(
+        overrides: [
+          runTimeProvider.overrideWithBuild((_, _) => 5000),
+          coreStatusProvider.overrideWithBuild((_, _) => CoreStatus.connected),
+          tunUpProvider.overrideWithValue((device) async {
+            asked.add(device);
+            return adapters.contains(device);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final native = container.read(nativeRunTimeProvider);
+      expect(await native(), isNotNull, reason: 'proxy mode has no adapter');
+      expect(asked, isEmpty);
+
+      container
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => c.copyWith.tun(enable: true, device: 'ShikooNet'));
+      expect(await native(), isNull, reason: 'the helper failed: no TUN');
+      adapters.add('ShikooNet');
+      expect(await native(), isNotNull);
+      expect(asked, ['ShikooNet', 'ShikooNet']);
     });
   });
 

@@ -12,6 +12,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
@@ -227,6 +228,7 @@ class ShikooState {
     this.opened,
     this.order = const [],
     this.landed,
+    this.busyPort,
   });
 
   final ShikooConnection connection;
@@ -263,6 +265,9 @@ class ShikooState {
 
   final ShikooLanded? landed;
 
+  /// Another program holds the local port, so connect stopped before Windows' proxy could point at it.
+  final int? busyPort;
+
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
 
@@ -279,11 +284,17 @@ class ShikooState {
 
 @immutable
 class _Intent {
-  const _Intent({this.connecting = false, this.waiting = false, this.error});
+  const _Intent({
+    this.connecting = false,
+    this.waiting = false,
+    this.error,
+    this.busyPort,
+  });
 
   final bool connecting;
   final bool waiting;
   final ShikooError? error;
+  final int? busyPort;
 }
 
 class ShikooCell<T> extends Notifier<T> {
@@ -451,9 +462,11 @@ ShikooConnection deriveConnection({
   required bool connecting,
   required bool running,
   required ShikooError? error,
+  bool portBusy = false,
 }) {
   if (connecting) return ShikooConnection.connecting;
   if (running) return ShikooConnection.on;
+  if (portBusy) return ShikooConnection.error;
   return switch (error) {
     ShikooError.connectTimeout ||
     ShikooError.noServer ||
@@ -569,6 +582,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       connecting: intent.connecting,
       running: runTime != null || nativeStart != null,
       error: intent.error,
+      portBusy: intent.busyPort != null,
     ),
     // ponytail: wall clock, negative once the clock moves back mid-tunnel; needs elapsedRealtime from Kotlin.
     connectedFor: nativeStart != null
@@ -600,6 +614,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     opened: opened == null ? null : openedView(opened),
     order: ref.watch(serviceOrderProvider),
     landed: ref.watch(_landedProvider),
+    busyPort: intent.busyPort,
   );
 });
 
@@ -626,6 +641,8 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
     if (ms == null || ref.read(coreStatusProvider) != CoreStatus.connected) {
       return null;
     }
+    final tun = ref.read(patchClashConfigProvider).tun;
+    if (tun.enable && !await ref.read(tunUpProvider)(tun.device)) return null;
     return DateTime.now().subtract(Duration(milliseconds: ms));
   },
 );
@@ -834,6 +851,7 @@ class ShikooController {
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(_loadPasted);
     scheduleMicrotask(() => _ref.read(savedOrderProvider.notifier).load());
+    scheduleMicrotask(() => _ref.read(shikooModeProvider.notifier).load());
     scheduleMicrotask(() async {
       final stored = (await SharedPreferences.getInstance()).getString(
         _appPicksKey,
@@ -1029,6 +1047,9 @@ class ShikooController {
   Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
     _set(_Intent(connecting: true, error: error));
+    final refused = await _desktopReady();
+    if (attempt != _attempt) return;
+    if (refused != null) return _set(refused);
     bool started;
     try {
       started = await _setup.setRunning(
@@ -1055,6 +1076,42 @@ class ShikooController {
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
     await _setup.setRunning(false);
+  }
+
+  /// FlClash's flags for the mode are set only here: with TUN on, each apply asks for the helper service.
+  Future<_Intent?> _desktopReady() async {
+    if (!_ref.read(shikooDesktopProvider) || _running) return null;
+    final mode = _ref.read(shikooModeProvider);
+    final port = _ref.read(patchClashConfigProvider).mixedPort;
+    if (mode.systemProxy && !await _ref.read(localPortFreeProvider)(port)) {
+      return _Intent(busyPort: port);
+    }
+    final authorized = _ref.read(authorizedTunEnableProvider.notifier);
+    if (mode.tun && authorized.value != TunAuthorizationState.authorized) {
+      final code = await _ref.read(tunAuthorizeProvider)();
+      if (code == AuthorizeCode.error) {
+        return const _Intent(error: ShikooError.vpnRefused);
+      }
+      authorized.value = TunAuthorizationState.authorized;
+      if (code == AuthorizeCode.success) {
+        await _ref.read(coreActionProvider.notifier).restartCore();
+      }
+    }
+    _ref
+        .read(networkSettingProvider.notifier)
+        .update((s) => s.copyWith(systemProxy: mode.systemProxy));
+    _ref
+        .read(patchClashConfigProvider.notifier)
+        .update((c) => c.copyWith.tun(enable: mode.tun));
+    return null;
+  }
+
+  Future<void> setMode(ShikooMode mode) async {
+    if (!_ref.read(shikooDesktopProvider)) return;
+    await _ref.read(shikooModeProvider.notifier).save(mode);
+    if (!_running && !_ref.read(_intentProvider).connecting) return;
+    await disconnect();
+    await connect();
   }
 
   void onVpnConsent(String result) {

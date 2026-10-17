@@ -15,6 +15,7 @@ import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/state.dart';
@@ -115,6 +116,18 @@ class _Panel extends ShikooController {
   ]) async {
     ref.read(profilesProvider.notifier).put(Profile.normal(url: url));
     return null;
+  }
+}
+
+class _Restart extends CoreAction {
+  _Restart(this.calls);
+
+  final List<String> calls;
+
+  @override
+  Future<bool> restartCore() async {
+    calls.add('restart');
+    return true;
   }
 }
 
@@ -3982,4 +3995,140 @@ void main() {
       );
     },
   );
+
+  group('on Windows', () {
+    var calls = <String>[];
+    var portFree = true;
+    var code = AuthorizeCode.none;
+
+    ({ProviderContainer container, _Setup setup}) windows({
+      bool desktop = true,
+    }) {
+      calls = [];
+      portFree = true;
+      code = AuthorizeCode.none;
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooDesktopProvider.overrideWithValue(desktop),
+        localPortFreeProvider.overrideWithValue((port) async {
+          calls.add('port $port');
+          return portFree;
+        }),
+        tunAuthorizeProvider.overrideWithValue(() async {
+          calls.add('admin');
+          return code;
+        }),
+        coreActionProvider.overrideWith(() => _Restart(calls)),
+      ]);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      setup.tunnel = DateTime.now();
+      return (container: container, setup: setup);
+    }
+
+    bool systemProxy(ProviderContainer c) =>
+        c.read(networkSettingProvider).systemProxy;
+
+    bool tun(ProviderContainer c) =>
+        c.read(patchClashConfigProvider).tun.enable;
+
+    test("the proxy mode turns Windows' proxy on and TUN off, and stops "
+        'before the proxy while another program holds the port', () async {
+      final (:container, :setup) = windows();
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      container
+          .read(networkSettingProvider.notifier)
+          .update((s) => s.copyWith(systemProxy: false));
+      container
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => c.copyWith.tun(enable: true));
+
+      portFree = false;
+      await controller.connect();
+      var state = container.read(shikooStateProvider);
+      expect(state.busyPort, 7890);
+      expect(state.connection, ShikooConnection.error);
+      expect(setup.runs, isEmpty);
+      expect(systemProxy(container), isFalse);
+
+      portFree = true;
+      await controller.connect();
+      state = container.read(shikooStateProvider);
+      expect(state.busyPort, isNull);
+      expect(state.connection, ShikooConnection.on);
+      expect(setup.runs, [true]);
+      expect((systemProxy(container), tun(container)), (true, false));
+      expect(calls, ['port 7890', 'port 7890']);
+    });
+
+    test('the tunnel mode asks for the helper service until it is there, '
+        "then turns TUN on and Windows' proxy off; a refused prompt starts "
+        'nothing and says so', () async {
+      final (:container, :setup) = windows();
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.setMode(ShikooMode.tunnel);
+      expect(setup.runs, isEmpty, reason: 'off, a mode change starts nothing');
+
+      code = AuthorizeCode.error;
+      await controller.connect();
+      final refused = container.read(shikooStateProvider);
+      expect(refused.lastError, ShikooError.vpnRefused);
+      expect(refused.connection, ShikooConnection.error);
+      expect(setup.runs, isEmpty);
+      expect(tun(container), isFalse);
+
+      code = AuthorizeCode.success;
+      await controller.connect();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      expect((systemProxy(container), tun(container)), (false, true));
+      expect(
+        container.read(authorizedTunEnableProvider),
+        TunAuthorizationState.authorized,
+      );
+
+      await controller.disconnect();
+      await controller.connect();
+      expect(calls, ['admin', 'admin', 'restart']);
+      expect(setup.runs, [true, false, true]);
+    });
+
+    test('a mode change while connected connects again in the new mode, '
+        'which the next launch keeps', () async {
+      final (:container, :setup) = windows();
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.connect();
+      await controller.setMode(ShikooMode.tunnel);
+      expect(setup.runs, [true, false, true]);
+      expect((systemProxy(container), tun(container)), (false, true));
+
+      final next = ProviderContainer();
+      addTearDown(next.dispose);
+      expect(next.read(shikooModeProvider), shikooDefaultMode);
+      await next.read(shikooModeProvider.notifier).load();
+      expect(next.read(shikooModeProvider), ShikooMode.tunnel);
+    });
+
+    test("Android has no modes: its connect leaves FlClash's flags and "
+        'checks no port', () async {
+      final (:container, :setup) = windows(desktop: false);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      container
+          .read(networkSettingProvider.notifier)
+          .update((s) => s.copyWith(systemProxy: false));
+      await controller.setMode(ShikooMode.tunnel);
+      expect(container.read(shikooModeProvider), shikooDefaultMode);
+
+      await controller.connect();
+      expect(setup.runs, [true]);
+      expect((systemProxy(container), tun(container)), (false, false));
+      expect(calls, isEmpty);
+    });
+  });
 }
