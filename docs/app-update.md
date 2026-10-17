@@ -64,6 +64,22 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 - VPN: check and download go DIRECT. Installing kills the app and its VPN; the explainer says so. No auto-reconnect
   (ceiling; add a `MY_PACKAGE_REPLACED` receiver if customers complain).
 
+### Windows (`win/updater`)
+
+- Entry `apks["windows-x64"]` (`Abi.windowsX64`; Windows on Arm has no entry and gets nothing). Its own
+  `version_name` wins over the manifest's, which a Windows-only publish leaves at the Android version. Own code:
+  `packageInfo.buildNumber`, the `+N` of the exe's ProductVersion (`--build-number`).
+- Seal: `sig` is base64 Ed25519 over the ASCII `"<version_code>:<sha256>"`, checked against `windowsSealKey` in
+  `lib/shikoo/engine/update.dart` by the core's `checkSeal` (Go `crypto/ed25519`, `core/shikoo_seal.go`). Empty key,
+  no `sig`, or a wrong one: not offered at all (so never forced), one diag line `update <code> not sealed`. A core
+  that does not answer fails the check as the network and is asked again within a minute.
+- Download as on Android, to `<cache>/update/<sha256>.exe` (`%LOCALAPPDATA%\ShikooNet\ShikooNet\update`).
+- Install: re-hash the file (any program of the user can write there, and the installer runs as admin) and re-check
+  the seal, then the controller's `disconnect()`, then the Inno installer with `/SILENT /SUPPRESSMSGBOXES /NORESTART`,
+  detached. Its loader is `asInvoker` and raises the UAC prompt itself; `PrepareToInstall` kills `ShikooNet.exe`.
+  No Android permission dialog. Relaunch after a silent install needs the installer's `[Run]` entry without
+  `skipifsilent`.
+
 ### Pipeline (`chore/release-pipeline`)
 
 - `tools/publish_door.sh <api> <dir> <force>`: sha256 from `SHA256SUMS`, versionCodes from `aapt2 dump badging`,

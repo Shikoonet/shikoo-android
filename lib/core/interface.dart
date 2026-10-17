@@ -29,6 +29,8 @@ mixin CoreInterface {
 
   Future<Delay?> testProxyDelay(String url, Map<String, dynamic> proxy);
 
+  Future<bool?> checkSeal(String key, String message, String sig);
+
   Future<String> updateConfig(UpdateParams updateParams);
 
   Future<String> setupConfig(SetupParams setupParams);
@@ -373,6 +375,13 @@ abstract class CoreHandlerInterface with CoreInterface {
     );
     return data == null ? null : Delay.fromJson(data);
   }
+
+  @override
+  Future<bool?> checkSeal(String key, String message, String sig) =>
+      invokeMethod<bool>(
+        method: CoreMethod.checkSeal,
+        arguments: {'key': key, 'message': message, 'sig': sig},
+      );
 
   @override
   Future<int> getMemory() async {

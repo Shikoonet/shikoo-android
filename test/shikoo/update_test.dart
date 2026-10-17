@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:math';
 
@@ -16,6 +17,11 @@ import 'package:riverpod/riverpod.dart';
 final _apk = Uint8List.fromList(List.generate(20000, (i) => i * 7 % 256));
 final _sha = '${sha256.convert(_apk)}';
 
+const _key = 'test-key';
+
+/// Stands in for Ed25519, which the core's tests check against RFC 8032: only [_key] seals.
+String _sealOf(String message) => 'seal($message)';
+
 /// The app door as docs/app-update.md pins it: the manifest, and `/dl/` with Range.
 class _Door implements HttpClientAdapter {
   final requests = <RequestOptions>[];
@@ -25,6 +31,11 @@ class _Door implements HttpClientAdapter {
   String sha = _sha;
   String? url;
   bool ranges = true;
+  int code = 2057;
+  int minimum = 2050;
+  String? entryVersion;
+  String? sig;
+  Map<String, Object?> others = {};
 
   /// The connection drops once a download reaches this byte of the file.
   int? dropAt;
@@ -71,12 +82,18 @@ class _Door implements HttpClientAdapter {
                   'version_name': '1.0.57',
                   'published_at': '2026-10-06T00:00:00.000Z',
                   'apks': {
+                    ...others,
                     abi: {
-                      'version_code': 2057,
-                      'min_version_code': 2050,
+                      'version_code': code,
+                      'min_version_code': minimum,
                       'size': _apk.length,
                       'sha256': sha,
-                      'url': url ?? '/dl/ShikooNet-1.0.57-$abi.apk',
+                      'url':
+                          url ??
+                          '/dl/ShikooNet-1.0.57-$abi.'
+                              '${abi.startsWith('windows') ? 'exe' : 'apk'}',
+                      'version_name': ?entryVersion,
+                      'sig': ?sig,
                     },
                   },
                 }
@@ -144,6 +161,10 @@ void main() {
   late bool canInstall;
   late bool hasSettings;
   late bool installerOpens;
+  late List<String> seals;
+  late bool? coreAnswers;
+  late List<String> ran;
+  late bool windowsStarts;
 
   setUp(() async {
     door = _Door();
@@ -154,6 +175,10 @@ void main() {
     canInstall = true;
     hasSettings = true;
     installerOpens = true;
+    seals = [];
+    coreAnswers = true;
+    ran = [];
+    windowsStarts = true;
     const channel = MethodChannel('shikoo/update');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -188,7 +213,18 @@ void main() {
       ..abi = abi
       ..installed = installed
       ..cacheDir = (() async => cache)
-      ..now = (() => clock);
+      ..now = (() => clock)
+      ..sealKey = _key
+      ..checkSeal = (key, message, sig) async {
+        seals.add(message);
+        return coreAnswers == null
+            ? null
+            : key == _key && sig == _sealOf(message);
+      }
+      ..runInstaller = (exe) async {
+        ran.add(exe);
+        return windowsStarts;
+      };
   }
 
   UpdateOffer? offer() => container.read(shikooUpdateOfferProvider);
@@ -235,7 +271,7 @@ void main() {
         expect(offer(), isNull);
 
         await start(abi: '').check();
-        expect(offer(), isNull, reason: 'Windows has no Android ABI');
+        expect(offer(), isNull, reason: 'Windows on Arm has no build');
       },
     );
 
@@ -557,6 +593,177 @@ void main() {
       expect(await update.install(), InstallAsk.nothing);
       expect(offer()!.phase, UpdatePhase.offered);
       expect(native.map((c) => c.method), isNot(contains('install')));
+    });
+  });
+
+  test('each build reads only its own entry', () {
+    expect(abiNames, {
+      Abi.androidArm: 'armeabi-v7a',
+      Abi.androidArm64: 'arm64-v8a',
+      Abi.androidX64: 'x86_64',
+      Abi.windowsX64: 'windows-x64',
+    });
+    expect(abiNames[Abi.windowsArm64], isNull);
+  });
+
+  group('windows', () {
+    const windows = 'windows-x64';
+    final message = '56:$_sha';
+
+    File exe() => File('${cache.path}/update/$_sha.exe');
+
+    setUp(() {
+      door
+        ..abi = windows
+        ..code = 56
+        ..minimum = 0
+        ..entryVersion = '1.0.56'
+        ..sig = _sealOf(message)
+        ..others = {
+          'arm64-v8a': {
+            'version_code': 57,
+            'min_version_code': 57,
+            'size': 1,
+            'sha256': 'ab' * 32,
+            'url': '/dl/ShikooNet-1.0.57-arm64-v8a.apk',
+          },
+        };
+    });
+
+    ShikooUpdate onWindows({int installed = 55}) =>
+        start(abi: windows, installed: installed);
+
+    test('offers its own entry under its own version name, sealed over its '
+        'number and checksum', () async {
+      await onWindows().check();
+      expect(offer()!.release.versionName, '1.0.56');
+      expect(offer()!.release.versionCode, 56);
+      expect(offer()!.forced, isFalse);
+      expect(
+        offer()!.release.url,
+        'http://door.test/dl/ShikooNet-1.0.57-windows-x64.exe',
+      );
+      expect(seals, [message]);
+    });
+
+    test(
+      'a manifest without its own name falls back to the one above',
+      () async {
+        door.entryVersion = null;
+        await onWindows().check();
+        expect(offer()!.release.versionName, '1.0.57');
+      },
+    );
+
+    test('a seal that is missing, wrong or made for another number is never '
+        'offered, forced or not', () async {
+      door.minimum = 56;
+      for (final sig in [null, 'seal(57:$_sha)', 'seal($_sha)', 'x' * 88]) {
+        door.sig = sig;
+        expect(await onWindows().checkNow(), isNull, reason: '$sig');
+        expect(offer(), isNull, reason: '$sig');
+      }
+      door.sig = _sealOf(message);
+      await onWindows().check();
+      expect(offer()!.forced, isTrue);
+    });
+
+    test('without the real key nothing is offered, whatever the door '
+        'signed', () async {
+      final update = onWindows()..sealKey = windowsSealKey;
+      await update.check();
+      expect(windowsSealKey, isEmpty);
+      expect(offer(), isNull);
+      expect(seals, isEmpty);
+    });
+
+    test(
+      'a core that does not answer is a failed check, asked again soon',
+      () async {
+        coreAnswers = null;
+        final update = onWindows();
+        expect(await update.checkNow(), UpdateError.network);
+        expect(offer(), isNull);
+        coreAnswers = true;
+        await update.check();
+        expect(offer()!.release.versionCode, 56);
+      },
+    );
+
+    test('the installed build or a newer one asks the core nothing', () async {
+      for (final installed in [56, 57, 2026091401]) {
+        await onWindows(installed: installed).check();
+        expect(offer(), isNull, reason: '$installed');
+      }
+      expect(seals, isEmpty);
+    });
+
+    test('a file on another door is not offered', () async {
+      door.url = 'http://elsewhere.test/dl/ShikooNet-1.0.56-windows-x64.exe';
+      await onWindows().check();
+      expect(offer(), isNull);
+    });
+
+    test('a download continues its part, and the finished .exe stays ready '
+        'across checks', () async {
+      await part().create(recursive: true);
+      await part().writeAsBytes(_apk.sublist(0, 3000));
+      final update = onWindows();
+      await update.check();
+      await update.download();
+      expect(
+        door.downloads.single.headers[HttpHeaders.rangeHeader],
+        'bytes=3000-',
+      );
+      expect(exe().readAsBytesSync(), _apk);
+
+      clock = clock.add(updateEvery);
+      await update.check();
+      expect(exe().existsSync(), isTrue);
+      expect(offer()!.phase, UpdatePhase.ready);
+    });
+
+    test('installs the checked file with no Android permission and no '
+        'channel', () async {
+      final update = onWindows();
+      await update.check();
+      await update.download();
+      expect(await update.install(), InstallAsk.nothing);
+      expect(ran, [exe().path]);
+      expect(native, isEmpty);
+      expect(offer()!.phase, UpdatePhase.ready);
+      expect(offer()!.error, isNull);
+      expect(seals, [message, message]);
+    });
+
+    test('a file changed after the download is deleted, never run', () async {
+      final update = onWindows();
+      await update.check();
+      await update.download();
+      exe().writeAsBytesSync([..._apk.sublist(0, 19999), 0]);
+      await update.install();
+      expect(ran, isEmpty);
+      expect(exe().existsSync(), isFalse);
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, UpdateError.checksum);
+    });
+
+    test('a seal the core no longer confirms, or an installer Windows would '
+        'not start, says the installer did not open', () async {
+      final update = onWindows();
+      await update.check();
+      await update.download();
+      coreAnswers = null;
+      await update.install();
+      expect(ran, isEmpty);
+      expect(offer()!.error, UpdateError.install);
+
+      coreAnswers = true;
+      windowsStarts = false;
+      await update.install();
+      expect(ran, [exe().path]);
+      expect(offer()!.phase, UpdatePhase.ready);
+      expect(offer()!.error, UpdateError.install);
     });
   });
 }

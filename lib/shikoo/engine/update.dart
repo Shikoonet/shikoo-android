@@ -5,24 +5,35 @@ import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart' show CancelToken;
-import 'package:fl_clash/providers/providers.dart' show versionProvider;
+import 'package:fl_clash/providers/providers.dart'
+    show coreHandlerProvider, versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart' show clockFailed;
-import 'package:fl_clash/shikoo/engine/controller.dart' show ShikooCell;
+import 'package:fl_clash/shikoo/engine/controller.dart'
+    show ShikooCell, shikooControllerProvider;
+import 'package:fl_clash/shikoo/engine/diag.dart' show shikooDiag;
 import 'package:fl_clash/shikoo/engine/ping.dart' show isDue;
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 const updateEvery = Duration(hours: 6);
 
-const _abiNames = {
+/// Base64 of the Ed25519 public key whose signature a Windows installer needs. Empty: Windows installs no update.
+const windowsSealKey = '';
+
+@visibleForTesting
+const abiNames = {
   Abi.androidArm: 'armeabi-v7a',
   Abi.androidArm64: 'arm64-v8a',
   Abi.androidX64: 'x86_64',
+  Abi.windowsX64: 'windows-x64',
 };
+
+const _quietInstall = ['/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART'];
 
 enum UpdatePhase { offered, downloading, ready }
 
@@ -77,7 +88,7 @@ class ShikooUpdate {
 
   /// The running process's ABI: a 32-bit build on a 64-bit phone stays 32-bit.
   @visibleForTesting
-  late String abi = _abiNames[Abi.current()] ?? '';
+  late String abi = abiNames[Abi.current()] ?? '';
 
   /// Its versionCode; a local build's (2026091401 and up) is above every release's.
   @visibleForTesting
@@ -89,6 +100,16 @@ class ShikooUpdate {
   @visibleForTesting
   DateTime Function() now = DateTime.now;
 
+  @visibleForTesting
+  String sealKey = windowsSealKey;
+
+  @visibleForTesting
+  late Future<bool?> Function(String key, String message, String sig)
+  checkSeal = _ref.read(coreHandlerProvider).checkSeal;
+
+  @visibleForTesting
+  late Future<bool> Function(String exe) runInstaller = _disconnectAndInstall;
+
   DateTime? _checked;
   Future<UpdateError?>? _checking;
   Future<void>? _downloading;
@@ -96,6 +117,8 @@ class ShikooUpdate {
   bool _awaitingPermission = false;
 
   ShikooApi get _api => _ref.read(shikooApiProvider);
+
+  bool get _windows => abi.startsWith('windows-');
 
   UpdateOffer? get _offer => _ref.read(shikooUpdateOfferProvider);
 
@@ -123,8 +146,8 @@ class ShikooUpdate {
   File _part(Directory dir, AppRelease release) =>
       File('${dir.path}/${release.sha256}.part');
 
-  File _apk(Directory dir, AppRelease release) =>
-      File('${dir.path}/${release.sha256}.apk');
+  File _installer(Directory dir, AppRelease release) =>
+      File('${dir.path}/${release.sha256}.${_windows ? 'exe' : 'apk'}');
 
   /// Start and resume. Back from Android's install permission page, installs if it was given.
   Future<void> onForeground() async {
@@ -144,7 +167,7 @@ class ShikooUpdate {
       _checking ??= _check().whenComplete(() => _checking = null);
 
   Future<UpdateError?> _check() async {
-    final AppRelease? release;
+    AppRelease? release;
     try {
       release = await _api.update(abi);
     } catch (error) {
@@ -152,9 +175,33 @@ class ShikooUpdate {
           ? UpdateError.clock
           : UpdateError.network;
     }
+    // Not offered, so never forced: an unsigned build would hold every Windows user on the forced page.
+    if (_windows && release != null && installed < release.versionCode) {
+      final sealed = await _sealed(release);
+      if (sealed == null) return UpdateError.network;
+      if (!sealed) {
+        shikooDiag.add('T', 'update ${release.versionCode} not sealed');
+        release = null;
+      }
+    }
     _checked = now();
     await _take(release);
     return null;
+  }
+
+  /// `<versionCode>:<sha256>`, so an old build's seal cannot pass for a newer number.
+  Future<bool?> _sealed(AppRelease release) async {
+    final sig = release.sig;
+    if (sealKey.isEmpty || sig == null) return false;
+    try {
+      return await checkSeal(
+        sealKey,
+        '${release.versionCode}:${release.sha256}',
+        sig,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _take(AppRelease? release) async {
@@ -163,11 +210,15 @@ class ShikooUpdate {
         : null;
     final dir = await _dir();
     final keep = {
-      if (newer != null) ...[_part(dir, newer).path, _apk(dir, newer).path],
+      if (newer != null)
+        for (final file in [_part(dir, newer), _installer(dir, newer)])
+          p.basename(file.path),
     };
     try {
       await for (final file in dir.list()) {
-        if (!keep.contains(file.path)) await file.delete(recursive: true);
+        if (!keep.contains(p.basename(file.path))) {
+          await file.delete(recursive: true);
+        }
       }
     } on FileSystemException {
       // ponytail: a file that would not go is tried again at the next check.
@@ -188,7 +239,7 @@ class ShikooUpdate {
     }
     final part = _part(dir, newer);
     _show(
-      await _apk(dir, newer).exists()
+      await _installer(dir, newer).exists()
           ? UpdateOffer(
               newer,
               forced: forced,
@@ -233,7 +284,7 @@ class ShikooUpdate {
           error: UpdateError.checksum,
         );
       }
-      await part.rename(_apk(dir, release).path);
+      await part.rename(_installer(dir, release).path);
       _move(UpdatePhase.ready);
     } catch (error) {
       final clock =
@@ -309,7 +360,7 @@ class ShikooUpdate {
   Future<InstallAsk> install() async {
     if (_offer?.phase != UpdatePhase.ready) return InstallAsk.nothing;
     _move(UpdatePhase.ready);
-    if (!await _native('canInstall')) {
+    if (!_windows && !await _native('canInstall')) {
       return _ref.read(versionProvider) < 26
           ? InstallAsk.unknownSources
           : InstallAsk.thisApp;
@@ -330,11 +381,39 @@ class ShikooUpdate {
   Future<void> _launch() async {
     final offer = _offer;
     if (offer == null) return;
-    final apk = _apk(await _dir(), offer.release);
+    final release = offer.release;
+    final file = _installer(await _dir(), release);
     // Android empties the cache directory when storage runs low.
-    if (!await apk.exists()) return _move(UpdatePhase.offered, received: 0);
-    final opened = await _native('install', apk.path);
+    if (!await file.exists()) return _move(UpdatePhase.offered, received: 0);
+    if (!_windows) {
+      final opened = await _native('install', file.path);
+      return _move(
+        UpdatePhase.ready,
+        error: opened ? null : UpdateError.install,
+      );
+    }
+    // Any program of this user can write here, and the installer runs as admin; Android checks its own APKs.
+    if (await _sha256Of(file.path) != release.sha256) {
+      await file.delete();
+      return _move(
+        UpdatePhase.offered,
+        received: 0,
+        error: UpdateError.checksum,
+      );
+    }
+    final opened =
+        await _sealed(release) == true && await runInstaller(file.path);
     _move(UpdatePhase.ready, error: opened ? null : UpdateError.install);
+  }
+
+  Future<bool> _disconnectAndInstall(String exe) async {
+    await _ref.read(shikooControllerProvider).disconnect();
+    try {
+      await Process.start(exe, _quietInstall, mode: ProcessStartMode.detached);
+      return true;
+    } on ProcessException {
+      return false;
+    }
   }
 
   Future<bool> _native(String method, [Object? arguments]) async {
