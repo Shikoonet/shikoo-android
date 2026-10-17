@@ -68,7 +68,15 @@ void main() {
     );
     final iss = read('windows/packaging/exe/inno_setup.iss');
     for (final root in ['userappdata', 'localappdata']) {
-      expect(iss, contains('Name: "{$root}\\$appName\\$appName"'));
+      expect(
+        iss,
+        allOf(
+          contains(
+            'Type: filesandordirs; Name: "{$root}\\$appName\\$appName"\n',
+          ),
+          isNot(contains('Name: "{$root}"')),
+        ),
+      );
     }
     expect(iss, contains('runasoriginaluser'));
     expect(iss, isNot(contains('runascurrentuser')));
