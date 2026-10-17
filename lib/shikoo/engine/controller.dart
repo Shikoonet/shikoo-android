@@ -1094,7 +1094,10 @@ class ShikooController {
       }
       authorized.value = TunAuthorizationState.authorized;
       if (code == AuthorizeCode.success) {
-        await _ref.read(coreActionProvider.notifier).restartCore();
+        await _ref
+            .read(coreActionProvider.notifier)
+            .restartCore()
+            .catchError((Object _) => false);
       }
     }
     _ref
