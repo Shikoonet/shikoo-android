@@ -892,6 +892,21 @@ void main() {
     },
   );
 
+  test(
+    'a start that failed before attach writes no Windows name either',
+    () async {
+      final home = Directory.systemTemp.createTempSync('diag');
+      addTearDown(() => home.deleteSync(recursive: true));
+      final diag = ShikooDiag(machine: {_winUser, _winPc});
+      await diag.start(home.path);
+      diag
+        ..add('A', 'init failed for ali on $_winPc')
+        ..release();
+      final ring = File('${home.path}/shikoo/diag.log').readAsStringSync();
+      expect(ring, contains('init failed for · on ·'));
+    },
+  );
+
   test('the three probes go into the report as the door reads them', () async {
     final h = await _harness();
     await h.diag.start(h.home.path);
