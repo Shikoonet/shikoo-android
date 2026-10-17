@@ -410,7 +410,7 @@ abstract class ShikooL10n {
   /// **'The connection moved to “{name}” right away.'**
   String selectedMovedFirst(String name);
 
-  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced when disconnected or selectedMoved when connected. Also the first sentence of a failed switch, followed by switchKept.
+  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced when disconnected or selectedMoved when connected. Also the first sentence of a failed switch on the phone, followed by switchKept.
   ///
   /// In en, this message translates to:
   /// **'“{name}” didn\'t answer.'**
@@ -428,11 +428,17 @@ abstract class ShikooL10n {
   /// **'Now connected through “{name}”.'**
   String switchedTo(String name);
 
-  /// After selectedNoAnswer (the tapped server), when it did not answer and the connection stayed on {name}, the previous server. No timer: it stays until the next server tap or the app goes to the background. Keep it short: the TV slot has two lines.
+  /// Phone only (the TV says switchFailedTv). After selectedNoAnswer (the tapped server), when it did not answer and the connection stayed on {name}, the previous server.
   ///
   /// In en, this message translates to:
   /// **'Still on “{name}”. Try another server.'**
   String switchKept(String name);
+
+  /// TV only, in the two-line slot under the server pill, when the tapped server {name} did not answer and the connection stayed where it was. The pill right above names that server, so only the tapped one is named here: two names did not fit two lines.
+  ///
+  /// In en, this message translates to:
+  /// **'“{name}” didn\'t answer.\nTry another server.'**
+  String switchFailedTv(String name);
 
   /// Under the round button only while a connect is waiting for the first server to answer; never at rest.
   ///

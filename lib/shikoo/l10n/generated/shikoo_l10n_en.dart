@@ -289,6 +289,11 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String switchFailedTv(String name) {
+    return '“$name” didn\'t answer.\nTry another server.';
+  }
+
+  @override
   String get findingBest => 'Finding the best server…';
 
   @override

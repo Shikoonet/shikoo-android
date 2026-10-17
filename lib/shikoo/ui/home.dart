@@ -831,6 +831,9 @@ class _PowerZone extends StatelessWidget {
       ShikooError.vpnMissing => l.vpnMissing,
       ShikooError.serverChange => l.errorServer,
       null when state.waiting => l.connectsToFirst,
+      null when shift?.stage == ShikooSwitchStage.failed => l.switchFailedTv(
+        serverName(shift!.to),
+      ),
       null when shift != null => switchNews(l, shift).join(' '),
       null when silent => l.selectedDown(serverName(selected!.name)),
       null =>
