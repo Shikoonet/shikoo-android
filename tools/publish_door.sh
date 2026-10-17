@@ -29,10 +29,11 @@ while read -r sha file <&3; do
       abi=$(sed -n "s/^native-code: '\([^' ]*\)'$/\1/p" <<<"$badging")
       ;;
     *-windows-x64.exe)
-      read -r code sig <"$apk.sig" || true
-      [[ $code =~ ^[0-9]+$ && $sig =~ ^[A-Za-z0-9+/]{86}==$ ]] ||
-        { echo "::error::$apk.sig holds no '<version_code> <seal>' line"; exit 1; }
+      read -r sig <"$apk.sig" || true
+      [[ $sig =~ ^[A-Za-z0-9+/]+=*$ ]] || { echo "::error::$apk.sig holds no base64 seal"; exit 1; }
+      # Its version code is its build number, the last part of its version name (docs/release-pipeline.md §5)
       name=$(sed -n 's/^ShikooNet-\([0-9.]*\)-.*/\1/p' <<<"${apk##*/}") abi=windows-x64
+      code=${name##*.}
       ;;
     *) echo "::error::$apk is neither an APK nor the Windows installer"; exit 1 ;;
   esac
