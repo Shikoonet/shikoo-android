@@ -13,6 +13,8 @@ OutputBaseFilename={{OUTPUT_BASE_FILENAME}}
 Compression=lzma
 SolidCompression=yes
 SetupIconFile={{SETUP_ICON_FILE}}
+UninstallDisplayIcon={app}\{{EXECUTABLE_NAME}}
+UninstallDisplayName={{DISPLAY_NAME}}
 WizardStyle=modern
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed={{ARCH}}
@@ -25,7 +27,7 @@ var
   i: Integer;
   ResultCode: Integer;
 begin
-  Processes := ['FlClash.exe', 'FlClashCore.exe', 'FlClashHelperService.exe'];
+  Processes := ['ShikooNet.exe', 'ShikooNetCore.exe', 'ShikooNetHelperService.exe'];
 
   for i := 0 to GetArrayLength(Processes)-1 do
   begin
@@ -38,7 +40,7 @@ var
   HelperPath: String;
   ResultCode: Integer;
 begin
-  HelperPath := ExpandConstant('{app}\\FlClashHelperService.exe');
+  HelperPath := ExpandConstant('{app}\\ShikooNetHelperService.exe');
   if FileExists(HelperPath) then
   begin
     Exec(HelperPath, 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
@@ -100,4 +102,10 @@ Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 Name: "{autoprograms}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
 Name: "{autodesktop}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
 [Run]
-Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: {% if PRIVILEGES_REQUIRED == 'admin' %}runascurrentuser{% endif %} nowait postinstall skipifsilent
+Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: runasoriginaluser nowait postinstall skipifsilent
+[UninstallDelete]
+; The app's data: path_provider_windows names it CompanyName\ProductName of windows/runner/Runner.rc.
+Type: filesandordirs; Name: "{userappdata}\ShikooNet\ShikooNet"
+Type: dirifempty; Name: "{userappdata}\ShikooNet"
+Type: filesandordirs; Name: "{localappdata}\ShikooNet\ShikooNet"
+Type: dirifempty; Name: "{localappdata}\ShikooNet"

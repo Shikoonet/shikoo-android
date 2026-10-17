@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -11,16 +12,18 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('every launcher, round, TV, Play and adaptive icon, the banner, the '
-      'notification and tile icon and the in-app mark come from '
-      "tools/shikoo-brand.py, none of them FlClash's", () {
+      'notification and tile icon, the in-app mark and the Windows app and '
+      "tray icons come from tools/shikoo-brand.py, none of them FlClash's", () {
     final name = RegExp(
-      r'^(ic_launcher.*|ic_banner|ic|ic_service|shikoo_mark)\.(png|webp|xml)$',
+      r'^(ic_launcher.*|ic_banner|ic|ic_service|shikoo_mark)\.(png|webp|xml)$'
+      r'|^(app_icon|status_\d)\.ico$',
     );
     final files = [
       for (final root in [
         'android/app/src/main',
         'android/service/src/main',
         'assets/images',
+        'windows/runner/resources',
       ])
         ...Directory(root)
             .listSync(recursive: true)
@@ -31,7 +34,7 @@ void main() {
                   !f.path.contains(RegExp('anydpi|/values')),
             ),
     ];
-    expect(files, hasLength(25));
+    expect(files, hasLength(29));
     for (final file in files) {
       expect(
         latin1.decode(file.readAsBytesSync()),
@@ -71,6 +74,28 @@ void main() {
         }
       }
       expect(farthest, inInclusiveRange(28, 33), reason: density);
+    }
+  });
+
+  test('the Windows app icon carries every size from 16 to 256, each tray '
+      'icon 16 to 64', () {
+    List<int> sizes(String path) {
+      final ico = ByteData.sublistView(File(path).readAsBytesSync());
+      return [
+        for (var i = 0; i < ico.getUint16(4, Endian.little); i++)
+          ico.getUint8(6 + 16 * i) == 0 ? 256 : ico.getUint8(6 + 16 * i),
+      ];
+    }
+
+    const tray = [16, 20, 24, 32, 40, 48, 64];
+    expect(sizes('windows/runner/resources/app_icon.ico'), [
+      ...tray,
+      96,
+      128,
+      256,
+    ]);
+    for (final n in [1, 2, 3]) {
+      expect(sizes('assets/images/tray/windows/status_$n.ico'), tray);
     }
   });
 

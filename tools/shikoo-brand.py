@@ -11,15 +11,17 @@ line, which is left out. To change the brand, replace that file and run from the
     source ~/android-toolchain/env.sh && uv run tools/shikoo-brand.py
 
 It overwrites the launcher, round, TV and Play icons, the adaptive foreground (also the Android 12+
-splash icon), the TV banner, the notification and quick-settings icon, and the in-app mark.
-Each file carries MARK, which test/shikoo/brand_test.dart looks for.
+splash icon), the TV banner, the notification and quick-settings icon, the in-app mark, and the
+Windows app and tray icons. Each file carries MARK, which test/shikoo/brand_test.dart looks for.
 """
 
+import io
+import struct
 import sys
 from pathlib import Path
 
 import potrace
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageStat, PngImagePlugin
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps, ImageStat, PngImagePlugin
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'assets/brand/logo-source.jpg'
@@ -29,6 +31,17 @@ MARK = 'shikoo-brand'
 DENSITY = {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}
 LIT = 40  # the darkest channel value still counted as the mark, for finding its parts
 SS = 4  # supersampling for the drawn shapes' edges
+ICO = (16, 20, 24, 32, 40, 48, 64, 96, 128, 256)  # FlClash's icoSizes; the tray stops at 64
+WINDOWS = ROOT / 'windows/runner/resources/app_icon.ico'
+TRAY = ROOT / 'assets/images/tray/windows'
+
+
+def png(im):
+    info = PngImagePlugin.PngInfo()
+    info.add_text('Software', MARK)
+    out = io.BytesIO()
+    im.save(out, 'PNG', pnginfo=info, optimize=True)
+    return out.getvalue()
 
 
 def save(im, path):
@@ -36,10 +49,20 @@ def save(im, path):
     if path.suffix == '.webp':
         im.save(path, lossless=True, xmp=MARK.encode())
     else:
-        info = PngImagePlugin.PngInfo()
-        info.add_text('Software', MARK)
-        im.save(path, pnginfo=info, optimize=True)
+        path.write_bytes(png(im))
     print(path.relative_to(ROOT), im.size)
+
+
+def ico(frames, path):
+    """One PNG frame per size, as FlClash's tool/src/icons/ico.dart writes them."""
+    data = [png(im) for im in frames]
+    head = struct.pack('<3H', 0, 1, len(data))
+    at = len(head) + 16 * len(data)
+    for im, d in zip(frames, data):
+        head += struct.pack('<4B2H2I', im.width % 256, im.height % 256, 0, 0, 1, 32, len(d), at)
+        at += len(d)
+    path.write_bytes(head + b''.join(data))
+    print(path.relative_to(ROOT), [im.width for im in frames])
 
 
 def parts(lit):
@@ -157,6 +180,11 @@ def main():
     save(tile(fox, 512, 0.4, 0), ROOT / 'android/app/src/main/ic_launcher-playstore.png')
     save(tile(fox, 384, 0.4, 0), ROOT / 'assets/images/shikoo_mark.png')
     save(banner(fox, word), RES / 'mipmap-xhdpi/ic_banner.png')
+    ico([tile(fox, s, 0.4, 0.2) for s in ICO], WINDOWS)
+    # The tray: a grey fox while off; on, through the system proxy (2) or TUN (3), the gold one.
+    grey = Image.merge('RGBA', (*[ImageOps.grayscale(fox)] * 3, fox.getchannel('A')))
+    for n, f in ((1, grey), (2, fox), (3, fox)):
+        ico([tile(f, s, 0.46, 'circle') for s in ICO if s <= 64], TRAY / f'status_{n}.ico')
     # Android draws small icons from their alpha alone; the gold shows where it doesn't (Files).
     (SERVICE / 'ic.xml').write_text(vector(peak, fox_box, '#FFFFFF'))
     (SERVICE / 'ic_service.xml').write_text(vector(peak, fox_box, gold))
