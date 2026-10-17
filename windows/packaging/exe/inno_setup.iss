@@ -1,12 +1,20 @@
+; SHIKOO_FLAVOR=staging in the environment of the build makes the test build: its own id, name, folders.
+#if GetEnv("SHIKOO_FLAVOR") == "staging"
+#define Title "ShikooNet Test"
+#define Id "D6F866A6-CE01-4C34-A9C5-C49D6D030A27"
+#else
+#define Title "{{DISPLAY_NAME}}"
+#define Id "{{APP_ID}}"
+#endif
 [Setup]
-AppId={{APP_ID}}
+AppId={#Id}
 AppVersion={{APP_VERSION}}
-AppName={{DISPLAY_NAME}}
+AppName={#Title}
 AppPublisher={{PUBLISHER_NAME}}
 AppPublisherURL={{PUBLISHER_URL}}
 AppSupportURL={{PUBLISHER_URL}}
 AppUpdatesURL={{PUBLISHER_URL}}
-DefaultDirName={{INSTALL_DIR_NAME}}
+DefaultDirName={autopf64}\{#Title}
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 DisableReadyPage=yes
@@ -16,7 +24,7 @@ Compression=lzma
 SolidCompression=yes
 SetupIconFile={{SETUP_ICON_FILE}}
 UninstallDisplayIcon={app}\{{EXECUTABLE_NAME}}
-UninstallDisplayName={{DISPLAY_NAME}}
+UninstallDisplayName={#Title}
 WizardStyle=modern
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed={{ARCH}}
@@ -111,18 +119,19 @@ Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
-Name: "{autodesktop}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
+Name: "{autoprograms}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
+Name: "{autodesktop}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
 [Messages]
 SelectTasksLabel2=Select the additional tasks you would like Setup to perform while installing [name], then click Install.
 
 [Run]
 ; Installed here, with the rights Setup already has, so the first tunnel asks for none. PrepareToInstall removed it.
 Filename: "{app}\ShikooNetHelperService.exe"; Parameters: "install"; StatusMsg: "Starting the ShikooNet service..."; Flags: runhidden
-Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: runasoriginaluser nowait postinstall skipifsilent
+Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{#Title}}"; Flags: runasoriginaluser nowait postinstall skipifsilent
+Filename: "{app}\\{{EXECUTABLE_NAME}}"; Flags: runasoriginaluser nowait skipifnotsilent
 [UninstallDelete]
 ; The app's data: path_provider_windows names it CompanyName\ProductName of windows/runner/Runner.rc.
-Type: filesandordirs; Name: "{userappdata}\ShikooNet\ShikooNet"
+Type: filesandordirs; Name: "{userappdata}\ShikooNet\{#Title}"
 Type: dirifempty; Name: "{userappdata}\ShikooNet"
-Type: filesandordirs; Name: "{localappdata}\ShikooNet\ShikooNet"
+Type: filesandordirs; Name: "{localappdata}\ShikooNet\{#Title}"
 Type: dirifempty; Name: "{localappdata}\ShikooNet"

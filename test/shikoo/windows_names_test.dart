@@ -55,8 +55,12 @@ void main() {
       read('windows/runner/Runner.rc'),
       allOf(
         contains('VALUE "CompanyName", "$appName"'),
-        contains('VALUE "ProductName", "$appName"'),
+        contains('VALUE "ProductName", SHIKOO_TITLE "\\0"'),
       ),
+    );
+    expect(
+      read('windows/CMakeLists.txt'),
+      contains('else()\n  set(SHIKOO_TITLE "$appName")\nendif()\n'),
     );
     expect(
       read('windows/packaging/exe/make_config.yaml'),
@@ -72,7 +76,7 @@ void main() {
         iss,
         allOf(
           contains(
-            'Type: filesandordirs; Name: "{$root}\\$appName\\$appName"\n',
+            'Type: filesandordirs; Name: "{$root}\\$appName\\{#Title}"\n',
           ),
           isNot(contains('Name: "{$root}"')),
         ),
@@ -145,5 +149,64 @@ void main() {
         reason: hook,
       );
     }
+  });
+
+  test('SHIKOO_FLAVOR=staging builds "ShikooNet Test": its own installer id, '
+      'name, program and data folders and Start menu entry; and a silent '
+      'install opens the app again', () {
+    String read(String path) => File(path).readAsStringSync();
+    const title = 'ShikooNet Test';
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+
+    expect(
+      read('windows/CMakeLists.txt'),
+      allOf(
+        contains(
+          'if("\$ENV{SHIKOO_FLAVOR}" STREQUAL "staging")\n'
+          '  set(SHIKOO_TITLE "$title")\n',
+        ),
+        contains(
+          r'target_compile_definitions(${BINARY_NAME} PRIVATE '
+          r'"SHIKOO_TITLE=\"${SHIKOO_TITLE}\"")',
+        ),
+      ),
+    );
+    expect(
+      read('windows/runner/main.cpp'),
+      contains('window.Create(L"" SHIKOO_TITLE, origin, size)'),
+    );
+    expect(
+      iss,
+      contains(
+        '#if GetEnv("SHIKOO_FLAVOR") == "staging"\n'
+        '#define Title "$title"\n'
+        '#define Id "D6F866A6-CE01-4C34-A9C5-C49D6D030A27"\n'
+        '#else\n'
+        '#define Title "{{DISPLAY_NAME}}"\n'
+        '#define Id "{{APP_ID}}"\n'
+        '#endif\n'
+        '[Setup]\n'
+        'AppId={#Id}\n',
+      ),
+    );
+    for (final line in [
+      'AppName={#Title}\n',
+      r'DefaultDirName={autopf64}\{#Title}'
+          '\n',
+      'UninstallDisplayName={#Title}\n',
+      r'Name: "{autoprograms}\{#Title}";',
+    ]) {
+      expect(iss, contains(line));
+    }
+    expect('{{DISPLAY_NAME}}'.allMatches(iss), hasLength(1));
+    expect('{{APP_ID}}'.allMatches(iss), hasLength(1));
+    expect(
+      iss,
+      contains(
+        'postinstall skipifsilent\n'
+        r'Filename: "{app}\\{{EXECUTABLE_NAME}}"; '
+        'Flags: runasoriginaluser nowait skipifnotsilent\n',
+      ),
+    );
   });
 }
