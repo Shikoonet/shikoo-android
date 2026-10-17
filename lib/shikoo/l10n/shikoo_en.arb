@@ -357,6 +357,7 @@
   "updateInstall": "Install",
   "updateClosesApp": "Installing closes ShikooNet, and the connection if you're connected; open it again afterwards.",
   "@updateClosesApp": {"description": "On the ready card, the forced page and the install-permission dialog."},
+  "updateClosesAppDesktop": "Installing asks for Windows' permission and closes ShikooNet, and the connection if you're connected. It opens again by itself.",
   "updateDownloadFailedTitle": "The download stopped.",
   "updateDownloadFailedHelp": "Check your internet and try again; it picks up where it stopped.",
   "updateBadFileTitle": "The file arrived damaged.",

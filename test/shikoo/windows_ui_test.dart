@@ -17,7 +17,7 @@ import '../helpers/no_shots.dart';
 
 final _windows = TargetPlatformVariant.only(TargetPlatform.windows);
 
-ShikooState _state(ShikooConnection connection) => ShikooState(
+ShikooState _state(ShikooConnection connection, {int more = 0}) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
   isTV: false,
@@ -27,9 +27,11 @@ ShikooState _state(ShikooConnection connection) => ShikooState(
     totalBytes: 100 << 30,
     updatedAt: DateTime.now(),
   ),
-  servers: const [
-    ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
-    ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
+  servers: [
+    const ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
+    const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
+    for (var i = 1; i <= more; i++)
+      ShikooServer(name: 'سرور $i', type: 'Vless', ping: 100 + i),
   ],
   selected: 'آلمان ۲',
   sorted: true,
@@ -39,6 +41,7 @@ Future<void> _pumpHome(
   WidgetTester tester,
   Size window, {
   ShikooConnection connection = ShikooConnection.on,
+  int more = 0,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -50,7 +53,7 @@ Future<void> _pumpHome(
       key: UniqueKey(),
       overrides: [
         noShots,
-        shikooStateProvider.overrideWithValue(_state(connection)),
+        shikooStateProvider.overrideWithValue(_state(connection, more: more)),
       ],
       child: MaterialApp(
         locale: const Locale('fa'),
@@ -94,6 +97,31 @@ void main() {
     expect(card.right, 600 - ShikooSizes.desktop.safeX);
     expect(power.bottom, lessThan(card.top));
     expect(power.center.dx, 300);
+  }, variant: _windows);
+
+  testWidgets('Tab in the wide window stops once at everything, the top bar '
+      'too, though the card scrolls under it', (tester) async {
+    await _pumpHome(tester, const Size(880, 508), more: 4);
+    String stop() {
+      final context = FocusManager.instance.primaryFocus!.context!;
+      if (context.findAncestorWidgetOfExactType<PowerButton>() != null) {
+        return 'power';
+      }
+      final button = context.findAncestorWidgetOfExactType<ShikooIconButton>();
+      final box = context.findRenderObject()! as RenderBox;
+      return button?.label ?? '${box.localToGlobal(Offset.zero).dx.round()}';
+    }
+
+    final stops = <String>[];
+    for (var i = 0; i < 40; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      stops.add(stop());
+    }
+    final lap = stops.sublist(0, stops.indexOf(stops.first, 1));
+    expect(lap.where((s) => s == 'تنظیمات'), hasLength(1));
+    expect(lap.where((s) => s == 'power'), hasLength(1));
+    expect(stops.sublist(lap.length, 2 * lap.length), lap);
   }, variant: _windows);
 
   testWidgets('the mode switch: tunnel first, proxy on a tap, still while '

@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -1009,6 +1008,10 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get updateClosesApp =>
       'با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.';
+
+  @override
+  String get updateClosesAppDesktop =>
+      'با نصب، ویندوز اجازه می‌خواهد و شیکونت بسته می‌شود؛ اگر وصلی، اتصال هم. بعد خودش باز می‌شود.';
 
   @override
   String get updateDownloadFailedTitle => 'دریافت نشد.';

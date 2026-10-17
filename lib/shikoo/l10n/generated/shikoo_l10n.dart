@@ -1646,6 +1646,12 @@ abstract class ShikooL10n {
   /// **'Installing closes ShikooNet, and the connection if you\'re connected; open it again afterwards.'**
   String get updateClosesApp;
 
+  /// No description provided for @updateClosesAppDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing asks for Windows\' permission and closes ShikooNet, and the connection if you\'re connected. It opens again by itself.'**
+  String get updateClosesAppDesktop;
+
   /// No description provided for @updateDownloadFailedTitle.
   ///
   /// In en, this message translates to:

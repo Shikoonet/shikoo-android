@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -1062,6 +1061,10 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get updateClosesApp =>
       'Installing closes ShikooNet, and the connection if you\'re connected; open it again afterwards.';
+
+  @override
+  String get updateClosesAppDesktop =>
+      'Installing asks for Windows\' permission and closes ShikooNet, and the connection if you\'re connected. It opens again by itself.';
 
   @override
   String get updateDownloadFailedTitle => 'The download stopped.';

@@ -813,22 +813,28 @@ class _WideLayout extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: Space.s8,
               children: [
-                SizedBox(
-                  width: s.pane,
-                  child: SingleChildScrollView(
-                    controller: scroll,
-                    padding: EdgeInsets.only(
-                      bottom: math.max(Space.s4, room + Space.s3),
+                // Each column a group of its own: a card scrolled up under the top bar would
+                // otherwise come before the bar's buttons, and Tab would never reach them.
+                FocusTraversalGroup(
+                  child: SizedBox(
+                    width: s.pane,
+                    child: SingleChildScrollView(
+                      controller: scroll,
+                      padding: EdgeInsets.only(
+                        bottom: math.max(Space.s4, room + Space.s3),
+                      ),
+                      child: card,
                     ),
-                    child: card,
                   ),
                 ),
                 Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, box) => SingleChildScrollView(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: box.maxHeight),
-                        child: Center(child: power),
+                  child: FocusTraversalGroup(
+                    child: LayoutBuilder(
+                      builder: (context, box) => SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: box.maxHeight),
+                          child: Center(child: power),
+                        ),
                       ),
                     ),
                   ),

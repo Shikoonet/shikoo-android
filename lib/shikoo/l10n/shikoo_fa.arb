@@ -258,6 +258,7 @@
   "updateReady": "آمادهٔ نصب",
   "updateInstall": "نصب",
   "updateClosesApp": "با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.",
+  "updateClosesAppDesktop": "با نصب، ویندوز اجازه می‌خواهد و شیکونت بسته می‌شود؛ اگر وصلی، اتصال هم. بعد خودش باز می‌شود.",
   "updateDownloadFailedTitle": "دریافت نشد.",
   "updateDownloadFailedHelp": "اینترنت را بررسی کن و دوباره بزن؛ از همان‌جا ادامه می‌دهد.",
   "updateBadFileTitle": "فایل سالم نرسید.",
