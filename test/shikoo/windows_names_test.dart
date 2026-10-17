@@ -191,8 +191,7 @@ void main() {
     );
     for (final line in [
       'AppName={#Title}\n',
-      r'DefaultDirName={autopf64}\{#Title}'
-          '\n',
+      'DefaultDirName={autopf64}\\{#Title}\n',
       'UninstallDisplayName={#Title}\n',
       r'Name: "{autoprograms}\{#Title}";',
     ]) {
