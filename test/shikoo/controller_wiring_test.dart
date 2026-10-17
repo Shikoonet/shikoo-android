@@ -120,14 +120,16 @@ class _Panel extends ShikooController {
 }
 
 class _Restart extends CoreAction {
-  _Restart(this.calls, {this.fails = false});
+  _Restart(this.calls, {this.fails = false, this.hold});
 
   final List<String> calls;
   final bool fails;
+  final Future<void>? Function()? hold;
 
   @override
   Future<bool> restartCore() async {
     calls.add('restart');
+    await hold?.call();
     if (fails) throw StateError('the core did not come back');
     return true;
   }
@@ -4003,6 +4005,7 @@ void main() {
     var portFree = true;
     var admin = ShikooAdmin.ready;
     Completer<ShikooAdmin>? prompt;
+    Completer<void>? restarting;
 
     ({ProviderContainer container, _Setup setup}) windows({
       bool desktop = true,
@@ -4012,6 +4015,7 @@ void main() {
       portFree = true;
       admin = ShikooAdmin.ready;
       prompt = null;
+      restarting = null;
       final (:container, :core, :proxies, :setup) = _home([
         shikooDesktopProvider.overrideWithValue(desktop),
         localPortFreeProvider.overrideWithValue((port) async {
@@ -4023,7 +4027,11 @@ void main() {
           return prompt?.future ?? admin;
         }),
         coreActionProvider.overrideWith(
-          () => _Restart(calls, fails: restartFails),
+          () => _Restart(
+            calls,
+            fails: restartFails,
+            hold: () => restarting?.future,
+          ),
         ),
       ]);
       container
@@ -4202,6 +4210,23 @@ void main() {
         await done(controller);
       },
     );
+
+    test('a disconnect during the core restart after the install sets no '
+        'flags and starts nothing', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      admin = ShikooAdmin.installed;
+      restarting = Completer();
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(calls, ['admin', 'restart']);
+      await controller.disconnect();
+      restarting!.complete();
+      await pumpEventQueue();
+      expect(setup.runs, [false]);
+      expect(tun(container), isFalse);
+      await done(controller);
+    });
 
     test(
       'connect again during the admin prompt waits on that one prompt',
