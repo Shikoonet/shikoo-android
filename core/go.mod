@@ -4,9 +4,12 @@ go 1.21
 
 replace github.com/metacubex/mihomo => ./Clash.Meta
 
+replace github.com/metacubex/sing-tun v0.4.22 => ./Clash.Meta/shikoo-sing-tun
+
 require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/metacubex/mihomo v0.0.0-00010101000000-000000000000
+	github.com/metacubex/sing-tun v0.4.22
 )
 
 require (
@@ -84,7 +87,6 @@ require (
 	github.com/metacubex/sing-quic v0.0.0-20260726014900-38b0e9295f51 // indirect
 	github.com/metacubex/sing-shadowsocks v0.2.12 // indirect
 	github.com/metacubex/sing-shadowsocks2 v0.2.7 // indirect
-	github.com/metacubex/sing-tun v0.4.22 // indirect
 	github.com/metacubex/sing-vmess v0.2.5 // indirect
 	github.com/metacubex/sing-wireguard v0.0.0-20260810013230-110eac03c3f0 // indirect
 	github.com/metacubex/smux v0.0.0-20260105030934-d0c8756d3141 // indirect
