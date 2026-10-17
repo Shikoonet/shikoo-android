@@ -46,7 +46,10 @@ begin
   if FileExists(HelperPath) then
   begin
     Exec(HelperPath, 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
+  end
+  else
+    // An antivirus may have taken the file and left its AutoStart service registered.
+    Exec(ExpandConstant('{sys}\sc.exe'), 'delete ShikooNetHelperService', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

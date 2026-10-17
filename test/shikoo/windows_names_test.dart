@@ -104,8 +104,11 @@ void main() {
     expect(
       iss,
       contains(
-        'if CurPageID = wpSelectTasks then\n'
-        '    WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);',
+        'procedure CurPageChanged(CurPageID: Integer);\n'
+        'begin\n'
+        '  if CurPageID = wpSelectTasks then\n'
+        '    WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);\n'
+        'end;\n',
       ),
     );
     final service = iss
@@ -115,6 +118,22 @@ void main() {
     expect(service, hasLength(1));
     expect(service.single, contains('Parameters: "install"'));
     expect(service.single, isNot(matches(RegExp('postinstall|skipifsilent'))));
+    final sections = RegExp(
+      r'^\[\w+\]$',
+      multiLine: true,
+    ).allMatches(iss.substring(0, iss.indexOf(service.single)));
+    expect(sections.last[0], '[Run]');
+    final unregister = RegExp(
+      r'procedure UnregisterHelperService;[\s\S]*?\nend;',
+    ).firstMatch(iss)![0]!;
+    final orElse = unregister.indexOf('  end\n  else\n');
+    expect(orElse, isNot(-1));
+    expect(
+      unregister.substring(orElse),
+      contains(
+        "Exec(ExpandConstant('{sys}\\sc.exe'), 'delete $appHelperService'",
+      ),
+    );
     for (final hook in ['PrepareToInstall', 'InitializeUninstall']) {
       expect(
         iss,
