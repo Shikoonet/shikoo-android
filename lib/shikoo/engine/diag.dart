@@ -70,7 +70,7 @@ RegExp? _knownPattern(
   Iterable<String> values, [
   Iterable<String> words = const [],
 ]) {
-  const edge = r'[\w\u0080-\uffff]';
+  const edge = r'[\p{L}\p{N}\p{M}_\u200c]';
   List<String> longestFirst(Iterable<String> items) =>
       items.sorted((a, b) => b.length - a.length);
   final parts = [
@@ -81,7 +81,9 @@ RegExp? _knownPattern(
     for (final word in longestFirst(words))
       '(?<!$edge)${RegExp.escape(word)}(?!$edge)',
   ];
-  return parts.isEmpty ? null : RegExp(parts.join('|'), caseSensitive: false);
+  return parts.isEmpty
+      ? null
+      : RegExp(parts.join('|'), caseSensitive: false, unicode: true);
 }
 
 /// The Windows user, its profile folder (a renamed account keeps the old one) and the PC's names.
@@ -349,9 +351,12 @@ class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
 final shikooProbeProvider =
     NotifierProvider<ShikooProbes, AsyncValue<ProbeChecks>?>(ShikooProbes.new);
 
-Future<void> openNetworkSettings() async {
-  if (Platform.isWindows) {
-    await launchUrl(Uri.parse('ms-settings:network-status'));
+Future<void> openNetworkSettings({
+  bool? windows,
+  Future<bool> Function(Uri) launch = launchUrl,
+}) async {
+  if (windows ?? Platform.isWindows) {
+    await launch(Uri.parse('ms-settings:network-status'));
     return;
   }
   await ShikooDiag._invoke<bool>('netSettings');
@@ -1117,7 +1122,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     );
   }
 
-  List<String> _ringLines(DateTime now) {
+  List<String> _ringLines(DateTime now, RegExp? known) {
     final since = now.subtract(keep);
     return [
       for (final file in [File('$_ring.1'), File(_ring)])
@@ -1125,9 +1130,19 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
           for (final line in LineSplitter.split(_read(file)))
             if (DateTime.tryParse(line.split(' ').first)?.isAfter(since) ??
                 false)
-              line,
+              _again(line, known),
     ];
   }
+
+  /// A line written before a name or secret was known: its text past the stamp and kind loses it now.
+  static String _again(String line, RegExp? known) =>
+      known == null || line.length < 23
+      ? line
+      : line.replaceRange(
+          23,
+          null,
+          line.substring(23).replaceAll(known, _bullet),
+        );
 
   static String _cleanText(
     Iterable<String> lines,
@@ -1245,7 +1260,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
           {'label': cleanLine(server.label, known), 'ping_ms': server.ping},
       ],
       'crashes': await _crashes(now, known),
-      'log': _pickLog(_ringLines(now)),
+      'log': _pickLog(_ringLines(now, known)),
       'logcat': _logcatLines(await _invoke<String>('logTail'), known),
       'images': await _imagesOf(app: appImage, screen: screenImage, on: images),
     });

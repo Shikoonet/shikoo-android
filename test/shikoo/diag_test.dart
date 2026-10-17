@@ -913,6 +913,66 @@ void main() {
     },
   );
 
+  test(
+    'a Windows name goes beside any punctuation or space, not inside a word',
+    () async {
+      final home = Directory.systemTemp.createTempSync('diag');
+      addTearDown(() => home.deleteSync(recursive: true));
+      final diag = ShikooDiag(machine: {_winUser, 'علی'});
+      await diag.start(home.path);
+      const cases = {
+        'user ali، ok': 'user ·، ok',
+        'آیا علی؟': 'آیا ·؟',
+        'علی؛ بعدی': '·؛ بعدی',
+        'کاربر علی، وارد شد': 'کاربر ·، وارد شد',
+        'a\u00a0ali\u202fb\u3000علی': 'a\u00a0·\u202fb\u3000·',
+        'علیرضا و vali': 'علیرضا و vali',
+      };
+      for (final line in cases.keys) {
+        diag.add('A', line);
+      }
+      diag.release();
+      final ring = File('${home.path}/shikoo/diag.log').readAsStringSync();
+      for (final MapEntry(:key, :value) in cases.entries) {
+        expect(ring, contains(' A $value\n'), reason: key);
+      }
+      expect(
+        windowsNames({'USERNAME': ' ', 'USERPROFILE': r'C:\Users\'}, ''),
+        {},
+      );
+    },
+  );
+
+  test('a line an older build wrote loses the Windows names on send', () async {
+    final h = await _harness(machine: {_winUser, _winPc});
+    await h.diag.start(h.home.path);
+    final stamp = '${_now.toUtc().toIso8601String().substring(0, 19)}Z';
+    File('${h.dir}/diag.log').writeAsStringSync(
+      '$stamp A user ali on $_winPc before this build\n',
+      mode: FileMode.append,
+    );
+    await h.diag.attach(h.container);
+
+    final report = await h.diag.report(trigger: 'test', about: _windowsAbout);
+
+    expect(
+      (report['log']! as List).cast<String>(),
+      contains('$stamp A user · on · before this build'),
+    );
+  });
+
+  test('«تنظیمات اینترنت» on Windows opens its network status page', () async {
+    Uri? opened;
+    await openNetworkSettings(
+      windows: true,
+      launch: (uri) async {
+        opened = uri;
+        return true;
+      },
+    );
+    expect(opened, Uri.parse('ms-settings:network-status'));
+  });
+
   test('Windows proxy and helper read as ours, other or off', () {
     List<String> lines(
       int? enable,
