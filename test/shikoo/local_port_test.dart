@@ -18,16 +18,20 @@ class _Core extends Mock implements CoreHandlerInterface {}
 
 class _Windows extends ProxyPlatform {
   final calls = <String>[];
+  void Function()? onStart;
+  void Function()? onStop;
 
   @override
   Future<bool> startProxy(int port, List<String> bypassDomain) async {
     calls.add('start $port');
+    onStart?.call();
     return true;
   }
 
   @override
   Future<bool> stopProxy() async {
     calls.add('stop');
+    onStop?.call();
     return true;
   }
 }
@@ -103,33 +107,45 @@ void main() {
     late _Windows windows;
     late WinProxy? now;
     late List<WinProxy> written;
+    late Set<int> answering;
+    late List<String> asked;
+    var refuse = false;
+
+    final ours = _setting(proxyTypeDirect | proxyTypeProxy, '127.0.0.1:7890');
 
     ShikooSystemProxy launch() => ShikooSystemProxy(
       windows,
       () => 7890,
       read: () => now,
       write: (setting) {
+        if (refuse) return false;
         written.add(setting);
         now = setting;
         return true;
+      },
+      listening: (host, port) async {
+        asked.add('$host:$port');
+        return answering.contains(port);
       },
     );
 
     setUp(() {
       SharedPreferences.setMockInitialValues({});
-      windows = _Windows();
+      windows = _Windows()
+        ..onStart = (() => now = ours)
+        ..onStop = (() => now = _setting(proxyTypeDirect, now?.server));
       now = _before;
       written = [];
+      answering = {};
+      asked = [];
+      refuse = false;
     });
 
     Future<bool> saved() async => (await SharedPreferences.getInstance())
         .containsKey(ShikooSystemProxy.savedKey);
 
     test("is this app's only while on and at its port", () {
-      expect(
-        proxyIsOurs(_setting(proxyTypeProxy, '127.0.0.1:7890'), 7890),
-        isTrue,
-      );
+      expect(proxyIsOurs(ours, 7890), isTrue);
       expect(
         proxyIsOurs(_setting(proxyTypeProxy | 8, '127.0.0.1:7890'), 7890),
         isTrue,
@@ -151,11 +167,11 @@ void main() {
       expect(windows.calls, isEmpty);
 
       expect(await proxy.startProxy(7890, const []), isTrue);
-      now = _setting(proxyTypeProxy, '127.0.0.1:7890');
       expect(await proxy.startProxy(7890, const []), isTrue);
       expect(await proxy.stopProxy(), isTrue);
       expect(windows.calls, ['start 7890', 'start 7890', 'stop']);
       expect(written, [_before]);
+      expect(asked, isEmpty, reason: 'corp:3128 is not on this computer');
       expect(await saved(), isFalse);
     });
 
@@ -169,7 +185,6 @@ void main() {
       expect(written, isEmpty);
       expect(await saved(), isFalse);
 
-      now = _setting(proxyTypeDirect, '127.0.0.1:7890');
       await proxy.startProxy(7890, const []);
       now = _setting(proxyTypeDirect, '127.0.0.1:7890');
       expect(await proxy.stopProxy(), isTrue);
@@ -179,13 +194,11 @@ void main() {
     test('a crash or a Windows shutdown while connected is undone at the '
         'next launch', () async {
       await launch().startProxy(7890, const []);
-      now = _setting(proxyTypeProxy, '127.0.0.1:7890');
       final afterCrash = launch();
       expect(await afterCrash.stopProxy(), isTrue);
       expect(windows.calls, ['start 7890', 'stop']);
       expect(written, [_before]);
 
-      now = _before;
       await launch().startProxy(7890, const []);
       now = _setting(proxyTypeDirect, '127.0.0.1:7890');
       expect(await launch().stopProxy(), isTrue);
@@ -193,17 +206,94 @@ void main() {
       expect(windows.calls, ['start 7890', 'stop', 'start 7890']);
     });
 
-    test('a setting Windows refused stays on disk for the next try', () async {
-      final proxy = ShikooSystemProxy(
-        windows,
-        () => 7890,
-        read: () => now,
-        write: (_) => false,
-      );
+    test('at the next launch, our server with other flags than FlClash\'s '
+        'stop leaves is a choice made by hand', () async {
+      await launch().startProxy(7890, const []);
+      now = _setting(proxyTypeDirect | 8, '127.0.0.1:7890');
+      expect(await launch().stopProxy(), isTrue);
+      expect(written, isEmpty);
+      expect(await saved(), isFalse);
+    });
+
+    test('a setting Windows refused stays on disk, and the next connect keeps '
+        'it rather than what that disconnect left', () async {
+      final proxy = launch();
       await proxy.startProxy(7890, const []);
-      now = _setting(proxyTypeProxy, '127.0.0.1:7890');
+      refuse = true;
       expect(await proxy.stopProxy(), isFalse);
       expect(await saved(), isTrue);
+
+      refuse = false;
+      await proxy.startProxy(7890, const []);
+      expect(await proxy.stopProxy(), isTrue);
+      expect(written, [_before]);
     });
+
+    test('an exit that lands while a connect saves the setting waits for it, '
+        'so the setting from before still comes back', () async {
+      final proxy = launch();
+      await proxy.stopProxy();
+      await Future.wait([proxy.startProxy(7890, const []), proxy.stopProxy()]);
+      expect(written, [_before]);
+      expect(await saved(), isFalse);
+    });
+
+    test('a proxy of another app on this computer comes back only while that '
+        'app answers; else it is turned off, its auto-detect kept', () async {
+      const local = (
+        flags: proxyTypeDirect | proxyTypeProxy | 8,
+        server: 'http=127.0.0.1:10809;socks=localhost:10808',
+        bypass: '<local>',
+        pac: null,
+      );
+      now = local;
+      answering = {10808};
+      await launch().startProxy(7890, const []);
+      await launch().stopProxy();
+      expect(written.last, local);
+
+      now = local;
+      answering = {};
+      await launch().startProxy(7890, const []);
+      await launch().stopProxy();
+      expect(written.last, (
+        flags: proxyTypeDirect | 8,
+        server: local.server,
+        bypass: '<local>',
+        pac: null,
+      ));
+      expect(asked, [
+        '127.0.0.1:10809',
+        'localhost:10808',
+        '127.0.0.1:10809',
+        'localhost:10808',
+      ]);
+    });
+
+    test(
+      'a proxy elsewhere, or a setup script, comes back as it was',
+      () async {
+        for (final setting in [
+          (
+            flags: proxyTypeDirect | proxyTypeProxy,
+            server: 'proxy.corp:3128',
+            bypass: null,
+            pac: null,
+          ),
+          (
+            flags: proxyTypeDirect | 4,
+            server: '127.0.0.1:1',
+            bypass: null,
+            pac: 'http://127.0.0.1:1/proxy.pac',
+          ),
+        ]) {
+          now = setting;
+          await launch().startProxy(7890, const []);
+          await launch().stopProxy();
+          expect(written.last, setting);
+        }
+        expect(asked, isEmpty);
+      },
+    );
   });
 }

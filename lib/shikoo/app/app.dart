@@ -92,8 +92,6 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
 
 /// FlClash asks Android which app owns every connection (`find-process-mode: always`) for per-app rules Shikoo never
 /// has; without QUERY_ALL_PACKAGES the answer is empty for other apps anyway.
-/// A desktop's port is Shikoo's own: FlClash and Clash take 7890 and 7891, Happ, v2rayN and Pat-N 10808, and a
-/// machine may set the ephemeral range as low as 1024 to 15000.
 PatchClashConfig shikooClashConfig(
   PatchClashConfig c, {
   bool desktop = false,
@@ -212,8 +210,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     final hasVpn = results.contains(ConnectivityResult.vpn);
     if (_hadVpn == hasVpn) ref.read(checkIpNumProvider.notifier).add();
     _hadVpn = hasVpn;
-    // ponytail: off until a WireGuard server is tried across a network switch in tunnel mode; a new config
-    // makes new WireGuard sockets on the new network and closes the old ones (SHIKOO_PATCHES 24).
+    // ponytail: off until a real WireGuard network switch in tunnel mode shows the new config's new sockets are needed.
     if (_reapplyOnNetworkChange &&
         system.isDesktop &&
         ref.read(runTimeProvider) != null &&

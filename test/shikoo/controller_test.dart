@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -146,6 +148,24 @@ void main() {
       adapters.add('ShikooNet');
       expect(await native(), isNotNull);
       expect(asked, ['ShikooNet', 'ShikooNet']);
+    });
+
+    test('the port probe asks loopback only, the one address the core binds '
+        'with allow-lan off', () async {
+      final lan = (await NetworkInterface.list())
+          .expand((i) => i.addresses)
+          .where((a) => a.type == InternetAddressType.IPv4)
+          .firstOrNull;
+      if (lan == null) return markTestSkipped('no LAN address here');
+      final elsewhere = await ServerSocket.bind(lan, 0);
+      addTearDown(elsewhere.close);
+      final here = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(here.close);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final free = container.read(localPortFreeProvider);
+      expect(await free(elsewhere.port), isTrue);
+      expect(await free(here.port), isFalse);
     });
   });
 
