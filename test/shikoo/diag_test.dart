@@ -938,19 +938,18 @@ void main() {
       }
       expect(
         windowsNames({'USERNAME': ' ', 'USERPROFILE': r'C:\Users\'}, ''),
-        {},
+        isEmpty,
       );
     },
   );
 
   test('a line an older build wrote loses the Windows names on send', () async {
     final h = await _harness(machine: {_winUser, _winPc});
-    await h.diag.start(h.home.path);
     final stamp = '${_now.toUtc().toIso8601String().substring(0, 19)}Z';
-    File('${h.dir}/diag.log').writeAsStringSync(
+    (File('${h.dir}/diag.log')..createSync(recursive: true)).writeAsStringSync(
       '$stamp A user ali on $_winPc before this build\n',
-      mode: FileMode.append,
     );
+    await h.diag.start(h.home.path);
     await h.diag.attach(h.container);
 
     final report = await h.diag.report(trigger: 'test', about: _windowsAbout);
