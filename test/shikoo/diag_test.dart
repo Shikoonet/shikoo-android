@@ -325,7 +325,7 @@ Future<_Harness> _harness({
         ShikooApi(['http://door.test'], door),
       ),
       shikooDeviceProvider.overrideWithValue(
-        () async => (name: 'Test', tv: false),
+        () async => (name: 'Test', kind: 'phone'),
       ),
     ],
   );
@@ -752,6 +752,54 @@ void main() {
     expect(_doorKeys.difference(keys), {
       'images.note', // only when an image is dropped or switched off
     });
+  });
+
+  test('a Windows PC reports its version in keys the door takes', () {
+    final about = aboutSections(
+      device: WindowsDeviceInfo(
+        computerName: 'DESKTOP-7G3K2LQ',
+        numberOfCores: 8,
+        systemMemoryInMegabytes: 16384,
+        userName: 'sam',
+        majorVersion: 10,
+        minorVersion: 0,
+        buildNumber: 26100,
+        platformId: 2,
+        csdVersion: '',
+        servicePackMajor: 0,
+        servicePackMinor: 0,
+        suitMask: 0,
+        productType: 1,
+        reserved: 0,
+        buildLab: '',
+        buildLabEx: '',
+        digitalProductId: Uint8List(0),
+        displayVersion: '24H2',
+        editionId: 'Professional',
+        installDate: DateTime(2025),
+        productId: '',
+        productName: 'Windows 10 Pro',
+        registeredOwner: 'sam',
+        releaseId: '2009',
+        deviceId: '',
+      ),
+      tv: false,
+      version: '1.0.3',
+      build: 3,
+      abi: 'windowsX64',
+      signedIn: false,
+      look: (theme: ThemeMode.system, language: 'fa'),
+      media: const MediaQueryData(size: Size(1280, 800)),
+      transports: const [ConnectivityResult.ethernet],
+      native: null,
+      backend: 'unknown',
+      now: _now,
+      locale: 'fa-IR',
+    );
+    final device = about['device']! as Map<String, Object?>;
+    expect(device, containsPair('release', '10.0.26100'));
+    expect(device, containsPair('ram_total_mb', 16384));
+    expect(_doorKeys, containsAll(_keysOf({'device': device})));
   });
 
   test('the three probes go into the report as the door reads them', () async {

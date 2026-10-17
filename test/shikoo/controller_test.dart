@@ -1,5 +1,8 @@
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -92,6 +95,29 @@ void main() {
       );
       expect(up, isNull);
       expect(calls, 2);
+    });
+
+    test('a desktop, which has no VPN service, asks its own run state and '
+        'the core process', () async {
+      final container = ProviderContainer(
+        overrides: [
+          runTimeProvider.overrideWithBuild((_, _) => 5000),
+          coreStatusProvider.overrideWithBuild((_, _) => CoreStatus.connected),
+        ],
+      );
+      addTearDown(container.dispose);
+      final native = container.read(nativeRunTimeProvider);
+      final start = (await native())!;
+      final since = DateTime.now().difference(start);
+      expect(since.inMilliseconds, inInclusiveRange(5000, 6000));
+
+      container.read(coreStatusProvider.notifier).value =
+          CoreStatus.disconnected;
+      expect(await native(), isNull, reason: 'the core process died');
+
+      container.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+      container.read(runTimeProvider.notifier).value = null;
+      expect(await native(), isNull, reason: 'stopped');
     });
   });
 

@@ -617,9 +617,17 @@ final shikooControllerProvider = Provider<ShikooController>(
   ShikooController.new,
 );
 
+/// The desktop has no VPN service: there `setRunning` returns once the core took the start, and
+/// a core process that died takes the tunnel with it.
 final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
-  (_) =>
-      () async => service?.getRunTime(),
+  (ref) => () async {
+    if (service case final android?) return android.getRunTime();
+    final ms = ref.read(runTimeProvider);
+    if (ms == null || ref.read(coreStatusProvider) != CoreStatus.connected) {
+      return null;
+    }
+    return DateTime.now().subtract(Duration(milliseconds: ms));
+  },
 );
 
 // ponytail: trusts the panel's rules to send FlClash's IP lookups to the selected server.
