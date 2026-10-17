@@ -4022,7 +4022,6 @@ void main() {
       container
           .read(profilesActionProvider.notifier)
           .updateCurrentSelectedMap('PROXY', 'هلند ۱');
-      setup.tunnel = DateTime.now();
       return (container: container, setup: setup);
     }
 
@@ -4037,6 +4036,8 @@ void main() {
       final (:container, :setup) = windows();
       final controller = container.read(shikooControllerProvider);
       await pumpEventQueue();
+      setup.tunnel = DateTime.now();
+      await controller.setMode(ShikooMode.proxy);
       container
           .read(networkSettingProvider.notifier)
           .update((s) => s.copyWith(systemProxy: false));
@@ -4060,6 +4061,8 @@ void main() {
       expect(setup.runs, [true]);
       expect((systemProxy(container), tun(container)), (true, false));
       expect(calls, ['port 7890', 'port 7890']);
+      await controller.disconnect();
+      await pumpEventQueue();
     });
 
     test('the tunnel mode asks for the helper service until it is there, '
@@ -4068,6 +4071,7 @@ void main() {
       final (:container, :setup) = windows();
       final controller = container.read(shikooControllerProvider);
       await pumpEventQueue();
+      setup.tunnel = DateTime.now();
       await controller.setMode(ShikooMode.tunnel);
       expect(setup.runs, isEmpty, reason: 'off, a mode change starts nothing');
 
@@ -4095,23 +4099,30 @@ void main() {
       await controller.connect();
       expect(calls, ['admin', 'admin', 'restart']);
       expect(setup.runs, [true, false, true]);
+      await controller.disconnect();
+      await pumpEventQueue();
     });
 
-    test('a mode change while connected connects again in the new mode, '
-        'which the next launch keeps', () async {
+    test('the tunnel is the first mode; a change while connected connects '
+        'again in the new one, which the next launch keeps', () async {
       final (:container, :setup) = windows();
       final controller = container.read(shikooControllerProvider);
       await pumpEventQueue();
+      setup.tunnel = DateTime.now();
       await controller.connect();
-      await controller.setMode(ShikooMode.tunnel);
-      expect(setup.runs, [true, false, true]);
       expect((systemProxy(container), tun(container)), (false, true));
+      await controller.setMode(ShikooMode.proxy);
+      expect(setup.runs, [true, false, true]);
+      expect((systemProxy(container), tun(container)), (true, false));
+      expect(calls, ['admin', 'port 7890']);
 
       final next = ProviderContainer();
       addTearDown(next.dispose);
-      expect(next.read(shikooModeProvider), shikooDefaultMode);
-      await next.read(shikooModeProvider.notifier).load();
       expect(next.read(shikooModeProvider), ShikooMode.tunnel);
+      await next.read(shikooModeProvider.notifier).load();
+      expect(next.read(shikooModeProvider), ShikooMode.proxy);
+      await controller.disconnect();
+      await pumpEventQueue();
     });
 
     test("Android has no modes: its connect leaves FlClash's flags and "
@@ -4119,16 +4130,19 @@ void main() {
       final (:container, :setup) = windows(desktop: false);
       final controller = container.read(shikooControllerProvider);
       await pumpEventQueue();
+      setup.tunnel = DateTime.now();
       container
           .read(networkSettingProvider.notifier)
           .update((s) => s.copyWith(systemProxy: false));
-      await controller.setMode(ShikooMode.tunnel);
-      expect(container.read(shikooModeProvider), shikooDefaultMode);
+      await controller.setMode(ShikooMode.proxy);
+      expect(container.read(shikooModeProvider), ShikooMode.tunnel);
 
       await controller.connect();
       expect(setup.runs, [true]);
       expect((systemProxy(container), tun(container)), (false, false));
       expect(calls, isEmpty);
+      await controller.disconnect();
+      await pumpEventQueue();
     });
   });
 }

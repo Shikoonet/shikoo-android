@@ -106,6 +106,8 @@ PatchClashConfig shikooClashConfig(
 
 const shikooDesktopPort = 17470;
 
+const _reapplyOnNetworkChange = bool.fromEnvironment('SHIKOO_WG_REAPPLY');
+
 /// A TV is often left on the home screen for hours: its services stay as fresh as on open.
 void everyMinute(ProviderContainer container) {
   final controller = container.read(shikooControllerProvider);
@@ -210,6 +212,18 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     final hasVpn = results.contains(ConnectivityResult.vpn);
     if (_hadVpn == hasVpn) ref.read(checkIpNumProvider.notifier).add();
     _hadVpn = hasVpn;
+    // ponytail: off until a WireGuard server is tried across a network switch in tunnel mode; a new config
+    // makes new WireGuard sockets on the new network and closes the old ones (SHIKOO_PATCHES 24).
+    if (_reapplyOnNetworkChange &&
+        system.isDesktop &&
+        ref.read(runTimeProvider) != null &&
+        ref.read(patchClashConfigProvider).tun.enable) {
+      unawaited(
+        ref
+            .read(setupActionProvider.notifier)
+            .applyProfile(force: true, silence: true),
+      );
+    }
   }
 
   /// Flutter pushes every link the activity receives as a named route, and this app has

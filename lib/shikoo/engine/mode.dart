@@ -5,7 +5,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Windows' system proxy, or TUN for the whole computer; both at once would be one more value.
+/// Windows' system proxy, or TUN for the whole computer.
 enum ShikooMode {
   proxy(systemProxy: true, tun: false),
   tunnel(systemProxy: false, tun: true);
@@ -16,8 +16,7 @@ enum ShikooMode {
   final bool tun;
 }
 
-// ponytail: proxy until Sam picks the default.
-const shikooDefaultMode = ShikooMode.proxy;
+const shikooDefaultMode = ShikooMode.tunnel;
 
 class ShikooModeNotifier extends Notifier<ShikooMode> {
   static const _key = 'shikoo.mode';
