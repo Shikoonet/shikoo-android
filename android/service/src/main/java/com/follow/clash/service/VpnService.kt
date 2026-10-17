@@ -171,7 +171,11 @@ class VpnService : SystemVpnService(), ManagedService {
 
     private fun Builder.addAddressAndRoutes(options: VpnOptions) {
         val ipv4Address = IPV4_ADDRESS.toCIDR()
-        addAddress(ipv4Address.address, ipv4Address.prefixLength)
+        // Android sets a shorter prefix with a second ioctl that deletes and re-adds the address, and netd then
+        // destroys every socket on it, the core's new TCP listener included. A /32 takes one step; the route keeps
+        // the rest of the core's prefix (DNS, the system stack's NAT source) in the tun.
+        addAddress(ipv4Address.address, 32)
+        addRoute(IPV4_NETWORK, ipv4Address.prefixLength)
         addRoutes(
             routes = options::getIpv4RouteAddress,
             fallbackAddress = NET_ANY,
@@ -286,6 +290,7 @@ class VpnService : SystemVpnService(), ManagedService {
 
     companion object {
         private const val IPV4_ADDRESS = "172.19.0.1/30"
+        private const val IPV4_NETWORK = "172.19.0.0"
         private const val IPV6_ADDRESS = "fdfe:dcba:9876::1/126"
         private const val DNS = "172.19.0.2"
         private const val DNS6 = "fdfe:dcba:9876::2"
