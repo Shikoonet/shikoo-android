@@ -1133,8 +1133,8 @@ void _switchOnTv() {
       'once it failed, in two lines even with long names; the remote, the '
       'button and the order stay put', (tester) async {
     _tvScreen(tester);
-    const old = 'Germany 3 [WG]';
-    const to = '(Gemini) Italy';
+    const old = 'ضریب مصرف NE 4 x';
+    const to = 'Italy (Gemini+YouTube بدون تبلیغ)';
     final servers = [
       const ShikooServer(name: old, type: 'WireGuard', ping: 84),
       const ShikooServer(name: to, type: 'Vless', ping: 112),
@@ -1157,14 +1157,14 @@ void _switchOnTv() {
       );
     }
 
-    final [a, b] = [bidiName(to), bidiName(old)];
+    final a = bidiName(to);
     for (final (locale, texts) in [
       (
         'fa',
         [
           'در حال رفتن به «$a»…',
           'حالا از «$a» وصلی.',
-          '«$a» جواب نداد. هنوز از «$b» وصلی؛ سرور دیگری را امتحان کن.',
+          '«$a» جواب نداد.\nسرور دیگری را امتحان کن.',
         ],
       ),
       (
@@ -1172,7 +1172,7 @@ void _switchOnTv() {
         [
           'Moving to “$a”…',
           'Now connected through “$a”.',
-          '“$a” didn\'t answer. Still on “$b”. Try another server.',
+          '“$a” didn\'t answer.\nTry another server.',
         ],
       ),
     ]) {

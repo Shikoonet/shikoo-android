@@ -253,6 +253,11 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String switchFailedTv(String name) {
+    return '«$name» جواب نداد.\nسرور دیگری را امتحان کن.';
+  }
+
+  @override
   String get findingBest => 'در حال یافتن بهترین سرور…';
 
   @override
