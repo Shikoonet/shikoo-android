@@ -2,6 +2,7 @@ script_template: inno_setup.iss
 app_id: F4E58B87-08F9-43F1-8B65-640490A48F0E
 app_name: ShikooNet
 publisher_name: ShikooNet
+publisher_url: https://t.me/shikoonet
 display_name: ShikooNet
 executable_name: ShikooNet.exe
 output_base_file_name: ShikooNet.exe

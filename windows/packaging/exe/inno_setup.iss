@@ -102,4 +102,10 @@ Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 Name: "{autoprograms}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
 Name: "{autodesktop}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
 [Run]
-Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: {% if PRIVILEGES_REQUIRED == 'admin' %}runascurrentuser{% endif %} nowait postinstall skipifsilent
+Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: runasoriginaluser nowait postinstall skipifsilent
+[UninstallDelete]
+; The app's data: path_provider_windows names it CompanyName\ProductName of windows/runner/Runner.rc.
+Type: filesandordirs; Name: "{userappdata}\ShikooNet\ShikooNet"
+Type: dirifempty; Name: "{userappdata}\ShikooNet"
+Type: filesandordirs; Name: "{localappdata}\ShikooNet\ShikooNet"
+Type: dirifempty; Name: "{localappdata}\ShikooNet"

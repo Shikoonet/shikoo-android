@@ -45,4 +45,36 @@ void main() {
       contains("'$appName.exe', '$core.exe', '$appHelperService.exe'"),
     );
   });
+
+  test('the data folder is ShikooNet\\ShikooNet and its uninstall deletes '
+      'it; the installer has its own id, starts the app unelevated, and the '
+      'app leaves the clash:// links alone', () {
+    String read(String path) => File(path).readAsStringSync();
+
+    expect(
+      read('windows/runner/Runner.rc'),
+      allOf(
+        contains('VALUE "CompanyName", "$appName"'),
+        contains('VALUE "ProductName", "$appName"'),
+      ),
+    );
+    expect(
+      read('windows/packaging/exe/make_config.yaml'),
+      allOf(
+        contains('app_id: F4E58B87-08F9-43F1-8B65-640490A48F0E\n'),
+        contains('executable_name: $appName.exe\n'),
+        contains('publisher_url: https://t.me/shikoonet\n'),
+      ),
+    );
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+    for (final root in ['userappdata', 'localappdata']) {
+      expect(iss, contains('Name: "{$root}\\$appName\\$appName"'));
+    }
+    expect(iss, contains('runasoriginaluser'));
+    expect(iss, isNot(contains('runascurrentuser')));
+    expect(
+      read('lib/common/window.dart'),
+      isNot(contains('protocol.register(')),
+    );
+  });
 }
