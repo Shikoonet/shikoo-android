@@ -85,4 +85,45 @@ void main() {
       isNot(contains('protocol.register(')),
     );
   });
+
+  test('the installer is Persian and right to left, in three pages, installs '
+      'the helper service on every install, over an old one too, and the '
+      'uninstall removes it', () {
+    String read(String path) => File(path).readAsStringSync();
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+
+    expect(
+      read('windows/packaging/exe/make_config.yaml'),
+      contains(
+        '  - lang: fa\n    file: ..\\windows\\packaging\\exe\\Farsi.isl\n',
+      ),
+    );
+    expect(
+      read('windows/packaging/exe/Farsi.isl'),
+      contains('RightToLeft=yes'),
+    );
+    expect(iss, contains("{% if locale.lang == 'fa' %}Name: \"persian\""));
+    expect(
+      iss,
+      allOf(contains('DisableDirPage=yes'), contains('DisableReadyPage=yes')),
+    );
+    final service = iss
+        .split('\n')
+        .where((line) => line.contains('"{app}\\$appHelperService.exe"'))
+        .toList();
+    expect(service, hasLength(1));
+    expect(service.single, contains('Parameters: "install"'));
+    expect(service.single, isNot(matches(RegExp('postinstall|skipifsilent'))));
+    for (final hook in ['PrepareToInstall', 'InitializeUninstall']) {
+      expect(
+        iss,
+        matches(
+          RegExp(
+            'function $hook\\([^)]*\\):[^;]*;\\s*begin\\s*UnregisterHelperService;',
+          ),
+        ),
+        reason: hook,
+      );
+    }
+  });
 }

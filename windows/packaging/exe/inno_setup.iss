@@ -8,6 +8,8 @@ AppSupportURL={{PUBLISHER_URL}}
 AppUpdatesURL={{PUBLISHER_URL}}
 DefaultDirName={{INSTALL_DIR_NAME}}
 DisableProgramGroupPage=yes
+DisableDirPage=yes
+DisableReadyPage=yes
 OutputDir=.
 OutputBaseFilename={{OUTPUT_BASE_FILENAME}}
 Compression=lzma
@@ -70,6 +72,7 @@ end;
 {% if locale.lang == 'zh' %}
 Name: "chineseSimplified"; MessagesFile: {% if locale.file %}{{ locale.file }}{% else %}"compiler:Languages\\ChineseSimplified.isl"{% endif %}
 {% endif %}
+{% if locale.lang == 'fa' %}Name: "persian"; MessagesFile: {{ locale.file }}{% endif %}
 {% if locale.lang == 'co' %}Name: "corsican"; MessagesFile: "compiler:Languages\\Corsican.isl"{% endif %}
 {% if locale.lang == 'cs' %}Name: "czech"; MessagesFile: "compiler:Languages\\Czech.isl"{% endif %}
 {% if locale.lang == 'da' %}Name: "danish"; MessagesFile: "compiler:Languages\\Danish.isl"{% endif %}
@@ -101,7 +104,22 @@ Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 [Icons]
 Name: "{autoprograms}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
 Name: "{autodesktop}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
+[Messages]
+persian.WizardSelectTasks=نصب شیکونت
+persian.SelectTasksDesc=شیکونت روی این کامپیوتر نصب می‌شود.
+persian.SelectTasksLabel2=برای شروع، «نصب» را بزنید.
+persian.WizardInstalling=در حال نصب شیکونت…
+persian.InstallingLabel=چند ثانیه طول می‌کشد.
+persian.FinishedHeadingLabel=شیکونت نصب شد
+persian.FinishedLabel=
+persian.ClickFinish=
+
+[CustomMessages]
+persian.LaunchProgram=شیکونت همین حالا باز شود
+
 [Run]
+; Installed here, with the rights Setup already has, so the first tunnel asks for none. PrepareToInstall removed it.
+Filename: "{app}\ShikooNetHelperService.exe"; Parameters: "install"; StatusMsg: "در حال راه‌اندازی سرویس شیکونت…"; Flags: runhidden
 Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: runasoriginaluser nowait postinstall skipifsilent
 [UninstallDelete]
 ; The app's data: path_provider_windows names it CompanyName\ProductName of windows/runner/Runner.rc.

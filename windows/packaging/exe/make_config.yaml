@@ -10,5 +10,6 @@ output_base_file_name: ShikooNet.exe
 # absolute path via Directory.current.
 setup_icon_file: windows\runner\resources\app_icon.ico
 locales:
-  - lang: en
+  - lang: fa
+    file: ..\windows\packaging\exe\Farsi.isl
 privileges_required: admin
