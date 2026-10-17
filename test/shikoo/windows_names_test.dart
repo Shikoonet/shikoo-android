@@ -86,26 +86,27 @@ void main() {
     );
   });
 
-  test('the installer is Persian and right to left, in three pages, installs '
-      'the helper service on every install, over an old one too, and the '
-      'uninstall removes it', () {
+  test('the installer is English only, in three pages ending in Install, '
+      'installs the helper service on every install, over an old one too, '
+      'and the uninstall removes it', () {
     String read(String path) => File(path).readAsStringSync();
     final iss = read('windows/packaging/exe/inno_setup.iss');
 
     expect(
       read('windows/packaging/exe/make_config.yaml'),
-      contains(
-        '  - lang: fa\n    file: ..\\windows\\packaging\\exe\\Farsi.isl\n',
-      ),
+      contains('locales:\n  - lang: en\nprivileges_required'),
     );
-    expect(
-      read('windows/packaging/exe/Farsi.isl'),
-      contains('RightToLeft=yes'),
-    );
-    expect(iss, contains("{% if locale.lang == 'fa' %}Name: \"persian\""));
+    expect(iss, isNot(contains(RegExp('[؀-ۿ]'))));
     expect(
       iss,
       allOf(contains('DisableDirPage=yes'), contains('DisableReadyPage=yes')),
+    );
+    expect(
+      iss,
+      contains(
+        'if CurPageID = wpSelectTasks then\n'
+        '    WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);',
+      ),
     );
     final service = iss
         .split('\n')
