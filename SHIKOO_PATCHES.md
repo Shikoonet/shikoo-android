@@ -51,6 +51,7 @@
   آن فایل `google-services.json` را از راز `SERVICE_JSON` می‌سازد (`:280`)؛ CI شیکو این گام را نمی‌خواهد.
 - **ادغام FlClash و وصلهٔ ۵:** FlClash نسخهٔ `firebaseBom` و دو افزونه را گاهی بالا می‌برد و آن‌جا تداخل پیش می‌آید. حذف ما را نگه دار.
 - **ادغام FlClash و وصلهٔ ۷:** اگر FlClash `mobile_scanner` را بردارد، خط وصله با `UnknownProjectException` می‌شکند؛ آن خط و `android/shikoo/mobile_scanner/` را پاک کن. اگر نام کلاس یا بستهٔ پلاگین عوض شود، `GeneratedPluginRegistrant.java` کامپایل نمی‌شود؛ کلاس پلاگین خالی را هم‌نام کن.
+- **منوی کنار ساعت ویندوز** (`lib/shikoo/app/tray_popup.dart`) پنجرهٔ خود شیکوست، نه منوی بومی ویندوز، پس راوی ویندوز (Narrator) آن را نمی‌خواند؛ به انتخاب Sam (۲۰۲۶-۱۰-۱۸: «فعلاً لازم نیست»). بعد از هر ادغام FlClash که `plugins/tray` یا `lib/manager/tray_manager.dart` را عوض کرده، منو را با `test/shikoo/tray_harness.dart` دوباره ببین.
 - **سنجه:** بعد از هر ساخت، و حتماً بعد از هر ادغام FlClash: `bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk`.
   اگر Firebase، Crashlytics، ML Kit، datatransport، دوربین androidx یا Google Play services (یا اجزای مانیفستشان)، یا مجوزهای تبلیغ، دوربین، موقعیت، فهرست برنامه‌ها یا معافیت باتری، یا `FilesProvider` و لینک‌های `clash://` (وصلهٔ ۳۰) برگشته باشند، رد می‌شود و آن‌ها را نام می‌برد.
 - **مجوزهایی که با وصله‌های ۵ تا ۸ و ۳۰ رفتند** (۳۰ در جدول بالا):

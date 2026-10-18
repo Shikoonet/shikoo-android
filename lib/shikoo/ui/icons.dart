@@ -55,6 +55,11 @@ enum ShikooIcon {
   final String paths;
 }
 
+String svgOf(ShikooIcon icon, double stroke) =>
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+    'stroke="#000" stroke-width="$stroke" stroke-linecap="round" '
+    'stroke-linejoin="round">${icon.paths}</svg>';
+
 class SvgIcon extends StatelessWidget {
   const SvgIcon(
     this.icon, {
@@ -72,9 +77,7 @@ class SvgIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SvgPicture.string(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
-      'stroke="#000" stroke-width="$stroke" stroke-linecap="round" '
-      'stroke-linejoin="round">${icon.paths}</svg>',
+      svgOf(icon, stroke),
       width: size,
       height: size,
       colorFilter: ColorFilter.mode(color, BlendMode.srcIn),

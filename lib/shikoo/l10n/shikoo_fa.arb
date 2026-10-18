@@ -377,6 +377,8 @@
   "trayConnecting": "{app} · در حال اتصال",
   "trayOn": "{app} · وصل، {server}",
   "trayHeadOff": "قطع",
+  "trayHeadSignIn": "اول وارد شو",
+  "trayHeadNoService": "سرویسی نداری",
   "trayHeadConnecting": "در حال اتصال · {server}",
   "trayHeadOn": "وصل · {server}",
   "trayConnect": "وصل شدن",
