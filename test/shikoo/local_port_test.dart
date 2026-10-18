@@ -113,9 +113,9 @@ void main() {
 
     final ours = _setting(proxyTypeDirect | proxyTypeProxy, '127.0.0.1:7890');
 
-    ShikooSystemProxy launch() => ShikooSystemProxy(
+    ShikooSystemProxy launch([int port = 7890]) => ShikooSystemProxy(
       windows,
-      () => 7890,
+      () => port,
       read: () => now,
       write: (setting) {
         if (refuse) return false;
@@ -295,5 +295,27 @@ void main() {
         expect(asked, isEmpty);
       },
     );
+
+    test("the uninstaller's restore, with no config to read the port from, "
+        'knows our proxy by the port saved at connect', () async {
+      await launch().startProxy(7890, const []);
+      expect(await launch(0).stopProxy(), isTrue);
+      expect(windows.calls, ['start 7890', 'stop']);
+      expect(written, [_before]);
+      expect(await saved(), isFalse);
+    });
+
+    test("the uninstaller's restore ends its process even when it fails, "
+        'since the uninstaller waits on it', () async {
+      SharedPreferences.setMockInitialValues({
+        ShikooSystemProxy.savedKey: '{not json',
+      });
+      await expectLater(
+        restoreProxyAndExit(quit: (code) => throw StateError('exit $code')),
+        throwsA(
+          isA<StateError>().having((e) => e.message, 'message', 'exit 1'),
+        ),
+      );
+    });
   });
 }
