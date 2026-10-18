@@ -776,11 +776,13 @@ void main() {
           .set(_state(ShikooConnection.off, service: false));
       await tester.idle();
       expect(popup.view?.menu.head, 'اول وارد شو');
+      expect(row('وصل شدن').enabled, isFalse);
       container
           .read(shikooAccountProvider.notifier)
           .set(const ShikooAccount(who: TelegramAccount(name: 'Sam')));
       await tester.idle();
       expect(popup.view?.menu.head, 'سرویسی نداری');
+      expect(row('وصل شدن').enabled, isFalse);
 
       row('خروج').run();
       expect(_Exits.count, 1);
