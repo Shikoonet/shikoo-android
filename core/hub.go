@@ -682,7 +682,7 @@ func handleSetupConfig(params *SetupParams) string {
 }
 
 func init() {
-	adapter.UrlTestHook = func(url string, name string, delay uint16) {
+	adapter.UrlTestHook = func(url string, name string, delay uint16, _ bool) {
 		if !shouldPublishDelay(delay) {
 			return
 		}
