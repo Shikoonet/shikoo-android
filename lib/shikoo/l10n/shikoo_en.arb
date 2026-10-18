@@ -489,7 +489,7 @@
   "@approvedBodyOneDesktop": {"placeholders": {"account": {"type": "String"}}},
   "servicesFailedBodyDesktop": "You signed in with the Telegram account {account}, but the list of services didn't come from the server. Check this computer's internet and try again.",
   "@servicesFailedBodyDesktop": {"placeholders": {"account": {"type": "String"}}},
-  "rejectedBodyDesktop": "“Decline” was tapped in Telegram, so this computer isn't linked. If that was a mistake, try again.",
+  "rejectedBodyDesktop": "“Decline” was pressed in Telegram, so this computer isn't linked. If that was a mistake, try again.",
   "codeFailedHelpDesktop": "Check your computer's internet and press again.",
   "approvedBodyChooseDesktop": "This computer is now linked to the Telegram account {account}.",
   "@approvedBodyChooseDesktop": {"placeholders": {"account": {"type": "String"}}},

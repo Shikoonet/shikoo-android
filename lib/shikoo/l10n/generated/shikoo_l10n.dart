@@ -2141,7 +2141,7 @@ abstract class ShikooL10n {
   /// No description provided for @rejectedBodyDesktop.
   ///
   /// In en, this message translates to:
-  /// **'“Decline” was tapped in Telegram, so this computer isn\'t linked. If that was a mistake, try again.'**
+  /// **'“Decline” was pressed in Telegram, so this computer isn\'t linked. If that was a mistake, try again.'**
   String get rejectedBodyDesktop;
 
   /// No description provided for @codeFailedHelpDesktop.

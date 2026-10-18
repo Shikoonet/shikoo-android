@@ -1353,7 +1353,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get rejectedBodyDesktop =>
-      '“Decline” was tapped in Telegram, so this computer isn\'t linked. If that was a mistake, try again.';
+      '“Decline” was pressed in Telegram, so this computer isn\'t linked. If that was a mistake, try again.';
 
   @override
   String get codeFailedHelpDesktop =>

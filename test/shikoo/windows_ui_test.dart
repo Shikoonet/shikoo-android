@@ -28,8 +28,21 @@ import 'package:tray/tray.dart';
 import '../helpers/no_shots.dart';
 
 final _windows = TargetPlatformVariant.only(TargetPlatform.windows);
+const _computerAndPhone = TargetPlatformVariant({
+  TargetPlatform.windows,
+  TargetPlatform.android,
+});
 
 class _Controller extends Mock implements ShikooController {}
+
+class _Mode extends ShikooModeNotifier {
+  _Mode(this.mode);
+
+  final ShikooMode mode;
+
+  @override
+  ShikooMode build() => mode;
+}
 
 ShikooState _state(
   ShikooConnection connection, {
@@ -604,10 +617,17 @@ void main() {
       for (final language in ['fa', 'en']) {
         final locale = Locale(language);
         final l = lookupShikooL10n(locale);
+        // The port is the proxy's: only the proxy mode can find it taken.
         final cases = [
-          (l.vpnRefusedDesktop, ShikooError.vpnRefused, null, false),
-          (l.busyPortDesktop, null, 7890, false),
-          (l.helperFailedDesktop, null, null, true),
+          (
+            l.vpnRefusedDesktop,
+            ShikooError.vpnRefused,
+            null,
+            false,
+            ShikooMode.tunnel,
+          ),
+          (l.busyPortDesktop, null, 7890, false, ShikooMode.proxy),
+          (l.helperFailedDesktop, null, null, true, ShikooMode.tunnel),
         ];
         for (final window in const [Size(880, 508), Size(400, 448)]) {
           for (final scale in const [1.0, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5]) {
@@ -619,7 +639,7 @@ void main() {
               locale: locale,
             );
             final rest = tester.getRect(find.byType(PowerButton));
-            for (final (text, error, port, helper) in cases) {
+            for (final (text, error, port, helper, mode) in cases) {
               await _pumpHome(
                 tester,
                 window,
@@ -628,6 +648,7 @@ void main() {
                 busyPort: port,
                 helperFailed: helper,
                 locale: locale,
+                overrides: [shikooModeProvider.overrideWith(() => _Mode(mode))],
               );
               await tester.pump();
               final why = '$language $window ×$scale: $text';
@@ -635,6 +656,13 @@ void main() {
               final box = tester.getRect(message);
               final paragraph = tester.renderObject<RenderParagraph>(message);
               expect(paragraph.didExceedMaxLines, isFalse, reason: why);
+              expect(
+                paragraph.size.height,
+                greaterThanOrEqualTo(
+                  paragraph.getMaxIntrinsicHeight(paragraph.size.width) - 0.01,
+                ),
+                reason: '$why: cut short',
+              );
               expect(
                 paragraph.text.style?.color,
                 ShikooColors.light.danger,
@@ -784,6 +812,8 @@ void main() {
   ) async {
     const en = Locale('en');
     final l = lookupShikooL10n(en);
+    String pick(String computer, String phone) =>
+        shikooDesktop ? computer : phone;
     Future<void> home(
       ShikooConnection connection, {
       ShikooError? error,
@@ -797,12 +827,18 @@ void main() {
       locale: en,
     );
     await home(ShikooConnection.connecting);
-    expect(find.text(l.subCancelDesktop), findsOne);
+    expect(find.text(pick(l.subCancelDesktop, l.subCancelTouch)), findsOne);
     await home(ShikooConnection.error, error: ShikooError.connectTimeout);
-    expect(find.text(l.subRetryDesktop), findsOne);
-    expect(find.textContaining('seconds. Click again'), findsOne);
+    expect(find.text(pick(l.subRetryDesktop, l.subRetryTouch)), findsOne);
+    expect(
+      find.textContaining(pick('seconds. Click again', 'seconds. Tap again')),
+      findsOne,
+    );
     await home(ShikooConnection.on, notice: const RefreshFailed());
-    expect(find.textContaining(l.updateFailedDesktop), findsOne);
+    expect(
+      find.textContaining(pick(l.updateFailedDesktop, l.updateFailedTouch)),
+      findsOne,
+    );
     await tester.pumpWidget(
       _app(
         locale: en,
@@ -818,7 +854,10 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.textContaining(l.noServiceHelpDesktop), findsOne);
+    expect(
+      find.textContaining(pick(l.noServiceHelpDesktop, l.noServiceHelpTouch)),
+      findsOne,
+    );
 
     Future<void> page(
       Widget home, {
@@ -841,7 +880,10 @@ void main() {
     }
 
     await page(const LoginPage(login: null));
-    expect(find.text(l.loginTelegramNoteDesktop), findsOne);
+    expect(
+      find.text(pick(l.loginTelegramNoteDesktop, l.loginTelegramNote)),
+      findsOne,
+    );
     await page(
       const ShikooHome(),
       state: const ShikooState(
@@ -851,7 +893,10 @@ void main() {
         servers: [],
       ),
     );
-    expect(find.text(l.noServiceHelpPasteDesktop), findsOne);
+    expect(
+      find.text(pick(l.noServiceHelpPasteDesktop, l.noServiceHelpPaste)),
+      findsOne,
+    );
     final controller = _Controller();
     await page(
       Scaffold(
@@ -863,7 +908,10 @@ void main() {
         ),
       ),
     );
-    expect(find.text(l.otherServiceHintDesktop), findsWidgets);
+    expect(
+      find.text(pick(l.otherServiceHintDesktop, l.otherServiceHint)),
+      findsWidgets,
+    );
     when(() => controller.pasteService(any())).thenAnswer(
       (_) async => (error: ShikooPasteError.empty, id: null, added: false),
     );
@@ -882,7 +930,10 @@ void main() {
     await tester.tap(find.text(l.pasteLink));
     await tester.pump();
     await tester.pump();
-    expect(find.textContaining(l.pasteEmptyHelpDesktop), findsOne);
+    expect(
+      find.textContaining(pick(l.pasteEmptyHelpDesktop, l.pasteEmptyHelp)),
+      findsOne,
+    );
     for (final text in [
       l.subCancelDesktop,
       l.subRetryDesktop,
@@ -896,50 +947,39 @@ void main() {
     ]) {
       expect(text, isNot(contains(RegExp('[Tt]ap'))));
     }
-  }, variant: _windows);
+  }, variant: _computerAndPhone);
 
-  testWidgets(
-    'the other-device page asks a computer for a phone with '
-    'Telegram, and a phone for another one',
-    (tester) async {
-      for (final language in ['fa', 'en']) {
-        final locale = Locale(language);
-        final l = lookupShikooL10n(locale);
-        _window(tester, const Size(400, 800));
-        await tester.pumpWidget(
-          _app(
-            locale: locale,
-            const LoginPage(
-              login: ShikooLogin(
-                LoginPhase.waiting,
-                code: '12345678',
-                botUrl: 'https://t.me/shikoonet_bot?start=x',
-              ),
+  testWidgets('the other-device page asks a computer for a phone with '
+      'Telegram, and a phone for another one', (tester) async {
+    for (final language in ['fa', 'en']) {
+      final locale = Locale(language);
+      final l = lookupShikooL10n(locale);
+      _window(tester, const Size(400, 800));
+      await tester.pumpWidget(
+        _app(
+          locale: locale,
+          const LoginPage(
+            login: ShikooLogin(
+              LoginPhase.waiting,
+              code: '12345678',
+              botUrl: 'https://t.me/shikoonet_bot?start=x',
             ),
-            overrides: [
-              shikooStateProvider.overrideWithValue(
-                _state(ShikooConnection.off),
-              ),
-            ],
           ),
-        );
-        await tester.pump();
-        await tester.tap(find.text(l.approveElsewhere));
-        await tester.pump();
-        expect(
-          find.text(
-            shikooDesktop ? l.otherDeviceScanDesktop : l.otherDeviceScan,
-          ),
-          findsOne,
-          reason: language,
-        );
-      }
-    },
-    variant: const TargetPlatformVariant({
-      TargetPlatform.windows,
-      TargetPlatform.android,
-    }),
-  );
+          overrides: [
+            shikooStateProvider.overrideWithValue(_state(ShikooConnection.off)),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text(l.approveElsewhere));
+      await tester.pump();
+      expect(
+        find.text(shikooDesktop ? l.otherDeviceScanDesktop : l.otherDeviceScan),
+        findsOne,
+        reason: language,
+      );
+    }
+  }, variant: _computerAndPhone);
 
   testWidgets('the mouse lights nothing that is greyed out: a button that '
       'keeps the ring, the mode switch while connecting', (tester) async {

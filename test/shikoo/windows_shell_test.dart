@@ -131,12 +131,26 @@ void main() {
         'desktopFrame:system.isWindows?(page)=>ShikooWindow(child:page):null',
       ),
     );
-    expect(app, contains('}elseif(system.isDesktop){ringOnKeys();}'));
+    expect(app, contains('isDesktop:system.isDesktop,'));
     expect(
-      flat('lib/shikoo/app/main.dart'),
+      app,
+      contains(
+        'if(system.isTV){FocusManager.instance.highlightStrategy='
+        'FocusHighlightStrategy.alwaysTraditional;}'
+        'elseif(system.isDesktop){ringOnKeys();}',
+      ),
+    );
+    final main = flat('lib/shikoo/app/main.dart');
+    expect(
+      main,
       contains('shikooAutostarted=args.contains(shikooAutostartArg);'),
     );
+    expect(
+      main,
+      contains('if(system.isWindows)awaitshikooWindowStart(container);'),
+    );
     final desktop = flat('lib/shikoo/app/desktop.dart');
+    expect(desktop, contains('if(autoLaunch!=null){'));
     expect(desktop, contains('args:const[shikooAutostartArg],'));
     expect(
       desktop,
@@ -229,11 +243,12 @@ void main() {
     expect(container.read(appSettingProvider).autoLaunch, isFalse);
   }, variant: _windows);
 
-  testWidgets('a greyed-out press takes the tap, so nothing under it acts', (
-    tester,
-  ) async {
+  testWidgets('a greyed-out press takes the tap, so nothing under it acts, '
+      'and leaves the focus where it was', (tester) async {
     _size(tester, const Size(400, 480));
     var under = 0;
+    final other = FocusNode();
+    addTearDown(other.dispose);
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.rtl,
@@ -241,20 +256,30 @@ void main() {
           data: shikooThemeData(Brightness.light, tv: false),
           child: GestureDetector(
             onTap: () => under++,
-            child: Center(
-              child: Pressable(
-                onPressed: null,
-                shape: const CircleBorder(),
-                builder: (_, _) => const SizedBox.square(dimension: 48),
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Focus(
+                  focusNode: other,
+                  child: const SizedBox.square(dimension: 8),
+                ),
+                Pressable(
+                  onPressed: null,
+                  shape: const CircleBorder(),
+                  builder: (_, _) => const SizedBox.square(dimension: 48),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+    other.requestFocus();
+    await tester.pump();
     await tester.tap(find.byType(Pressable));
     await tester.pump();
     expect(under, 0);
+    expect(other.hasPrimaryFocus, isTrue);
   }, variant: _windows);
 
   testWidgets('«تلگرام روی این کامپیوتر نیست؟» keeps to the 960 page too', (
