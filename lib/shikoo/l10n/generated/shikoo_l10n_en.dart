@@ -1357,7 +1357,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get codeFailedHelpDesktop =>
-      'Check your computer\'s internet and press again.';
+      'Check your computer\'s internet and click again.';
 
   @override
   String approvedBodyChooseDesktop(String account) {
@@ -1392,7 +1392,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get pasteOfflineHelpDesktop =>
-      'Check your computer\'s internet and press again.';
+      'Check your computer\'s internet and click again.';
 
   @override
   String get addServiceHelpDesktop =>

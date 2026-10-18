@@ -2147,7 +2147,7 @@ abstract class ShikooL10n {
   /// No description provided for @codeFailedHelpDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Check your computer\'s internet and press again.'**
+  /// **'Check your computer\'s internet and click again.'**
   String get codeFailedHelpDesktop;
 
   /// No description provided for @approvedBodyChooseDesktop.
@@ -2189,7 +2189,7 @@ abstract class ShikooL10n {
   /// No description provided for @pasteOfflineHelpDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Check your computer\'s internet and press again.'**
+  /// **'Check your computer\'s internet and click again.'**
   String get pasteOfflineHelpDesktop;
 
   /// No description provided for @addServiceHelpDesktop.

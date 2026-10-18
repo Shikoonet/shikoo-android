@@ -727,24 +727,51 @@ void main() {
           ),
         );
         await tester.pump();
-        final view = tester.getRect(
-          find
-              .ancestor(
-                of: find.byType(PowerButton),
-                matching: find.byType(SingleChildScrollView),
-              )
-              .first,
+        // Where Flutter draws the thumb, wherever its side and margin put it.
+        final bar = find
+            .descendant(
+              of: find
+                  .ancestor(
+                    of: find.byType(PowerButton),
+                    matching: find.byType(SingleChildScrollView),
+                  )
+                  .first,
+              matching: find.byWidgetPredicate(
+                (w) =>
+                    w is CustomPaint && w.foregroundPainter is ScrollbarPainter,
+              ),
+            )
+            .first;
+        await tester.drag(
+          find.byType(PowerButton),
+          const Offset(0, -20),
+          kind: PointerDeviceKind.mouse,
         );
+        await tester.pump(const Duration(milliseconds: 50));
+        final painter =
+            tester.widget<CustomPaint>(bar).foregroundPainter!
+                as ScrollbarPainter;
+        final box = tester.getRect(bar);
         final pill = tester.getRect(find.byType(NowPill));
+        final thumb = [
+          for (var x = box.left; x <= box.right; x++)
+            if (painter.hitTestOnlyThumbInteractive(
+              Offset(x - box.left, pill.center.dy - box.top),
+              PointerDeviceKind.mouse,
+            ))
+              x,
+        ];
         expect(
-          pill.left,
-          greaterThanOrEqualTo(view.left + ShikooSizes.scrollbar),
-          reason: language,
+          thumb,
+          isNotEmpty,
+          reason: '$language: no thumb beside the pill',
         );
         expect(
-          pill.right,
-          lessThanOrEqualTo(view.right - ShikooSizes.scrollbar),
-          reason: language,
+          thumb.where((x) => x >= pill.left && x < pill.right),
+          isEmpty,
+          reason:
+              '$language: pill ${pill.left}..${pill.right}, '
+              'thumb ${thumb.first}..${thumb.last}',
         );
         final message = tester
             .widget<Text>(find.textContaining('\u2068premium'))
