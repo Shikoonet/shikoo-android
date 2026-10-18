@@ -5,44 +5,104 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Dart, Rust, CMake, build_config.yaml and the installer name one '
-      "helper service, core, pipe and port, none of them FlClash's", () {
+      'helper service, pipe and port per flavor, and close only their own '
+      "processes, none of them FlClash's", () {
     const core = 'ShikooNetCore';
     String read(String path) => File(path).readAsStringSync();
+    final iss = read('windows/packaging/exe/inno_setup.iss');
 
     expect(appHelperService, 'ShikooNetHelperService');
-    expect(helperPort, isNot(47890));
-    expect(windowsPipeName, startsWith('\\\\.\\pipe\\${core}_'));
     expect(
       read('build_config.yaml'),
       allOf(
         contains('core_name: $core\n'),
         contains('helper_name: $appHelperService\n'),
+        contains('flavor: production\n'),
       ),
     );
     expect(read('lib/common/path.dart'), contains("'$core\$executable"));
     expect(
-      read('services/helper/src/service/windows.rs'),
-      contains('SERVICE_NAME: &str = "$appHelperService";'),
+      read('lib/common/constant.dart'),
+      allOf(
+        contains(
+          "const appName = shikooStagingBuild ? 'ShikooNet Test' : 'ShikooNet';",
+        ),
+        contains("\${shikooStagingBuild ? 'ShikooNetTestCore' : '$core'}_"),
+        contains('const helperPort = shikooStagingBuild ? 47892 : 47891;'),
+      ),
     );
+    expect(read('lib/shikoo/app/main.dart'), contains('shikooStagingBuild ||'));
     expect(
       read('services/helper/src/service/hub.rs'),
       allOf(
-        contains('LISTEN_PORT: u16 = $helperPort;'),
-        contains('CORE_PIPE_PREFIX: &str = r"\\\\.\\pipe\\${core}_";'),
+        contains(
+          'LISTEN_PORT: u16 = if cfg!(shikoo_staging) { 47892 } else { 47891 };',
+        ),
+        contains(
+          '    r"\\\\.\\pipe\\ShikooNetTestCore_"\n'
+          '} else {\n'
+          '    r"\\\\.\\pipe\\${core}_"\n',
+        ),
       ),
     );
+    expect(
+      read('services/helper/src/service/windows.rs'),
+      contains(
+        'SERVICE_NAME: &str = if cfg!(shikoo_staging) {\n'
+        '    "ShikooNetTestHelperService"\n'
+        '} else {\n'
+        '    "$appHelperService"\n',
+      ),
+    );
+    expect(
+      read('services/helper/build.rs'),
+      contains('std::env::var("SHIKOO_FLAVOR").as_deref() == Ok("staging")'),
+    );
+    expect(
+      read('plugins/setup/setup_hooks/lib/src/rust_builder.dart'),
+      allOf(
+        contains("'SHIKOO_FLAVOR': config.flavor,"),
+        contains(
+          "..addAll([...harnessInputs, p.join(rootDir, 'build_config.yaml')]);",
+        ),
+      ),
+    );
+    expect(
+      iss,
+      allOf(
+        contains('#define Service "ShikooNetTestHelperService"\n'),
+        contains('#define Service "$appHelperService"\n'),
+        contains("'delete {#Service}'"),
+        contains(
+          'Get-Process ShikooNet,$core,$appHelperService -ErrorAction '
+          r"SilentlyContinue | Where-Object { $_.Path -like ''' +",
+        ),
+        contains("ExpandConstant('{app}') + '\\*''"),
+        isNot(contains('taskkill')),
+      ),
+    );
+    for (final file in ['services/helper/build.rs', 'windows/CMakeLists.txt']) {
+      expect(read(file), contains('$core.exe'), reason: file);
+    }
     for (final file in [
       'services/helper/build.rs',
       'windows/CMakeLists.txt',
       'windows/packaging/exe/inno_setup.iss',
     ]) {
-      final text = read(file);
-      expect(text, contains('$core.exe'), reason: file);
-      expect(text, isNot(contains('FlClash')), reason: file);
+      expect(read(file), isNot(contains('FlClash')), reason: file);
     }
+  });
+
+  test('the names this test was compiled with follow SHIKOO_FLAVOR', () {
+    expect(helperPort, shikooStagingBuild ? 47892 : 47891);
+    expect(appName, shikooStagingBuild ? 'ShikooNet Test' : 'ShikooNet');
     expect(
-      read('windows/packaging/exe/inno_setup.iss'),
-      contains("'$appName.exe', '$core.exe', '$appHelperService.exe'"),
+      windowsPipeName,
+      startsWith(
+        shikooStagingBuild
+            ? r'\\.\pipe\ShikooNetTestCore_'
+            : r'\\.\pipe\ShikooNetCore_',
+      ),
     );
   });
 
@@ -54,15 +114,19 @@ void main() {
     expect(
       read('windows/runner/Runner.rc'),
       allOf(
-        contains('VALUE "CompanyName", "$appName"'),
-        contains('VALUE "ProductName", "$appName"'),
+        contains('VALUE "CompanyName", "ShikooNet"'),
+        contains('VALUE "ProductName", SHIKOO_TITLE "\\0"'),
       ),
+    );
+    expect(
+      read('windows/CMakeLists.txt'),
+      contains('else()\n  set(SHIKOO_TITLE "ShikooNet")\nendif()\n'),
     );
     expect(
       read('windows/packaging/exe/make_config.yaml'),
       allOf(
         contains('app_id: F4E58B87-08F9-43F1-8B65-640490A48F0E\n'),
-        contains('executable_name: $appName.exe\n'),
+        contains('executable_name: ShikooNet.exe\n'),
         contains('publisher_url: https://t.me/shikoonet\n'),
       ),
     );
@@ -72,7 +136,7 @@ void main() {
         iss,
         allOf(
           contains(
-            'Type: filesandordirs; Name: "{$root}\\$appName\\$appName"\n',
+            'Type: filesandordirs; Name: "{$root}\\ShikooNet\\{#Title}"\n',
           ),
           isNot(contains('Name: "{$root}"')),
         ),
@@ -84,5 +148,153 @@ void main() {
       read('lib/common/window.dart'),
       isNot(contains('protocol.register(')),
     );
+  });
+
+  test('the installer is English only, in three pages ending in Install, '
+      'installs the helper service on every install, over an old one too, '
+      'and the uninstall removes it', () {
+    String read(String path) => File(path).readAsStringSync();
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+
+    expect(
+      read('windows/packaging/exe/make_config.yaml'),
+      contains('locales:\n  - lang: en\nprivileges_required'),
+    );
+    expect(iss, isNot(contains(RegExp('[؀-ۿ]'))));
+    expect(
+      iss,
+      allOf(contains('DisableDirPage=yes'), contains('DisableReadyPage=yes')),
+    );
+    expect(
+      iss,
+      contains(
+        'procedure CurPageChanged(CurPageID: Integer);\n'
+        'begin\n'
+        '  if CurPageID = wpSelectTasks then\n'
+        '    WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);\n'
+        'end;\n',
+      ),
+    );
+    final service = iss
+        .split('\n')
+        .where((line) => line.contains('"{app}\\$appHelperService.exe"'))
+        .toList();
+    expect(service, hasLength(1));
+    expect(service.single, contains('Parameters: "install"'));
+    expect(service.single, isNot(matches(RegExp('postinstall|skipifsilent'))));
+    final sections = RegExp(
+      r'^\[\w+\]$',
+      multiLine: true,
+    ).allMatches(iss.substring(0, iss.indexOf(service.single)));
+    expect(sections.last[0], '[Run]');
+    final unregister = RegExp(
+      r'procedure UnregisterHelperService;[\s\S]*?\nend;',
+    ).firstMatch(iss)![0]!;
+    final orElse = unregister.indexOf('  end\n  else\n');
+    expect(orElse, isNot(-1));
+    expect(
+      unregister.substring(orElse),
+      contains("Exec(ExpandConstant('{sys}\\sc.exe'), 'delete {#Service}'"),
+    );
+    for (final hook in ['PrepareToInstall', 'InitializeUninstall']) {
+      expect(
+        iss,
+        matches(
+          RegExp(
+            'function $hook\\([^)]*\\):[^;]*;[\\s\\S]*?begin\\s*UnregisterHelperService;',
+          ),
+        ),
+        reason: hook,
+      );
+    }
+  });
+
+  test('SHIKOO_FLAVOR=staging builds "ShikooNet Test": its own installer id, '
+      'name, program and data folders and Start menu entry; and a silent '
+      'install opens the app again', () {
+    String read(String path) => File(path).readAsStringSync();
+    const title = 'ShikooNet Test';
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+
+    expect(
+      read('windows/CMakeLists.txt'),
+      allOf(
+        contains(
+          'if("\$ENV{SHIKOO_FLAVOR}" STREQUAL "staging")\n'
+          '  set(SHIKOO_TITLE "$title")\n',
+        ),
+        contains(
+          r'target_compile_definitions(${BINARY_NAME} PRIVATE '
+          r'"SHIKOO_TITLE=\"${SHIKOO_TITLE}\"")',
+        ),
+      ),
+    );
+    expect(
+      read('windows/runner/main.cpp'),
+      contains('window.Create(L"" SHIKOO_TITLE, origin, size)'),
+    );
+    expect(
+      iss,
+      contains(
+        '#if GetEnv("SHIKOO_FLAVOR") == "staging"\n'
+        '#define Title "$title"\n'
+        '#define Id "D6F866A6-CE01-4C34-A9C5-C49D6D030A27"\n'
+        '#define Service "ShikooNetTestHelperService"\n'
+        '#else\n'
+        '#define Title "{{DISPLAY_NAME}}"\n'
+        '#define Id "{{APP_ID}}"\n'
+        '#define Service "ShikooNetHelperService"\n'
+        '#endif\n'
+        '#pragma message "ShikooNet installer: " + Title + ", id " + Id + '
+        '", service " + Service\n'
+        '[Setup]\n'
+        'AppId={#Id}\n',
+      ),
+    );
+    for (final line in [
+      'AppName={#Title}\n',
+      'DefaultDirName={autopf64}\\{#Title}\n',
+      'UninstallDisplayName={#Title}\n',
+      r'Name: "{autoprograms}\{#Title}";',
+    ]) {
+      expect(iss, contains(line));
+    }
+    expect('{{DISPLAY_NAME}}'.allMatches(iss), hasLength(1));
+    expect('{{APP_ID}}'.allMatches(iss), hasLength(1));
+    expect(
+      iss,
+      contains(
+        'postinstall skipifsilent\n'
+        r'Filename: "{app}\\{{EXECUTABLE_NAME}}"; '
+        'Flags: runasoriginaluser nowait skipifnotsilent\n',
+      ),
+    );
+  });
+
+  test("an uninstall or an upgrade puts Windows' proxy back once the app is "
+      'closed, before its data goes', () {
+    final iss = File('windows/packaging/exe/inno_setup.iss').readAsStringSync();
+    const uninstall =
+        r'Filename: "{app}\ShikooNet.exe"; Parameters: "--restore-proxy"; '
+        r'Flags: runhidden waituntilterminated; RunOnceId: "ShikooRestoreProxy"'
+        '\n';
+    final at = iss.indexOf(uninstall);
+    expect(at, isNot(-1));
+    final sections = RegExp(
+      r'^\[\w+\]$',
+      multiLine: true,
+    ).allMatches(iss.substring(0, at));
+    expect(sections.last[0], '[UninstallRun]');
+    String body(String hook) =>
+        RegExp('function $hook[\\s\\S]*?\\nend;').firstMatch(iss)![0]!;
+    expect(
+      body('PrepareToInstall'),
+      contains(
+        '  KillProcesses;\n'
+        r"  Exec(ExpandConstant('{app}\ShikooNet.exe'), '--restore-proxy', '', "
+        'SW_HIDE, ewWaitUntilTerminated, ResultCode);\n',
+      ),
+    );
+    expect(body('InitializeUninstall'), contains('  KillProcesses;\n'));
   });
 }
