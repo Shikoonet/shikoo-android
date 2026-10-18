@@ -14,9 +14,6 @@ final class _Value extends Union {
   external int dword;
 
   external Pointer<Utf16> text;
-
-  @Array(2)
-  external Array<Uint32> filetime;
 }
 
 final class _Option extends Struct {
