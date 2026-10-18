@@ -9,15 +9,18 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tray/tray.dart';
+import 'package:win32/win32.dart' show SetCursorPos;
 
 /// The real menu beside the clock over a made-up state, for its pictures and for a look after
 /// a FlClash update; it never connects. Build it with
 /// `flutter build windows -t test/shikoo/tray_harness.dart`, run
 /// `ShikooNet.exe <off|connecting|on|signin|noservice> <light|dark> [fa|en]`, right-click. Its
 /// window stays hidden and FlClash stops the frames after five seconds, as in the app.
+/// A last word `open` opens the menu at 1400,900 after 7 s and quits after 30 s; no clicks.
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadShikooFonts();
@@ -84,6 +87,22 @@ void main(List<String> args) async {
     ),
   );
   render?.pause();
+  if (args.contains('open')) {
+    Timer(const Duration(seconds: 7), () {
+      SetCursorPos(1400, 900);
+      ServicesBinding.instance.channelBuffers.push(
+        'tray',
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('onMenuRequested'),
+        ),
+        (_) {},
+      );
+    });
+    Timer(const Duration(seconds: 30), () async {
+      await Tray.instance.hide();
+      exit(0);
+    });
+  }
 }
 
 class _Look extends ShikooLookNotifier {
