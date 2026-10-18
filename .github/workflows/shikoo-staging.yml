@@ -26,7 +26,6 @@ env:
   STAGING_BOT: ${{ vars.SHIKOO_STAGING_BOT || 'shikoodevbot' }}
   RELEASE_CERT_SHA256: dbf909bae41e5aaf30e55b345a195e913cff5ae34d6d97d586e1b95b0d9c29de
   STAGING_CERT_DN: CN=ShikooNet Staging
-  UPDATE_PUBLIC_KEY: ''
 
 jobs:
   build:
@@ -239,20 +238,10 @@ jobs:
     needs: build
     runs-on: windows-2022
     timeout-minutes: 90
-    permissions:
-      contents: write
     defaults:
       run:
         shell: bash
     steps:
-      - name: The update key, before any Windows minute goes to an installer that could not ship
-        env:
-          UPDATE_KEY_B64: ${{ secrets.SHIKOO_UPDATE_KEY_B64 }}
-        run: |
-          [ -n "$UPDATE_KEY_B64" ] ||
-            { echo "::error::set the secret SHIKOO_UPDATE_KEY_B64 (make-update-key.ps1): an installer without our seal never ships"; exit 1; }
-          printf 'VN=%s\nAPI=%s\nBOT=%s\n' "$VERSION_PREFIX.$GITHUB_RUN_NUMBER" "${STAGING_API%/}" "${STAGING_BOT#@}" >>"$GITHUB_ENV"
-
       - name: LF line endings and long paths before the checkout, so the core's files are byte for byte the Linux job's
         run: |
           git config --global core.autocrlf false
@@ -317,6 +306,7 @@ jobs:
       - name: Staging and production installers
         run: |
           set -euo pipefail
+          VN=$VERSION_PREFIX.$GITHUB_RUN_NUMBER API=${STAGING_API%/} BOT=${STAGING_BOT#@}
           dart pub global activate -s git https://github.com/chen08209/flutter_distributor.git \
             --git-ref v0.6.11-flclash.2 --git-path packages/flutter_distributor
           # Inno's AppVersion is pubspec's version; FlClash's 0.8.98 would show in «Programs and Features»
@@ -329,31 +319,72 @@ jobs:
               --build-dart-define APP_ENV=stable --build-dart-define SHIKOO_CORE="$CORE" "${@:2}"
             mv "dist/$1" out/
             staging=$(grep -caF "$API" build/windows/x64/runner/Release/data/app.so || true)
+            product=$(pwsh -NoProfile -Command "(Get-Item 'out/$1').VersionInfo.ProductName.Trim()" | tr -d '\r')
           }
+          export SHIKOO_FLAVOR=staging
           package "ShikooNet-$VN-staging-windows-x64.exe" --build-dart-define SHIKOO_API="$API" --build-dart-define SHIKOO_BOT="$BOT"
-          [ "$staging" -gt 0 ] || { echo "::error::the staging installer does not carry the staging server"; exit 1; }
+          [[ $product == 'ShikooNet Test' && $staging -gt 0 ]] ||
+            { echo "::error::the staging installer is '$product' and carries the staging server $staging times"; exit 1; }
+          unset SHIKOO_FLAVOR
           package "ShikooNet-$VN-windows-x64.exe"
-          [ "$staging" -eq 0 ] || { echo "::error::the production installer carries the staging server $staging times"; exit 1; }
+          [[ $product == ShikooNet && $staging -eq 0 ]] ||
+            { echo "::error::the production installer is '$product' and carries the staging server $staging times"; exit 1; }
 
-      - name: Seal each installer with the update key, then forget the key
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: installers
+          path: out/*.exe
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: true
+
+  seal:
+    needs: [build, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: installers
+          path: out
+
+      - name: Seal each installer with its Android key, whose public half the app must hold
         env:
-          UPDATE_KEY_B64: ${{ secrets.SHIKOO_UPDATE_KEY_B64 }}
+          STAGING_KEYSTORE_B64: ${{ secrets.SHIKOO_STAGING_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_B64: ${{ secrets.SHIKOO_RELEASE_KEYSTORE_B64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.SHIKOO_RELEASE_STORE_PASSWORD }}
         run: |
           set -euo pipefail
-          key=$RUNNER_TEMP/update-key.der && trap 'rm -f "$key" "$RUNNER_TEMP"/seal.*' EXIT
-          openssl version
-          (umask 077 && base64 -di <<<"$UPDATE_KEY_B64" >"$key")
-          openssl pkey -inform DER -in "$key" -pubout -outform DER -out "$RUNNER_TEMP/seal.pub"
-          [ "$(wc -c <"$RUNNER_TEMP/seal.pub")" -eq 44 ] || { echo "::error::SHIKOO_UPDATE_KEY_B64 is not an Ed25519 key"; exit 1; }
-          pub=$(tail -c 32 "$RUNNER_TEMP/seal.pub" | base64 -w0)
-          echo "Update public key: \`$pub\`" | tee -a "$GITHUB_STEP_SUMMARY"
-          [ -z "$UPDATE_PUBLIC_KEY" ] || [ "$pub" = "$UPDATE_PUBLIC_KEY" ] ||
-            { echo "::error::SHIKOO_UPDATE_KEY_B64 is not the key of UPDATE_PUBLIC_KEY $UPDATE_PUBLIC_KEY"; exit 1; }
-          for exe in out/*.exe; do
-            printf '%s:%s' "$GITHUB_RUN_NUMBER" "$(sha256sum -b "$exe" | cut -c1-64)" >"$RUNNER_TEMP/seal.msg"
-            openssl pkeyutl -sign -rawin -keyform DER -inkey "$key" -in "$RUNNER_TEMP/seal.msg" -out "$RUNNER_TEMP/seal.sig"
-            echo "$GITHUB_RUN_NUMBER $(base64 -w0 "$RUNNER_TEMP/seal.sig")" >"$exe.sig"
-          done
+          keys=$RUNNER_TEMP/seal && trap 'rm -rf "$keys"' EXIT
+          (umask 077 && mkdir "$keys")
+          seal() {
+            local exe=out/$1 want have
+            want=$(grep -zoP "const windowsSealKey$2\s*=\s*'\K[A-Za-z0-9+/]+=*(?=';)" lib/shikoo/engine/update.dart | tr -d '\0' || true)
+            [ -n "$want" ] || { echo "::error::lib/shikoo/engine/update.dart holds no windowsSealKey$2 = '<base64>'"; exit 1; }
+            [ -n "$3" ] || { echo "::error::the keystore for $1 is not in the secrets"; exit 1; }
+            base64 -d <<<"$3" >"$keys/keystore.p12"
+            KEY_PASS=$4 openssl pkcs12 -in "$keys/keystore.p12" -passin env:KEY_PASS -nocerts -nodes -out "$keys/key.pem"
+            openssl pkey -in "$keys/key.pem" -pubout -out "$keys/public.pem"
+            have=$(openssl pkey -pubin -in "$keys/public.pem" -outform DER | base64 -w0)
+            [ "$have" = "$want" ] || { echo "::error::the key for $1 is not the one windowsSealKey$2 names"; exit 1; }
+            printf 'shikoonet-windows-update:%s:%s' "$GITHUB_RUN_NUMBER" "$(sha256sum "$exe" | cut -c1-64)" >"$keys/message"
+            openssl dgst -sha256 -sign "$keys/key.pem" -out "$keys/seal" "$keys/message"
+            openssl dgst -sha256 -verify "$keys/public.pem" -signature "$keys/seal" "$keys/message"
+            { base64 -w0 "$keys/seal"; echo; } >"$exe.sig"
+            rm -f "$keys"/*
+          }
+          VN=$VERSION_PREFIX.$GITHUB_RUN_NUMBER
+          seal "ShikooNet-$VN-staging-windows-x64.exe" Staging "$STAGING_KEYSTORE_B64" android
+          seal "ShikooNet-$VN-windows-x64.exe" Production "$RELEASE_KEYSTORE_B64" "$RELEASE_STORE_PASSWORD"
+          echo "VN=$VN" >>"$GITHUB_ENV"
 
       - name: Installers, seals and their sums into the staging pre-release
         env:
@@ -370,7 +401,7 @@ jobs:
           gh release upload "staging-$VN" sums/SHA256SUMS --clobber
 
   door:
-    needs: [build, windows]
+    needs: [build, seal]
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
