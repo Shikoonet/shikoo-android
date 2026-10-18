@@ -18,7 +18,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
-final _apk = Uint8List.fromList(List.generate(20000, (i) => i * 7 % 256));
+/// Over three of the hash's 64 KiB reads, so hashing only the first one fails.
+final _apk = Uint8List.fromList(List.generate(200000, (i) => i * 7 % 256));
 final _sha = '${sha256.convert(_apk)}';
 
 /// Stands in for RSA, which the core's tests check against openssl: a seal holds only for its own key and message.
@@ -917,7 +918,7 @@ void main() {
       'a file changed before the install is deleted, with no disconnect',
       () async {
         final update = await ready();
-        exe().writeAsBytesSync([..._apk.sublist(0, 19999), 0]);
+        exe().writeAsBytesSync([..._apk.sublist(0, _apk.length - 1), 0]);
         await update.install();
         expect(events, isEmpty);
         expect(exe().existsSync(), isFalse);
