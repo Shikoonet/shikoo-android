@@ -1,5 +1,6 @@
 import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
@@ -15,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:riverpod/misc.dart' show Override;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tray/tray.dart';
@@ -22,6 +24,8 @@ import 'package:tray/tray.dart';
 import '../helpers/no_shots.dart';
 
 final _windows = TargetPlatformVariant.only(TargetPlatform.windows);
+
+class _Controller extends Mock implements ShikooController {}
 
 ShikooState _state(
   ShikooConnection connection, {
@@ -87,6 +91,7 @@ Future<void> _pumpHome(
   int more = 0,
   ShikooError? error,
   Locale locale = const Locale('fa'),
+  List<Override> overrides = const [],
 }) async {
   _window(tester, window);
   await tester.pumpWidget(
@@ -97,6 +102,7 @@ Future<void> _pumpHome(
         shikooStateProvider.overrideWithValue(
           _state(connection, more: more, error: error),
         ),
+        ...overrides,
       ],
     ),
   );
@@ -199,32 +205,35 @@ void main() {
     expect(stops.sublist(lap.length, 2 * lap.length), lap);
   }, variant: _windows);
 
-  testWidgets('the mode switch: tunnel first, proxy on a tap, still while '
-      'connecting', (tester) async {
-    await _pumpHome(tester, const Size(880, 508));
+  testWidgets('the mode switch shows the engine\'s mode, asks the engine for '
+      'another on a tap, and asks nothing while connecting', (tester) async {
+    registerFallbackValue(ShikooMode.tunnel);
+    final controller = _Controller();
+    when(() => controller.setMode(any())).thenAnswer((_) async {});
+    final engine = [shikooControllerProvider.overrideWithValue(controller)];
+    final l = lookupShikooL10n(const Locale('fa'));
+    await _pumpHome(tester, const Size(880, 508), overrides: engine);
+    expect(find.text(l.modeTunnelHint), findsOne);
+    await tester.tap(find.text(l.modeProxy));
+    await tester.pump();
+    verify(() => controller.setMode(ShikooMode.proxy)).called(1);
+
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ShikooHome)),
     );
-    expect(container.read(shikooModeProvider), ShikooMode.tunnel);
-    await tester.tap(find.text('پروکسی'));
+    await container.read(shikooModeProvider.notifier).save(ShikooMode.proxy);
     await tester.pump();
-    expect(container.read(shikooModeProvider), ShikooMode.proxy);
-    expect(
-      find.text('فقط مرورگر و برنامه‌هایی که از پروکسی ویندوز پیروی می‌کنند.'),
-      findsOne,
-    );
+    expect(find.text(l.modeProxyHint), findsOne);
 
     await _pumpHome(
       tester,
       const Size(880, 508),
       connection: ShikooConnection.connecting,
+      overrides: engine,
     );
-    final connecting = ProviderScope.containerOf(
-      tester.element(find.byType(ShikooHome)),
-    );
-    await tester.tap(find.text('پروکسی'), warnIfMissed: false);
+    await tester.tap(find.text(l.modeProxy), warnIfMissed: false);
     await tester.pump();
-    expect(connecting.read(shikooModeProvider), ShikooMode.tunnel);
+    verifyNever(() => controller.setMode(any()));
   }, variant: _windows);
 
   test('the tray menu is frame win-t-c, and the fox is gold only when on', () {

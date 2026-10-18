@@ -13,9 +13,9 @@ import 'package:fl_clash/models/models.dart' show Traffic, TrayState;
 import 'package:fl_clash/providers/providers.dart'
     show systemActionProvider, windowSettingProvider;
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
-import 'package:fl_clash/shikoo/ui/mode.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart' show restingFor;
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart' show BrandMark;
@@ -245,7 +245,7 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
       on: (
         connect: () => unawaited(controller.connect()),
         disconnect: () => unawaited(controller.disconnect()),
-        mode: (mode) => setMode(ref, mode),
+        mode: (mode) => unawaited(controller.setMode(mode)),
         open: () => unawaited(window?.show()),
         exit: _exit,
       ),
