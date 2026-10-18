@@ -500,7 +500,7 @@
   "orderServicesHelpDesktop": "On this computer only",
   "noTelegramHereDesktop": "No Telegram on this computer?",
   "pasteOfflineHelpDesktop": "Check your computer's internet and press again.",
-  "addServiceHelpDesktop": "Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this computer.",
+  "addServiceHelpDesktop": "Copy the ShikooNet subscription link of your other service, then click this button. It joins the others on this computer.",
   "serviceAlreadyHereDesktop": "This service is already on this computer.",
   "removeServiceBodyDesktop": "It's removed from this computer. The service itself stays as it is and comes back with the same link.",
   "removeServiceBodyConnectedDesktop": "You'll be disconnected and this service removed from this computer. The service itself stays as it is and comes back with the same link.",

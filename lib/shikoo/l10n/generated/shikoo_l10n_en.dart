@@ -1396,7 +1396,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get addServiceHelpDesktop =>
-      'Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this computer.';
+      'Copy the ShikooNet subscription link of your other service, then click this button. It joins the others on this computer.';
 
   @override
   String get serviceAlreadyHereDesktop =>

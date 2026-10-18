@@ -833,6 +833,9 @@ class _WideLayout extends StatelessWidget {
                   child: FocusTraversalGroup(
                     child: LayoutBuilder(
                       builder: (context, box) => SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: ShikooSizes.scrollbar,
+                        ),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(minHeight: box.maxHeight),
                           child: Center(child: power),
@@ -922,7 +925,8 @@ class _PowerZone extends StatelessWidget {
         (state.isTV
             ? l.errorConnect
             : (shikooDesktop ? l.errorConnectDesktop : l.errorConnectTouch))(
-          serverName(selected?.name ?? ''),
+          // A break may come after «·», never before it: no line opens with «· premium».
+          serverName(selected?.name ?? '').replaceAll(' ·\u00a0', '\u00a0· '),
           connectTimeout.inSeconds,
         ),
       ShikooError.noServer when checked => null,

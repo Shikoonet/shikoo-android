@@ -51,6 +51,7 @@ ShikooState _state(
   int? busyPort,
   bool helperFailed = false,
   ShikooNotice? notice,
+  String? server,
 }) => ShikooState(
   connection: connection,
   lastError: error,
@@ -66,12 +67,13 @@ ShikooState _state(
     updatedAt: DateTime.now(),
   ),
   servers: [
+    if (server != null) ShikooServer(name: server, type: 'Vless', ping: 84),
     const ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
     const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
     for (var i = 1; i <= more; i++)
       ShikooServer(name: 'سرور $i', type: 'Vless', ping: 100 + i),
   ],
-  selected: 'آلمان ۲',
+  selected: server ?? 'آلمان ۲',
   sorted: true,
 );
 
@@ -698,6 +700,57 @@ void main() {
             }
           }
         }
+      }
+    }, variant: _windows);
+
+    testWidgets('at 150% a long server name under the button keeps clear of '
+        "the column's scrollbar, and the timeout message keeps «·» with its "
+        'word', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      const long = 'Germany Frankfurt Hetzner 2 · premium';
+      for (final language in ['fa', 'en']) {
+        _window(tester, const Size(880, 508));
+        await tester.pumpWidget(
+          _app(
+            locale: Locale(language),
+            const ShikooHome(),
+            overrides: [
+              shikooStateProvider.overrideWithValue(
+                _state(
+                  ShikooConnection.error,
+                  error: ShikooError.connectTimeout,
+                  server: long,
+                ),
+              ),
+            ],
+          ),
+        );
+        await tester.pump();
+        final view = tester.getRect(
+          find
+              .ancestor(
+                of: find.byType(PowerButton),
+                matching: find.byType(SingleChildScrollView),
+              )
+              .first,
+        );
+        final pill = tester.getRect(find.byType(NowPill));
+        expect(
+          pill.left,
+          greaterThanOrEqualTo(view.left + ShikooSizes.scrollbar),
+          reason: language,
+        );
+        expect(
+          pill.right,
+          lessThanOrEqualTo(view.right - ShikooSizes.scrollbar),
+          reason: language,
+        );
+        final message = tester
+            .widget<Text>(find.textContaining('\u2068premium'))
+            .data!;
+        expect(message, contains('\u00a0· \u2068premium'), reason: language);
+        expect(message, isNot(contains(' ·')), reason: language);
       }
     }, variant: _windows);
 

@@ -2195,7 +2195,7 @@ abstract class ShikooL10n {
   /// No description provided for @addServiceHelpDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this computer.'**
+  /// **'Copy the ShikooNet subscription link of your other service, then click this button. It joins the others on this computer.'**
   String get addServiceHelpDesktop;
 
   /// No description provided for @serviceAlreadyHereDesktop.

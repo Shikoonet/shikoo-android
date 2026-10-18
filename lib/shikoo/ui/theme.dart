@@ -359,6 +359,9 @@ class ShikooSizes {
   /// Room for the focus ring, so it stays inside the TV's safe area (`.tv-top`, `.tv-settings`).
   static const ring = focusRingWidth + focusRingOffset;
   static const scrollThumb = 4.0;
+
+  /// Flutter's own on a computer, which the wide window's button column keeps clear of.
+  static const scrollbar = 8.0;
   static const qrSm = 200.0;
   static const buttonLg = 56.0;
   static const buttonLgText = 19.0;
