@@ -253,7 +253,11 @@ class _PressableState extends State<Pressable> {
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
-            widget.onPressed?.call();
+            // A computer's Enter or Space presses only what the ring shows: a click leaves none.
+            final ring =
+                FocusManager.instance.highlightMode ==
+                FocusHighlightMode.traditional;
+            if (!shikooDesktop || ring) widget.onPressed?.call();
             return null;
           },
         ),

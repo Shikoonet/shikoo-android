@@ -1141,6 +1141,43 @@ void main() {
     expect(focused(), 'فارسی');
   }, variant: _windows);
 
+  testWidgets('Enter or Space presses the round button only when the ring is '
+      'on it: not after a click, yes after Tab', (tester) async {
+    addTearDown(ringOnKeys());
+    final controller = _Controller();
+    when(controller.connect).thenAnswer((_) async {});
+    Future<void> home() => _pumpHome(
+      tester,
+      const Size(880, 508),
+      connection: ShikooConnection.off,
+      overrides: [shikooControllerProvider.overrideWithValue(controller)],
+    );
+    bool onPower() =>
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<PowerButton>() !=
+        null;
+
+    await home();
+    await tester.tap(find.byType(PowerButton), kind: PointerDeviceKind.mouse);
+    await tester.pump();
+    verify(controller.connect).called(1);
+    expect(onPower(), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    verifyNever(controller.connect);
+
+    await home();
+    for (var i = 0; i < 30 && !onPower(); i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+    }
+    expect(onPower(), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    verify(controller.connect).called(1);
+  }, variant: _windows);
+
   testWidgets('the ring waits for Tab or an arrow, and a click hides it '
       'again', (tester) async {
     addTearDown(ringOnKeys());
