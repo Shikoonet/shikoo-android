@@ -317,5 +317,33 @@ void main() {
         ),
       );
     });
+
+    test("the uninstaller's restore exits 0 once the proxy is back", () async {
+      await expectLater(
+        restoreProxyAndExit(
+          quit: (code) => throw StateError('exit $code'),
+          restore: () async => true,
+        ),
+        throwsA(
+          isA<StateError>().having((e) => e.message, 'message', 'exit 0'),
+        ),
+      );
+    });
+
+    testWidgets("the uninstaller's restore gives up after 10 seconds, since "
+        'the uninstaller waits on it with no limit of its own', (tester) async {
+      final codes = <int>[];
+      restoreProxyAndExit(
+        quit: (code) {
+          codes.add(code);
+          throw StateError('exit $code');
+        },
+        restore: () => Completer<bool>().future,
+      ).ignore();
+      await tester.pump(const Duration(seconds: 9));
+      expect(codes, isEmpty);
+      await tester.pump(const Duration(seconds: 1));
+      expect(codes, [1]);
+    });
   });
 }
