@@ -262,9 +262,12 @@ void main() {
         ('قطع', false, false, null),
       );
       expect(labels(off).take(4), ['power وصل شدن', '-', 'تونل', '• پروکسی']);
+      final resting = menu(ShikooConnection.off, canConnect: false);
+      expect(labels(resting).first, 'power (وصل شدن)');
       expect(
-        labels(menu(ShikooConnection.off, canConnect: false)).first,
-        'power (وصل شدن)',
+        (resting.head, resting.muted),
+        ('قطع', false),
+        reason: 'a service that is resting still is one',
       );
 
       final connecting = menu(ShikooConnection.connecting);
@@ -483,7 +486,13 @@ void main() {
       expect(move(null).selected, isNull, reason: 'the status line');
       expect(move(-1).selected, isNull, reason: 'onto the shadow');
       expect(trayStep(rows, 5, wmMouseLeave, 0, pointed: true).selected, null);
-      expect(key(VK_DOWN, 0).pointed, isFalse);
+      for (final vk in [VK_DOWN, VK_UP, VK_HOME, VK_END]) {
+        expect(
+          trayStep(rows, 0, WM_KEYDOWN, vk, pointed: true).pointed,
+          isFalse,
+          reason: 'a key, not the pointer, chose the row',
+        );
+      }
 
       // A row the keys chose stays under a pointer that has not left the icon.
       expect(move(-1, pointed: false).selected, 5);
@@ -491,6 +500,8 @@ void main() {
       expect(trayStep(rows, 5, wmMouseLeave, 0).selected, 5);
       expect(move(6, pointed: false, moved: false).selected, 5);
       expect(move(6, pointed: false).selected, 6);
+      final still = move(6, moved: false);
+      expect((still.selected, still.pointed), (5, true));
     });
 
     test('opens at the pointer, clear of the taskbar on every edge', () {

@@ -284,7 +284,6 @@ class TrayPopup {
   int? _selected;
   bool _pointed = false;
   Offset? _lastMove;
-  bool _tracking = false;
   Offset _origin = Offset.zero;
   Offset _pointer = Offset.zero;
   Rect _work = Rect.zero;
@@ -326,7 +325,6 @@ class TrayPopup {
     _selected = null;
     _pointed = false;
     _lastMove = null;
-    _tracking = false;
     _shown = this;
     for (final icon in {for (final row in view.menu.rows) row?.icon}.nonNulls) {
       _icons[icon] ??= await vg.loadPicture(
@@ -437,9 +435,8 @@ class TrayPopup {
         final at = _origin + _client(lParam);
         moved = at != _lastMove;
         _lastMove = at;
-        if (!_tracking) _tracking = _trackLeave();
+        _trackLeave();
       }
-      if (message == wmMouseLeave) _tracking = false;
       final step = trayStep(
         _view.menu.rows,
         _selected,
@@ -463,15 +460,14 @@ class TrayPopup {
   }
 
   /// Windows sends WM_MOUSELEAVE only when asked, once per ask.
-  bool _trackLeave() {
+  void _trackLeave() {
     final track = calloc<_TrackMouse>();
     track.ref
       ..cbSize = sizeOf<_TrackMouse>()
       ..dwFlags = _tmeLeave
       ..hwndTrack = Pointer.fromAddress(_hwnd);
-    final asked = _trackMouseEvent(track) != 0;
+    _trackMouseEvent(track);
     calloc.free(track);
-    return asked;
   }
 
   static Offset _client(int lParam) => Offset(
