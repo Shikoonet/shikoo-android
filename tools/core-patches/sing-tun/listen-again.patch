@@ -1,0 +1,241 @@
+diff --git a/stack_system.go b/stack_system.go
+index 0d5c5f5..b5b7337 100644
+--- a/stack_system.go
++++ b/stack_system.go
+@@ -5,6 +5,7 @@ import (
+ 	"errors"
+ 	"net"
+ 	"net/netip"
++	"sync"
+ 	"syscall"
+ 	"time"
+ 
+@@ -40,6 +41,9 @@ type System struct {
+ 	inet6LoopbackAddress []netip.Addr
+ 	udpTimeout           time.Duration
+ 	icmpTimeout          time.Duration
++	listenConfig         net.ListenConfig
++	listenAccess         sync.Mutex
++	closed               bool
+ 	tcpListener          net.Listener
+ 	tcpListener6         net.Listener
+ 	tcpPort              uint16
+@@ -103,6 +107,9 @@ func NewSystem(options StackOptions) (Stack, error) {
+ }
+ 
+ func (s *System) Close() error {
++	s.listenAccess.Lock()
++	defer s.listenAccess.Unlock()
++	s.closed = true
+ 	return common.Close(
+ 		s.tcpListener,
+ 		s.tcpListener6,
+@@ -133,6 +140,7 @@ func (s *System) start() error {
+ 			return nil
+ 		})
+ 	}
++	s.listenConfig = listener
+ 	var tcpListener net.Listener
+ 	var err error
+ 	if s.inet4NextAddress.IsValid() {
+@@ -153,7 +161,7 @@ func (s *System) start() error {
+ 		s.tcpListener = tcpListener
+ 		s.tcpPort = M.SocksaddrFromNet(tcpListener.Addr()).Port
+ 		s.tcpNat4 = NewNat(s.ctx, s.udpTimeout)
+-		go s.acceptLoop(tcpListener, s.tcpNat4)
++		go s.acceptLoop("tcp4", tcpListener, s.tcpNat4)
+ 	}
+ 	if s.inet6NextAddress.IsValid() {
+ 		address := net.JoinHostPort(s.inet6Address.String(), "0")
+@@ -173,7 +181,7 @@ func (s *System) start() error {
+ 		s.tcpListener6 = tcpListener
+ 		s.tcpPort6 = M.SocksaddrFromNet(tcpListener.Addr()).Port
+ 		s.tcpNat6 = NewNat(s.ctx, s.udpTimeout)
+-		go s.acceptLoop(tcpListener, s.tcpNat6)
++		go s.acceptLoop("tcp6", tcpListener, s.tcpNat6)
+ 	}
+ 	s.directNat = NewDirectRouteMapping(s.icmpTimeout)
+ 	return nil
+@@ -345,11 +353,55 @@ func (s *System) processPacket(packet []byte) bool {
+ 	return writeBack
+ }
+ 
+-func (s *System) acceptLoop(listener net.Listener, tcpNat *TCPNat) {
++// ShikooListenAgain exists only in ShikooNet's patched copy; FlClash's core refers to it so an unpatched build fails.
++const ShikooListenAgain = true
++
++// listenAgain replaces a listener that failed while the stack is open, on the same address and port, so tunLoop's
++// tcpPort still holds. Android's netd destroys every socket on an address the kernel deleted, this listener too:
++// Accept then fails with EINVAL, and every TCP connection the NAT sends to the port is refused.
++func (s *System) listenAgain(network string, listener net.Listener, acceptErr error) net.Listener {
++	if errors.Is(acceptErr, net.ErrClosed) {
++		return nil
++	}
++	address := listener.Addr().String()
++	_ = listener.Close()
++	s.logger.Warn(E.Cause(acceptErr, "tcp listener ", address, " died, listening again"))
++	var err error
++	for attempt := 1; attempt <= 10; attempt++ {
++		var next net.Listener
++		next, err = s.listenConfig.Listen(s.ctx, network, address)
++		s.listenAccess.Lock()
++		if s.closed {
++			s.listenAccess.Unlock()
++			if err == nil {
++				_ = next.Close()
++			}
++			return nil
++		}
++		if err == nil {
++			if network == "tcp4" {
++				s.tcpListener = next
++			} else {
++				s.tcpListener6 = next
++			}
++			s.listenAccess.Unlock()
++			return next
++		}
++		s.listenAccess.Unlock()
++		time.Sleep(time.Duration(attempt) * 100 * time.Millisecond)
++	}
++	s.logger.Error(E.Cause(err, "tcp listener ", address, " is gone"))
++	return nil
++}
++
++func (s *System) acceptLoop(network string, listener net.Listener, tcpNat *TCPNat) {
+ 	for {
+ 		conn, err := listener.Accept()
+ 		if err != nil {
+-			return
++			if listener = s.listenAgain(network, listener, err); listener == nil {
++				return
++			}
++			continue
+ 		}
+ 		connPort := M.SocksaddrFromNet(conn.RemoteAddr()).Port
+ 		session := tcpNat.LookupBack(connPort)
+diff --git a/stack_system_listen_test.go b/stack_system_listen_test.go
+new file mode 100644
+index 0000000..89b70df
+--- /dev/null
++++ b/stack_system_listen_test.go
+@@ -0,0 +1,119 @@
++//go:build linux
++
++package tun
++
++import (
++	"context"
++	"errors"
++	"net"
++	"sync/atomic"
++	"syscall"
++	"testing"
++	"time"
++
++	"github.com/metacubex/sing/common/logger"
++)
++
++var loopbacks = map[string]string{"tcp4": "127.0.0.1:0", "tcp6": "[::1]:0"}
++
++func dialed(network, address string) error {
++	conn, err := net.DialTimeout(network, address, time.Second)
++	if err == nil {
++		_ = conn.Close()
++	}
++	return err
++}
++
++// startAcceptLoop runs acceptLoop on a loopback listener set as the stack's listener for network; done closes when
++// the loop returns.
++func startAcceptLoop(t *testing.T, network string, control func(string, string, syscall.RawConn) error) (*System, net.Listener, *net.Listener, chan struct{}) {
++	ctx, cancel := context.WithCancel(context.Background())
++	t.Cleanup(cancel)
++	listener, err := net.Listen(network, loopbacks[network])
++	if err != nil {
++		t.Skip(err)
++	}
++	s := &System{ctx: ctx, logger: logger.NOP()}
++	s.listenConfig.Control = control
++	field := map[string]*net.Listener{"tcp4": &s.tcpListener, "tcp6": &s.tcpListener6}[network]
++	*field = listener
++	done := make(chan struct{})
++	go func() {
++		s.acceptLoop(network, listener, NewNat(ctx, time.Minute))
++		close(done)
++	}()
++	return s, listener, field, done
++}
++
++// Shutting a listening socket down takes it out of LISTEN like netd's SOCK_DESTROY does, so Accept fails with EINVAL.
++func kill(t *testing.T, listener net.Listener) {
++	raw, err := listener.(*net.TCPListener).SyscallConn()
++	if err != nil {
++		t.Fatal(err)
++	}
++	_ = raw.Control(func(fd uintptr) { err = syscall.Shutdown(int(fd), syscall.SHUT_RD) })
++	if err != nil {
++		t.Fatal(err)
++	}
++}
++
++func stoppedAfterClose(t *testing.T, network, address string, done chan struct{}) {
++	select {
++	case <-done:
++	case <-time.After(2 * time.Second):
++		t.Fatal("accept loop still runs after Close")
++	}
++	if dialed(network, address) == nil {
++		t.Fatalf("%s still accepts after Close", address)
++	}
++}
++
++func TestAcceptLoopListensAgainOnTheSamePort(t *testing.T) {
++	for network := range loopbacks {
++		t.Run(network, func(t *testing.T) {
++			s, listener, field, done := startAcceptLoop(t, network, nil)
++			address := listener.Addr().String()
++			if err := dialed(network, address); err != nil {
++				t.Fatal(err)
++			}
++			kill(t, listener)
++			deadline := time.Now().Add(2 * time.Second)
++			for err := dialed(network, address); err != nil; err = dialed(network, address) {
++				if time.Now().After(deadline) {
++					t.Fatalf("%s still refuses connections: %v", address, err)
++				}
++				time.Sleep(20 * time.Millisecond)
++			}
++			s.listenAccess.Lock()
++			replaced := *field != listener
++			s.listenAccess.Unlock()
++			if !replaced {
++				t.Fatal("Close would still close the dead listener and leave the new one open")
++			}
++			_ = s.Close()
++			stoppedAfterClose(t, network, address, done)
++		})
++	}
++}
++
++// A Close that lands while listenAgain waits between failed listens must win over the listen that comes after it.
++func TestCloseDuringListenAgainLeavesNothingOpen(t *testing.T) {
++	for network := range loopbacks {
++		t.Run(network, func(t *testing.T) {
++			var blocked atomic.Bool
++			blocked.Store(true)
++			s, listener, _, done := startAcceptLoop(t, network, func(string, string, syscall.RawConn) error {
++				if blocked.Load() {
++					return errors.New("listen blocked by the test")
++				}
++				return nil
++			})
++			address := listener.Addr().String()
++			kill(t, listener)
++			time.Sleep(150 * time.Millisecond)
++			_ = s.Close()
++			blocked.Store(false)
++			stoppedAfterClose(t, network, address, done)
++		})
++	}
++}

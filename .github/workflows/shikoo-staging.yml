@@ -80,16 +80,6 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - run: bash tools/core-patches/apply.sh
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: core-ca
-          path: core/Clash.Meta/component/ca/ca-certificates.crt
-          if-no-files-found: error
-          retention-days: 1
-          overwrite: true
-
       - name: The core commit, which Settings shows under «هسته»
         run: echo "CORE=$(git rev-parse --short=7 HEAD:core/Clash.Meta)" >>"$GITHUB_ENV"
 
@@ -109,6 +99,17 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: core/go.sum
+
+      # after setup-go: it copies sing-tun out of the Go module cache
+      - run: bash tools/core-patches/apply.sh
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-ca
+          path: core/Clash.Meta/component/ca/ca-certificates.crt
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -258,17 +259,17 @@ jobs:
           name: core-ca
           path: ${{ runner.temp }}/core-ca
 
-      - name: The core patches, with the very CA roots the Android core got
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+
+      - name: The core patches after setup-go, with the very CA roots the Android core got
         env:
           SHIKOO_CA_DIR: ${{ runner.temp }}/core-ca
         run: |
           bash tools/core-patches/apply.sh
           echo "CORE=$(git rev-parse --short=7 HEAD:core/Clash.Meta)" >>"$GITHUB_ENV"
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: core/go.sum
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
