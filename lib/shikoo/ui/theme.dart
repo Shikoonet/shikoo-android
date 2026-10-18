@@ -36,6 +36,7 @@ abstract final class Radii {
   static const md = 12.0;
   static const lg = 20.0;
   static const checkbox = 4.0;
+  static const trayRow = 4.0;
   static const markRatio = 0.28;
 }
 
@@ -329,6 +330,14 @@ class ShikooSizes {
   static const titleMark = 16.0;
   static const modeSwitch = 280.0;
   static const modeHint = 320.0;
+
+  /// `.ctx` in win-modes.html, the menu beside the clock: its width, row, icon, dot and the
+  /// gap between the status and its time.
+  static const trayMenu = 248.0;
+  static const trayRow = 32.0;
+  static const trayIcon = 16.0;
+  static const trayDot = 6.0;
+  static const trayHeadGap = 2.0;
 
   /// `--text-scale-max-round`: the round button's text grows no further, its circle being fixed.
   static const roundTextScaleMax = 1.15;

@@ -12,14 +12,17 @@ import 'package:fl_clash/manager/window_manager.dart'
 import 'package:fl_clash/models/models.dart' show Traffic, TrayState;
 import 'package:fl_clash/providers/providers.dart'
     show systemActionProvider, windowSettingProvider;
+import 'package:fl_clash/shikoo/app/tray_popup.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart' show ShikooIcon;
 import 'package:fl_clash/shikoo/ui/mode.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart' show restingFor;
 import 'package:fl_clash/shikoo/ui/theme.dart';
-import 'package:fl_clash/shikoo/ui/widgets.dart' show BrandMark;
+import 'package:fl_clash/shikoo/ui/widgets.dart' show BrandMark, clockOf;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show Bidi;
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -83,20 +86,17 @@ typedef TrayActions = ({
   VoidCallback exit,
 });
 
-/// win-modes.html, frame `win-t-c`, and the line under `win-ic-a`: the tip and the fox tell
-/// the state, grey until connected.
+/// The tip and the fox tell the state, grey until connected (win-modes.html, `win-ic-a`).
 TraySpec shikooTraySpec(
   ShikooL10n l, {
   required ShikooConnection connection,
   required String? server,
-  required bool canConnect,
   required ShikooMode mode,
-  required TrayActions on,
 }) {
   final app = l.appName;
-  final connected = connection == ShikooConnection.on;
-  final connecting = connection == ShikooConnection.connecting;
-  final status = connected ? (mode == ShikooMode.tunnel ? 3 : 2) : 1;
+  final status = connection == ShikooConnection.on
+      ? (mode == ShikooMode.tunnel ? 3 : 2)
+      : 1;
   return TraySpec(
     icon: TrayIcon.asset('assets/images/tray/windows/status_$status.ico'),
     toolTip: switch (connection) {
@@ -104,42 +104,64 @@ TraySpec shikooTraySpec(
       ShikooConnection.connecting => l.trayConnecting(app),
       _ => l.trayOff(app),
     },
-    menu: [
-      TrayMenuAction(
-        label: switch ((connection, server)) {
-          (ShikooConnection.on, final server?) => l.trayHeadOn(server),
-          (ShikooConnection.on, null) => l.powerOn,
-          (ShikooConnection.connecting, final server?) => l.trayHeadConnecting(
-            server,
-          ),
-          (ShikooConnection.connecting, null) => l.powerConnecting,
-          _ => l.trayHeadOff,
-        },
-        enabled: false,
+  );
+}
+
+/// win-modes.html, frame `win-t-c`.
+TrayMenu shikooTrayMenu(
+  ShikooL10n l, {
+  required ShikooConnection connection,
+  required String? server,
+  required Duration connectedFor,
+  required bool canConnect,
+  required ShikooMode mode,
+  required TrayActions on,
+}) {
+  final connected = connection == ShikooConnection.on;
+  final connecting = connection == ShikooConnection.connecting;
+  TrayRow row(
+    String label,
+    VoidCallback run, {
+    ShikooIcon? icon,
+    bool dot = false,
+    bool enabled = true,
+  }) => (label: label, icon: icon, dot: dot, enabled: enabled, run: run);
+  return (
+    head: switch ((connection, server)) {
+      (ShikooConnection.on, final server?) => l.trayHeadOn(server),
+      (ShikooConnection.on, null) => l.powerOn,
+      (ShikooConnection.connecting, final server?) => l.trayHeadConnecting(
+        server,
       ),
-      const TrayMenuSeparator(),
+      (ShikooConnection.connecting, null) => l.powerConnecting,
+      _ => l.trayHeadOff,
+    },
+    on: connected,
+    time: connected ? clockOf(l.localeName, connectedFor) : null,
+    rows: [
       if (connected || connecting)
-        TrayMenuAction(label: l.trayDisconnect, onSelected: on.disconnect)
+        row(l.trayDisconnect, on.disconnect, icon: ShikooIcon.power)
       else
-        TrayMenuAction(
-          label: l.trayConnect,
+        row(
+          l.trayConnect,
+          on.connect,
+          icon: ShikooIcon.power,
           enabled: canConnect,
-          onSelected: on.connect,
         ),
-      const TrayMenuSeparator(),
+      null,
       for (final (choice, label) in [
         (ShikooMode.tunnel, l.modeTunnel),
         (ShikooMode.proxy, l.modeProxy),
       ])
-        TrayMenuCheckbox(
-          label: label,
-          checked: mode == choice,
+        row(
+          label,
+          () => on.mode(choice),
+          dot: mode == choice,
           enabled: !connecting,
-          onSelected: () => on.mode(choice),
         ),
-      const TrayMenuSeparator(),
-      TrayMenuAction(label: l.trayOpen(app), onSelected: on.open),
-      TrayMenuAction(label: l.trayExit, onSelected: on.exit),
+      null,
+      row(l.trayOpen(l.appName), on.open),
+      row(l.trayExit, on.exit),
     ],
   );
 }
@@ -178,10 +200,18 @@ Future<void> _balloon(String title, String body) async {
 /// The window around every page: win-modes.html's `.titlebar`, the tray it keeps current, and
 /// the close notice. FlClash's WindowManager hides the window on close (`minimizeOnExit`).
 class ShikooWindow extends ConsumerStatefulWidget {
-  const ShikooWindow({super.key, required this.child, this.notify = _balloon});
+  const ShikooWindow({
+    super.key,
+    required this.child,
+    this.notify = _balloon,
+    this.popup,
+  });
 
   final Widget child;
   final Future<void> Function(String title, String body) notify;
+
+  /// A test's stand-in for the menu beside the clock.
+  final TrayPopup? popup;
 
   @override
   ConsumerState<ShikooWindow> createState() => _ShikooWindowState();
@@ -190,17 +220,33 @@ class ShikooWindow extends ConsumerStatefulWidget {
 class _ShikooWindowState extends ConsumerState<ShikooWindow>
     with WindowListener {
   final _caption = WindowCaptionController();
+  late final _popup = widget.popup ?? TrayPopup();
+  StreamSubscription<TrayEvent>? _menuRequests;
   bool _exiting = false;
 
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    _popup.onClose = _showTray;
+    _menuRequests = Tray.instance.events.listen((event) {
+      if (event is TrayMenuRequested) unawaited(_openMenu());
+    });
+    // Not from build: FlClash stops building frames once the window has been hidden a while.
+    ref
+      ..listenManual(shikooStateProvider, (_, _) => _showTray())
+      ..listenManual(shikooModeProvider, (_, _) => _showTray())
+      ..listenManual(shikooLookProvider, (_, _) => _showTray());
+    _showTray();
   }
 
   @override
   void dispose() {
     windowManager.removeListener(this);
+    unawaited(_menuRequests?.cancel());
+    _popup
+      ..onClose = null
+      ..close();
     _caption.dispose();
     super.dispose();
   }
@@ -223,46 +269,71 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
     unawaited(ref.read(systemActionProvider.notifier).handleExit());
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final l = ShikooL10n.of(context);
-    final (connection, server, canConnect) = ref.watch(
-      shikooStateProvider.select(
-        (s) => (
-          s.connection,
-          s.selectedServer?.label,
-          s.service != null && restingFor(s) == null,
+  /// FlClash's TrayManager first opens the plugin's menu, empty here, which takes the foreground.
+  Future<void> _openMenu() async {
+    await Tray.instance.openMenu();
+    _showTray(open: true);
+  }
+
+  void _showTray({bool open = false}) {
+    final look = ref.read(shikooLookProvider);
+    final l = lookupShikooL10n(Locale(look.language));
+    final state = ref.read(shikooStateProvider);
+    final mode = ref.read(shikooModeProvider);
+    final server = state.selectedServer?.label;
+    final controller = ref.read(shikooControllerProvider);
+    final TrayView view = (
+      menu: shikooTrayMenu(
+        l,
+        connection: state.connection,
+        server: server,
+        connectedFor: state.connectedFor,
+        canConnect: state.service != null && restingFor(state) == null,
+        mode: mode,
+        on: (
+          connect: () => unawaited(controller.connect()),
+          disconnect: () => unawaited(controller.disconnect()),
+          mode: (mode) => setMode(ref, mode),
+          open: () => unawaited(window?.show()),
+          exit: _exit,
         ),
       ),
+      brightness: switch (look.theme) {
+        ThemeMode.light => Brightness.light,
+        ThemeMode.dark => Brightness.dark,
+        ThemeMode.system =>
+          WidgetsBinding.instance.platformDispatcher.platformBrightness,
+      },
+      direction: Bidi.isRtlLanguage(look.language)
+          ? TextDirection.rtl
+          : TextDirection.ltr,
     );
-    final controller = ref.read(shikooControllerProvider);
+    if (open) {
+      unawaited(_popup.show(view));
+    } else {
+      _popup.update(view);
+    }
     final spec = shikooTraySpec(
       l,
-      connection: connection,
+      connection: state.connection,
       server: server,
-      canConnect: canConnect,
-      mode: ref.watch(shikooModeProvider),
-      on: (
-        connect: () => unawaited(controller.connect()),
-        disconnect: () => unawaited(controller.disconnect()),
-        mode: (mode) => setMode(ref, mode),
-        open: () => unawaited(window?.show()),
-        exit: _exit,
-      ),
+      mode: mode,
     );
-    // The plugin skips a spec equal to the last one.
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => unawaited(shikooTray.show(spec)),
-    );
-    return Overlay.wrap(
-      child: Column(
-        children: [
-          _TitleBar(caption: _caption),
-          Expanded(child: widget.child),
-        ],
-      ),
+    // Windows' own tip would show over the open menu.
+    unawaited(
+      shikooTray.show(_popup.isOpen ? TraySpec(icon: spec.icon) : spec),
     );
   }
+
+  @override
+  Widget build(BuildContext context) => Overlay.wrap(
+    child: Column(
+      children: [
+        _TitleBar(caption: _caption),
+        Expanded(child: widget.child),
+      ],
+    ),
+  );
 }
 
 /// `.titlebar`: left to right in both languages, as Windows draws its own.

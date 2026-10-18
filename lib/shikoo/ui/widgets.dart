@@ -32,6 +32,13 @@ String localNumber(BuildContext context, num value, [String pattern = '0']) =>
       Localizations.localeOf(context).languageCode,
     ).format(value);
 
+/// How long the tunnel has been up, «۰۰:۱۲:۴۷».
+String clockOf(String language, Duration d) => [
+  d.inHours,
+  d.inMinutes % 60,
+  d.inSeconds % 60,
+].map(NumberFormat('00', language).format).join(':');
+
 final _opensRtl = RegExp(
   r'^[^\p{L}\u200E\u200F]*(?:\u200F|(?=\p{L})[\p{Script=Arabic}\p{Script=Hebrew}])',
   unicode: true,
@@ -788,12 +795,6 @@ class _PowerButtonState extends State<PowerButton>
     super.dispose();
   }
 
-  String _clock(Duration d) => [
-    d.inHours,
-    d.inMinutes % 60,
-    d.inSeconds % 60,
-  ].map((part) => localNumber(context, part, '00')).join(':');
-
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -864,7 +865,10 @@ class _PowerButtonState extends State<PowerButton>
               if (on) ...[
                 const SizedBox(height: Space.s1),
                 Text(
-                  _clock(widget.connectedFor),
+                  clockOf(
+                    Localizations.localeOf(context).languageCode,
+                    widget.connectedFor,
+                  ),
                   textDirection: TextDirection.ltr,
                   style: t.text(
                     s.display,
