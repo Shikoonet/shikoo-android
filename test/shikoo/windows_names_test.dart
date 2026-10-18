@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:fl_clash/common/constant.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+String read(String path) => File(path).readAsStringSync();
+
 void main() {
   test('Dart, Rust, CMake, build_config.yaml and the installer name one '
       'helper service, pipe and port per flavor, and close only their own '
       "processes, none of them FlClash's", () {
     const core = 'ShikooNetCore';
-    String read(String path) => File(path).readAsStringSync();
     final iss = read('windows/packaging/exe/inno_setup.iss');
 
     expect(appHelperService, 'ShikooNetHelperService');
@@ -109,8 +110,6 @@ void main() {
   test('the data folder is ShikooNet\\ShikooNet and its uninstall deletes '
       'it; the installer has its own id, starts the app unelevated, and the '
       'app leaves the clash:// links alone', () {
-    String read(String path) => File(path).readAsStringSync();
-
     expect(
       read('windows/runner/Runner.rc'),
       allOf(
@@ -151,9 +150,8 @@ void main() {
   });
 
   test('the installer is English only, in three pages ending in Install, '
-      'installs the helper service on every install, over an old one too, '
-      'and the uninstall removes it', () {
-    String read(String path) => File(path).readAsStringSync();
+      'installs the helper service on every install, and removes it even '
+      'without its file', () {
     final iss = read('windows/packaging/exe/inno_setup.iss');
 
     expect(
@@ -196,23 +194,11 @@ void main() {
       unregister.substring(orElse),
       contains("Exec(ExpandConstant('{sys}\\sc.exe'), 'delete {#Service}'"),
     );
-    for (final hook in ['PrepareToInstall', 'InitializeUninstall']) {
-      expect(
-        iss,
-        matches(
-          RegExp(
-            'function $hook\\([^)]*\\):[^;]*;[\\s\\S]*?begin\\s*UnregisterHelperService;',
-          ),
-        ),
-        reason: hook,
-      );
-    }
   });
 
   test('SHIKOO_FLAVOR=staging builds "ShikooNet Test": its own installer id, '
       'name, program and data folders and Start menu entry; and a silent '
       'install opens the app again', () {
-    String read(String path) => File(path).readAsStringSync();
     const title = 'ShikooNet Test';
     final iss = read('windows/packaging/exe/inno_setup.iss');
 
@@ -245,8 +231,6 @@ void main() {
         '#define Id "{{APP_ID}}"\n'
         '#define Service "ShikooNetHelperService"\n'
         '#endif\n'
-        '#pragma message "ShikooNet installer: " + Title + ", id " + Id + '
-        '", service " + Service\n'
         '[Setup]\n'
         'AppId={#Id}\n',
       ),
@@ -271,9 +255,10 @@ void main() {
     );
   });
 
-  test("an uninstall or an upgrade puts Windows' proxy back once the app is "
-      'closed, before its data goes', () {
-    final iss = File('windows/packaging/exe/inno_setup.iss').readAsStringSync();
+  test('an upgrade, and an uninstall only once confirmed, remove the helper '
+      "service and close the app, then put Windows' proxy back before the data "
+      'goes, the upgrade as the user who started it', () {
+    final iss = read('windows/packaging/exe/inno_setup.iss');
     const uninstall =
         r'Filename: "{app}\ShikooNet.exe"; Parameters: "--restore-proxy"; '
         r'Flags: runhidden waituntilterminated; RunOnceId: "ShikooRestoreProxy"'
@@ -285,16 +270,29 @@ void main() {
       multiLine: true,
     ).allMatches(iss.substring(0, at));
     expect(sections.last[0], '[UninstallRun]');
-    String body(String hook) =>
-        RegExp('function $hook[\\s\\S]*?\\nend;').firstMatch(iss)![0]!;
     expect(
-      body('PrepareToInstall'),
+      RegExp(r'function PrepareToInstall[\s\S]*?\nend;').firstMatch(iss)![0],
       contains(
+        'begin\n'
+        '  UnregisterHelperService;\n'
         '  KillProcesses;\n'
-        r"  Exec(ExpandConstant('{app}\ShikooNet.exe'), '--restore-proxy', '', "
-        'SW_HIDE, ewWaitUntilTerminated, ResultCode);\n',
+        r"  ExecAsOriginalUser(ExpandConstant('{app}\ShikooNet.exe'), "
+        "'--restore-proxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);\n",
       ),
     );
-    expect(body('InitializeUninstall'), contains('  KillProcesses;\n'));
+    expect(iss, isNot(contains('function InitializeUninstall')));
+    expect(
+      iss,
+      contains(
+        'procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);\n'
+        'begin\n'
+        '  if CurUninstallStep = usUninstall then\n'
+        '  begin\n'
+        '    UnregisterHelperService;\n'
+        '    KillProcesses;\n'
+        '  end;\n'
+        'end;\n',
+      ),
+    );
   });
 }

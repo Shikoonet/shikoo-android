@@ -184,8 +184,9 @@ assets do not count against that storage.
   built by `jq`. The door hashes every file and refuses a mismatch (422) without changing the live release. The token
   comes only from `DOOR_TOKEN`, goes to curl through a `0600` header file in a temporary folder, and is never on a command
   line or in the log.
-- The bot and a website link to `https://app.chopon.uk/dl/armeabi-v7a` and `…/dl/arm64-v8a`, which never change between
-  releases (panel rows, `docs/app-update.md` › Bot).
+- The bot and a website link to `https://app.chopon.uk/dl/armeabi-v7a`, `…/dl/arm64-v8a` and `…/dl/windows-x64`, which
+  never change between releases (panel rows, `docs/app-update.md` › Bot). Before the Windows row is added, shikoo-platform
+  PR #770 must be deployed on both doors.
 
 ## 4. Signing and door secrets
 
@@ -252,8 +253,8 @@ GitHub Team would allow environment secrets limited to `main`; required reviewer
 | x86_64 | staging only | emulators (`shikoo-phone`, `shikoo-tv`) |
 
 Per-ABI APKs, not one universal file: a universal v7a + arm64 APK is about twice the download, which matters on Iranian
-networks. The cost is that the bot or site must offer two links («تلویزیون و باکس» → v7a, «گوشی» → arm64); the in-app update
-later picks by itself.
+networks. The cost is that the bot or site must offer two links («تلویزیون و باکس» → v7a, «گوشی» → arm64), beside the
+Windows one («کامپیوتر» → `windows-x64`, §10); the in-app update later picks by itself.
 
 ## 7. What Sam does by hand, once
 
