@@ -6,3 +6,4 @@ lib_name: libclash
 output_dir: libclash
 helper_dir: services/helper
 helper_name: ShikooNetHelperService
+flavor: production

@@ -35,9 +35,13 @@ use windows_sys::Win32::System::JobObjects::{
 };
 
 #[cfg(not(target_os = "linux"))]
-const LISTEN_PORT: u16 = 47891;
+const LISTEN_PORT: u16 = if cfg!(shikoo_staging) { 47892 } else { 47891 };
 #[cfg(not(target_os = "linux"))]
-const CORE_PIPE_PREFIX: &str = r"\\.\pipe\ShikooNetCore_";
+const CORE_PIPE_PREFIX: &str = if cfg!(shikoo_staging) {
+    r"\\.\pipe\ShikooNetTestCore_"
+} else {
+    r"\\.\pipe\ShikooNetCore_"
+};
 #[cfg(target_os = "linux")]
 const CORE_SOCKET_PREFIX: &str = "/tmp/FlClashSocket_";
 #[cfg(target_os = "linux")]
@@ -763,7 +767,11 @@ mod tests {
     }
 
     #[cfg(not(target_os = "linux"))]
-    const ALLOWED_CORE_ADDRESS: &str = r"\\.\pipe\ShikooNetCore_0123456789abcdef0123456789abcdef";
+    const ALLOWED_CORE_ADDRESS: &str = if cfg!(shikoo_staging) {
+        r"\\.\pipe\ShikooNetTestCore_0123456789abcdef0123456789abcdef"
+    } else {
+        r"\\.\pipe\ShikooNetCore_0123456789abcdef0123456789abcdef"
+    };
     #[cfg(target_os = "linux")]
     const ALLOWED_CORE_ADDRESS: &str = "/tmp/FlClashSocket_4821.sock";
 
@@ -1270,22 +1278,29 @@ mod tests {
     #[cfg(not(target_os = "linux"))]
     #[test]
     fn only_accepts_random_core_pipe_namespace() {
-        assert!(is_allowed_core_address(
-            r"\\.\pipe\ShikooNetCore_0123456789abcdef0123456789abcdef"
-        ));
-        assert!(!is_allowed_core_address(r"\\.\pipe\ShikooNetCore"));
+        let other = if cfg!(shikoo_staging) {
+            r"\\.\pipe\ShikooNetCore_"
+        } else {
+            r"\\.\pipe\ShikooNetTestCore_"
+        };
+        assert!(is_allowed_core_address(ALLOWED_CORE_ADDRESS));
         assert!(!is_allowed_core_address(
-            r"\\.\pipe\FlClashCore_0123456789abcdef0123456789abcdef"
+            CORE_PIPE_PREFIX.trim_end_matches('_')
         ));
-        assert!(!is_allowed_core_address(
-            r"\\.\pipe\ShikooNetCore_0123456789abcdef"
-        ));
-        assert!(!is_allowed_core_address(
-            r"\\.\pipe\ShikooNetCore_0123456789abcdef0123456789abcdeg"
-        ));
-        assert!(!is_allowed_core_address(
-            r"\\.\pipe\ShikooNetCore_ABCDEF0123456789abcdef0123456789"
-        ));
+        for prefix in [r"\\.\pipe\FlClashCore_", other] {
+            assert!(!is_allowed_core_address(&format!(
+                "{prefix}0123456789abcdef0123456789abcdef"
+            )));
+        }
+        for suffix in [
+            "0123456789abcdef",
+            "0123456789abcdef0123456789abcdeg",
+            "ABCDEF0123456789abcdef0123456789",
+        ] {
+            assert!(!is_allowed_core_address(&format!(
+                "{CORE_PIPE_PREFIX}{suffix}"
+            )));
+        }
     }
 
     #[cfg(target_os = "linux")]

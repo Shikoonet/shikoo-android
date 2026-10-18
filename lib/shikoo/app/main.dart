@@ -44,7 +44,9 @@ void main() {
         if (clockTooEarly(DateTime.now())) await _untilClockRight();
         fillFlClashHooks();
         final container = await bootstrap.init(version);
-        shikooStaging = globalState.packageInfo.packageName.endsWith('.dev');
+        shikooStaging =
+            shikooStagingBuild ||
+            globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooSignInProvider).load();
