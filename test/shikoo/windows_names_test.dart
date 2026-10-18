@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart' show helperServiceName;
 import 'package:flutter_test/flutter_test.dart';
 
 String read(String path) => File(path).readAsStringSync();
@@ -103,6 +104,12 @@ void main() {
     expect(helperPort, shikooStagingBuild ? 47892 : 47891);
     expect(shikooDesktopPort, shikooStagingBuild ? 17471 : 17470);
     expect(appName, shikooStagingBuild ? 'ShikooNet Test' : 'ShikooNet');
+    expect(
+      helperServiceName,
+      shikooStagingBuild
+          ? 'ShikooNetTestHelperService'
+          : 'ShikooNetHelperService',
+    );
     expect(
       windowsPipeName,
       startsWith(

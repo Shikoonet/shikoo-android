@@ -11,7 +11,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:fl_clash/common/boot_record.dart' show AppExitReason;
-import 'package:fl_clash/common/constant.dart' show appHelperService;
+import 'package:fl_clash/common/constant.dart'
+    show appHelperService, shikooStagingBuild;
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/desktop/helper_client.dart'
     show HelperReadiness, helperClient;
@@ -122,11 +123,16 @@ List<String> windowsLines({
   return ['windows proxy $proxy', 'helper service $helper'];
 }
 
+/// What the helper registers as with Windows; its file is [appHelperService] in both builds.
+const helperServiceName = shikooStagingBuild
+    ? 'ShikooNetTestHelperService'
+    : appHelperService;
+
 Future<List<String>> _readWindows(ProviderContainer container) async {
   var installed = true;
   try {
     LOCAL_MACHINE
-        .open(r'SYSTEM\CurrentControlSet\Services\' + appHelperService)
+        .open(r'SYSTEM\CurrentControlSet\Services\' + helperServiceName)
         .close();
   } catch (_) {
     installed = false;
