@@ -306,7 +306,7 @@ jobs:
       - name: Staging and production installers
         run: |
           set -euo pipefail
-          VN=$VERSION_PREFIX.$GITHUB_RUN_NUMBER API=${STAGING_API%/} BOT=${STAGING_BOT#@}
+          VN=$VERSION_PREFIX.$GITHUB_RUN_NUMBER API=${STAGING_API%/} BOT=${STAGING_BOT#@} rel=build/windows/x64/runner/Release
           dart pub global activate -s git https://github.com/chen08209/flutter_distributor.git \
             --git-ref v0.6.11-flclash.2 --git-path packages/flutter_distributor
           # Inno's AppVersion is pubspec's version; FlClash's 0.8.98 would show in «Programs and Features»
@@ -318,17 +318,32 @@ jobs:
               --flutter-build-args "build-name=$VN,build-number=$GITHUB_RUN_NUMBER" \
               --build-dart-define APP_ENV=stable --build-dart-define SHIKOO_CORE="$CORE" "${@:2}"
             mv "dist/$1" out/
-            staging=$(grep -caF "$API" build/windows/x64/runner/Release/data/app.so || true)
-            product=$(pwsh -NoProfile -Command "(Get-Item 'out/$1').VersionInfo.ProductName.Trim()" | tr -d '\r')
+            staging=$(grep -caF "$API" "$rel/data/app.so" || true)
+            product=$(pwsh -NoProfile -Command "(Get-Item 'out/$1', '$rel/ShikooNet.exe').VersionInfo.ProductName.Trim() -join ' / '" | tr -d '\r')
+            port=$(grep -oaE 'http://127\.0\.0\.1:4789[0-9]' "$rel/data/app.so" | sort -u | paste -sd' ' || true)
+            service=$(grep -oaE 'ShikooNet(Test)?HelperService' "$rel/ShikooNetHelperService.exe" | sort -u | paste -sd' ' || true)
+            found="installer / app '$product', staging server $staging times, helper '$port', service '$service'"
+            echo "$1: $found"
+          }
+          # Staging needs all three: SHIKOO_FLAVOR for CMake and ISCC, build_config.yaml for the helper, the define for Dart.
+          flavor() {
+            sed -i "s/^flavor: .*/flavor: $1/" build_config.yaml
+            grep -qx "flavor: $1" build_config.yaml ||
+              { echo "::error::build_config.yaml has no 'flavor:' line to set to $1, so the helper would keep the other name"; exit 1; }
           }
           export SHIKOO_FLAVOR=staging
-          package "ShikooNet-$VN-staging-windows-x64.exe" --build-dart-define SHIKOO_API="$API" --build-dart-define SHIKOO_BOT="$BOT"
-          [[ $product == 'ShikooNet Test' && $staging -gt 0 ]] ||
-            { echo "::error::the staging installer is '$product' and carries the staging server $staging times"; exit 1; }
+          flavor staging
+          package "ShikooNet-$VN-staging-windows-x64.exe" --build-dart-define SHIKOO_FLAVOR=staging \
+            --build-dart-define SHIKOO_API="$API" --build-dart-define SHIKOO_BOT="$BOT"
+          [[ $product == 'ShikooNet Test / ShikooNet Test' && $staging -gt 0 && $port == http://127.0.0.1:47892 &&
+            $service == ShikooNetTestHelperService ]] ||
+            { echo "::error::the staging build is not the test one: $found"; exit 1; }
           unset SHIKOO_FLAVOR
+          flavor production
           package "ShikooNet-$VN-windows-x64.exe"
-          [[ $product == ShikooNet && $staging -eq 0 ]] ||
-            { echo "::error::the production installer is '$product' and carries the staging server $staging times"; exit 1; }
+          [[ $product == 'ShikooNet / ShikooNet' && $staging -eq 0 && $port == http://127.0.0.1:47891 &&
+            $service == ShikooNetHelperService ]] ||
+            { echo "::error::the production build is not the production one: $found"; exit 1; }
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

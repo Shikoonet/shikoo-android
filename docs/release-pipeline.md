@@ -369,13 +369,20 @@ Sam, 2026-10-17: Windows ships with Android, under one version and the one Promo
 signature, so the in-app update trusts only our own seal, made with the same keys as the APKs: no new key, no new secret.
 
 - **Job `windows`** (`windows-2022`, after `build`, same commit) builds two installers, like the two APK variants:
-  `ShikooNet-<vn>-staging-windows-x64.exe` (staging server and bot, built with `SHIKOO_FLAVOR=staging`, so it is
-  «ShikooNet Test» and installs beside production) and `ShikooNet-<vn>-windows-x64.exe`. Same entry point
+  `ShikooNet-<vn>-staging-windows-x64.exe` (staging server and bot, and all three staging switches of `SHIKOO_PATCHES.md`:
+  `SHIKOO_FLAVOR=staging` in the environment for CMake and ISCC, `flavor: staging` in `build_config.yaml` for the helper
+  service, and the define `SHIKOO_FLAVOR=staging` for Dart, so it is «ShikooNet Test» with its own helper service, port
+  and data folder, and installs beside production) and `ShikooNet-<vn>-windows-x64.exe`, with none of them. Same entry point
   and defines as Android, `--build-name <vn> --build-number <n>`, packed by FlClash's own `flutter_distributor`
   (`v0.6.11-flclash.2`; `inno_setup.iss` is its template) with Inno Setup 6.7.3. Flutter 3.47.1, Go 1.26.4 and the Rust
   of `plugins/rust_api` (also for the helper) are those of `tools/windows-toolchain.ps1`. `pubspec.yaml`'s version is set
-  to `<vn>` on the runner only, since Inno's AppVersion comes from it. The staging installer must be `ShikooNet Test`
-  (its ProductName) and carry the staging server in `data/app.so`; the production one must be `ShikooNet` and must not.
+  to `<vn>` on the runner only, since Inno's AppVersion comes from it, and so is `build_config.yaml`'s `flavor:` for each
+  installer; a file without that line fails the step before it builds. The cache key was taken before (`actions/cache`
+  keeps it for the save), and the file ends as checked out. The step prints, and fails on, what each build carries: the
+  staging one is `ShikooNet Test` (the ProductName of the installer and of `ShikooNet.exe`, which names the data folder),
+  has the staging server in `data/app.so`, calls its helper on `127.0.0.1:47892`, and its helper's service is
+  `ShikooNetTestHelperService`; the production one is `ShikooNet`, without the staging server, on `47891`, with
+  `ShikooNetHelperService`. A staging installer with the production helper would remove the production service.
   The job holds no secret, and hands both installers to `seal` as an artifact (`installers`, kept a day).
 - **The same core:** `build` uploads the CA bundle `apply.sh` wrote (artifact `core-ca`, kept a day). `windows` checks
   out with `core.autocrlf false`, so the core's files are the Linux checkout's bytes, and runs the same `apply.sh` with
@@ -413,6 +420,7 @@ signature, so the in-app update trusts only our own seal, made with the same key
 | The installers step as written (`VN=1.0.999`, run number 999), Flutter 3.47.1, Inno Setup 6.7.3 | exit 0; `flutter build windows --target lib/shikoo/app/main.dart --dart-define=APP_ENV=stable --dart-define=SHIKOO_CORE=70f0570 [--dart-define=SHIKOO_API=… --dart-define=SHIKOO_BOT=…] --build-name 1.0.999 --build-number 999`; two installers of 38.5 MB; 401 s with warm caches (each build 52 and 150 s, each Inno compile about 80 s); the first cold run built for 447 s |
 | What the builds carry | staging `app.so` has the staging server once; production none of it and the production server once; `ShikooNet.exe` version `1.0.999+999`; installer ProductVersion `1.0.999`; Authenticode `NotSigned` |
 | The installers step again (round 2), with `win/brand`'s `windows/` changes applied for the test only | exit 0 in 362 s; staging installer ProductName `ShikooNet Test`, production `ShikooNet`, both ProductVersion `1.0.999`; the round-1 staging installer, built without those changes, is refused: `the staging installer is 'ShikooNet' …` |
+| The installers step (round 3, the three switches), taken from the workflow as written (LF) and run by Git Bash in a throwaway worktree of `win/ci` with `win/brand` (`a6d53f28`) merged; `VN=1.0.998` | cold: exit 0 in 545 s; warm, so staging after production after staging: exit 0 in 257 s; as a new run, with only what the CI cache restores: exit 0 in 427 s. Each printed `…-staging-windows-x64.exe: installer / app 'ShikooNet Test / ShikooNet Test', staging server 1 times, helper 'http://127.0.0.1:47892', service 'ShikooNetTestHelperService'` and `…-windows-x64.exe: installer / app 'ShikooNet / ShikooNet', staging server 0 times, helper 'http://127.0.0.1:47891', service 'ShikooNetHelperService'`; ISCC named the same services; `build_config.yaml` ended as checked out, LF. Without its `flavor:` line: fails in 19 s, `build_config.yaml has no 'flavor:' line to set to staging …`. Without `flavor staging`: fails after the staging build, `the staging build is not the test one: … service 'ShikooNetHelperService'`. `actionlint` 1.7.12 with `shellcheck` 0.9.0: the three findings the branch had before, none in this step |
 | Throwaway keystores made as `make-signing-key.ps1` makes them (JDK 17.0.20.1 keytool, PKCS12; RSA 4096 `shikoonet` with a random password, RSA 2048 `androiddebugkey`/`android`), read by Ubuntu 24.04's OpenSSL 3.0.13, the runner's | opened without `-legacy`: MAC sha256, keys PBES2 AES-256-CBC |
 | The seal step in WSL against `update.dart` variants: both constants right; split by `dart format` onto a second line; production constant of a third key; staging constant empty; no such constants; the two swapped; no staging keystore secret | sealed, openssl `Verified OK` twice; the same; refused (`is not the one windowsSealKeyProduction names`); refused (`holds no windowsSealKeyStaging`); the same; refused (`… windowsSealKeyStaging names`); refused (`not in the secrets`); nothing left in `RUNNER_TEMP` after any case |
 | Go's `crypto/rsa` on those seals, with the constants' keys | both valid, 344 and 684 characters; invalid against the other key, with version code 23, and with one byte of the installer changed |
