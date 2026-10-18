@@ -1,0 +1,43 @@
+diff --git a/adapter/outbound/reality.go b/adapter/outbound/reality.go
+index 70c7bc7..4ac3c19 100644
+--- a/adapter/outbound/reality.go
++++ b/adapter/outbound/reality.go
+@@ -14,13 +14,14 @@ type RealityOptions struct {
+ 	PublicKey string `proxy:"public-key"`
+ 	ShortID   string `proxy:"short-id,omitempty"`
+ 
+-	SupportX25519MLKEM768 bool `proxy:"support-x25519mlkem768,omitempty"`
++	SupportX25519MLKEM768 *bool `proxy:"support-x25519mlkem768,omitempty"`
+ }
+ 
+ func (o RealityOptions) Parse() (*tlsC.RealityConfig, error) {
+ 	if o.PublicKey != "" {
+ 		config := new(tlsC.RealityConfig)
+-		config.SupportX25519MLKEM768 = o.SupportX25519MLKEM768
++		// Shikoo: on unless the subscription says false. XTLS/REALITY 8cdf7bf9 servers refuse a ClientHello without it.
++		config.SupportX25519MLKEM768 = o.SupportX25519MLKEM768 == nil || *o.SupportX25519MLKEM768
+ 
+ 		const x25519ScalarSize = 32
+ 		publicKey, err := base64.RawURLEncoding.DecodeString(o.PublicKey)
+diff --git a/listener/inbound/vless_test.go b/listener/inbound/vless_test.go
+index d83df33..d8c0ccc 100644
+--- a/listener/inbound/vless_test.go
++++ b/listener/inbound/vless_test.go
+@@ -373,7 +373,7 @@ func TestInboundVless_Reality(t *testing.T) {
+ 	})
+ 	t.Run("X25519MLKEM768", func(t *testing.T) {
+ 		outboundOptions := outboundOptions
+-		outboundOptions.RealityOpts.SupportX25519MLKEM768 = true
++		outboundOptions.RealityOpts.SupportX25519MLKEM768 = &[]bool{true}[0]
+ 		testInboundVless(t, inboundOptions, outboundOptions)
+ 		t.Run("xtls-rprx-vision", func(t *testing.T) {
+ 			outboundOptions := outboundOptions
+@@ -407,7 +407,7 @@ func TestInboundVless_Reality_Grpc(t *testing.T) {
+ 	testInboundVless(t, inboundOptions, outboundOptions)
+ 	t.Run("X25519MLKEM768", func(t *testing.T) {
+ 		outboundOptions := outboundOptions
+-		outboundOptions.RealityOpts.SupportX25519MLKEM768 = true
++		outboundOptions.RealityOpts.SupportX25519MLKEM768 = &[]bool{true}[0]
+ 		testInboundVless(t, inboundOptions, outboundOptions)
+ 	})
+ }
