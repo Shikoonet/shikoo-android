@@ -907,12 +907,16 @@ class _SegmentedState<T> extends State<Segmented<T>> {
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.sm),
     );
-    // The remote coming from another row lands on the chosen option, not the nearest one.
+    // The remote or Tab coming from another row lands on the chosen option, not the nearest one;
+    // a click lands where it clicked.
     final segmented = Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onFocusChange: (inside) {
-        if (inside) _nodes[selected]?.requestFocus();
+        final keys =
+            FocusManager.instance.highlightMode ==
+            FocusHighlightMode.traditional;
+        if (inside && keys) _nodes[selected]?.requestFocus();
       },
       child: Container(
         padding: const EdgeInsets.all(Space.s1),

@@ -2,6 +2,7 @@ import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
@@ -962,6 +963,51 @@ void main() {
     expect(await home(1920), [for (final r in narrow) r.shift(shift)]);
     final bar = await page(960);
     expect(await page(1920), bar.shift(shift));
+  }, variant: _windows);
+
+  testWidgets('after Tab, Tab and a click on «تیره», Tab goes on from «تیره», '
+      'not from where the keys had left the focus', (tester) async {
+    addTearDown(ringOnKeys());
+    _window(tester, const Size(880, 508));
+    await tester.pumpWidget(
+      _app(
+        const ShikooSettings(),
+        overrides: [
+          shikooStateProvider.overrideWithValue(_state(ShikooConnection.off)),
+          shikooVersionProvider.overrideWithValue('1.0.57'),
+        ],
+      ),
+    );
+    await tester.pump();
+    String? focused() {
+      final context = FocusManager.instance.primaryFocus?.context;
+      if (context == null) return null;
+      return find
+          .descendant(
+            of: find.byElementPredicate((element) => element == context),
+            matching: find.byType(Text),
+          )
+          .evaluate()
+          .map((element) => (element.widget as Text).data)
+          .firstOrNull;
+    }
+
+    Future<void> tab() async {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+    }
+
+    expect(focused(), 'خودکار');
+    await tab();
+    await tab();
+    expect(focused(), 'English');
+    await tester.tap(find.text('تیره'), kind: PointerDeviceKind.mouse);
+    await tester.pump();
+    expect(focused(), 'تیره');
+    await tab();
+    expect(focused(), 'خودکار');
+    await tab();
+    expect(focused(), 'فارسی');
   }, variant: _windows);
 
   testWidgets('the ring waits for Tab or an arrow, and a click hides it '

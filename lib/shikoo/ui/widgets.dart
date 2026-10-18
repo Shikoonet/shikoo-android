@@ -209,6 +209,8 @@ class _PressableState extends State<Pressable> {
   bool _highlight = false;
   bool _hover = false;
 
+  FocusNode? _own;
+
   bool get _focused =>
       _highlight && (widget.focusNode?.hasPrimaryFocus ?? true);
 
@@ -231,6 +233,7 @@ class _PressableState extends State<Pressable> {
   @override
   void dispose() {
     widget.focusNode?.removeListener(_changed);
+    _own?.dispose();
     super.dispose();
   }
 
@@ -239,9 +242,10 @@ class _PressableState extends State<Pressable> {
     final t = ShikooTheme.of(context);
     const gap = ShikooSizes.focusRingOffset;
     final hover = _hover && shikooDesktop && widget.onPressed != null;
+    final node = widget.focusNode ?? (_own ??= FocusNode());
     return FocusableActionDetector(
       autofocus: widget.autofocus,
-      focusNode: widget.focusNode,
+      focusNode: node,
       onFocusChange: (focused) {
         if (focused) revealWithRing(context);
       },
@@ -260,7 +264,11 @@ class _PressableState extends State<Pressable> {
         onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed ?? () {},
+          onTap: () {
+            // As anywhere on a computer, a click takes the focus: the next Tab goes on from here.
+            if (shikooDesktop && widget.onPressed != null) node.requestFocus();
+            widget.onPressed?.call();
+          },
           child: Stack(
             clipBehavior: Clip.none,
             fit: StackFit.passthrough,
