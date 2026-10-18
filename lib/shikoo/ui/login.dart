@@ -986,27 +986,22 @@ class FillPage extends StatelessWidget {
                 : MainAxisAlignment.spaceBetween,
             children: [
               top,
-              if (grouped) ...[
-                PaneColumn(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Space.s4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: Space.s6,
-                      children: [middle, actions],
-                    ),
-                  ),
+              PaneColumn(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.s4),
+                  child: grouped
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: Space.s6,
+                          children: [middle, actions],
+                        )
+                      : middle,
                 ),
-                const SizedBox.shrink(),
-              ] else ...[
-                PaneColumn(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Space.s4),
-                    child: middle,
-                  ),
-                ),
+              ),
+              if (grouped)
+                const SizedBox.shrink()
+              else
                 PaneColumn(child: actions),
-              ],
             ],
           ),
         ),

@@ -492,7 +492,8 @@ void main() {
     }, variant: _windows);
 
     testWidgets('in the smallest window a message under the mode switch '
-        'scrolls into view, new or there from the start', (tester) async {
+        'scrolls into view: new, in place of another, or there from the '
+        'start', (tester) async {
       _window(tester, const Size(400, 448));
       Rect message() => tester.getRect(find.text(l.vpnRefusedDesktop));
       await tester.pumpWidget(
@@ -504,13 +505,27 @@ void main() {
         ),
       );
       await tester.pump();
-      ProviderScope.containerOf(tester.element(find.byType(ShikooHome)))
-          .read(_stateCell.notifier)
-          .set(_state(ShikooConnection.error, error: ShikooError.vpnRefused));
+      final cell = ProviderScope.containerOf(
+        tester.element(find.byType(ShikooHome)),
+      ).read(_stateCell.notifier);
+      cell.set(_state(ShikooConnection.error, error: ShikooError.vpnRefused));
       await tester.pump();
       await tester.pump();
       expect(message().top, greaterThanOrEqualTo(0));
       expect(message().bottom, lessThanOrEqualTo(448));
+
+      Scrollable.of(
+        tester.element(find.byType(PowerButton)),
+      ).position.jumpTo(0);
+      await tester.pump();
+      expect(message().bottom, greaterThan(448));
+      cell.set(_state(ShikooConnection.error, helperFailed: true));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.getRect(find.text(l.helperFailedDesktop)).bottom,
+        lessThanOrEqualTo(448),
+      );
 
       await _pumpHome(
         tester,

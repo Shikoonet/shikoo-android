@@ -992,6 +992,7 @@ class _PowerZone extends StatelessWidget {
         if (message != null || slot != null) ...[
           SizedBox(height: gap),
           _InView(
+            key: ValueKey(message),
             message: message,
             // A computer's text can be set half as large again: the message grows, never cut.
             child: ConstrainedBox(
@@ -1023,7 +1024,7 @@ class _PowerZone extends StatelessWidget {
 /// A computer's window can be too short to show the message under the mode switch: a new one
 /// scrolls into view.
 class _InView extends StatefulWidget {
-  const _InView({required this.message, required this.child});
+  const _InView({super.key, required this.message, required this.child});
 
   final String? message;
   final Widget child;
@@ -1036,19 +1037,7 @@ class _InViewState extends State<_InView> {
   @override
   void initState() {
     super.initState();
-    _reveal(null);
-  }
-
-  @override
-  void didUpdateWidget(_InView old) {
-    super.didUpdateWidget(old);
-    _reveal(old.message);
-  }
-
-  void _reveal(String? before) {
-    if (shikooDesktop && widget.message != null && widget.message != before) {
-      revealWithRing(context);
-    }
+    if (shikooDesktop && widget.message != null) revealWithRing(context);
   }
 
   @override
