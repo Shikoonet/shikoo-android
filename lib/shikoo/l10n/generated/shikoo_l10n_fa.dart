@@ -1402,6 +1402,12 @@ class ShikooL10nFa extends ShikooL10n {
   String get trayHeadOff => 'قطع';
 
   @override
+  String get trayHeadSignIn => 'اول وارد شو';
+
+  @override
+  String get trayHeadNoService => 'سرویسی نداری';
+
+  @override
   String trayHeadConnecting(String server) {
     return 'در حال اتصال · $server';
   }

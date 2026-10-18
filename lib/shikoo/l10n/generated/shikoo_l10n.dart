@@ -2288,6 +2288,18 @@ abstract class ShikooL10n {
   /// **'Off'**
   String get trayHeadOff;
 
+  /// No description provided for @trayHeadSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in first'**
+  String get trayHeadSignIn;
+
+  /// No description provided for @trayHeadNoService.
+  ///
+  /// In en, this message translates to:
+  /// **'No service yet'**
+  String get trayHeadNoService;
+
   /// No description provided for @trayHeadConnecting.
   ///
   /// In en, this message translates to:

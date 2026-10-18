@@ -13,6 +13,7 @@ import 'package:fl_clash/models/models.dart' show Traffic, TrayState;
 import 'package:fl_clash/providers/providers.dart'
     show systemActionProvider, windowSettingProvider;
 import 'package:fl_clash/shikoo/app/tray_popup.dart';
+import 'package:fl_clash/shikoo/engine/account.dart' show shikooAccountProvider;
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -114,11 +115,16 @@ TrayMenu shikooTrayMenu(
   required String? server,
   required Duration connectedFor,
   required bool canConnect,
+  required bool hasService,
+  required bool signedIn,
   required ShikooMode mode,
   required TrayActions on,
 }) {
   final connected = connection == ShikooConnection.on;
   final connecting = connection == ShikooConnection.connecting;
+  final idle = hasService
+      ? null
+      : (signedIn ? l.trayHeadNoService : l.trayHeadSignIn);
   TrayRow row(
     String label,
     VoidCallback run, {
@@ -127,16 +133,19 @@ TrayMenu shikooTrayMenu(
     bool enabled = true,
   }) => (label: label, icon: icon, dot: dot, enabled: enabled, run: run);
   return (
-    head: switch ((connection, server)) {
-      (ShikooConnection.on, final server?) => l.trayHeadOn(server),
-      (ShikooConnection.on, null) => l.powerOn,
-      (ShikooConnection.connecting, final server?) => l.trayHeadConnecting(
-        server,
-      ),
-      (ShikooConnection.connecting, null) => l.powerConnecting,
-      _ => l.trayHeadOff,
-    },
+    head:
+        idle ??
+        switch ((connection, server)) {
+          (ShikooConnection.on, final server?) => l.trayHeadOn(server),
+          (ShikooConnection.on, null) => l.powerOn,
+          (ShikooConnection.connecting, final server?) => l.trayHeadConnecting(
+            server,
+          ),
+          (ShikooConnection.connecting, null) => l.powerConnecting,
+          _ => l.trayHeadOff,
+        },
     on: connected,
+    muted: idle != null,
     time: connected ? clockOf(l.localeName, connectedFor) : null,
     rows: [
       if (connected || connecting)
@@ -236,7 +245,8 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
     ref
       ..listenManual(shikooStateProvider, (_, _) => _showTray())
       ..listenManual(shikooModeProvider, (_, _) => _showTray())
-      ..listenManual(shikooLookProvider, (_, _) => _showTray());
+      ..listenManual(shikooLookProvider, (_, _) => _showTray())
+      ..listenManual(shikooAccountProvider, (_, _) => _showTray());
     _showTray();
   }
 
@@ -269,10 +279,20 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
     unawaited(ref.read(systemActionProvider.notifier).handleExit());
   }
 
-  /// FlClash's TrayManager first opens the plugin's menu, empty here, which takes the foreground.
+  /// Empties Windows' tip first; that waits behind FlClash's empty menu taking the foreground.
   Future<void> _openMenu() async {
-    await Tray.instance.openMenu();
+    await shikooTray.show(TraySpec(icon: _spec().icon));
     _showTray(open: true);
+  }
+
+  TraySpec _spec() {
+    final state = ref.read(shikooStateProvider);
+    return shikooTraySpec(
+      lookupShikooL10n(Locale(ref.read(shikooLookProvider).language)),
+      connection: state.connection,
+      server: state.selectedServer?.label,
+      mode: ref.read(shikooModeProvider),
+    );
   }
 
   void _showTray({bool open = false}) {
@@ -289,6 +309,8 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
         server: server,
         connectedFor: state.connectedFor,
         canConnect: state.service != null && restingFor(state) == null,
+        hasService: state.service != null,
+        signedIn: ref.read(shikooAccountProvider).who != null,
         mode: mode,
         on: (
           connect: () => unawaited(controller.connect()),
@@ -313,13 +335,7 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
     } else {
       _popup.update(view);
     }
-    final spec = shikooTraySpec(
-      l,
-      connection: state.connection,
-      server: server,
-      mode: mode,
-    );
-    // Windows' own tip would show over the open menu.
+    final spec = _spec();
     unawaited(
       shikooTray.show(_popup.isOpen ? TraySpec(icon: spec.icon) : spec),
     );

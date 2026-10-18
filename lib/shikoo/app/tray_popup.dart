@@ -21,7 +21,13 @@ typedef TrayRow = ({
 });
 
 /// The status line, green with the time when connected, and the rows under its rule.
-typedef TrayMenu = ({String head, bool on, String? time, List<TrayRow?> rows});
+typedef TrayMenu = ({
+  String head,
+  bool on,
+  bool muted,
+  String? time,
+  List<TrayRow?> rows,
+});
 
 typedef TrayView = ({
   TrayMenu menu,
@@ -29,7 +35,7 @@ typedef TrayView = ({
   TextDirection direction,
 });
 
-typedef TrayStep = ({int? selected, bool close, TrayRow? chosen});
+typedef TrayStep = ({int? selected, bool pointed, bool close, TrayRow? chosen});
 
 // win32 6.4 leaves these three out.
 const _waInactive = 0;
@@ -38,22 +44,29 @@ const _acSrcAlpha = 1;
 
 /// What one Windows message does to the open menu. [at] is the row under the pointer, -1
 /// when the pointer is off the card, null when it is on the card but on no row.
+/// [pointed]: the pointer, not a key, chose [selected]; leaving the card drops only that row.
+/// A move that is not [moved], as Windows sends after each redraw, changes nothing.
 TrayStep trayStep(
   List<TrayRow?> rows,
   int? selected,
   int message,
   int wParam, {
   int? at,
+  bool pointed = false,
+  bool moved = true,
 }) {
-  TrayStep stay(int? row) => (selected: row, close: false, chosen: null);
-  const shut = (selected: null, close: true, chosen: null);
+  TrayStep stay(int? row, {bool by = false}) =>
+      (selected: row, pointed: by, close: false, chosen: null);
+  TrayStep keep() => stay(selected, by: pointed);
+  const shut = (selected: null, pointed: false, close: true, chosen: null);
   TrayStep choose(int? row) => switch (row == null ? null : rows[row]) {
     final picked? when picked.enabled => (
       selected: row,
+      pointed: pointed,
       close: true,
       chosen: picked,
     ),
-    _ => stay(selected),
+    _ => keep(),
   };
   int? next(int from, int by) {
     for (var k = 1; k <= rows.length; k++) {
@@ -73,11 +86,13 @@ TrayStep trayStep(
       VK_HOME => stay(next(-1, 1)),
       VK_END => stay(next(rows.length, -1)),
       VK_RETURN || VK_SPACE => choose(selected),
-      _ => stay(selected),
+      _ => keep(),
     },
-    WM_MOUSEMOVE => stay(onRow ? at : null),
+    WM_MOUSEMOVE when !moved => keep(),
+    WM_MOUSEMOVE when onRow => stay(at, by: true),
+    WM_MOUSEMOVE || wmMouseLeave => pointed ? stay(null) : keep(),
     WM_LBUTTONUP || WM_RBUTTONUP => at == -1 ? shut : choose(at),
-    _ => stay(selected),
+    _ => keep(),
   };
 }
 
@@ -161,7 +176,13 @@ class TrayMenuView extends StatelessWidget {
                     : CustomPaint(painter: _Glyph(icons[row.icon], fg)),
               ),
               Expanded(
-                child: Text(row.label, style: t.text(s.bodySm, color: fg)),
+                child: Text(
+                  row.label,
+                  style: t.text(
+                    s.bodySm,
+                    color: row.enabled ? c.text : c.textMuted,
+                  ),
+                ),
               ),
             ],
           ),
@@ -199,14 +220,16 @@ class TrayMenuView extends StatelessWidget {
                   style: t.text(
                     s.body,
                     weight: FontWeight.w700,
-                    color: menu.on ? c.positive : c.text,
+                    color: menu.on
+                        ? c.positive
+                        : (menu.muted ? c.textMuted : c.text),
                   ),
                 ),
                 if (time != null)
                   Text(
                     time,
                     textDirection: TextDirection.ltr,
-                    style: t.text(s.bodySm, color: c.textMuted),
+                    style: t.text(s.bodySm, color: c.textMuted, tabular: true),
                   ),
               ],
             ),
@@ -259,6 +282,10 @@ class TrayPopup {
   int _hwnd = 0;
   late TrayView _view;
   int? _selected;
+  bool _pointed = false;
+  Offset? _lastMove;
+  bool _tracking = false;
+  Offset _origin = Offset.zero;
   Offset _pointer = Offset.zero;
   Rect _work = Rect.zero;
   double _scale = 1;
@@ -297,6 +324,9 @@ class TrayPopup {
       null,
     ).value.address;
     _selected = null;
+    _pointed = false;
+    _lastMove = null;
+    _tracking = false;
     _shown = this;
     for (final icon in {for (final row in view.menu.rows) row?.icon}.nonNulls) {
       _icons[icon] ??= await vg.loadPicture(
@@ -375,6 +405,7 @@ class TrayPopup {
     WM_ACTIVATE,
     WM_KEYDOWN,
     WM_MOUSEMOVE,
+    wmMouseLeave,
     WM_LBUTTONUP,
     WM_RBUTTONUP,
   };
@@ -397,14 +428,28 @@ class TrayPopup {
     _messages.clear();
     for (final (message, wParam, lParam) in messages) {
       if (!isOpen) return;
-      final pointer = message != WM_ACTIVATE && message != WM_KEYDOWN;
+      final pointer =
+          message == WM_MOUSEMOVE ||
+          message == WM_LBUTTONUP ||
+          message == WM_RBUTTONUP;
+      var moved = true;
+      if (message == WM_MOUSEMOVE) {
+        final at = _origin + _client(lParam);
+        moved = at != _lastMove;
+        _lastMove = at;
+        if (!_tracking) _tracking = _trackLeave();
+      }
+      if (message == wmMouseLeave) _tracking = false;
       final step = trayStep(
         _view.menu.rows,
         _selected,
         message,
         wParam,
         at: pointer ? _rowAt(lParam) : null,
+        pointed: _pointed,
+        moved: moved,
       );
+      _pointed = step.pointed;
       if (step.close) {
         close();
         step.chosen?.run();
@@ -417,15 +462,27 @@ class TrayPopup {
     }
   }
 
+  /// Windows sends WM_MOUSELEAVE only when asked, once per ask.
+  bool _trackLeave() {
+    final track = calloc<_TrackMouse>();
+    track.ref
+      ..cbSize = sizeOf<_TrackMouse>()
+      ..dwFlags = _tmeLeave
+      ..hwndTrack = Pointer.fromAddress(_hwnd);
+    final asked = _trackMouseEvent(track) != 0;
+    calloc.free(track);
+    return asked;
+  }
+
+  static Offset _client(int lParam) => Offset(
+    (lParam & 0xFFFF).toSigned(16).toDouble(),
+    (lParam >> 16 & 0xFFFF).toSigned(16).toDouble(),
+  );
+
   int? _rowAt(int lParam) {
     final tree = _tree;
     if (tree == null) return null;
-    final at =
-        Offset(
-          (lParam & 0xFFFF).toSigned(16).toDouble(),
-          (lParam >> 16 & 0xFFFF).toSigned(16).toDouble(),
-        ) /
-        _scale;
+    final at = _client(lParam) / _scale;
     if (!(Offset.zero & tree.boundary.size).deflate(_margin).contains(at)) {
       return -1;
     }
@@ -517,9 +574,13 @@ class TrayPopup {
       pixels[i + 3] = rgba[i + 3];
     }
     final old = SelectObject(memory, HGDIOBJ(bitmap));
+    _origin = Offset(
+      (card.dx - margin).roundToDouble(),
+      (card.dy - margin).roundToDouble(),
+    );
     final to = calloc<POINT>()
-      ..ref.x = (card.dx - margin).round()
-      ..ref.y = (card.dy - margin).round();
+      ..ref.x = _origin.dx.toInt()
+      ..ref.y = _origin.dy.toInt();
     final from = calloc<POINT>();
     final size = calloc<SIZE>()
       ..ref.cx = w
@@ -547,6 +608,28 @@ class TrayPopup {
     }
   }
 }
+
+const wmMouseLeave = 0x02A3;
+const _tmeLeave = 2;
+
+final class _TrackMouse extends Struct {
+  @Uint32()
+  external int cbSize;
+
+  @Uint32()
+  external int dwFlags;
+
+  external Pointer hwndTrack;
+
+  @Uint32()
+  external int dwHoverTime;
+}
+
+final _trackMouseEvent = DynamicLibrary.open('user32.dll')
+    .lookupFunction<
+      Int32 Function(Pointer<_TrackMouse>),
+      int Function(Pointer<_TrackMouse>)
+    >('TrackMouseEvent');
 
 /// A widget tree of its own, laid out and painted by hand.
 class _Offscreen {

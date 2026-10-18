@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:fl_clash/common/render.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -15,14 +16,16 @@ import 'package:tray/tray.dart';
 /// The real menu beside the clock over a made-up state, for its pictures and for a look after
 /// a FlClash update; it never connects. Build it with
 /// `flutter build windows -t test/shikoo/tray_harness.dart`, run
-/// `ShikooNet.exe <off|connecting|on> <light|dark> [fa|en]` and right-click the fox. Its
+/// `ShikooNet.exe <off|connecting|on|signin|noservice> <light|dark> [fa|en]`, right-click. Its
 /// window stays hidden and FlClash stops the frames after five seconds, as in the app.
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadShikooFonts();
-  final connection = ShikooConnection.values.byName(
-    args.elementAtOrNull(0) ?? 'on',
-  );
+  final shown = args.elementAtOrNull(0) ?? 'on';
+  final service = !const {'signin', 'noservice'}.contains(shown);
+  final connection = service
+      ? ShikooConnection.values.byName(shown)
+      : ShikooConnection.off;
   final ShikooLook look = (
     theme: ThemeMode.values.byName(args.elementAtOrNull(1) ?? 'light'),
     language: args.elementAtOrNull(2) ?? 'fa',
@@ -32,12 +35,14 @@ void main(List<String> args) async {
     connection: connection,
     connectedFor: DateTime.now().difference(up),
     isTV: false,
-    service: ShikooService(
-      name: '5550123 · الماس',
-      usedBytes: 33 << 30,
-      totalBytes: 100 << 30,
-      updatedAt: DateTime.now(),
-    ),
+    service: service
+        ? ShikooService(
+            name: '5550123 · الماس',
+            usedBytes: 33 << 30,
+            totalBytes: 100 << 30,
+            updatedAt: DateTime.now(),
+          )
+        : null,
     servers: const [ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84)],
     selected: 'آلمان ۲',
   );
@@ -48,6 +53,12 @@ void main(List<String> args) async {
     overrides: [
       shikooStateProvider.overrideWith((ref) => ref.watch(now)),
       shikooLookProvider.overrideWith(() => _Look(look)),
+      if (shown == 'noservice')
+        shikooAccountProvider.overrideWith(
+          () => ShikooCell(
+            const ShikooAccount(who: TelegramAccount(name: 'Sam')),
+          ),
+        ),
       shikooControllerProvider.overrideWithValue(_Inert()),
       systemActionProvider.overrideWith(_Exit.new),
     ],
@@ -73,12 +84,6 @@ void main(List<String> args) async {
     ),
   );
   render?.pause();
-  Timer(const Duration(seconds: 6), () {
-    final frames = WidgetsBinding.instance.platformDispatcher.onBeginFrame;
-    File(
-      '${Directory.systemTemp.path}/shikoo-tray-harness.txt',
-    ).writeAsStringSync('frames stopped: ${frames == null}\n');
-  });
 }
 
 class _Look extends ShikooLookNotifier {

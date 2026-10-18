@@ -519,6 +519,8 @@
   "trayOn": "{app} · Connected, {server}",
   "@trayOn": {"placeholders": {"app": {"type": "String"}, "server": {"type": "String"}}},
   "trayHeadOff": "Off",
+  "trayHeadSignIn": "Sign in first",
+  "trayHeadNoService": "No service yet",
   "trayHeadConnecting": "Connecting · {server}",
   "@trayHeadConnecting": {"placeholders": {"server": {"type": "String"}}},
   "trayHeadOn": "Connected · {server}",

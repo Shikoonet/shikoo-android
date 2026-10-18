@@ -1457,6 +1457,12 @@ class ShikooL10nEn extends ShikooL10n {
   String get trayHeadOff => 'Off';
 
   @override
+  String get trayHeadSignIn => 'Sign in first';
+
+  @override
+  String get trayHeadNoService => 'No service yet';
+
+  @override
   String trayHeadConnecting(String server) {
     return 'Connecting · $server';
   }

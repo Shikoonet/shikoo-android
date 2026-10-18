@@ -1,7 +1,9 @@
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/app/tray_popup.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -34,12 +36,16 @@ class _Exits extends SystemAction {
 /// Keeps what Windows would be shown, and no window.
 class _Popup extends TrayPopup {
   TrayView? view;
+  VoidCallback? onShow;
 
   @override
   bool get isOpen => view != null;
 
   @override
-  Future<void> show(TrayView view) async => this.view = view;
+  Future<void> show(TrayView view) async {
+    this.view = view;
+    onShow?.call();
+  }
 
   @override
   void update(TrayView view) {
@@ -58,16 +64,19 @@ ShikooState _state(
   ShikooConnection connection, {
   int more = 0,
   Duration connectedFor = const Duration(minutes: 12, seconds: 47),
+  bool service = true,
 }) => ShikooState(
   connection: connection,
   connectedFor: connectedFor,
   isTV: false,
-  service: ShikooService(
-    name: '5550123 · الماس',
-    usedBytes: 33 << 30,
-    totalBytes: 100 << 30,
-    updatedAt: DateTime.now(),
-  ),
+  service: service
+      ? ShikooService(
+          name: '5550123 · الماس',
+          usedBytes: 33 << 30,
+          totalBytes: 100 << 30,
+          updatedAt: DateTime.now(),
+        )
+      : null,
   servers: [
     const ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
     const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
@@ -207,12 +216,16 @@ void main() {
       ShikooConnection connection, {
       ShikooMode mode = ShikooMode.tunnel,
       bool canConnect = true,
+      bool hasService = true,
+      bool signedIn = true,
     }) => shikooTrayMenu(
       l,
       connection: connection,
       server: 'آلمان ۲',
       connectedFor: const Duration(minutes: 12, seconds: 47),
       canConnect: canConnect,
+      hasService: hasService,
+      signedIn: signedIn,
       mode: mode,
       on: on,
     );
@@ -242,8 +255,12 @@ void main() {
         'خروج',
       ]);
 
+      expect(connected.muted, isFalse);
       final off = menu(ShikooConnection.off, mode: ShikooMode.proxy);
-      expect((off.head, off.on, off.time), ('قطع', false, null));
+      expect(
+        (off.head, off.on, off.muted, off.time),
+        ('قطع', false, false, null),
+      );
       expect(labels(off).take(4), ['power وصل شدن', '-', 'تونل', '• پروکسی']);
       expect(
         labels(menu(ShikooConnection.off, canConnect: false)).first,
@@ -261,6 +278,38 @@ void main() {
         '• (تونل)',
         '(پروکسی)',
       ]);
+
+      TrayMenu bare({required bool signedIn}) => menu(
+        ShikooConnection.off,
+        canConnect: false,
+        hasService: false,
+        signedIn: signedIn,
+      );
+      final out = bare(signedIn: false);
+      expect((out.head, out.on, out.muted), ('اول وارد شو', false, true));
+      expect(labels(out), [
+        'power (وصل شدن)',
+        '-',
+        '• تونل',
+        'پروکسی',
+        '-',
+        'باز کردن شیکونت',
+        'خروج',
+      ]);
+      final empty = bare(signedIn: true);
+      expect((empty.head, empty.muted), ('سرویسی نداری', true));
+      final en = shikooTrayMenu(
+        lookupShikooL10n(const Locale('en')),
+        connection: ShikooConnection.off,
+        server: null,
+        connectedFor: Duration.zero,
+        canConnect: false,
+        hasService: false,
+        signedIn: false,
+        mode: ShikooMode.tunnel,
+        on: on,
+      );
+      expect(en.head, 'Sign in first');
 
       TraySpec spec(ShikooConnection connection, ShikooMode mode) =>
           shikooTraySpec(
@@ -283,6 +332,79 @@ void main() {
       final waiting = spec(ShikooConnection.connecting, ShikooMode.tunnel);
       expect(waiting.toolTip, 'شیکونت · در حال اتصال');
       expect(waiting.icon.asset, 'assets/images/tray/windows/status_1.ico');
+    });
+
+    test('the clock runs past an hour', () {
+      expect(
+        clockOf('en', const Duration(minutes: 61, seconds: 1)),
+        '01:01:01',
+      );
+      expect(
+        clockOf('fa', const Duration(hours: 25, minutes: 5, seconds: 9)),
+        '۲۵:۰۵:۰۹',
+      );
+    });
+
+    testWidgets('greys what cannot be used, and the reason on top', (
+      tester,
+    ) async {
+      Future<void> draw(TrayMenu menu) => tester.pumpWidget(
+        MaterialApp(
+          theme: shikooThemeData(Brightness.light, tv: false),
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: TrayMenuView(menu),
+            ),
+          ),
+        ),
+      );
+      const c = ShikooColors.light;
+      Color? ink(String data) =>
+          tester.widget<Text>(find.text(data)).style?.color;
+      Color? mark(String label) {
+        final row = find.ancestor(
+          of: find.text(label),
+          matching: find.byType(MetaData),
+        );
+        final dot = find.descendant(
+          of: row,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Container &&
+                (w.decoration as BoxDecoration?)?.shape == BoxShape.circle,
+          ),
+        );
+        if (dot.evaluate().isNotEmpty) {
+          return (tester.widget<Container>(dot).decoration as BoxDecoration)
+              .color;
+        }
+        final glyph = tester.widget<CustomPaint>(
+          find.descendant(of: row, matching: find.byType(CustomPaint)).first,
+        );
+        return (glyph.painter as dynamic).color as Color;
+      }
+
+      await draw(
+        menu(
+          ShikooConnection.off,
+          canConnect: false,
+          hasService: false,
+          signedIn: false,
+        ),
+      );
+      expect(ink('اول وارد شو'), c.textMuted);
+      expect(ink('وصل شدن'), c.textMuted);
+      expect(mark('وصل شدن'), c.iconDisabled);
+      expect(ink('تونل'), c.text);
+      expect(mark('تونل'), c.text);
+
+      await draw(menu(ShikooConnection.connecting));
+      expect(ink('در حال اتصال · آلمان ۲'), c.text);
+      expect(ink('تونل'), c.textMuted);
+      expect(mark('تونل'), c.iconDisabled);
+      expect(mark('قطع کردن'), c.text);
     });
 
     test('every row does what it says', () {
@@ -313,6 +435,12 @@ void main() {
       expect(key(VK_ESCAPE, 5).chosen, isNull);
       expect(trayStep(rows, 5, WM_ACTIVATE, 0).close, isTrue);
       expect(trayStep(rows, 5, WM_ACTIVATE, 1).close, isFalse);
+      expect(
+        trayStep(rows, 5, WM_ACTIVATE, 0x10000).close,
+        isTrue,
+        reason: 'the high word only says whether the window is minimised',
+      );
+      expect(trayStep(rows, 5, WM_ACTIVATE, 0x10001).close, isFalse);
       expect(click(-1).close, isTrue);
       expect(click(-1).chosen, isNull);
 
@@ -339,10 +467,30 @@ void main() {
         'خروج',
       );
 
-      expect(trayStep(rows, null, WM_MOUSEMOVE, 0, at: 5).selected, 5);
-      expect(trayStep(rows, 5, WM_MOUSEMOVE, 0, at: 3).selected, isNull);
-      expect(trayStep(rows, 5, WM_MOUSEMOVE, 0).selected, isNull);
-      expect(trayStep(rows, 5, WM_MOUSEMOVE, 0, at: -1).selected, isNull);
+      TrayStep move(int? at, {bool pointed = true, bool moved = true}) =>
+          trayStep(
+            rows,
+            5,
+            WM_MOUSEMOVE,
+            0,
+            at: at,
+            pointed: pointed,
+            moved: moved,
+          );
+      final hover = trayStep(rows, null, WM_MOUSEMOVE, 0, at: 6);
+      expect((hover.selected, hover.pointed), (6, true));
+      expect(move(3).selected, isNull, reason: 'tunnel is off');
+      expect(move(null).selected, isNull, reason: 'the status line');
+      expect(move(-1).selected, isNull, reason: 'onto the shadow');
+      expect(trayStep(rows, 5, wmMouseLeave, 0, pointed: true).selected, null);
+      expect(key(VK_DOWN, 0).pointed, isFalse);
+
+      // A row the keys chose stays under a pointer that has not left the icon.
+      expect(move(-1, pointed: false).selected, 5);
+      expect(move(null, pointed: false).selected, 5);
+      expect(trayStep(rows, 5, wmMouseLeave, 0).selected, 5);
+      expect(move(6, pointed: false, moved: false).selected, 5);
+      expect(move(6, pointed: false).selected, 6);
     });
 
     test('opens at the pointer, clear of the taskbar on every edge', () {
@@ -392,6 +540,10 @@ void main() {
       expect(text('وصل · آلمان ۲').style?.fontWeight, FontWeight.w700);
       expect(text('۰۰:۱۲:۴۷').style?.color, c.textMuted);
       expect(text('قطع کردن').style?.color, c.text);
+      expect(
+        text('۰۰:۱۲:۴۷').style?.fontFeatures,
+        contains(const FontFeature.tabularFigures()),
+      );
       expect(
         tester.getSize(find.byType(TrayMenuView)).width,
         ShikooSizes.trayMenu,
@@ -500,7 +652,8 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      final popup = _Popup();
+      String? tipAtOpen;
+      final popup = _Popup()..onShow = () => tipAtOpen = tips.last;
       final notices = <String>[];
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -546,6 +699,7 @@ void main() {
       expect(popup.view?.direction, TextDirection.rtl);
       expect(popup.view?.brightness, Brightness.light);
       expect(tips.last, isEmpty, reason: "Windows' tip would cover the menu");
+      expect(tipAtOpen, isEmpty, reason: 'gone before the menu shows');
       container
           .read(now.notifier)
           .set(
@@ -584,13 +738,41 @@ void main() {
       expect(tips.last, 'شیکونت · قطع');
       expect(icons.last, endsWith('status_1.ico'));
 
+      final look = container.read(shikooLookProvider.notifier);
+      await look.setLanguage('en');
+      await tester.idle();
+      expect(tips.last, 'ShikooNet · Off');
+      await look.setLanguage('fa');
+      await tester.idle();
+      expect(tips.last, 'شیکونت · قطع');
+
       await fromWindows('tray', 'onMenuRequested');
       await tester.idle();
+      await look.setTheme(ThemeMode.dark);
+      await tester.idle();
+      expect(popup.view?.brightness, Brightness.dark);
+      await look.setTheme(ThemeMode.light);
+      await tester.idle();
+      expect(popup.view?.brightness, Brightness.light);
+      container
+          .read(now.notifier)
+          .set(_state(ShikooConnection.off, service: false));
+      await tester.idle();
+      expect(popup.view?.menu.head, 'اول وارد شو');
+      container
+          .read(shikooAccountProvider.notifier)
+          .set(const ShikooAccount(who: TelegramAccount(name: 'Sam')));
+      await tester.idle();
+      expect(popup.view?.menu.head, 'سرویسی نداری');
+
       row('خروج').run();
       expect(_Exits.count, 1);
       await fromWindows('window_manager', 'onEvent');
       await tester.pumpAndSettle();
       expect(notices, isEmpty);
+
+      await tester.pumpWidget(const SizedBox());
+      expect(popup.isOpen, isFalse, reason: 'the menu goes with the window');
     }, variant: _windows);
   });
 
