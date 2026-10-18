@@ -206,7 +206,8 @@ A door token is the door's own `RELEASE_TOKEN`, character for character; the doo
 
 Sam makes both keystores and `password.txt` with his `make-signing-key.ps1`, outside this repository. Only
 `shikoo-staging.yml` reads the signing secrets: the staging one in its «Staging APKs» step, the four release ones in
-«Production APKs». The staging door token is read only by its `door` job, the production door token only by Promote's door
+«Production APKs», and the two keystores with the store password in the `seal` job, which seals the Windows installers
+(§10). The staging door token is read only by its `door` job, the production door token only by Promote's door
 step. CI reads none.
 
 Repository variables, optional (not secrets, they are inside the APK anyway): `SHIKOO_STAGING_API` and `SHIKOO_STAGING_BOT`
@@ -361,3 +362,67 @@ FlClash's id, so the packages in the table are `com.follow.clash(.dev)`; the las
   takes about half a minute to show.
 - If the production door publishes and `gh release create` then fails, customers are offered the build before its GitHub
   release exists. Re-running Promote sends the same files to the door again, which it allows, and retries the release.
+
+## 10. Windows, in the same release
+
+Sam, 2026-10-17: Windows ships with Android, under one version and the one Promote. The installer has no Authenticode
+signature, so the in-app update trusts only our own seal, made with the same keys as the APKs: no new key, no new secret.
+
+- **Job `windows`** (`windows-2022`, after `build`, same commit) builds two installers, like the two APK variants:
+  `ShikooNet-<vn>-staging-windows-x64.exe` (staging server and bot, built with `SHIKOO_FLAVOR=staging`, so it is
+  «ShikooNet Test» and installs beside production) and `ShikooNet-<vn>-windows-x64.exe`. Same entry point
+  and defines as Android, `--build-name <vn> --build-number <n>`, packed by FlClash's own `flutter_distributor`
+  (`v0.6.11-flclash.2`; `inno_setup.iss` is its template) with Inno Setup 6.7.3. Flutter 3.47.1, Go 1.26.4 and the Rust
+  of `plugins/rust_api` (also for the helper) are those of `tools/windows-toolchain.ps1`. `pubspec.yaml`'s version is set
+  to `<vn>` on the runner only, since Inno's AppVersion comes from it. The staging installer must be `ShikooNet Test`
+  (its ProductName) and carry the staging server in `data/app.so`; the production one must be `ShikooNet` and must not.
+  The job holds no secret, and hands both installers to `seal` as an artifact (`installers`, kept a day).
+- **The same core:** `build` uploads the CA bundle `apply.sh` wrote (artifact `core-ca`, kept a day). `windows` checks
+  out with `core.autocrlf false`, so the core's files are the Linux checkout's bytes, and runs the same `apply.sh` with
+  `SHIKOO_CA_DIR` pointing at that bundle: its log shows the same three lines.
+- **The seal, in its own small job `seal`** (ubuntu, after `windows`; it runs nothing but checkout, the artifact download,
+  openssl and `gh`): RSA PKCS#1 v1.5 with SHA-256 (`openssl dgst -sha256 -sign`) over the ASCII
+  `shikoonet-windows-update:<n>:<sha256 hex of the installer>`, `<n>` the run number (the installer's build number),
+  base64 on one line in `<file>.sig`. The staging installer is sealed with the staging keystore (RSA 2048, 344
+  characters), the production one with the release keystore (RSA 4096, 684 characters): the secrets of §4. Before
+  sealing, the keystore's public key (SubjectPublicKeyInfo DER, base64) must equal `windowsSealKeyStaging` or
+  `windowsSealKeyProduction` in `lib/shikoo/engine/update.dart`, the key the app checks with; a different, empty or
+  missing constant fails the job. After sealing, openssl verifies the seal. The keystore and the private key exist only in
+  `RUNNER_TEMP` for that one step and are deleted when it ends, also on failure. OpenSSL 3 read throwaway keystores made
+  by the same JDK 17 keytool (PBES2, AES-256) without `-legacy`.
+- **Release:** `seal` puts installers and seals into `staging-<vn>`, their lines into its `SHA256SUMS` (a re-run
+  replaces them). If `windows` or `seal` fails, the APK pre-release stands and `door` still runs; the door and Promote
+  then publish the APKs alone, with a warning, and each door keeps its previous Windows entry (the server replaces only
+  the entries it is sent, shikoo-platform PR #770).
+- **Door:** `publish_door.sh` sends the installer in the same publish as the APKs, as
+  `{"abi":"windows-x64","file":…,"version_code":<n>,"sha256":…,"sig":…}`; `version_name` stays top-level, since the
+  server refuses unknown keys in an entry. `<n>` is read from the file name, the last part of `<vn>` (§5).
+- **Promote** takes `ShikooNet-<vn>-windows-x64.exe` and its `.sig` from the same pre-release, checks the installer with
+  the same `sha256sum -c`, and publishes those bytes to the door and to `v<vn>`.
+- **Order:** both doors must run PR #770 in a version that takes this RSA `sig` before this reaches `main`: the first
+  staging run publishes an installer, and an older door refuses the upload or the body, which fails the whole publish,
+  APKs included.
+- **Minutes:** Windows minutes count double on GitHub Free, so only the installers are built there. Caches: Go
+  (`setup-go`), the hook outputs and cargo registry (`native-windows-…`), Flutter and pub (`flutter-action`).
+
+**Run on this PC, 2026-10-17** (nothing ran on GitHub; the test keystores were made in a temporary folder and deleted):
+
+| What | Result |
+|---|---|
+| `apply.sh` in WSL as Linux runs it, then in Git Bash on Windows with `SHIKOO_CA_DIR` holding WSL's bundle | both: the two patches `applied`, `core CA bundle: 121 roots`, bundle sha256 `9481fcd9…` both times |
+| The installers step as written (`VN=1.0.999`, run number 999), Flutter 3.47.1, Inno Setup 6.7.3 | exit 0; `flutter build windows --target lib/shikoo/app/main.dart --dart-define=APP_ENV=stable --dart-define=SHIKOO_CORE=70f0570 [--dart-define=SHIKOO_API=… --dart-define=SHIKOO_BOT=…] --build-name 1.0.999 --build-number 999`; two installers of 38.5 MB; 401 s with warm caches (each build 52 and 150 s, each Inno compile about 80 s); the first cold run built for 447 s |
+| What the builds carry | staging `app.so` has the staging server once; production none of it and the production server once; `ShikooNet.exe` version `1.0.999+999`; installer ProductVersion `1.0.999`; Authenticode `NotSigned` |
+| The installers step again (round 2), with `win/brand`'s `windows/` changes applied for the test only | exit 0 in 362 s; staging installer ProductName `ShikooNet Test`, production `ShikooNet`, both ProductVersion `1.0.999`; the round-1 staging installer, built without those changes, is refused: `the staging installer is 'ShikooNet' …` |
+| Throwaway keystores made as `make-signing-key.ps1` makes them (JDK 17.0.20.1 keytool, PKCS12; RSA 4096 `shikoonet` with a random password, RSA 2048 `androiddebugkey`/`android`), read by Ubuntu 24.04's OpenSSL 3.0.13, the runner's | opened without `-legacy`: MAC sha256, keys PBES2 AES-256-CBC |
+| The seal step in WSL against `update.dart` variants: both constants right; split by `dart format` onto a second line; production constant of a third key; staging constant empty; no such constants; the two swapped; no staging keystore secret | sealed, openssl `Verified OK` twice; the same; refused (`is not the one windowsSealKeyProduction names`); refused (`holds no windowsSealKeyStaging`); the same; refused (`… windowsSealKeyStaging names`); refused (`not in the secrets`); nothing left in `RUNNER_TEMP` after any case |
+| Go's `crypto/rsa` on those seals, with the constants' keys | both valid, 344 and 684 characters; invalid against the other key, with version code 23, and with one byte of the installer changed |
+| The release step twice with a stub `gh`; then, in WSL, the staging `door` step and Promote's steps with that stub against a throwaway door that checks the body as PR #770's `Publish` schema does (its `sig` rule widened to RSA), two real 1.0.22 APKs and the two real installers renamed to 1.0.22 | `SHA256SUMS` gains two lines, and the second run leaves them two; both doors `200`, the installer in 8 MiB chunks as `windows-x64`, `version_code` 22 read from the name, `sig` equal to its `.sig`; the installers the doors stored pass Go's check; `v1.0.22` gets the APKs, the installer, its `.sig` and `SHA256SUMS` |
+| A release with no installer; an installer without its `.sig`; a `.sig` in round 1's `<n> <seal>` form | door and Promote warn and publish the APKs alone; `holds no base64 seal`; the same |
+| `actionlint` 1.7.12 with `shellcheck` 0.9.0 | only the three findings `main` already has (`SC2015` twice, `SC2001`), none in the new steps |
+
+**Not proven until it runs on GitHub:** the `windows-2022` runner itself (`rustup toolchain install` there, Inno's
+silent install, symlinks for Flutter's plugins, `pwsh` reading the ProductName), the two artifacts between jobs, `gh
+release upload --clobber`, the real minutes, and the real doors, which must take the RSA `sig` first. Sam's own keystores
+have never been opened by openssl: they were made with the same keytool, so they should read like the throwaway ones,
+and if not, the seal step fails at `openssl pkcs12` with nothing published. The app's own check of the seal belongs to the
+updater, not to this pipeline.

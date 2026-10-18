@@ -7,6 +7,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
+import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -19,10 +20,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:rust_api/rust_api.dart';
 
 /// FlClash's `lib/main.dart` (v0.8.98) with ShikooApp; copy upstream changes to it by hand.
-void main() {
+void main(List<String> args) {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      if (Platform.isWindows && args.contains('--restore-proxy')) {
+        await restoreProxyAndExit();
+      }
       _hideLinksInLogs();
       FlutterError.onError = (details) {
         shikooDiag.error(details.exception, details.stack);
