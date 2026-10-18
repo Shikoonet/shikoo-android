@@ -2276,6 +2276,36 @@ abstract class ShikooL10n {
   /// **'{server} didn\'t answer in {seconds} seconds. Click again, or pick another server from the list.'**
   String errorConnectDesktop(String server, int seconds);
 
+  /// No description provided for @loginTelegramNoteDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram opens; click “Approve” in the ShikooNet bot.'**
+  String get loginTelegramNoteDesktop;
+
+  /// No description provided for @noServiceHelpPasteDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy your subscription link, then click “Paste subscription link”.\nNo link? Ask Support.'**
+  String get noServiceHelpPasteDesktop;
+
+  /// No description provided for @otherServiceHintDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Click a server to move your connection to this service.'**
+  String get otherServiceHintDesktop;
+
+  /// No description provided for @pasteEmptyHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy your subscription link, then click again.'**
+  String get pasteEmptyHelpDesktop;
+
+  /// No description provided for @otherDeviceScanDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Have a phone with Telegram? Scan this code with its camera.'**
+  String get otherDeviceScanDesktop;
+
   /// No description provided for @modeLabel.
   ///
   /// In en, this message translates to:

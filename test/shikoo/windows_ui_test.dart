@@ -2,11 +2,13 @@ import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/mode.dart';
+import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -817,16 +819,127 @@ void main() {
     );
     await tester.pump();
     expect(find.textContaining(l.noServiceHelpDesktop), findsOne);
+
+    Future<void> page(
+      Widget home, {
+      ShikooState? state,
+      List<Override> overrides = const [],
+    }) async {
+      await tester.pumpWidget(
+        _app(
+          locale: en,
+          home,
+          overrides: [
+            shikooStateProvider.overrideWithValue(
+              state ?? _state(ShikooConnection.off),
+            ),
+            ...overrides,
+          ],
+        ),
+      );
+      await tester.pump();
+    }
+
+    await page(const LoginPage(login: null));
+    expect(find.text(l.loginTelegramNoteDesktop), findsOne);
+    await page(
+      const ShikooHome(),
+      state: const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: false,
+        servers: [],
+      ),
+    );
+    expect(find.text(l.noServiceHelpPasteDesktop), findsOne);
+    final controller = _Controller();
+    await page(
+      Scaffold(
+        body: ServiceCard(
+          state: _state(ShikooConnection.on),
+          controller: controller,
+          focus: CardFocus(),
+          other: true,
+        ),
+      ),
+    );
+    expect(find.text(l.otherServiceHintDesktop), findsWidgets);
+    when(() => controller.pasteService(any())).thenAnswer(
+      (_) async => (error: ShikooPasteError.empty, id: null, added: false),
+    );
+    await page(
+      const AddService(),
+      overrides: [shikooControllerProvider.overrideWithValue(controller)],
+    );
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async => call.method == 'Clipboard.getData' ? {'text': ''} : null,
+    );
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    await tester.tap(find.text(l.pasteLink));
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining(l.pasteEmptyHelpDesktop), findsOne);
     for (final text in [
       l.subCancelDesktop,
       l.subRetryDesktop,
       l.errorConnectDesktop('x', 1),
       l.updateFailedDesktop,
       l.noServiceHelpDesktop,
+      l.loginTelegramNoteDesktop,
+      l.noServiceHelpPasteDesktop,
+      l.otherServiceHintDesktop,
+      l.pasteEmptyHelpDesktop,
     ]) {
       expect(text, isNot(contains(RegExp('[Tt]ap'))));
     }
   }, variant: _windows);
+
+  testWidgets(
+    'the other-device page asks a computer for a phone with '
+    'Telegram, and a phone for another one',
+    (tester) async {
+      for (final language in ['fa', 'en']) {
+        final locale = Locale(language);
+        final l = lookupShikooL10n(locale);
+        _window(tester, const Size(400, 800));
+        await tester.pumpWidget(
+          _app(
+            locale: locale,
+            const LoginPage(
+              login: ShikooLogin(
+                LoginPhase.waiting,
+                code: '12345678',
+                botUrl: 'https://t.me/shikoonet_bot?start=x',
+              ),
+            ),
+            overrides: [
+              shikooStateProvider.overrideWithValue(
+                _state(ShikooConnection.off),
+              ),
+            ],
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.text(l.approveElsewhere));
+        await tester.pump();
+        expect(
+          find.text(
+            shikooDesktop ? l.otherDeviceScanDesktop : l.otherDeviceScan,
+          ),
+          findsOne,
+          reason: language,
+        );
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.windows,
+      TargetPlatform.android,
+    }),
+  );
 
   testWidgets('the mouse lights nothing that is greyed out: a button that '
       'keeps the ring, the mode switch while connecting', (tester) async {

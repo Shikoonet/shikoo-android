@@ -86,7 +86,8 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
                 ShikooPasteError.clock => l.clockWrongTitle,
               },
               rest: switch (error) {
-                ShikooPasteError.empty => l.pasteEmptyHelp,
+                ShikooPasteError.empty =>
+                  shikooDesktop ? l.pasteEmptyHelpDesktop : l.pasteEmptyHelp,
                 ShikooPasteError.notShikoo => l.pasteNotShikooHelp,
                 ShikooPasteError.revoked => l.pasteRevokedHelp,
                 ShikooPasteError.unavailable => l.pasteUnavailableHelp,

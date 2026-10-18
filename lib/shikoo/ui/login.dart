@@ -296,7 +296,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         [
           telegram(l.loginTelegram, signIn),
           Text(
-            l.loginTelegramNote,
+            shikooDesktop ? l.loginTelegramNoteDesktop : l.loginTelegramNote,
             textAlign: TextAlign.center,
             style: t.text(t.s.bodySm, color: t.c.textMuted),
           ),
@@ -529,7 +529,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   spacing: Space.s4,
                   children: [
                     Text(
-                      l.otherDeviceScan,
+                      shikooDesktop
+                          ? l.otherDeviceScanDesktop
+                          : l.otherDeviceScan,
                       textAlign: TextAlign.center,
                       style: lead,
                     ),

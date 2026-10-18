@@ -1399,6 +1399,25 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String get loginTelegramNoteDesktop =>
+      'تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.';
+
+  @override
+  String get noServiceHelpPasteDesktop =>
+      'لینک اشتراکت را کپی کن، بعد «چسباندن لینک اشتراک» را بزن.\nلینک نداری؟ از «پشتیبانی» بپرس.';
+
+  @override
+  String get otherServiceHintDesktop =>
+      'با زدنِ یک سرور، اتصال به این سرویس می‌رود.';
+
+  @override
+  String get pasteEmptyHelpDesktop => 'لینک اشتراکت را کپی کن، بعد دوباره بزن.';
+
+  @override
+  String get otherDeviceScanDesktop =>
+      'گوشی‌ای با تلگرام داری؟ این کد تصویری را با دوربینش اسکن کن.';
+
+  @override
   String get modeLabel => 'روش اتصال';
 
   @override

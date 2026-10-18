@@ -1454,6 +1454,26 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String get loginTelegramNoteDesktop =>
+      'Telegram opens; click “Approve” in the ShikooNet bot.';
+
+  @override
+  String get noServiceHelpPasteDesktop =>
+      'Copy your subscription link, then click “Paste subscription link”.\nNo link? Ask Support.';
+
+  @override
+  String get otherServiceHintDesktop =>
+      'Click a server to move your connection to this service.';
+
+  @override
+  String get pasteEmptyHelpDesktop =>
+      'Copy your subscription link, then click again.';
+
+  @override
+  String get otherDeviceScanDesktop =>
+      'Have a phone with Telegram? Scan this code with its camera.';
+
+  @override
   String get modeLabel => 'Connection method';
 
   @override
