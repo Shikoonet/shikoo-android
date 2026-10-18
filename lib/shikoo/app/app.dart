@@ -15,6 +15,7 @@ import 'package:fl_clash/manager/status_manager.dart' show StatusManager;
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
@@ -25,6 +26,7 @@ import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/widgets.dart' show ringOnKeys;
 import 'package:fl_clash/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,6 +91,7 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
   autoCheckUpdate: false,
   dashboardWidgets: const [],
   openLogs: true,
+  silentLaunch: shikooAutostarted,
 );
 
 /// FlClash asks Android which app owns every connection (`find-process-mode: always`) for per-app rules Shikoo never
@@ -138,6 +141,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (system.isTV) {
       FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.alwaysTraditional;
+    } else if (system.isDesktop) {
+      ringOnKeys();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (globalState.navigatorKey.currentContext == null) exit(0);
@@ -259,6 +264,9 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         managers: (page) => buildManagerStack(
           isDesktop: system.isDesktop,
           onConnectivityChanged: _onConnectivityChanged,
+          desktopFrame: system.isWindows
+              ? (page) => ShikooWindow(child: page)
+              : null,
           child: page,
         ),
       ),

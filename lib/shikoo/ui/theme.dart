@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -58,6 +59,7 @@ class ShikooColors {
     required this.primary,
     required this.onPrimary,
     required this.selectedBg,
+    required this.hoverAlpha,
     required this.focusRing,
     required this.focusBg,
     required this.positive,
@@ -83,6 +85,9 @@ class ShikooColors {
   final Color primary;
   final Color onPrimary;
   final Color selectedBg;
+
+  /// Under the mouse, the text's own colour this faint: never as strong as [selectedBg].
+  final double hoverAlpha;
   final Color focusRing;
   final Color focusBg;
   final Color positive;
@@ -95,6 +100,11 @@ class ShikooColors {
   final Color scrim;
   final List<BoxShadow> cardShadow;
   final List<BoxShadow> raisedShadow;
+
+  Color get hoverBg => text.withValues(alpha: hoverAlpha);
+
+  /// A filled face under the mouse: [primary], Telegram's blue, the round button.
+  static const solidHover = 0.9;
 
   Color get inUse => positive;
 
@@ -113,6 +123,7 @@ class ShikooColors {
     primary: Color(0xFF1A1B19),
     onPrimary: Color(0xFFFFFFFF),
     selectedBg: Color(0xFFEDEEEA),
+    hoverAlpha: 0.04,
     focusRing: Color(0xFF1A1B19),
     focusBg: Color(0xFFFFFFFF),
     positive: Color(0xFF117036),
@@ -157,6 +168,7 @@ class ShikooColors {
     primary: Color(0xFFECEEEC),
     onPrimary: Color(0xFF121413),
     selectedBg: Color(0xFF262B29),
+    hoverAlpha: 0.03,
     focusRing: Color(0xFFFFFFFF),
     focusBg: Color(0xFF343A37),
     positive: Color(0xFF3DD47A),
@@ -252,36 +264,37 @@ class ShikooSizes {
   /// The tallest a report preview's picture grows (`--size-report-image`).
   final double reportImage;
 
-  static const phone = ShikooSizes(
-    caption: 12,
-    bodySm: 13,
-    body: 15,
-    title: 17,
-    display: 26,
-    appbar: 56,
-    row: 56,
-    button: 44,
-    buttonSm: 36,
-    icon: 24,
-    iconSm: 18,
-    flagW: 27,
-    flagH: 18,
-    mark: 32,
-    bar: 8,
-    borderControl: 1,
-    power: 160,
-    powerRing: 200,
-    safeX: 16,
-    safeY: 0,
-    pane: 0,
-    dialog: 340,
-    dialogText: 13,
-    headline: 24,
-    code: 28,
-    heroIcon: 64,
-    qr: 200,
-    reportImage: 200,
-  );
+  const ShikooSizes._touch({required this.safeX, this.pane = 0})
+    : caption = 12,
+      bodySm = 13,
+      body = 15,
+      title = 17,
+      display = 26,
+      appbar = 56,
+      row = 56,
+      button = 44,
+      buttonSm = 36,
+      icon = 24,
+      iconSm = 18,
+      flagW = 27,
+      flagH = 18,
+      mark = 32,
+      bar = 8,
+      borderControl = 1,
+      power = 160,
+      powerRing = 200,
+      safeY = 0,
+      dialog = 340,
+      dialogText = 13,
+      headline = 24,
+      code = 28,
+      heroIcon = 64,
+      qr = 200,
+      reportImage = 200;
+
+  static const phone = ShikooSizes._touch(safeX: 16);
+
+  static const desktop = ShikooSizes._touch(safeX: 24, pane: 400);
 
   static const tv = ShikooSizes(
     caption: 12,
@@ -318,6 +331,19 @@ class ShikooSizes {
 
   static const tvCanvas = Size(960, 540);
 
+  /// `win-modes.html`, frame `win-w-b`: the window opens at [windowStart], two columns from [twoColumns] wide.
+  static const windowStart = Size(880, 540);
+  static const windowMin = Size(400, 480);
+  static const twoColumns = 620.0;
+
+  /// A wider window keeps this width's page, centred.
+  static const pageMax = 960.0;
+  static const titleBar = 32.0;
+  static const captionButton = 46.0;
+  static const titleMark = 16.0;
+  static const modeSwitch = 280.0;
+  static const modeHint = 320.0;
+
   /// `--text-scale-max-round`: the round button's text grows no further, its circle being fixed.
   static const roundTextScaleMax = 1.15;
 
@@ -333,6 +359,9 @@ class ShikooSizes {
   /// Room for the focus ring, so it stays inside the TV's safe area (`.tv-top`, `.tv-settings`).
   static const ring = focusRingWidth + focusRingOffset;
   static const scrollThumb = 4.0;
+
+  /// The room Flutter's scrollbar takes on a computer: its 8, Flutter's 2 from the edge, and 2 free.
+  static const scrollbar = 12.0;
   static const qrSm = 200.0;
   static const buttonLg = 56.0;
   static const buttonLgText = 19.0;
@@ -453,6 +482,13 @@ class ShikooTvCanvas extends StatelessWidget {
   }
 }
 
+/// The Windows build and its tests; Flutter's own platform, so a test sets it with a [TargetPlatformVariant].
+bool get shikooDesktop => const {
+  TargetPlatform.windows,
+  TargetPlatform.linux,
+  TargetPlatform.macOS,
+}.contains(defaultTargetPlatform);
+
 ThemeData shikooThemeData(Brightness brightness, {required bool tv}) {
   final c = brightness == Brightness.light
       ? ShikooColors.light
@@ -471,6 +507,13 @@ ThemeData shikooThemeData(Brightness brightness, {required bool tv}) {
       onSurface: c.text,
       error: c.danger,
     ),
-    extensions: [ShikooTheme(c, tv ? ShikooSizes.tv : ShikooSizes.phone)],
+    extensions: [
+      ShikooTheme(
+        c,
+        tv
+            ? ShikooSizes.tv
+            : (shikooDesktop ? ShikooSizes.desktop : ShikooSizes.phone),
+      ),
+    ],
   );
 }

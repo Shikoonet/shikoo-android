@@ -189,7 +189,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 Padding(
                   padding: inset,
                   child: Text(
-                    state.isTV ? l.noServiceTitleTv : l.noServiceTitleTouch,
+                    state.isTV
+                        ? l.noServiceTitleTv
+                        : (shikooDesktop
+                              ? l.noServiceTitleDesktop
+                              : l.noServiceTitleTouch),
                     style: t.text(
                       t.s.title,
                       weight: FontWeight.w700,
@@ -200,7 +204,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 Padding(
                   padding: inset.copyWith(top: Space.s2),
                   child: Text(
-                    state.isTV ? l.noServiceHelp : l.noServiceHelpPaste,
+                    state.isTV
+                        ? l.noServiceHelp
+                        : (shikooDesktop
+                              ? l.noServiceHelpPasteDesktop
+                              : l.noServiceHelpPaste),
                     style: t.text(
                       t.s.bodySm,
                       color: t.c.textMuted,
@@ -479,9 +487,10 @@ class _Hint extends StatelessWidget {
       color: now ? t.c.positive : null,
       height: Leading.body,
     );
+    final hint = shikooDesktop ? l.otherServiceHintDesktop : l.otherServiceHint;
     final [shown, hidden] = now
-        ? [l.otherServiceNow, l.otherServiceHint]
-        : [l.otherServiceHint, l.otherServiceNow];
+        ? [l.otherServiceNow, hint]
+        : [hint, l.otherServiceNow];
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s3,
@@ -992,7 +1001,9 @@ class _Message extends StatelessWidget {
       RefreshFailed(clock: true) => (l.clockWrongTitle, l.clockWrongHelp),
       RefreshFailed() => (
         l.updateFailedTitle,
-        isTV ? l.updateFailedTv : l.updateFailedTouch,
+        isTV
+            ? l.updateFailedTv
+            : (shikooDesktop ? l.updateFailedDesktop : l.updateFailedTouch),
       ),
       SelectedReplaced(
         :final removed,

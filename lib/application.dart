@@ -22,10 +22,11 @@ Widget buildManagerStack({
   required bool isDesktop,
   required Future<void> Function(List<ConnectivityResult> results)
   onConnectivityChanged,
+  Widget Function(Widget child)? desktopFrame,
   required Widget child,
 }) {
   final platformApp = isDesktop
-      ? WindowHeaderContainer(child: child)
+      ? desktopFrame?.call(child) ?? WindowHeaderContainer(child: child)
       : VpnManager(child: child);
   final state = AppStateManager(
     child: CoreManager(

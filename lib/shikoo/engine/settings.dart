@@ -1,3 +1,4 @@
+import 'package:fl_clash/providers/config.dart' show appSettingProvider;
 import 'package:fl_clash/providers/state.dart' show ServiceTexts;
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/state.dart';
@@ -86,6 +87,15 @@ class ShikooLookNotifier extends Notifier<ShikooLook> {
 final shikooLookProvider = NotifierProvider<ShikooLookNotifier, ShikooLook>(
   ShikooLookNotifier.new,
 );
+
+/// FlClash's `autoLaunch`, which its WindowManager writes to Windows' Run key.
+final shikooAutoStartProvider = Provider<bool>(
+  (ref) => ref.watch(appSettingProvider.select((s) => s.autoLaunch)),
+);
+
+void setAutoStart(WidgetRef ref, bool on) => ref
+    .read(appSettingProvider.notifier)
+    .update((s) => s.copyWith(autoLaunch: on));
 
 /// FlClash's l10n has no Persian, so the VPN notification, its toasts and the launcher shortcut
 /// take these. [locale] is null before ShikooApp's first frame.

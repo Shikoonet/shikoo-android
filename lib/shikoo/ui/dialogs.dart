@@ -232,7 +232,13 @@ Future<bool> confirmRemove(
           style: t.text(t.s.title, weight: FontWeight.w700),
         ),
         Text(
-          connected ? l.removeServiceBodyConnected : l.removeServiceBody,
+          connected
+              ? (shikooDesktop
+                    ? l.removeServiceBodyConnectedDesktop
+                    : l.removeServiceBodyConnected)
+              : (shikooDesktop
+                    ? l.removeServiceBodyDesktop
+                    : l.removeServiceBody),
           style: t.text(
             t.s.dialogText,
             color: t.c.textMuted,

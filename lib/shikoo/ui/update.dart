@@ -97,7 +97,10 @@ Future<void> _install(
           (_, true) => l.installPermissionTv,
           _ => l.installPermissionTouch,
         }, style: paragraph),
-        Text(l.updateClosesApp, style: paragraph),
+        Text(
+          (shikooDesktop ? l.updateClosesAppDesktop : l.updateClosesApp),
+          style: paragraph,
+        ),
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),
           child: Row(
@@ -177,7 +180,10 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
             ),
           ),
           _Step.downloading => (l.updateDownloading, _progress(l, offer)),
-          _ => (l.updateReady, l.updateClosesApp),
+          _ => (
+            l.updateReady,
+            (shikooDesktop ? l.updateClosesAppDesktop : l.updateClosesApp),
+          ),
         };
     final (label, primary, VoidCallback action) = switch (step) {
       _Step.offered => (l.updateGet, true, () => unawaited(update.download())),
@@ -458,7 +464,9 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
           ),
         ),
       ],
-      more: problem != null ? null : l.updateClosesApp,
+      more: problem != null
+          ? null
+          : (shikooDesktop ? l.updateClosesAppDesktop : l.updateClosesApp),
       below: isTV ? (notice ?? progress ?? installFailed) : null,
     );
     final Widget page = isTV

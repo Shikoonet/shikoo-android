@@ -7,6 +7,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
+import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
@@ -21,6 +22,7 @@ import 'package:rust_api/rust_api.dart';
 
 /// FlClash's `lib/main.dart` (v0.8.98) with ShikooApp; copy upstream changes to it by hand.
 void main(List<String> args) {
+  shikooAutostarted = args.contains(shikooAutostartArg);
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
@@ -49,6 +51,7 @@ void main(List<String> args) {
         if (clockTooEarly(DateTime.now())) await _untilClockRight();
         fillFlClashHooks();
         final container = await bootstrap.init(version);
+        if (system.isWindows) await shikooWindowStart(container);
         shikooStaging =
             shikooStagingBuild ||
             globalState.packageInfo.packageName.endsWith('.dev');

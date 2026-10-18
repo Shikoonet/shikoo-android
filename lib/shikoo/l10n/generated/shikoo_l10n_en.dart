@@ -1063,6 +1063,10 @@ class ShikooL10nEn extends ShikooL10n {
       'Installing closes ShikooNet, and the connection if you\'re connected; open it again afterwards.';
 
   @override
+  String get updateClosesAppDesktop =>
+      'Installing asks for Windows\' permission and closes ShikooNet, and the connection if you\'re connected. It opens again by itself.';
+
+  @override
   String get updateDownloadFailedTitle => 'The download stopped.';
 
   @override
@@ -1314,4 +1318,247 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get orderTvPicked => 'Moving';
+
+  @override
+  String get noServerAnsweredHelpDesktop =>
+      'Check this computer\'s internet.\nIf it works, ask Support.';
+
+  @override
+  String get logoutHelpDesktop => 'Removes the services from this computer.';
+
+  @override
+  String get logoutBodyDesktop =>
+      'You\'ll be disconnected and the services removed from this computer. The services themselves stay as they are; they come back with the same link or with Telegram.';
+
+  @override
+  String get logoutTitleDesktop => 'Remove the services from this computer?';
+
+  @override
+  String get noServiceTitleDesktop => 'No service on this computer';
+
+  @override
+  String approvedBodyDesktop(String account) {
+    return 'This computer is now linked to the Telegram account $account, with these services:';
+  }
+
+  @override
+  String approvedBodyOneDesktop(String account) {
+    return 'This computer is now linked to the Telegram account $account, with this service:';
+  }
+
+  @override
+  String servicesFailedBodyDesktop(String account) {
+    return 'You signed in with the Telegram account $account, but the list of services didn\'t come from the server. Check this computer\'s internet and try again.';
+  }
+
+  @override
+  String get rejectedBodyDesktop =>
+      '“Decline” was pressed in Telegram, so this computer isn\'t linked. If that was a mistake, try again.';
+
+  @override
+  String get codeFailedHelpDesktop =>
+      'Check your computer\'s internet and click again.';
+
+  @override
+  String approvedBodyChooseDesktop(String account) {
+    return 'This computer is now linked to the Telegram account $account.';
+  }
+
+  @override
+  String get chooseServicesDesktop =>
+      'Which services should this computer have?';
+
+  @override
+  String servicesHereDesktop(int shown, int total) {
+    final intl.NumberFormat shownNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String shownString = shownNumberFormat.format(shown);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return '$shownString of your account\'s $totalString services are on this computer. To change them, sign out and sign in again.';
+  }
+
+  @override
+  String get servicesAllHereDesktop =>
+      'All your account\'s services are on this computer. To change them, sign out and sign in again.';
+
+  @override
+  String get orderServicesHelpDesktop => 'On this computer only';
+
+  @override
+  String get noTelegramHereDesktop => 'No Telegram on this computer?';
+
+  @override
+  String get pasteOfflineHelpDesktop =>
+      'Check your computer\'s internet and click again.';
+
+  @override
+  String get addServiceHelpDesktop =>
+      'Copy the ShikooNet subscription link of your other service, then click this button. It joins the others on this computer.';
+
+  @override
+  String get serviceAlreadyHereDesktop =>
+      'This service is already on this computer.';
+
+  @override
+  String get removeServiceBodyDesktop =>
+      'It\'s removed from this computer. The service itself stays as it is and comes back with the same link.';
+
+  @override
+  String get removeServiceBodyConnectedDesktop =>
+      'You\'ll be disconnected and this service removed from this computer. The service itself stays as it is and comes back with the same link.';
+
+  @override
+  String get orderScreenHelpDesktop =>
+      'Hold ≡ on a service and drag it up or down. The order is for this computer only and is saved at once.';
+
+  @override
+  String get vpnRefusedDesktop =>
+      'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or choose Proxy.';
+
+  @override
+  String get vpnMissingDesktop =>
+      'The tunnel didn\'t start on this computer.\nChoose Proxy, or ask Support.';
+
+  @override
+  String get busyPortDesktop =>
+      'Another program is using ShikooNet\'s proxy port.\nClose it and connect again, or choose Tunnel.';
+
+  @override
+  String get helperFailedDesktop =>
+      'The tunnel didn\'t turn on.\nConnect again, or choose Proxy.';
+
+  @override
+  String get subCancelDesktop => 'Click to cancel';
+
+  @override
+  String get subRetryDesktop => 'Click to retry';
+
+  @override
+  String get updateFailedDesktop =>
+      'Check your internet and click again. Until then, connect with these servers.';
+
+  @override
+  String get noServiceHelpDesktop =>
+      'Is your service on another Telegram account? Switch to it in Telegram first, then click “Use another account”.';
+
+  @override
+  String errorConnectDesktop(String server, int seconds) {
+    final intl.NumberFormat secondsNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String secondsString = secondsNumberFormat.format(seconds);
+
+    return '$server didn\'t answer in $secondsString seconds. Click again, or pick another server from the list.';
+  }
+
+  @override
+  String get loginTelegramNoteDesktop =>
+      'Telegram opens; click “Approve” in the ShikooNet bot.';
+
+  @override
+  String get noServiceHelpPasteDesktop =>
+      'Copy your subscription link, then click “Paste subscription link”.\nNo link? Ask Support.';
+
+  @override
+  String get otherServiceHintDesktop =>
+      'Click a server to move your connection to this service.';
+
+  @override
+  String get pasteEmptyHelpDesktop =>
+      'Copy your subscription link, then click again.';
+
+  @override
+  String get otherDeviceScanDesktop =>
+      'Have a phone with Telegram? Scan this code with its camera.';
+
+  @override
+  String get modeLabel => 'Connection method';
+
+  @override
+  String get modeProxy => 'Proxy';
+
+  @override
+  String get modeTunnel => 'Tunnel';
+
+  @override
+  String get modeProxyHint =>
+      'Only the browser and apps that follow Windows\' proxy.';
+
+  @override
+  String get modeTunnelHint => 'Every app goes through ShikooNet, games too.';
+
+  @override
+  String trayOff(String app) {
+    return '$app · Off';
+  }
+
+  @override
+  String trayConnecting(String app) {
+    return '$app · Connecting';
+  }
+
+  @override
+  String trayOn(String app, String server) {
+    return '$app · Connected, $server';
+  }
+
+  @override
+  String get trayHeadOff => 'Off';
+
+  @override
+  String trayHeadConnecting(String server) {
+    return 'Connecting · $server';
+  }
+
+  @override
+  String trayHeadOn(String server) {
+    return 'Connected · $server';
+  }
+
+  @override
+  String get trayConnect => 'Connect';
+
+  @override
+  String get trayDisconnect => 'Disconnect';
+
+  @override
+  String trayOpen(String app) {
+    return 'Open $app';
+  }
+
+  @override
+  String get trayExit => 'Exit';
+
+  @override
+  String closedToTrayTitle(String app) {
+    return '$app is beside the clock';
+  }
+
+  @override
+  String closedToTrayBody(String app) {
+    return 'The connection stays on. To open it, double-click the $app icon beside the clock. To close it fully, right-click the icon and choose Exit.';
+  }
+
+  @override
+  String get windowMinimize => 'Minimize';
+
+  @override
+  String get windowMaximize => 'Maximize';
+
+  @override
+  String get windowRestore => 'Restore';
+
+  @override
+  String get windowClose => 'Close';
+
+  @override
+  String get windowsGroup => 'Windows';
+
+  @override
+  String get autoStart => 'Open with Windows';
+
+  @override
+  String get autoStartHelp => 'Beside the clock, not connected';
 }
