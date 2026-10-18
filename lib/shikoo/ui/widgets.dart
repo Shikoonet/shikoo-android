@@ -36,7 +36,6 @@ String localNumber(BuildContext context, num value, [String pattern = '0']) =>
       Localizations.localeOf(context).languageCode,
     ).format(value);
 
-/// How long the tunnel has been up, «۰۰:۱۲:۴۷».
 String clockOf(String language, Duration d) => [
   d.inHours,
   d.inMinutes % 60,
@@ -114,7 +113,6 @@ double twoLines(BuildContext context, TextStyle style) {
   return height;
 }
 
-/// A touch page in a window far wider than a phone: centred, as wide as the home's card column.
 class PaneColumn extends StatelessWidget {
   const PaneColumn({super.key, this.padding = 0, required this.child});
 

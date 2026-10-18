@@ -266,10 +266,7 @@ class ShikooState {
 
   final ShikooLanded? landed;
 
-  /// Another program holds the local port, so connect stopped before Windows' proxy could point at it.
   final int? busyPort;
-
-  /// The admin prompt was accepted, yet the helper service the tunnel needs did not come up.
   final bool helperFailed;
 
   ShikooServer? get selectedServer =>
@@ -1138,7 +1135,6 @@ class ShikooController {
     if (!_ref.read(shikooDesktopProvider)) return;
     await _ref.read(shikooModeProvider.notifier).save(mode);
     if (!_running && !_ref.read(_intentProvider).connecting) {
-      // Off, the last attempt's message, whatever it was, goes; nothing in flight can write over it.
       return _set(const _Intent());
     }
     await disconnect();

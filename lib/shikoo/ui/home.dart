@@ -746,7 +746,6 @@ class _PhoneLayout extends StatelessWidget {
   }
 }
 
-/// `.appbar`: the brand, the «+» (phone-p4a-home) and Settings.
 class _AppBar extends StatelessWidget {
   const _AppBar({this.onAdd});
 
@@ -784,8 +783,7 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-/// `.win-home` (win-modes.html, frame `win-w-b`): the TV's two columns at the phone's sizes; the card
-/// column scrolls on its own, the button stays in the middle of the other.
+/// `.win-home` (win-modes.html, frame `win-w-b`): the TV's two columns at the phone's sizes.
 class _WideLayout extends StatelessWidget {
   const _WideLayout({
     required this.power,

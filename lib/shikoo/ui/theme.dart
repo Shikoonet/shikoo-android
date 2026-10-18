@@ -86,8 +86,6 @@ class ShikooColors {
   final Color primary;
   final Color onPrimary;
   final Color selectedBg;
-
-  /// Under the mouse, the text's own colour this faint: never as strong as [selectedBg].
   final double hoverAlpha;
   final Color focusRing;
   final Color focusBg;
@@ -103,8 +101,6 @@ class ShikooColors {
   final List<BoxShadow> raisedShadow;
 
   Color get hoverBg => text.withValues(alpha: hoverAlpha);
-
-  /// A filled face under the mouse: [primary], Telegram's blue, the round button.
   static const solidHover = 0.9;
 
   Color get inUse => positive;
@@ -332,21 +328,16 @@ class ShikooSizes {
 
   static const tvCanvas = Size(960, 540);
 
-  /// `win-modes.html`, frame `win-w-b`: the window opens at [windowStart], two columns from [twoColumns] wide.
+  /// From `win-modes.html`: the window from frame `win-w-b`, the tray sizes from `.ctx`, the menu beside the clock.
   static const windowStart = Size(880, 540);
   static const windowMin = Size(400, 480);
   static const twoColumns = 620.0;
-
-  /// A wider window keeps this width's page, centred.
   static const pageMax = 960.0;
   static const titleBar = 32.0;
   static const captionButton = 46.0;
   static const titleMark = 16.0;
   static const modeSwitch = 280.0;
   static const modeHint = 320.0;
-
-  /// `.ctx` in win-modes.html, the menu beside the clock: its width, row, icon, dot and the
-  /// gap between the status and its time.
   static const trayMenu = 248.0;
   static const trayRow = 32.0;
   static const trayIcon = 16.0;

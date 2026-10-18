@@ -221,7 +221,6 @@ const _unnamed = {
   'desktop': 'Windows PC',
 };
 
-/// [kind] is the door's `device_kind`; a Windows PC goes by the name Windows gives it.
 final shikooDeviceProvider =
     Provider<Future<({String name, String kind})> Function()>(
       (_) => () async {
@@ -523,7 +522,6 @@ class ShikooApi {
         return null;
       }
       return AppRelease(
-        // A publish names only the builds it carries: Windows' entry can be older than the name above it.
         versionName:
             apk['version_name'] as String? ??
             body['version_name'] as String? ??
