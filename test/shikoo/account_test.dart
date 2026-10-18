@@ -46,6 +46,7 @@ class _FakeAppApi {
   final live = <String, bool>{};
   final loggedOut = <String>[];
   final names = <String>[];
+  final kinds = <String>[];
   Duration life = const Duration(minutes: 10);
   int startStatus = 200;
   bool startHangs = false;
@@ -101,11 +102,12 @@ class _FakeAppApi {
         if (startStatus != 200) return reply(startStatus, {'ok': false});
         if (name is! String ||
             !_serverName.hasMatch(name.trim()) ||
-            !{'phone', 'tv'}.contains(json!['device_kind']) ||
+            !{'phone', 'tv', 'desktop'}.contains(json!['device_kind']) ||
             json.length != 2) {
           return reply(400, {'ok': false, 'error': 'invalid_body'});
         }
         names.add(name);
+        kinds.add(json['device_kind'] as String);
         final code = '${482915 + codes.length}';
         final expires = _now().add(life);
         codes[code] = _Code(_secret(), expires);
@@ -220,6 +222,7 @@ Future<_Harness> _harness({
   List<String>? bases,
   List<Profile> pasted = const [],
   Dio? dio,
+  String kind = 'tv',
 }) async {
   SharedPreferences.setMockInitialValues({
     if (pasted.isNotEmpty)
@@ -265,7 +268,7 @@ Future<_Harness> _harness({
     overrides: [
       shikooApiProvider.overrideWithValue(ShikooApi(bases ?? [api.base], dio)),
       shikooDeviceProvider.overrideWithValue(
-        () async => (name: 'Xiaomi MIBOX4', kind: 'tv'),
+        () async => (name: 'Xiaomi MIBOX4', kind: kind),
       ),
       shikooControllerProvider.overrideWithValue(controller),
       shikooStateProvider.overrideWithValue(_state),
@@ -357,13 +360,24 @@ void main() {
       }
     });
 
-    test('a Windows PC goes by its computer name', () {
-      expect(
-        deviceName('', 'DESKTOP-7G3K2LQ', kind: 'desktop'),
-        'DESKTOP-7G3K2LQ',
-      );
-      expect(deviceName('', 'میز کار', kind: 'desktop'), 'Windows PC');
-    });
+    test(
+      'a Windows PC goes by its computer name, in what the server takes',
+      () {
+        final cases = {
+          'DESKTOP-7G3K2LQ': 'DESKTOP-7G3K2LQ',
+          'میز کار': 'Windows PC',
+          'لپ‌تاپ-Sam': '-Sam',
+          'office.pc.local': 'office pc local',
+          'A' * 63: 'A' * 40,
+          '': 'Windows PC',
+        };
+        for (final MapEntry(key: computer, value: name) in cases.entries) {
+          final made = deviceName('', computer, kind: 'desktop');
+          expect(made, name, reason: computer);
+          expect(_serverName.hasMatch(made), isTrue, reason: made);
+        }
+      },
+    );
 
     test('is cut to 40 and never empty', () {
       final long = deviceName(
@@ -379,6 +393,14 @@ void main() {
   });
 
   group('signing in', () {
+    test('the server learns a phone, a TV and a computer apart', () async {
+      for (final kind in ['phone', 'tv', 'desktop']) {
+        final h = await _harness(kind: kind);
+        await h.signIn.start();
+        expect(h.api.kinds, [kind]);
+      }
+    });
+
     test('a code shows, waits, and once approved offers the account\'s '
         'services, adding none until «ادامه»; then they come and it goes '
         'home. The device and its kind reach the server', () async {
@@ -390,6 +412,7 @@ void main() {
       expect(waiting.code, h.api.lastCode);
       expect(link, 'https://t.me/Test_Shikoo_bot?start=app_${h.api.lastCode}');
       expect(h.api.names, ['Xiaomi MIBOX4']);
+      expect(h.api.kinds, ['tv']);
       await _until(h.container, (_) => h.api.polls > 1);
       expect(h.container.read(shikooLoginProvider)?.phase, LoginPhase.waiting);
 

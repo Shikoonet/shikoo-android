@@ -21,7 +21,11 @@ use windows_service::{
     service_manager::{ServiceManager, ServiceManagerAccess},
 };
 
-const SERVICE_NAME: &str = "ShikooNetHelperService";
+const SERVICE_NAME: &str = if cfg!(shikoo_staging) {
+    "ShikooNetTestHelperService"
+} else {
+    "ShikooNetHelperService"
+};
 const SERVICE_TYPE: ServiceType = ServiceType::OWN_PROCESS;
 const SERVICE_OPERATION_TIMEOUT: Duration = Duration::from_secs(10);
 const SERVICE_POLL_INTERVAL: Duration = Duration::from_millis(100);

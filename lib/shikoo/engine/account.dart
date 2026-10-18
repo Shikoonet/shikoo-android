@@ -311,6 +311,7 @@ class AppRelease {
     required this.size,
     required this.sha256,
     required this.url,
+    this.sig,
   });
 
   final String versionName;
@@ -321,6 +322,9 @@ class AppRelease {
 
   final String sha256;
   final String url;
+
+  /// Base64 RSA PKCS#1 v1.5 over SHA-256 by the Android signing key; Windows installs only what it signed.
+  final String? sig;
 }
 
 final _sha256 = RegExp(r'^[0-9a-f]{64}$');
@@ -519,12 +523,17 @@ class ShikooApi {
         return null;
       }
       return AppRelease(
-        versionName: body['version_name'] as String? ?? '',
+        // A publish names only the builds it carries: Windows' entry can be older than the name above it.
+        versionName:
+            apk['version_name'] as String? ??
+            body['version_name'] as String? ??
+            '',
         versionCode: code,
         minVersionCode: apk['min_version_code'] as int? ?? 0,
         size: size,
         sha256: sha256,
         url: '$at',
+        sig: apk['sig'] as String?,
       );
     }
     throw const ShikooApiFailure();

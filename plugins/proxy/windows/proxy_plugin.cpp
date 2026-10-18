@@ -124,9 +124,33 @@ bool NotifySettingsChanged()
   return changed && refreshed;
 }
 
+// Shikoo: what StartProxy set, so a shutdown leaves a proxy another app set since alone.
+std::wstring g_applied_server;
+
+bool ServerIsStill(const std::wstring& server)
+{
+  INTERNET_PER_CONN_OPTION option = {};
+  option.dwOption = INTERNET_PER_CONN_PROXY_SERVER;
+  INTERNET_PER_CONN_OPTION_LIST list = {};
+  list.dwSize = sizeof(list);
+  list.dwOptionCount = 1;
+  list.pOptions = &option;
+  DWORD size = sizeof(list);
+  if (InternetQueryOption(
+          nullptr, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, &size) == FALSE)
+  {
+    return true;
+  }
+  const bool same =
+      option.Value.pszValue != nullptr && server == option.Value.pszValue;
+  GlobalFree(option.Value.pszValue);
+  return same;
+}
+
 bool startProxy(const int port, const flutter::EncodableList& bypassDomain)
 {
   auto url = Utf8ToWide("127.0.0.1:" + std::to_string(port));
+  g_applied_server = url;
   auto bypassList = BuildBypassList(bypassDomain);
   std::vector<INTERNET_PER_CONN_OPTION> options(3);
 
@@ -219,7 +243,8 @@ namespace proxy
   std::optional<LRESULT> ProxyPlugin::HandleWindowProc(
       HWND window, UINT message, WPARAM wparam, LPARAM lparam)
   {
-    if (proxy_applied_ && IsSessionEnding(message, wparam))
+    if (proxy_applied_ && IsSessionEnding(message, wparam) &&
+        ServerIsStill(g_applied_server))
     {
       proxy_applied_ = !stopProxy();
     }
