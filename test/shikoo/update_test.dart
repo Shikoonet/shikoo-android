@@ -925,6 +925,31 @@ void main() {
       },
     );
 
+    test('a file gone when the install is tapped is a damaged one, with no '
+        'disconnect', () async {
+      final update = await ready();
+      exe().deleteSync();
+      await update.install();
+      expect(events, isEmpty);
+      expect(started, isEmpty);
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, UpdateError.checksum);
+    });
+
+    test('one locked when the install is tapped is the same, and stays where '
+        'it is', () async {
+      final update = await ready();
+      final held = exe().openSync(mode: FileMode.append)
+        ..lockSync(FileLock.exclusive);
+      addTearDown(held.closeSync);
+      await update.install();
+      expect(events, isEmpty);
+      expect(started, isEmpty);
+      expect(exe().existsSync(), isTrue);
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, UpdateError.checksum);
+    }, skip: Platform.isWindows ? false : 'only Windows locks block reads');
+
     test('a seal the core no longer confirms keeps the connection and starts '
         'nothing', () async {
       final update = await ready();

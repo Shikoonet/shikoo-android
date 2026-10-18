@@ -84,9 +84,13 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
   connection alone), then the controller's `disconnect()`, then hash the file again synchronously and start the Inno
   installer with `/SILENT /SUPPRESSMSGBOXES /NORESTART` with no `await` in between. Any program of the user can write
   the cache, and the installer runs as admin. A small window remains: one turn of Dart's event loop, as `Process.start`
-  hands the start to `Timer.run`, then Windows opening the file; only Authenticode signing closes it. A file gone or
-  unreadable at that second hash (antivirus quarantine, a cleaner, a check that dropped the release meanwhile) is a
-  damaged one: deleted if it can be, the connection comes back as below, and the card says `checksum`. The loader is `asInvoker` and raises the UAC prompt itself;
+  hands the start to `Timer.run`, then Windows opening the file; only Authenticode signing closes it.
+- A file gone, unreadable or changed at either hash (antivirus quarantine or lock, a cleaner, a check that dropped the
+  release meanwhile) is a damaged one: deleted if it can be, so the next tap downloads it again, and the card says
+  `checksum`. At the first hash the connection is left alone; at the second it comes back as below. Unlike Android,
+  Windows has no separate «file gone» check before it. The hash reads the file itself rather than through `openRead`,
+  whose failed read never closes the file and would keep it from being deleted.
+- The loader is `asInvoker` and raises the UAC prompt itself;
   `PrepareToInstall` kills `ShikooNet.exe`, so the loader exiting while the app still runs means it did not install
   (UAC refused, or Windows would not start it): the connection comes back if it was on and nothing turned it on since,
   and the card shows `updateInstallFailed`. No Android permission dialog. Relaunch after a silent install is the

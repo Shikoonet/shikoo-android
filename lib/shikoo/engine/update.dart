@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show ChunkedConversionSink;
 import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:isolate';
@@ -75,9 +76,27 @@ final shikooUpdateOfferProvider =
 final shikooUpdateProvider = Provider<ShikooUpdate>(ShikooUpdate.new);
 
 /// A top-level function, so the isolate gets only the path and not the engine around it.
-Future<String> _sha256Of(String path) => Isolate.run(
-  () async => '${await sha256.bind(File(path).openRead()).first}',
-);
+/// Not `openRead`: a failed read there never closes the file (`_FileStream._closeFile` while `_readInProgress`).
+Future<String> _sha256Of(String path) => Isolate.run(() {
+  late Digest digest;
+  final hash = sha256.startChunkedConversion(
+    ChunkedConversionSink.withCallback((digests) => digest = digests.single),
+  );
+  final file = File(path).openSync();
+  try {
+    for (
+      var chunk = file.readSync(1 << 16);
+      chunk.isNotEmpty;
+      chunk = file.readSync(1 << 16)
+    ) {
+      hash.add(chunk);
+    }
+  } finally {
+    file.closeSync();
+  }
+  hash.close();
+  return '$digest';
+});
 
 class ShikooUpdate {
   ShikooUpdate(this._ref);
@@ -387,7 +406,9 @@ class ShikooUpdate {
     final release = offer.release;
     final file = _installer(await _dir(), release);
     // Android empties the cache directory when storage runs low.
-    if (!await file.exists()) return _move(UpdatePhase.offered, received: 0);
+    if (!_windows && !await file.exists()) {
+      return _move(UpdatePhase.offered, received: 0);
+    }
     if (!_windows) {
       final opened = await _native('install', file.path);
       return _move(
@@ -409,7 +430,9 @@ class ShikooUpdate {
       _move(UpdatePhase.offered, received: 0, error: UpdateError.checksum);
     }
 
-    if (await _sha256Of(file.path) != release.sha256) return damaged();
+    if (await _sha256Of(file.path).catchError((_) => '') != release.sha256) {
+      return damaged();
+    }
     if (await _sealed(release) != true) {
       return _move(UpdatePhase.ready, error: UpdateError.install);
     }
