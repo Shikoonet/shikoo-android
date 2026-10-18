@@ -26,6 +26,7 @@ import 'package:riverpod/misc.dart' show Override;
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/no_admin.dart';
 import '../helpers/test_profiles.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
@@ -146,6 +147,7 @@ _home([List<Override> more = const []]) {
   final setup = _Setup();
   final container = ProviderContainer(
     overrides: [
+      if (!more.any((o) => o.origin == tunAuthorizeProvider)) noAdminPrompt,
       profilesProvider.overrideWith(() => TestProfiles([profile])),
       proxiesActionProvider.overrideWith(() => proxies),
       profilesActionProvider.overrideWith(_Profiles.new),
