@@ -1138,7 +1138,7 @@ class ShikooController {
     if (!_ref.read(shikooDesktopProvider)) return;
     await _ref.read(shikooModeProvider.notifier).save(mode);
     if (!_running && !_ref.read(_intentProvider).connecting) {
-      // The last attempt's message was about the other mode; nothing is in flight to undo.
+      // Off, the last attempt's message, whatever it was, goes; nothing in flight can write over it.
       return _set(const _Intent());
     }
     await disconnect();

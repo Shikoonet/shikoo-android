@@ -4155,6 +4155,25 @@ void main() {
       await done(controller);
     });
 
+    test('a connect pressed while the mode is saved is not wiped', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      final change = controller.setMode(ShikooMode.proxy);
+      unawaited(controller.connect());
+      await change;
+      expect(
+        container.read(shikooStateProvider).connection,
+        isNot(ShikooConnection.off),
+      );
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      expect((systemProxy(container), tun(container)), (true, false));
+      await done(controller);
+    });
+
     test('a mode change while off takes away the last refusal, busy port or '
         'helper message, and starts nothing', () async {
       final (:container, :setup) = windows();
