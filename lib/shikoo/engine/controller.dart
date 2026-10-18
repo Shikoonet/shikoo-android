@@ -1137,7 +1137,10 @@ class ShikooController {
   Future<void> setMode(ShikooMode mode) async {
     if (!_ref.read(shikooDesktopProvider)) return;
     await _ref.read(shikooModeProvider.notifier).save(mode);
-    if (!_running && !_ref.read(_intentProvider).connecting) return;
+    if (!_running && !_ref.read(_intentProvider).connecting) {
+      // The last attempt's message was about the other mode; nothing is in flight to undo.
+      return _set(const _Intent());
+    }
     await disconnect();
     await connect();
   }

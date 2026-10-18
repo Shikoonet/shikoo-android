@@ -4155,6 +4155,45 @@ void main() {
       await done(controller);
     });
 
+    test('a mode change while off takes away the last refusal, busy port or '
+        'helper message, and starts nothing', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      ShikooState state() => container.read(shikooStateProvider);
+      for (final (mode, other, arrange) in [
+        (
+          ShikooMode.tunnel,
+          ShikooMode.proxy,
+          () => admin = ShikooAdmin.refused,
+        ),
+        (ShikooMode.proxy, ShikooMode.tunnel, () => portFree = false),
+        (ShikooMode.tunnel, ShikooMode.proxy, () => admin = ShikooAdmin.failed),
+      ]) {
+        await controller.setMode(mode);
+        arrange();
+        await controller.connect();
+        expect(state().connection, ShikooConnection.error);
+        final asked = [...calls];
+        admin = ShikooAdmin.ready;
+        portFree = true;
+
+        await controller.setMode(other);
+        await pumpEventQueue();
+        expect(
+          (
+            state().connection,
+            state().lastError,
+            state().busyPort,
+            state().helperFailed,
+          ),
+          (ShikooConnection.off, null, null, false),
+          reason: '$mode',
+        );
+        expect(setup.runs, isEmpty, reason: '$mode');
+        expect(calls, asked, reason: '$mode: no new start');
+      }
+    });
+
     test('a core restart that throws after the service install fails the '
         'start, never stays connecting', () async {
       final (:container, :setup) = windows(restartFails: true);
