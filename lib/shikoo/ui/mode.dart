@@ -46,7 +46,7 @@ class ModeSwitch extends ConsumerWidget {
         ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: ShikooSizes.modeHint,
-            minHeight: twoLines(context, t.s.bodySm),
+            minHeight: twoLines(context, t.text(t.s.bodySm)),
           ),
           child: Text(
             mode == ShikooMode.tunnel ? l.modeTunnelHint : l.modeProxyHint,

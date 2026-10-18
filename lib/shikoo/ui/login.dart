@@ -197,9 +197,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final login = widget.login;
     final Widget page = isTV
         ? _tv(context, login)
-        : (_otherDevice
-              ? PageWidth(child: _phoneOtherDevice(context, login))
-              : _phone(context, login));
+        : PageWidth(
+            child: _otherDevice
+                ? _phoneOtherDevice(context, login)
+                : _phone(context, login),
+          );
     // Signing in from settings, with pasted services: Back goes home to them. A checklist is
     // never left that way: Back closes the app, and it is still there on the next open.
     final home =
@@ -446,7 +448,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           MessageBox(
             icon: ShikooIcon.plane,
             strong: '',
-            rest: l.noServiceHelpTouch,
+            rest: shikooDesktop ? l.noServiceHelpDesktop : l.noServiceHelpTouch,
           ),
           telegram(l.otherAccount, () => unawaited(_otherAccount())),
           outline(

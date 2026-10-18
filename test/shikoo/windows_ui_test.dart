@@ -1,4 +1,5 @@
 import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -31,9 +32,15 @@ ShikooState _state(
   ShikooConnection connection, {
   int more = 0,
   ShikooError? error,
+  int? busyPort,
+  bool helperFailed = false,
+  ShikooNotice? notice,
 }) => ShikooState(
   connection: connection,
   lastError: error,
+  notice: notice,
+  busyPort: busyPort,
+  helperFailed: helperFailed,
   connectedFor: const Duration(minutes: 12, seconds: 47),
   isTV: false,
   service: ShikooService(
@@ -90,6 +97,9 @@ Future<void> _pumpHome(
   ShikooConnection connection = ShikooConnection.on,
   int more = 0,
   ShikooError? error,
+  int? busyPort,
+  bool helperFailed = false,
+  ShikooNotice? notice,
   Locale locale = const Locale('fa'),
   List<Override> overrides = const [],
 }) async {
@@ -100,7 +110,14 @@ Future<void> _pumpHome(
       locale: locale,
       overrides: [
         shikooStateProvider.overrideWithValue(
-          _state(connection, more: more, error: error),
+          _state(
+            connection,
+            more: more,
+            error: error,
+            busyPort: busyPort,
+            helperFailed: helperFailed,
+            notice: notice,
+          ),
         ),
         ...overrides,
       ],
@@ -559,6 +576,82 @@ void main() {
       }
     }, variant: _windows);
 
+    testWidgets('the three refusals under the button are whole at 100 to 150%, '
+        'in Persian and English, clear of the switch and the card; at 100% '
+        'the button stays put', (tester) async {
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      for (final language in ['fa', 'en']) {
+        final locale = Locale(language);
+        final l = lookupShikooL10n(locale);
+        final cases = [
+          (l.vpnRefusedDesktop, ShikooError.vpnRefused, null, false),
+          (l.busyPortDesktop, null, 7890, false),
+          (l.helperFailedDesktop, null, null, true),
+        ];
+        for (final window in const [Size(880, 508), Size(400, 448)]) {
+          for (final scale in const [1.0, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5]) {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            await _pumpHome(
+              tester,
+              window,
+              connection: ShikooConnection.off,
+              locale: locale,
+            );
+            final rest = tester.getRect(find.byType(PowerButton));
+            for (final (text, error, port, helper) in cases) {
+              await _pumpHome(
+                tester,
+                window,
+                connection: ShikooConnection.error,
+                error: error,
+                busyPort: port,
+                helperFailed: helper,
+                locale: locale,
+              );
+              await tester.pump();
+              final why = '$language $window ×$scale: $text';
+              final message = find.text(text);
+              final box = tester.getRect(message);
+              final paragraph = tester.renderObject<RenderParagraph>(message);
+              expect(paragraph.didExceedMaxLines, isFalse, reason: why);
+              expect(
+                paragraph.text.style?.color,
+                ShikooColors.light.danger,
+                reason: why,
+              );
+              expect(box.top, greaterThanOrEqualTo(0), reason: why);
+              expect(box.bottom, lessThanOrEqualTo(window.height), reason: why);
+              expect(
+                tester.getRect(find.byType(ModeSwitch)).bottom,
+                lessThanOrEqualTo(box.top),
+                reason: why,
+              );
+              if (window.width < ShikooSizes.twoColumns) {
+                expect(
+                  tester.getRect(find.byType(ServiceCard)).top,
+                  greaterThanOrEqualTo(box.bottom),
+                  reason: why,
+                );
+              }
+              // The narrow window keeps no slot: a message scrolls the page to show itself.
+              if (scale == 1.0 && window.width >= ShikooSizes.twoColumns) {
+                expect(
+                  tester.getRect(find.byType(PowerButton)),
+                  rest,
+                  reason: why,
+                );
+                expect(
+                  window.height - box.bottom,
+                  greaterThan(20),
+                  reason: why,
+                );
+              }
+            }
+          }
+        }
+      }
+    }, variant: _windows);
+
     testWidgets('a server row under the mouse is fainter than the chosen one, '
         'and the chosen one keeps its colour', (tester) async {
       for (final brightness in Brightness.values) {
@@ -630,7 +723,7 @@ void main() {
     }, variant: _windows);
 
     testWidgets('the maximised sign-in keeps the brand and the buttons one '
-        'group, 24 apart, in the middle; the language stays in its corner', (
+        'group, 24 apart, in the middle; the language in the page\'s corner', (
       tester,
     ) async {
       const window = Size(1920, 1032);
@@ -655,7 +748,8 @@ void main() {
       );
       final last = tester.getRect(find.byType(LinkButton));
       expect(telegram.top - tagline.bottom, Space.s6);
-      expect((language.left, language.top < Space.s8), (Space.s6, true));
+      // In the page's 960, centred: its start is 480 in, its end corner Space.s6 inside it.
+      expect((language.left, language.top < Space.s8), (480 + Space.s6, true));
       // SafeArea's minimum keeps Space.s8 under the page.
       expect(
         mark.top - language.bottom,
@@ -663,6 +757,57 @@ void main() {
       );
     }, variant: _windows);
   });
+
+  testWidgets('in English a computer says click where a phone says tap', (
+    tester,
+  ) async {
+    const en = Locale('en');
+    final l = lookupShikooL10n(en);
+    Future<void> home(
+      ShikooConnection connection, {
+      ShikooError? error,
+      ShikooNotice? notice,
+    }) => _pumpHome(
+      tester,
+      const Size(880, 508),
+      connection: connection,
+      error: error,
+      notice: notice,
+      locale: en,
+    );
+    await home(ShikooConnection.connecting);
+    expect(find.text(l.subCancelDesktop), findsOne);
+    await home(ShikooConnection.error, error: ShikooError.connectTimeout);
+    expect(find.text(l.subRetryDesktop), findsOne);
+    expect(find.textContaining('seconds. Click again'), findsOne);
+    await home(ShikooConnection.on, notice: const RefreshFailed());
+    expect(find.textContaining(l.updateFailedDesktop), findsOne);
+    await tester.pumpWidget(
+      _app(
+        locale: en,
+        const LoginPage(
+          login: ShikooLogin(
+            LoginPhase.noService,
+            account: TelegramAccount(name: 'Sam', username: 'sam'),
+          ),
+        ),
+        overrides: [
+          shikooStateProvider.overrideWithValue(_state(ShikooConnection.off)),
+        ],
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining(l.noServiceHelpDesktop), findsOne);
+    for (final text in [
+      l.subCancelDesktop,
+      l.subRetryDesktop,
+      l.errorConnectDesktop('x', 1),
+      l.updateFailedDesktop,
+      l.noServiceHelpDesktop,
+    ]) {
+      expect(text, isNot(contains(RegExp('[Tt]ap'))));
+    }
+  }, variant: _windows);
 
   testWidgets('the mouse lights nothing that is greyed out: a button that '
       'keeps the ring, the mode switch while connecting', (tester) async {

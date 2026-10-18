@@ -1416,11 +1416,42 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get vpnRefusedDesktop =>
-      'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or pick Proxy.';
+      'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or choose Proxy.';
 
   @override
   String get vpnMissingDesktop =>
       'The tunnel didn\'t start on this computer.\nChoose Proxy, or ask Support.';
+
+  @override
+  String get busyPortDesktop =>
+      'Another program is using ShikooNet\'s proxy port.\nClose it and connect again, or choose Tunnel.';
+
+  @override
+  String get helperFailedDesktop =>
+      'The tunnel didn\'t turn on.\nConnect again, or choose Proxy.';
+
+  @override
+  String get subCancelDesktop => 'Click to cancel';
+
+  @override
+  String get subRetryDesktop => 'Click to retry';
+
+  @override
+  String get updateFailedDesktop =>
+      'Check your internet and click again. Until then, connect with these servers.';
+
+  @override
+  String get noServiceHelpDesktop =>
+      'Is your service on another Telegram account? Switch to it in Telegram first, then click “Use another account”.';
+
+  @override
+  String errorConnectDesktop(String server, int seconds) {
+    final intl.NumberFormat secondsNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String secondsString = secondsNumberFormat.format(seconds);
+
+    return '$server didn\'t answer in $secondsString seconds. Click again, or pick another server from the list.';
+  }
 
   @override
   String get modeLabel => 'Connection method';

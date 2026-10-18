@@ -919,7 +919,9 @@ class _PowerZone extends StatelessWidget {
       _ when resting == ShikooServiceStatus.revoked => null,
       _ when resting != null => renews ? l.renewToConnect : null,
       ShikooError.connectTimeout =>
-        (state.isTV ? l.errorConnect : l.errorConnectTouch)(
+        (state.isTV
+            ? l.errorConnect
+            : (shikooDesktop ? l.errorConnectDesktop : l.errorConnectTouch))(
           serverName(selected?.name ?? ''),
           connectTimeout.inSeconds,
         ),
@@ -935,6 +937,8 @@ class _PowerZone extends StatelessWidget {
       ShikooError.vpnMissing =>
         shikooDesktop ? l.vpnMissingDesktop : l.vpnMissing,
       ShikooError.serverChange => l.errorServer,
+      null when state.busyPort != null => l.busyPortDesktop,
+      null when state.helperFailed => l.helperFailedDesktop,
       null when state.waiting => l.connectsToFirst,
       null when shift?.stage == ShikooSwitchStage.failed => l.switchFailedTv(
         serverName(shift!.to),
@@ -946,7 +950,9 @@ class _PowerZone extends StatelessWidget {
             ? l.tvHint
             : null,
     };
-    final slot = centred ? twoLines(context, t.s.bodySm) : null;
+    final slot = centred ? twoLines(context, t.text(t.s.bodySm)) : null;
+    final failed =
+        state.lastError != null || state.busyPort != null || state.helperFailed;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -987,17 +993,21 @@ class _PowerZone extends StatelessWidget {
           SizedBox(height: gap),
           _InView(
             message: message,
-            child: SizedBox(
-              width: t.s.powerRing * 1.5,
-              height: slot,
+            // A computer's text can be set half as large again: the message grows, never cut.
+            child: ConstrainedBox(
+              constraints: BoxConstraints.tightFor(width: t.s.powerRing * 1.5)
+                  .copyWith(
+                    minHeight: slot ?? 0,
+                    maxHeight: shikooDesktop ? double.infinity : slot,
+                  ),
               child: Text(
                 message ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                maxLines: shikooDesktop ? null : 2,
+                overflow: shikooDesktop ? null : TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: t.text(
                   t.s.bodySm,
-                  color: resting != null || (state.lastError == null && !alarm)
+                  color: resting != null || (!failed && !alarm)
                       ? t.c.textMuted
                       : t.c.danger,
                 ),

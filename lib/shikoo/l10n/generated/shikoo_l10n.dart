@@ -2225,7 +2225,7 @@ abstract class ShikooL10n {
   /// No description provided for @vpnRefusedDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or pick Proxy.'**
+  /// **'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or choose Proxy.'**
   String get vpnRefusedDesktop;
 
   /// No description provided for @vpnMissingDesktop.
@@ -2233,6 +2233,48 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'The tunnel didn\'t start on this computer.\nChoose Proxy, or ask Support.'**
   String get vpnMissingDesktop;
+
+  /// No description provided for @busyPortDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Another program is using ShikooNet\'s proxy port.\nClose it and connect again, or choose Tunnel.'**
+  String get busyPortDesktop;
+
+  /// No description provided for @helperFailedDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'The tunnel didn\'t turn on.\nConnect again, or choose Proxy.'**
+  String get helperFailedDesktop;
+
+  /// No description provided for @subCancelDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Click to cancel'**
+  String get subCancelDesktop;
+
+  /// No description provided for @subRetryDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Click to retry'**
+  String get subRetryDesktop;
+
+  /// No description provided for @updateFailedDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and click again. Until then, connect with these servers.'**
+  String get updateFailedDesktop;
+
+  /// No description provided for @noServiceHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Is your service on another Telegram account? Switch to it in Telegram first, then click “Use another account”.'**
+  String get noServiceHelpDesktop;
+
+  /// Computer: errorConnectTouch, clicked rather than tapped.
+  ///
+  /// In en, this message translates to:
+  /// **'{server} didn\'t answer in {seconds} seconds. Click again, or pick another server from the list.'**
+  String errorConnectDesktop(String server, int seconds);
 
   /// No description provided for @modeLabel.
   ///

@@ -95,8 +95,17 @@ void jumpFocus(BuildContext context, FocusNode node) {
   node.requestFocus();
 }
 
-double twoLines(BuildContext context, double size) =>
-    2 * MediaQuery.textScalerOf(context).scale(size) * Leading.tight;
+/// As the text engine lays them out: it rounds each line to whole pixels, 36 for two of 17.55.
+double twoLines(BuildContext context, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: '\n', style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
 
 /// A touch page in a window far wider than a phone: centred, as wide as the home's card column.
 class PaneColumn extends StatelessWidget {
@@ -922,8 +931,13 @@ class _PowerButtonState extends State<PowerButton>
     };
     final sub = switch (conn) {
       ShikooConnection.connecting =>
-        widget.isTV ? l.subCancelTv : l.subCancelTouch,
-      ShikooConnection.error => widget.isTV ? l.subRetryTv : l.subRetryTouch,
+        widget.isTV
+            ? l.subCancelTv
+            : (shikooDesktop ? l.subCancelDesktop : l.subCancelTouch),
+      ShikooConnection.error =>
+        widget.isTV
+            ? l.subRetryTv
+            : (shikooDesktop ? l.subRetryDesktop : l.subRetryTouch),
       _ => null,
     };
     final fg = on ? c.onPositive : c.text;

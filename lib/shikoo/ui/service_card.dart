@@ -996,7 +996,9 @@ class _Message extends StatelessWidget {
       RefreshFailed(clock: true) => (l.clockWrongTitle, l.clockWrongHelp),
       RefreshFailed() => (
         l.updateFailedTitle,
-        isTV ? l.updateFailedTv : l.updateFailedTouch,
+        isTV
+            ? l.updateFailedTv
+            : (shikooDesktop ? l.updateFailedDesktop : l.updateFailedTouch),
       ),
       SelectedReplaced(
         :final removed,

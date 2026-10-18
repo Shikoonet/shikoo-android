@@ -1361,11 +1361,42 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get vpnRefusedDesktop =>
-      'اجازهٔ تونل داده نشد.\nدوباره وصل شو و «بله» را بزن، یا «پروکسی» را بردار.';
+      'اجازهٔ تونل داده نشد.\nدوباره وصل شو و «بله» را بزن، یا «پروکسی» را انتخاب کن.';
 
   @override
   String get vpnMissingDesktop =>
       'تونل روی این کامپیوتر راه نیفتاد.\n«پروکسی» را انتخاب کن، یا از «پشتیبانی» بپرس.';
+
+  @override
+  String get busyPortDesktop =>
+      'برنامهٔ دیگری جای پروکسی شیکونت را گرفته است.\nآن برنامه را ببند و دوباره وصل شو، یا «تونل» را انتخاب کن.';
+
+  @override
+  String get helperFailedDesktop =>
+      'تونل روشن نشد.\nدوباره وصل شو، یا «پروکسی» را انتخاب کن.';
+
+  @override
+  String get subCancelDesktop => 'برای لغو بزن';
+
+  @override
+  String get subRetryDesktop => 'دوباره بزن';
+
+  @override
+  String get updateFailedDesktop =>
+      'اینترنت را بررسی کن و دوباره بزن. تا آن موقع با همین سرورها وصل شو.';
+
+  @override
+  String get noServiceHelpDesktop =>
+      'سرویست روی حساب تلگرام دیگری است؟ اول در خودِ تلگرام به همان حساب برو، بعد «ورود با حساب دیگر» را بزن.';
+
+  @override
+  String errorConnectDesktop(String server, int seconds) {
+    final intl.NumberFormat secondsNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String secondsString = secondsNumberFormat.format(seconds);
+
+    return '$server تا $secondsString ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.';
+  }
 
   @override
   String get modeLabel => 'روش اتصال';
