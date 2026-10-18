@@ -117,10 +117,19 @@ class ShikooSystemProxy extends ProxyPlatform {
   });
 }
 
-/// `--restore-proxy`, for the uninstaller, which kills the app first.
-Future<Never> restoreProxyAndExit() async {
-  await ShikooSystemProxy(ProxyPlatform.instance, () => 0).stopProxy();
-  exit(0);
+/// `--restore-proxy`, for the uninstaller, which kills the app first and waits on this process.
+Future<Never> restoreProxyAndExit({
+  Never Function(int code) quit = exit,
+}) async {
+  var restored = false;
+  try {
+    restored = await ShikooSystemProxy(
+      ProxyPlatform.instance,
+      () => 0,
+    ).stopProxy();
+  } finally {
+    quit(restored ? 0 : 1);
+  }
 }
 
 Map<String, Object?> _toJson(WinProxy s) => {
