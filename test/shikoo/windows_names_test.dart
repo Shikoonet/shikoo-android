@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fl_clash/common/constant.dart';
+import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -32,6 +33,10 @@ void main() {
       ),
     );
     expect(read('lib/shikoo/app/main.dart'), contains('shikooStagingBuild ||'));
+    expect(
+      read('lib/shikoo/app/app.dart'),
+      contains('const shikooDesktopPort = shikooStagingBuild ? 17471 : 17470;'),
+    );
     expect(
       read('services/helper/src/service/hub.rs'),
       allOf(
@@ -95,6 +100,7 @@ void main() {
 
   test('the names this test was compiled with follow SHIKOO_FLAVOR', () {
     expect(helperPort, shikooStagingBuild ? 47892 : 47891);
+    expect(shikooDesktopPort, shikooStagingBuild ? 17471 : 17470);
     expect(appName, shikooStagingBuild ? 'ShikooNet Test' : 'ShikooNet');
     expect(
       windowsPipeName,

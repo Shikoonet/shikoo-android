@@ -5,6 +5,7 @@ import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/application.dart';
 import 'package:fl_clash/bootstrap.dart';
+import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -102,7 +103,7 @@ PatchClashConfig shikooClashConfig(
   mixedPort: desktop ? shikooDesktopPort : c.mixedPort,
 );
 
-const shikooDesktopPort = 17470;
+const shikooDesktopPort = shikooStagingBuild ? 17471 : 17470;
 
 const _reapplyOnNetworkChange = bool.fromEnvironment('SHIKOO_WG_REAPPLY');
 
