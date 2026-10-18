@@ -91,6 +91,26 @@ void jumpFocus(BuildContext context, FocusNode node) {
   node.requestFocus();
 }
 
+double twoLines(BuildContext context, double size) =>
+    2 * MediaQuery.textScalerOf(context).scale(size) * Leading.tight;
+
+/// A touch page in a window far wider than a phone: centred, as wide as the home's card column.
+class PaneColumn extends StatelessWidget {
+  const PaneColumn({super.key, this.padding = 0, required this.child});
+
+  final double padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ShikooTheme.of(context).s;
+    if (!identical(s, ShikooSizes.desktop)) return child;
+    return Center(
+      child: SizedBox(width: s.pane + 2 * padding, child: child),
+    );
+  }
+}
+
 /// A focusable, pressable surface. The remote's OK key and a tap both press it.
 /// The focus ring (`.is-focused`: 3dp, 2dp away) is drawn outside the child.
 class Pressable extends StatefulWidget {
@@ -115,6 +135,7 @@ class Pressable extends StatefulWidget {
 
 class _PressableState extends State<Pressable> {
   bool _highlight = false;
+  bool _hover = false;
 
   bool get _focused =>
       _highlight && (widget.focusNode?.hasPrimaryFocus ?? true);
@@ -152,6 +173,7 @@ class _PressableState extends State<Pressable> {
         if (focused) revealWithRing(context);
       },
       onShowFocusHighlight: (value) => setState(() => _highlight = value),
+      onShowHoverHighlight: (value) => setState(() => _hover = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
@@ -167,6 +189,15 @@ class _PressableState extends State<Pressable> {
           clipBehavior: Clip.none,
           fit: StackFit.passthrough,
           children: [
+            if (_hover && shikooDesktop)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: ShapeDecoration(
+                    color: t.c.selectedBg,
+                    shape: widget.shape,
+                  ),
+                ),
+              ),
             widget.builder(context, _focused),
             if (_focused)
               Positioned.fill(

@@ -522,49 +522,53 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 Space.s6,
                 Space.s10,
               ),
-              child: Column(
-                spacing: Space.s4,
-                children: [
-                  Text(
-                    l.otherDeviceScan,
-                    textAlign: TextAlign.center,
-                    style: lead,
-                  ),
-                  _Qr(login: login),
-                  if (phase != LoginPhase.startFailed) ...[
+              child: PaneColumn(
+                child: Column(
+                  spacing: Space.s4,
+                  children: [
                     Text(
-                      l.otherDeviceComputer,
+                      l.otherDeviceScan,
                       textAlign: TextAlign.center,
                       style: lead,
                     ),
-                    _CodeBox(login: login),
+                    _Qr(login: login),
+                    if (phase != LoginPhase.startFailed) ...[
+                      Text(
+                        l.otherDeviceComputer,
+                        textAlign: TextAlign.center,
+                        style: lead,
+                      ),
+                      _CodeBox(login: login),
+                    ],
+                    if (phase == LoginPhase.startFailed ||
+                        phase == LoginPhase.expired)
+                      ShikooButton(
+                        label: phase == LoginPhase.expired
+                            ? l.newCode
+                            : l.retry,
+                        icon: ShikooIcon.refresh,
+                        primary: true,
+                        onPressed: () => unawaited(_signIn.start()),
+                      ),
+                    if (phase == LoginPhase.startFailed && login!.clock)
+                      const DateSettingsButton(),
+                    Text(
+                      phase != LoginPhase.startFailed
+                          ? l.otherDeviceFine
+                          : (login!.clock
+                                ? clockText(l)
+                                : (shikooDesktop
+                                      ? l.codeFailedHelpDesktop
+                                      : l.codeFailedHelpTouch)),
+                      textAlign: TextAlign.center,
+                      style: t.text(
+                        s.bodySm,
+                        color: t.c.textMuted,
+                        height: Leading.body,
+                      ),
+                    ),
                   ],
-                  if (phase == LoginPhase.startFailed ||
-                      phase == LoginPhase.expired)
-                    ShikooButton(
-                      label: phase == LoginPhase.expired ? l.newCode : l.retry,
-                      icon: ShikooIcon.refresh,
-                      primary: true,
-                      onPressed: () => unawaited(_signIn.start()),
-                    ),
-                  if (phase == LoginPhase.startFailed && login!.clock)
-                    const DateSettingsButton(),
-                  Text(
-                    phase != LoginPhase.startFailed
-                        ? l.otherDeviceFine
-                        : (login!.clock
-                              ? clockText(l)
-                              : (shikooDesktop
-                                    ? l.codeFailedHelpDesktop
-                                    : l.codeFailedHelpTouch)),
-                    textAlign: TextAlign.center,
-                    style: t.text(
-                      s.bodySm,
-                      color: t.c.textMuted,
-                      height: Leading.body,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -971,14 +975,18 @@ class FillPage extends StatelessWidget {
               : MainAxisAlignment.spaceBetween,
           children: [
             top,
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: Space.s4),
-              child: middle,
+            PaneColumn(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Space.s4),
+                child: middle,
+              ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: Space.s4,
-              children: bottom,
+            PaneColumn(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: Space.s4,
+                children: bottom,
+              ),
             ),
           ],
         ),

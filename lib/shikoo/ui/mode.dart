@@ -2,6 +2,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -44,8 +45,12 @@ class ModeSwitch extends ConsumerWidget {
             ),
           ),
         ),
+        // Two lines' room for either hint, so the column does not jump with the mode.
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: ShikooSizes.modeHint),
+          constraints: BoxConstraints(
+            maxWidth: ShikooSizes.modeHint,
+            minHeight: twoLines(context, t.s.bodySm),
+          ),
           child: Text(
             mode == ShikooMode.tunnel ? l.modeTunnelHint : l.modeProxyHint,
             textAlign: TextAlign.center,

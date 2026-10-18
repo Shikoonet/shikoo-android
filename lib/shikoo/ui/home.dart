@@ -944,7 +944,7 @@ class _PowerZone extends StatelessWidget {
             ? l.tvHint
             : null,
     };
-    final slot = centred ? _twoLines(context, t) : null;
+    final slot = centred ? twoLines(context, t.s.bodySm) : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -982,19 +982,22 @@ class _PowerZone extends StatelessWidget {
         ],
         if (message != null || slot != null) ...[
           SizedBox(height: gap),
-          SizedBox(
-            width: t.s.powerRing * 1.5,
-            height: slot,
-            child: Text(
-              message ?? '',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: t.text(
-                t.s.bodySm,
-                color: resting != null || (state.lastError == null && !alarm)
-                    ? t.c.textMuted
-                    : t.c.danger,
+          _InView(
+            message: message,
+            child: SizedBox(
+              width: t.s.powerRing * 1.5,
+              height: slot,
+              child: Text(
+                message ?? '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: t.text(
+                  t.s.bodySm,
+                  color: resting != null || (state.lastError == null && !alarm)
+                      ? t.c.textMuted
+                      : t.c.danger,
+                ),
               ),
             ),
           ),
@@ -1002,9 +1005,41 @@ class _PowerZone extends StatelessWidget {
       ],
     );
   }
+}
 
-  static double _twoLines(BuildContext context, ShikooTheme t) =>
-      2 * MediaQuery.textScalerOf(context).scale(t.s.bodySm) * Leading.tight;
+/// A computer's window can be too short to show the message under the mode switch: a new one
+/// scrolls into view.
+class _InView extends StatefulWidget {
+  const _InView({required this.message, required this.child});
+
+  final String? message;
+  final Widget child;
+
+  @override
+  State<_InView> createState() => _InViewState();
+}
+
+class _InViewState extends State<_InView> {
+  @override
+  void initState() {
+    super.initState();
+    _reveal(null);
+  }
+
+  @override
+  void didUpdateWidget(_InView old) {
+    super.didUpdateWidget(old);
+    _reveal(old.message);
+  }
+
+  void _reveal(String? before) {
+    if (shikooDesktop && widget.message != null && widget.message != before) {
+      revealWithRing(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// `.snackbar`: the bar's whole face, as its own padding is none, so [onTop] is the bar's top.

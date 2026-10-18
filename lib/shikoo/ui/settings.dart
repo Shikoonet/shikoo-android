@@ -603,7 +603,7 @@ class SubPage extends StatelessWidget {
                   SizedBox(height: isTV ? Space.s3 : Space.s2),
                   Expanded(
                     child: !scrolls
-                        ? child
+                        ? PaneColumn(padding: s.safeX, child: child)
                         : isTV
                         ? TvScrollColumn(child: child)
                         : SingleChildScrollView(
@@ -613,7 +613,7 @@ class SubPage extends StatelessWidget {
                               s.safeX,
                               Space.s6 + MediaQuery.paddingOf(context).bottom,
                             ),
-                            child: child,
+                            child: PaneColumn(child: child),
                           ),
                   ),
                 ],
