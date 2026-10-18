@@ -435,7 +435,14 @@ class TrayPopup {
         final at = _origin + _client(lParam);
         moved = at != _lastMove;
         _lastMove = at;
-        _trackLeave();
+        // WM_MOUSELEAVE comes only when asked, once per ask.
+        final track = calloc<_TrackMouse>();
+        track.ref
+          ..cbSize = sizeOf<_TrackMouse>()
+          ..dwFlags = _tmeLeave
+          ..hwndTrack = Pointer.fromAddress(_hwnd);
+        _trackMouseEvent(track);
+        calloc.free(track);
       }
       final step = trayStep(
         _view.menu.rows,
@@ -457,17 +464,6 @@ class TrayPopup {
         unawaited(_paint());
       }
     }
-  }
-
-  /// Windows sends WM_MOUSELEAVE only when asked, once per ask.
-  void _trackLeave() {
-    final track = calloc<_TrackMouse>();
-    track.ref
-      ..cbSize = sizeOf<_TrackMouse>()
-      ..dwFlags = _tmeLeave
-      ..hwndTrack = Pointer.fromAddress(_hwnd);
-    _trackMouseEvent(track);
-    calloc.free(track);
   }
 
   static Offset _client(int lParam) => Offset(

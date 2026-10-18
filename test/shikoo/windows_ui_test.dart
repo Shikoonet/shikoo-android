@@ -65,6 +65,7 @@ ShikooState _state(
   int more = 0,
   Duration connectedFor = const Duration(minutes: 12, seconds: 47),
   bool service = true,
+  bool ended = false,
 }) => ShikooState(
   connection: connection,
   connectedFor: connectedFor,
@@ -72,7 +73,7 @@ ShikooState _state(
   service: service
       ? ShikooService(
           name: '5550123 · الماس',
-          usedBytes: 33 << 30,
+          usedBytes: (ended ? 100 : 33) << 30,
           totalBytes: 100 << 30,
           updatedAt: DateTime.now(),
         )
@@ -744,6 +745,11 @@ void main() {
       expect(popup.view?.menu.head, 'قطع');
       row('وصل شدن').run();
       verify(controller.connect).called(1);
+      container
+          .read(now.notifier)
+          .set(_state(ShikooConnection.off, ended: true));
+      await tester.idle();
+      expect(row('وصل شدن').enabled, isFalse, reason: 'the service ran out');
       popup.close();
       await tester.idle();
       expect(tips.last, 'شیکونت · قطع');
