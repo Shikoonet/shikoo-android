@@ -109,8 +109,10 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 
 ### Bot
 
-No code: in each panel, Content → client apps, two rows: «شیکونت — گوشی» → `https://app.chopon.uk/dl/arm64-v8a` and
-«شیکونت — تلویزیون و باکس» → `…/dl/armeabi-v7a` (staging: `app-dev`). Links never change between releases.
+No code: in each panel, Content → client apps, three rows: «شیکونت — گوشی» → `https://app.chopon.uk/dl/arm64-v8a`,
+«شیکونت — تلویزیون و باکس» → `…/dl/armeabi-v7a`, and «شیکونت — کامپیوتر» (platform Windows) → `…/dl/windows-x64`
+(staging: `app-dev`). Links never change between releases. Before the Windows row is added, shikoo-platform PR #770 must
+be deployed on both doors.
 
 ## Defaults (conductor, until Sam objects)
 

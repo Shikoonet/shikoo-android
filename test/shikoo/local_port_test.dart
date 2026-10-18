@@ -113,9 +113,9 @@ void main() {
 
     final ours = _setting(proxyTypeDirect | proxyTypeProxy, '127.0.0.1:7890');
 
-    ShikooSystemProxy launch() => ShikooSystemProxy(
+    ShikooSystemProxy launch([int port = 7890]) => ShikooSystemProxy(
       windows,
-      () => 7890,
+      () => port,
       read: () => now,
       write: (setting) {
         if (refuse) return false;
@@ -295,5 +295,55 @@ void main() {
         expect(asked, isEmpty);
       },
     );
+
+    test("the uninstaller's restore, with no config to read the port from, "
+        'knows our proxy by the port saved at connect', () async {
+      await launch().startProxy(7890, const []);
+      expect(await launch(0).stopProxy(), isTrue);
+      expect(windows.calls, ['start 7890', 'stop']);
+      expect(written, [_before]);
+      expect(await saved(), isFalse);
+    });
+
+    test("the uninstaller's restore ends its process even when it fails, "
+        'since the uninstaller waits on it', () async {
+      SharedPreferences.setMockInitialValues({
+        ShikooSystemProxy.savedKey: '{not json',
+      });
+      await expectLater(
+        restoreProxyAndExit(quit: (code) => throw StateError('exit $code')),
+        throwsA(
+          isA<StateError>().having((e) => e.message, 'message', 'exit 1'),
+        ),
+      );
+    });
+
+    test("the uninstaller's restore exits 0 once the proxy is back", () async {
+      await expectLater(
+        restoreProxyAndExit(
+          quit: (code) => throw StateError('exit $code'),
+          restore: () async => true,
+        ),
+        throwsA(
+          isA<StateError>().having((e) => e.message, 'message', 'exit 0'),
+        ),
+      );
+    });
+
+    testWidgets("the uninstaller's restore gives up after 10 seconds, since "
+        'the uninstaller waits on it with no limit of its own', (tester) async {
+      final codes = <int>[];
+      restoreProxyAndExit(
+        quit: (code) {
+          codes.add(code);
+          throw StateError('exit $code');
+        },
+        restore: () => Completer<bool>().future,
+      ).ignore();
+      await tester.pump(const Duration(seconds: 9));
+      expect(codes, isEmpty);
+      await tester.pump(const Duration(seconds: 1));
+      expect(codes, [1]);
+    });
   });
 }

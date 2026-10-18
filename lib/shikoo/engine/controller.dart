@@ -1099,7 +1099,6 @@ class ShikooController {
     if (mode.systemProxy && !await _ref.read(localPortFreeProvider)(port)) {
       return _Intent(busyPort: port);
     }
-    if (stale()) return null;
     final authorized = _ref.read(authorizedTunEnableProvider.notifier);
     if (mode.tun && authorized.value != TunAuthorizationState.authorized) {
       final admin = await (_admin ??= _ref

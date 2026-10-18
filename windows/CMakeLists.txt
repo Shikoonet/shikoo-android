@@ -51,6 +51,13 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
+# SHIKOO_FLAVOR=staging names the test build, and so its data folder (Runner.rc ProductName).
+if("$ENV{SHIKOO_FLAVOR}" STREQUAL "staging")
+  set(SHIKOO_TITLE "ShikooNet Test")
+else()
+  set(SHIKOO_TITLE "ShikooNet")
+endif()
+target_compile_definitions(${BINARY_NAME} PRIVATE "SHIKOO_TITLE=\"${SHIKOO_TITLE}\"")
 
 
 # Generated plugin build rules, which manage building the plugins and adding
