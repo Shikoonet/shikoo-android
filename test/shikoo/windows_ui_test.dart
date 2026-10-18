@@ -483,7 +483,10 @@ void main() {
       expect(lines(l.modeTunnelHint), closeTo(1, 0.1));
       final power = tester.getRect(find.byType(PowerButton));
       final tunnel = tester.getRect(find.byType(ModeSwitch));
-      await tester.tap(find.text(l.modeProxy));
+      // The engine's mode, as setMode saves it only on a Windows host.
+      await ProviderScope.containerOf(
+        tester.element(find.byType(ShikooHome)),
+      ).read(shikooModeProvider.notifier).save(ShikooMode.proxy);
       await tester.pump();
       expect(lines(l.modeProxyHint), closeTo(2, 0.1));
       final proxy = tester.getRect(find.byType(ModeSwitch));
