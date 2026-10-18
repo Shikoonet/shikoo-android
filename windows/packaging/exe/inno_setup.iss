@@ -9,7 +9,6 @@
 #define Id "{{APP_ID}}"
 #define Service "ShikooNetHelperService"
 #endif
-#pragma message "ShikooNet installer: " + Title + ", id " + Id + ", service " + Service
 [Setup]
 AppId={#Id}
 AppVersion={{APP_VERSION}}
@@ -61,13 +60,14 @@ begin
     Exec(ExpandConstant('{sys}\sc.exe'), 'delete {#Service}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+// The proxy and its saved copy are in the HKCU and APPDATA of the user who started Setup, not of the account it elevated to.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
 begin
   UnregisterHelperService;
   KillProcesses;
-  Exec(ExpandConstant('{app}\ShikooNet.exe'), '--restore-proxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  ExecAsOriginalUser(ExpandConstant('{app}\ShikooNet.exe'), '--restore-proxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := '';
 end;
 
@@ -78,11 +78,15 @@ begin
     WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);
 end;
 
-function InitializeUninstall(): Boolean;
+// usUninstall comes after the "are you sure?" question and before [UninstallRun]. The service goes before the kill:
+// killed while still registered, it is restarted by the SCM (crash_recovery in services/helper/src/service/windows.rs).
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  UnregisterHelperService;
-  KillProcesses;
-  Result := True;
+  if CurUninstallStep = usUninstall then
+  begin
+    UnregisterHelperService;
+    KillProcesses;
+  end;
 end;
 
 [Languages]
@@ -134,8 +138,8 @@ Filename: "{app}\ShikooNetHelperService.exe"; Parameters: "install"; StatusMsg: 
 Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{#Title}}"; Flags: runasoriginaluser nowait postinstall skipifsilent
 Filename: "{app}\\{{EXECUTABLE_NAME}}"; Flags: runasoriginaluser nowait skipifnotsilent
 [UninstallRun]
-; The first step of the uninstall, after InitializeUninstall closed the app and before [UninstallDelete],
-; the last step, deletes the data it reads Windows' earlier proxy from.
+; The first step of the uninstall, after CurUninstallStepChanged(usUninstall) closed the app and before
+; [UninstallDelete], the last step, deletes the data it reads Windows' earlier proxy from.
 Filename: "{app}\ShikooNet.exe"; Parameters: "--restore-proxy"; Flags: runhidden waituntilterminated; RunOnceId: "ShikooRestoreProxy"
 [UninstallDelete]
 ; The app's data: path_provider_windows names it CompanyName\ProductName of windows/runner/Runner.rc.
