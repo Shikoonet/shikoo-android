@@ -1416,7 +1416,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get vpnRefusedDesktop =>
-      'Permission for the tunnel wasn\'t given.\nConnect again and press Yes in Windows\' window, or choose Proxy.';
+      'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or pick Proxy.';
 
   @override
   String get vpnMissingDesktop =>

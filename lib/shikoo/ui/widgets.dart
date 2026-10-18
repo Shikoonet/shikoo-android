@@ -8,6 +8,10 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:flutter/gestures.dart'
+    show GestureBinding, PointerDownEvent, PointerEvent;
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:intl/intl.dart' show Bidi, NumberFormat;
 import 'package:material_ui/material_ui.dart';
 
@@ -111,6 +115,62 @@ class PaneColumn extends StatelessWidget {
   }
 }
 
+/// [ShikooSizes.pageMax] wide at most, centred, a page's bars too; a dialog's scrim still fills the window.
+class PageWidth extends StatelessWidget {
+  const PageWidth({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    if (!identical(t.s, ShikooSizes.desktop)) return child;
+    return ColoredBox(
+      color: t.c.bg,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: ShikooSizes.pageMax),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+final _ringKeys = {
+  LogicalKeyboardKey.tab,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+};
+
+/// A browser's `:focus-visible`: Tab or an arrow key shows the ring, a click hides it again.
+VoidCallback ringOnKeys() {
+  final focus = FocusManager.instance;
+  bool key(KeyEvent event) {
+    if (event is KeyDownEvent && _ringKeys.contains(event.logicalKey)) {
+      focus.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+    }
+    return false;
+  }
+
+  void pointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      focus.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
+    }
+  }
+
+  focus.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
+  HardwareKeyboard.instance.addHandler(key);
+  GestureBinding.instance.pointerRouter.addGlobalRoute(pointer);
+  return () {
+    HardwareKeyboard.instance.removeHandler(key);
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(pointer);
+    focus.highlightStrategy = FocusHighlightStrategy.automatic;
+  };
+}
+
 /// A focusable, pressable surface. The remote's OK key and a tap both press it.
 /// The focus ring (`.is-focused`: 3dp, 2dp away) is drawn outside the child.
 class Pressable extends StatefulWidget {
@@ -121,12 +181,15 @@ class Pressable extends StatefulWidget {
     required this.builder,
     this.autofocus = false,
     this.focusNode,
+    this.solid = false,
   });
 
-  final VoidCallback onPressed;
+  /// Null greys it out: the ring stays and a tap is still taken, but the mouse lights nothing.
+  final VoidCallback? onPressed;
   final OutlinedBorder shape;
   final bool autofocus;
   final FocusNode? focusNode;
+  final bool solid;
   final Widget Function(BuildContext context, bool focused) builder;
 
   @override
@@ -166,6 +229,7 @@ class _PressableState extends State<Pressable> {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     const gap = ShikooSizes.focusRingOffset;
+    final hover = _hover && shikooDesktop && widget.onPressed != null;
     return FocusableActionDetector(
       autofocus: widget.autofocus,
       focusNode: widget.focusNode,
@@ -173,53 +237,60 @@ class _PressableState extends State<Pressable> {
         if (focused) revealWithRing(context);
       },
       onShowFocusHighlight: (value) => setState(() => _highlight = value),
-      onShowHoverHighlight: (value) => setState(() => _hover = value),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
-            widget.onPressed();
+            widget.onPressed?.call();
             return null;
           },
         ),
       },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onPressed,
-        child: Stack(
-          clipBehavior: Clip.none,
-          fit: StackFit.passthrough,
-          children: [
-            if (_hover && shikooDesktop)
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: ShapeDecoration(
-                    color: t.c.selectedBg,
-                    shape: widget.shape,
-                  ),
-                ),
-              ),
-            widget.builder(context, _focused),
-            if (_focused)
-              Positioned.fill(
-                left: -gap,
-                top: -gap,
-                right: -gap,
-                bottom: -gap,
-                child: IgnorePointer(
+      // Its own region: the detector's hover waits for a key under [ringOnKeys].
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed ?? () {},
+          child: Stack(
+            clipBehavior: Clip.none,
+            fit: StackFit.passthrough,
+            children: [
+              if (hover && !widget.solid)
+                Positioned.fill(
                   child: DecoratedBox(
                     decoration: ShapeDecoration(
-                      shape: _grow(widget.shape, gap).copyWith(
-                        side: BorderSide(
-                          color: t.c.focusRing,
-                          width: ShikooSizes.focusRingWidth,
-                          strokeAlign: BorderSide.strokeAlignOutside,
+                      color: t.c.hoverBg,
+                      shape: widget.shape,
+                    ),
+                  ),
+                ),
+              Opacity(
+                opacity: hover && widget.solid ? ShikooColors.solidHover : 1,
+                child: widget.builder(context, _focused),
+              ),
+              if (_focused)
+                Positioned.fill(
+                  left: -gap,
+                  top: -gap,
+                  right: -gap,
+                  bottom: -gap,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: ShapeDecoration(
+                        shape: _grow(widget.shape, gap).copyWith(
+                          side: BorderSide(
+                            color: t.c.focusRing,
+                            width: ShikooSizes.focusRingWidth,
+                            strokeAlign: BorderSide.strokeAlignOutside,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -438,7 +509,8 @@ class ShikooButton extends StatelessWidget {
             shape: RoundedSuperellipseBorder(borderRadius: radius),
             autofocus: autofocus,
             focusNode: focusNode,
-            onPressed: onPressed ?? () {},
+            onPressed: onPressed,
+            solid: fill != null,
             builder: (context, focused) => small
                 ? Padding(
                     padding: EdgeInsets.symmetric(
@@ -932,11 +1004,12 @@ class _PowerButtonState extends State<PowerButton>
           ),
           if (enabled)
             Pressable(
-              // A window shows the ring from the start, before any key is pressed.
+              // A window starts with nothing chosen: Enter must not connect where no ring shows.
               autofocus: !shikooDesktop,
               focusNode: widget.focusNode,
               shape: const CircleBorder(),
               onPressed: onPressed,
+              solid: true,
               builder: (context, focused) => face(focused),
             )
           else

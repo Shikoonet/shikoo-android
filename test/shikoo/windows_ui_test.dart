@@ -9,6 +9,8 @@ import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart'
+    show RenderParagraph, RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,21 +52,25 @@ final _stateCell = NotifierProvider<ShikooCell<ShikooState>, ShikooState>(
   () => ShikooCell(_state(ShikooConnection.off)),
 );
 
-Widget _app(Widget home, {List<Override> overrides = const []}) =>
-    ProviderScope(
-      key: UniqueKey(),
-      overrides: [noShots, ...overrides],
-      child: MaterialApp(
-        locale: const Locale('fa'),
-        supportedLocales: ShikooL10n.supportedLocales,
-        localizationsDelegates: const [
-          ShikooL10n.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        theme: shikooThemeData(Brightness.light, tv: false),
-        home: home,
-      ),
-    );
+Widget _app(
+  Widget home, {
+  List<Override> overrides = const [],
+  Locale locale = const Locale('fa'),
+  Brightness brightness = Brightness.light,
+}) => ProviderScope(
+  key: UniqueKey(),
+  overrides: [noShots, ...overrides],
+  child: MaterialApp(
+    locale: locale,
+    supportedLocales: ShikooL10n.supportedLocales,
+    localizationsDelegates: const [
+      ShikooL10n.delegate,
+      ...GlobalMaterialLocalizations.delegates,
+    ],
+    theme: shikooThemeData(brightness, tv: false),
+    home: home,
+  ),
+);
 
 void _window(WidgetTester tester, Size window) {
   SharedPreferences.setMockInitialValues({});
@@ -80,11 +86,13 @@ Future<void> _pumpHome(
   ShikooConnection connection = ShikooConnection.on,
   int more = 0,
   ShikooError? error,
+  Locale locale = const Locale('fa'),
 }) async {
   _window(tester, window);
   await tester.pumpWidget(
     _app(
       const ShikooHome(),
+      locale: locale,
       overrides: [
         shikooStateProvider.overrideWithValue(
           _state(connection, more: more, error: error),
@@ -94,6 +102,48 @@ Future<void> _pumpHome(
   );
   await tester.pump();
 }
+
+/// The colour at [at], as painted inside [boundary].
+Future<Color> _pixel(WidgetTester tester, Finder boundary, Offset at) async {
+  final render = tester.renderObject<RenderRepaintBoundary>(boundary);
+  final p = at - render.localToGlobal(Offset.zero);
+  final pixel = await tester.runAsync(() async {
+    final image = await render.toImage();
+    final data = (await image.toByteData())!;
+    final i = 4 * (p.dy.floor() * image.width + p.dx.floor());
+    image.dispose();
+    return [for (var k = 0; k < 4; k++) data.getUint8(i + k)];
+  });
+  return Color.fromARGB(pixel![3], pixel[0], pixel[1], pixel[2]);
+}
+
+Matcher _looks(Color color) => isA<Color>().having(
+  (c) => [
+    for (final v in [c.r, c.g, c.b]) (v * 255).round(),
+  ],
+  'rgb',
+  [
+    for (final v in [color.r, color.g, color.b]) closeTo((v * 255).round(), 1),
+  ],
+);
+
+Finder _lit(Color color) => find.byWidgetPredicate(
+  (widget) =>
+      widget is DecoratedBox &&
+      widget.decoration is ShapeDecoration &&
+      (widget.decoration as ShapeDecoration).color == color,
+);
+
+final _ring = find.byWidgetPredicate(
+  (widget) =>
+      widget is DecoratedBox &&
+      widget.decoration is ShapeDecoration &&
+      (widget.decoration as ShapeDecoration).shape is OutlinedBorder &&
+      ((widget.decoration as ShapeDecoration).shape as OutlinedBorder)
+              .side
+              .color ==
+          ShikooColors.light.focusRing,
+);
 
 void main() {
   testWidgets('880 wide: the card column at the start, the button beside it', (
@@ -457,13 +507,7 @@ void main() {
           ),
         ),
       );
-      final lit = find.byWidgetPredicate(
-        (widget) =>
-            widget is DecoratedBox &&
-            widget.decoration is ShapeDecoration &&
-            (widget.decoration as ShapeDecoration).color ==
-                ShikooColors.light.selectedBg,
-      );
+      final lit = _lit(ShikooColors.light.hoverBg);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: const Offset(1, 440));
       addTearDown(mouse.removePointer);
@@ -487,5 +531,322 @@ void main() {
       await tester.pump();
       expect(lit, findsNothing);
     }, variant: _windows);
+
+    testWidgets('the tunnel refusal fits its two lines whole, in Persian and '
+        'English', (tester) async {
+      for (final language in ['fa', 'en']) {
+        final locale = Locale(language);
+        await _pumpHome(
+          tester,
+          const Size(880, 508),
+          connection: ShikooConnection.error,
+          error: ShikooError.vpnRefused,
+          locale: locale,
+        );
+        final text = lookupShikooL10n(locale).vpnRefusedDesktop;
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+        expect(paragraph.didExceedMaxLines, isFalse, reason: language);
+        expect(paragraph.size.width, ShikooSizes.desktop.powerRing * 1.5);
+      }
+    }, variant: _windows);
+
+    testWidgets('a server row under the mouse is fainter than the chosen one, '
+        'and the chosen one keeps its colour', (tester) async {
+      for (final brightness in Brightness.values) {
+        final c = brightness == Brightness.light
+            ? ShikooColors.light
+            : ShikooColors.dark;
+        _window(tester, const Size(400, 448));
+        await tester.pumpWidget(
+          _app(
+            brightness: brightness,
+            Scaffold(
+              body: Center(
+                child: RepaintBoundary(
+                  key: const ValueKey('rows'),
+                  child: ColoredBox(
+                    color: c.surface,
+                    child: SizedBox(
+                      width: 352,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final (name, chosen) in [
+                            ('آلمان ۲', true),
+                            ('هلند ۱', false),
+                          ])
+                            ServerRow(
+                              server: ShikooServer(
+                                name: name,
+                                type: 'Vless',
+                                ping: 84,
+                              ),
+                              selected: chosen,
+                              onPressed: () {},
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final rows = find.byType(ServerRow);
+        // The row's end padding, clear of every mark on it.
+        Offset edge(int i) {
+          final row = tester.getRect(rows.at(i));
+          return Offset(row.left + 3, row.center.dy);
+        }
+
+        Future<Color> at(int i) =>
+            _pixel(tester, find.byKey(const ValueKey('rows')), edge(i));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(1, 1));
+        await tester.pump();
+        expect(await at(1), _looks(c.surface));
+
+        await mouse.moveTo(tester.getCenter(rows.at(1)));
+        await tester.pump();
+        final hovered = await at(1);
+        expect(hovered, _looks(Color.alphaBlend(c.hoverBg, c.surface)));
+        expect(hovered, isNot(_looks(c.selectedBg)));
+
+        await mouse.moveTo(tester.getCenter(rows.at(0)));
+        await tester.pump();
+        expect(await at(0), _looks(c.selectedBg), reason: '$brightness');
+        await mouse.removePointer();
+      }
+    }, variant: _windows);
+
+    testWidgets('the maximised sign-in keeps the brand and the buttons one '
+        'group, 24 apart, in the middle; the language stays in its corner', (
+      tester,
+    ) async {
+      const window = Size(1920, 1032);
+      _window(tester, window);
+      await tester.pumpWidget(
+        _app(
+          const LoginPage(login: null),
+          overrides: [
+            shikooStateProvider.overrideWithValue(_state(ShikooConnection.off)),
+          ],
+        ),
+      );
+      await tester.pump();
+      final language = tester.getRect(find.byType(Segmented<String>));
+      final mark = tester.getRect(find.byType(BrandMark));
+      final tagline = tester.getRect(find.text(l.loginTagline));
+      final telegram = tester.getRect(
+        find.ancestor(
+          of: find.text(l.loginTelegram),
+          matching: find.byType(ShikooButton),
+        ),
+      );
+      final last = tester.getRect(find.byType(LinkButton));
+      expect(telegram.top - tagline.bottom, Space.s6);
+      expect((language.left, language.top < Space.s8), (Space.s6, true));
+      // SafeArea's minimum keeps Space.s8 under the page.
+      expect(
+        mark.top - language.bottom,
+        closeTo(window.height - Space.s8 - last.bottom, 1),
+      );
+    }, variant: _windows);
   });
+
+  testWidgets('the mouse lights nothing that is greyed out: a button that '
+      'keeps the ring, the mode switch while connecting', (tester) async {
+    _window(tester, const Size(400, 448));
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    final enabled = ValueNotifier(true);
+    addTearDown(enabled.dispose);
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Center(
+            child: ValueListenableBuilder(
+              valueListenable: enabled,
+              builder: (context, on, _) => ShikooButton(
+                label: 'ارسال',
+                autofocus: true,
+                focusNode: node,
+                onPressed: on ? () {} : null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    enabled.value = false;
+    await tester.pump();
+    expect(node.hasFocus, isTrue);
+    expect(find.byType(Pressable), findsOne);
+    final lit = _lit(ShikooColors.light.hoverBg);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(1, 1));
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.text('ارسال')));
+    await tester.pump();
+    expect(lit, findsNothing);
+
+    await _pumpHome(
+      tester,
+      const Size(880, 508),
+      connection: ShikooConnection.connecting,
+    );
+    await mouse.moveTo(const Offset(1, 1));
+    await tester.pump();
+    await mouse.moveTo(tester.getCenter(find.text('پروکسی')));
+    await tester.pump();
+    expect(lit, findsNothing);
+  }, variant: _windows);
+
+  testWidgets('a filled face fades to 90% under the mouse, with nothing '
+      'behind it', (tester) async {
+    _window(tester, const Size(400, 448));
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ShikooButton(label: 'تمدید', primary: true, onPressed: () {}),
+              PowerButton(
+                connection: ShikooConnection.off,
+                connectedFor: Duration.zero,
+                isTV: false,
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    Finder faded(Finder face) => find.ancestor(
+      of: face,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Opacity && widget.opacity == ShikooColors.solidHover,
+      ),
+    );
+    final connect = lookupShikooL10n(const Locale('fa')).powerConnect;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(399, 447));
+    addTearDown(mouse.removePointer);
+    await tester.pump();
+    for (final face in [find.text('تمدید'), find.text(connect)]) {
+      expect(faded(face), findsNothing);
+      await mouse.moveTo(tester.getCenter(face));
+      await tester.pump();
+      expect(faded(face), findsOne);
+      expect(_lit(ShikooColors.light.hoverBg), findsNothing);
+      await mouse.moveTo(const Offset(399, 447));
+      await tester.pump();
+    }
+  }, variant: _windows);
+
+  testWidgets('in the 880 × 540 window the message under the mode switch '
+      'keeps clear of the bottom, the column centred', (tester) async {
+    const window = Size(880, 508);
+    await _pumpHome(
+      tester,
+      window,
+      connection: ShikooConnection.error,
+      error: ShikooError.noServer,
+    );
+    final l = lookupShikooL10n(const Locale('fa'));
+    final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));
+    final above =
+        tester.getRect(find.byType(PowerButton)).top -
+        ShikooSizes.desktop.appbar;
+    final below = window.height - message.bottom;
+    expect(below, greaterThan(20));
+    expect(above, closeTo(below, 1));
+  }, variant: _windows);
+
+  testWidgets('a window wider than 960 keeps the 960 page, top bars too, '
+      'centred', (tester) async {
+    final l = lookupShikooL10n(const Locale('fa'));
+    final settings = find.byWidgetPredicate(
+      (widget) => widget is ShikooIconButton && widget.label == l.settings,
+    );
+    final back = find.byWidgetPredicate(
+      (widget) => widget is ShikooIconButton && widget.label == l.back,
+    );
+    Future<List<Rect>> home(double width) async {
+      await _pumpHome(tester, Size(width, 508));
+      return [
+        for (final part in [
+          find.byType(ServiceCard),
+          find.byType(PowerButton),
+          find.byType(Brand),
+          settings,
+        ])
+          tester.getRect(part),
+      ];
+    }
+
+    Future<Rect> page(double width) async {
+      _window(tester, Size(width, 508));
+      await tester.pumpWidget(
+        _app(
+          const SubPage(
+            title: 'تنظیمات',
+            isTV: false,
+            child: SizedBox(height: 40),
+          ),
+        ),
+      );
+      return tester.getRect(back);
+    }
+
+    const shift = Offset(480, 0);
+    final narrow = await home(960);
+    expect(await home(1920), [for (final r in narrow) r.shift(shift)]);
+    final bar = await page(960);
+    expect(await page(1920), bar.shift(shift));
+  }, variant: _windows);
+
+  testWidgets('the ring waits for Tab or an arrow, and a click hides it '
+      'again', (tester) async {
+    addTearDown(ringOnKeys());
+    _window(tester, const Size(400, 448));
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ShikooButton(label: 'یک', autofocus: true, onPressed: () {}),
+                ShikooButton(label: 'دو', onPressed: () {}),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    String? focused() => FocusManager.instance.primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<ShikooButton>()
+        ?.label;
+    expect(focused(), 'یک');
+    expect(_ring, findsNothing);
+    await tester.tap(find.text('دو'), kind: PointerDeviceKind.mouse);
+    await tester.pump();
+    expect(_ring, findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(_ring, findsOne);
+    await tester.tap(find.text('یک'), kind: PointerDeviceKind.mouse);
+    await tester.pump();
+    expect(_ring, findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(_ring, findsOne);
+  }, variant: _windows);
 }

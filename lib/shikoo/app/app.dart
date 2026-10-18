@@ -24,6 +24,7 @@ import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/widgets.dart' show ringOnKeys;
 import 'package:fl_clash/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -173,6 +174,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (system.isTV) {
       FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.alwaysTraditional;
+    } else if (system.isDesktop) {
+      ringOnKeys();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (globalState.navigatorKey.currentContext == null) exit(0);

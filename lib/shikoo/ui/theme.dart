@@ -59,6 +59,7 @@ class ShikooColors {
     required this.primary,
     required this.onPrimary,
     required this.selectedBg,
+    required this.hoverAlpha,
     required this.focusRing,
     required this.focusBg,
     required this.positive,
@@ -84,6 +85,9 @@ class ShikooColors {
   final Color primary;
   final Color onPrimary;
   final Color selectedBg;
+
+  /// Under the mouse, the text's own colour this faint: never as strong as [selectedBg].
+  final double hoverAlpha;
   final Color focusRing;
   final Color focusBg;
   final Color positive;
@@ -96,6 +100,11 @@ class ShikooColors {
   final Color scrim;
   final List<BoxShadow> cardShadow;
   final List<BoxShadow> raisedShadow;
+
+  Color get hoverBg => text.withValues(alpha: hoverAlpha);
+
+  /// A filled face under the mouse: [primary], Telegram's blue, the round button.
+  static const solidHover = 0.9;
 
   Color get inUse => positive;
 
@@ -114,6 +123,7 @@ class ShikooColors {
     primary: Color(0xFF1A1B19),
     onPrimary: Color(0xFFFFFFFF),
     selectedBg: Color(0xFFEDEEEA),
+    hoverAlpha: 0.04,
     focusRing: Color(0xFF1A1B19),
     focusBg: Color(0xFFFFFFFF),
     positive: Color(0xFF117036),
@@ -158,6 +168,7 @@ class ShikooColors {
     primary: Color(0xFFECEEEC),
     onPrimary: Color(0xFF121413),
     selectedBg: Color(0xFF262B29),
+    hoverAlpha: 0.03,
     focusRing: Color(0xFFFFFFFF),
     focusBg: Color(0xFF343A37),
     positive: Color(0xFF3DD47A),
@@ -324,6 +335,9 @@ class ShikooSizes {
   static const windowStart = Size(880, 540);
   static const windowMin = Size(400, 480);
   static const twoColumns = 620.0;
+
+  /// A wider window keeps this width's page, centred.
+  static const pageMax = 960.0;
   static const titleBar = 32.0;
   static const captionButton = 46.0;
   static const titleMark = 16.0;

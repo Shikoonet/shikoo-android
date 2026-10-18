@@ -1361,7 +1361,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get vpnRefusedDesktop =>
-      'اجازهٔ تونل داده نشد.\nدوباره وصل شو و در پنجرهٔ ویندوز «بله» را بزن، یا «پروکسی» را انتخاب کن.';
+      'اجازهٔ تونل داده نشد.\nدوباره وصل شو و «بله» را بزن، یا «پروکسی» را بردار.';
 
   @override
   String get vpnMissingDesktop =>

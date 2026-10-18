@@ -452,42 +452,44 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final onAdd = current == null && unlinked.isEmpty
         ? null
         : () => unawaited(_add());
-    return Scaffold(
-      backgroundColor: t.c.bg,
-      body: PageFocusScope(
-        child: FocusTraversalGroup(
-          policy: PageTraversalPolicy(),
-          child: state.isTV
-              ? _TvLayout(
-                  noService: current == null && unlinked.isEmpty,
-                  settings: _settings,
-                  power: _PowerKeys(
-                    targets: [
-                      _crashSend,
-                      _check,
-                      if (inUseOpen && towardCard != null)
-                        _card.row(towardCard),
-                      _inUse,
-                    ],
-                    child: power,
+    return PageWidth(
+      child: Scaffold(
+        backgroundColor: t.c.bg,
+        body: PageFocusScope(
+          child: FocusTraversalGroup(
+            policy: PageTraversalPolicy(),
+            child: state.isTV
+                ? _TvLayout(
+                    noService: current == null && unlinked.isEmpty,
+                    settings: _settings,
+                    power: _PowerKeys(
+                      targets: [
+                        _crashSend,
+                        _check,
+                        if (inUseOpen && towardCard != null)
+                          _card.row(towardCard),
+                        _inUse,
+                      ],
+                      child: power,
+                    ),
+                    card: _CardKeys(focus: _card, power: _power, child: card),
+                  )
+                : wide
+                ? _WideLayout(
+                    power: power,
+                    card: card,
+                    scroll: _scroll,
+                    room: _room,
+                    onAdd: onAdd,
+                  )
+                : _PhoneLayout(
+                    power: power,
+                    card: card,
+                    scroll: _scroll,
+                    room: _room,
+                    onAdd: onAdd,
                   ),
-                  card: _CardKeys(focus: _card, power: _power, child: card),
-                )
-              : wide
-              ? _WideLayout(
-                  power: power,
-                  card: card,
-                  scroll: _scroll,
-                  room: _room,
-                  onAdd: onAdd,
-                )
-              : _PhoneLayout(
-                  power: power,
-                  card: card,
-                  scroll: _scroll,
-                  room: _room,
-                  onAdd: onAdd,
-                ),
+          ),
         ),
       ),
     );
@@ -948,8 +950,9 @@ class _PowerZone extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Balances the message slot below, so the TV centres the button and pill alone.
-        if (slot != null) SizedBox(height: gap + slot),
+        // Balances the message slot below, so the TV centres the button and pill alone. A window
+        // centres the whole column, as its message would otherwise touch the bottom edge.
+        if (slot != null && state.isTV) SizedBox(height: gap + slot),
         PowerButton(
           connection: state.connection,
           connectedFor: state.connectedFor,

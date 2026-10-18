@@ -198,7 +198,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final Widget page = isTV
         ? _tv(context, login)
         : (_otherDevice
-              ? _phoneOtherDevice(context, login)
+              ? PageWidth(child: _phoneOtherDevice(context, login))
               : _phone(context, login));
     // Signing in from settings, with pasted services: Back goes home to them. A checklist is
     // never left that way: Back closes the app, and it is still there on the next open.
@@ -960,39 +960,57 @@ class FillPage extends StatelessWidget {
   final bool packed;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) => SingleChildScrollView(
-      padding: padding,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: box.maxHeight - padding.vertical,
-        ),
-        // spaceBetween, not IntrinsicHeight and Expanded: ServiceName lays out by its width.
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: packed
-              ? MainAxisAlignment.start
-              : MainAxisAlignment.spaceBetween,
-          children: [
-            top,
-            PaneColumn(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: Space.s4),
-                child: middle,
-              ),
-            ),
-            PaneColumn(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: Space.s4,
-                children: bottom,
-              ),
-            ),
-          ],
+  Widget build(BuildContext context) {
+    final actions = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: Space.s4,
+      children: bottom,
+    );
+    // A window far taller than a phone would split them into two islands: they stay one group.
+    final grouped =
+        !packed && identical(ShikooTheme.of(context).s, ShikooSizes.desktop);
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        padding: padding,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: box.maxHeight - padding.vertical,
+          ),
+          // spaceBetween, not IntrinsicHeight and Expanded: ServiceName lays out by its width.
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: packed
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.spaceBetween,
+            children: [
+              top,
+              if (grouped) ...[
+                PaneColumn(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: Space.s4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: Space.s6,
+                      children: [middle, actions],
+                    ),
+                  ),
+                ),
+                const SizedBox.shrink(),
+              ] else ...[
+                PaneColumn(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: Space.s4),
+                    child: middle,
+                  ),
+                ),
+                PaneColumn(child: actions),
+              ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// `.login-brand`: the large mark, the name and who the app is for.
