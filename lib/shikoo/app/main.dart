@@ -8,6 +8,7 @@ import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -25,6 +26,9 @@ void main(List<String> args) {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      if (Platform.isWindows && args.contains('--restore-proxy')) {
+        await restoreProxyAndExit();
+      }
       _hideLinksInLogs();
       FlutterError.onError = (details) {
         shikooDiag.error(details.exception, details.stack);
@@ -48,7 +52,9 @@ void main(List<String> args) {
         fillFlClashHooks();
         final container = await bootstrap.init(version);
         if (system.isWindows) await shikooWindowStart(container);
-        shikooStaging = globalState.packageInfo.packageName.endsWith('.dev');
+        shikooStaging =
+            shikooStagingBuild ||
+            globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooSignInProvider).load();

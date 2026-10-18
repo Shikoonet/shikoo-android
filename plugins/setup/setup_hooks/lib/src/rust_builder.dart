@@ -41,6 +41,7 @@ class RustBuilder {
     final env = {
       'CORE_SHA256': coreSha256,
       'CORE_NAME': '${config.coreName}${target.executableExtension}',
+      'SHIKOO_FLAVOR': config.flavor,
     };
 
     final srcPath = p.join(
@@ -106,10 +107,11 @@ class RustBuilder {
     ], workingDirectory: _helperPath);
     builder.addValue('rustc_version', (rustVersion.stdout as String).trim());
 
+    // Also declared to Flutter, which otherwise skips the hook when only the flavor changed.
     final inputs = collectFiles(
       _helperPath,
       excludedDirectories: const {'target', '.git', '.idea'},
-    )..addAll(harnessInputs);
+    )..addAll([...harnessInputs, p.join(rootDir, 'build_config.yaml')]);
     builder.addFiles(inputs);
     return builder.finishWithInputs();
   }

@@ -552,71 +552,73 @@ class SubPage extends StatelessWidget {
       title,
       style: t.text(s.title, weight: FontWeight.w700),
     );
-    return Scaffold(
-      backgroundColor: t.c.bg,
-      body: SafeArea(
-        bottom: isTV,
-        child: PageFocusScope(
-          child: FocusTraversalGroup(
-            policy: PageTraversalPolicy(),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isTV ? s.safeX : 0,
-                vertical: s.safeY,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    height: s.appbar + (isTV ? 2 * ShikooSizes.ring : 0),
-                    padding: isTV
-                        ? const EdgeInsets.symmetric(
-                            horizontal: ShikooSizes.ring,
-                          )
-                        : EdgeInsetsDirectional.only(
-                            start: Space.s1,
-                            end: s.safeX,
-                          ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      spacing: Space.s1,
-                      children: isTV
-                          ? [
-                              heading,
-                              Text(
-                                hint ?? l.backHintTv,
-                                style: t.text(s.bodySm, color: t.c.textMuted),
-                              ),
-                            ]
-                          : [
-                              ShikooIconButton(
-                                icon: ShikooIcon.back,
-                                label: l.back,
-                                flipInLtr: true,
-                                onPressed: () =>
-                                    unawaited(Navigator.maybePop(context)),
-                              ),
-                              Expanded(child: heading),
-                            ],
-                    ),
-                  ),
-                  SizedBox(height: isTV ? Space.s3 : Space.s2),
-                  Expanded(
-                    child: !scrolls
-                        ? child
-                        : isTV
-                        ? TvScrollColumn(child: child)
-                        : SingleChildScrollView(
-                            padding: EdgeInsets.fromLTRB(
-                              s.safeX,
-                              0,
-                              s.safeX,
-                              Space.s6 + MediaQuery.paddingOf(context).bottom,
+    return PageWidth(
+      child: Scaffold(
+        backgroundColor: t.c.bg,
+        body: SafeArea(
+          bottom: isTV,
+          child: PageFocusScope(
+            child: FocusTraversalGroup(
+              policy: PageTraversalPolicy(),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isTV ? s.safeX : 0,
+                  vertical: s.safeY,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      height: s.appbar + (isTV ? 2 * ShikooSizes.ring : 0),
+                      padding: isTV
+                          ? const EdgeInsets.symmetric(
+                              horizontal: ShikooSizes.ring,
+                            )
+                          : EdgeInsetsDirectional.only(
+                              start: Space.s1,
+                              end: s.safeX,
                             ),
-                            child: child,
-                          ),
-                  ),
-                ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        spacing: Space.s1,
+                        children: isTV
+                            ? [
+                                heading,
+                                Text(
+                                  hint ?? l.backHintTv,
+                                  style: t.text(s.bodySm, color: t.c.textMuted),
+                                ),
+                              ]
+                            : [
+                                ShikooIconButton(
+                                  icon: ShikooIcon.back,
+                                  label: l.back,
+                                  flipInLtr: true,
+                                  onPressed: () =>
+                                      unawaited(Navigator.maybePop(context)),
+                                ),
+                                Expanded(child: heading),
+                              ],
+                      ),
+                    ),
+                    SizedBox(height: isTV ? Space.s3 : Space.s2),
+                    Expanded(
+                      child: !scrolls
+                          ? PaneColumn(padding: s.safeX, child: child)
+                          : isTV
+                          ? TvScrollColumn(child: child)
+                          : SingleChildScrollView(
+                              padding: EdgeInsets.fromLTRB(
+                                s.safeX,
+                                0,
+                                s.safeX,
+                                Space.s6 + MediaQuery.paddingOf(context).bottom,
+                              ),
+                              child: PaneColumn(child: child),
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -905,12 +907,16 @@ class _SegmentedState<T> extends State<Segmented<T>> {
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.sm),
     );
-    // The remote coming from another row lands on the chosen option, not the nearest one.
+    // The remote or Tab coming from another row lands on the chosen option, not the nearest one;
+    // a click lands where it clicked.
     final segmented = Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onFocusChange: (inside) {
-        if (inside) _nodes[selected]?.requestFocus();
+        final keys =
+            FocusManager.instance.highlightMode ==
+            FocusHighlightMode.traditional;
+        if (inside && keys) _nodes[selected]?.requestFocus();
       },
       child: Container(
         padding: const EdgeInsets.all(Space.s1),
@@ -932,7 +938,7 @@ class _SegmentedState<T> extends State<Segmented<T>> {
                   focusNode: _nodes.putIfAbsent(value, FocusNode.new),
                   autofocus: autofocus && value == selected,
                   shape: shape,
-                  onPressed: () => onSelect?.call(value),
+                  onPressed: onSelect == null ? null : () => onSelect(value),
                   builder: (context, focused) {
                     final chosen = value == selected;
                     return Semantics(

@@ -452,42 +452,44 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final onAdd = current == null && unlinked.isEmpty
         ? null
         : () => unawaited(_add());
-    return Scaffold(
-      backgroundColor: t.c.bg,
-      body: PageFocusScope(
-        child: FocusTraversalGroup(
-          policy: PageTraversalPolicy(),
-          child: state.isTV
-              ? _TvLayout(
-                  noService: current == null && unlinked.isEmpty,
-                  settings: _settings,
-                  power: _PowerKeys(
-                    targets: [
-                      _crashSend,
-                      _check,
-                      if (inUseOpen && towardCard != null)
-                        _card.row(towardCard),
-                      _inUse,
-                    ],
-                    child: power,
+    return PageWidth(
+      child: Scaffold(
+        backgroundColor: t.c.bg,
+        body: PageFocusScope(
+          child: FocusTraversalGroup(
+            policy: PageTraversalPolicy(),
+            child: state.isTV
+                ? _TvLayout(
+                    noService: current == null && unlinked.isEmpty,
+                    settings: _settings,
+                    power: _PowerKeys(
+                      targets: [
+                        _crashSend,
+                        _check,
+                        if (inUseOpen && towardCard != null)
+                          _card.row(towardCard),
+                        _inUse,
+                      ],
+                      child: power,
+                    ),
+                    card: _CardKeys(focus: _card, power: _power, child: card),
+                  )
+                : wide
+                ? _WideLayout(
+                    power: power,
+                    card: card,
+                    scroll: _scroll,
+                    room: _room,
+                    onAdd: onAdd,
+                  )
+                : _PhoneLayout(
+                    power: power,
+                    card: card,
+                    scroll: _scroll,
+                    room: _room,
+                    onAdd: onAdd,
                   ),
-                  card: _CardKeys(focus: _card, power: _power, child: card),
-                )
-              : wide
-              ? _WideLayout(
-                  power: power,
-                  card: card,
-                  scroll: _scroll,
-                  room: _room,
-                  onAdd: onAdd,
-                )
-              : _PhoneLayout(
-                  power: power,
-                  card: card,
-                  scroll: _scroll,
-                  room: _room,
-                  onAdd: onAdd,
-                ),
+          ),
         ),
       ),
     );
@@ -831,6 +833,9 @@ class _WideLayout extends StatelessWidget {
                   child: FocusTraversalGroup(
                     child: LayoutBuilder(
                       builder: (context, box) => SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: ShikooSizes.scrollbar,
+                        ),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(minHeight: box.maxHeight),
                           child: Center(child: power),
@@ -917,8 +922,11 @@ class _PowerZone extends StatelessWidget {
       _ when resting == ShikooServiceStatus.revoked => null,
       _ when resting != null => renews ? l.renewToConnect : null,
       ShikooError.connectTimeout =>
-        (state.isTV ? l.errorConnect : l.errorConnectTouch)(
-          serverName(selected?.name ?? ''),
+        (state.isTV
+            ? l.errorConnect
+            : (shikooDesktop ? l.errorConnectDesktop : l.errorConnectTouch))(
+          // A break may come after «·», never before it: no line opens with «· premium».
+          serverName(selected?.name ?? '').replaceAll(' ·\u00a0', '\u00a0· '),
           connectTimeout.inSeconds,
         ),
       ShikooError.noServer when checked => null,
@@ -933,6 +941,8 @@ class _PowerZone extends StatelessWidget {
       ShikooError.vpnMissing =>
         shikooDesktop ? l.vpnMissingDesktop : l.vpnMissing,
       ShikooError.serverChange => l.errorServer,
+      null when state.busyPort != null => l.busyPortDesktop,
+      null when state.helperFailed => l.helperFailedDesktop,
       null when state.waiting => l.connectsToFirst,
       null when shift?.stage == ShikooSwitchStage.failed => l.switchFailedTv(
         serverName(shift!.to),
@@ -944,12 +954,15 @@ class _PowerZone extends StatelessWidget {
             ? l.tvHint
             : null,
     };
-    final slot = centred ? _twoLines(context, t) : null;
+    final slot = centred ? twoLines(context, t.text(t.s.bodySm)) : null;
+    final failed =
+        state.lastError != null || state.busyPort != null || state.helperFailed;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Balances the message slot below, so the TV centres the button and pill alone.
-        if (slot != null) SizedBox(height: gap + slot),
+        // Balances the message slot below, so the TV centres the button and pill alone. A window
+        // centres the whole column, as its message would otherwise touch the bottom edge.
+        if (slot != null && state.isTV) SizedBox(height: gap + slot),
         PowerButton(
           connection: state.connection,
           connectedFor: state.connectedFor,
@@ -982,19 +995,27 @@ class _PowerZone extends StatelessWidget {
         ],
         if (message != null || slot != null) ...[
           SizedBox(height: gap),
-          SizedBox(
-            width: t.s.powerRing * 1.5,
-            height: slot,
-            child: Text(
-              message ?? '',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: t.text(
-                t.s.bodySm,
-                color: resting != null || (state.lastError == null && !alarm)
-                    ? t.c.textMuted
-                    : t.c.danger,
+          _InView(
+            key: ValueKey(message),
+            message: message,
+            // A computer's text can be set half as large again: the message grows, never cut.
+            child: ConstrainedBox(
+              constraints: BoxConstraints.tightFor(width: t.s.powerRing * 1.5)
+                  .copyWith(
+                    minHeight: slot ?? 0,
+                    maxHeight: shikooDesktop ? double.infinity : slot,
+                  ),
+              child: Text(
+                message ?? '',
+                maxLines: shikooDesktop ? null : 2,
+                overflow: shikooDesktop ? null : TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: t.text(
+                  t.s.bodySm,
+                  color: resting != null || (!failed && !alarm)
+                      ? t.c.textMuted
+                      : t.c.danger,
+                ),
               ),
             ),
           ),
@@ -1002,9 +1023,29 @@ class _PowerZone extends StatelessWidget {
       ],
     );
   }
+}
 
-  static double _twoLines(BuildContext context, ShikooTheme t) =>
-      2 * MediaQuery.textScalerOf(context).scale(t.s.bodySm) * Leading.tight;
+/// A computer's window can be too short to show the message under the mode switch: a new one
+/// scrolls into view.
+class _InView extends StatefulWidget {
+  const _InView({super.key, required this.message, required this.child});
+
+  final String? message;
+  final Widget child;
+
+  @override
+  State<_InView> createState() => _InViewState();
+}
+
+class _InViewState extends State<_InView> {
+  @override
+  void initState() {
+    super.initState();
+    if (shikooDesktop && widget.message != null) revealWithRing(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// `.snackbar`: the bar's whole face, as its own padding is none, so [onTop] is the bar's top.

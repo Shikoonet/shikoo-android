@@ -2141,13 +2141,13 @@ abstract class ShikooL10n {
   /// No description provided for @rejectedBodyDesktop.
   ///
   /// In en, this message translates to:
-  /// **'“Decline” was tapped in Telegram, so this computer isn\'t linked. If that was a mistake, try again.'**
+  /// **'“Decline” was pressed in Telegram, so this computer isn\'t linked. If that was a mistake, try again.'**
   String get rejectedBodyDesktop;
 
   /// No description provided for @codeFailedHelpDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Check your computer\'s internet and press again.'**
+  /// **'Check your computer\'s internet and click again.'**
   String get codeFailedHelpDesktop;
 
   /// No description provided for @approvedBodyChooseDesktop.
@@ -2189,13 +2189,13 @@ abstract class ShikooL10n {
   /// No description provided for @pasteOfflineHelpDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Check your computer\'s internet and press again.'**
+  /// **'Check your computer\'s internet and click again.'**
   String get pasteOfflineHelpDesktop;
 
   /// No description provided for @addServiceHelpDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this computer.'**
+  /// **'Copy the ShikooNet subscription link of your other service, then click this button. It joins the others on this computer.'**
   String get addServiceHelpDesktop;
 
   /// No description provided for @serviceAlreadyHereDesktop.
@@ -2225,7 +2225,7 @@ abstract class ShikooL10n {
   /// No description provided for @vpnRefusedDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Permission for the tunnel wasn\'t given.\nConnect again and press Yes in Windows\' window, or choose Proxy.'**
+  /// **'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or choose Proxy.'**
   String get vpnRefusedDesktop;
 
   /// No description provided for @vpnMissingDesktop.
@@ -2233,6 +2233,78 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'The tunnel didn\'t start on this computer.\nChoose Proxy, or ask Support.'**
   String get vpnMissingDesktop;
+
+  /// No description provided for @busyPortDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Another program is using ShikooNet\'s proxy port.\nClose it and connect again, or choose Tunnel.'**
+  String get busyPortDesktop;
+
+  /// No description provided for @helperFailedDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'The tunnel didn\'t turn on.\nConnect again, or choose Proxy.'**
+  String get helperFailedDesktop;
+
+  /// No description provided for @subCancelDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Click to cancel'**
+  String get subCancelDesktop;
+
+  /// No description provided for @subRetryDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Click to retry'**
+  String get subRetryDesktop;
+
+  /// No description provided for @updateFailedDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet and click again. Until then, connect with these servers.'**
+  String get updateFailedDesktop;
+
+  /// No description provided for @noServiceHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Is your service on another Telegram account? Switch to it in Telegram first, then click “Use another account”.'**
+  String get noServiceHelpDesktop;
+
+  /// Computer: errorConnectTouch, clicked rather than tapped.
+  ///
+  /// In en, this message translates to:
+  /// **'{server} didn\'t answer in {seconds} seconds. Click again, or pick another server from the list.'**
+  String errorConnectDesktop(String server, int seconds);
+
+  /// No description provided for @loginTelegramNoteDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram opens; click “Approve” in the ShikooNet bot.'**
+  String get loginTelegramNoteDesktop;
+
+  /// No description provided for @noServiceHelpPasteDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy your subscription link, then click “Paste subscription link”.\nNo link? Ask Support.'**
+  String get noServiceHelpPasteDesktop;
+
+  /// No description provided for @otherServiceHintDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Click a server to move your connection to this service.'**
+  String get otherServiceHintDesktop;
+
+  /// No description provided for @pasteEmptyHelpDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy your subscription link, then click again.'**
+  String get pasteEmptyHelpDesktop;
+
+  /// No description provided for @otherDeviceScanDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Have a phone with Telegram? Scan this code with its camera.'**
+  String get otherDeviceScanDesktop;
 
   /// No description provided for @modeLabel.
   ///

@@ -1353,11 +1353,11 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get rejectedBodyDesktop =>
-      '“Decline” was tapped in Telegram, so this computer isn\'t linked. If that was a mistake, try again.';
+      '“Decline” was pressed in Telegram, so this computer isn\'t linked. If that was a mistake, try again.';
 
   @override
   String get codeFailedHelpDesktop =>
-      'Check your computer\'s internet and press again.';
+      'Check your computer\'s internet and click again.';
 
   @override
   String approvedBodyChooseDesktop(String account) {
@@ -1392,11 +1392,11 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get pasteOfflineHelpDesktop =>
-      'Check your computer\'s internet and press again.';
+      'Check your computer\'s internet and click again.';
 
   @override
   String get addServiceHelpDesktop =>
-      'Copy the ShikooNet subscription link of your other service, then press this button. It joins the others on this computer.';
+      'Copy the ShikooNet subscription link of your other service, then click this button. It joins the others on this computer.';
 
   @override
   String get serviceAlreadyHereDesktop =>
@@ -1416,11 +1416,62 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get vpnRefusedDesktop =>
-      'Permission for the tunnel wasn\'t given.\nConnect again and press Yes in Windows\' window, or choose Proxy.';
+      'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or choose Proxy.';
 
   @override
   String get vpnMissingDesktop =>
       'The tunnel didn\'t start on this computer.\nChoose Proxy, or ask Support.';
+
+  @override
+  String get busyPortDesktop =>
+      'Another program is using ShikooNet\'s proxy port.\nClose it and connect again, or choose Tunnel.';
+
+  @override
+  String get helperFailedDesktop =>
+      'The tunnel didn\'t turn on.\nConnect again, or choose Proxy.';
+
+  @override
+  String get subCancelDesktop => 'Click to cancel';
+
+  @override
+  String get subRetryDesktop => 'Click to retry';
+
+  @override
+  String get updateFailedDesktop =>
+      'Check your internet and click again. Until then, connect with these servers.';
+
+  @override
+  String get noServiceHelpDesktop =>
+      'Is your service on another Telegram account? Switch to it in Telegram first, then click “Use another account”.';
+
+  @override
+  String errorConnectDesktop(String server, int seconds) {
+    final intl.NumberFormat secondsNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String secondsString = secondsNumberFormat.format(seconds);
+
+    return '$server didn\'t answer in $secondsString seconds. Click again, or pick another server from the list.';
+  }
+
+  @override
+  String get loginTelegramNoteDesktop =>
+      'Telegram opens; click “Approve” in the ShikooNet bot.';
+
+  @override
+  String get noServiceHelpPasteDesktop =>
+      'Copy your subscription link, then click “Paste subscription link”.\nNo link? Ask Support.';
+
+  @override
+  String get otherServiceHintDesktop =>
+      'Click a server to move your connection to this service.';
+
+  @override
+  String get pasteEmptyHelpDesktop =>
+      'Copy your subscription link, then click again.';
+
+  @override
+  String get otherDeviceScanDesktop =>
+      'Have a phone with Telegram? Scan this code with its camera.';
 
   @override
   String get modeLabel => 'Connection method';

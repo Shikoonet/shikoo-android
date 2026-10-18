@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -255,6 +256,8 @@ Future<_Harness> _harness({
   ShikooState? state,
   List<String> plants = const [],
   Object? Function(MethodCall call)? native,
+  Set<String>? machine,
+  Future<List<String>> Function(ProviderContainer)? windows,
 }) async {
   SharedPreferences.setMockInitialValues({
     'shikoo.account': jsonEncode({
@@ -346,7 +349,12 @@ Future<_Harness> _harness({
     ..pollEvery = const Duration(hours: 1);
   await signIn.load();
   await signIn.start();
-  return _Harness(home, container, ShikooDiag(), sent);
+  return _Harness(
+    home,
+    container,
+    ShikooDiag(machine: machine, windows: windows),
+    sent,
+  );
 }
 
 Response<Object?> _reportAnswer(RequestOptions options) => Response(
@@ -432,6 +440,74 @@ final _about = aboutSections(
   now: _now,
   locale: 'fa-IR',
 );
+
+const _winUser = 'ali';
+const _winPc = 'DESKTOP-7G3K2LQ';
+
+final _windowsAbout = aboutSections(
+  device: WindowsDeviceInfo(
+    computerName: _winPc,
+    numberOfCores: 8,
+    systemMemoryInMegabytes: 16384,
+    userName: _winUser,
+    majorVersion: 10,
+    minorVersion: 0,
+    buildNumber: 26100,
+    platformId: 2,
+    csdVersion: '',
+    servicePackMajor: 0,
+    servicePackMinor: 0,
+    suitMask: 0,
+    productType: 1,
+    reserved: 0,
+    buildLab: '',
+    buildLabEx: '',
+    digitalProductId: Uint8List(0),
+    displayVersion: '24H2',
+    editionId: 'Professional',
+    installDate: DateTime(2025),
+    productId: '',
+    productName: 'Windows 11 Pro',
+    registeredOwner: 'Ali Rezaei',
+    releaseId: '2009',
+    deviceId: '',
+  ),
+  tv: false,
+  version: '1.0.3',
+  build: 3,
+  abi: reportAbi(Abi.windowsX64),
+  signedIn: false,
+  look: (theme: ThemeMode.system, language: 'fa'),
+  media: const MediaQueryData(size: Size(1280, 800)),
+  transports: const [ConnectivityResult.ethernet],
+  native: null,
+  backend: 'unknown',
+  now: _now,
+  locale: 'fa-IR',
+);
+
+/// The PC's own names and the paths that carry them; the profile folder is not the user name.
+const _windowsPlants = [
+  r'open C:\Users\Ali Rezaei\AppData\Roaming\com.shikoonet.app\shikoo\diag.log failed',
+  r"PathNotFoundException: Cannot open file, path = 'C:\Users\ali\Downloads\a.txt' (errno = 2)",
+  'temp C:/Users/ali/AppData/Local/Temp/core.log',
+  r'\\?\C:\Users\ali\AppData\Local\ShikooNet\FlClashCore.exe',
+  'file:///C:/Users/ali/Desktop/sub.yaml',
+  'user ali on $_winPc',
+  'Ali Rezaei signed in',
+  'host desktop-7g3k2lq.local up',
+  'ali',
+  'ali is alive',
+];
+const _windowsNeedles = [
+  'Rezaei',
+  '7G3K2LQ',
+  'Users',
+  'AppData',
+  'Downloads',
+  'sub.yaml',
+  'metacubex',
+];
 
 Future<Uint8List> _noisePng(int side) async {
   final noise = Random(side);
@@ -755,52 +831,218 @@ void main() {
   });
 
   test('a Windows PC reports its version in keys the door takes', () {
-    final about = aboutSections(
-      device: WindowsDeviceInfo(
-        computerName: 'DESKTOP-7G3K2LQ',
-        numberOfCores: 8,
-        systemMemoryInMegabytes: 16384,
-        userName: 'sam',
-        majorVersion: 10,
-        minorVersion: 0,
-        buildNumber: 26100,
-        platformId: 2,
-        csdVersion: '',
-        servicePackMajor: 0,
-        servicePackMinor: 0,
-        suitMask: 0,
-        productType: 1,
-        reserved: 0,
-        buildLab: '',
-        buildLabEx: '',
-        digitalProductId: Uint8List(0),
-        displayVersion: '24H2',
-        editionId: 'Professional',
-        installDate: DateTime(2025),
-        productId: '',
-        productName: 'Windows 10 Pro',
-        registeredOwner: 'sam',
-        releaseId: '2009',
-        deviceId: '',
-      ),
-      tv: false,
-      version: '1.0.3',
-      build: 3,
-      abi: 'windowsX64',
-      signedIn: false,
-      look: (theme: ThemeMode.system, language: 'fa'),
-      media: const MediaQueryData(size: Size(1280, 800)),
-      transports: const [ConnectivityResult.ethernet],
-      native: null,
-      backend: 'unknown',
-      now: _now,
-      locale: 'fa-IR',
-    );
-    final device = about['device']! as Map<String, Object?>;
+    final device = _windowsAbout['device']! as Map<String, Object?>;
     expect(device, containsPair('release', '10.0.26100'));
     expect(device, containsPair('ram_total_mb', 16384));
     expect(_doorKeys, containsAll(_keysOf({'device': device})));
   });
+
+  test('a PC names itself windows-x64; Android keeps its own ABI name', () {
+    expect((_windowsAbout['app']! as Map)['abi'], 'windows-x64');
+    expect(reportAbi(Abi.windowsArm64), 'windows-arm64');
+    expect(reportAbi(Abi.androidArm64), 'android_arm64');
+    expect(reportAbi(Abi.androidArm), 'android_arm');
+  });
+
+  test(
+    'no Windows path, user or computer name reaches the report from any source',
+    () async {
+      final names = windowsNames({
+        'USERNAME': _winUser,
+        'COMPUTERNAME': _winPc,
+        'USERPROFILE': r'C:\Users\Ali Rezaei',
+      }, 'desktop-7g3k2lq');
+      expect(names, {_winUser, _winPc, 'desktop-7g3k2lq', 'Ali Rezaei'});
+      final h = await _harness(plants: _windowsPlants, machine: names);
+      final diag = h.diag;
+      for (final plant in _windowsPlants) {
+        diag.add('A', 'before start $plant');
+      }
+      await diag.start(h.home.path);
+      for (final plant in _windowsPlants) {
+        diag.add('A', 'before attach $plant');
+      }
+      File('${h.home.path}/go-crash.txt').writeAsStringSync(
+        '${[for (final plant in _windowsPlants) 'panic: $plant'].join('\n')}\n\n'
+        'goroutine 1 [running]:\nmain.handleCrash(...)\n'
+        '\tC:/Users/ali/go/pkg/mod/github.com/metacubex/mihomo@v1.19.0/'
+        'tunnel/tunnel.go:630 +0x1d\n',
+      );
+      await diag.attach(h.container);
+      for (final plant in _windowsPlants) {
+        diag
+          ..add('A', 'after attach $plant')
+          ..add('T', 'timeline $plant')
+          ..add('U', 'push $plant')
+          ..onLog(Log(logLevel: LogLevel.warning, payload: plant, dateTime: ''))
+          ..error(
+            StateError(plant),
+            StackTrace.fromString('#0      Foo.bar ($plant)'),
+          );
+      }
+
+      final report = await diag.report(trigger: 'test', about: _windowsAbout);
+      final json = jsonEncode(report);
+
+      expect([
+        for (final n in _windowsNeedles)
+          if (_leaked(json, n)) n,
+      ], isEmpty);
+      expect(
+        RegExp(r'(?<![a-z])ali(?![a-z])', caseSensitive: false).hasMatch(json),
+        isFalse,
+      );
+      expect(json, contains('· is alive'));
+      expect(json, contains('tunnel.go:630'));
+      expect(report['crashes'], hasLength(1));
+    },
+  );
+
+  test(
+    'a start that failed before attach writes no Windows name either',
+    () async {
+      final home = Directory.systemTemp.createTempSync('diag');
+      addTearDown(() => home.deleteSync(recursive: true));
+      final diag = ShikooDiag(machine: {_winUser, _winPc});
+      await diag.start(home.path);
+      diag
+        ..add('A', 'init failed for ali on $_winPc')
+        ..release();
+      final ring = File('${home.path}/shikoo/diag.log').readAsStringSync();
+      expect(ring, contains('init failed for · on ·'));
+    },
+  );
+
+  test(
+    'a Windows name goes beside any punctuation or space, not inside a word',
+    () async {
+      final home = Directory.systemTemp.createTempSync('diag');
+      addTearDown(() => home.deleteSync(recursive: true));
+      final diag = ShikooDiag(machine: {_winUser, 'علی'});
+      await diag.start(home.path);
+      const cases = {
+        'user ali، ok': 'user ·، ok',
+        'آیا علی؟': 'آیا ·؟',
+        'علی؛ بعدی': '·؛ بعدی',
+        'کاربر علی، وارد شد': 'کاربر ·، وارد شد',
+        'a\u00a0ali\u202fb\u3000علی': 'a\u00a0·\u202fb\u3000·',
+        'علیرضا و vali': 'علیرضا و vali',
+        'علی\u200cرضا ali12 ali\u0301': 'علی\u200cرضا ali12 ali\u0301',
+      };
+      for (final line in cases.keys) {
+        diag.add('A', line);
+      }
+      diag.release();
+      final ring = File('${home.path}/shikoo/diag.log').readAsStringSync();
+      for (final MapEntry(:key, :value) in cases.entries) {
+        expect(ring, contains(' A $value\n'), reason: key);
+      }
+      expect(
+        windowsNames({'USERNAME': ' ', 'USERPROFILE': r'C:\Users\'}, ''),
+        isEmpty,
+      );
+    },
+  );
+
+  test('a line an older build wrote loses the Windows names on send', () async {
+    final h = await _harness(machine: {_winUser, _winPc});
+    final stamp = '${_now.toUtc().toIso8601String().substring(0, 19)}Z';
+    (File('${h.dir}/diag.log')..createSync(recursive: true)).writeAsStringSync(
+      '$stamp A user ali on $_winPc before this build\n'
+      '$stamp A ali first\n',
+    );
+    await h.diag.start(h.home.path);
+    await h.diag.attach(h.container);
+
+    final report = await h.diag.report(trigger: 'test', about: _windowsAbout);
+
+    expect(
+      (report['log']! as List).cast<String>(),
+      containsAll([
+        '$stamp A user · on · before this build',
+        '$stamp A · first',
+      ]),
+    );
+  });
+
+  test('«تنظیمات اینترنت» on Windows opens its network status page', () async {
+    Uri? opened;
+    await openNetworkSettings(
+      windows: true,
+      launch: (uri) async {
+        opened = uri;
+        return true;
+      },
+    );
+    expect(opened, Uri.parse('ms-settings:network-status'));
+  });
+
+  test('Windows proxy and helper read as ours, other or off', () {
+    List<String> lines(
+      int? enable,
+      String? server,
+      String? pac, {
+      bool installed = false,
+      bool running = false,
+    }) => windowsLines(
+      proxyEnable: enable,
+      proxyServer: server,
+      pac: pac,
+      port: 7890,
+      installed: installed,
+      running: running,
+    );
+    expect(lines(1, '127.0.0.1:7890', null, installed: true, running: true), [
+      'windows proxy ours',
+      'helper service running',
+    ]);
+    expect(lines(1, '127.0.0.1:10808', null, installed: true), [
+      'windows proxy other',
+      'helper service installed',
+    ]);
+    expect(lines(0, null, 'http://127.0.0.1:1080/pac'), [
+      'windows proxy other',
+      'helper service missing',
+    ]);
+    expect(lines(0, '127.0.0.1:7890', ''), [
+      'windows proxy off',
+      'helper service missing',
+    ]);
+    expect(lines(null, null, null).first, 'windows proxy off');
+  });
+
+  test(
+    "a Windows report says another app's proxy, never its address",
+    () async {
+      final h = await _harness(
+        windows: (_) async => windowsLines(
+          proxyEnable: 1,
+          proxyServer: '10.9.8.7:10808',
+          pac: 'http://pac.vhostpac.ir/p.pac',
+          port: 7890,
+          installed: true,
+          running: false,
+        ),
+      );
+      await h.diag.start(h.home.path);
+      await h.diag.attach(h.container);
+
+      final report = await h.diag.report(trigger: 'test', about: _windowsAbout);
+
+      final log = (report['log']! as List).cast<String>();
+      expect(
+        log.map((line) => line.substring(21)),
+        containsAllInOrder([
+          'T windows proxy other',
+          'T helper service installed',
+        ]),
+      );
+      final json = jsonEncode(report);
+      for (final needle in ['10.9.8.7', '10808', 'vhostpac']) {
+        expect(json, isNot(contains(needle)), reason: needle);
+      }
+    },
+  );
 
   test('the three probes go into the report as the door reads them', () async {
     final h = await _harness();

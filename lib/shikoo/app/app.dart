@@ -5,6 +5,7 @@ import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/application.dart';
 import 'package:fl_clash/bootstrap.dart';
+import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -15,6 +16,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -24,6 +26,7 @@ import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/widgets.dart' show ringOnKeys;
 import 'package:fl_clash/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,49 +49,6 @@ void fillFlClashHooks() {
       () => globalState.container.read(patchClashConfigProvider).mixedPort,
     );
   }
-}
-
-final _regValue = RegExp(
-  r'^\s+(ProxyEnable|ProxyServer)\s+REG_\w+\s+(.*?)\s*$',
-  multiLine: true,
-);
-
-bool proxyIsOurs(String internetSettings, int port) {
-  final values = {
-    for (final m in _regValue.allMatches(internetSettings)) m[1]!: m[2]!,
-  };
-  return values['ProxyEnable'] == '0x1' &&
-      values['ProxyServer'] == '127.0.0.1:$port';
-}
-
-Future<String> _internetSettings() async {
-  try {
-    final result = await Process.run('reg', [
-      'query',
-      r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
-    ]);
-    return '${result.stdout}';
-  } catch (_) {
-    return '';
-  }
-}
-
-/// FlClash turns Windows' proxy off at every launch, exit and disconnect, whichever app set it.
-class ShikooSystemProxy extends ProxyPlatform {
-  ShikooSystemProxy(this._inner, this._port, {this.read = _internetSettings});
-
-  final ProxyPlatform _inner;
-  final int Function() _port;
-  final Future<String> Function() read;
-
-  @override
-  Future<bool> startProxy(int port, List<String> bypassDomain) =>
-      _inner.startProxy(port, bypassDomain);
-
-  // ponytail: off, not the setting from before this app; restoring that waits on Sam.
-  @override
-  Future<bool> stopProxy() async =>
-      !proxyIsOurs(await read(), _port()) || await _inner.stopProxy();
 }
 
 /// Run on every start, as FlClash's own shell does; AndroidManager only relabels it on a language change.
@@ -136,11 +96,19 @@ AppSettingProps shikooAppSettings(AppSettingProps s) => s.copyWith(
 
 /// FlClash asks Android which app owns every connection (`find-process-mode: always`) for per-app rules Shikoo never
 /// has; without QUERY_ALL_PACKAGES the answer is empty for other apps anyway.
-PatchClashConfig shikooClashConfig(PatchClashConfig c) => c.copyWith(
+PatchClashConfig shikooClashConfig(
+  PatchClashConfig c, {
+  bool desktop = false,
+}) => c.copyWith(
   logLevel: LogLevel.warning,
   findProcessMode: FindProcessMode.off,
   allowLan: false,
+  mixedPort: desktop ? shikooDesktopPort : c.mixedPort,
 );
+
+const shikooDesktopPort = shikooStagingBuild ? 17471 : 17470;
+
+const _reapplyOnNetworkChange = bool.fromEnvironment('SHIKOO_WG_REAPPLY');
 
 /// A TV is often left on the home screen for hours: its services stay as fresh as on open.
 void everyMinute(ProviderContainer container) {
@@ -173,6 +141,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (system.isTV) {
       FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.alwaysTraditional;
+    } else if (system.isDesktop) {
+      ringOnKeys();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (globalState.navigatorKey.currentContext == null) exit(0);
@@ -183,7 +153,9 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
         globalState.container,
         desktop: system.isDesktop,
       );
-      ref.read(patchClashConfigProvider.notifier).update(shikooClashConfig);
+      ref
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => shikooClashConfig(c, desktop: system.isDesktop));
       unawaited(shikooDiag.attach(globalState.container));
       shikooDiag.watchUi();
       _attached = true;
@@ -244,6 +216,17 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     final hasVpn = results.contains(ConnectivityResult.vpn);
     if (_hadVpn == hasVpn) ref.read(checkIpNumProvider.notifier).add();
     _hadVpn = hasVpn;
+    // ponytail: off until a real WireGuard network switch in tunnel mode shows the new config's new sockets are needed.
+    if (_reapplyOnNetworkChange &&
+        system.isDesktop &&
+        ref.read(runTimeProvider) != null &&
+        ref.read(patchClashConfigProvider).tun.enable) {
+      unawaited(
+        ref
+            .read(setupActionProvider.notifier)
+            .applyProfile(force: true, silence: true),
+      );
+    }
   }
 
   /// Flutter pushes every link the activity receives as a named route, and this app has

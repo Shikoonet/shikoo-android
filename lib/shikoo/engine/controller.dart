@@ -12,6 +12,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
@@ -227,6 +228,8 @@ class ShikooState {
     this.opened,
     this.order = const [],
     this.landed,
+    this.busyPort,
+    this.helperFailed = false,
   });
 
   final ShikooConnection connection;
@@ -263,6 +266,12 @@ class ShikooState {
 
   final ShikooLanded? landed;
 
+  /// Another program holds the local port, so connect stopped before Windows' proxy could point at it.
+  final int? busyPort;
+
+  /// The admin prompt was accepted, yet the helper service the tunnel needs did not come up.
+  final bool helperFailed;
+
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
 
@@ -279,11 +288,19 @@ class ShikooState {
 
 @immutable
 class _Intent {
-  const _Intent({this.connecting = false, this.waiting = false, this.error});
+  const _Intent({
+    this.connecting = false,
+    this.waiting = false,
+    this.error,
+    this.busyPort,
+    this.helperFailed = false,
+  });
 
   final bool connecting;
   final bool waiting;
   final ShikooError? error;
+  final int? busyPort;
+  final bool helperFailed;
 }
 
 class ShikooCell<T> extends Notifier<T> {
@@ -451,9 +468,11 @@ ShikooConnection deriveConnection({
   required bool connecting,
   required bool running,
   required ShikooError? error,
+  bool blocked = false,
 }) {
   if (connecting) return ShikooConnection.connecting;
   if (running) return ShikooConnection.on;
+  if (blocked) return ShikooConnection.error;
   return switch (error) {
     ShikooError.connectTimeout ||
     ShikooError.noServer ||
@@ -569,6 +588,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       connecting: intent.connecting,
       running: runTime != null || nativeStart != null,
       error: intent.error,
+      blocked: intent.busyPort != null || intent.helperFailed,
     ),
     // ponytail: wall clock, negative once the clock moves back mid-tunnel; needs elapsedRealtime from Kotlin.
     connectedFor: nativeStart != null
@@ -600,6 +620,8 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     opened: opened == null ? null : openedView(opened),
     order: ref.watch(serviceOrderProvider),
     landed: ref.watch(_landedProvider),
+    busyPort: intent.busyPort,
+    helperFailed: intent.helperFailed,
   );
 });
 
@@ -626,6 +648,8 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
     if (ms == null || ref.read(coreStatusProvider) != CoreStatus.connected) {
       return null;
     }
+    final tun = ref.read(patchClashConfigProvider).tun;
+    if (tun.enable && !await ref.read(tunUpProvider)(tun.device)) return null;
     return DateTime.now().subtract(Duration(milliseconds: ms));
   },
 );
@@ -834,6 +858,7 @@ class ShikooController {
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(_loadPasted);
     scheduleMicrotask(() => _ref.read(savedOrderProvider.notifier).load());
+    scheduleMicrotask(() => _ref.read(shikooModeProvider.notifier).load());
     scheduleMicrotask(() async {
       final stored = (await SharedPreferences.getInstance()).getString(
         _appPicksKey,
@@ -881,6 +906,11 @@ class ShikooController {
 
   /// The core runs each change on its own goroutine: two at once may land in either order.
   Future<void>? _changing;
+
+  Future<ShikooAdmin>? _admin;
+
+  /// The service came up after the core had started without it: the next tunnel restarts the core first.
+  bool _restartOwed = false;
   String? _pickInCore;
   Timer? _switched;
   String? _awaiting;
@@ -1029,6 +1059,9 @@ class ShikooController {
   Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
     _set(_Intent(connecting: true, error: error));
+    final refused = await _desktopReady(attempt);
+    if (attempt != _attempt) return;
+    if (refused != null) return _set(refused);
     bool started;
     try {
       started = await _setup.setRunning(
@@ -1055,6 +1088,61 @@ class ShikooController {
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
     await _setup.setRunning(false);
+  }
+
+  /// FlClash's flags for the mode are set only here: with TUN on, each apply asks for the helper service.
+  Future<_Intent?> _desktopReady(int attempt) async {
+    if (!_ref.read(shikooDesktopProvider) || _running) return null;
+    bool stale() => attempt != _attempt;
+    final mode = _ref.read(shikooModeProvider);
+    final port = _ref.read(patchClashConfigProvider).mixedPort;
+    if (mode.systemProxy && !await _ref.read(localPortFreeProvider)(port)) {
+      return _Intent(busyPort: port);
+    }
+    final authorized = _ref.read(authorizedTunEnableProvider.notifier);
+    if (mode.tun && authorized.value != TunAuthorizationState.authorized) {
+      final admin = await (_admin ??= _ref
+          .read(tunAuthorizeProvider)()
+          .whenComplete(() => _admin = null));
+      switch (admin) {
+        case ShikooAdmin.refused:
+          return const _Intent(error: ShikooError.vpnRefused);
+        case ShikooAdmin.failed:
+          return const _Intent(helperFailed: true);
+        case ShikooAdmin.installed:
+          _restartOwed = true;
+        case ShikooAdmin.ready:
+          break;
+      }
+      authorized.value = TunAuthorizationState.authorized;
+    }
+    if (stale()) return null;
+    if (mode.tun && _restartOwed) {
+      _restartOwed = false;
+      await _ref
+          .read(coreActionProvider.notifier)
+          .restartCore()
+          .catchError((Object _) => false);
+      if (stale()) return null;
+    }
+    _ref
+        .read(networkSettingProvider.notifier)
+        .update((s) => s.copyWith(systemProxy: mode.systemProxy));
+    _ref
+        .read(patchClashConfigProvider.notifier)
+        .update((c) => c.copyWith.tun(enable: mode.tun));
+    return null;
+  }
+
+  Future<void> setMode(ShikooMode mode) async {
+    if (!_ref.read(shikooDesktopProvider)) return;
+    await _ref.read(shikooModeProvider.notifier).save(mode);
+    if (!_running && !_ref.read(_intentProvider).connecting) {
+      // Off, the last attempt's message, whatever it was, goes; nothing in flight can write over it.
+      return _set(const _Intent());
+    }
+    await disconnect();
+    await connect();
   }
 
   void onVpnConsent(String result) {

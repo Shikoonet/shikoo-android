@@ -15,6 +15,7 @@ import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/state.dart';
@@ -115,6 +116,22 @@ class _Panel extends ShikooController {
   ]) async {
     ref.read(profilesProvider.notifier).put(Profile.normal(url: url));
     return null;
+  }
+}
+
+class _Restart extends CoreAction {
+  _Restart(this.calls, {this.fails = false, this.hold});
+
+  final List<String> calls;
+  final bool fails;
+  final Future<void>? Function()? hold;
+
+  @override
+  Future<bool> restartCore() async {
+    calls.add('restart');
+    await hold?.call();
+    if (fails) throw StateError('the core did not come back');
+    return true;
   }
 }
 
@@ -3982,4 +3999,348 @@ void main() {
       );
     },
   );
+
+  group('on Windows', () {
+    var calls = <String>[];
+    var portFree = true;
+    var admin = ShikooAdmin.ready;
+    Completer<ShikooAdmin>? prompt;
+    Completer<void>? restarting;
+
+    ({ProviderContainer container, _Setup setup}) windows({
+      bool desktop = true,
+      bool restartFails = false,
+    }) {
+      calls = [];
+      portFree = true;
+      admin = ShikooAdmin.ready;
+      prompt = null;
+      restarting = null;
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooDesktopProvider.overrideWithValue(desktop),
+        localPortFreeProvider.overrideWithValue((port) async {
+          calls.add('port $port');
+          return portFree;
+        }),
+        tunAuthorizeProvider.overrideWithValue(() async {
+          calls.add('admin');
+          return prompt?.future ?? admin;
+        }),
+        coreActionProvider.overrideWith(
+          () => _Restart(
+            calls,
+            fails: restartFails,
+            hold: () => restarting?.future,
+          ),
+        ),
+      ]);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      return (container: container, setup: setup);
+    }
+
+    bool systemProxy(ProviderContainer c) =>
+        c.read(networkSettingProvider).systemProxy;
+
+    bool tun(ProviderContainer c) =>
+        c.read(patchClashConfigProvider).tun.enable;
+
+    Future<ShikooController> ready(
+      ProviderContainer container,
+      _Setup setup,
+    ) async {
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      setup.tunnel = DateTime.now();
+      return controller;
+    }
+
+    Future<void> done(ShikooController controller) async {
+      await controller.disconnect();
+      await pumpEventQueue();
+    }
+
+    test("the proxy mode turns Windows' proxy on and TUN off, and stops "
+        'before the proxy while another program holds the port', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      await controller.setMode(ShikooMode.proxy);
+      container
+          .read(networkSettingProvider.notifier)
+          .update((s) => s.copyWith(systemProxy: false));
+      container
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => c.copyWith.tun(enable: true));
+
+      portFree = false;
+      await controller.connect();
+      var state = container.read(shikooStateProvider);
+      expect(state.busyPort, 7890);
+      expect(state.connection, ShikooConnection.error);
+      expect(setup.runs, isEmpty);
+      expect(systemProxy(container), isFalse);
+
+      portFree = true;
+      await controller.connect();
+      state = container.read(shikooStateProvider);
+      expect(state.busyPort, isNull);
+      expect(state.connection, ShikooConnection.on);
+      expect(setup.runs, [true]);
+      expect((systemProxy(container), tun(container)), (true, false));
+      expect(calls, ['port 7890', 'port 7890']);
+
+      portFree = false;
+      await controller.connect();
+      state = container.read(shikooStateProvider);
+      expect(
+        (state.connection, state.busyPort),
+        (ShikooConnection.on, null),
+        reason: "connected, the port is the core's own",
+      );
+      expect(calls, ['port 7890', 'port 7890']);
+      await done(controller);
+    });
+
+    test('the tunnel mode asks for the helper service until it is there, '
+        "then turns TUN on and Windows' proxy off; a refused prompt starts "
+        'nothing and says so', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      await controller.setMode(ShikooMode.tunnel);
+      expect(setup.runs, isEmpty, reason: 'off, a mode change starts nothing');
+
+      admin = ShikooAdmin.refused;
+      await controller.connect();
+      final refused = container.read(shikooStateProvider);
+      expect(refused.lastError, ShikooError.vpnRefused);
+      expect(refused.connection, ShikooConnection.error);
+      expect(setup.runs, isEmpty);
+      expect(tun(container), isFalse);
+
+      admin = ShikooAdmin.installed;
+      await controller.connect();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      expect((systemProxy(container), tun(container)), (false, true));
+      expect(
+        container.read(authorizedTunEnableProvider),
+        TunAuthorizationState.authorized,
+      );
+
+      await controller.disconnect();
+      await controller.connect();
+      expect(calls, ['admin', 'admin', 'restart']);
+      expect(setup.runs, [true, false, true]);
+      await done(controller);
+    });
+
+    test('a prompt accepted while the service still does not come up says '
+        'so, apart from a refused one', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      admin = ShikooAdmin.failed;
+      await controller.connect();
+      final state = container.read(shikooStateProvider);
+      expect(state.helperFailed, isTrue);
+      expect(state.lastError, isNull);
+      expect(state.connection, ShikooConnection.error);
+      expect(setup.runs, isEmpty);
+
+      admin = ShikooAdmin.ready;
+      await controller.connect();
+      expect(container.read(shikooStateProvider).helperFailed, isFalse);
+      await done(controller);
+    });
+
+    test('a connect pressed while the mode is saved is not wiped', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      final change = controller.setMode(ShikooMode.proxy);
+      unawaited(controller.connect());
+      await change;
+      expect(
+        container.read(shikooStateProvider).connection,
+        isNot(ShikooConnection.off),
+      );
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      expect((systemProxy(container), tun(container)), (true, false));
+      await done(controller);
+    });
+
+    test('a mode change while off takes away the last refusal, busy port or '
+        'helper message, and starts nothing', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      ShikooState state() => container.read(shikooStateProvider);
+      for (final (mode, other, arrange) in [
+        (
+          ShikooMode.tunnel,
+          ShikooMode.proxy,
+          () => admin = ShikooAdmin.refused,
+        ),
+        (ShikooMode.proxy, ShikooMode.tunnel, () => portFree = false),
+        (ShikooMode.tunnel, ShikooMode.proxy, () => admin = ShikooAdmin.failed),
+      ]) {
+        await controller.setMode(mode);
+        arrange();
+        await controller.connect();
+        expect(state().connection, ShikooConnection.error);
+        final asked = [...calls];
+        admin = ShikooAdmin.ready;
+        portFree = true;
+
+        await controller.setMode(other);
+        await pumpEventQueue();
+        expect(
+          (
+            state().connection,
+            state().lastError,
+            state().busyPort,
+            state().helperFailed,
+          ),
+          (ShikooConnection.off, null, null, false),
+          reason: '$mode',
+        );
+        expect(setup.runs, isEmpty, reason: '$mode');
+        expect(calls, asked, reason: '$mode: no new start');
+      }
+    });
+
+    test('a core restart that throws after the service install fails the '
+        'start, never stays connecting', () async {
+      final (:container, :setup) = windows(restartFails: true);
+      final controller = await ready(container, setup);
+      admin = ShikooAdmin.installed;
+      await controller.connect();
+      expect(calls, ['admin', 'restart']);
+      expect(
+        container.read(shikooStateProvider).connection,
+        isNot(ShikooConnection.connecting),
+      );
+      await done(controller);
+    });
+
+    test('the newest intent wins over a pending admin prompt: a mode change '
+        'keeps its own flags and restarts nothing', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      prompt = Completer();
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(calls, ['admin']);
+      await controller.setMode(ShikooMode.proxy);
+      expect((systemProxy(container), tun(container)), (true, false));
+
+      prompt!.complete(ShikooAdmin.installed);
+      await pumpEventQueue();
+      expect(container.read(shikooModeProvider), ShikooMode.proxy);
+      expect((systemProxy(container), tun(container)), (true, false));
+      expect(calls, ['admin', 'port 7890']);
+      expect(setup.runs, [false, true]);
+
+      await controller.setMode(ShikooMode.tunnel);
+      expect(calls, ['admin', 'port 7890', 'restart']);
+      expect(tun(container), isTrue);
+      await done(controller);
+    });
+
+    test(
+      'a disconnect during the admin prompt starts and restarts nothing',
+      () async {
+        final (:container, :setup) = windows();
+        final controller = await ready(container, setup);
+        prompt = Completer();
+        unawaited(controller.connect());
+        await pumpEventQueue();
+        await controller.disconnect();
+        prompt!.complete(ShikooAdmin.installed);
+        await pumpEventQueue();
+        expect(calls, ['admin']);
+        expect(setup.runs, [false]);
+        expect(tun(container), isFalse);
+        await done(controller);
+      },
+    );
+
+    test('a disconnect during the core restart after the install sets no '
+        'flags and starts nothing', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      admin = ShikooAdmin.installed;
+      restarting = Completer();
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(calls, ['admin', 'restart']);
+      await controller.disconnect();
+      restarting!.complete();
+      await pumpEventQueue();
+      expect(setup.runs, [false]);
+      expect(tun(container), isFalse);
+      await done(controller);
+    });
+
+    test(
+      'connect again during the admin prompt waits on that one prompt',
+      () async {
+        final (:container, :setup) = windows();
+        final controller = await ready(container, setup);
+        prompt = Completer();
+        unawaited(controller.connect());
+        await pumpEventQueue();
+        await controller.disconnect();
+        unawaited(controller.connect());
+        await pumpEventQueue();
+        expect(calls, ['admin']);
+
+        prompt!.complete(ShikooAdmin.installed);
+        await pumpEventQueue();
+        expect(calls, ['admin', 'restart']);
+        expect(setup.runs, [false, true]);
+        await done(controller);
+      },
+    );
+
+    test('the tunnel is the first mode; a change while connected connects '
+        'again in the new one, which the next launch keeps', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      await controller.connect();
+      expect((systemProxy(container), tun(container)), (false, true));
+      await controller.setMode(ShikooMode.proxy);
+      expect(setup.runs, [true, false, true]);
+      expect((systemProxy(container), tun(container)), (true, false));
+      expect(calls, ['admin', 'port 7890']);
+
+      final next = ProviderContainer();
+      addTearDown(next.dispose);
+      expect(next.read(shikooModeProvider), ShikooMode.tunnel);
+      await next.read(shikooModeProvider.notifier).load();
+      expect(next.read(shikooModeProvider), ShikooMode.proxy);
+      await done(controller);
+    });
+
+    test("Android has no modes: its connect leaves FlClash's flags and "
+        'checks no port', () async {
+      final (:container, :setup) = windows(desktop: false);
+      final controller = await ready(container, setup);
+      container
+          .read(networkSettingProvider.notifier)
+          .update((s) => s.copyWith(systemProxy: false));
+      await controller.setMode(ShikooMode.proxy);
+      expect(container.read(shikooModeProvider), ShikooMode.tunnel);
+
+      await controller.connect();
+      expect(setup.runs, [true]);
+      expect((systemProxy(container), tun(container)), (false, false));
+      expect(calls, isEmpty);
+      await done(controller);
+    });
+  });
 }
