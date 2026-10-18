@@ -403,7 +403,9 @@ class ShikooUpdate {
 
   Future<void> _installWindows(File file, AppRelease release) async {
     void damaged() {
-      if (file.existsSync()) file.deleteSync();
+      try {
+        file.deleteSync();
+      } on FileSystemException catch (_) {}
       _move(UpdatePhase.offered, received: 0, error: UpdateError.checksum);
     }
 
@@ -414,18 +416,18 @@ class ShikooUpdate {
     final wasOn = _ref.read(runTimeProvider) != null;
     final controller = _ref.read(shikooControllerProvider);
     await controller.disconnect();
-    final same = '${sha256.convert(file.readAsBytesSync())}' == release.sha256;
-    final installer = same
-        ? startInstaller(file.path, [
-            '/SILENT',
-            '/SUPPRESSMSGBOXES',
-            '/NORESTART',
-          ])
-        : null;
-    // The installer's PrepareToInstall kills this app: an exit seen here means it never installed.
+    var same = false;
+    // Hashed and started in one turn. PrepareToInstall kills this app: an exit seen here means it never installed.
     try {
-      await (await installer)?.exitCode;
-    } on ProcessException catch (_) {}
+      same = '${sha256.convert(file.readAsBytesSync())}' == release.sha256;
+      if (same) {
+        await (await startInstaller(file.path, [
+          '/SILENT',
+          '/SUPPRESSMSGBOXES',
+          '/NORESTART',
+        ])).exitCode;
+      }
+    } catch (_) {}
     if (wasOn && _ref.read(runTimeProvider) == null) {
       unawaited(controller.connect());
     }

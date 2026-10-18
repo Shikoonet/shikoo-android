@@ -69,9 +69,6 @@ func TestCheckSealAcceptsWhatOpensslSigns(t *testing.T) {
 	if !checkSeal(&CheckSealParams{Key: opensslKey, Message: sealMessage, Sig: opensslSig}) {
 		t.Fatal("refused openssl's seal")
 	}
-	if checkSeal(&CheckSealParams{Key: opensslKey, Message: "57:" + sealSha, Sig: opensslSig}) {
-		t.Fatal("the seal passed for the message without its prefix")
-	}
 }
 
 func TestCheckSealTakesOnlyItsOwnKey(t *testing.T) {

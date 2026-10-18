@@ -835,22 +835,82 @@ void main() {
       expect(await installing, InstallAsk.nothing);
     });
 
-    test('a file swapped while disconnecting is deleted, never started, and '
-        'the connection comes back', () async {
-      final update = await ready();
+    void afterDisconnect(void Function() then) {
       final controller =
           container.read(shikooControllerProvider) as _Controller;
       final cleared = controller.onDisconnect;
       controller.onDisconnect = () {
         cleared();
-        exe().writeAsBytesSync(utf8.encode('not the sealed file'));
+        then();
       };
+    }
+
+    test('a file swapped while disconnecting is deleted, never started, and '
+        'the connection comes back', () async {
+      final update = await ready();
+      afterDisconnect(
+        () => exe().writeAsBytesSync(utf8.encode('not the sealed file')),
+      );
       await update.install();
       expect(events, ['disconnect', 'connect']);
       expect(started, isEmpty);
       expect(exe().existsSync(), isFalse);
       expect(offer()!.phase, UpdatePhase.offered);
       expect(offer()!.error, UpdateError.checksum);
+    });
+
+    test('a file gone or unreadable after the disconnect is a damaged one: the '
+        'connection comes back and the card says so', () async {
+      for (final unreadable in [false, true]) {
+        events.clear();
+        final update = await ready();
+        afterDisconnect(() {
+          exe().deleteSync();
+          // A directory in its place: no system reads it or deletes it as a file.
+          if (unreadable) Directory(exe().path).createSync();
+        });
+        await update.install();
+        expect(events, ['disconnect', 'connect'], reason: '$unreadable');
+        expect(started, isEmpty);
+        expect(offer()!.phase, UpdatePhase.offered);
+        expect(offer()!.error, UpdateError.checksum);
+      }
+    });
+
+    test('a file another program holds locked, as an antivirus may, is the '
+        'same, and stays where it is', () async {
+      final update = await ready();
+      RandomAccessFile? held;
+      addTearDown(() => held?.closeSync());
+      afterDisconnect(
+        () =>
+            held = exe().openSync(mode: FileMode.append)
+              ..lockSync(FileLock.exclusive),
+      );
+      await update.install();
+      expect(events, ['disconnect', 'connect']);
+      expect(started, isEmpty);
+      expect(exe().existsSync(), isTrue);
+      expect(offer()!.error, UpdateError.checksum);
+    }, skip: Platform.isWindows ? false : 'only Windows locks block reads');
+
+    test('the file is started in the turn it was hashed in, so a write '
+        'queued during the disconnect lands only after the start', () async {
+      final update = await ready();
+      afterDisconnect(
+        () => Timer.run(() => exe().writeAsBytesSync(utf8.encode('swapped'))),
+      );
+      final startedSha = <String>[];
+      final start = update.startInstaller;
+      update.startInstaller = (exe, arguments) {
+        startedSha.add('${sha256.convert(File(exe).readAsBytesSync())}');
+        return start(exe, arguments);
+      };
+      final installing = update.install();
+      await until(() => started.isNotEmpty);
+      expect(startedSha, [_sha]);
+      installer.exited.complete(1);
+      await installing;
     });
 
     test(
