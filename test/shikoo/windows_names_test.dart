@@ -293,7 +293,12 @@ void main() {
         "'--restore-proxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);\n",
       ),
     );
-    expect(iss, isNot(contains('function InitializeUninstall')));
+    expect(
+      iss,
+      isNot(
+        contains(RegExp('function initializeuninstall', caseSensitive: false)),
+      ),
+    );
     expect(
       iss,
       contains(
