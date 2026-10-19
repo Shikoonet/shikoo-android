@@ -26,7 +26,6 @@ import 'package:riverpod/misc.dart' show Override;
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../helpers/no_admin.dart';
 import '../helpers/test_profiles.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
@@ -138,6 +137,12 @@ class _Restart extends CoreAction {
 
 const _version = 'V3.7.9 🆔 : (user123) 📊 (67 GB) ⏰ (23)';
 
+/// On a Windows host the real one runs the helper with `runas`: a connect in a test would put
+/// Windows' admin prompt on the desk of whoever runs the suite.
+final _noAdminPrompt = tunAuthorizeProvider.overrideWithValue(
+  () async => ShikooAdmin.refused,
+);
+
 ({ProviderContainer container, _Core core, _Proxies proxies, _Setup setup})
 _home([List<Override> more = const []]) {
   SharedPreferences.setMockInitialValues({});
@@ -147,7 +152,7 @@ _home([List<Override> more = const []]) {
   final setup = _Setup();
   final container = ProviderContainer(
     overrides: [
-      if (!more.any((o) => o.origin == tunAuthorizeProvider)) noAdminPrompt,
+      if (!more.any((o) => o.origin == tunAuthorizeProvider)) _noAdminPrompt,
       profilesProvider.overrideWith(() => TestProfiles([profile])),
       proxiesActionProvider.overrideWith(() => proxies),
       profilesActionProvider.overrideWith(_Profiles.new),
