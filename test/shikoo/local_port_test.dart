@@ -8,6 +8,7 @@ import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/app/wininet.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart' show shikooDesktopPort;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';

@@ -1487,3 +1487,124 @@ class LinkButton extends StatelessWidget {
     );
   }
 }
+
+/// A computer's scrolling region: its bar drawn whenever there is more to see, the cut edge
+/// faded, and with [divider] a line where it meets the buttons stuck under it.
+class EdgeScroll extends StatefulWidget {
+  const EdgeScroll({
+    super.key,
+    required this.padding,
+    this.divider = false,
+    required this.child,
+  });
+
+  final EdgeInsetsGeometry padding;
+  final bool divider;
+  final Widget child;
+
+  @override
+  State<EdgeScroll> createState() => _EdgeScrollState();
+}
+
+class _EdgeScrollState extends State<EdgeScroll> {
+  final _scroll = ScrollController();
+  bool _scrolls = false;
+  bool _more = false;
+  bool _focusInside = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  bool _measure(Notification notification) {
+    if (notification
+        case ScrollMetricsNotification(depth: 0, :final metrics) ||
+            ScrollUpdateNotification(depth: 0, :final metrics)) {
+      final scrolls = metrics.maxScrollExtent > 0;
+      final more = metrics.extentAfter > 0;
+      if (scrolls != _scrolls || more != _more) {
+        setState(() {
+          _scrolls = scrolls;
+          _more = more;
+        });
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ShikooTheme.of(context).c;
+    return NotificationListener<Notification>(
+      onNotification: _measure,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          RawScrollbar(
+            controller: _scroll,
+            thumbVisibility: true,
+            thickness: ShikooSizes.scrollThumb,
+            radius: const Radius.circular(ShikooSizes.scrollThumb),
+            thumbColor: c.outline,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
+              child: Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onFocusChange: (inside) =>
+                    setState(() => _focusInside = inside),
+                child: LayoutBuilder(
+                  builder: (context, box) => SingleChildScrollView(
+                    controller: _scroll,
+                    padding: widget.padding,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: box.hasTightHeight
+                            ? (box.maxHeight - widget.padding.vertical).clamp(
+                                0.0,
+                                double.infinity,
+                              )
+                            : 0,
+                      ),
+                      child: widget.child,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_more && !_focusInside)
+            PositionedDirectional(
+              start: 0,
+              end: 0,
+              bottom: 0,
+              height: ShikooSizes.fade,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [c.bg.withValues(alpha: 0), c.bg],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (widget.divider && _scrolls)
+            PositionedDirectional(
+              start: 0,
+              end: 0,
+              bottom: 0,
+              height: 1,
+              child: ColoredBox(color: c.border),
+            ),
+        ],
+      ),
+    );
+  }
+}

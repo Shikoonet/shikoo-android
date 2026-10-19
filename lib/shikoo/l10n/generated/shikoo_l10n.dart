@@ -2336,6 +2336,24 @@ abstract class ShikooL10n {
   /// **'Every app goes through ShikooNet, games too.'**
   String get modeTunnelHint;
 
+  /// No description provided for @localProxyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy:'**
+  String get localProxyLabel;
+
+  /// No description provided for @localProxyCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get localProxyCopy;
+
+  /// No description provided for @localProxyCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get localProxyCopied;
+
   /// No description provided for @trayOff.
   ///
   /// In en, this message translates to:

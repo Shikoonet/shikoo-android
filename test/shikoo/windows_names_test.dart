@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fl_clash/common/constant.dart';
-import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart' show helperServiceName;
+import 'package:fl_clash/shikoo/engine/mode.dart' show shikooDesktopPort;
 import 'package:flutter_test/flutter_test.dart';
 
 String read(String path) => File(path).readAsStringSync();
@@ -37,7 +37,7 @@ void main() {
     );
     expect(read('lib/shikoo/app/main.dart'), contains('shikooStagingBuild ||'));
     expect(
-      read('lib/shikoo/app/app.dart'),
+      read('lib/shikoo/engine/mode.dart'),
       contains('const shikooDesktopPort = shikooStagingBuild ? 17471 : 17470;'),
     );
     expect(

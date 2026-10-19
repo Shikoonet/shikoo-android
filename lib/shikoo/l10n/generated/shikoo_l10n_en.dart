@@ -1490,6 +1490,15 @@ class ShikooL10nEn extends ShikooL10n {
   String get modeTunnelHint => 'Every app goes through ShikooNet, games too.';
 
   @override
+  String get localProxyLabel => 'Proxy:';
+
+  @override
+  String get localProxyCopy => 'Copy';
+
+  @override
+  String get localProxyCopied => 'Copied';
+
+  @override
   String trayOff(String app) {
     return '$app · Off';
   }

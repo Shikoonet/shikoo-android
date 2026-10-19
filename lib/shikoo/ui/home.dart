@@ -829,16 +829,11 @@ class _WideLayout extends StatelessWidget {
                 ),
                 Expanded(
                   child: FocusTraversalGroup(
-                    child: LayoutBuilder(
-                      builder: (context, box) => SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: ShikooSizes.scrollbar,
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: box.maxHeight),
-                          child: Center(child: power),
-                        ),
+                    child: EdgeScroll(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: ShikooSizes.scrollbar,
                       ),
+                      child: Center(child: power),
                     ),
                   ),
                 ),
@@ -989,6 +984,8 @@ class _PowerZone extends StatelessWidget {
             ModeSwitch(
               connecting: state.connection == ShikooConnection.connecting,
             ),
+            SizedBox(height: gap),
+            const LocalProxy(),
           ],
         ],
         if (message != null || slot != null) ...[

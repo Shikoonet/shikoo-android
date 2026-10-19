@@ -1434,6 +1434,15 @@ class ShikooL10nFa extends ShikooL10n {
   String get modeTunnelHint => 'همهٔ برنامه‌ها از شیکونت می‌روند، حتی بازی‌ها.';
 
   @override
+  String get localProxyLabel => 'پروکسی:';
+
+  @override
+  String get localProxyCopy => 'کپی';
+
+  @override
+  String get localProxyCopied => 'کپی شد';
+
+  @override
   String trayOff(String app) {
     return '$app · قطع';
   }

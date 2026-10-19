@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/constant.dart' show shikooStagingBuild;
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/app/tray_popup.dart';
@@ -980,6 +981,128 @@ void main() {
     setUpAll(loadShikooFonts);
     final l = lookupShikooL10n(const Locale('fa'));
 
+    testWidgets('the local proxy line shows the port the core listens on and '
+        'copies it, from a click or from Tab and Enter; «کپی شد» moves '
+        'nothing and gives way to «کپی» again', (tester) async {
+      final copied = <Object?>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') copied.add(call.arguments);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await _pumpHome(tester, const Size(880, 508));
+      const address = '127.0.0.1:${shikooStagingBuild ? 17471 : 17470}';
+      expect(find.text(address), findsOne);
+      bool shown(String word) => tester
+          .widget<Visibility>(
+            find.ancestor(
+              of: find.text(word),
+              matching: find.byType(Visibility),
+            ),
+          )
+          .visible;
+      final copy = find.descendant(
+        of: find.byType(LocalProxy),
+        matching: find.byType(Pressable),
+      );
+      final before = tester.getRect(copy);
+      await tester.tap(copy);
+      await tester.pump();
+      expect(copied, [
+        {'text': address},
+      ]);
+      expect(
+        (shown(l.localProxyCopy), shown(l.localProxyCopied)),
+        (false, true),
+      );
+      expect(tester.getRect(copy), before);
+      await tester.pump(const Duration(seconds: 2));
+      expect(shown(l.localProxyCopy), isTrue);
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      for (var i = 0; i < 40; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final focused = FocusManager.instance.primaryFocus?.context;
+        if (focused != null &&
+            find
+                .descendant(
+                  of: copy,
+                  matching: find.byElementPredicate((e) => e == focused),
+                )
+                .evaluate()
+                .isNotEmpty) {
+          break;
+        }
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(copied, hasLength(2), reason: 'Tab reaches «کپی», Enter copies');
+      await tester.pump(const Duration(seconds: 2));
+    }, variant: _windows);
+
+    testWidgets('at 100% text the line fits the short windows with no scroll; '
+        'at 125 and 150% the button column scrolls under a drawn bar, and '
+        'the line can be scrolled wholly into view', (tester) async {
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      for (final language in ['fa', 'en']) {
+        for (final window in const [
+          Size(864, 492),
+          Size(880, 508),
+          Size(880, 540),
+        ]) {
+          for (final scale in const [1.0, 1.25, 1.5]) {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            await _pumpHome(tester, window, locale: Locale(language));
+            await tester.pump();
+            final why = '$language $window ×$scale';
+            final column = Scrollable.of(
+              tester.element(find.byType(LocalProxy)),
+            );
+            if (scale == 1.0) {
+              expect(column.position.maxScrollExtent, 0, reason: why);
+              continue;
+            }
+            expect(
+              find.ancestor(
+                of: find.byType(LocalProxy),
+                matching: find.byWidgetPredicate(
+                  (w) => w is RawScrollbar && (w.thumbVisibility ?? false),
+                ),
+              ),
+              findsOne,
+              reason: why,
+            );
+            await tester.ensureVisible(find.byType(LocalProxy));
+            await tester.pump();
+            final line = tester.getRect(find.byType(LocalProxy));
+            expect(line.bottom, lessThanOrEqualTo(window.height), reason: why);
+            expect(
+              line.top,
+              greaterThanOrEqualTo(ShikooSizes.desktop.appbar),
+              reason: why,
+            );
+          }
+        }
+      }
+    }, variant: _windows);
+
+    testWidgets('a phone keeps its home without the local proxy line', (
+      tester,
+    ) async {
+      await _pumpHome(tester, const Size(412, 915));
+      expect(find.byType(ModeSwitch), findsNothing);
+      expect(find.byType(LocalProxy), findsNothing);
+    });
+
     testWidgets('other pages keep to a centred column in a wide window, and '
         'fill a narrow one', (tester) async {
       Future<Rect> box(Size window, Widget page) async {
@@ -1263,8 +1386,8 @@ void main() {
                 );
                 expect(
                   window.height - box.bottom,
-                  greaterThan(20),
-                  reason: why,
+                  greaterThan(Space.s2),
+                  reason: '$why: the local proxy line takes its room',
                 );
               }
             }
@@ -1299,13 +1422,8 @@ void main() {
         await tester.pump();
         // Where Flutter draws the thumb, wherever its side and margin put it.
         final bar = find
-            .descendant(
-              of: find
-                  .ancestor(
-                    of: find.byType(PowerButton),
-                    matching: find.byType(SingleChildScrollView),
-                  )
-                  .first,
+            .ancestor(
+              of: find.byType(PowerButton),
               matching: find.byWidgetPredicate(
                 (w) =>
                     w is CustomPaint && w.foregroundPainter is ScrollbarPainter,
@@ -1739,7 +1857,7 @@ void main() {
         tester.getRect(find.byType(PowerButton)).top -
         ShikooSizes.desktop.appbar;
     final below = window.height - message.bottom;
-    expect(below, greaterThan(20));
+    expect(below, greaterThan(Space.s2));
     expect(above, closeTo(below, 1));
   }, variant: _windows);
 

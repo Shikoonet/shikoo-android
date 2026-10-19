@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fl_clash/common/constant.dart' show shikooStagingBuild;
 import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/desktop/helper_client.dart';
@@ -19,6 +20,8 @@ enum ShikooMode {
 }
 
 const shikooDefaultMode = ShikooMode.tunnel;
+
+const shikooDesktopPort = shikooStagingBuild ? 17471 : 17470;
 
 class ShikooModeNotifier extends Notifier<ShikooMode> {
   static const _key = 'shikoo.mode';
