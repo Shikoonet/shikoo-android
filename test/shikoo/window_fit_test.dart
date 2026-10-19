@@ -6,6 +6,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -113,7 +114,7 @@ Finder _button(String label) =>
     find.byWidgetPredicate((w) => w is ShikooButton && w.label == label);
 
 final _pinnedBar = find.byWidgetPredicate(
-  (w) => w is Scrollbar && (w.thumbVisibility ?? false),
+  (w) => w is RawScrollbar && (w.thumbVisibility ?? false),
 );
 
 void main() {
@@ -187,6 +188,21 @@ void main() {
     final list = tester.getRect(find.text(_l.chooseServicesDesktop));
     final go = tester.getRect(_button(_l.continueButton));
     expect(list.right, lessThan(go.left));
+    await _pump(tester, const Size(864, 492), login: _choosing(8));
+    final rows = Scrollable.of(
+      tester.element(find.text(_l.chooseServicesDesktop)),
+    );
+    expect(rows.position.maxScrollExtent, greaterThan(0));
+    final row = find.ancestor(
+      of: find.text(bidiName(_services(8).first.title)),
+      matching: find.byType(Pressable),
+    );
+    expect(tester.getRect(row).left, ShikooSizes.desktop.safeX);
+    expect(
+      tester.getRect(find.byWidget(rows.widget)).left,
+      0,
+      reason: "the bar in the window's margin, clear of the rows",
+    );
 
     await _pump(tester, const Size(400, 448), login: _choosing(4));
     expect(tester.getRect(_button(_l.notMyAccount)).bottom, 448 - Space.s8);
@@ -195,8 +211,23 @@ void main() {
       Scrollable.of(tester.element(question)).position.maxScrollExtent,
       greaterThan(0),
     );
-    final bar = find.ancestor(of: question, matching: _pinnedBar);
-    expect(bar, findsOneWidget);
+    final bar = tester.widget<RawScrollbar>(
+      find.ancestor(of: question, matching: _pinnedBar),
+    );
+    expect(
+      (bar.thickness, bar.thumbColor),
+      (ShikooSizes.scrollThumb, ShikooColors.light.outline),
+    );
+    Finder fade() => find.byWidgetPredicate(
+      (w) =>
+          w is DecoratedBox &&
+          w.decoration is BoxDecoration &&
+          (w.decoration as BoxDecoration).gradient != null,
+    );
+    expect(fade(), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(fade(), findsNothing, reason: "a focused row's ring stays whole");
   }, variant: _windows);
 
   testWidgets('a phone and a TV keep the sign-in as it was: the buttons '

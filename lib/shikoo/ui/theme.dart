@@ -333,8 +333,8 @@ class ShikooSizes {
   static const windowMin = Size(400, 480);
   static const twoColumns = 620.0;
 
-  /// `.split .copy .actions-col` in win-fit.html: the buttons beside the sign-in checklist, and the
-  /// narrowest their column gets before the page is one column again.
+  /// `--size-split-buttons`: the buttons beside the sign-in checklist, and the narrowest their column
+  /// gets before the page is one column again.
   static const splitButtons = 300.0;
   static const pageMax = 960.0;
   static const titleBar = 32.0;
@@ -376,7 +376,7 @@ class ShikooSizes {
   static const switchH = 32.0;
   static const switchThumb = 24.0;
 
-  /// `--size-switch-thumb-off` in switch.html: the off dot, centred where the on thumb would be.
+  /// `--size-switch-thumb-off`: the off dot, centred where the on thumb would be.
   static const switchThumbOff = 16.0;
   static const borderRadio = 2.0;
   static const checkbox = 20.0;

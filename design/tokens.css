@@ -142,6 +142,8 @@
   --size-switch-w: 52px;       /* کلید روشن و خاموش */
   --size-switch-h: 32px;
   --size-switch-thumb: 24px;
+  --size-switch-thumb-off: 16px; /* دایرهٔ کلیدِ خاموش؛ هم‌مرکز با جای دایرهٔ روشن */
+  --size-split-buttons: 300px; /* ستون دکمه‌های کنار فهرست تیک‌دار؛ کمتر از این جا، صفحه یک‌ستونه می‌شود */
   --size-report-image: 200px;  /* سقف بلندیِ هر عکسِ پیش‌نمایش گزارش */
   --size-scroll-thumb: 4px;    /* نشانگر اسکرول */
   --size-fade: 24px;           /* محوشدنِ لبهٔ فهرستِ اسکرول‌شده */

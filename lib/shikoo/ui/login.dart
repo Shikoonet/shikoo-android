@@ -495,16 +495,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   /// buttons at the start, the checklist beside them, each column scrolling on its own.
   Widget _split(Widget result, List<Widget> actions, Widget list) {
     final s = ShikooTheme.of(context).s;
-    Widget column(Widget child) => FocusTraversalGroup(
+    Widget column(Widget child, {double end = 0}) => FocusTraversalGroup(
       child: Center(
         child: _EdgeScroll(
-          padding: const EdgeInsets.symmetric(vertical: Space.s6),
+          padding: EdgeInsetsDirectional.only(
+            top: Space.s6,
+            bottom: Space.s6,
+            end: end,
+          ),
           child: child,
         ),
       ),
     );
+    // The list's region runs on into the window's margin, so its bar sits there, not on the rows.
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: s.safeX),
+      padding: EdgeInsetsDirectional.only(start: s.safeX),
       child: Row(
         spacing: Space.s10,
         children: [
@@ -529,7 +534,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
-          SizedBox(width: s.pane, child: column(list)),
+          SizedBox(
+            width: s.pane + s.safeX,
+            child: column(list, end: s.safeX),
+          ),
         ],
       ),
     );
@@ -1176,7 +1184,7 @@ class _EdgeScroll extends StatefulWidget {
     required this.child,
   });
 
-  final EdgeInsets padding;
+  final EdgeInsetsGeometry padding;
   final bool divider;
   final Widget child;
 
@@ -1188,6 +1196,7 @@ class _EdgeScrollState extends State<_EdgeScroll> {
   final _scroll = ScrollController();
   bool _scrolls = false;
   bool _more = false;
+  bool _focusInside = false;
 
   @override
   void dispose() {
@@ -1218,21 +1227,30 @@ class _EdgeScrollState extends State<_EdgeScroll> {
       onNotification: _measure,
       child: Stack(
         children: [
-          Scrollbar(
+          RawScrollbar(
             controller: _scroll,
             thumbVisibility: true,
+            thickness: ShikooSizes.scrollThumb,
+            radius: const Radius.circular(ShikooSizes.scrollThumb),
+            thumbColor: c.outline,
             child: ScrollConfiguration(
               behavior: ScrollConfiguration.of(
                 context,
               ).copyWith(scrollbars: false),
-              child: SingleChildScrollView(
-                controller: _scroll,
-                padding: widget.padding,
-                child: widget.child,
+              child: Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onFocusChange: (inside) =>
+                    setState(() => _focusInside = inside),
+                child: SingleChildScrollView(
+                  controller: _scroll,
+                  padding: widget.padding,
+                  child: widget.child,
+                ),
               ),
             ),
           ),
-          if (_more)
+          if (_more && !_focusInside)
             PositionedDirectional(
               start: 0,
               end: 0,
