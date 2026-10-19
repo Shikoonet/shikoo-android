@@ -80,12 +80,16 @@ end;
 
 // usUninstall comes after the "are you sure?" question and before [UninstallRun]. The service goes before the kill:
 // killed while still registered, it is restarted by the SCM (crash_recovery in services/helper/src/service/windows.rs).
+// The two start-with-Windows values launch_at_startup names appName are in the HKCU of the account the uninstaller
+// elevated to, as the proxy of --restore-proxy is: ExecAsOriginalUser is not supported at uninstall time.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
     UnregisterHelperService;
     KillProcesses;
+    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#Title}');
+    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run', '{#Title}');
   end;
 end;
 

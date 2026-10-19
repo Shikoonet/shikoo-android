@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fl_clash/common/constant.dart';
@@ -308,9 +309,41 @@ void main() {
         '  begin\n'
         '    UnregisterHelperService;\n'
         '    KillProcesses;\n'
+        "    RegDeleteValue(HKEY_CURRENT_USER, '$_run', '{#Title}');\n"
+        "    RegDeleteValue(HKEY_CURRENT_USER, '$_approved', '{#Title}');\n"
         '  end;\n'
         'end;\n',
       ),
     );
   });
+
+  test("the uninstall removes this flavor's start-with-Windows values where "
+      'launch_at_startup writes them, and an upgrade keeps them', () {
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+    final config = File('.dart_tool/package_config.json');
+    final packages =
+        (jsonDecode(config.readAsStringSync()) as Map)['packages'] as List;
+    final root = packages.cast<Map>().singleWhere(
+      (package) => package['name'] == 'launch_at_startup',
+    )['rootUri'];
+    final launcher = config.absolute.uri
+        .resolve(root as String)
+        .resolve('lib/src/app_auto_launcher_impl_windows.dart');
+    final writes = read(launcher.toFilePath()).replaceAll(RegExp(r'\s'), '');
+
+    for (final key in [_run, _approved]) {
+      expect(writes, contains("CURRENT_USER.open(r'$key',"));
+    }
+    expect(writes, contains('_regKey.setValue(appName,'));
+    expect(writes, contains('_startupApprovedRegKey.setValue(appName,'));
+    expect('RegDeleteValue('.allMatches(iss), hasLength(2));
+    expect(
+      read('windows/packaging/exe/make_config.yaml'),
+      contains('display_name: ShikooNet\n'),
+    );
+  });
 }
+
+const _run = r'Software\Microsoft\Windows\CurrentVersion\Run';
+const _approved =
+    r'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run';
