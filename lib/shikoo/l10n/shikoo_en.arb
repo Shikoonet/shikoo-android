@@ -505,7 +505,7 @@
   "removeServiceBodyDesktop": "It's removed from this computer. The service itself stays as it is and comes back with the same link.",
   "removeServiceBodyConnectedDesktop": "You'll be disconnected and this service removed from this computer. The service itself stays as it is and comes back with the same link.",
   "orderScreenHelpDesktop": "Hold ≡ on a service and drag it up or down. The order is for this computer only and is saved at once.",
-  "vpnRefusedDesktop": "Permission for the tunnel wasn't given.\nConnect again and press Yes, or choose Proxy.",
+  "vpnRefusedDesktop": "Permission for the tunnel wasn't given.\nConnect again and click Yes, or choose Proxy.",
   "vpnMissingDesktop": "The tunnel didn't start on this computer.\nChoose Proxy, or ask Support.",
   "busyPortDesktop": "Another program is using ShikooNet's proxy port.\nClose it and connect again, or choose Tunnel.",
   "helperFailedDesktop": "The tunnel didn't turn on.\nConnect again, or choose Proxy.",

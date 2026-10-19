@@ -2225,7 +2225,7 @@ abstract class ShikooL10n {
   /// No description provided for @vpnRefusedDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Permission for the tunnel wasn\'t given.\nConnect again and press Yes, or choose Proxy.'**
+  /// **'Permission for the tunnel wasn\'t given.\nConnect again and click Yes, or choose Proxy.'**
   String get vpnRefusedDesktop;
 
   /// No description provided for @vpnMissingDesktop.
