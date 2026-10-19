@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
@@ -290,6 +291,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       label: (shikooDesktop ? l.noTelegramHereDesktop : l.noTelegramHere),
       onPressed: starting ? null : _showOtherDevice,
     );
+    ResultBlock chosen({bool start = false}) => ResultBlock(
+      icon: ShikooIcon.check,
+      tone: ResultTone.positive,
+      title: l.approvedTitle,
+      body: sayWith(
+        (shikooDesktop
+            ? l.approvedBodyChooseDesktop
+            : l.approvedBodyChooseTouch),
+        _account(l, account),
+      ),
+      start: start,
+    );
+    List<Widget> choose() => [
+      primary(l.continueButton, _choose(login!)),
+      outline(l.notMyAccount, () => unawaited(_signIn.notMine())),
+    ];
+    if (phase == LoginPhase.choosing &&
+        identical(t.s, ShikooSizes.desktop) &&
+        MediaQuery.sizeOf(context).width >=
+            2 * t.s.safeX + t.s.pane + Space.s10 + ShikooSizes.splitButtons) {
+      return _split(chosen(start: true), choose(), _checklist(login!));
+    }
     final (Widget middle, List<Widget> actions) = switch (phase) {
       null || LoginPhase.starting => (
         const _BrandBlock(),
@@ -392,25 +415,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: Space.s4,
-          children: [
-            ResultBlock(
-              icon: ShikooIcon.check,
-              tone: ResultTone.positive,
-              title: l.approvedTitle,
-              body: sayWith(
-                (shikooDesktop
-                    ? l.approvedBodyChooseDesktop
-                    : l.approvedBodyChooseTouch),
-                _account(l, account),
-              ),
-            ),
-            _checklist(login!),
-          ],
+          children: [chosen(), _checklist(login!)],
         ),
-        [
-          primary(l.continueButton, _choose(login)),
-          outline(l.notMyAccount, () => unawaited(_signIn.notMine())),
-        ],
+        choose(),
       ),
       LoginPhase.servicesFailed => (
         ResultBlock(
@@ -484,6 +491,50 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
+  /// `.split` in win-fit.html, a wide computer window's `tv-p3a-login`: the result and its
+  /// buttons at the start, the checklist beside them, each column scrolling on its own.
+  Widget _split(Widget result, List<Widget> actions, Widget list) {
+    final s = ShikooTheme.of(context).s;
+    Widget column(Widget child) => FocusTraversalGroup(
+      child: Center(
+        child: _EdgeScroll(
+          padding: const EdgeInsets.symmetric(vertical: Space.s6),
+          child: child,
+        ),
+      ),
+    );
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: s.safeX),
+      child: Row(
+        spacing: Space.s10,
+        children: [
+          Expanded(
+            child: column(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: Space.s6,
+                children: [
+                  result,
+                  Center(
+                    child: SizedBox(
+                      width: ShikooSizes.splitButtons,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: Space.s4,
+                        children: actions,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(width: s.pane, child: column(list)),
+        ],
+      ),
+    );
+  }
+
   /// `.alt-login`: the code for a phone with Telegram's camera, or a computer's keyboard.
   Widget _phoneOtherDevice(BuildContext context, ShikooLogin? login) {
     final t = ShikooTheme.of(context);
@@ -491,6 +542,45 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final s = t.s;
     final lead = t.text(s.body, height: Leading.body);
     final phase = login?.phase;
+    final button =
+        phase == LoginPhase.startFailed || phase == LoginPhase.expired;
+    final before = [
+      Text(
+        shikooDesktop ? l.otherDeviceScanDesktop : l.otherDeviceScan,
+        textAlign: TextAlign.center,
+        style: lead,
+      ),
+      _Qr(login: login),
+      if (phase != LoginPhase.startFailed) ...[
+        Text(l.otherDeviceComputer, textAlign: TextAlign.center, style: lead),
+        _CodeBox(login: login),
+      ],
+    ];
+    final after = [
+      if (button)
+        ShikooButton(
+          label: phase == LoginPhase.expired ? l.newCode : l.retry,
+          icon: ShikooIcon.refresh,
+          primary: true,
+          onPressed: () => unawaited(_signIn.start()),
+        ),
+      if (phase == LoginPhase.startFailed && login!.clock)
+        const DateSettingsButton(),
+      Text(
+        phase != LoginPhase.startFailed
+            ? l.otherDeviceFine
+            : (login!.clock
+                  ? clockText(l)
+                  : (shikooDesktop
+                        ? l.codeFailedHelpDesktop
+                        : l.codeFailedHelpTouch)),
+        textAlign: TextAlign.center,
+        style: t.text(s.bodySm, color: t.c.textMuted, height: Leading.body),
+      ),
+    ];
+    Widget column(List<Widget> children) => PaneColumn(
+      child: Column(spacing: Space.s4, children: children),
+    );
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -517,64 +607,40 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                Space.s6,
-                Space.s2,
-                Space.s6,
-                Space.s10,
-              ),
-              child: PaneColumn(
-                child: Column(
-                  spacing: Space.s4,
-                  children: [
-                    Text(
-                      shikooDesktop
-                          ? l.otherDeviceScanDesktop
-                          : l.otherDeviceScan,
-                      textAlign: TextAlign.center,
-                      style: lead,
+            child: button && identical(s, ShikooSizes.desktop)
+                ? _StuckButtons(
+                    packed: true,
+                    trailing: Space.s10 - Space.s6,
+                    head: const SizedBox.shrink(),
+                    body: _EdgeScroll(
+                      divider: true,
+                      padding: const EdgeInsets.fromLTRB(
+                        Space.s6,
+                        Space.s2,
+                        Space.s6,
+                        Space.s4 - Space.s3,
+                      ),
+                      child: column(before),
                     ),
-                    _Qr(login: login),
-                    if (phase != LoginPhase.startFailed) ...[
-                      Text(
-                        l.otherDeviceComputer,
-                        textAlign: TextAlign.center,
-                        style: lead,
+                    foot: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Space.s6,
+                        Space.s3,
+                        Space.s6,
+                        Space.s6,
                       ),
-                      _CodeBox(login: login),
-                    ],
-                    if (phase == LoginPhase.startFailed ||
-                        phase == LoginPhase.expired)
-                      ShikooButton(
-                        label: phase == LoginPhase.expired
-                            ? l.newCode
-                            : l.retry,
-                        icon: ShikooIcon.refresh,
-                        primary: true,
-                        onPressed: () => unawaited(_signIn.start()),
-                      ),
-                    if (phase == LoginPhase.startFailed && login!.clock)
-                      const DateSettingsButton(),
-                    Text(
-                      phase != LoginPhase.startFailed
-                          ? l.otherDeviceFine
-                          : (login!.clock
-                                ? clockText(l)
-                                : (shikooDesktop
-                                      ? l.codeFailedHelpDesktop
-                                      : l.codeFailedHelpTouch)),
-                      textAlign: TextAlign.center,
-                      style: t.text(
-                        s.bodySm,
-                        color: t.c.textMuted,
-                        height: Leading.body,
-                      ),
+                      child: column(after),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      Space.s6,
+                      Space.s2,
+                      Space.s6,
+                      Space.s10,
+                    ),
+                    child: column([...before, ...after]),
+                  ),
           ),
         ],
       ),
@@ -944,7 +1010,8 @@ List<InlineSpan> _account(ShikooL10n l, TelegramAccount? who) {
   ]);
 }
 
-/// Fills the screen and scrolls only when large text does not fit.
+/// Fills the screen and scrolls only when large text does not fit; on a computer only what is above
+/// the buttons scrolls, they keep to the bottom.
 class FillPage extends StatelessWidget {
   const FillPage({
     super.key,
@@ -970,9 +1037,41 @@ class FillPage extends StatelessWidget {
       spacing: Space.s4,
       children: bottom,
     );
-    // A window far taller than a phone would split them into two islands: they stay one group.
-    final grouped =
-        !packed && identical(ShikooTheme.of(context).s, ShikooSizes.desktop);
+    if (identical(ShikooTheme.of(context).s, ShikooSizes.desktop)) {
+      // A window far taller than a phone would split them into two islands: they stay one group.
+      return _StuckButtons(
+        packed: packed,
+        trailing: Space.s4 + padding.bottom,
+        head: Padding(
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            padding.top,
+            padding.right,
+            0,
+          ),
+          child: top,
+        ),
+        body: _EdgeScroll(
+          divider: true,
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            Space.s4,
+            padding.right,
+            (packed ? Space.s4 : Space.s6) - Space.s3,
+          ),
+          child: PaneColumn(child: middle),
+        ),
+        foot: Padding(
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            Space.s3,
+            padding.right,
+            0,
+          ),
+          child: PaneColumn(child: actions),
+        ),
+      );
+    }
     return LayoutBuilder(
       builder: (context, box) => SingleChildScrollView(
         padding: padding,
@@ -991,22 +1090,175 @@ class FillPage extends StatelessWidget {
               PaneColumn(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: Space.s4),
-                  child: grouped
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          spacing: Space.s6,
-                          children: [middle, actions],
-                        )
-                      : middle,
+                  child: middle,
                 ),
               ),
-              if (grouped)
-                const SizedBox.shrink()
-              else
-                PaneColumn(child: actions),
+              PaneColumn(child: actions),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+enum _Part { head, body, foot }
+
+/// `.stuck` in win-fit.html, a computer only: [head], [body] and [foot] as one group while they
+/// fit, centred unless [packed], with [trailing] under it; once they do not, [foot] keeps to the
+/// bottom and [body] scrolls between. Laid out at once, so the buttons never show cut for a frame.
+class _StuckButtons extends StatelessWidget {
+  const _StuckButtons({
+    required this.head,
+    required this.body,
+    required this.foot,
+    required this.trailing,
+    this.packed = false,
+  });
+
+  final Widget head;
+  final Widget body;
+  final Widget foot;
+  final double trailing;
+  final bool packed;
+
+  @override
+  Widget build(BuildContext context) => CustomMultiChildLayout(
+    delegate: _StuckLayout(trailing: trailing, packed: packed),
+    children: [
+      LayoutId(id: _Part.head, child: head),
+      LayoutId(id: _Part.body, child: body),
+      LayoutId(id: _Part.foot, child: foot),
+    ],
+  );
+}
+
+class _StuckLayout extends MultiChildLayoutDelegate {
+  _StuckLayout({required this.trailing, required this.packed});
+
+  final double trailing;
+  final bool packed;
+
+  @override
+  void performLayout(Size size) {
+    // Unbounded: an Align or a PaneColumn in the head or foot would otherwise take the whole page.
+    final natural = BoxConstraints.tightFor(width: size.width);
+    final head = layoutChild(_Part.head, natural).height;
+    final foot = layoutChild(_Part.foot, natural).height;
+    final room = size.height - head - foot;
+    final body = layoutChild(
+      _Part.body,
+      natural.copyWith(maxHeight: math.max(0, room)),
+    ).height;
+    positionChild(_Part.head, Offset.zero);
+    final free = room - body - trailing;
+    if (free < 0) {
+      positionChild(_Part.body, Offset(0, head));
+      positionChild(_Part.foot, Offset(0, size.height - foot));
+      return;
+    }
+    final top = head + (packed ? 0 : free / 2);
+    positionChild(_Part.body, Offset(0, top));
+    positionChild(_Part.foot, Offset(0, top + body));
+  }
+
+  @override
+  bool shouldRelayout(_StuckLayout old) =>
+      old.trailing != trailing || old.packed != packed;
+}
+
+/// A computer's scrolling region: its bar drawn whenever there is more to see, the cut edge
+/// faded, and with [divider] a line where it meets the buttons stuck under it.
+class _EdgeScroll extends StatefulWidget {
+  const _EdgeScroll({
+    required this.padding,
+    this.divider = false,
+    required this.child,
+  });
+
+  final EdgeInsets padding;
+  final bool divider;
+  final Widget child;
+
+  @override
+  State<_EdgeScroll> createState() => _EdgeScrollState();
+}
+
+class _EdgeScrollState extends State<_EdgeScroll> {
+  final _scroll = ScrollController();
+  bool _scrolls = false;
+  bool _more = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  bool _measure(Notification notification) {
+    if (notification
+        case ScrollMetricsNotification(depth: 0, :final metrics) ||
+            ScrollUpdateNotification(depth: 0, :final metrics)) {
+      final scrolls = metrics.maxScrollExtent > 0;
+      final more = metrics.extentAfter > 0;
+      if (scrolls != _scrolls || more != _more) {
+        setState(() {
+          _scrolls = scrolls;
+          _more = more;
+        });
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ShikooTheme.of(context).c;
+    return NotificationListener<Notification>(
+      onNotification: _measure,
+      child: Stack(
+        children: [
+          Scrollbar(
+            controller: _scroll,
+            thumbVisibility: true,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
+              child: SingleChildScrollView(
+                controller: _scroll,
+                padding: widget.padding,
+                child: widget.child,
+              ),
+            ),
+          ),
+          if (_more)
+            PositionedDirectional(
+              start: 0,
+              end: 0,
+              bottom: 0,
+              height: ShikooSizes.fade,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [c.bg.withValues(alpha: 0), c.bg],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (widget.divider && _scrolls)
+            PositionedDirectional(
+              start: 0,
+              end: 0,
+              bottom: 0,
+              height: 1,
+              child: ColoredBox(color: c.border),
+            ),
+        ],
       ),
     );
   }

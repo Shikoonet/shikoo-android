@@ -332,6 +332,10 @@ class ShikooSizes {
   static const windowStart = Size(880, 540);
   static const windowMin = Size(400, 480);
   static const twoColumns = 620.0;
+
+  /// `.split .copy .actions-col` in win-fit.html: the buttons beside the sign-in checklist, and the
+  /// narrowest their column gets before the page is one column again.
+  static const splitButtons = 300.0;
   static const pageMax = 960.0;
   static const titleBar = 32.0;
   static const captionButton = 46.0;
