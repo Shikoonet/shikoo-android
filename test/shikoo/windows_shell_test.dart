@@ -158,6 +158,22 @@ void main() {
     );
   });
 
+  test('sign-in keeps asking while Telegram or a browser has the focus '
+      '(inactive), and stops once the window is hidden or paused', () {
+    final app = File(
+      'lib/shikoo/app/app.dart',
+    ).readAsStringSync().replaceAll(RegExp(r'\s'), '');
+    expect(app, contains('finalresumed=state==AppLifecycleState.resumed;'));
+    expect(
+      app,
+      contains(
+        'ref.read(shikooControllerProvider)..foreground=resumed;'
+        'finalsignIn=ref.read(shikooSignInProvider)'
+        '..foreground=resumed||state==AppLifecycleState.inactive;',
+      ),
+    );
+  });
+
   test('started by Windows the app opens beside the clock, by hand in its '
       'window', () {
     addTearDown(() => shikooAutostarted = false);

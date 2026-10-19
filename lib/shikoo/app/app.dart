@@ -178,7 +178,8 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (!_attached) return;
     final resumed = state == AppLifecycleState.resumed;
     final controller = ref.read(shikooControllerProvider)..foreground = resumed;
-    final signIn = ref.read(shikooSignInProvider)..foreground = resumed;
+    final signIn = ref.read(shikooSignInProvider)
+      ..foreground = resumed || state == AppLifecycleState.inactive;
     if (resumed) {
       controller.onForeground();
       signIn.onForeground();
