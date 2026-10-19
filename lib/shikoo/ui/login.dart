@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
@@ -18,6 +17,7 @@ import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -619,7 +619,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ? _StuckButtons(
                     packed: true,
                     trailing: Space.s10 - Space.s6,
-                    head: const SizedBox.shrink(),
                     body: _EdgeScroll(
                       divider: true,
                       padding: const EdgeInsets.fromLTRB(
@@ -1049,25 +1048,26 @@ class FillPage extends StatelessWidget {
       // A window far taller than a phone would split them into two islands: they stay one group.
       return _StuckButtons(
         packed: packed,
-        trailing: Space.s4 + padding.bottom,
-        head: Padding(
-          padding: EdgeInsets.fromLTRB(
-            padding.left,
-            padding.top,
-            padding.right,
-            0,
-          ),
-          child: top,
-        ),
+        trailing: packed ? padding.bottom : Space.s4 + padding.bottom,
         body: _EdgeScroll(
           divider: true,
           padding: EdgeInsets.fromLTRB(
             padding.left,
-            Space.s4,
+            padding.top,
             padding.right,
             (packed ? Space.s4 : Space.s6) - Space.s3,
           ),
-          child: PaneColumn(child: middle),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              top,
+              Padding(
+                padding: const EdgeInsets.only(top: Space.s4),
+                child: PaneColumn(child: middle),
+              ),
+            ],
+          ),
         ),
         foot: Padding(
           padding: EdgeInsets.fromLTRB(
@@ -1110,69 +1110,120 @@ class FillPage extends StatelessWidget {
   }
 }
 
-enum _Part { head, body, foot }
-
-/// `.stuck` in win-fit.html, a computer only: [head], [body] and [foot] as one group while they
-/// fit, centred unless [packed], with [trailing] under it; once they do not, [foot] keeps to the
-/// bottom and [body] scrolls between. Laid out at once, so the buttons never show cut for a frame.
+/// `.stuck` in win-fit.html, a computer only: [body] and [foot] as one group while they fit,
+/// centred unless [packed], with [trailing] under it; once they do not, [foot] keeps to the
+/// bottom and [body] scrolls above it; a [foot] taller than the window scrolls with the page.
 class _StuckButtons extends StatelessWidget {
   const _StuckButtons({
-    required this.head,
     required this.body,
     required this.foot,
     required this.trailing,
     this.packed = false,
   });
 
-  final Widget head;
   final Widget body;
   final Widget foot;
   final double trailing;
   final bool packed;
 
   @override
-  Widget build(BuildContext context) => CustomMultiChildLayout(
-    delegate: _StuckLayout(trailing: trailing, packed: packed),
-    children: [
-      LayoutId(id: _Part.head, child: head),
-      LayoutId(id: _Part.body, child: body),
-      LayoutId(id: _Part.foot, child: foot),
-    ],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) => _EdgeScroll(
+      padding: EdgeInsets.zero,
+      child: _Stuck(
+        page: box.maxHeight,
+        trailing: trailing,
+        packed: packed,
+        children: [body, foot],
+      ),
+    ),
   );
 }
 
-class _StuckLayout extends MultiChildLayoutDelegate {
-  _StuckLayout({required this.trailing, required this.packed});
+class _Stuck extends MultiChildRenderObjectWidget {
+  const _Stuck({
+    required this.page,
+    required this.trailing,
+    required this.packed,
+    required super.children,
+  });
 
+  final double page;
   final double trailing;
   final bool packed;
 
   @override
-  void performLayout(Size size) {
-    // Unbounded: an Align or a PaneColumn in the head or foot would otherwise take the whole page.
-    final natural = BoxConstraints.tightFor(width: size.width);
-    final head = layoutChild(_Part.head, natural).height;
-    final foot = layoutChild(_Part.foot, natural).height;
-    final room = size.height - head - foot;
-    final body = layoutChild(
-      _Part.body,
-      natural.copyWith(maxHeight: math.max(0, room)),
-    ).height;
-    positionChild(_Part.head, Offset.zero);
-    final free = room - body - trailing;
-    if (free < 0) {
-      positionChild(_Part.body, Offset(0, head));
-      positionChild(_Part.foot, Offset(0, size.height - foot));
-      return;
-    }
-    final top = head + (packed ? 0 : free / 2);
-    positionChild(_Part.body, Offset(0, top));
-    positionChild(_Part.foot, Offset(0, top + body));
+  _RenderStuck createRenderObject(BuildContext context) =>
+      _RenderStuck()..set(page, trailing, packed);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderStuck renderObject) =>
+      renderObject.set(page, trailing, packed);
+}
+
+class _RenderStuck extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  double _page = 0;
+  double _trailing = 0;
+  bool _packed = false;
+
+  void set(double page, double trailing, bool packed) {
+    if (page == _page && trailing == _trailing && packed == _packed) return;
+    _page = page;
+    _trailing = trailing;
+    _packed = packed;
+    markNeedsLayout();
   }
 
   @override
-  bool shouldRelayout(_StuckLayout old) =>
-      old.trailing != trailing || old.packed != packed;
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MultiChildLayoutParentData) {
+      child.parentData = MultiChildLayoutParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final body = firstChild!;
+    final foot = childAfter(body)!;
+    final width = constraints.maxWidth;
+    foot.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    final room = _page - foot.size.height;
+    // Loose first: the body's own height while it fits, and the same scroll extent it ends with.
+    body.layout(
+      BoxConstraints(
+        minWidth: width,
+        maxWidth: width,
+        maxHeight: room < 0 ? double.infinity : room,
+      ),
+      parentUsesSize: true,
+    );
+    final free = room - body.size.height - _trailing;
+    if (room >= 0 && free > 0 && !_packed) {
+      body.layout(
+        BoxConstraints.tightFor(
+          width: width,
+          height: body.size.height + free / 2,
+        ),
+        parentUsesSize: true,
+      );
+    }
+    final under = room >= 0 && free < 0 ? room : body.size.height;
+    (foot.parentData! as MultiChildLayoutParentData).offset = Offset(0, under);
+    size = constraints.constrain(
+      Size(width, room < 0 ? under + foot.size.height + _trailing : _page),
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// A computer's scrolling region: its bar drawn whenever there is more to see, the cut edge
@@ -1226,6 +1277,7 @@ class _EdgeScrollState extends State<_EdgeScroll> {
     return NotificationListener<Notification>(
       onNotification: _measure,
       child: Stack(
+        fit: StackFit.passthrough,
         children: [
           RawScrollbar(
             controller: _scroll,
@@ -1242,10 +1294,19 @@ class _EdgeScrollState extends State<_EdgeScroll> {
                 skipTraversal: true,
                 onFocusChange: (inside) =>
                     setState(() => _focusInside = inside),
-                child: SingleChildScrollView(
-                  controller: _scroll,
-                  padding: widget.padding,
-                  child: widget.child,
+                child: LayoutBuilder(
+                  builder: (context, box) => SingleChildScrollView(
+                    controller: _scroll,
+                    padding: widget.padding,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: box.hasTightHeight
+                            ? box.maxHeight - widget.padding.vertical
+                            : 0,
+                      ),
+                      child: widget.child,
+                    ),
+                  ),
                 ),
               ),
             ),

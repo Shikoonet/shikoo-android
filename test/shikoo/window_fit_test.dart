@@ -4,6 +4,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
+import 'package:fl_clash/shikoo/ui/settings.dart' show Segmented;
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/services.dart';
@@ -43,11 +44,15 @@ Future<void> _pump(
   bool tv = false,
   ShikooLogin? login,
   UpdateOffer? offer,
+  String language = 'fa',
+  double text = 1,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
     ..physicalSize = page
     ..devicePixelRatio = 1;
+  tester.platformDispatcher.textScaleFactorTestValue = text;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   tester.platformDispatcher.accessibilityFeaturesTestValue =
       const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(tester.view.reset);
@@ -80,7 +85,7 @@ Future<void> _pump(
       key: UniqueKey(),
       container: container,
       child: MaterialApp(
-        locale: const Locale('fa'),
+        locale: Locale(language),
         supportedLocales: ShikooL10n.supportedLocales,
         localizationsDelegates: const [
           ShikooL10n.delegate,
@@ -117,8 +122,107 @@ final _pinnedBar = find.byWidgetPredicate(
   (w) => w is RawScrollbar && (w.thumbVisibility ?? false),
 );
 
+/// [found]'s rect as far as every scrolling region round it lets it show.
+Rect _seen(Element found) {
+  final box = found.renderObject! as RenderBox;
+  var seen = box.localToGlobal(Offset.zero) & box.size;
+  for (
+    var scroll = Scrollable.maybeOf(found);
+    scroll != null;
+    scroll = Scrollable.maybeOf(scroll.context)
+  ) {
+    final port = scroll.context.findRenderObject()! as RenderBox;
+    seen = seen.intersect(port.localToGlobal(Offset.zero) & port.size);
+  }
+  return seen;
+}
+
+/// Each pair of drawn parts that are seen on top of each other.
+List<String> _overlaps(WidgetTester tester) {
+  final parts = [
+    for (final type in [
+      ShikooButton,
+      LinkButton,
+      MessageBox,
+      BrandMark,
+      Segmented<String>,
+    ])
+      ...find.byType(type).evaluate(),
+  ];
+  return [
+    for (final (i, a) in parts.indexed)
+      for (final b in parts.skip(i + 1))
+        if (_seen(a) case final r when !r.isEmpty && r.overlaps(_seen(b)))
+          '${a.widget.runtimeType} on ${b.widget.runtimeType}',
+  ];
+}
+
 void main() {
   setUpAll(loadShikooFonts);
+
+  testWidgets('with large text in the smallest window the top scrolls under '
+      'the buttons and nothing is drawn over anything; buttons taller than '
+      'the window scroll with the page', (tester) async {
+    final wrong = <String>[];
+    Future<void> check(
+      Size page,
+      ShikooLogin login,
+      String language,
+      double text,
+    ) async {
+      await _pump(tester, page, login: login, language: language, text: text);
+      final name =
+          '${login.clock ? 'clock' : 'startFailed'} $language $text '
+          '$page';
+      for (final over in _overlaps(tester)) {
+        wrong.add('$name: $over');
+      }
+      for (final label in _hidden(tester, page.height)) {
+        final button = tester.element(
+          find.byWidgetPredicate(
+            (w) =>
+                (w is ShikooButton && w.label == label) ||
+                (w is LinkButton && w.label == label),
+          ),
+        );
+        await tester.ensureVisible(find.byWidget(button.widget));
+        await tester.pumpAndSettle();
+        if (_hidden(tester, page.height).contains(label)) {
+          wrong.add('$name: $label never reached');
+        }
+      }
+    }
+
+    const clock = ShikooLogin(LoginPhase.startFailed, clock: true);
+    for (final language in ['fa', 'en']) {
+      for (final text in [1.25, 1.5]) {
+        await check(const Size(400, 448), clock, language, text);
+      }
+    }
+    for (final width in [400.0, 600.0, 787.0, 788.0]) {
+      await check(
+        Size(width, 448),
+        const ShikooLogin(LoginPhase.startFailed),
+        'en',
+        1.5,
+      );
+    }
+    expect(wrong, isEmpty);
+  }, variant: _windows);
+
+  testWidgets("a narrow window's checklist keeps its buttons right under "
+      'it while they fit', (tester) async {
+    await _pump(tester, const Size(600, 448), login: _choosing(1));
+    final row = find.ancestor(
+      of: find.text(bidiName(_services(1).first.title)),
+      matching: find.byType(Pressable),
+    );
+    expect(
+      tester.getRect(_button(_l.continueButton)).top -
+          tester.getRect(row).bottom,
+      Space.s4,
+    );
+  }, variant: _windows);
 
   testWidgets('in the smallest window and in both of Sam\'s, no button or link '
       'of a sign-in, forced-update or other-device page is under the edge', (
@@ -212,7 +316,7 @@ void main() {
       greaterThan(0),
     );
     final bar = tester.widget<RawScrollbar>(
-      find.ancestor(of: question, matching: _pinnedBar),
+      find.ancestor(of: question, matching: _pinnedBar).first,
     );
     expect(
       (bar.thickness, bar.thumbColor),
