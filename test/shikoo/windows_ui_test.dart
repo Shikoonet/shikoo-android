@@ -1049,9 +1049,12 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     }, variant: _windows);
 
-    testWidgets('at 100% text the line fits the short windows with no scroll; '
-        'at 125 and 150% the button column scrolls under a drawn bar, and '
-        'the line can be scrolled wholly into view', (tester) async {
+    testWidgets('at 100% text the line is whole in the short windows without '
+        "a scroll, which at most passes the message's kept room; at 125 and "
+        '150% the button column scrolls under a drawn bar, and the line can be '
+        'scrolled wholly into view; the narrow window draws its bar too', (
+      tester,
+    ) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       for (final language in ['fa', 'en']) {
         for (final window in const [
@@ -1068,7 +1071,16 @@ void main() {
               tester.element(find.byType(LocalProxy)),
             );
             if (scale == 1.0) {
-              expect(column.position.maxScrollExtent, 0, reason: why);
+              expect(
+                column.position.maxScrollExtent,
+                lessThanOrEqualTo(Space.s4),
+                reason: why,
+              );
+              expect(
+                tester.getRect(find.byType(LocalProxy)).bottom,
+                lessThanOrEqualTo(window.height),
+                reason: why,
+              );
               continue;
             }
             expect(
@@ -1093,6 +1105,78 @@ void main() {
           }
         }
       }
+      tester.platformDispatcher.textScaleFactorTestValue = 1;
+      await _pumpHome(tester, const Size(400, 448));
+      expect(
+        find.ancestor(
+          of: find.byType(LocalProxy),
+          matching: find.byWidgetPredicate(
+            (w) => w is RawScrollbar && (w.thumbVisibility ?? false),
+          ),
+        ),
+        findsOne,
+      );
+    }, variant: _windows);
+
+    testWidgets("in Sam's 864 × 492 window an error under the button can be "
+        'scrolled to stand Space.s4 clear of the bottom, as it stands in the '
+        '880 × 540 one; the focus ring of «کپی» keeps off the address', (
+      tester,
+    ) async {
+      final cases = [
+        (l.vpnRefusedDesktop, ShikooError.vpnRefused, null, false),
+        (l.busyPortDesktop, null, 7890, false),
+        (l.helperFailedDesktop, null, null, true),
+        (l.noServerAnsweredHelpDesktop, ShikooError.noServer, null, false),
+      ];
+      for (final window in const [Size(864, 492), Size(880, 508)]) {
+        for (final (text, error, port, helper) in cases) {
+          await _pumpHome(
+            tester,
+            window,
+            connection: ShikooConnection.error,
+            error: error,
+            busyPort: port,
+            helperFailed: helper,
+          );
+          await tester.pump();
+          final column = Scrollable.of(
+            tester.element(find.byType(PowerButton)),
+          ).position;
+          column.jumpTo(column.maxScrollExtent);
+          await tester.pump();
+          expect(
+            window.height - tester.getRect(find.text(text)).bottom,
+            greaterThanOrEqualTo(Space.s4),
+            reason: '$window: $text',
+          );
+        }
+      }
+
+      await _pumpHome(tester, const Size(880, 508));
+      final copy = find.descendant(
+        of: find.byType(LocalProxy),
+        matching: find.byType(Pressable),
+      );
+      for (var i = 0; i < 40; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final focused = FocusManager.instance.primaryFocus?.context;
+        if (focused != null &&
+            find
+                .descendant(
+                  of: copy,
+                  matching: find.byElementPredicate((e) => e == focused),
+                )
+                .evaluate()
+                .isNotEmpty) {
+          break;
+        }
+      }
+      const reach = ShikooSizes.focusRingOffset + ShikooSizes.focusRingWidth;
+      final ring = tester.getRect(copy).inflate(reach);
+      final address = tester.getRect(find.text(localProxyAddress));
+      expect(ring.overlaps(address), isFalse, reason: '$ring on $address');
     }, variant: _windows);
 
     testWidgets('a phone keeps its home without the local proxy line', (
@@ -1386,8 +1470,8 @@ void main() {
                 );
                 expect(
                   window.height - box.bottom,
-                  greaterThan(Space.s2),
-                  reason: '$why: the local proxy line takes its room',
+                  greaterThanOrEqualTo(Space.s4),
+                  reason: why,
                 );
               }
             }
@@ -1857,8 +1941,8 @@ void main() {
         tester.getRect(find.byType(PowerButton)).top -
         ShikooSizes.desktop.appbar;
     final below = window.height - message.bottom;
-    expect(below, greaterThan(Space.s2));
-    expect(above, closeTo(below, 1));
+    expect(below, greaterThanOrEqualTo(Space.s4));
+    expect(above, closeTo(below - Space.s4, 1));
   }, variant: _windows);
 
   testWidgets('a window wider than 960 keeps the 960 page, top bars too, '

@@ -1494,11 +1494,13 @@ class EdgeScroll extends StatefulWidget {
   const EdgeScroll({
     super.key,
     required this.padding,
+    this.controller,
     this.divider = false,
     required this.child,
   });
 
   final EdgeInsetsGeometry padding;
+  final ScrollController? controller;
   final bool divider;
   final Widget child;
 
@@ -1507,14 +1509,17 @@ class EdgeScroll extends StatefulWidget {
 }
 
 class _EdgeScrollState extends State<EdgeScroll> {
-  final _scroll = ScrollController();
+  ScrollController? _own;
   bool _scrolls = false;
-  bool _more = false;
+  double _fade = 0;
   bool _focusInside = false;
+
+  ScrollController get _scroll =>
+      widget.controller ?? (_own ??= ScrollController());
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _own?.dispose();
     super.dispose();
   }
 
@@ -1523,11 +1528,12 @@ class _EdgeScrollState extends State<EdgeScroll> {
         case ScrollMetricsNotification(depth: 0, :final metrics) ||
             ScrollUpdateNotification(depth: 0, :final metrics)) {
       final scrolls = metrics.maxScrollExtent > 0;
-      final more = metrics.extentAfter > 0;
-      if (scrolls != _scrolls || more != _more) {
+      // No taller than what is left below, so a short scroll's last line is not faded.
+      final fade = metrics.extentAfter.clamp(0.0, ShikooSizes.fade);
+      if (scrolls != _scrolls || fade != _fade) {
         setState(() {
           _scrolls = scrolls;
-          _more = more;
+          _fade = fade;
         });
       }
     }
@@ -1577,12 +1583,12 @@ class _EdgeScrollState extends State<EdgeScroll> {
               ),
             ),
           ),
-          if (_more && !_focusInside)
+          if (_fade > 0 && !_focusInside)
             PositionedDirectional(
               start: 0,
               end: 0,
               bottom: 0,
-              height: ShikooSizes.fade,
+              height: _fade,
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(

@@ -175,7 +175,7 @@ class _LocalProxyState extends State<LocalProxy> {
         padding: const EdgeInsetsDirectional.only(start: Space.s3),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          spacing: Space.s1,
+          spacing: Space.s2,
           children: [
             SelectableText(
               localProxyAddress,

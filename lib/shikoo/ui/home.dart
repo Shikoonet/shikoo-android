@@ -715,33 +715,37 @@ class _PhoneLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = ShikooTheme.of(context).s;
-    return SafeArea(
-      bottom: false,
-      child: SingleChildScrollView(
-        controller: scroll,
-        padding: EdgeInsets.only(
-          bottom: math.max(
-            Space.s6 + MediaQuery.paddingOf(context).bottom,
-            room + Space.s3,
+    final padding = EdgeInsets.only(
+      bottom: math.max(
+        Space.s6 + MediaQuery.paddingOf(context).bottom,
+        room + Space.s3,
+      ),
+    );
+    final page = Column(
+      children: [
+        _AppBar(onAdd: onAdd),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: s.safeX),
+          child: Column(
+            children: [
+              const SizedBox(height: Space.s2),
+              power,
+              const SizedBox(height: Space.s2 + Space.s3),
+              card,
+            ],
           ),
         ),
-        child: Column(
-          children: [
-            _AppBar(onAdd: onAdd),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: s.safeX),
-              child: Column(
-                children: [
-                  const SizedBox(height: Space.s2),
-                  power,
-                  const SizedBox(height: Space.s2 + Space.s3),
-                  card,
-                ],
-              ),
+      ],
+    );
+    return SafeArea(
+      bottom: false,
+      child: shikooDesktop
+          ? EdgeScroll(controller: scroll, padding: padding, child: page)
+          : SingleChildScrollView(
+              controller: scroll,
+              padding: padding,
+              child: page,
             ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -830,8 +834,11 @@ class _WideLayout extends StatelessWidget {
                 Expanded(
                   child: FocusTraversalGroup(
                     child: EdgeScroll(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: ShikooSizes.scrollbar,
+                      padding: const EdgeInsets.fromLTRB(
+                        ShikooSizes.scrollbar,
+                        0,
+                        ShikooSizes.scrollbar,
+                        Space.s4,
                       ),
                       child: Center(child: power),
                     ),
