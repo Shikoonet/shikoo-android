@@ -847,6 +847,7 @@ void main() {
       verifyNever(controller.connect);
       row('پروکسی').run();
       await tester.idle();
+      verify(() => controller.setMode(ShikooMode.proxy)).called(1);
       expect(container.read(shikooModeProvider), ShikooMode.proxy);
       expect(icons.last, endsWith('status_2.ico'), reason: 'the proxy fox');
       expect(popup.view?.menu.rows.map((row) => row?.dot), [
