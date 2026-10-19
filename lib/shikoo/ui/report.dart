@@ -794,6 +794,7 @@ class SwitchRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(Radii.lg),
     );
     const pad = (ShikooSizes.switchH - ShikooSizes.switchThumb) / 2;
+    final knob = on ? ShikooSizes.switchThumb : ShikooSizes.switchThumbOff;
     return Pressable(
       shape: shape,
       onPressed: () => onChanged(!on),
@@ -829,11 +830,10 @@ class SwitchRow extends StatelessWidget {
                 width: ShikooSizes.switchW,
                 height: ShikooSizes.switchH,
                 padding: const EdgeInsets.all(pad),
-                alignment: on
-                    ? AlignmentDirectional.centerEnd
-                    : AlignmentDirectional.centerStart,
+                // Sam's rule, not the reading direction: on at the right, off at the left, in Persian too.
+                alignment: on ? Alignment.centerRight : Alignment.centerLeft,
                 decoration: ShapeDecoration(
-                  color: on ? t.c.primary : t.c.surfaceSunken,
+                  color: on ? t.c.positive : t.c.surfaceSunken,
                   shape: const StadiumBorder(),
                 ),
                 // A foreground, as the mockup's inset box-shadow: a border would shrink the thumb.
@@ -842,17 +842,31 @@ class SwitchRow extends StatelessWidget {
                     : ShapeDecoration(
                         shape: StadiumBorder(
                           side: BorderSide(
-                            color: t.c.outline,
+                            color: t.c.textMuted,
                             width: ShikooSizes.borderRadio,
                           ),
                         ),
                       ),
-                child: Container(
-                  width: ShikooSizes.switchThumb,
-                  height: ShikooSizes.switchThumb,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: on ? t.c.onPrimary : t.c.textMuted,
+                child: SizedBox.square(
+                  dimension: ShikooSizes.switchThumb,
+                  child: Center(
+                    child: Container(
+                      width: knob,
+                      height: knob,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: on ? t.c.onPositive : t.c.textMuted,
+                      ),
+                      child: on
+                          ? SvgIcon(
+                              ShikooIcon.check,
+                              size: s.iconSm,
+                              stroke: ShikooSizes.iconStrokeStrong,
+                              color: t.c.positive,
+                            )
+                          : null,
+                    ),
                   ),
                 ),
               ),

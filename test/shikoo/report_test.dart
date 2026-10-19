@@ -370,6 +370,33 @@ void main() {
     await loadShikooFonts();
   });
 
+  testWidgets('a switch is on with its thumb at the right and off at the left, '
+      'in Persian and in English alike', (tester) async {
+    Future<double> thumb({required bool on, required TextDirection way}) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: way,
+          child: Theme(
+            data: shikooThemeData(Brightness.light, tv: false),
+            child: Center(
+              child: SwitchRow(label: 'x', on: on, onChanged: (_) {}),
+            ),
+          ),
+        ),
+      );
+      final track = find.byWidgetPredicate(
+        (w) => w is Container && w.constraints?.maxWidth == ShikooSizes.switchW,
+      );
+      final knob = find.descendant(of: track, matching: find.byType(Center));
+      return tester.getCenter(knob).dx - tester.getCenter(track).dx;
+    }
+
+    for (final way in TextDirection.values) {
+      expect(await thumb(on: true, way: way), greaterThan(0), reason: '$way');
+      expect(await thumb(on: false, way: way), lessThan(0), reason: '$way');
+    }
+  });
+
   group('sending', () {
     testWidgets('a sent report shows its code in two groups of four, large '
         'without sign-in and small with it', (tester) async {

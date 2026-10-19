@@ -375,6 +375,9 @@ class ShikooSizes {
   static const switchW = 52.0;
   static const switchH = 32.0;
   static const switchThumb = 24.0;
+
+  /// `--size-switch-thumb-off` in switch.html: the off dot, centred where the on thumb would be.
+  static const switchThumbOff = 16.0;
   static const borderRadio = 2.0;
   static const checkbox = 20.0;
   static const iconStroke = 2.0;
