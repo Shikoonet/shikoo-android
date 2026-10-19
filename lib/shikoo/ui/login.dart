@@ -1112,7 +1112,7 @@ class FillPage extends StatelessWidget {
 
 /// `.stuck` in win-fit.html, a computer only: [body] and [foot] as one group while they fit,
 /// centred unless [packed], with [trailing] under it; once they do not, [foot] keeps to the
-/// bottom and [body] scrolls above it; a [foot] taller than the window scrolls with the page.
+/// bottom and [body] scrolls above it; with less room than a touch target the page scrolls as one.
 class _StuckButtons extends StatelessWidget {
   const _StuckButtons({
     required this.body,
@@ -1131,49 +1131,44 @@ class _StuckButtons extends StatelessWidget {
     builder: (context, box) => _EdgeScroll(
       padding: EdgeInsets.zero,
       child: _Stuck(
-        page: box.maxHeight,
-        trailing: trailing,
-        packed: packed,
+        look: (
+          page: box.maxHeight,
+          least: MediaQuery.textScalerOf(context).scale(ShikooSizes.touch),
+          trailing: trailing,
+          packed: packed,
+        ),
         children: [body, foot],
       ),
     ),
   );
 }
 
-class _Stuck extends MultiChildRenderObjectWidget {
-  const _Stuck({
-    required this.page,
-    required this.trailing,
-    required this.packed,
-    required super.children,
-  });
+typedef _Look = ({double page, double least, double trailing, bool packed});
 
-  final double page;
-  final double trailing;
-  final bool packed;
+class _Stuck extends MultiChildRenderObjectWidget {
+  const _Stuck({required this.look, required super.children});
+
+  final _Look look;
 
   @override
-  _RenderStuck createRenderObject(BuildContext context) =>
-      _RenderStuck()..set(page, trailing, packed);
+  _RenderStuck createRenderObject(BuildContext context) => _RenderStuck(look);
 
   @override
   void updateRenderObject(BuildContext context, _RenderStuck renderObject) =>
-      renderObject.set(page, trailing, packed);
+      renderObject.look = look;
 }
 
 class _RenderStuck extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
-  double _page = 0;
-  double _trailing = 0;
-  bool _packed = false;
+  _RenderStuck(this._look);
 
-  void set(double page, double trailing, bool packed) {
-    if (page == _page && trailing == _trailing && packed == _packed) return;
-    _page = page;
-    _trailing = trailing;
-    _packed = packed;
+  _Look _look;
+
+  set look(_Look look) {
+    if (look == _look) return;
+    _look = look;
     markNeedsLayout();
   }
 
@@ -1190,18 +1185,20 @@ class _RenderStuck extends RenderBox
     final foot = childAfter(body)!;
     final width = constraints.maxWidth;
     foot.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
-    final room = _page - foot.size.height;
+    final (:page, :least, :trailing, :packed) = _look;
+    final room = page - foot.size.height;
     // Loose first: the body's own height while it fits, and the same scroll extent it ends with.
     body.layout(
       BoxConstraints(
         minWidth: width,
         maxWidth: width,
-        maxHeight: room < 0 ? double.infinity : room,
+        maxHeight: room < least ? double.infinity : room,
       ),
       parentUsesSize: true,
     );
-    final free = room - body.size.height - _trailing;
-    if (room >= 0 && free > 0 && !_packed) {
+    final free = room - body.size.height - trailing;
+    final pinned = room >= least || free >= 0;
+    if (pinned && free > 0 && !packed) {
       body.layout(
         BoxConstraints.tightFor(
           width: width,
@@ -1210,10 +1207,10 @@ class _RenderStuck extends RenderBox
         parentUsesSize: true,
       );
     }
-    final under = room >= 0 && free < 0 ? room : body.size.height;
+    final under = pinned && free < 0 ? room : body.size.height;
     (foot.parentData! as MultiChildLayoutParentData).offset = Offset(0, under);
     size = constraints.constrain(
-      Size(width, room < 0 ? under + foot.size.height + _trailing : _page),
+      Size(width, pinned ? page : under + foot.size.height + trailing),
     );
   }
 
@@ -1301,7 +1298,10 @@ class _EdgeScrollState extends State<_EdgeScroll> {
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         minHeight: box.hasTightHeight
-                            ? box.maxHeight - widget.padding.vertical
+                            ? (box.maxHeight - widget.padding.vertical).clamp(
+                                0.0,
+                                double.infinity,
+                              )
                             : 0,
                       ),
                       child: widget.child,

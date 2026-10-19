@@ -210,6 +210,59 @@ void main() {
     expect(wrong, isEmpty);
   }, variant: _windows);
 
+  testWidgets('from 440 to 600 high at 100 to 150% text, a start error lays '
+      'out without an error, and its language switch can be scrolled wholly '
+      'into view', (tester) async {
+    final wrong = <String>[];
+    for (final language in ['fa', 'en']) {
+      final l = lookupShikooL10n(Locale(language));
+      for (final text in [1.0, 1.25, 1.5]) {
+        for (final (name, clock, other) in [
+          ('clock', true, false),
+          ('startFailed', false, false),
+          ('other device clock', true, true),
+        ]) {
+          await _pump(
+            tester,
+            const Size(400, 600),
+            login: ShikooLogin(LoginPhase.startFailed, clock: clock),
+            language: language,
+            text: text,
+          );
+          if (other) {
+            final link = find.text(l.noTelegramHereDesktop);
+            await tester.ensureVisible(link);
+            await tester.pumpAndSettle();
+            await tester.tap(link);
+            await tester.pumpAndSettle();
+          }
+          for (final height in [
+            452.0,
+            for (var h = 440.0; h <= 600; h += 4) h,
+          ]) {
+            final at = '$name $language $text $height';
+            tester.view.physicalSize = Size(400, height);
+            await tester.pumpAndSettle();
+            if (tester.takeException() case final error?) {
+              wrong.add('$at: $error');
+            }
+            final languages = find.byType(Segmented<String>);
+            if (languages.evaluate().isEmpty) continue;
+            await tester.ensureVisible(languages);
+            await tester.pumpAndSettle();
+            final seen = _seen(
+              tester.element(languages),
+            ).intersect(Offset.zero & Size(400, height));
+            if (seen.height < tester.getSize(languages).height - 0.5) {
+              wrong.add('$at: language switch ${seen.height} seen');
+            }
+          }
+        }
+      }
+    }
+    expect(wrong, isEmpty);
+  }, variant: _windows);
+
   testWidgets("a narrow window's checklist keeps its buttons right under "
       'it while they fit', (tester) async {
     await _pump(tester, const Size(600, 448), login: _choosing(1));
