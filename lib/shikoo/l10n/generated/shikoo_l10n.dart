@@ -2246,6 +2246,12 @@ abstract class ShikooL10n {
   /// **'The tunnel didn\'t turn on.\nConnect again, or choose Proxy.'**
   String get helperFailedDesktop;
 
+  /// No description provided for @coreDownDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet\'s connection stopped working.\nConnect again; if it happens again, ask Support.'**
+  String get coreDownDesktop;
+
   /// No description provided for @subCancelDesktop.
   ///
   /// In en, this message translates to:

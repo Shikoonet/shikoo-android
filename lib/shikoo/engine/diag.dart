@@ -959,6 +959,9 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   @override
   void onLog(Log log) => add('C', '${log.logLevel.name} ${log.payload}');
 
+  @override
+  void onCrash(String message) => add('T', 'core died $message');
+
   void network(List<ConnectivityResult> results) =>
       add('T', 'network ${results.map((r) => r.name).join(',')}');
 

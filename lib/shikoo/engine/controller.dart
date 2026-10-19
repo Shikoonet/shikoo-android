@@ -33,6 +33,7 @@ enum ShikooError {
   noServer,
   vpnRefused,
   vpnMissing,
+  coreDown,
 }
 
 /// [revoked]: a pasted link the panel no longer knows (404 or 410).
@@ -58,6 +59,10 @@ typedef ShikooOpened = ({
 });
 
 const connectTimeout = Duration(seconds: 30);
+
+/// A core that keeps dying is left down: a profile it cannot run would restart it forever.
+const coreRevives = 3;
+const coreReviveWindow = Duration(minutes: 2);
 
 const switchedFor = Duration(seconds: 4);
 
@@ -474,7 +479,8 @@ ShikooConnection deriveConnection({
     ShikooError.connectTimeout ||
     ShikooError.noServer ||
     ShikooError.vpnRefused ||
-    ShikooError.vpnMissing => ShikooConnection.error,
+    ShikooError.vpnMissing ||
+    ShikooError.coreDown => ShikooConnection.error,
     _ => ShikooConnection.off,
   };
 }
@@ -851,6 +857,15 @@ class ShikooController {
               },
       );
     });
+    _ref.listen(coreStatusProvider, (was, now) {
+      if (was == CoreStatus.connected &&
+          now == CoreStatus.disconnected &&
+          _ref.read(shikooDesktopProvider)) {
+        scheduleMicrotask(
+          () => _reviving ??= _revive().whenComplete(() => _reviving = null),
+        );
+      }
+    });
     app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(_loadPasted);
@@ -908,6 +923,8 @@ class ShikooController {
 
   /// The service came up after the core had started without it: the next tunnel restarts the core first.
   bool _restartOwed = false;
+  final _revives = <DateTime>[];
+  Future<void>? _reviving;
   String? _pickInCore;
   Timer? _switched;
   String? _awaiting;
@@ -1009,6 +1026,7 @@ class ShikooController {
 
   Future<void> connect() async {
     if (_ref.read(currentProfileProvider) == null) return;
+    if (!await _coreReady()) return;
     _setAsideMultiplied();
     if (_validSelection() != null) return _start();
     _find();
@@ -1116,10 +1134,7 @@ class ShikooController {
     if (stale()) return null;
     if (mode.tun && _restartOwed) {
       _restartOwed = false;
-      await _ref
-          .read(coreActionProvider.notifier)
-          .restartCore()
-          .catchError((Object _) => false);
+      await _restartCore();
       if (stale()) return null;
     }
     _ref
@@ -1161,6 +1176,76 @@ class ShikooController {
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
+  }
+
+  bool get _coreUp => _ref.read(coreStatusProvider) == CoreStatus.connected;
+
+  Future<void> _restartCore() => _ref
+      .read(coreActionProvider.notifier)
+      .restartCore()
+      .catchError((Object _) => false);
+
+  /// FlClash leaves a dead core down: its only restart is a dashboard button Shikoo never shows.
+  Future<void> _revive() async {
+    final attempt = _attempt;
+    bool stale() => attempt != _attempt;
+    final wanted = _running;
+    if (wanted) _set(const _Intent(connecting: true));
+    while (_mayRevive()) {
+      await _restartCore();
+      if (stale()) return;
+      // A restart asked while another runs only joins it, which may have met the dead core.
+      if (!_coreUp) continue;
+      if (!wanted) return;
+      final since = await waitForTunnel(
+        _carrying,
+        timeout: connectTimeout,
+        stillWanted: () => !stale() && _running && _coreUp,
+      );
+      if (stale()) return;
+      if (since != null) return _set(const _Intent());
+      if (!_coreUp) continue;
+      break;
+    }
+    if (!stale()) await _lost();
+  }
+
+  bool _mayRevive() {
+    final now = DateTime.now();
+    _revives.removeWhere((at) => now.difference(at) > coreReviveWindow);
+    if (_revives.length >= coreRevives) return false;
+    _revives.add(now);
+    return true;
+  }
+
+  Future<DateTime?> _carrying() async {
+    final since = await _nativeRunTime();
+    if (since == null || !_ref.read(shikooModeProvider).systemProxy) {
+      return since;
+    }
+    final port = _ref.read(patchClashConfigProvider).mixedPort;
+    return await _ref.read(localPortFreeProvider)(port) ? null : since;
+  }
+
+  Future<void> _lost() async {
+    final off = disconnect();
+    _set(const _Intent(error: ShikooError.coreDown));
+    await off;
+  }
+
+  Future<bool> _coreReady() async {
+    if (!_ref.read(shikooDesktopProvider) ||
+        !_ref.read(initProvider) ||
+        _ref.read(coreStatusProvider) != CoreStatus.disconnected) {
+      return true;
+    }
+    final attempt = ++_attempt;
+    _set(const _Intent(connecting: true));
+    await _restartCore();
+    if (attempt != _attempt) return false;
+    if (_coreUp) return true;
+    _set(const _Intent(error: ShikooError.coreDown));
+    return false;
   }
 
   Future<void> forgetServices() async {
