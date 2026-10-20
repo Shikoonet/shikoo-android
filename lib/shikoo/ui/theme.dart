@@ -372,6 +372,10 @@ class ShikooSizes {
   static const markLg = 88.0;
   static const codeWordSpacing = 0.12;
   static const fade = 24.0;
+  static const count = 20.0;
+  static const key = 24.0;
+  static const tabs = 480.0;
+  static const emptyText = 280.0;
   static const switchW = 52.0;
   static const switchH = 32.0;
   static const switchThumb = 24.0;

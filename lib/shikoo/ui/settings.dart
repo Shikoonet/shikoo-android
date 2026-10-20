@@ -12,6 +12,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
+import 'package:fl_clash/shikoo/ui/logs.dart';
 import 'package:fl_clash/shikoo/ui/order.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
@@ -215,6 +216,15 @@ class ShikooSettings extends ConsumerWidget {
                     forward: true,
                     onPressed: () => unawaited(_diagnose(context)),
                   ),
+                  if (!isTV)
+                    _Row(
+                      icon: ShikooIcon.lines,
+                      title: l.logsTitle,
+                      subtitle: l.logsRowHelp(ShikooDiag.keep.inDays),
+                      keys: shikooDesktop ? logsKeys : const [],
+                      forward: true,
+                      onPressed: () => openLogs(context),
+                    ),
                 ],
               ),
             ),
@@ -534,6 +544,7 @@ class SubPage extends StatelessWidget {
     required this.isTV,
     required this.child,
     this.scrolls = true,
+    this.wide = false,
     this.hint,
   });
 
@@ -541,6 +552,9 @@ class SubPage extends StatelessWidget {
   final bool isTV;
   final Widget child;
   final bool scrolls;
+
+  /// A [child] that does not [scrolls] takes the page's width on a computer, not the pane's.
+  final bool wide;
   final String? hint;
 
   @override
@@ -604,7 +618,9 @@ class SubPage extends StatelessWidget {
                     SizedBox(height: isTV ? Space.s3 : Space.s2),
                     Expanded(
                       child: !scrolls
-                          ? PaneColumn(padding: s.safeX, child: child)
+                          ? (wide
+                                ? child
+                                : PaneColumn(padding: s.safeX, child: child))
                           : isTV
                           ? TvScrollColumn(child: child)
                           : SingleChildScrollView(
@@ -870,10 +886,18 @@ class Segmented<T> extends StatefulWidget {
     required this.onSelect,
     this.autofocus = false,
     this.small = false,
+    this.counts = const {},
+    this.wraps = false,
   });
 
   final Map<T, String> options;
   final T selected;
+
+  /// `.cnt`: a red number after an option's label, none at zero.
+  final Map<T, int> counts;
+
+  /// Two rows when one would cut a label, as the Logs page's four tabs in large text.
+  final bool wraps;
 
   /// Null greys every option out, as the mode switch while connecting.
   final ValueChanged<T>? onSelect;
@@ -902,11 +926,107 @@ class _SegmentedState<T> extends State<Segmented<T>> {
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final Segmented(:options, :selected, :onSelect, :autofocus, :small) =
-        widget;
+    final Segmented(
+      :options,
+      :selected,
+      :onSelect,
+      :autofocus,
+      :small,
+      :counts,
+      :wraps,
+    ) = widget;
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.sm),
     );
+    TextStyle labelStyle(bool chosen) => t.text(
+      small ? t.s.bodySm : t.s.body,
+      weight: chosen ? FontWeight.w700 : FontWeight.w500,
+      color: onSelect == null
+          ? (chosen ? t.c.textMuted : t.c.iconDisabled)
+          : (chosen ? t.c.text : t.c.textMuted),
+    );
+    final countStyle = t.text(
+      t.s.caption,
+      weight: FontWeight.w700,
+      color: t.c.onDanger,
+      height: 1,
+    );
+    Widget option(T value, String label) {
+      final count = counts[value] ?? 0;
+      return Flexible(
+        flex: small ? 0 : 1,
+        fit: FlexFit.tight,
+        child: Pressable(
+          focusNode: _nodes.putIfAbsent(value, FocusNode.new),
+          autofocus: autofocus && value == selected,
+          shape: shape,
+          onPressed: onSelect == null ? null : () => onSelect(value),
+          builder: (context, focused) {
+            final chosen = value == selected;
+            final text = Text(label, maxLines: 1, style: labelStyle(chosen));
+            return Semantics(
+              selected: chosen,
+              button: true,
+              enabled: onSelect != null,
+              child: Container(
+                height: small ? null : t.s.button,
+                padding: small
+                    ? const EdgeInsets.symmetric(
+                        horizontal: Space.s4,
+                        vertical: Space.s1,
+                      )
+                    : null,
+                alignment: Alignment.center,
+                decoration: ShapeDecoration(
+                  color: focused ? t.c.focusBg : (chosen ? t.c.surface : null),
+                  shadows: focused
+                      ? t.c.raisedShadow
+                      : (chosen ? t.c.cardShadow : null),
+                  shape: shape,
+                ),
+                child: count == 0
+                    ? text
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: Space.s1,
+                        children: [
+                          Flexible(child: text),
+                          Container(
+                            constraints: const BoxConstraints(
+                              minWidth: ShikooSizes.count,
+                              minHeight: ShikooSizes.count,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Space.s1,
+                            ),
+                            decoration: ShapeDecoration(
+                              color: t.c.danger,
+                              shape: const StadiumBorder(),
+                            ),
+                            child: Center(
+                              widthFactor: 1,
+                              heightFactor: 1,
+                              child: Text(
+                                localNumber(context, count),
+                                style: countStyle,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Widget row(Iterable<MapEntry<T, String>> entries) => Row(
+      mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
+      spacing: Space.s1,
+      children: [for (final e in entries) option(e.key, e.value)],
+    );
+    final entries = options.entries.toList();
     // The remote or Tab coming from another row lands on the chosen option, not the nearest one;
     // a click lands where it clicked.
     final segmented = Focus(
@@ -926,61 +1046,46 @@ class _SegmentedState<T> extends State<Segmented<T>> {
             borderRadius: BorderRadius.circular(Radii.md),
           ),
         ),
-        child: Row(
-          mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
-          spacing: Space.s1,
-          children: [
-            for (final MapEntry(key: value, value: label) in options.entries)
-              Flexible(
-                flex: small ? 0 : 1,
-                fit: FlexFit.tight,
-                child: Pressable(
-                  focusNode: _nodes.putIfAbsent(value, FocusNode.new),
-                  autofocus: autofocus && value == selected,
-                  shape: shape,
-                  onPressed: onSelect == null ? null : () => onSelect(value),
-                  builder: (context, focused) {
-                    final chosen = value == selected;
-                    return Semantics(
-                      selected: chosen,
-                      button: true,
-                      enabled: onSelect != null,
-                      child: Container(
-                        height: small ? null : t.s.button,
-                        padding: small
-                            ? const EdgeInsets.symmetric(
-                                horizontal: Space.s4,
-                                vertical: Space.s1,
-                              )
-                            : null,
-                        alignment: Alignment.center,
-                        decoration: ShapeDecoration(
-                          color: focused
-                              ? t.c.focusBg
-                              : (chosen ? t.c.surface : null),
-                          shadows: focused
-                              ? t.c.raisedShadow
-                              : (chosen ? t.c.cardShadow : null),
-                          shape: shape,
-                        ),
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          style: t.text(
-                            small ? t.s.bodySm : t.s.body,
-                            weight: chosen ? FontWeight.w700 : FontWeight.w500,
-                            color: onSelect == null
-                                ? (chosen ? t.c.textMuted : t.c.iconDisabled)
-                                : (chosen ? t.c.text : t.c.textMuted),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+        child: !wraps
+            ? row(entries)
+            : LayoutBuilder(
+                builder: (context, box) {
+                  double width(String text, TextStyle style) {
+                    final painter = TextPainter(
+                      text: TextSpan(text: text, style: style),
+                      textDirection: Directionality.of(context),
+                      textScaler: MediaQuery.textScalerOf(context),
+                      maxLines: 1,
+                    )..layout();
+                    final width = painter.width;
+                    painter.dispose();
+                    return width;
+                  }
+
+                  final room =
+                      (box.maxWidth - Space.s1 * (entries.length - 1)) /
+                      entries.length;
+                  final fits = entries.every((e) {
+                    final count = counts[e.key] ?? 0;
+                    final badge = count == 0
+                        ? 0.0
+                        : Space.s1 +
+                              (width(localNumber(context, count), countStyle) +
+                                      2 * Space.s1)
+                                  .clamp(ShikooSizes.count, double.infinity);
+                    return width(e.value, labelStyle(true)) + badge <= room;
+                  });
+                  if (fits) return row(entries);
+                  final half = (entries.length + 1) ~/ 2;
+                  return Column(
+                    spacing: Space.s1,
+                    children: [
+                      row(entries.take(half)),
+                      row(entries.skip(half)),
+                    ],
+                  );
+                },
               ),
-          ],
-        ),
       ),
     );
     return onSelect == null
@@ -1105,6 +1210,7 @@ class _Row extends StatelessWidget {
     this.danger = false,
     this.alert = false,
     this.busy = false,
+    this.keys = const [],
     this.onPressed,
   });
 
@@ -1112,6 +1218,9 @@ class _Row extends StatelessWidget {
 
   /// The subtitle in red, as `.row small.danger`.
   final bool alert;
+
+  /// `.keys`: a shortcut that opens the same page, before the chevron.
+  final List<String> keys;
 
   /// The title with bold parts.
   final List<InlineSpan>? rich;
@@ -1201,6 +1310,15 @@ class _Row extends StatelessWidget {
                     ],
                   ),
           ),
+          if (keys.isNotEmpty)
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: Space.s1,
+                children: [for (final key in keys) _Key(key)],
+              ),
+            ),
           if (forward)
             Transform.flip(
               flipX: ltr,
@@ -1219,6 +1337,44 @@ class _Row extends StatelessWidget {
       shape: shape,
       onPressed: onPressed,
       builder: (context, focused) => row(focused),
+    );
+  }
+}
+
+/// `.kbd`: a key cap whose lower edge is darker, as the mockup's inset shadow.
+class _Key extends StatelessWidget {
+  const _Key(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final shape = RoundedSuperellipseBorder(
+      borderRadius: BorderRadius.circular(Radii.sm),
+    );
+    const edge = 2.0;
+    return Container(
+      padding: const EdgeInsets.only(bottom: edge),
+      decoration: ShapeDecoration(color: t.c.border, shape: shape),
+      child: Container(
+        constraints: const BoxConstraints(
+          minWidth: ShikooSizes.key,
+          minHeight: ShikooSizes.key - edge,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+        alignment: Alignment.center,
+        decoration: ShapeDecoration(color: t.c.surfaceSunken, shape: shape),
+        child: Text(
+          label,
+          style: t.text(
+            t.s.caption,
+            weight: FontWeight.w700,
+            color: t.c.textMuted,
+            height: 1,
+          ),
+        ),
+      ),
     );
   }
 }

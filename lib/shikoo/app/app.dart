@@ -25,6 +25,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
+import 'package:fl_clash/shikoo/ui/logs.dart' show LogsShortcut;
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart' show ringOnKeys;
 import 'package:fl_clash/state.dart';
@@ -287,7 +288,9 @@ Widget shikooFrame(
     child: MaterialUiCompatibilityBridge(
       child: IconTheme(
         data: Theme.of(context).iconTheme,
-        child: ShikooTvCanvas(child: managers(ShikooSystemUi(child: page))),
+        child: ShikooTvCanvas(
+          child: managers(ShikooSystemUi(child: LogsShortcut(child: page))),
+        ),
       ),
     ),
   ),

@@ -1584,4 +1584,61 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get autoStartHelp => 'Beside the clock, not connected';
+
+  @override
+  String get logsTitle => 'Logs';
+
+  @override
+  String logsRowHelp(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'What the app recorded in the last $daysString days';
+  }
+
+  @override
+  String get logsConnection => 'Connection';
+
+  @override
+  String get logsSubscription => 'Subscription';
+
+  @override
+  String get logsCore => 'Core';
+
+  @override
+  String get logsErrors => 'Errors';
+
+  @override
+  String get logsCaption =>
+      'For support; the lines are technical and in English.';
+
+  @override
+  String logsToday(String date) {
+    return 'Today · $date';
+  }
+
+  @override
+  String logsYesterday(String date) {
+    return 'Yesterday · $date';
+  }
+
+  @override
+  String logsJalaliDay(String weekday, String day, String month) {
+    return '$weekday $day $month';
+  }
+
+  @override
+  String get logsEmptyTitle => 'Nothing recorded yet';
+
+  @override
+  String logsEmptyHelp(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'Whatever the app records here stays for $daysString days.';
+  }
 }

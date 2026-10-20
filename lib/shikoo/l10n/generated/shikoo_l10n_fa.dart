@@ -1528,4 +1528,60 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get autoStartHelp => 'کنار ساعت، بی‌اتصال';
+
+  @override
+  String get logsTitle => 'گزارش‌ها';
+
+  @override
+  String logsRowHelp(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'آنچه برنامه در $daysString روز گذشته ثبت کرده';
+  }
+
+  @override
+  String get logsConnection => 'اتصال';
+
+  @override
+  String get logsSubscription => 'اشتراک';
+
+  @override
+  String get logsCore => 'هسته';
+
+  @override
+  String get logsErrors => 'خطاها';
+
+  @override
+  String get logsCaption => 'برای پشتیبانی؛ متن خط‌ها انگلیسی و فنی است.';
+
+  @override
+  String logsToday(String date) {
+    return 'امروز · $date';
+  }
+
+  @override
+  String logsYesterday(String date) {
+    return 'دیروز · $date';
+  }
+
+  @override
+  String logsJalaliDay(String weekday, String day, String month) {
+    return '$weekday $day $month';
+  }
+
+  @override
+  String get logsEmptyTitle => 'هنوز چیزی ثبت نشده';
+
+  @override
+  String logsEmptyHelp(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'هر چه برنامه در این بخش ثبت کند، تا $daysString روز این‌جا می‌ماند.';
+  }
 }

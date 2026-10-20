@@ -661,6 +661,57 @@ Map<String, Object?> aboutSections({
 
 typedef _Line = (DateTime, String, String);
 
+enum LogTab { connection, subscription, core, errors }
+
+enum LogMark { none, warning, error }
+
+/// A log level never reaches the record, so an `A` line is an error, and a `T` line a warning, by its words.
+final _trouble = RegExp(
+  r'error|exception|fail|timed? ?out|denied|refused|died|crash',
+  caseSensitive: false,
+);
+final _entry = RegExp(r'^(\S+) (\S) ?(.*?)(?: ×(\d+))?$');
+
+/// One record line as the Logs page shows it; «کپی» copies [line] as written.
+class LogEntry {
+  const LogEntry(this.line, this.at, this.kind, this.text, this.repeats);
+
+  static LogEntry? parse(String line) {
+    final m = _entry.firstMatch(line);
+    final at = DateTime.tryParse(m?[1] ?? '');
+    if (m == null || at == null) return null;
+    return LogEntry(line, at, m[2]!, m[3]!, int.tryParse(m[4] ?? '') ?? 1);
+  }
+
+  final String line;
+  final DateTime at;
+  final String kind;
+  final String text;
+  final int repeats;
+
+  bool get _refresh => text.startsWith('refresh ');
+
+  LogTab? get tab => switch (kind) {
+    'T' => _refresh ? LogTab.subscription : LogTab.connection,
+    'C' => LogTab.core,
+    'E' => LogTab.errors,
+    'A' when _trouble.hasMatch(text) => LogTab.errors,
+    _ => null,
+  };
+
+  LogMark get mark => switch (kind) {
+    _ when tab == LogTab.errors => LogMark.error,
+    'C' => switch (text.split(' ').first) {
+      'error' => LogMark.error,
+      'warning' => LogMark.warning,
+      _ => LogMark.none,
+    },
+    'T' when (_refresh && text != 'refresh ok') || _trouble.hasMatch(text) =>
+      LogMark.warning,
+    _ => LogMark.none,
+  };
+}
+
 /// The recorder. It starts in `main()` before FlClash does, holds what comes before [attach]
 /// raw in memory (the secrets it must remove are known only then), and writes cleaned lines
 /// to `<support dir>/shikoo/diag.log`. Kinds: `A` app log, `C` core, `E` Dart error,
@@ -1140,6 +1191,16 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
             if (DateTime.tryParse(line.split(' ').first)?.isAfter(since) ??
                 false)
               _again(line, known),
+    ];
+  }
+
+  /// The Logs page's lines, in the record's order: what [report] reads, the lines a tab shows.
+  List<LogEntry> logEntries() {
+    _flushRepeat();
+    return [
+      for (final line in _ringLines(DateTime.now(), _knownNow()))
+        if (LogEntry.parse(line) case final entry? when entry.tab != null)
+          entry,
     ];
   }
 
