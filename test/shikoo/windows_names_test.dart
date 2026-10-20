@@ -82,9 +82,10 @@ void main() {
         contains('#define Service "$appHelperService"\n'),
         contains("'delete {#Service}'"),
         contains(
-          'Get-Process ShikooNet,$core,$appHelperService -ErrorAction '
+          "Get-Process ' + Names + ' -ErrorAction "
           r"SilentlyContinue | Where-Object { $_.Path -like ''' +",
         ),
+        contains("KillProcesses('ShikooNet,$core,$appHelperService');"),
         contains("ExpandConstant('{app}') + '\\*''"),
         isNot(contains('taskkill')),
       ),
@@ -269,10 +270,14 @@ void main() {
     );
   });
 
-  test('an upgrade, and an uninstall only once confirmed, remove the helper '
-      "service and close the app, then put Windows' proxy back before the data "
-      'goes, the upgrade as the user who started it', () {
+  test('an upgrade, and an uninstall only once confirmed, close the app, '
+      "remove the helper service and close the rest, then put Windows' proxy "
+      'back before the data goes, the upgrade as the user who started it', () {
     final iss = read('windows/packaging/exe/inno_setup.iss');
+    String close(String indent) =>
+        "${indent}KillProcesses('ShikooNet');\n"
+        '${indent}UnregisterHelperService;\n'
+        "${indent}KillProcesses('ShikooNet,ShikooNetCore,$appHelperService');\n";
     const uninstall =
         r'Filename: "{app}\ShikooNet.exe"; Parameters: "--restore-proxy"; '
         r'Flags: runhidden waituntilterminated; RunOnceId: "ShikooRestoreProxy"'
@@ -288,8 +293,7 @@ void main() {
       RegExp(r'function PrepareToInstall[\s\S]*?\nend;').firstMatch(iss)![0],
       contains(
         'begin\n'
-        '  UnregisterHelperService;\n'
-        '  KillProcesses;\n'
+        '${close('  ')}'
         r"  ExecAsOriginalUser(ExpandConstant('{app}\ShikooNet.exe'), "
         "'--restore-proxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);\n",
       ),
@@ -307,8 +311,7 @@ void main() {
         'begin\n'
         '  if CurUninstallStep = usUninstall then\n'
         '  begin\n'
-        '    UnregisterHelperService;\n'
-        '    KillProcesses;\n'
+        '${close('    ')}'
         "    RegDeleteValue(HKEY_CURRENT_USER, '$_run', '{#Title}');\n"
         "    RegDeleteValue(HKEY_CURRENT_USER, '$_approved', '{#Title}');\n"
         '  end;\n'

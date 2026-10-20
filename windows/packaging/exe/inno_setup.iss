@@ -34,14 +34,15 @@ ArchitecturesAllowed={{ARCH}}
 ArchitecturesInstallIn64BitMode={{ARCH}}
 
 [Code]
-// Only this install's three programs: the other flavor runs the same names from its own folder,
-// and the uninstaller's first copy runs from this folder too.
-procedure KillProcesses;
+// Only this install's programs: the other flavor runs the same names from its own folder,
+// and the uninstaller's first copy runs from this folder too. The app goes alone, before the service:
+// it starts a new core when the service's removal takes its own.
+procedure KillProcesses(Names: String);
 var
   ResultCode: Integer;
 begin
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    '-NoProfile -NonInteractive -Command "Get-Process ShikooNet,ShikooNetCore,ShikooNetHelperService -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''' +
+    '-NoProfile -NonInteractive -Command "Get-Process ' + Names + ' -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''' +
     ExpandConstant('{app}') + '\*'' } | Stop-Process -Force"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
@@ -65,8 +66,9 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
 begin
+  KillProcesses('ShikooNet');
   UnregisterHelperService;
-  KillProcesses;
+  KillProcesses('ShikooNet,ShikooNetCore,ShikooNetHelperService');
   ExecAsOriginalUser(ExpandConstant('{app}\ShikooNet.exe'), '--restore-proxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := '';
 end;
@@ -86,8 +88,9 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
+    KillProcesses('ShikooNet');
     UnregisterHelperService;
-    KillProcesses;
+    KillProcesses('ShikooNet,ShikooNetCore,ShikooNetHelperService');
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#Title}');
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run', '{#Title}');
   end;
