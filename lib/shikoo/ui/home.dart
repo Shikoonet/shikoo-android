@@ -23,6 +23,7 @@ import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -797,7 +798,7 @@ class _WideLayout extends StatelessWidget {
     this.onAdd,
   });
 
-  final _PowerZone power;
+  final Widget power;
   final Widget card;
   final ScrollController scroll;
   final double room;
@@ -833,8 +834,7 @@ class _WideLayout extends StatelessWidget {
                 ),
                 Expanded(
                   child: FocusTraversalGroup(
-                    // A message gets Space.s4 under it, past the centred part, so the
-                    // button stays put when it comes and only a short window scrolls.
+                    // Space.s4 under it always, so a message that comes changes nothing.
                     child: LayoutBuilder(
                       builder: (context, box) => EdgeScroll(
                         padding: const EdgeInsets.symmetric(
@@ -847,10 +847,9 @@ class _WideLayout extends StatelessWidget {
                               constraints: BoxConstraints(
                                 minHeight: box.maxHeight - Space.s4,
                               ),
-                              child: Center(child: power),
+                              child: power,
                             ),
-                            if (power.message(ShikooL10n.of(context)) != null)
-                              const SizedBox(height: Space.s4),
+                            const SizedBox(height: Space.s4),
                           ],
                         ),
                       ),
@@ -945,6 +944,33 @@ class _PowerZone extends StatelessWidget {
     };
   }
 
+  /// A computer keeps the tallest message's room, its narrow page too: one that comes moves nothing.
+  double _room(BuildContext context, ShikooL10n l) {
+    final t = ShikooTheme.of(context);
+    final style = t.text(t.s.bodySm);
+    final width = t.s.powerRing * 1.5;
+    return [
+      twoLines(context, style),
+      for (final text in [
+        l.vpnRefusedDesktop,
+        l.vpnMissingDesktop,
+        l.busyPortDesktop,
+        l.helperFailedDesktop,
+        l.noServerAnsweredHelpDesktop,
+        l.coreDownDesktop,
+        l.errorServer,
+        l.connectsToFirst,
+        l.renewToConnect,
+        l.selectedDown(serverName(state.selectedServer?.name ?? '')),
+        l.errorConnectDesktop(
+          serverName(state.selectedServer?.name ?? '').replaceAll(' · ', ' · '),
+          connectTimeout.inSeconds,
+        ),
+      ])
+        textHeight(context, text, style, width),
+    ].reduce(math.max);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -952,27 +978,30 @@ class _PowerZone extends StatelessWidget {
     final selected = state.selectedServer;
     final gap = state.isTV ? Space.s4 : Space.s3;
     final restingMessage = this.restingMessage;
+    final squeeze = centred && !state.isTV;
     if (state.service == null) {
+      final items = [
+        PowerButton(
+          connection: ShikooConnection.off,
+          connectedFor: Duration.zero,
+          isTV: state.isTV,
+          onPressed: null,
+          restingLabel: restingLabel,
+        ),
+        if (restingMessage != null)
+          Text(
+            restingMessage,
+            textAlign: TextAlign.center,
+            style: t.text(t.s.bodySm, color: t.c.textMuted),
+          ),
+      ];
+      if (squeeze) return _Squeeze(gap: gap, keep: 0, children: items);
       return Padding(
         padding: EdgeInsets.only(bottom: state.isTV ? gap : 0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           spacing: gap,
-          children: [
-            PowerButton(
-              connection: ShikooConnection.off,
-              connectedFor: Duration.zero,
-              isTV: state.isTV,
-              onPressed: null,
-              restingLabel: restingLabel,
-            ),
-            if (restingMessage != null)
-              Text(
-                restingMessage,
-                textAlign: TextAlign.center,
-                style: t.text(t.s.bodySm, color: t.c.textMuted),
-              ),
-          ],
+          children: items,
         ),
       );
     }
@@ -983,77 +1012,158 @@ class _PowerZone extends StatelessWidget {
         ? silent
         : shift.stage == ShikooSwitchStage.failed;
     final message = this.message(l);
-    final slot = centred ? twoLines(context, t.text(t.s.bodySm)) : null;
+    final slot = shikooDesktop
+        ? _room(context, l)
+        : (centred ? twoLines(context, t.text(t.s.bodySm)) : null);
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Balances the message slot below, so the TV centres the button and pill alone. A window
-        // centres the whole column, as its message would otherwise touch the bottom edge.
-        if (slot != null && state.isTV) SizedBox(height: gap + slot),
-        PowerButton(
-          connection: state.connection,
-          connectedFor: state.connectedFor,
-          isTV: state.isTV,
-          focusNode: focusNode,
-          switching: state.switching?.stage == ShikooSwitchStage.moving,
-          restingLabel: switch (resting) {
-            ShikooServiceStatus.exhausted => l.stateExhausted,
-            ShikooServiceStatus.revoked => l.chipRevoked,
-            _ => l.powerExpired,
-          },
-          onPressed: resting != null
-              ? null
-              : () => unawaited(switch (state.connection) {
-                  ShikooConnection.off ||
-                  ShikooConnection.error => controller.connect(),
-                  ShikooConnection.connecting ||
-                  ShikooConnection.on => controller.disconnect(),
-                }),
-        ),
-        if (resting == null) ...[
-          SizedBox(height: gap),
-          NowPill(pick: state.pick, server: selected),
-          if (shikooDesktop) ...[
-            SizedBox(height: gap),
-            ModeSwitch(
-              connecting: state.connection == ShikooConnection.connecting,
-            ),
-            SizedBox(height: gap),
-            const LocalProxy(),
-          ],
+    final items = [
+      PowerButton(
+        connection: state.connection,
+        connectedFor: state.connectedFor,
+        isTV: state.isTV,
+        focusNode: focusNode,
+        switching: state.switching?.stage == ShikooSwitchStage.moving,
+        restingLabel: switch (resting) {
+          ShikooServiceStatus.exhausted => l.stateExhausted,
+          ShikooServiceStatus.revoked => l.chipRevoked,
+          _ => l.powerExpired,
+        },
+        onPressed: resting != null
+            ? null
+            : () => unawaited(switch (state.connection) {
+                ShikooConnection.off ||
+                ShikooConnection.error => controller.connect(),
+                ShikooConnection.connecting ||
+                ShikooConnection.on => controller.disconnect(),
+              }),
+      ),
+      if (resting == null) ...[
+        NowPill(pick: state.pick, server: selected),
+        if (shikooDesktop) ...[
+          ModeSwitch(
+            connecting: state.connection == ShikooConnection.connecting,
+          ),
+          const LocalProxy(),
         ],
-        if (message != null || slot != null) ...[
-          SizedBox(height: gap),
-          _InView(
-            key: ValueKey(message),
-            message: message,
-            // A computer's text can be set half as large again: the message grows, never cut.
-            child: ConstrainedBox(
-              constraints: BoxConstraints.tightFor(width: t.s.powerRing * 1.5)
-                  .copyWith(
-                    minHeight: slot ?? 0,
-                    maxHeight: shikooDesktop ? double.infinity : slot,
-                  ),
-              child: Text(
-                message ?? '',
-                maxLines: shikooDesktop ? null : 2,
-                overflow: shikooDesktop ? null : TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: t.text(
-                  t.s.bodySm,
-                  color: resting != null || (!failed && !alarm)
-                      ? t.c.textMuted
-                      : t.c.danger,
+      ],
+      if (message != null || slot != null)
+        _InView(
+          key: ValueKey(message),
+          message: message,
+          // A computer's text can be set half as large again: the message grows, never cut.
+          child: ConstrainedBox(
+            constraints: BoxConstraints.tightFor(width: t.s.powerRing * 1.5)
+                .copyWith(
+                  minHeight: slot ?? 0,
+                  maxHeight: shikooDesktop ? double.infinity : slot,
                 ),
+            child: Text(
+              message ?? '',
+              maxLines: shikooDesktop ? null : 2,
+              overflow: shikooDesktop ? null : TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: t.text(
+                t.s.bodySm,
+                color: resting != null || (!failed && !alarm)
+                    ? t.c.textMuted
+                    : t.c.danger,
               ),
             ),
           ),
+        ),
+    ];
+    if (squeeze) return _Squeeze(gap: gap, keep: slot!, children: items);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Balances the message slot below, so the TV centres the button and pill alone.
+        if (slot != null && state.isTV) SizedBox(height: gap + slot),
+        for (final (i, item) in items.indexed) ...[
+          if (i > 0) SizedBox(height: gap),
+          item,
         ],
       ],
     );
   }
+}
+
+/// A computer's wide button column, centred in the least height asked: short of room, its gaps
+/// give way evenly down to Space.s2. The last child is placed as if [keep] tall.
+class _Squeeze extends MultiChildRenderObjectWidget {
+  const _Squeeze({
+    required this.gap,
+    required this.keep,
+    required super.children,
+  });
+
+  final double gap;
+  final double keep;
+
+  @override
+  _RenderSqueeze createRenderObject(BuildContext context) =>
+      _RenderSqueeze((gap: gap, keep: keep));
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderSqueeze renderObject) =>
+      renderObject.look = (gap: gap, keep: keep);
+}
+
+class _RenderSqueeze extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  _RenderSqueeze(this._look);
+
+  ({double gap, double keep}) _look;
+
+  set look(({double gap, double keep}) look) {
+    if (look == _look) return;
+    _look = look;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MultiChildLayoutParentData) {
+      child.parentData = MultiChildLayoutParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final (:gap, :keep) = _look;
+    final width = constraints.maxWidth;
+    final children = getChildrenAsList();
+    for (final child in children) {
+      child.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
+    }
+    final heights = <double>[for (final child in children) child.size.height];
+    final placed =
+        heights.sum - heights.last + (keep > 0 ? keep : heights.last);
+    final gaps = children.length - 1;
+    final room = constraints.minHeight;
+    final each = gaps == 0
+        ? 0.0
+        : clampDouble((room - placed) / gaps, Space.s2, gap);
+    var y = math.max(0.0, (room - placed - gaps * each) / 2);
+    for (final child in children) {
+      (child.parentData! as MultiChildLayoutParentData).offset = Offset(
+        (width - child.size.width) / 2,
+        y,
+      );
+      y += child.size.height + each;
+    }
+    size = constraints.constrain(Size(width, y - each));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// A computer's window can be too short to show the message under the mode switch: a new one
@@ -1072,8 +1182,21 @@ class _InViewState extends State<_InView> {
   @override
   void initState() {
     super.initState();
-    if (shikooDesktop && widget.message != null) revealWithRing(context);
+    if (shikooDesktop && widget.message != null) _revealIfHidden();
   }
+
+  /// Only a message out of view scrolls: one in sight leaves the column where it is.
+  void _revealIfHidden() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    final box = context.mounted ? context.findRenderObject() : null;
+    final port = Scrollable.maybeOf(context)?.context.findRenderObject();
+    if (box is! RenderBox || !box.attached || port is! RenderBox) return;
+    final seen = port.localToGlobal(Offset.zero) & port.size;
+    final at = box.localToGlobal(Offset.zero) & box.size;
+    if (seen.top <= at.top + 0.5 && at.bottom <= seen.bottom + 0.5) return;
+    box.showOnScreen(
+      rect: Rect.fromLTRB(0, 0, box.size.width, box.size.height + Space.s4),
+    );
+  });
 
   @override
   Widget build(BuildContext context) => widget.child;

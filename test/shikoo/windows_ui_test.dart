@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:fl_clash/common/constant.dart' show shikooStagingBuild;
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/app/tray_popup.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart'
+    show ProbeChecks, ShikooProbes, shikooProbeProvider;
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -33,6 +37,12 @@ import 'package:win32/win32.dart';
 import '../helpers/no_shots.dart';
 
 final _windows = TargetPlatformVariant.only(TargetPlatform.windows);
+
+/// Where the button column sweep writes its table, if anywhere.
+const _sweep = String.fromEnvironment('SWEEP');
+const _sweepHead =
+    'language\twidth\theight\ttext\tmessage\trule\trest scroll\t'
+    'under message\tscrolled to it';
 const _computerAndPhone = TargetPlatformVariant({
   TargetPlatform.windows,
   TargetPlatform.android,
@@ -72,6 +82,12 @@ class _Popup extends TrayPopup {
     view = null;
     onClose?.call();
   }
+}
+
+/// No internet check: its card would come with a timeout and stay, in the narrow page's way.
+class _NoProbes extends ShikooProbes {
+  @override
+  AsyncValue<ProbeChecks>? build() => null;
 }
 
 class _Mode extends ShikooModeNotifier {
@@ -1173,6 +1189,164 @@ void main() {
       expect(ring.overlaps(address), isFalse, reason: '$ring on $address');
     }, variant: _windows);
 
+    testWidgets('the local proxy line shows when off and under an error', (
+      tester,
+    ) async {
+      for (final connection in [ShikooConnection.off, ShikooConnection.error]) {
+        await _pumpHome(
+          tester,
+          const Size(880, 508),
+          connection: connection,
+          error: connection == ShikooConnection.error
+              ? ShikooError.vpnRefused
+              : null,
+        );
+        expect(find.byType(LocalProxy), findsOne, reason: '$connection');
+      }
+    }, variant: _windows);
+
+    testWidgets('from the smallest window to 800 high, wide and narrow, at 100 '
+        'to 150% and in both languages: with no message the button column '
+        'scrolls only where it cannot fit; where it fits, a message moves '
+        'nothing and stands Space.s4 clear of the bottom; where it does not, '
+        'a message keeps the scroll as it was and scrolls only to come into '
+        'view', (tester) async {
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final rows = <String>[];
+      final wrong = <String>[];
+      for (final language in ['fa', 'en']) {
+        final l = lookupShikooL10n(Locale(language));
+        final messages = {
+          'vpnRefused': (
+            l.vpnRefusedDesktop,
+            _state(ShikooConnection.error, error: ShikooError.vpnRefused),
+          ),
+          'busyPort': (
+            l.busyPortDesktop,
+            _state(ShikooConnection.error, busyPort: 7890),
+          ),
+          'helper': (
+            l.helperFailedDesktop,
+            _state(ShikooConnection.error, helperFailed: true),
+          ),
+          // No server answering starts the internet check, whose card stands in for the message.
+          'timeout': (
+            l.errorConnectDesktop(
+              serverName('آلمان ۲'),
+              connectTimeout.inSeconds,
+            ),
+            _state(ShikooConnection.error, error: ShikooError.connectTimeout),
+          ),
+          'coreDown': (
+            l.coreDownDesktop,
+            _state(ShikooConnection.error, error: ShikooError.coreDown),
+          ),
+        };
+        for (final width in const [864.0, 880.0, 1000.0, 400.0]) {
+          for (final scale in const [1.0, 1.25, 1.5]) {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            _window(tester, Size(width, 800));
+            await tester.pumpWidget(
+              _app(
+                const ShikooHome(),
+                locale: Locale(language),
+                overrides: [
+                  shikooStateProvider.overrideWith(
+                    (ref) => ref.watch(_stateCell),
+                  ),
+                  shikooProbeProvider.overrideWith(_NoProbes.new),
+                ],
+              ),
+            );
+            final cell = ProviderScope.containerOf(
+              tester.element(find.byType(ShikooHome)),
+            ).read(_stateCell.notifier);
+            var fitted = false;
+            for (var height = 448.0; height <= 800; height += 4) {
+              final at = '$language ${width.round()}x${height.round()} ×$scale';
+              tester.view.physicalSize = Size(width, height);
+              cell.set(_state(ShikooConnection.off));
+              await tester.pump();
+              final column = Scrollable.of(
+                tester.element(find.byType(PowerButton)),
+              ).position;
+              if (column.pixels != 0) {
+                column.jumpTo(0);
+                await tester.pump();
+              }
+              final rest = column.maxScrollExtent;
+              final button = tester.getRect(find.byType(PowerButton));
+              final card = tester.getTopLeft(find.byType(ServiceCard)).dy;
+              final wide = width >= ShikooSizes.twoColumns;
+              final fits = wide && rest == 0;
+              if (wide && !fits && (fitted || (scale == 1 && height >= 492))) {
+                wrong.add('$at: scrolls, though it should fit');
+              }
+              fitted = fits;
+              for (final MapEntry(key: name, value: (text, state))
+                  in messages.entries) {
+                cell.set(state);
+                await tester.pump();
+                await tester.pump();
+                final moved = column.pixels;
+                final kept = column.maxScrollExtent;
+                if (moved != 0) {
+                  column.jumpTo(0);
+                  await tester.pump();
+                }
+                final message = tester.getRect(find.text(text));
+                final box =
+                    Scrollable.of(
+                          tester.element(find.byType(PowerButton)),
+                        ).context.findRenderObject()!
+                        as RenderBox;
+                final port = box.localToGlobal(Offset.zero) & box.size;
+                final inView =
+                    message.top >= port.top - 0.5 &&
+                    message.bottom <= port.bottom + 0.5;
+                final why = '$at $name';
+                if (tester.getRect(find.byType(PowerButton)) != button) {
+                  wrong.add('$why: the button moved');
+                }
+                // The narrow page's card says when it was updated, in the wall clock's minutes:
+                // where it starts shows what moved.
+                if (wide
+                    ? kept != rest
+                    : tester.getTopLeft(find.byType(ServiceCard)).dy != card) {
+                  wrong.add('$why: the column grew to $kept');
+                }
+                if (fits) {
+                  if (moved != 0) wrong.add('$why: scrolled $moved');
+                  if (height - message.bottom < Space.s4 - 0.5) {
+                    wrong.add('$why: ${height - message.bottom} under it');
+                  }
+                } else if (inView && moved != 0) {
+                  wrong.add('$why: in view, yet scrolled $moved');
+                }
+                rows.add(
+                  [
+                    language,
+                    width.round(),
+                    height.round(),
+                    scale,
+                    name,
+                    if (fits) 'R2' else 'R3',
+                    rest.round(),
+                    (height - message.bottom).round(),
+                    moved.round(),
+                  ].join('\t'),
+                );
+              }
+            }
+          }
+        }
+      }
+      if (_sweep.isNotEmpty) {
+        File(_sweep).writeAsStringSync([_sweepHead, ...rows].join('\n'));
+      }
+      expect(wrong, isEmpty);
+    }, variant: _windows);
+
     testWidgets('a phone keeps its home without the local proxy line', (
       tester,
     ) async {
@@ -1927,24 +2101,29 @@ void main() {
     }
   }, variant: _windows);
 
-  testWidgets('in the 880 × 540 window the message under the mode switch '
-      'keeps clear of the bottom, the column centred', (tester) async {
-    const window = Size(880, 508);
-    await _pumpHome(
-      tester,
-      window,
-      connection: ShikooConnection.error,
-      error: ShikooError.noServer,
-    );
-    final l = lookupShikooL10n(const Locale('fa'));
-    final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));
-    final above =
-        tester.getRect(find.byType(PowerButton)).top -
-        ShikooSizes.desktop.appbar;
-    final below = window.height - message.bottom;
-    expect(below, greaterThanOrEqualTo(Space.s4));
-    expect(above, closeTo(below - Space.s4, 1));
-  }, variant: _windows);
+  testWidgets(
+    'in the 880 × 508 page (an 880 × 540 window) the message under the '
+    'mode switch '
+    'keeps clear of the bottom, the column centred',
+    (tester) async {
+      const window = Size(880, 508);
+      await _pumpHome(
+        tester,
+        window,
+        connection: ShikooConnection.error,
+        error: ShikooError.noServer,
+      );
+      final l = lookupShikooL10n(const Locale('fa'));
+      final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));
+      final above =
+          tester.getRect(find.byType(PowerButton)).top -
+          ShikooSizes.desktop.appbar;
+      final below = window.height - message.bottom;
+      expect(below, greaterThanOrEqualTo(Space.s4));
+      expect(above, closeTo(below - Space.s4, 1));
+    },
+    variant: _windows,
+  );
 
   testWidgets('a window wider than 960 keeps the 960 page, top bars too, '
       'centred', (tester) async {

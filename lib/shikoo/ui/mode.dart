@@ -54,7 +54,7 @@ class ModeSwitch extends ConsumerWidget {
               width: width,
               height: [
                 for (final hint in [l.modeTunnelHint, l.modeProxyHint])
-                  _height(context, hint, style, width),
+                  textHeight(context, hint, style, width),
               ].reduce(math.max),
               child: Text(
                 mode == ShikooMode.tunnel ? l.modeTunnelHint : l.modeProxyHint,
@@ -67,23 +67,6 @@ class ModeSwitch extends ConsumerWidget {
       ],
     );
   }
-}
-
-double _height(
-  BuildContext context,
-  String text,
-  TextStyle style,
-  double width,
-) {
-  final painter = TextPainter(
-    text: TextSpan(text: text, style: style),
-    textAlign: TextAlign.center,
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-  )..layout(maxWidth: width);
-  final height = painter.height;
-  painter.dispose();
-  return height;
 }
 
 const localProxyAddress = '127.0.0.1:$shikooDesktopPort';

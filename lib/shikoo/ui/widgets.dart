@@ -113,6 +113,24 @@ double twoLines(BuildContext context, TextStyle style) {
   return height;
 }
 
+/// [text]'s height in [style] at [width], centred, at the window's text size.
+double textHeight(
+  BuildContext context,
+  String text,
+  TextStyle style,
+  double width,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textAlign: TextAlign.center,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout(maxWidth: width);
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
 class PaneColumn extends StatelessWidget {
   const PaneColumn({super.key, this.padding = 0, required this.child});
 
