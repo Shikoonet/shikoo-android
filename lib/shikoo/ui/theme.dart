@@ -331,7 +331,11 @@ class ShikooSizes {
   /// From `win-modes.html`: the window from frame `win-w-b`, the tray sizes from `.ctx`, the menu beside the clock.
   static const windowStart = Size(880, 540);
   static const windowMin = Size(400, 480);
-  static const twoColumns = 620.0;
+
+  /// The sign-in's and the home page's: one column under it. Here the home page's button column
+  /// is 284, room for [modeSwitch] and the local proxy line at 150%.
+  static final twoColumns =
+      2 * desktop.safeX + desktop.pane + Space.s10 + splitButtons;
 
   /// `--size-split-buttons`: the buttons beside the sign-in checklist, and the narrowest their column
   /// gets before the page is one column again.
