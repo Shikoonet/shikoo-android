@@ -100,6 +100,14 @@ class ShikooL10nFa extends ShikooL10n {
   String get subRetryTouch => 'دوباره بزن';
 
   @override
+  String get speedUnit => 'مگ/ث';
+
+  @override
+  String speedLabel(String down, String up) {
+    return 'سرعت دریافت $down مگابایت بر ثانیه، سرعت ارسال $up مگابایت بر ثانیه';
+  }
+
+  @override
   String get tvHint => 'دکمهٔ وسطِ ریموت را بزن تا وصل شوی';
 
   @override

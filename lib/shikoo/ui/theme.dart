@@ -355,6 +355,15 @@ class ShikooSizes {
   static const nameShrinkMin = 0.75;
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
+
+  /// `.power .speed`: its arrows, the gap after each arrow and number, and the gap between the two.
+  static const speedIcon = 12.0;
+  static const speedIconGap = 2.0;
+  static const speedGap = 6.0;
+
+  /// The circle's width where the speed's lower edge meets it at [roundTextScaleMax], over [power].
+  static const speedWidth = 0.82;
+
   static const dot = 8.0;
   static const selectedBar = 4.0;
   static const focusRingWidth = 3.0;
