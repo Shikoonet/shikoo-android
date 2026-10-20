@@ -481,6 +481,52 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
 
+    testWidgets('five repeats read once mid-run show every count, five in '
+        'all; «کپی» takes the file\'s lines', (tester) async {
+      final copied = _clipboard(tester);
+      SharedPreferences.setMockInitialValues({});
+      _view(tester, const Size(900, 800), 1);
+      final diag = await _started([], tester);
+      diag.release();
+      for (var i = 0; i < 3; i++) {
+        diag.add('E', 'Bad state: X');
+      }
+      diag.logEntries();
+      for (var i = 0; i < 2; i++) {
+        diag.add('E', 'Bad state: X');
+      }
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          key: UniqueKey(),
+          container: _container(diag),
+          child: _app(const ShikooLogs()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(_tab(_fa.logsErrors));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Bad state: X'), findsNWidgets(2));
+      expect(find.text('×۳'), findsOneWidget);
+      expect(find.text('×۲'), findsOneWidget);
+      await tester.tap(_button(_fa.localProxyCopy));
+      await tester.pump();
+      final file = [
+        for (final e in diag.logEntries())
+          if (e.tab == LogTab.errors) e.line,
+      ];
+      expect(
+        [for (final line in file) line.substring(21)],
+        [
+          'E Bad state: X',
+          'E Bad state: X ×3',
+          'E Bad state: X',
+          'E Bad state: X ×2',
+        ],
+      );
+      expect(copied, [file.join('\n')]);
+      await tester.pump(const Duration(seconds: 2));
+    });
+
     testWidgets('a long tab opens on its newest line', (tester) async {
       final lines = [
         for (var i = 0; i < 80; i++)

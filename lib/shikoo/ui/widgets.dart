@@ -131,13 +131,12 @@ double textHeight(
   return height;
 }
 
-/// [text]'s width on one line in [style], at the window's text size.
+/// [text]'s width unwrapped in [style], at the window's text size.
 double textWidth(BuildContext context, String text, TextStyle style) {
   final painter = TextPainter(
     text: TextSpan(text: text, style: style),
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
-    maxLines: 1,
   )..layout();
   final width = painter.width;
   painter.dispose();
@@ -784,16 +783,8 @@ class ServiceName extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final [user, ...rest] = name.split(' · ');
-        bool fits(String text, [TextStyle? at]) {
-          final painter = TextPainter(
-            text: TextSpan(text: text, style: at ?? style),
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout();
-          final width = painter.width;
-          painter.dispose();
-          return width <= box.maxWidth;
-        }
+        bool fits(String text, [TextStyle? at]) =>
+            textWidth(context, text, at ?? style) <= box.maxWidth;
 
         String cut(String user, [TextStyle? at]) {
           if (user.length <= 6 || fits(user, at)) return user;

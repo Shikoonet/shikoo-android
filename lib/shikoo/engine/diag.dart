@@ -828,6 +828,8 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     if (_repeats == 0) return;
     _write(_repeatAt, _lastKind!, '$_lastText ×${_repeats + 1}');
     _repeats = 0;
+    // The count took the plain line in: one more repeat starts over from a plain line.
+    _lastText = null;
   }
 
   static String _stamp(DateTime at) =>

@@ -256,17 +256,11 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
             LayoutBuilder(
               builder: (context, box) {
                 final scaler = MediaQuery.textScalerOf(context);
-                final painter = TextPainter(
-                  text: TextSpan(
-                    text: step == _Step.clock ? l.dateSettings : label,
-                    style: t.text(t.s.body, weight: FontWeight.w700),
-                  ),
-                  textDirection: Directionality.of(context),
-                  textScaler: scaler,
-                  maxLines: 1,
-                )..layout();
-                final labelWidth = painter.width;
-                painter.dispose();
+                final labelWidth = textWidth(
+                  context,
+                  step == _Step.clock ? l.dateSettings : label,
+                  t.text(t.s.body, weight: FontWeight.w700),
+                );
                 // `.update > .actions`: equal halves as Renew and Support, both whole when one won't fit.
                 if (step == _Step.clock) {
                   const date = DateSettingsButton(primary: true);
