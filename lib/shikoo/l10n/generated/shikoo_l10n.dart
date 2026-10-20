@@ -2503,6 +2503,78 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Beside the clock, not connected'**
   String get autoStartHelp;
+
+  /// No description provided for @logsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Logs'**
+  String get logsTitle;
+
+  /// No description provided for @logsRowHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'What the app recorded in the last {days} days'**
+  String logsRowHelp(int days);
+
+  /// No description provided for @logsConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get logsConnection;
+
+  /// No description provided for @logsSubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription'**
+  String get logsSubscription;
+
+  /// No description provided for @logsCore.
+  ///
+  /// In en, this message translates to:
+  /// **'Core'**
+  String get logsCore;
+
+  /// No description provided for @logsErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors'**
+  String get logsErrors;
+
+  /// No description provided for @logsCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'For support; the lines are technical and in English.'**
+  String get logsCaption;
+
+  /// No description provided for @logsToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today · {date}'**
+  String logsToday(String date);
+
+  /// No description provided for @logsYesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday · {date}'**
+  String logsYesterday(String date);
+
+  /// A day heading on the Logs page in Persian; other languages show the Gregorian date.
+  ///
+  /// In en, this message translates to:
+  /// **'{weekday} {day} {month}'**
+  String logsJalaliDay(String weekday, String day, String month);
+
+  /// No description provided for @logsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing recorded yet'**
+  String get logsEmptyTitle;
+
+  /// No description provided for @logsEmptyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Whatever the app records here stays for {days} days.'**
+  String logsEmptyHelp(int days);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

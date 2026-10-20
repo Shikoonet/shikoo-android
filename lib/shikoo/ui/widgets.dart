@@ -137,6 +137,18 @@ double textHeight(
   return height;
 }
 
+/// [text]'s width unwrapped in [style], at the window's text size.
+double textWidth(BuildContext context, String text, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
 class PaneColumn extends StatelessWidget {
   const PaneColumn({super.key, this.padding = 0, required this.child});
 
@@ -448,6 +460,8 @@ class ShikooButton extends StatelessWidget {
     this.dangerText = false,
     this.small = false,
     this.flat = false,
+    this.positiveText = false,
+    this.roomFor = const [],
   });
 
   final String label;
@@ -455,6 +469,11 @@ class ShikooButton extends StatelessWidget {
 
   /// An outline button whose label is red, as the revoked card's «حذف».
   final bool dangerText;
+
+  final bool positiveText;
+
+  /// The labels it swaps between: it keeps the widest one's room, so a swap moves nothing.
+  final List<String> roomFor;
 
   /// Null greys the button out and the remote passes it by.
   final VoidCallback? onPressed;
@@ -486,7 +505,11 @@ class ShikooButton extends StatelessWidget {
         ? ShikooColors.onTelegram
         : primary
         ? t.c.onPrimary
-        : (danger ? t.c.onDanger : (dangerText ? t.c.danger : t.c.text));
+        : danger
+        ? t.c.onDanger
+        : dangerText
+        ? t.c.danger
+        : (positiveText ? t.c.positive : t.c.text);
     // `.btn-primary[disabled]`: a grey face, so it is never read as the outline button beside it.
     final fill = !enabled
         ? (primary ? t.c.surfaceSunken : null)
@@ -496,6 +519,17 @@ class ShikooButton extends StatelessWidget {
         ? t.c.primary
         : (danger ? t.c.danger : null);
     final icon = this.icon;
+    final style = t.text(
+      telegram ? ShikooSizes.buttonLgText : (small ? t.s.bodySm : t.s.body),
+      weight: FontWeight.w700,
+      color: fg,
+    );
+    final text = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
     // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
     Widget face(bool focused) => Container(
       height:
@@ -536,18 +570,23 @@ class ShikooButton extends StatelessWidget {
             ),
           if (busy || icon != null) const SizedBox(width: Space.s2),
           Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: t.text(
-                telegram
-                    ? ShikooSizes.buttonLgText
-                    : (small ? t.s.bodySm : t.s.body),
-                weight: FontWeight.w700,
-                color: fg,
-              ),
-            ),
+            child: roomFor.isEmpty
+                ? text
+                : Stack(
+                    alignment: AlignmentDirectional.centerStart,
+                    children: [
+                      // Room only: a screen reader hears the shown label alone.
+                      for (final other in roomFor)
+                        Visibility(
+                          visible: false,
+                          maintainSize: true,
+                          maintainAnimation: true,
+                          maintainState: true,
+                          child: Text(other, maxLines: 1, style: style),
+                        ),
+                      text,
+                    ],
+                  ),
           ),
         ],
       ),
@@ -750,16 +789,8 @@ class ServiceName extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final [user, ...rest] = name.split(' · ');
-        bool fits(String text, [TextStyle? at]) {
-          final painter = TextPainter(
-            text: TextSpan(text: text, style: at ?? style),
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout();
-          final width = painter.width;
-          painter.dispose();
-          return width <= box.maxWidth;
-        }
+        bool fits(String text, [TextStyle? at]) =>
+            textWidth(context, text, at ?? style) <= box.maxWidth;
 
         String cut(String user, [TextStyle? at]) {
           if (user.length <= 6 || fits(user, at)) return user;

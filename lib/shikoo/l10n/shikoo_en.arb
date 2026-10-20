@@ -562,5 +562,22 @@
   "windowClose": "Close",
   "windowsGroup": "Windows",
   "autoStart": "Open with Windows",
-  "autoStartHelp": "Beside the clock, not connected"
+  "autoStartHelp": "Beside the clock, not connected",
+  "logsTitle": "Logs",
+  "logsRowHelp": "What the app recorded in the last {days} days",
+  "@logsRowHelp": {"placeholders": {"days": {"type": "int", "format": "decimalPattern"}}},
+  "logsConnection": "Connection",
+  "logsSubscription": "Subscription",
+  "logsCore": "Core",
+  "logsErrors": "Errors",
+  "logsCaption": "For support; the lines are technical and in English.",
+  "logsToday": "Today · {date}",
+  "@logsToday": {"placeholders": {"date": {"type": "String"}}},
+  "logsYesterday": "Yesterday · {date}",
+  "@logsYesterday": {"placeholders": {"date": {"type": "String"}}},
+  "logsJalaliDay": "{weekday} {day} {month}",
+  "@logsJalaliDay": {"description": "A day heading on the Logs page in Persian; other languages show the Gregorian date.", "placeholders": {"weekday": {"type": "String"}, "day": {"type": "String"}, "month": {"type": "String"}}},
+  "logsEmptyTitle": "Nothing recorded yet",
+  "logsEmptyHelp": "Whatever the app records here stays for {days} days.",
+  "@logsEmptyHelp": {"placeholders": {"days": {"type": "int", "format": "decimalPattern"}}}
 }

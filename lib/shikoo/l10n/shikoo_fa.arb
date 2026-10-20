@@ -400,5 +400,17 @@
   "windowClose": "بستن",
   "windowsGroup": "ویندوز",
   "autoStart": "با ویندوز باز شود",
-  "autoStartHelp": "کنار ساعت، بی‌اتصال"
+  "autoStartHelp": "کنار ساعت، بی‌اتصال",
+  "logsTitle": "گزارش‌ها",
+  "logsRowHelp": "آنچه برنامه در {days} روز گذشته ثبت کرده",
+  "logsConnection": "اتصال",
+  "logsSubscription": "اشتراک",
+  "logsCore": "هسته",
+  "logsErrors": "خطاها",
+  "logsCaption": "برای پشتیبانی؛ متن خط‌ها انگلیسی و فنی است.",
+  "logsToday": "امروز · {date}",
+  "logsYesterday": "دیروز · {date}",
+  "logsJalaliDay": "{weekday} {day} {month}",
+  "logsEmptyTitle": "هنوز چیزی ثبت نشده",
+  "logsEmptyHelp": "هر چه برنامه در این بخش ثبت کند، تا {days} روز این‌جا می‌ماند."
 }

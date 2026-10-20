@@ -260,8 +260,9 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
   layout, one only on the device is drawing or presenting. No screen shows a subscription link. The login page shows a
   live code and its bot-link QR (`lib/shikoo/ui/login.dart:65,439`), and no report entry point sits on it while a code
   is live: its entries are the «کد گرفته نشد» state and the result states (`servicesFailed`, `noService`), none of
-  which shows a code, and a failed paste offers none. If an entry is ever added there, its images are not taken while
-  a code is live.
+  which shows a code, and a failed paste offers none. On a computer Ctrl+R opens the Logs page over it all the same,
+  whose «ارسال گزارش به پشتیبانی» is one more entry; its images show the Logs page, which covers the code. If an entry
+  is ever added there, its images are not taken while a code is live.
 - **Within the server's limits, always** (otherwise the door refuses the whole report): every log line is cut to
   300 characters; the log keeps the newest `E` lines first, then the newest of the rest, up to 700; a crash text is
   cut to 8192 characters after cleaning, keeping the head; an image whose base64 string is over 400 KB is encoded

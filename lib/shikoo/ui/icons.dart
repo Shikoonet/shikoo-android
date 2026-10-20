@@ -53,6 +53,9 @@ enum ShikooIcon {
   plus('<path d="M12 5v14"/><path d="M5 12h14"/>'),
   arrowDown('<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>'),
   arrowUp('<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>'),
+  lines(
+    '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/>',
+  ),
   handle('<path d="M5 8h14"/><path d="M5 12h14"/><path d="M5 16h14"/>');
 
   const ShikooIcon(this.paths);
