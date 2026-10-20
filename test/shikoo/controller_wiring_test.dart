@@ -120,17 +120,19 @@ class _Panel extends ShikooController {
 }
 
 class _Restart extends CoreAction {
-  _Restart(this.calls, {this.fails = false, this.hold});
+  _Restart(this.calls, {this.fails = false, this.hold, this.restarted});
 
   final List<String> calls;
   final bool fails;
   final Future<void>? Function()? hold;
+  final void Function()? restarted;
 
   @override
   Future<bool> restartCore() async {
     calls.add('restart');
     await hold?.call();
     if (fails) throw StateError('the core did not come back');
+    restarted?.call();
     return true;
   }
 }
@@ -153,6 +155,8 @@ _home([List<Override> more = const []]) {
   final container = ProviderContainer(
     overrides: [
       if (!more.any((o) => o.origin == tunAuthorizeProvider)) _noAdminPrompt,
+      if (!more.any((o) => o.origin == directCoreProvider))
+        directCoreProvider.overrideWithValue(() => false),
       profilesProvider.overrideWith(() => TestProfiles([profile])),
       proxiesActionProvider.overrideWith(() => proxies),
       profilesActionProvider.overrideWith(_Profiles.new),
@@ -4013,6 +4017,8 @@ void main() {
     var admin = ShikooAdmin.ready;
     Completer<ShikooAdmin>? prompt;
     Completer<void>? restarting;
+    var direct = false;
+    var helperTakes = true;
 
     ({ProviderContainer container, _Setup setup}) windows({
       bool desktop = true,
@@ -4023,6 +4029,8 @@ void main() {
       admin = ShikooAdmin.ready;
       prompt = null;
       restarting = null;
+      direct = false;
+      helperTakes = true;
       final (:container, :core, :proxies, :setup) = _home([
         shikooDesktopProvider.overrideWithValue(desktop),
         localPortFreeProvider.overrideWithValue((port) async {
@@ -4033,11 +4041,13 @@ void main() {
           calls.add('admin');
           return prompt?.future ?? admin;
         }),
+        directCoreProvider.overrideWithValue(() => direct),
         coreActionProvider.overrideWith(
           () => _Restart(
             calls,
             fails: restartFails,
             hold: () => restarting?.future,
+            restarted: () => direct = direct && !helperTakes,
           ),
         ),
       ]);
@@ -4125,6 +4135,7 @@ void main() {
       expect(setup.runs, isEmpty);
       expect(tun(container), isFalse);
 
+      direct = true;
       admin = ShikooAdmin.installed;
       await controller.connect();
       expect(
@@ -4224,12 +4235,86 @@ void main() {
         'start, never stays connecting', () async {
       final (:container, :setup) = windows(restartFails: true);
       final controller = await ready(container, setup);
+      direct = true;
       admin = ShikooAdmin.installed;
       await controller.connect();
       expect(calls, ['admin', 'restart']);
       expect(
         container.read(shikooStateProvider).connection,
         isNot(ShikooConnection.connecting),
+      );
+      expect(container.read(shikooStateProvider).helperFailed, isTrue);
+      expect(setup.runs, isEmpty);
+      await done(controller);
+    });
+
+    test('a core the app started before the helper service answered is '
+        'restarted through the service before the tunnel, though FlClash '
+        'already called TUN authorized', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      container.read(authorizedTunEnableProvider.notifier).value =
+          TunAuthorizationState.authorized;
+      direct = true;
+      await controller.connect();
+      expect(calls, ['admin', 'restart']);
+      expect(direct, isFalse);
+      expect(setup.runs, [true]);
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+
+      await controller.disconnect();
+      await controller.connect();
+      expect(calls, ['admin', 'restart'], reason: "the service's core stays");
+      await done(controller);
+    });
+
+    test("a restart that leaves the core the app's own says the tunnel did "
+        'not turn on, and starts nothing', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      direct = true;
+      helperTakes = false;
+      await controller.connect();
+      final state = container.read(shikooStateProvider);
+      expect(calls, ['admin', 'restart']);
+      expect(
+        (state.connection, state.helperFailed, state.lastError),
+        (ShikooConnection.error, true, null),
+      );
+      expect(setup.runs, isEmpty);
+      expect(tun(container), isFalse);
+      await done(controller);
+    });
+
+    test('the proxy mode keeps a core the app started itself', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      await controller.setMode(ShikooMode.proxy);
+      direct = true;
+      await controller.connect();
+      expect(calls, ['port 7890']);
+      expect(setup.runs, [true]);
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      await done(controller);
+    });
+
+    test("the tunnel takes the service's own core as it is", () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      container.read(authorizedTunEnableProvider.notifier).value =
+          TunAuthorizationState.authorized;
+      await controller.connect();
+      expect(calls, isEmpty);
+      expect(setup.runs, [true]);
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
       );
       await done(controller);
     });
@@ -4238,6 +4323,7 @@ void main() {
         'keeps its own flags and restarts nothing', () async {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
+      direct = true;
       prompt = Completer();
       unawaited(controller.connect());
       await pumpEventQueue();
@@ -4253,7 +4339,7 @@ void main() {
       expect(setup.runs, [false, true]);
 
       await controller.setMode(ShikooMode.tunnel);
-      expect(calls, ['admin', 'port 7890', 'restart']);
+      expect(calls, ['admin', 'port 7890', 'admin', 'restart']);
       expect(tun(container), isTrue);
       await done(controller);
     });
@@ -4280,6 +4366,7 @@ void main() {
         'flags and starts nothing', () async {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
+      direct = true;
       admin = ShikooAdmin.installed;
       restarting = Completer();
       unawaited(controller.connect());
@@ -4298,6 +4385,7 @@ void main() {
       () async {
         final (:container, :setup) = windows();
         final controller = await ready(container, setup);
+        direct = true;
         prompt = Completer();
         unawaited(controller.connect());
         await pumpEventQueue();

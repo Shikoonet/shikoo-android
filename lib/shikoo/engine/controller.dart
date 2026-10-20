@@ -921,9 +921,6 @@ class ShikooController {
   Future<void>? _changing;
 
   Future<ShikooAdmin>? _admin;
-
-  /// The service came up after the core had started without it: the next tunnel restarts the core first.
-  bool _restartOwed = false;
   final _revives = <DateTime>[];
   Future<void>? _reviving;
   int _deaths = 0;
@@ -1116,8 +1113,10 @@ class ShikooController {
     if (mode.systemProxy && !await _ref.read(localPortFreeProvider)(port)) {
       return _Intent(busyPort: port);
     }
+    final direct = _ref.read(directCoreProvider);
     final authorized = _ref.read(authorizedTunEnableProvider.notifier);
-    if (mode.tun && authorized.value != TunAuthorizationState.authorized) {
+    if (mode.tun &&
+        (direct() || authorized.value != TunAuthorizationState.authorized)) {
       final admin = await (_admin ??= _ref
           .read(tunAuthorizeProvider)()
           .whenComplete(() => _admin = null));
@@ -1127,17 +1126,16 @@ class ShikooController {
         case ShikooAdmin.failed:
           return const _Intent(helperFailed: true);
         case ShikooAdmin.installed:
-          _restartOwed = true;
         case ShikooAdmin.ready:
           break;
       }
       authorized.value = TunAuthorizationState.authorized;
     }
     if (stale()) return null;
-    if (mode.tun && _restartOwed) {
-      _restartOwed = false;
-      await _restartCore();
+    if (mode.tun && direct()) {
+      final restarted = await _restartCore();
       if (stale()) return null;
+      if (!restarted || direct()) return const _Intent(helperFailed: true);
     }
     _ref
         .read(networkSettingProvider.notifier)

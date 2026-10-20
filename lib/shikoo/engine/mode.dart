@@ -4,6 +4,8 @@ import 'package:fl_clash/common/constant.dart' show shikooStagingBuild;
 import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/desktop/helper_client.dart';
+import 'package:fl_clash/core/desktop/model.dart' show CoreProcessOwner;
+import 'package:fl_clash/core/service.dart' show coreService;
 import 'package:fl_clash/shikoo/engine/windows_adapters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,6 +66,12 @@ enum ShikooAdmin { ready, installed, refused, failed }
 
 final tunAuthorizeProvider = Provider<Future<ShikooAdmin> Function()>(
   (_) => _helperService,
+);
+
+/// A core the app launched itself, the helper not answering in time, cannot open TUN; FlClash still calls it authorized.
+final directCoreProvider = Provider<bool Function()>(
+  (_) =>
+      () => coreService?.owner == CoreProcessOwner.direct,
 );
 
 /// FlClash's `registerHelperService` (`lib/common/system.dart`), a refused prompt told apart from a failed service.
