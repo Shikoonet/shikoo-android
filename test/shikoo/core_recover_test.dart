@@ -103,13 +103,15 @@ class _Desk {
   _Desk({bool desktop = true, CoreAction? real}) {
     SharedPreferences.setMockInitialValues({});
     final handler = _Handler();
-    when(() => handler.asyncTestDelay(any(), any())).thenAnswer(
-      (call) async => Delay(
+    when(() => handler.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final value = coreUp ? delay : -1;
+      await gate?.future;
+      return Delay(
         name: call.positionalArguments[1] as String,
         url: '',
-        value: delay,
-      ),
-    );
+        value: value,
+      );
+    });
     final profile = Profile.normal(url: 'https://panel.invalid/sub');
     container = ProviderContainer(
       overrides: [
@@ -161,6 +163,9 @@ class _Desk {
   DateTime? tunnel = DateTime.now();
   bool portFree = true;
   int delay = 50;
+
+  /// Holds every ping's answer until completed; a dead core answers -1.
+  Completer<void>? gate;
 
   /// Run inside the next tunnel or port check, before it answers.
   void Function()? onRunTime;
@@ -477,6 +482,94 @@ void main() {
     await desk.die();
     expect(desk.state.servers.single.ping, 50);
   });
+
+  test("a round's answers from the dead core are dropped once it is back: "
+      'the servers are measured again', () async {
+    final desk = _Desk()
+      ..tunnel = null
+      ..delay = -1;
+    await pumpEventQueue();
+    final first = desk.gate = Completer();
+    final round = desk.controller.pingAll();
+    await pumpEventQueue();
+    desk.core.hold = Completer();
+    await desk.die();
+    final second = desk.gate = Completer();
+    first.complete();
+    await pumpEventQueue();
+
+    desk.delay = 50;
+    desk.core.hold!.complete();
+    await pumpEventQueue();
+    desk.gate = null;
+    second.complete();
+    await round;
+    await pumpEventQueue();
+    expect(desk.state.servers.single.ping, 50);
+  });
+
+  test('one revive at a time: a death while one waits is answered by it, on '
+      'its next look', () async {
+    final desk = _Desk();
+    await desk.connect();
+    desk.tunnel = null;
+    await desk.die();
+    expect(desk.restarts, 1);
+    await desk.die();
+    expect(desk.restarts, 1);
+
+    desk.tunnel = DateTime.now();
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    expect(desk.restarts, 2);
+    expect(desk.state.connection, ShikooConnection.on);
+  });
+
+  test('a death after a mode change or a press of off and on during a revive '
+      'is answered once the stale revive ends', () async {
+    for (final press in [
+      (_Desk desk) async {
+        await desk.controller.setMode(ShikooMode.proxy);
+        desk.portFree = false;
+      },
+      (_Desk desk) async {
+        await desk.controller.disconnect();
+        await desk.controller.connect();
+      },
+    ]) {
+      final desk = _Desk();
+      await desk.connect();
+      desk.tunnel = null;
+      await desk.die();
+      desk.tunnel = DateTime.now();
+      await press(desk);
+      await pumpEventQueue();
+      expect(desk.state.connection, ShikooConnection.on);
+
+      await desk.die();
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      expect(desk.restarts, 2);
+      expect(desk.coreUp, isTrue);
+      expect(desk.state.connection, ShikooConnection.on);
+      expect(desk.state.lastError, isNull);
+    }
+  });
+
+  test(
+    'a revive that throws is not started again for the deaths it left',
+    () async {
+      final desk = _Desk();
+      await desk.connect();
+      desk.tunnel = null;
+      var errors = 0;
+      await runZonedGuarded(() async {
+        await desk.die();
+        desk.dieNow();
+        desk.container.dispose();
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+      }, (_, _) => errors++);
+      expect(errors, 1);
+    },
+  );
 
   test('a proxy whose port stays free after the restart is not on; once '
       'FlClash drops the run it is off, with the error', () async {

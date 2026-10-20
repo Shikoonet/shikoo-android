@@ -1187,9 +1187,11 @@ class ShikooController {
 
   void _answerDeaths() {
     if (_deaths == 0) return;
-    _reviving ??= _revive().whenComplete(() {
+    var clean = false;
+    _reviving ??= _revive().then((_) => clean = true).whenComplete(() {
       _reviving = null;
-      _answerDeaths();
+      // One that threw before taking its deaths would start again at once, forever.
+      if (clean) _answerDeaths();
     });
   }
 
@@ -1216,10 +1218,11 @@ class ShikooController {
               ) !=
               null;
     }
-    _deaths = 0;
     if (stale()) return;
+    _deaths = 0;
     if (up) {
       if (wanted) _set(const _Intent());
+      _forgetRound();
       unawaited(pingAll());
     } else if (wanted) {
       final off = disconnect();
