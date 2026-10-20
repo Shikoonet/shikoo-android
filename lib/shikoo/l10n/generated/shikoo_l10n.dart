@@ -437,8 +437,14 @@ abstract class ShikooL10n {
   /// No description provided for @updateFailedPanel.
   ///
   /// In en, this message translates to:
-  /// **'ShikooNet\'s subscription server isn\'t answering right now; it\'s not your device. Connect with these servers; it tries again by itself shortly.'**
+  /// **'ShikooNet\'s subscription server isn\'t answering right now; it\'s not your device. These servers still work, and it tries again by itself shortly.'**
   String get updateFailedPanel;
+
+  /// No description provided for @updateFailedConnectFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect first.'**
+  String get updateFailedConnectFirst;
 
   /// No description provided for @serversAdded.
   ///

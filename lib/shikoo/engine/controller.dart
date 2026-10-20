@@ -236,7 +236,8 @@ ShikooFailedWay failedWay(ShikooLeg? last, Object error) =>
       (ShikooLeg.direct, _) => ShikooFailedWay.direct,
       (ShikooLeg.server, _) => ShikooFailedWay.server,
       (ShikooLeg.fallback, _) => ShikooFailedWay.both,
-      (ShikooLeg.directOff || null, _) => ShikooFailedWay.directOff,
+      (ShikooLeg.directOff, _) => ShikooFailedWay.directOff,
+      (null, _) => ShikooFailedWay.panel,
     };
 
 class ShikooNotConnected implements Exception {
@@ -806,7 +807,7 @@ Future<Response<Uint8List>> _get(String url, String? proxy) async {
   try {
     return await dio
         .get<Uint8List>(url, options: Options(responseType: ResponseType.bytes))
-        .timeout(const Duration(seconds: 30));
+        .timeout(subscriptionTimeout);
   } catch (error) {
     commonPrint.log(
       'subscription ${proxy == null ? 'direct' : 'server'} error ${compactError(error)}',
@@ -817,6 +818,9 @@ Future<Response<Uint8List>> _get(String url, String? proxy) async {
     dio.close(force: true);
   }
 }
+
+@visibleForTesting
+Duration subscriptionTimeout = const Duration(seconds: 30);
 
 /// Never row 1, the core's fallback: with connect pressed the first answer, else the fastest.
 String? pickNow({
@@ -1819,7 +1823,10 @@ class ShikooController {
         label: profile.label,
         refresh: true,
         via: via,
-        onLeg: (leg) => _leg(profile.id, last = leg),
+        onLeg: (leg) {
+          last = leg;
+          if (leg != null) _leg(profile.id, leg);
+        },
       );
       if (fresh == null) {
         status.set(ShikooRefresh.idle);
@@ -1872,7 +1879,7 @@ class ShikooController {
   Future<Response<Uint8List>> _fetch(
     String url,
     ShikooRoute? via,
-    void Function(ShikooLeg leg)? onLeg,
+    void Function(ShikooLeg? leg)? onLeg,
   ) async {
     final server = FlClashHttpOverrides.findProxyForReader(
       _ref.read,
@@ -1903,9 +1910,11 @@ class ShikooController {
     bool needsServers = false,
     bool refresh = false,
     ShikooRoute? via,
-    void Function(ShikooLeg leg)? onLeg,
+    void Function(ShikooLeg? leg)? onLeg,
   }) async {
     final response = await _fetch(url, via, onLeg);
+    // What fails from here on came with an answer: no way is to blame.
+    onLeg?.call(null);
     final header = response.headers.value;
     learnClock(header('date'));
     final body = response.data ?? Uint8List(0);

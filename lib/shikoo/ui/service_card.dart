@@ -1050,7 +1050,7 @@ class _Message extends StatelessWidget {
           ShikooFailedWay.server => l.updateFailedViaServer(name),
           ShikooFailedWay.both => l.updateFailedBoth(name),
           ShikooFailedWay.panel => l.updateFailedPanel,
-          ShikooFailedWay.notConnected => l.refreshConnectFirst,
+          ShikooFailedWay.notConnected => l.updateFailedConnectFirst,
         },
       ),
       SelectedReplaced(
@@ -1125,19 +1125,25 @@ class _Message extends StatelessWidget {
                 ),
               ],
             )
-          else if (danger)
-            Row(
+          else if (danger && other != null)
+            Wrap(
               spacing: Space.s3,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                ?other,
-                Flexible(
+                other,
+                IntrinsicWidth(
                   child: LinkButton(
                     label: l.reportSendToSupport,
-                    alignment: AlignmentDirectional.centerStart,
                     onPressed: report,
                   ),
                 ),
               ],
+            )
+          else if (danger)
+            LinkButton(
+              label: l.reportSendToSupport,
+              alignment: AlignmentDirectional.centerStart,
+              onPressed: report,
             ),
         ],
       ),

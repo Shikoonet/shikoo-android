@@ -591,7 +591,11 @@ class _CardKeys extends StatelessWidget {
                     focus.support,
               TraversalDirection.up
                   when from == focus.renew || from == focus.support =>
-                _onScreen(focus.report) ? focus.report : focus.ping,
+                [
+                      if (from == focus.renew) focus.other,
+                      focus.report,
+                    ].firstWhereOrNull(_onScreen) ??
+                    focus.ping,
               _ => null,
             };
             if (_onScreen(next)) {

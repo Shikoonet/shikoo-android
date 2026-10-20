@@ -1,4 +1,4 @@
-import 'dart:io' show InternetAddress;
+import 'dart:io' show InternetAddress, InternetAddressType;
 
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -30,10 +30,13 @@ String? _domain(Rule rule) => switch (rule.ruleAction) {
   _ => null,
 };
 
+// shortcut: a host shared with the door or a probe goes DIRECT through the server as well; make those rules tunnel-only if that happens.
 /// Tunnel only: an update sent past the local proxy (on Android, into the tunnel) goes DIRECT, one sent to it takes the server.
-Rule subscriptionDirectRule(String host, int id) => Rule.parse(
-  InternetAddress.tryParse(host) == null
-      ? 'AND,((IN-TYPE,TUN),(DOMAIN,$host)),DIRECT'
-      : 'AND,((IN-TYPE,TUN),(IP-CIDR,$host/32,no-resolve)),DIRECT',
-  id: id,
-);
+Rule subscriptionDirectRule(
+  String host,
+  int id,
+) => Rule.parse(switch (InternetAddress.tryParse(host)?.type) {
+  null => 'AND,((IN-TYPE,TUN),(DOMAIN,$host)),DIRECT',
+  final type =>
+    'AND,((IN-TYPE,TUN),(IP-CIDR,$host/${type == InternetAddressType.IPv6 ? 128 : 32},no-resolve)),DIRECT',
+}, id: id);

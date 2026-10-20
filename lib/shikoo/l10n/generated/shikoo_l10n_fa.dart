@@ -230,7 +230,10 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get updateFailedPanel =>
-      'سرور اشتراکِ شیکو الان جواب نمی‌دهد؛ ایراد از دستگاهِ تو نیست. با همین سرورها وصل شو؛ خودش کمی بعد دوباره امتحان می‌کند.';
+      'سرور اشتراکِ شیکو الان جواب نمی‌دهد؛ ایراد از دستگاهِ تو نیست. همین سرورها کار می‌کنند و خودش کمی بعد دوباره امتحان می‌کند.';
+
+  @override
+  String get updateFailedConnectFirst => 'اول وصل شو.';
 
   @override
   String serversAdded(int count) {

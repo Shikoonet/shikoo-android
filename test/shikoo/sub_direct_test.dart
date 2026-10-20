@@ -93,12 +93,22 @@ void main() {
       ], contains('DOMAIN,app.chopon.uk,DIRECT'));
     });
 
-    test('an address for a host matches its address', () async {
-      await keepSubscriptionsDirect(['http://10.0.2.2:18089/sub']);
-      expect(await _subscriptionRules(), [
-        'AND,((IN-TYPE,TUN),(IP-CIDR,10.0.2.2/32,no-resolve)),DIRECT',
-      ]);
-    });
+    test(
+      'an address for a host matches that address alone, v4 or v6',
+      () async {
+        await keepSubscriptionsDirect([
+          'http://10.0.2.2:18089/sub',
+          'http://[2001:db8::1]:8080/sub',
+        ]);
+        expect(
+          await _subscriptionRules(),
+          unorderedEquals([
+            'AND,((IN-TYPE,TUN),(IP-CIDR,10.0.2.2/32,no-resolve)),DIRECT',
+            'AND,((IN-TYPE,TUN),(IP-CIDR,2001:db8::1/128,no-resolve)),DIRECT',
+          ]),
+        );
+      },
+    );
 
     test('the core gets the rule ahead of the subscription, its host found '
         "with the device's DNS", () async {

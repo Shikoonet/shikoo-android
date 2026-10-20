@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -59,8 +60,11 @@ Future<_Rig> _pump(
   Size? size,
   Brightness brightness = Brightness.light,
   String locale = 'fa',
+  double textScale = 1,
 }) async {
   SharedPreferences.setMockInitialValues({});
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   final tv = state.isTV;
   final view = size ?? (tv ? const Size(960, 540) : const Size(412, 915));
   tester.view
@@ -141,6 +145,34 @@ String? _focused() {
   return text;
 }
 
+/// Puts the remote on the button [target] is in, or holds.
+Future<void> _focusOn(WidgetTester tester, Finder target) async {
+  final above = find.ancestor(of: target, matching: find.byType(Pressable));
+  final pressable = above.evaluate().isNotEmpty
+      ? above.first
+      : find.descendant(of: target, matching: find.byType(Pressable)).first;
+  final node = Focus.of(
+    tester.element(
+      find
+          .descendant(of: pressable, matching: find.byType(GestureDetector))
+          .first,
+    ),
+  );
+  FocusTraversalGroup.of(node.context!).invalidateScopeData(node.nearestScope!);
+  node.requestFocus();
+  await tester.pumpAndSettle();
+}
+
+/// The «▾» icon, its size and colour.
+SvgIcon _caretIcon(WidgetTester tester) => tester.widget<SvgIcon>(
+  find.descendant(
+    of: _caret,
+    matching: find.byWidgetPredicate(
+      (w) => w is SvgIcon && w.icon == ShikooIcon.chevronDown,
+    ),
+  ),
+);
+
 Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.sendKeyEvent(key);
   await tester.pumpAndSettle();
@@ -220,6 +252,57 @@ void main() {
       expect(find.text(_l.refreshDirect), findsOneWidget);
     });
 
+    testWidgets('«▾» is a small icon, muted, and the text colour while its '
+        'menu is open', (tester) async {
+      await _pump(tester, _state());
+      final t = ShikooTheme.of(tester.element(_caret));
+      expect(_caretIcon(tester).size, ShikooSizes.phone.iconSm);
+      expect(_caretIcon(tester).color, t.c.textMuted);
+      await _shot(tester, 'phone-caret-closed');
+      await tester.tap(_caret);
+      await tester.pumpAndSettle();
+      expect(_caretIcon(tester).color, t.c.text);
+      await _shot(tester, 'phone-caret-open');
+    });
+
+    testWidgets('at font ×1.45 the other way and the report wrap, the link '
+        'kept on one line', (tester) async {
+      for (final (width, scale) in [
+        (412.0, 1.0),
+        (412.0, 1.45),
+        (360.0, 1.45),
+      ]) {
+        await _pump(
+          tester,
+          _state(
+            refresh: ShikooRefresh.failed,
+            updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+            notice: const RefreshFailed(way: ShikooFailedWay.direct),
+          ),
+          size: Size(width, 915),
+          textScale: scale,
+        );
+        final link = tester.getSize(find.text(_l.reportSendToSupport));
+        final label = tester.getSize(find.text(_l.refreshViaServer));
+        expect(
+          link.height,
+          closeTo(label.height, 1),
+          reason: '$width ×$scale: one line, as the button label',
+        );
+        expect(tester.takeException(), isNull);
+        if (scale == 1) {
+          expect(
+            tester.getCenter(find.text(_l.reportSendToSupport)).dy,
+            closeTo(tester.getCenter(find.text(_l.refreshViaServer)).dy, 2),
+            reason: 'with room, the link sits beside the button',
+          );
+        }
+        if (width == 412) {
+          await _shot(tester, 'phone-failed-direct-x${scale == 1 ? 100 : 145}');
+        }
+      }
+    });
+
     testWidgets('dark, connected', (tester) async {
       await _pump(tester, _state(), brightness: Brightness.dark);
       await tester.tap(_caret);
@@ -289,6 +372,13 @@ void main() {
           null,
           'phone-failed-panel',
         ),
+        (
+          ShikooFailedWay.notConnected,
+          ShikooConnection.off,
+          _l.updateFailedConnectFirst,
+          null,
+          null,
+        ),
       ]) {
         rig.holder.value = _state(
           connection: connection,
@@ -326,21 +416,7 @@ void main() {
   group('TV', () {
     Future<_Rig> onRefresh(WidgetTester tester, ShikooState state) async {
       final rig = await _pump(tester, state);
-      final node = Focus.of(
-        tester.element(
-          find
-              .descendant(
-                of: find.ancestor(
-                  of: find.text(_l.refresh),
-                  matching: find.byType(Pressable),
-                ),
-                matching: find.byType(GestureDetector),
-              )
-              .first,
-        ),
-      );
-      node.requestFocus();
-      await tester.pumpAndSettle();
+      await _focusOn(tester, find.text(_l.refresh));
       expect(_focused(), _l.refresh);
       return rig;
     }
@@ -408,8 +484,18 @@ void main() {
       await _shot(tester, 'tv-status-fallback');
     });
 
-    testWidgets('one press down from the head lands on the failure\'s other '
-        'way', (tester) async {
+    testWidgets('«▾» is a small icon on the TV too', (tester) async {
+      await onRefresh(tester, _state(tv: true));
+      expect(_caretIcon(tester).size, ShikooSizes.tv.iconSm);
+      await _press(tester, towardPower);
+      await _shot(tester, 'tv-caret-closed');
+      await _press(tester, ok);
+      await _shot(tester, 'tv-caret-open');
+    });
+
+    testWidgets('one press down from anywhere in the head lands on the '
+        "failure's other way; up from renew comes back to it, up from support "
+        'to the report', (tester) async {
       final rig = await onRefresh(
         tester,
         _state(
@@ -422,6 +508,41 @@ void main() {
           ),
         ),
       );
+      final wrong = <String>[];
+      for (final (from, start, key, to) in [
+        (
+          'update',
+          find.text(_l.refresh),
+          LogicalKeyboardKey.arrowDown,
+          _l.refreshDirect,
+        ),
+        ('▾', _caret, LogicalKeyboardKey.arrowDown, _l.refreshDirect),
+        (
+          'ping',
+          find.text(_l.ping),
+          LogicalKeyboardKey.arrowDown,
+          _l.refreshDirect,
+        ),
+        (
+          'renew',
+          find.text(_l.renew),
+          LogicalKeyboardKey.arrowUp,
+          _l.refreshDirect,
+        ),
+        (
+          'support',
+          find.text(_l.support),
+          LogicalKeyboardKey.arrowUp,
+          _l.reportSendToSupport,
+        ),
+      ]) {
+        await _focusOn(tester, start);
+        final got = await _press(tester, key);
+        if (got != to) wrong.add('$from ${key.debugName}: $got, not $to');
+        if (from == 'renew') await _shot(tester, 'tv-up-from-renew');
+      }
+      expect(wrong, isEmpty);
+      await _focusOn(tester, find.text(_l.refresh));
       expect(
         await _press(tester, LogicalKeyboardKey.arrowDown),
         _l.refreshDirect,

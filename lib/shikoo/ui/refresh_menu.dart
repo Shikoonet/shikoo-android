@@ -134,8 +134,9 @@ class _RefreshControlsState extends State<RefreshControls> {
             child: ShikooIconButton(
               icon: ShikooIcon.chevronDown,
               label: l.refreshWays,
-              color: t.c.textMuted,
+              color: _open ? t.c.text : t.c.textMuted,
               height: height,
+              iconSize: t.s.iconSm,
               onPressed: onCaret,
             ),
           ),

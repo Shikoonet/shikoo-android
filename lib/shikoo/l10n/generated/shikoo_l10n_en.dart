@@ -255,7 +255,10 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get updateFailedPanel =>
-      'ShikooNet\'s subscription server isn\'t answering right now; it\'s not your device. Connect with these servers; it tries again by itself shortly.';
+      'ShikooNet\'s subscription server isn\'t answering right now; it\'s not your device. These servers still work, and it tries again by itself shortly.';
+
+  @override
+  String get updateFailedConnectFirst => 'Connect first.';
 
   @override
   String serversAdded(int count) {

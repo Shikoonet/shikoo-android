@@ -386,7 +386,7 @@ class ShikooButton extends StatelessWidget {
           else if (icon != null)
             SvgIcon(
               icon,
-              size: small ? t.s.iconSm : t.s.icon,
+              size: small || square ? t.s.iconSm : t.s.icon,
               color: enabled ? fg : t.c.iconDisabled,
             ),
           if ((busy || icon != null) && !square)
@@ -448,6 +448,7 @@ class ShikooIconButton extends StatelessWidget {
     this.busy = false,
     this.flipInLtr = false,
     this.height = ShikooSizes.touch,
+    this.iconSize,
   });
 
   final ShikooIcon icon;
@@ -457,6 +458,7 @@ class ShikooIconButton extends StatelessWidget {
   final bool busy;
 
   final double height;
+  final double? iconSize;
 
   /// For an arrow drawn for Persian, as `.flip-ltr`.
   final bool flipInLtr;
@@ -481,7 +483,11 @@ class ShikooIconButton extends StatelessWidget {
               ? Spinner(size: t.s.icon, color: color)
               : Transform.flip(
                   flipX: flipInLtr && ltr,
-                  child: SvgIcon(icon, size: t.s.icon, color: color),
+                  child: SvgIcon(
+                    icon,
+                    size: iconSize ?? t.s.icon,
+                    color: color,
+                  ),
                 ),
         ),
       ),

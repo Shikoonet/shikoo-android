@@ -256,11 +256,13 @@ class _EmulatorHost extends HttpOverrides {
         };
 }
 
-/// Which way each request left, `direct` or `server` (the local proxy); a way in [failing] refuses.
-/// The panel is 10.0.2.2: FlClash sends any request for 127.0.0.1 direct.
+/// Which way each request left, `direct` or `server` (the local proxy); a way in [failing] refuses,
+/// one in [silent] connects and never answers. The panel is 10.0.2.2: FlClash sends 127.0.0.1 direct.
 class _Ways extends HttpOverrides {
   final taken = <String>[];
   final failing = <String>{};
+  final silent = <String>{};
+  int? silentPort;
 
   @override
   HttpClient createHttpClient(SecurityContext? context) =>
@@ -270,7 +272,10 @@ class _Ways extends HttpOverrides {
           taken.add(way);
           return failing.contains(way)
               ? Future.error(const SocketException('refused'))
-              : Socket.startConnect(InternetAddress.loopbackIPv4, uri.port);
+              : Socket.startConnect(
+                  InternetAddress.loopbackIPv4,
+                  silent.contains(way) ? silentPort! : uri.port,
+                );
         };
 }
 
@@ -2938,13 +2943,15 @@ void main() {
 
   group('an update leaves without the server, or through it', () {
     late ProviderContainer container;
+    late _Core core;
     late ShikooController controller;
     late _Ways ways;
     late Profile other;
 
     setUp(() async {
-      final (container: made, :core, proxies: _, setup: _) = _home();
+      final (container: made, core: mock, proxies: _, setup: _) = _home();
       container = made;
+      core = mock;
       final panel = (await _panel(
         container,
         core,
@@ -3006,6 +3013,44 @@ void main() {
       expect(ways.taken, ['direct']);
       expect(state().refresh, ShikooRefresh.failed);
       expect(way(), ShikooFailedWay.directOff);
+
+      ways.failing.clear();
+      _gone.add('/file/user111/a');
+      await controller.refreshService();
+      expect(way(), ShikooFailedWay.panel, reason: 'its own answer, while off');
+    });
+
+    test('a direct way that never answers falls back to the server', () async {
+      final quiet = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final held = <Socket>[];
+      quiet.listen(held.add);
+      addTearDown(() async {
+        for (final socket in held) {
+          socket.destroy();
+        }
+        await quiet.close();
+      });
+      final before = subscriptionTimeout;
+      subscriptionTimeout = const Duration(milliseconds: 300);
+      addTearDown(() => subscriptionTimeout = before);
+      ways
+        ..silent.add('direct')
+        ..silentPort = quiet.port;
+      container.read(runTimeProvider.notifier).value = 1;
+      await controller.refreshService(manual: false);
+      expect(ways.taken, ['direct', 'server']);
+      expect(state().refresh, ShikooRefresh.idle);
+    });
+
+    test('an answer the core cannot read blames no way', () async {
+      container.read(runTimeProvider.notifier).value = 1;
+      when(
+        () => core.validateConfig(any()),
+      ).thenAnswer((_) async => 'not a config');
+      await controller.refreshService();
+      expect(ways.taken, ['direct']);
+      expect(state().refresh, ShikooRefresh.failed);
+      expect(way(), ShikooFailedWay.panel);
     });
 
     test("the panel's own answer is final, through either way", () async {
