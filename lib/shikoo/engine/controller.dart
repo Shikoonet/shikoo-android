@@ -1137,12 +1137,17 @@ class ShikooController {
       if (stale()) return null;
       if (!restarted || direct()) return const _Intent(helperFailed: true);
     }
+    final tunWas = _ref.read(patchClashConfigProvider).tun.enable;
     _ref
         .read(networkSettingProvider.notifier)
         .update((s) => s.copyWith(systemProxy: mode.systemProxy));
     _ref
         .read(patchClashConfigProvider.notifier)
         .update((c) => c.copyWith.tun(enable: mode.tun));
+    // The core starts its listeners from the config it holds; FlClash would send this flag 600 ms after the start.
+    if (tunWas != mode.tun) {
+      await _setup.applyProfile(force: true, silence: true);
+    }
     return null;
   }
 

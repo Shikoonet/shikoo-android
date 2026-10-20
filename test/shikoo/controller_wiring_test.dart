@@ -4304,6 +4304,23 @@ void main() {
       await done(controller);
     });
 
+    test('a mode change hands the core its TUN flag before the start, since '
+        'the core opens its listeners from the config it holds', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      final applied = <(bool, int)>[];
+      setup.onApply = () => applied.add((tun(container), setup.runs.length));
+      await controller.connect();
+      await controller.setMode(ShikooMode.proxy);
+      expect(setup.runs, [true, false, true]);
+      expect(applied, [(true, 0), (false, 2)]);
+
+      await controller.disconnect();
+      await controller.connect();
+      expect(applied, hasLength(2), reason: 'the core holds the flag already');
+      await done(controller);
+    });
+
     test("the tunnel takes the service's own core as it is", () async {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
