@@ -30,8 +30,7 @@ String? _domain(Rule rule) => switch (rule.ruleAction) {
   _ => null,
 };
 
-// shortcut: a host shared with the door or a probe goes DIRECT through the server as well; make those rules tunnel-only if that happens.
-/// Tunnel only: an update sent past the local proxy (on Android, into the tunnel) goes DIRECT, one sent to it takes the server.
+/// Tunnel only, so an update sent to the local proxy takes the server. shortcut: a host shared with the door or a probe goes DIRECT both ways; make those rules tunnel-only if that happens.
 Rule subscriptionDirectRule(
   String host,
   int id,
