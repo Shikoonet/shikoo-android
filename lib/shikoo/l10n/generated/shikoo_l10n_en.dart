@@ -1435,6 +1435,10 @@ class ShikooL10nEn extends ShikooL10n {
       'ShikooNet\'s connection dropped.\nConnect again. If it keeps dropping, ask Support.';
 
   @override
+  String get coreStartDesktop =>
+      'Couldn\'t connect.\nTry again. If it still fails, ask Support.';
+
+  @override
   String get subCancelDesktop => 'Click to cancel';
 
   @override

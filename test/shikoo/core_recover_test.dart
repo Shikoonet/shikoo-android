@@ -424,7 +424,7 @@ void main() {
 
   test(
     'connect on a core left down restarts it first; one that stays down '
-    'fails the connect as anything else would, never as a dropped one',
+    'fails the connect with its own text, with a server chosen or not',
     () async {
       final desk = _Desk();
       await pumpEventQueue();
@@ -441,16 +441,34 @@ void main() {
       desk.calls.clear();
       await desk.controller.connect();
       expect(desk.calls, ['restart']);
-      expect(desk.state.lastError, ShikooError.connectTimeout);
+      expect(desk.state.connection, ShikooConnection.error);
+      expect(desk.state.lastError, ShikooError.coreStart);
 
       desk.container
           .read(profilesActionProvider.notifier)
           .updateCurrentSelectedMap('PROXY', '');
       await desk.controller.connect();
       expect(desk.restarts, 2);
-      expect(desk.state.lastError, ShikooError.noServer);
+      expect(desk.state.lastError, ShikooError.coreStart);
     },
   );
+
+  test("FlClash's restart whose initCore keeps failing: a death while off "
+      'says nothing, and each connect fails with its own text', () async {
+    final calls = <String>[];
+    final real = _RealCore(calls);
+    final desk = _Desk(real: real)..tunnel = null;
+    await pumpEventQueue();
+    real.initFails = true;
+    await desk.die();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(desk.state.lastError, isNull);
+    for (var press = 1; press <= 3; press++) {
+      await desk.controller.connect();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(desk.state.lastError, ShikooError.coreStart);
+    }
+  });
 
   test('a phone, or a computer still starting, connects without restarting '
       'the core', () async {

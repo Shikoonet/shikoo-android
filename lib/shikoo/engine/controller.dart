@@ -34,6 +34,7 @@ enum ShikooError {
   vpnRefused,
   vpnMissing,
   coreDown,
+  coreStart,
 }
 
 /// [revoked]: a pasted link the panel no longer knows (404 or 410).
@@ -480,7 +481,8 @@ ShikooConnection deriveConnection({
     ShikooError.noServer ||
     ShikooError.vpnRefused ||
     ShikooError.vpnMissing ||
-    ShikooError.coreDown => ShikooConnection.error,
+    ShikooError.coreDown ||
+    ShikooError.coreStart => ShikooConnection.error,
     _ => ShikooConnection.off,
   };
 }
@@ -1259,13 +1261,7 @@ class ShikooController {
     await _restartCore();
     if (attempt != _attempt) return false;
     if (_coreUp) return true;
-    _set(
-      _Intent(
-        error: _validSelection() == null
-            ? ShikooError.noServer
-            : ShikooError.connectTimeout,
-      ),
-    );
+    _set(const _Intent(error: ShikooError.coreStart));
     return false;
   }
 

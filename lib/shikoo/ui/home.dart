@@ -929,6 +929,7 @@ class _PowerZone extends StatelessWidget {
         shikooDesktop ? l.vpnMissingDesktop : l.vpnMissing,
       ShikooError.serverChange => l.errorServer,
       ShikooError.coreDown => l.coreDownDesktop,
+      ShikooError.coreStart => l.coreStartDesktop,
       null when state.busyPort != null => l.busyPortDesktop,
       null when state.helperFailed => l.helperFailedDesktop,
       null when state.waiting => l.connectsToFirst,

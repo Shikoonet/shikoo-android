@@ -510,6 +510,7 @@
   "busyPortDesktop": "Another program is using ShikooNet's proxy port.\nClose it and connect again, or choose Tunnel.",
   "helperFailedDesktop": "The tunnel didn't turn on.\nConnect again, or choose Proxy.",
   "coreDownDesktop": "ShikooNet's connection dropped.\nConnect again. If it keeps dropping, ask Support.",
+  "coreStartDesktop": "Couldn't connect.\nTry again. If it still fails, ask Support.",
   "subCancelDesktop": "Click to cancel",
   "subRetryDesktop": "Click to retry",
   "updateFailedDesktop": "Check your internet and click again. Until then, connect with these servers.",
