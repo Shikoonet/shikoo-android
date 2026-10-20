@@ -2255,7 +2255,7 @@ abstract class ShikooL10n {
   /// No description provided for @coreStartDesktop.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t connect.\nTry again. If it still fails, ask Support.'**
+  /// **'ShikooNet\'s connection didn\'t start.\nConnect again. If it still fails, ask Support.'**
   String get coreStartDesktop;
 
   /// No description provided for @subCancelDesktop.

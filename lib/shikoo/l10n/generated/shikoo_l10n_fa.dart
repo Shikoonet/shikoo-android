@@ -1381,7 +1381,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get coreStartDesktop =>
-      'اتصال برقرار نشد.\nدوباره بزن. اگر باز نشد، از «پشتیبانی» بپرس.';
+      'اتصال شیکونت راه نیفتاد.\nدوباره وصل شو. اگر باز هم نشد، از «پشتیبانی» بپرس.';
 
   @override
   String get subCancelDesktop => 'برای لغو بزن';

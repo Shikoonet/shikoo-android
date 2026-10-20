@@ -1363,6 +1363,10 @@ void main() {
             l.coreDownDesktop,
             _state(ShikooConnection.error, error: ShikooError.coreDown),
           ),
+          'coreStart': (
+            l.coreStartDesktop,
+            _state(ShikooConnection.error, error: ShikooError.coreStart),
+          ),
         };
         for (final width in const [864.0, 880.0, 1000.0, 400.0]) {
           for (final scale in const [1.0, 1.25, 1.5]) {
@@ -1708,6 +1712,13 @@ void main() {
           (
             l.coreDownDesktop,
             ShikooError.coreDown,
+            null,
+            false,
+            ShikooMode.tunnel,
+          ),
+          (
+            l.coreStartDesktop,
+            ShikooError.coreStart,
             null,
             false,
             ShikooMode.tunnel,

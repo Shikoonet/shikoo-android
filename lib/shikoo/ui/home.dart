@@ -962,6 +962,7 @@ class _PowerZone extends StatelessWidget {
         l.helperFailedDesktop,
         l.noServerAnsweredHelpDesktop,
         l.coreDownDesktop,
+        l.coreStartDesktop,
         l.errorServer,
         l.connectsToFirst,
         l.renewToConnect,
