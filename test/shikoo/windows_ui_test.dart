@@ -111,6 +111,7 @@ ShikooState _state(
   ShikooNotice? notice,
   String? server,
   String? selected,
+  List<String> listed = const [],
 }) => ShikooState(
   connection: connection,
   lastError: error,
@@ -133,6 +134,8 @@ ShikooState _state(
     const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
     for (var i = 1; i <= more; i++)
       ShikooServer(name: 'سرور $i', type: 'Vless', ping: 100 + i),
+    for (final name in listed)
+      ShikooServer(name: name, type: 'Vless', ping: 90),
   ],
   selected: selected ?? server ?? 'آلمان ۲',
   sorted: true,
@@ -1215,6 +1218,99 @@ void main() {
       expect(await button(long), await button('آلمان ۲'));
     }, variant: _windows);
 
+    testWidgets('an error naming the chosen server moves nothing, whichever '
+        'name the list holds is the widest on screen: a Persian one, capitals, '
+        'one with a flag', (tester) async {
+      const caps = 'GERMANY 5 REALITY PRO';
+      const listed = [
+        'ترکیه ۴ · استانبول ویژه',
+        caps,
+        '🇩🇪 Germany 2 Hetzner',
+      ];
+      for (final window in const [Size(864, 492), Size(880, 508)]) {
+        Future<Rect> button(ShikooConnection connection) async {
+          _window(tester, window);
+          await tester.pumpWidget(
+            _app(
+              const ShikooHome(),
+              locale: const Locale('en'),
+              overrides: [
+                shikooStateProvider.overrideWithValue(
+                  _state(
+                    connection,
+                    selected: caps,
+                    listed: listed,
+                    error: connection == ShikooConnection.error
+                        ? ShikooError.connectTimeout
+                        : null,
+                  ),
+                ),
+                shikooProbeProvider.overrideWith(_NoProbes.new),
+              ],
+            ),
+          );
+          await tester.pump();
+          await tester.pump();
+          return tester.getRect(find.byType(PowerButton));
+        }
+
+        expect(
+          await button(ShikooConnection.error),
+          await button(ShikooConnection.off),
+          reason: '$window',
+        );
+      }
+    }, variant: _windows);
+
+    testWidgets("a name long enough to take three lines makes Sam's window "
+        'scroll as R3 asks: the same scroll with or without the message, and '
+        'the message shown Space.s4 clear of the bottom', (tester) async {
+      const long = 'NETHERLANDS 12 GAMING REALITY PRO';
+      // More letters, fewer lines: a count of letters would pick it and keep two.
+      const listed = ['ترکیه ۴ · استانبول ویژهٔ گیمینگ و استریم'];
+      const window = Size(864, 492);
+      _window(tester, window);
+      await tester.pumpWidget(
+        _app(
+          const ShikooHome(),
+          locale: const Locale('en'),
+          overrides: [
+            shikooStateProvider.overrideWith((ref) => ref.watch(_stateCell)),
+            shikooProbeProvider.overrideWith(_NoProbes.new),
+          ],
+        ),
+      );
+      final cell = ProviderScope.containerOf(
+        tester.element(find.byType(ShikooHome)),
+      ).read(_stateCell.notifier);
+      cell.set(_state(ShikooConnection.off, server: long, listed: listed));
+      await tester.pump();
+      final column = Scrollable.of(
+        tester.element(find.byType(PowerButton)),
+      ).position;
+      final rest = column.maxScrollExtent;
+      expect(rest, greaterThan(0), reason: 'three lines leave no room: R3');
+      cell.set(
+        _state(
+          ShikooConnection.error,
+          server: long,
+          listed: listed,
+          error: ShikooError.connectTimeout,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(column.maxScrollExtent, rest);
+      final l = lookupShikooL10n(const Locale('en'));
+      final message = tester.getRect(
+        find.text(
+          l.errorConnectDesktop(serverName(long), connectTimeout.inSeconds),
+        ),
+      );
+      expect(message.height, greaterThan(2.5 * 13 * Leading.tight));
+      expect(window.height - message.bottom, greaterThanOrEqualTo(Space.s4));
+    }, variant: _windows);
+
     testWidgets('the local proxy line shows when off and under an error', (
       tester,
     ) async {
@@ -1587,7 +1683,7 @@ void main() {
         final text = lookupShikooL10n(locale).vpnRefusedDesktop;
         final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
         expect(paragraph.didExceedMaxLines, isFalse, reason: language);
-        expect(paragraph.size.width, ShikooSizes.desktop.powerRing * 1.5);
+        expect(paragraph.size.width, ShikooSizes.desktop.dialog);
       }
     }, variant: _windows);
 

@@ -945,17 +945,14 @@ class _PowerZone extends StatelessWidget {
   }
 
   /// A computer keeps the tallest message's room, its narrow page too: one that comes moves nothing.
-  double _room(BuildContext context, ShikooL10n l) {
+  double _room(BuildContext context, ShikooL10n l, double width) {
     final t = ShikooTheme.of(context);
     final style = t.text(t.s.bodySm);
-    final width = t.s.powerRing * 1.5;
-    // The longest name the list holds, so picking another server moves nothing either.
-    final name = serverName(
-      [
-        ?state.selectedServer?.name,
-        for (final server in state.servers) server.name,
-      ].fold('', (long, name) => name.length > long.length ? name : long),
-    );
+    // ponytail: measured on each build; cache by names and text size if a long list shows up.
+    final names = {
+      ?state.selectedServer?.name,
+      for (final server in state.servers) server.name,
+    }.map(serverName);
     return [
       twoLines(context, style),
       for (final text in [
@@ -968,11 +965,13 @@ class _PowerZone extends StatelessWidget {
         l.errorServer,
         l.connectsToFirst,
         l.renewToConnect,
-        l.selectedDown(name),
-        l.errorConnectDesktop(
-          name.replaceAll(' · ', ' · '),
-          connectTimeout.inSeconds,
-        ),
+        for (final name in names) ...[
+          l.selectedDown(name),
+          l.errorConnectDesktop(
+            name.replaceAll(' \u00b7\u00a0', '\u00a0\u00b7 '),
+            connectTimeout.inSeconds,
+          ),
+        ],
       ])
         textHeight(context, text, style, width),
     ].reduce(math.max);
@@ -980,6 +979,15 @@ class _PowerZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = ShikooTheme.of(context).s;
+    if (!shikooDesktop) return _column(context, s.powerRing * 1.5);
+    return LayoutBuilder(
+      builder: (context, box) =>
+          _column(context, math.min(s.dialog, box.maxWidth)),
+    );
+  }
+
+  Widget _column(BuildContext context, double width) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final selected = state.selectedServer;
@@ -1020,7 +1028,7 @@ class _PowerZone extends StatelessWidget {
         : shift.stage == ShikooSwitchStage.failed;
     final message = this.message(l);
     final slot = shikooDesktop
-        ? _room(context, l)
+        ? _room(context, l, width)
         : (centred ? twoLines(context, t.text(t.s.bodySm)) : null);
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
@@ -1060,11 +1068,10 @@ class _PowerZone extends StatelessWidget {
           message: message,
           // A computer's text can be set half as large again: the message grows, never cut.
           child: ConstrainedBox(
-            constraints: BoxConstraints.tightFor(width: t.s.powerRing * 1.5)
-                .copyWith(
-                  minHeight: slot ?? 0,
-                  maxHeight: shikooDesktop ? double.infinity : slot,
-                ),
+            constraints: BoxConstraints.tightFor(width: width).copyWith(
+              minHeight: slot ?? 0,
+              maxHeight: shikooDesktop ? double.infinity : slot,
+            ),
             child: Text(
               message ?? '',
               maxLines: shikooDesktop ? null : 2,
