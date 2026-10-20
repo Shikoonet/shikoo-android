@@ -71,8 +71,10 @@ String logDay(BuildContext context, DateTime day, DateTime today) {
   return DateUtils.isSameDay(day, yesterday) ? l.logsYesterday(date) : date;
 }
 
-/// The recorder writes a repeated line once, then again with a count that takes that first one in: one row for both.
-List<LogEntry> _rows(List<LogEntry> lines) {
+const logsRows = 200;
+
+/// A tab's newest [logsRows] rows, a line and the count written after it as one, and their file lines for «کپی».
+({List<LogEntry> rows, List<LogEntry> lines}) _tail(List<LogEntry> lines) {
   bool counted(int i) {
     final next = i + 1 < lines.length ? lines[i + 1] : null;
     return next != null &&
@@ -81,10 +83,17 @@ List<LogEntry> _rows(List<LogEntry> lines) {
         next.text == lines[i].text;
   }
 
-  return [
-    for (final (i, line) in lines.indexed)
-      if (!counted(i)) line,
-  ];
+  final rows = <LogEntry>[];
+  var start = lines.length;
+  for (var i = lines.length - 1; i >= 0 && rows.length < logsRows; i--) {
+    if (counted(i)) continue;
+    rows.add(lines[i]);
+    start = i;
+  }
+  while (start > 0 && counted(start - 1)) {
+    start--;
+  }
+  return (rows: rows.reversed.toList(), lines: lines.sublist(start));
 }
 
 /// Frames `a-*` of happ-sections, variant الف: one tab of the record, newest at the bottom, over
@@ -145,8 +154,7 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final s = t.s;
-    final lines = _of(_tab);
-    final shown = _rows(lines);
+    final (rows: shown, :lines) = _tail(_of(_tab));
     return SubPage(
       title: l.logsTitle,
       isTV: false,
@@ -171,7 +179,9 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
                   child: Segmented(
                     wraps: true,
                     selected: _tab,
-                    counts: {LogTab.errors: _rows(_of(LogTab.errors)).length},
+                    counts: {
+                      LogTab.errors: _tail(_of(LogTab.errors)).rows.length,
+                    },
                     options: {
                       LogTab.connection: l.logsConnection,
                       LogTab.subscription: l.logsSubscription,
