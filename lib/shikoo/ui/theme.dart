@@ -356,7 +356,7 @@ class ShikooSizes {
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
 
-  /// `.power .speed`: its arrows, the gap after each arrow and number, and the gap between the two.
+  /// `--size-speed-icon`, `--speed-icon-gap`, `--speed-gap`: the speed under the clock.
   static const speedIcon = 12.0;
   static const speedIconGap = 2.0;
   static const speedGap = 6.0;

@@ -1,5 +1,6 @@
 import 'package:fl_clash/models/models.dart' show Traffic;
-import 'package:fl_clash/providers/providers.dart' show trafficsProvider;
+import 'package:fl_clash/providers/providers.dart'
+    show profilesProvider, runTimeProvider, trafficsProvider;
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
@@ -15,6 +16,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/no_shots.dart';
+import '../helpers/test_profiles.dart';
 
 /// The design's `۲٫۴` and `۰٫۳`, in bytes a second.
 const _design = (down: 2516582, up: 314573);
@@ -274,5 +276,23 @@ void main() {
     expect(speed(), (down: 3000, up: 200));
     traffics.clear();
     expect(speed(), (down: 0, up: 0));
+  });
+
+  test('the home\'s state hears nothing of a new sample: the home is not '
+      'rebuilt for it', () {
+    final container = ProviderContainer(
+      overrides: [profilesProvider.overrideWith(TestProfiles.new)],
+    );
+    addTearDown(container.dispose);
+    var heard = 0;
+    container.listen(shikooStateProvider, (_, _) => heard++);
+    container
+        .read(trafficsProvider.notifier)
+        .addTraffic(const Traffic(down: 2000, up: 100));
+    container.read(shikooStateProvider);
+    expect(heard, 0);
+    container.read(runTimeProvider.notifier).value = 1000;
+    container.read(shikooStateProvider);
+    expect(heard, 1, reason: 'it does hear the clock');
   });
 }
