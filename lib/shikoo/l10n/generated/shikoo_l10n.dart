@@ -248,6 +248,18 @@ abstract class ShikooL10n {
   /// **'Tap to retry'**
   String get subRetryTouch;
 
+  /// After the upload speed inside the round button, as short as the GB on the service card.
+  ///
+  /// In en, this message translates to:
+  /// **'MB/s'**
+  String get speedUnit;
+
+  /// No description provided for @speedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Download {down} megabytes per second, upload {up} megabytes per second'**
+  String speedLabel(String down, String up);
+
   /// No description provided for @tvHint.
   ///
   /// In en, this message translates to:

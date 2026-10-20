@@ -501,6 +501,12 @@ ShikooPick derivePick({
 /// [System.isTV], which tests override.
 final shikooTvProvider = Provider<bool>((_) => system.isTV);
 
+/// Bytes a second in the core's last one-second sample, taken while FlClash counts the run time.
+final shikooSpeedProvider = Provider<({num down, num up})>((ref) {
+  final last = ref.watch(trafficsProvider).list.lastOrNull;
+  return (down: last?.down ?? 0, up: last?.up ?? 0);
+});
+
 final shikooStateProvider = Provider<ShikooState>((ref) {
   final runTime = ref.watch(runTimeProvider);
   final nativeStart = ref.watch(_nativeStartProvider);

@@ -25,6 +25,8 @@
   "subCancelTouch": "برای لغو بزن",
   "subRetryTv": "دکمهٔ وسط: دوباره",
   "subRetryTouch": "دوباره بزن",
+  "speedUnit": "مگ/ث",
+  "speedLabel": "سرعت دریافت {down} مگابایت بر ثانیه، سرعت ارسال {up} مگابایت بر ثانیه",
   "tvHint": "دکمهٔ وسطِ ریموت را بزن تا وصل شوی",
   "loadingServers": "در حال گرفتن فهرست سرورها…",
   "msUnit": "",

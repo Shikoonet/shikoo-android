@@ -19,7 +19,7 @@ import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
 
-const _gib = 1024 * 1024 * 1024;
+const _gib = 1024 * mebibyte;
 
 const _nearlyUsed = 0.9;
 

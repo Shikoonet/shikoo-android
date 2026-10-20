@@ -12,6 +12,7 @@ import 'package:flutter/gestures.dart'
     show GestureBinding, PointerDownEvent, PointerEvent;
 import 'package:flutter/services.dart'
     show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show Bidi, NumberFormat;
 import 'package:material_ui/material_ui.dart';
 
@@ -41,6 +42,11 @@ String clockOf(String language, Duration d) => [
   d.inMinutes % 60,
   d.inSeconds % 60,
 ].map(NumberFormat('00', language).format).join(':');
+
+const mebibyte = 1024 * 1024;
+
+String speedOf(String language, num bytes) =>
+    NumberFormat('0.0', language).format(bytes / mebibyte);
 
 final _opensRtl = RegExp(
   r'^[^\p{L}\u200E\u200F]*(?:\u200F|(?=\p{L})[\p{Script=Arabic}\p{Script=Hebrew}])',
@@ -987,17 +993,20 @@ class _PowerButtonState extends State<PowerButton>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgIcon(
-                error ? ShikooIcon.alert : ShikooIcon.power,
-                size: conn == ShikooConnection.off && enabled
-                    ? ShikooSizes.powerIcon
-                    : ShikooSizes.powerIconOn,
-                stroke: ShikooSizes.iconStrokeStrong,
-                color: !enabled
-                    ? c.iconDisabled
-                    : (on ? fg : (error ? c.danger : c.textMuted)),
-              ),
-              const SizedBox(height: Space.s1),
+              // Connected, the speed takes its room: the circle holds no fourth line.
+              if (!on) ...[
+                SvgIcon(
+                  error ? ShikooIcon.alert : ShikooIcon.power,
+                  size: conn == ShikooConnection.off && enabled
+                      ? ShikooSizes.powerIcon
+                      : ShikooSizes.powerIconOn,
+                  stroke: ShikooSizes.iconStrokeStrong,
+                  color: !enabled
+                      ? c.iconDisabled
+                      : (error ? c.danger : c.textMuted),
+                ),
+                const SizedBox(height: Space.s1),
+              ],
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -1022,6 +1031,8 @@ class _PowerButtonState extends State<PowerButton>
                     tabular: true,
                   ),
                 ),
+                const SizedBox(height: Space.s1),
+                _Speed(color: fg),
               ],
               if (sub != null) ...[
                 const SizedBox(height: Space.s1),
@@ -1072,6 +1083,60 @@ class _PowerButtonState extends State<PowerButton>
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// `.power .speed`: down, then up and the unit, shrunk where it would cross the circle. Watching
+/// the speed alone, it is all that a new sample redraws.
+class _Speed extends ConsumerWidget {
+  const _Speed({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final language = Localizations.localeOf(context).languageCode;
+    final (:down, :up) = ref.watch(shikooSpeedProvider);
+    final style = t.text(t.s.caption, color: color, tabular: true);
+    Widget part(ShikooIcon arrow, num bytes, [String? unit]) => Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: ShikooSizes.speedIconGap,
+      children: [
+        SvgIcon(
+          arrow,
+          size: ShikooSizes.speedIcon,
+          stroke: ShikooSizes.iconStrokeStrong,
+          color: color,
+        ),
+        Text(
+          speedOf(language, bytes),
+          style: style.copyWith(fontWeight: FontWeight.w700),
+        ),
+        if (unit != null) Text(unit, style: style),
+      ],
+    );
+    return Semantics(
+      label: l.speedLabel(speedOf(language, down), speedOf(language, up)),
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: t.s.power * ShikooSizes.speedWidth,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: ShikooSizes.speedGap,
+            children: [
+              part(ShikooIcon.arrowDown, down),
+              part(ShikooIcon.arrowUp, up, l.speedUnit),
+            ],
+          ),
+        ),
       ),
     );
   }
