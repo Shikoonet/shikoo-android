@@ -1475,11 +1475,12 @@ void main() {
         'view', (tester) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       // Edges from a full 4 dp sweep: the wide column fits from 492/552/604, the narrow page's
-      // message stands clear from 516/576/628; each with the step under it, a near-edge height, samples.
+      // message stands clear from 516/576/628; each with the step under it, a near-edge height, samples,
+      // and one where its message is in view, yet 6 to 11 dp short of Space.s4 clear.
       const scales = <(double, List<double>)>[
-        (1.0, [448, 476, 488, 492, 512, 516, 560, 700, 800]),
-        (1.25, [448, 536, 548, 552, 560, 572, 576, 700, 800]),
-        (1.5, [448, 560, 588, 600, 604, 624, 628, 700, 800]),
+        (1.0, [448, 476, 480, 488, 492, 508, 512, 516, 560, 700, 800]),
+        (1.25, [448, 536, 544, 548, 552, 560, 564, 572, 576, 700, 800]),
+        (1.5, [448, 560, 588, 596, 600, 604, 616, 624, 628, 700, 800]),
       ];
       final wrong = <String>[];
       for (final language in ['fa', 'en']) {
