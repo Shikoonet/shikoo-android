@@ -949,6 +949,13 @@ class _PowerZone extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final style = t.text(t.s.bodySm);
     final width = t.s.powerRing * 1.5;
+    // The longest name the list holds, so picking another server moves nothing either.
+    final name = serverName(
+      [
+        ?state.selectedServer?.name,
+        for (final server in state.servers) server.name,
+      ].fold('', (long, name) => name.length > long.length ? name : long),
+    );
     return [
       twoLines(context, style),
       for (final text in [
@@ -961,9 +968,9 @@ class _PowerZone extends StatelessWidget {
         l.errorServer,
         l.connectsToFirst,
         l.renewToConnect,
-        l.selectedDown(serverName(state.selectedServer?.name ?? '')),
+        l.selectedDown(name),
         l.errorConnectDesktop(
-          serverName(state.selectedServer?.name ?? '').replaceAll(' · ', ' · '),
+          name.replaceAll(' · ', ' · '),
           connectTimeout.inSeconds,
         ),
       ])
@@ -1185,14 +1192,16 @@ class _InViewState extends State<_InView> {
     if (shikooDesktop && widget.message != null) _revealIfHidden();
   }
 
-  /// Only a message out of view scrolls: one in sight leaves the column where it is.
+  /// Only a message out of view, or closer to the bottom than Space.s4, scrolls.
   void _revealIfHidden() => WidgetsBinding.instance.addPostFrameCallback((_) {
     final box = context.mounted ? context.findRenderObject() : null;
     final port = Scrollable.maybeOf(context)?.context.findRenderObject();
     if (box is! RenderBox || !box.attached || port is! RenderBox) return;
     final seen = port.localToGlobal(Offset.zero) & port.size;
     final at = box.localToGlobal(Offset.zero) & box.size;
-    if (seen.top <= at.top + 0.5 && at.bottom <= seen.bottom + 0.5) return;
+    if (seen.top <= at.top + 0.5 && at.bottom + Space.s4 <= seen.bottom + 0.5) {
+      return;
+    }
     box.showOnScreen(
       rect: Rect.fromLTRB(0, 0, box.size.width, box.size.height + Space.s4),
     );

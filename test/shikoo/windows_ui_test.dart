@@ -110,6 +110,7 @@ ShikooState _state(
   bool helperFailed = false,
   ShikooNotice? notice,
   String? server,
+  String? selected,
 }) => ShikooState(
   connection: connection,
   lastError: error,
@@ -133,7 +134,7 @@ ShikooState _state(
     for (var i = 1; i <= more; i++)
       ShikooServer(name: 'سرور $i', type: 'Vless', ping: 100 + i),
   ],
-  selected: server ?? 'آلمان ۲',
+  selected: selected ?? server ?? 'آلمان ۲',
   sorted: true,
 );
 
@@ -1189,6 +1190,31 @@ void main() {
       expect(ring.overlaps(address), isFalse, reason: '$ring on $address');
     }, variant: _windows);
 
+    testWidgets('picking a server with a long name moves nothing in the '
+        'button column: its message room counts the longest name listed', (
+      tester,
+    ) async {
+      const long = 'Netherlands 3 Gaming Pro';
+      Future<Rect> button(String? selected) async {
+        _window(tester, const Size(880, 800));
+        await tester.pumpWidget(
+          _app(
+            const ShikooHome(),
+            locale: const Locale('en'),
+            overrides: [
+              shikooStateProvider.overrideWithValue(
+                _state(ShikooConnection.off, server: long, selected: selected),
+              ),
+            ],
+          ),
+        );
+        await tester.pump();
+        return tester.getRect(find.byType(PowerButton));
+      }
+
+      expect(await button(long), await button('آلمان ۲'));
+    }, variant: _windows);
+
     testWidgets('the local proxy line shows when off and under an error', (
       tester,
     ) async {
@@ -1290,6 +1316,7 @@ void main() {
                 await tester.pump();
                 final moved = column.pixels;
                 final kept = column.maxScrollExtent;
+                final shown = tester.getRect(find.text(text));
                 if (moved != 0) {
                   column.jumpTo(0);
                   await tester.pump();
@@ -1303,7 +1330,7 @@ void main() {
                 final port = box.localToGlobal(Offset.zero) & box.size;
                 final inView =
                     message.top >= port.top - 0.5 &&
-                    message.bottom <= port.bottom + 0.5;
+                    message.bottom + Space.s4 <= port.bottom + 0.5;
                 final why = '$at $name';
                 if (tester.getRect(find.byType(PowerButton)) != button) {
                   wrong.add('$why: the button moved');
@@ -1320,8 +1347,15 @@ void main() {
                   if (height - message.bottom < Space.s4 - 0.5) {
                     wrong.add('$why: ${height - message.bottom} under it');
                   }
-                } else if (inView && moved != 0) {
-                  wrong.add('$why: in view, yet scrolled $moved');
+                } else {
+                  if (inView && moved != 0) {
+                    wrong.add('$why: in view, yet scrolled $moved');
+                  }
+                  if (height - shown.bottom < Space.s4 - 0.5) {
+                    wrong.add(
+                      '$why: shown ${height - shown.bottom} over the edge',
+                    );
+                  }
                 }
                 rows.add(
                   [
