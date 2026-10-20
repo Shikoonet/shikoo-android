@@ -182,12 +182,58 @@ class ShikooL10nFa extends ShikooL10n {
   String get updateFailedTitle => 'به‌روز نشد.';
 
   @override
-  String get updateFailedTouch =>
-      'اینترنت را بررسی کن و دوباره بزن. تا آن موقع با همین سرورها وصل شو.';
+  String get refreshWays => 'انتخاب راه به‌روزرسانی';
 
   @override
-  String get updateFailedTv =>
-      'اینترنت را بررسی کن و دکمهٔ وسط را دوباره بزن. تا آن موقع با همین سرورها وصل شو.';
+  String get refreshDirect => 'به‌روزرسانی مستقیم';
+
+  @override
+  String get refreshDirectHint => 'از اینترنتِ خودِ دستگاه، حتی وقتی وصلی';
+
+  @override
+  String get refreshViaServer => 'به‌روزرسانی از راه سرور';
+
+  @override
+  String refreshViaServerHint(String server) {
+    return 'از راه «$server»';
+  }
+
+  @override
+  String get refreshConnectFirst => 'اول وصل شو';
+
+  @override
+  String get updatingDirect => 'به‌روزرسانی مستقیم…';
+
+  @override
+  String get updatingViaServer => 'به‌روزرسانی از راه سرور…';
+
+  @override
+  String get updatingFallback => 'مستقیم نشد؛ از راه سرور…';
+
+  @override
+  String get updateFailedDirectOff =>
+      'از اینترنتِ خودِ دستگاه جواب نیامد. با همین سرورها وصل شو، بعد از راه سرور امتحان کن.';
+
+  @override
+  String get updateFailedDirect =>
+      'از اینترنتِ خودِ دستگاه جواب نیامد. از راه سرور امتحان کن.';
+
+  @override
+  String updateFailedViaServer(String server) {
+    return 'از راه «$server» جواب نیامد. مستقیم امتحان کن، یا سرور دیگری انتخاب کن.';
+  }
+
+  @override
+  String updateFailedBoth(String server) {
+    return 'نه مستقیم جواب آمد، نه از راه «$server». سرور دیگری انتخاب کن و دوباره امتحان کن.';
+  }
+
+  @override
+  String get updateFailedPanel =>
+      'سرور اشتراکِ شیکو الان جواب نمی‌دهد؛ ایراد از دستگاهِ تو نیست. همین سرورها کار می‌کنند و خودش کمی بعد دوباره امتحان می‌کند.';
+
+  @override
+  String get updateFailedConnectFirst => 'اول وصل شو.';
 
   @override
   String serversAdded(int count) {

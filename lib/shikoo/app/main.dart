@@ -48,6 +48,7 @@ void main() {
         final container = await bootstrap.init(version);
         shikooStaging = globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
+        await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooSignInProvider).load();
         HttpOverrides.global = FlClashHttpOverrides(container);

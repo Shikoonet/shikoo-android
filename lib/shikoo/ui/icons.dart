@@ -48,6 +48,12 @@ enum ShikooIcon {
     '<path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6"/><path d="M9 16.5h4"/>',
   ),
   plus('<path d="M12 5v14"/><path d="M5 12h14"/>'),
+  wifi(
+    '<path d="M3.5 9.5a12 12 0 0 1 17 0"/><path d="M6.8 13a7.5 7.5 0 0 1 10.4 0"/><path d="M10 16.4a3 3 0 0 1 4 0"/>',
+  ),
+  shield(
+    '<path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
+  ),
   handle('<path d="M5 8h14"/><path d="M5 12h14"/><path d="M5 16h14"/>');
 
   const ShikooIcon(this.paths);

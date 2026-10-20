@@ -356,17 +356,95 @@ abstract class ShikooL10n {
   /// **'Couldn\'t update.'**
   String get updateFailedTitle;
 
-  /// No description provided for @updateFailedTouch.
+  /// No description provided for @refreshWays.
   ///
   /// In en, this message translates to:
-  /// **'Check your internet and tap again. Until then, connect with these servers.'**
-  String get updateFailedTouch;
+  /// **'Choose how to update'**
+  String get refreshWays;
 
-  /// No description provided for @updateFailedTv.
+  /// No description provided for @refreshDirect.
   ///
   /// In en, this message translates to:
-  /// **'Check your internet and press OK again. Until then, connect with these servers.'**
-  String get updateFailedTv;
+  /// **'Update directly'**
+  String get refreshDirect;
+
+  /// No description provided for @refreshDirectHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Through this device\'s own internet, even while connected'**
+  String get refreshDirectHint;
+
+  /// No description provided for @refreshViaServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Update through the server'**
+  String get refreshViaServer;
+
+  /// No description provided for @refreshViaServerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Through {server}'**
+  String refreshViaServerHint(String server);
+
+  /// No description provided for @refreshConnectFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect first'**
+  String get refreshConnectFirst;
+
+  /// No description provided for @updatingDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating directly…'**
+  String get updatingDirect;
+
+  /// No description provided for @updatingViaServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating through the server…'**
+  String get updatingViaServer;
+
+  /// No description provided for @updatingFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'No direct answer; trying the server…'**
+  String get updatingFallback;
+
+  /// No description provided for @updateFailedDirectOff.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer through this device\'s own internet. Connect with these servers, then try through the server.'**
+  String get updateFailedDirectOff;
+
+  /// No description provided for @updateFailedDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer through this device\'s own internet. Try through the server.'**
+  String get updateFailedDirect;
+
+  /// No description provided for @updateFailedViaServer.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer through {server}. Try directly, or pick another server.'**
+  String updateFailedViaServer(String server);
+
+  /// No description provided for @updateFailedBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or through {server}. Pick another server and try again.'**
+  String updateFailedBoth(String server);
+
+  /// No description provided for @updateFailedPanel.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet\'s subscription server isn\'t answering right now; it\'s not your device. These servers still work, and it tries again by itself shortly.'**
+  String get updateFailedPanel;
+
+  /// No description provided for @updateFailedConnectFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect first.'**
+  String get updateFailedConnectFirst;
 
   /// No description provided for @serversAdded.
   ///

@@ -560,6 +560,55 @@ Future<void> keepApiDirect() async {
   }
 }
 
+// shortcut: later hosts get no rule; raise it if an account can hold that many.
+const _subscriptionHosts = 500;
+
+Future<bool> keepSubscriptionsDirect(Iterable<String> urls) {
+  final hosts = {
+    for (final url in urls)
+      if (Uri.tryParse(url)?.host case final host? when host.isNotEmpty) host,
+  }.sorted().take(_subscriptionHosts);
+  final want = {
+    for (final (i, host) in hosts.indexed)
+      subscriptionDirectIds + i: subscriptionDirectRule(
+        host,
+        subscriptionDirectIds + i,
+      ).rawValue,
+  };
+  return database.transaction(() async {
+    final have = {
+      for (final rule in await database.rulesDao.queryGlobalAddedRules().get())
+        if (rule.id >= subscriptionDirectIds &&
+            rule.id < subscriptionDirectIds + _subscriptionHosts)
+          rule.id: rule.rawValue,
+    };
+    if (const MapEquality<int, String>().equals(have, want)) return false;
+    await database.rulesDao.delRules(have.keys);
+    for (final MapEntry(:key, :value) in want.entries) {
+      await database.rulesDao.putGlobalRule(Rule.parse(value, id: key));
+    }
+    return true;
+  });
+}
+
+/// While connected, a change of services reaches the core before the next update needs it.
+Future<void> followSubscriptions(ProviderContainer container) async {
+  Future<void> follow(Iterable<Profile> profiles) async {
+    if (await keepSubscriptionsDirect(profiles.map((p) => p.url)) &&
+        container.read(isStartProvider)) {
+      await container
+          .read(setupActionProvider.notifier)
+          .applyProfile(silence: true);
+    }
+  }
+
+  await follow(await database.profilesDao.query().get());
+  container.listen(
+    profilesProvider,
+    (_, profiles) => unawaited(follow(profiles)),
+  );
+}
+
 final shikooSignInProvider = Provider<ShikooSignIn>(ShikooSignIn.new);
 
 /// Kept with no link: the bot has not made it yet, or the server holds it back until renewal.

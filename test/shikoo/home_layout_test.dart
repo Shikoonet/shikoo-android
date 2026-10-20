@@ -131,7 +131,8 @@ String? _focused() {
   if (context.findAncestorWidgetOfExactType<PowerButton>() != null) {
     return 'power';
   }
-  return context.findAncestorWidgetOfExactType<ShikooButton>()?.label;
+  final label = context.findAncestorWidgetOfExactType<ShikooButton>()?.label;
+  return label == '' ? '▾' : label;
 }
 
 Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
@@ -141,9 +142,11 @@ Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
 }
 
 Future<void> _focus(WidgetTester tester, String what) async {
-  final owner = what == 'power'
-      ? find.byType(PowerButton)
-      : find.ancestor(of: find.text(what), matching: find.byType(Pressable));
+  final owner = switch (what) {
+    'power' => find.byType(PowerButton),
+    '▾' => find.byWidgetPredicate((w) => w is ShikooButton && w.label == ''),
+    _ => find.ancestor(of: find.text(what), matching: find.byType(Pressable)),
+  };
   final inside = find.descendant(
     of: owner.first,
     matching: find.byType(GestureDetector),
@@ -221,12 +224,16 @@ void main() {
       ('تنظیمات', _down, 'power'),
       ('به‌روزرسانی', _up, 'تنظیمات'),
       ('به‌روزرسانی', _down, 'پشتیبانی'),
-      ('به‌روزرسانی', _towardPower, 'پینگ'),
+      ('به‌روزرسانی', _towardPower, '▾'),
       ('به‌روزرسانی', _towardCard, 'به‌روزرسانی'),
+      ('▾', _up, 'تنظیمات'),
+      ('▾', _down, 'پشتیبانی'),
+      ('▾', _towardPower, 'پینگ'),
+      ('▾', _towardCard, 'به‌روزرسانی'),
       ('پینگ', _up, 'تنظیمات'),
       ('پینگ', _down, 'پشتیبانی'),
       ('پینگ', _towardPower, 'power'),
-      ('پینگ', _towardCard, 'به‌روزرسانی'),
+      ('پینگ', _towardCard, '▾'),
       ('تمدید', _up, 'پینگ'),
       ('پشتیبانی', _up, 'پینگ'),
       ('تمدید', _down, 'آلمان ۲'),
@@ -532,7 +539,10 @@ void main() {
         notice: const RefreshFailed(),
       ),
     );
-    expect(find.textContaining('دکمهٔ وسط را دوباره بزن'), findsOneWidget);
+    expect(
+      find.textContaining('از اینترنتِ خودِ دستگاه جواب نیامد'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
