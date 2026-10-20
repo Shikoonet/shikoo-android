@@ -795,7 +795,7 @@ class SwitchRow extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final s = t.s;
     final shape = RoundedSuperellipseBorder(
-      borderRadius: BorderRadius.circular(Radii.lg),
+      borderRadius: BorderRadius.circular(inCard ? Radii.md : Radii.lg),
     );
     const pad = (ShikooSizes.switchH - ShikooSizes.switchThumb) / 2;
     final knob = on ? ShikooSizes.switchThumb : ShikooSizes.switchThumbOff;

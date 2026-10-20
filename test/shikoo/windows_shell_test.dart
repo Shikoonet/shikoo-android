@@ -281,6 +281,18 @@ void main() {
         tester.element(find.byType(ShikooSettings)),
       );
       expect(find.text(_l.updateNoticeHelp), findsOne);
+      for (final label in [_l.autoStart, _l.updateNotice]) {
+        final row = tester.widget<Pressable>(
+          find
+              .ancestor(of: find.text(label), matching: find.byType(Pressable))
+              .first,
+        );
+        expect(
+          (row.shape as RoundedSuperellipseBorder).borderRadius,
+          BorderRadius.circular(Radii.md),
+          reason: '$label: a row in a card, as `.row`',
+        );
+      }
       expect(
         tester.getRect(row).top,
         greaterThan(tester.getRect(find.text(_l.autoStart)).bottom),

@@ -97,7 +97,6 @@ void setAutoStart(WidgetRef ref, bool on) => ref
     .read(appSettingProvider.notifier)
     .update((s) => s.copyWith(autoLaunch: on));
 
-/// Windows' message for a new version, once per version: on until turned off in Settings.
 class ShikooUpdateNoticeNotifier extends Notifier<bool> {
   static const _key = 'shikoo.updateNotice';
 

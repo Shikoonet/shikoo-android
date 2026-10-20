@@ -492,6 +492,14 @@ void main() {
       expect(picked.last, 'update');
     });
 
+    test('opening the menu loads the update row icon too, as the row can '
+        'come while it is open', () {
+      expect(
+        trayIcons(menu(ShikooConnection.on)),
+        containsAll([ShikooIcon.download, ShikooIcon.power]),
+      );
+    });
+
     test('the clock runs past an hour', () {
       expect(
         clockOf('en', const Duration(minutes: 61, seconds: 1)),

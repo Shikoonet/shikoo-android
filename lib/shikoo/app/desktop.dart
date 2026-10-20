@@ -278,7 +278,7 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
     _popup.onClose = _showTray;
     _menuRequests = Tray.instance.events.listen((event) {
       if (event is TrayMenuRequested) unawaited(_openMenu());
-      // The tray plugin reports a click on the message as one on the icon (tray_plugin.cpp).
+      // shortcut: a message click arrives as an icon click (tray_plugin.cpp); split them if that matters.
       if (event is TrayIconActivated && _noticed) unawaited(_openUpdate());
     });
     // Not from build: FlClash stops building frames once the window has been hidden a while.

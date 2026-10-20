@@ -109,8 +109,7 @@ PatchClashConfig shikooClashConfig(
 
 const _reapplyOnNetworkChange = bool.fromEnvironment('SHIKOO_WG_REAPPLY');
 
-/// A TV is often left on the home screen for hours: its services stay as fresh as on open. A desktop
-/// app lives beside the clock for days with its window closed: it still asks for updates.
+/// A TV is often left on the home screen for hours: its services stay as fresh as on open.
 void everyMinute(ProviderContainer container) {
   final controller = container.read(shikooControllerProvider);
   final update = container.read(shikooUpdateProvider);

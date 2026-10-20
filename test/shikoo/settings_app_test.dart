@@ -9,6 +9,7 @@ import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -355,16 +356,16 @@ void main() {
     }
   });
 
-  testWidgets('in a Windows window a press says the latest, a red failure, '
-      'the clock with its date row, then a found update in the row\'s place', (
-    tester,
-  ) async {
+  testWidgets('in a Windows window a click says the latest, a red failure, '
+      'the clock with its date row, then a found update in the row\'s place, '
+      'in view and with no ring', (tester) async {
+    addTearDown(ringOnKeys());
     final container = await _pump(tester, size: const Size(1728, 984));
     final red = ShikooTheme.of(tester.element(find.text(_check))).c.danger;
     Future<void> press() async {
       await tester.ensureVisible(find.text(_check));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(_check));
+      await tester.tap(find.text(_check), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
     }
 
@@ -392,6 +393,13 @@ void main() {
     await press();
     expect(find.text(_check), findsNothing);
     expect(find.text('نسخهٔ تازه آمده'), findsOneWidget);
+    expect(
+      tester.getRect(find.byType(UpdateCard)).bottom,
+      lessThanOrEqualTo(492),
+    );
+    final focused = FocusManager.instance.primaryFocus!.context!;
+    expect(focused.findAncestorWidgetOfExactType<UpdateCard>(), isNotNull);
+    expect(FocusManager.instance.highlightMode, FocusHighlightMode.touch);
     verify(_engine.checkNow).called(4);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 

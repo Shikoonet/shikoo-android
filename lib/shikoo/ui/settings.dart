@@ -409,10 +409,11 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
     );
     if (ref.read(shikooUpdateOfferProvider) == null) return;
     // The answer to the press shows: on the TV the remote goes from the row that left to the
-    // card's button (tv-settings-app-found); on a phone the card scrolls into view once.
+    // card's button (tv-settings-app-found); on a phone the card scrolls into view once. A
+    // computer's click took the focus to the row, which would fall back to the top of the page.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (widget.isTV) {
+      if (widget.isTV || shikooDesktop) {
         jumpFocus(context, _cardButton);
       } else if (_card.currentContext case final card?) {
         revealWithRing(card);

@@ -268,6 +268,13 @@ class _Glyph extends CustomPainter {
   bool shouldRepaint(_Glyph old) => old.icon != icon || old.color != color;
 }
 
+/// Loaded when the menu opens: the update row can arrive while it is open, and [TrayPopup.update] waits on nothing.
+@visibleForTesting
+Set<ShikooIcon> trayIcons(TrayMenu menu) => {
+  ShikooIcon.download,
+  for (final row in menu.rows) ?row?.icon,
+};
+
 /// The menu as Windows shows it: a borderless see-through window of its own, filled with a
 /// picture Flutter draws apart from the app's window. FlClash stops the app's frames once
 /// the window hides, so nothing here waits on one.
@@ -326,7 +333,7 @@ class TrayPopup {
     _pointed = false;
     _lastMove = null;
     _shown = this;
-    for (final icon in {for (final row in view.menu.rows) row?.icon}.nonNulls) {
+    for (final icon in trayIcons(view.menu)) {
       _icons[icon] ??= await vg.loadPicture(
         SvgStringLoader(svgOf(icon, ShikooSizes.iconStroke)),
         null,
