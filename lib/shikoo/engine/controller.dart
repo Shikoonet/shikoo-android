@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/desktop/model.dart' show CoreProcessOwner;
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
@@ -1113,11 +1114,12 @@ class ShikooController {
     if (mode.systemProxy && !await _ref.read(localPortFreeProvider)(port)) {
       return _Intent(busyPort: port);
     }
-    final direct = _ref.read(directCoreProvider);
+    // Only the service's core opens TUN; with no core yet, as mid-restart, restartCore() below joins that restart.
+    bool foreign() => _ref.read(coreOwnerProvider)() != CoreProcessOwner.helper;
     final authorized = _ref.read(authorizedTunEnableProvider.notifier);
     // shortcut: a service still too slow for one ping here gets the admin prompt, retry the ping first if reports show it.
     if (mode.tun &&
-        (direct() || authorized.value != TunAuthorizationState.authorized)) {
+        (foreign() || authorized.value != TunAuthorizationState.authorized)) {
       final admin = await (_admin ??= _ref
           .read(tunAuthorizeProvider)()
           .whenComplete(() => _admin = null));
@@ -1133,10 +1135,10 @@ class ShikooController {
       authorized.value = TunAuthorizationState.authorized;
     }
     if (stale()) return null;
-    if (mode.tun && direct()) {
+    if (mode.tun && foreign()) {
       final restarted = await _restartCore();
       if (stale()) return null;
-      if (!restarted || direct()) return const _Intent(helperFailed: true);
+      if (!restarted || foreign()) return const _Intent(helperFailed: true);
     }
     final tunWas = _ref.read(patchClashConfigProvider).tun.enable;
     _ref

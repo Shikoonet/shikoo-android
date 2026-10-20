@@ -133,7 +133,7 @@ class _Desk {
           return portFree;
         }),
         tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
-        directCoreProvider.overrideWithValue(() => false),
+        coreOwnerProvider.overrideWithValue(() => CoreProcessOwner.helper),
         trafficPassesProvider.overrideWithValue(() async => true),
       ],
     );

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/core/controller.dart';
+import 'package:fl_clash/core/desktop/model.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -131,8 +132,8 @@ class _Restart extends CoreAction {
   Future<bool> restartCore() async {
     calls.add('restart');
     await hold?.call();
-    if (fails) throw StateError('the core did not come back');
     restarted?.call();
+    if (fails) throw StateError('the core came back, its setup did not');
     return true;
   }
 }
@@ -155,8 +156,8 @@ _home([List<Override> more = const []]) {
   final container = ProviderContainer(
     overrides: [
       if (!more.any((o) => o.origin == tunAuthorizeProvider)) _noAdminPrompt,
-      if (!more.any((o) => o.origin == directCoreProvider))
-        directCoreProvider.overrideWithValue(() => false),
+      if (!more.any((o) => o.origin == coreOwnerProvider))
+        coreOwnerProvider.overrideWithValue(() => CoreProcessOwner.helper),
       profilesProvider.overrideWith(() => TestProfiles([profile])),
       proxiesActionProvider.overrideWith(() => proxies),
       profilesActionProvider.overrideWith(_Profiles.new),
@@ -4017,7 +4018,7 @@ void main() {
     var admin = ShikooAdmin.ready;
     Completer<ShikooAdmin>? prompt;
     Completer<void>? restarting;
-    var direct = false;
+    CoreProcessOwner? owner;
     var helperTakes = true;
 
     ({ProviderContainer container, _Setup setup}) windows({
@@ -4029,7 +4030,7 @@ void main() {
       admin = ShikooAdmin.ready;
       prompt = null;
       restarting = null;
-      direct = false;
+      owner = CoreProcessOwner.helper;
       helperTakes = true;
       final (:container, :core, :proxies, :setup) = _home([
         shikooDesktopProvider.overrideWithValue(desktop),
@@ -4041,13 +4042,15 @@ void main() {
           calls.add('admin');
           return prompt?.future ?? admin;
         }),
-        directCoreProvider.overrideWithValue(() => direct),
+        coreOwnerProvider.overrideWithValue(() => owner),
         coreActionProvider.overrideWith(
           () => _Restart(
             calls,
             fails: restartFails,
             hold: () => restarting?.future,
-            restarted: () => direct = direct && !helperTakes,
+            restarted: () => owner = helperTakes
+                ? CoreProcessOwner.helper
+                : CoreProcessOwner.direct,
           ),
         ),
       ]);
@@ -4135,7 +4138,7 @@ void main() {
       expect(setup.runs, isEmpty);
       expect(tun(container), isFalse);
 
-      direct = true;
+      owner = CoreProcessOwner.direct;
       admin = ShikooAdmin.installed;
       await controller.connect();
       expect(
@@ -4235,7 +4238,7 @@ void main() {
         'start, never stays connecting', () async {
       final (:container, :setup) = windows(restartFails: true);
       final controller = await ready(container, setup);
-      direct = true;
+      owner = CoreProcessOwner.direct;
       admin = ShikooAdmin.installed;
       await controller.connect();
       expect(calls, ['admin', 'restart']);
@@ -4244,7 +4247,14 @@ void main() {
         isNot(ShikooConnection.connecting),
       );
       expect(container.read(shikooStateProvider).helperFailed, isTrue);
-      expect(setup.runs, isEmpty);
+      expect(owner, CoreProcessOwner.helper);
+      expect(
+        setup.runs,
+        isEmpty,
+        reason:
+            "a restart that threw is not trusted, though the service's "
+            'core came up',
+      );
       await done(controller);
     });
 
@@ -4255,10 +4265,10 @@ void main() {
       final controller = await ready(container, setup);
       container.read(authorizedTunEnableProvider.notifier).value =
           TunAuthorizationState.authorized;
-      direct = true;
+      owner = CoreProcessOwner.direct;
       await controller.connect();
       expect(calls, ['admin', 'restart']);
-      expect(direct, isFalse);
+      expect(owner, CoreProcessOwner.helper);
       expect(setup.runs, [true]);
       expect(
         container.read(shikooStateProvider).connection,
@@ -4275,7 +4285,7 @@ void main() {
         'not turn on, and starts nothing', () async {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
-      direct = true;
+      owner = CoreProcessOwner.direct;
       helperTakes = false;
       await controller.connect();
       final state = container.read(shikooStateProvider);
@@ -4293,7 +4303,7 @@ void main() {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
       await controller.setMode(ShikooMode.proxy);
-      direct = true;
+      owner = CoreProcessOwner.direct;
       await controller.connect();
       expect(calls, ['port 7890']);
       expect(setup.runs, [true]);
@@ -4321,6 +4331,51 @@ void main() {
       await done(controller);
     });
 
+    test('a connect again during the restart joins it, and starts only on '
+        "the service's core it brings", () async {
+      for (final takes in [false, true]) {
+        final (:container, :setup) = windows();
+        final controller = await ready(container, setup);
+        owner = CoreProcessOwner.direct;
+        helperTakes = takes;
+        restarting = Completer();
+        unawaited(controller.connect());
+        await pumpEventQueue();
+        expect(calls, ['admin', 'restart']);
+        owner = null;
+        await controller.disconnect();
+        unawaited(controller.connect());
+        await pumpEventQueue();
+        expect(setup.runs, [false], reason: 'takes $takes: between launches');
+
+        restarting!.complete();
+        await pumpEventQueue();
+        final state = container.read(shikooStateProvider);
+        expect(calls, ['admin', 'restart', 'admin', 'restart']);
+        expect(setup.runs, takes ? [false, true] : [false]);
+        expect(
+          (state.connection, state.helperFailed),
+          takes ? (ShikooConnection.on, false) : (ShikooConnection.error, true),
+          reason: 'takes $takes',
+        );
+        await done(controller);
+      }
+    });
+
+    test('a core not running yet is brought up through the service before '
+        'the tunnel', () async {
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      container.read(authorizedTunEnableProvider.notifier).value =
+          TunAuthorizationState.authorized;
+      owner = null;
+      await controller.connect();
+      expect(calls, ['admin', 'restart']);
+      expect(owner, CoreProcessOwner.helper);
+      expect(setup.runs, [true]);
+      await done(controller);
+    });
+
     test("the tunnel takes the service's own core as it is", () async {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
@@ -4340,7 +4395,7 @@ void main() {
         'keeps its own flags and restarts nothing', () async {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
-      direct = true;
+      owner = CoreProcessOwner.direct;
       prompt = Completer();
       unawaited(controller.connect());
       await pumpEventQueue();
@@ -4383,7 +4438,7 @@ void main() {
         'flags and starts nothing', () async {
       final (:container, :setup) = windows();
       final controller = await ready(container, setup);
-      direct = true;
+      owner = CoreProcessOwner.direct;
       admin = ShikooAdmin.installed;
       restarting = Completer();
       unawaited(controller.connect());
@@ -4402,7 +4457,7 @@ void main() {
       () async {
         final (:container, :setup) = windows();
         final controller = await ready(container, setup);
-        direct = true;
+        owner = CoreProcessOwner.direct;
         prompt = Completer();
         unawaited(controller.connect());
         await pumpEventQueue();

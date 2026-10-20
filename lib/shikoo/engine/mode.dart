@@ -68,10 +68,10 @@ final tunAuthorizeProvider = Provider<Future<ShikooAdmin> Function()>(
   (_) => _helperService,
 );
 
-/// A core the app launched itself, the helper not answering in time, cannot open TUN; FlClash still calls it authorized.
-final directCoreProvider = Provider<bool Function()>(
+/// Who launched the running core; null between two launches.
+final coreOwnerProvider = Provider<CoreProcessOwner? Function()>(
   (_) =>
-      () => coreService?.owner == CoreProcessOwner.direct,
+      () => coreService?.owner,
 );
 
 /// FlClash's `registerHelperService` (`lib/common/system.dart`), a refused prompt told apart from a failed service.
