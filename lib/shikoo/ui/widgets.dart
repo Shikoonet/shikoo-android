@@ -296,8 +296,10 @@ class ShikooButton extends StatelessWidget {
     this.dangerText = false,
     this.small = false,
     this.flat = false,
+    this.selected = false,
   });
 
+  /// Empty: [icon] alone in a square, as «▾».
   final String label;
   final ShikooIcon? icon;
 
@@ -322,6 +324,8 @@ class ShikooButton extends StatelessWidget {
   /// `.btn-text`: the label alone, as a dialog's «انصراف» under its two choices.
   final bool flat;
 
+  final bool selected;
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -344,18 +348,21 @@ class ShikooButton extends StatelessWidget {
         ? t.c.primary
         : (danger ? t.c.danger : null);
     final icon = this.icon;
+    final square = label.isEmpty;
+    final side =
+        height ??
+        (telegram ? ShikooSizes.buttonLg : (small ? t.s.buttonSm : t.s.button));
     // A foreground, as the mockup's inset box-shadow: a decoration border widens the button.
     Widget face(bool focused) => Container(
-      height:
-          height ??
-          (telegram
-              ? ShikooSizes.buttonLg
-              : (small ? t.s.buttonSm : t.s.button)),
+      height: side,
+      width: square ? side : null,
       padding: EdgeInsets.symmetric(
-        horizontal: small || flat ? Space.s3 : Space.s4,
+        horizontal: square ? 0 : (small || flat ? Space.s3 : Space.s4),
       ),
       decoration: ShapeDecoration(
-        color: fill ?? (focused ? t.c.focusBg : null),
+        color:
+            fill ??
+            (focused ? t.c.focusBg : (selected ? t.c.selectedBg : null)),
         shadows: focused ? t.c.raisedShadow : null,
         shape: RoundedSuperellipseBorder(borderRadius: radius),
       ),
@@ -382,21 +389,23 @@ class ShikooButton extends StatelessWidget {
               size: small ? t.s.iconSm : t.s.icon,
               color: enabled ? fg : t.c.iconDisabled,
             ),
-          if (busy || icon != null) const SizedBox(width: Space.s2),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: t.text(
-                telegram
-                    ? ShikooSizes.buttonLgText
-                    : (small ? t.s.bodySm : t.s.body),
-                weight: FontWeight.w700,
-                color: fg,
+          if ((busy || icon != null) && !square)
+            const SizedBox(width: Space.s2),
+          if (!square)
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: t.text(
+                  telegram
+                      ? ShikooSizes.buttonLgText
+                      : (small ? t.s.bodySm : t.s.body),
+                  weight: FontWeight.w700,
+                  color: fg,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -438,6 +447,7 @@ class ShikooIconButton extends StatelessWidget {
     this.color,
     this.busy = false,
     this.flipInLtr = false,
+    this.height = ShikooSizes.touch,
   });
 
   final ShikooIcon icon;
@@ -445,6 +455,8 @@ class ShikooIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Color? color;
   final bool busy;
+
+  final double height;
 
   /// For an arrow drawn for Persian, as `.flip-ltr`.
   final bool flipInLtr;
@@ -461,8 +473,9 @@ class ShikooIconButton extends StatelessWidget {
       button: true,
       enabled: onPressed != null,
       label: label,
-      child: SizedBox.square(
-        dimension: ShikooSizes.touch,
+      child: SizedBox(
+        width: ShikooSizes.touch,
+        height: height,
         child: Center(
           child: busy
               ? Spinner(size: t.s.icon, color: color)

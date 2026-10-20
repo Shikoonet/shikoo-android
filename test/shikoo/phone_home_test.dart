@@ -2898,12 +2898,13 @@ void main() {
       double nameTop() =>
           tester.getTopLeft(inside(find.byType(ServiceName))).dy -
           tester.getTopLeft(card()).dy;
-      final folded = (nameTop(), tester.getCenter(inside(arrow)));
+      // First in the tree: the fold arrow, before the update's «▾».
+      final folded = (nameTop(), tester.getCenter(inside(arrow).first));
       holder.value = _cards(connection: ShikooConnection.on, open: id);
       await tester.pumpAndSettle();
       expect(nameTop(), closeTo(folded.$1, 0.5), reason: '$user: the name');
       expect(
-        tester.getCenter(inside(arrow)),
+        tester.getCenter(inside(arrow).first),
         within(distance: 0.5, from: folded.$2),
         reason: '$user: the arrow',
       );

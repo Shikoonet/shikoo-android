@@ -103,6 +103,7 @@ class ShikooService {
     this.updatedAt,
     this.usageKnown = true,
     this.refresh = ShikooRefresh.idle,
+    this.leg,
     this.pasted = false,
     this.revoked = false,
     this.number = 1,
@@ -125,6 +126,8 @@ class ShikooService {
 
   /// Of a service other than the current one; the current one's is [ShikooState.refresh].
   final ShikooRefresh refresh;
+
+  final ShikooLeg? leg;
 
   final bool pasted;
   final bool revoked;
@@ -204,16 +207,37 @@ class SilentReplaced extends ShikooNotice {
 }
 
 class RefreshFailed extends ShikooNotice {
-  const RefreshFailed({this.clock = false, this.notConnected = false});
+  const RefreshFailed({
+    this.clock = false,
+    this.way = ShikooFailedWay.directOff,
+    this.server,
+  });
 
   final bool clock;
+  final ShikooFailedWay way;
 
-  /// An update through the server was asked for with no tunnel up; nothing was sent.
-  final bool notConnected;
+  final String? server;
 }
 
 /// "Without proxy" ([direct]: the device's own internet, also while connected) or "with proxy" ([server]).
 enum ShikooRoute { direct, server }
+
+/// The way an update is on: [directOff] with no tunnel up, [fallback] the server after direct failed.
+enum ShikooLeg { direct, directOff, server, fallback }
+
+/// [panel]: the subscription server itself answered, with an error.
+enum ShikooFailedWay { directOff, direct, server, both, panel, notConnected }
+
+ShikooFailedWay failedWay(ShikooLeg? last, Object error) => switch (error) {
+  ShikooNotConnected() => ShikooFailedWay.notConnected,
+  DioException(response: _?) => ShikooFailedWay.panel,
+  _ => switch (last) {
+    ShikooLeg.direct => ShikooFailedWay.direct,
+    ShikooLeg.server => ShikooFailedWay.server,
+    ShikooLeg.fallback => ShikooFailedWay.both,
+    ShikooLeg.directOff || null => ShikooFailedWay.directOff,
+  },
+};
 
 class ShikooNotConnected implements Exception {
   const ShikooNotConnected();
@@ -343,6 +367,7 @@ final _openedProvider = _cell<_Opened?>(null);
 final _openRoundProvider = _cell<_Round>(_noRound);
 final _refreshProvider = _cell(ShikooRefresh.idle);
 final _othersRefreshProvider = _cell<Map<int, ShikooRefresh>>(const {});
+final _legsProvider = _cell<Map<int, ShikooLeg>>(const {});
 final _freshProvider = _cell<Set<String>>(const {});
 final _pastedProvider = _cell<Set<int>>(const {});
 final _revokedProvider = _cell<Set<int>>(const {});
@@ -497,6 +522,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final profile = ref.watch(currentProfileProvider);
   final extras = ref.watch(_extrasProvider);
   final refreshing = ref.watch(_othersRefreshProvider);
+  final legs = ref.watch(_legsProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
   final unnamed = [
@@ -507,6 +533,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     profile,
     extras: extras[profile.id],
     refresh: refreshing[profile.id] ?? ShikooRefresh.idle,
+    leg: legs[profile.id],
     pasted: pasted.contains(profile.id),
     revoked: revoked.contains(profile.id),
     number: unnamed.indexOf(profile.id) + 1,
@@ -676,6 +703,7 @@ ShikooService _serviceFrom(
   Profile profile, {
   _Extras? extras,
   ShikooRefresh refresh = ShikooRefresh.idle,
+  ShikooLeg? leg,
   bool pasted = false,
   bool revoked = false,
   int number = 1,
@@ -695,6 +723,7 @@ ShikooService _serviceFrom(
     updatedAt: profile.lastUpdateDate,
     usageKnown: info != null,
     refresh: refresh,
+    leg: leg,
     pasted: pasted,
     revoked: revoked,
     number: number < 1 ? 1 : number,
@@ -1750,12 +1779,20 @@ class ShikooController {
         label: profile.label,
         refresh: true,
         via: via,
+        onLeg: (leg) => _leg(id, leg),
       );
       mark(ShikooRefresh.idle);
     } catch (error) {
       mark(ShikooRefresh.failed);
       _failed(id, error);
+    } finally {
+      _leg(id, null);
     }
+  }
+
+  void _leg(int id, ShikooLeg? leg) {
+    final legs = {..._ref.read(_legsProvider)}..remove(id);
+    _ref.read(_legsProvider.notifier).set({...legs, id: ?leg});
   }
 
   /// One update at a time; a press during an automatic one makes its failure visible.
@@ -1775,12 +1812,14 @@ class ShikooController {
     clearNews();
     final before = _names(_group);
     final had = _validSelection();
+    ShikooLeg? last;
     try {
       final fresh = await _download(
         profile.url,
         label: profile.label,
         refresh: true,
         via: via,
+        onLeg: (leg) => _leg(profile.id, last = leg),
       );
       if (fresh == null) {
         status.set(ShikooRefresh.idle);
@@ -1797,11 +1836,14 @@ class ShikooController {
         _notice(
           RefreshFailed(
             clock: clock,
-            notConnected: error is ShikooNotConnected,
+            way: failedWay(last, error),
+            server: _validSelection(),
           ),
         );
       }
       return;
+    } finally {
+      _leg(profile.id, null);
     }
     status.set(ShikooRefresh.idle);
     _notice(null);
@@ -1827,7 +1869,11 @@ class ShikooController {
   }
 
   /// [via] null tries the device's own internet, then once the server if that failed while connected.
-  Future<Response<Uint8List>> _fetch(String url, ShikooRoute? via) async {
+  Future<Response<Uint8List>> _fetch(
+    String url,
+    ShikooRoute? via,
+    void Function(ShikooLeg leg)? onLeg,
+  ) async {
     final server = FlClashHttpOverrides.findProxyForReader(
       _ref.read,
       Uri.parse(url),
@@ -1835,13 +1881,16 @@ class ShikooController {
     final connected = server != 'DIRECT';
     if (via == ShikooRoute.server) {
       if (!connected) throw const ShikooNotConnected();
+      onLeg?.call(ShikooLeg.server);
       return _get(url, server);
     }
+    onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
     try {
       return await _get(url, null);
     } catch (error) {
       final answered = error is DioException && error.response != null;
       if (via != null || !connected || answered) rethrow;
+      onLeg?.call(ShikooLeg.fallback);
       return _get(url, server);
     }
   }
@@ -1854,8 +1903,9 @@ class ShikooController {
     bool needsServers = false,
     bool refresh = false,
     ShikooRoute? via,
+    void Function(ShikooLeg leg)? onLeg,
   }) async {
-    final response = await _fetch(url, via);
+    final response = await _fetch(url, via, onLeg);
     final header = response.headers.value;
     learnClock(header('date'));
     final body = response.data ?? Uint8List(0);

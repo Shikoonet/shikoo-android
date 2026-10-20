@@ -2966,25 +2966,46 @@ void main() {
 
     ShikooState state() => container.read(shikooStateProvider);
 
-    test(
-      'automatic, connected: the server only after the own way failed',
-      () async {
-        container.read(runTimeProvider.notifier).value = 1;
-        await controller.refreshService(manual: false);
-        expect(ways.taken, ['direct']);
+    ShikooFailedWay? way() => switch (state().notice) {
+      RefreshFailed(:final way) => way,
+      _ => null,
+    };
 
-        ways.failing.add('direct');
-        await controller.refreshService(manual: false);
-        expect(ways.taken, ['direct', 'direct', 'server']);
-        expect(state().refresh, ShikooRefresh.idle);
-      },
-    );
+    test('automatic, connected: the server only after the own way failed; '
+        'the card names each way while it is on it', () async {
+      final legs = <ShikooLeg?>[];
+      container.listen(
+        shikooStateProvider.select((s) => s.service?.leg),
+        (_, leg) => legs.add(leg),
+      );
+      container.read(runTimeProvider.notifier).value = 1;
+      await controller.refreshService(manual: false);
+      expect(ways.taken, ['direct']);
+      await pumpEventQueue();
+
+      ways.failing.add('direct');
+      await controller.refreshService(manual: false);
+      expect(ways.taken, ['direct', 'direct', 'server']);
+      expect(state().refresh, ShikooRefresh.idle);
+      expect(legs, [
+        ShikooLeg.direct,
+        null,
+        ShikooLeg.direct,
+        ShikooLeg.fallback,
+        null,
+      ]);
+
+      ways.failing.add('server');
+      await controller.refreshService();
+      expect(way(), ShikooFailedWay.both);
+    });
 
     test('automatic, off: never the server', () async {
       ways.failing.add('direct');
       await controller.refreshService();
       expect(ways.taken, ['direct']);
       expect(state().refresh, ShikooRefresh.failed);
+      expect(way(), ShikooFailedWay.directOff);
     });
 
     test("the panel's own answer is final, through either way", () async {
@@ -2993,6 +3014,7 @@ void main() {
       await controller.refreshService();
       expect(ways.taken, ['direct']);
       expect(state().refresh, ShikooRefresh.failed);
+      expect(way(), ShikooFailedWay.panel);
     });
 
     test('without proxy stays off the server, even when it fails', () async {
@@ -3002,6 +3024,7 @@ void main() {
       await controller.refreshOther(other.id, via: ShikooRoute.direct);
       expect(ways.taken, ['direct', 'direct']);
       expect(state().refresh, ShikooRefresh.failed);
+      expect(way(), ShikooFailedWay.direct);
     });
 
     test('with proxy goes only through the server, and with no tunnel sends '
@@ -3012,18 +3035,15 @@ void main() {
       expect(ways.taken, ['server', 'server']);
       expect(state().refresh, ShikooRefresh.idle);
 
+      ways.failing.add('server');
+      await controller.refreshService(via: ShikooRoute.server);
+      expect(way(), ShikooFailedWay.server);
+
       container.read(runTimeProvider.notifier).value = null;
       await controller.refreshService(via: ShikooRoute.server);
-      expect(ways.taken, hasLength(2));
+      expect(ways.taken, hasLength(3));
       expect(state().refresh, ShikooRefresh.failed);
-      expect(
-        state().notice,
-        isA<RefreshFailed>().having(
-          (n) => n.notConnected,
-          'notConnected',
-          true,
-        ),
-      );
+      expect(way(), ShikooFailedWay.notConnected);
     });
   });
 
