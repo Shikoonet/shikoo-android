@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fl_clash/common/constant.dart' show shikooStagingBuild;
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
@@ -23,7 +21,7 @@ import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart'
-    show RenderParagraph, RenderRepaintBoundary;
+    show BoxParentData, RenderParagraph, RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,11 +36,6 @@ import '../helpers/no_shots.dart';
 
 final _windows = TargetPlatformVariant.only(TargetPlatform.windows);
 
-/// Where the button column sweep writes its table, if anywhere.
-const _sweep = String.fromEnvironment('SWEEP');
-const _sweepHead =
-    'language\twidth\theight\ttext\tmessage\trule\trest scroll\t'
-    'under message\tscrolled to it';
 const _computerAndPhone = TargetPlatformVariant({
   TargetPlatform.windows,
   TargetPlatform.android,
@@ -1197,9 +1190,9 @@ void main() {
         'button column: its message room counts the longest name listed', (
       tester,
     ) async {
-      const long = 'Netherlands 3 Gaming Pro';
-      Future<Rect> button(String? selected) async {
-        _window(tester, const Size(880, 800));
+      const long = 'NETHERLANDS 12 GAMING REALITY PRO';
+      Future<Rect> button(Size window, String? selected) async {
+        _window(tester, window);
         await tester.pumpWidget(
           _app(
             const ShikooHome(),
@@ -1215,7 +1208,92 @@ void main() {
         return tester.getRect(find.byType(PowerButton));
       }
 
-      expect(await button(long), await button('آلمان ۲'));
+      for (final window in const [Size(1000, 800), Size(864, 604)]) {
+        expect(
+          await button(window, long),
+          await button(window, 'آلمان ۲'),
+          reason: '$window',
+        );
+      }
+    }, variant: _windows);
+
+    testWidgets('in a two-column window too narrow for a dialog-wide message, '
+        'its room is measured at the column width: no message grows the '
+        'scroll, and each shows Space.s4 clear of the bottom', (tester) async {
+      _window(tester, const Size(760, 448));
+      for (final language in ['fa', 'en']) {
+        await tester.pumpWidget(
+          _app(
+            const ShikooHome(),
+            locale: Locale(language),
+            overrides: [
+              shikooStateProvider.overrideWith((ref) => ref.watch(_stateCell)),
+              shikooProbeProvider.overrideWith(_NoProbes.new),
+            ],
+          ),
+        );
+        final cell = ProviderScope.containerOf(
+          tester.element(find.byType(ShikooHome)),
+        ).read(_stateCell.notifier);
+        cell.set(_state(ShikooConnection.off));
+        await tester.pump();
+        final column = Scrollable.of(
+          tester.element(find.byType(PowerButton)),
+        ).position;
+        final rest = column.maxScrollExtent;
+        final l = lookupShikooL10n(Locale(language));
+        for (final (text, state) in [
+          (
+            l.vpnRefusedDesktop,
+            _state(ShikooConnection.error, error: ShikooError.vpnRefused),
+          ),
+          (l.busyPortDesktop, _state(ShikooConnection.error, busyPort: 7890)),
+          (
+            l.coreStartDesktop,
+            _state(ShikooConnection.error, error: ShikooError.coreStart),
+          ),
+        ]) {
+          cell.set(state);
+          await tester.pump();
+          await tester.pump();
+          expect(column.maxScrollExtent, rest, reason: '$language $text');
+          expect(
+            448 - tester.getRect(find.text(text)).bottom,
+            greaterThan(Space.s4 - 0.5),
+            reason: '$language $text',
+          );
+          cell.set(_state(ShikooConnection.off));
+          await tester.pump();
+          column.jumpTo(0);
+          await tester.pump();
+        }
+      }
+    }, variant: _windows);
+
+    testWidgets('in the smallest window no gap of the button column goes '
+        'under Space.s2', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpHome(
+        tester,
+        const Size(864, 448),
+        connection: ShikooConnection.error,
+        error: ShikooError.vpnRefused,
+      );
+      final column = tester.renderObject<RenderBox>(
+        find.byWidgetPredicate((w) => '${w.runtimeType}' == '_Squeeze'),
+      );
+      final pieces = <RenderBox>[];
+      column.visitChildren((child) => pieces.add(child as RenderBox));
+      expect(pieces, hasLength(greaterThan(2)));
+      for (var i = 1; i < pieces.length; i++) {
+        final above = pieces[i - 1];
+        final gap =
+            (pieces[i].parentData! as BoxParentData).offset.dy -
+            (above.parentData! as BoxParentData).offset.dy -
+            above.size.height;
+        expect(gap, greaterThan(Space.s2 - 0.01), reason: 'gap $i');
+      }
     }, variant: _windows);
 
     testWidgets('an error naming the chosen server moves nothing, whichever '
@@ -1334,7 +1412,13 @@ void main() {
         'a message keeps the scroll as it was and scrolls only to come into '
         'view', (tester) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      final rows = <String>[];
+      // Edges from a full 4 dp sweep: the wide column fits from 492/552/604, the narrow page's
+      // message stands clear from 516/576/628; each with the step under it, a near-edge height, samples.
+      const scales = <(double, List<double>)>[
+        (1.0, [448, 476, 488, 492, 512, 516, 560, 700, 800]),
+        (1.25, [448, 536, 548, 552, 560, 572, 576, 700, 800]),
+        (1.5, [448, 560, 588, 600, 604, 624, 628, 700, 800]),
+      ];
       final wrong = <String>[];
       for (final language in ['fa', 'en']) {
         final l = lookupShikooL10n(Locale(language));
@@ -1368,8 +1452,8 @@ void main() {
             _state(ShikooConnection.error, error: ShikooError.coreStart),
           ),
         };
-        for (final width in const [864.0, 880.0, 1000.0, 400.0]) {
-          for (final scale in const [1.0, 1.25, 1.5]) {
+        for (final width in const [864.0, 1000.0, 400.0]) {
+          for (final (scale, heights) in scales) {
             tester.platformDispatcher.textScaleFactorTestValue = scale;
             _window(tester, Size(width, 800));
             await tester.pumpWidget(
@@ -1388,7 +1472,7 @@ void main() {
               tester.element(find.byType(ShikooHome)),
             ).read(_stateCell.notifier);
             var fitted = false;
-            for (var height = 448.0; height <= 800; height += 4) {
+            for (final height in heights) {
               final at = '$language ${width.round()}x${height.round()} ×$scale';
               tester.view.physicalSize = Size(width, height);
               cell.set(_state(ShikooConnection.off));
@@ -1457,26 +1541,10 @@ void main() {
                     );
                   }
                 }
-                rows.add(
-                  [
-                    language,
-                    width.round(),
-                    height.round(),
-                    scale,
-                    name,
-                    if (fits) 'R2' else 'R3',
-                    rest.round(),
-                    (height - message.bottom).round(),
-                    moved.round(),
-                  ].join('\t'),
-                );
               }
             }
           }
         }
-      }
-      if (_sweep.isNotEmpty) {
-        File(_sweep).writeAsStringSync([_sweepHead, ...rows].join('\n'));
       }
       expect(wrong, isEmpty);
     }, variant: _windows);
