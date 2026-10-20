@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fails if an APK carries Firebase, Crashlytics, ML Kit or Google datatransport again, asks for the ad, camera,
-# location, all-packages or battery-exemption permissions, exposes FlClash's files provider or clash:// links, or
-# links EasyTier into the core. Run it on every APK after merging FlClash (SHIKOO_PATCHES.md 5-8, 30 and 35).
+# location, all-packages or battery-exemption permissions, exposes FlClash's files provider or clash:// links, links
+# EasyTier into the core, or has a Go 1.26.3 or 1.26.4 core, whose 32-bit runtime exits at start on a kernel release
+# like 4.9.37_s5 (golang/go#79612). Run it on every APK after merging FlClash (SHIKOO_PATCHES.md 5-8, 30 and 35).
 #   bash tools/check_apk_clean.sh build/app/outputs/flutter-apk/app-*-release.apk
 set -euo pipefail
 
@@ -19,14 +20,15 @@ for apk in "$@"; do
   badging=$("$aapt2" dump badging "$apk")
   manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
   # the module path is in the core only when EasyTier is linked; mihomo's own no_easytier stub never names it
-  core=$(unzip -p "$apk" 'lib/*/libclash.so' | { grep -aoE 'github\.com/easytier/[[:alnum:]_-]+(/[[:alnum:]_-]+)?' || [ $? -eq 1 ]; } | sort -u)
+  core=$(unzip -p "$apk" 'lib/*/libclash.so' |
+    { grep -aoE 'github\.com/easytier/[[:alnum:]_-]+(/[[:alnum:]_-]+)?|failed to parse kernel version from uname' || [ $? -eq 1 ]; } | sort -u)
   hits=$(
     set -e
     find_in 'libcrashlytics|transport-|firebase-|mlkit' "$files"
     find_in 'ad_id|adservices|permission\.camera|_location|query_all_packages|get_installed_apps|ignore_battery' "$badging"
     find_in 'firebase|crashlytics|mlkit|datatransport|measurement|GoogleApiActivity|gms\.version|androidx\.camera|FilesProvider|DOCUMENTS_PROVIDER|scheme\(0x[0-9a-f]+\)="(clash|clashmeta|flclash)"|install-config' "$manifest" |
       sed -E 's/ \(Raw: .*//'
-    find_in 'easytier' "$core" | sed 's/^/libclash.so: /'
+    find_in 'easytier|kernel version' "$core" | sed 's/^/libclash.so: /'
   )
   if [ -n "$hits" ]; then
     echo "FAIL $apk"
