@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show HttpClient;
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -17,6 +20,7 @@ import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -200,9 +204,19 @@ class SilentReplaced extends ShikooNotice {
 }
 
 class RefreshFailed extends ShikooNotice {
-  const RefreshFailed({this.clock = false});
+  const RefreshFailed({this.clock = false, this.notConnected = false});
 
   final bool clock;
+
+  /// An update through the server was asked for with no tunnel up; nothing was sent.
+  final bool notConnected;
+}
+
+/// "Without proxy" ([direct]: the device's own internet, also while connected) or "with proxy" ([server]).
+enum ShikooRoute { direct, server }
+
+class ShikooNotConnected implements Exception {
+  const ShikooNotConnected();
 }
 
 @immutable
@@ -750,6 +764,28 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
   } on RangeError {
     // FlClash's parser throws on a segment without "=", such as a trailing ";".
     return const SubscriptionInfo();
+  }
+}
+
+Future<Response<Uint8List>> _get(String url, String? proxy) async {
+  final dio = Dio()
+    ..httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () => HttpClient()
+        ..userAgent = globalState.ua
+        ..findProxy = (_) => proxy ?? 'DIRECT',
+    );
+  try {
+    return await dio
+        .get<Uint8List>(url, options: Options(responseType: ResponseType.bytes))
+        .timeout(const Duration(seconds: 30));
+  } catch (error) {
+    commonPrint.log(
+      'subscription ${proxy == null ? 'direct' : 'server'} error ${compactError(error)}',
+      logLevel: LogLevel.warning,
+    );
+    rethrow;
+  } finally {
+    dio.close(force: true);
   }
 }
 
@@ -1697,7 +1733,7 @@ class ShikooController {
     }
   }
 
-  Future<void> refreshOther(int id) async {
+  Future<void> refreshOther(int id, {ShikooRoute? via}) async {
     final profile = _ref.read(profilesProvider).getProfile(id);
     void mark(ShikooRefresh state) => _ref
         .read(_othersRefreshProvider.notifier)
@@ -1709,7 +1745,12 @@ class ShikooController {
     }
     mark(ShikooRefresh.running);
     try {
-      await _download(profile.url, label: profile.label, refresh: true);
+      await _download(
+        profile.url,
+        label: profile.label,
+        refresh: true,
+        via: via,
+      );
       mark(ShikooRefresh.idle);
     } catch (error) {
       mark(ShikooRefresh.failed);
@@ -1718,15 +1759,15 @@ class ShikooController {
   }
 
   /// One update at a time; a press during an automatic one makes its failure visible.
-  Future<void> refreshService({bool manual = true}) {
+  Future<void> refreshService({bool manual = true, ShikooRoute? via}) {
     _manualRefresh |= manual;
-    return _refreshing ??= _refresh().whenComplete(() {
+    return _refreshing ??= _refresh(via).whenComplete(() {
       _refreshing = null;
       _manualRefresh = false;
     });
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh(ShikooRoute? via) async {
     final profile = _ref.read(currentProfileProvider);
     if (profile == null || profile.url.isEmpty) return;
     final status = _ref.read(_refreshProvider.notifier);
@@ -1739,6 +1780,7 @@ class ShikooController {
         profile.url,
         label: profile.label,
         refresh: true,
+        via: via,
       );
       if (fresh == null) {
         status.set(ShikooRefresh.idle);
@@ -1751,7 +1793,14 @@ class ShikooController {
       final clock = await clockFailed(error, profile.url);
       status.set(ShikooRefresh.failed);
       _failed(profile.id, error);
-      if (_manualRefresh || clock) _notice(RefreshFailed(clock: clock));
+      if (_manualRefresh || clock) {
+        _notice(
+          RefreshFailed(
+            clock: clock,
+            notConnected: error is ShikooNotConnected,
+          ),
+        );
+      }
       return;
     }
     status.set(ShikooRefresh.idle);
@@ -1777,6 +1826,26 @@ class ShikooController {
     _reconcile();
   }
 
+  /// [via] null tries the device's own internet, then once the server if that failed while connected.
+  Future<Response<Uint8List>> _fetch(String url, ShikooRoute? via) async {
+    final server = FlClashHttpOverrides.findProxyForReader(
+      _ref.read,
+      Uri.parse(url),
+    );
+    final connected = server != 'DIRECT';
+    if (via == ShikooRoute.server) {
+      if (!connected) throw const ShikooNotConnected();
+      return _get(url, server);
+    }
+    try {
+      return await _get(url, null);
+    } catch (error) {
+      final answered = error is DioException && error.response != null;
+      if (via != null || !connected || answered) rethrow;
+      return _get(url, server);
+    }
+  }
+
   /// FlClash's `Profile.update` (same request and User-Agent) keeping the headers it drops.
   /// The url holds the customer's token: never log it, nor the error, which can quote it.
   Future<Profile?> _download(
@@ -1784,10 +1853,9 @@ class ShikooController {
     String? label,
     bool needsServers = false,
     bool refresh = false,
+    ShikooRoute? via,
   }) async {
-    final response = await request
-        .getFileResponseForUrl(url)
-        .timeout(const Duration(seconds: 30));
+    final response = await _fetch(url, via);
     final header = response.headers.value;
     learnClock(header('date'));
     final body = response.data ?? Uint8List(0);

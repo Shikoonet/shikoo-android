@@ -256,6 +256,24 @@ class _EmulatorHost extends HttpOverrides {
         };
 }
 
+/// Which way each request left, `direct` or `server` (the local proxy); a way in [failing] refuses.
+/// The panel is 10.0.2.2: FlClash sends any request for 127.0.0.1 direct.
+class _Ways extends HttpOverrides {
+  final taken = <String>[];
+  final failing = <String>{};
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) =>
+      super.createHttpClient(context)
+        ..connectionFactory = (uri, proxy, _) {
+          final way = proxy == null ? 'direct' : 'server';
+          taken.add(way);
+          return failing.contains(way)
+              ? Future.error(const SocketException('refused'))
+              : Socket.startConnect(InternetAddress.loopbackIPv4, uri.port);
+        };
+}
+
 /// `clock.test`: https fails on the certificate's dates, plain http answers with the server's [at].
 String? _certificate;
 int? _clockPort;
@@ -2916,6 +2934,97 @@ void main() {
     controller.selectService(failing.id);
     await pumpEventQueue();
     expect(container.read(shikooStateProvider).refresh, ShikooRefresh.failed);
+  });
+
+  group('an update leaves without the server, or through it', () {
+    late ProviderContainer container;
+    late ShikooController controller;
+    late _Ways ways;
+    late Profile other;
+
+    setUp(() async {
+      final (container: made, :core, proxies: _, setup: _) = _home();
+      container = made;
+      final panel = (await _panel(
+        container,
+        core,
+      )).replaceFirst('127.0.0.1', '10.0.2.2');
+      controller = container.read(shikooControllerProvider);
+      await controller.addService('$panel/file/user111/a');
+      await controller.addService('$panel/file/user222/a');
+      final [current, second] = [
+        for (final profile in container.read(profilesProvider))
+          if (profile.url.startsWith(panel)) profile,
+      ];
+      other = second;
+      container.read(currentProfileIdProvider.notifier).value = current.id;
+      await pumpEventQueue();
+      ways = _Ways();
+      HttpOverrides.global = ways;
+      addTearDown(() => HttpOverrides.global = _EmulatorHost());
+    });
+
+    ShikooState state() => container.read(shikooStateProvider);
+
+    test(
+      'automatic, connected: the server only after the own way failed',
+      () async {
+        container.read(runTimeProvider.notifier).value = 1;
+        await controller.refreshService(manual: false);
+        expect(ways.taken, ['direct']);
+
+        ways.failing.add('direct');
+        await controller.refreshService(manual: false);
+        expect(ways.taken, ['direct', 'direct', 'server']);
+        expect(state().refresh, ShikooRefresh.idle);
+      },
+    );
+
+    test('automatic, off: never the server', () async {
+      ways.failing.add('direct');
+      await controller.refreshService();
+      expect(ways.taken, ['direct']);
+      expect(state().refresh, ShikooRefresh.failed);
+    });
+
+    test("the panel's own answer is final, through either way", () async {
+      container.read(runTimeProvider.notifier).value = 1;
+      _gone.add('/file/user111/a');
+      await controller.refreshService();
+      expect(ways.taken, ['direct']);
+      expect(state().refresh, ShikooRefresh.failed);
+    });
+
+    test('without proxy stays off the server, even when it fails', () async {
+      container.read(runTimeProvider.notifier).value = 1;
+      ways.failing.add('direct');
+      await controller.refreshService(via: ShikooRoute.direct);
+      await controller.refreshOther(other.id, via: ShikooRoute.direct);
+      expect(ways.taken, ['direct', 'direct']);
+      expect(state().refresh, ShikooRefresh.failed);
+    });
+
+    test('with proxy goes only through the server, and with no tunnel sends '
+        'nothing and says so', () async {
+      container.read(runTimeProvider.notifier).value = 1;
+      await controller.refreshService(via: ShikooRoute.server);
+      await controller.refreshOther(other.id, via: ShikooRoute.server);
+      expect(ways.taken, ['server', 'server']);
+      expect(state().refresh, ShikooRefresh.idle);
+
+      container.read(runTimeProvider.notifier).value = null;
+      await controller.refreshService(via: ShikooRoute.server);
+      expect(ways.taken, hasLength(2));
+      expect(state().refresh, ShikooRefresh.failed);
+      expect(
+        state().notice,
+        isA<RefreshFailed>().having(
+          (n) => n.notConnected,
+          'notConnected',
+          true,
+        ),
+      );
+    });
   });
 
   group('a clock years off', () {
