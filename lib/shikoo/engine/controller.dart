@@ -861,9 +861,8 @@ class ShikooController {
       if (was == CoreStatus.connected &&
           now == CoreStatus.disconnected &&
           _ref.read(shikooDesktopProvider)) {
-        scheduleMicrotask(
-          () => _reviving ??= _revive().whenComplete(() => _reviving = null),
-        );
+        _deaths++;
+        scheduleMicrotask(_answerDeaths);
       }
     });
     app?.onVpnConsent = onVpnConsent;
@@ -925,6 +924,7 @@ class ShikooController {
   bool _restartOwed = false;
   final _revives = <DateTime>[];
   Future<void>? _reviving;
+  int _deaths = 0;
   String? _pickInCore;
   Timer? _switched;
   String? _awaiting;
@@ -1185,39 +1185,47 @@ class ShikooController {
       .restartCore()
       .then((_) => true, onError: (Object _) => false);
 
+  void _answerDeaths() {
+    if (_deaths == 0) return;
+    _reviving ??= _revive().whenComplete(() {
+      _reviving = null;
+      _answerDeaths();
+    });
+  }
+
   /// FlClash leaves a dead core down: its only restart is a dashboard button Shikoo never shows.
   Future<void> _revive() async {
     final attempt = _attempt;
     bool stale() => attempt != _attempt;
     final wanted = _running;
+    if (wanted) _set(const _Intent(connecting: true));
     var up = false;
-    if (_mayRevive()) {
-      if (wanted) _set(const _Intent(connecting: true));
-      // A second try only for a restart that joined one under way, which then met the dead core.
-      for (var tries = 2; tries > 0 && !up && !stale(); tries--) {
-        if (!await _restartCore()) break;
-        if (!_coreUp) continue;
-        if (!wanted) {
-          up = true;
-          break;
-        }
-        final since = await waitForTunnel(
-          _carrying,
-          timeout: connectTimeout,
-          stillWanted: () => !stale() && _running && _coreUp,
-        );
-        up = since != null;
-        if (!up && _coreUp) break;
-      }
+    while (_deaths > 0 && !stale()) {
+      _deaths--;
+      up = false;
+      if (!_mayRevive() || !await _restartCore()) break;
+      // A restart that joined one under way may return to the core it found dead: once more, no death.
+      if (!_coreUp && _deaths == 0 && !await _restartCore()) break;
+      if (!_coreUp) continue;
+      up =
+          !wanted ||
+          await waitForTunnel(
+                _carrying,
+                timeout: connectTimeout,
+                stillWanted: () => !stale() && _running && _coreUp,
+              ) !=
+              null;
     }
+    _deaths = 0;
     if (stale()) return;
-    if (!up) {
+    if (up) {
+      if (wanted) _set(const _Intent());
+      unawaited(pingAll());
+    } else if (wanted) {
       final off = disconnect();
       _set(const _Intent(error: ShikooError.coreDown));
-      return off;
+      await off;
     }
-    if (wanted) _set(const _Intent());
-    unawaited(pingAll());
   }
 
   bool _mayRevive() {
@@ -1248,7 +1256,13 @@ class ShikooController {
     await _restartCore();
     if (attempt != _attempt) return false;
     if (_coreUp) return true;
-    _set(const _Intent(error: ShikooError.coreDown));
+    _set(
+      _Intent(
+        error: _validSelection() == null
+            ? ShikooError.noServer
+            : ShikooError.connectTimeout,
+      ),
+    );
     return false;
   }
 

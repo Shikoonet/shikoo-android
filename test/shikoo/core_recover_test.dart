@@ -28,11 +28,13 @@ class _Setup extends SetupAction {
   _Setup(this.calls);
 
   final List<String> calls;
+  void Function()? onStop;
 
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     calls.add('run $running');
     ref.read(runTimeProvider.notifier).value = running ? 0 : null;
+    if (!running) onStop?.call();
     return true;
   }
 
@@ -47,7 +49,7 @@ class _Setup extends SetupAction {
 /// A restart that joined one under way, which then met the dead core.
 const _stillDown = [CoreStatus.disconnected];
 
-/// A core that came up and died again at once, as a restart whose initCore failed.
+/// A core that came up and died again at once: a death of its own.
 const _upAndDown = [CoreStatus.connected, CoreStatus.disconnected];
 
 /// FlClash's restart: the core comes up unless [outcomes] gives what it goes through.
@@ -113,11 +115,21 @@ class _Desk {
       overrides: [
         shikooDesktopProvider.overrideWithValue(desktop),
         profilesProvider.overrideWith(() => TestProfiles([profile])),
-        setupActionProvider.overrideWith(() => _Setup(calls)),
+        setupActionProvider.overrideWith(() => setup),
         coreActionProvider.overrideWith(() => real ?? core),
         coreHandlerProvider.overrideWithValue(CoreController.scoped(handler)),
-        nativeRunTimeProvider.overrideWithValue(() async => tunnel),
-        localPortFreeProvider.overrideWithValue((_) async => portFree),
+        nativeRunTimeProvider.overrideWithValue(() async {
+          final hook = onRunTime;
+          onRunTime = null;
+          hook?.call();
+          return tunnel;
+        }),
+        localPortFreeProvider.overrideWithValue((_) async {
+          final hook = onPort;
+          onPort = null;
+          hook?.call();
+          return portFree;
+        }),
         tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
         trafficPassesProvider.overrideWithValue(() async => true),
       ],
@@ -143,11 +155,16 @@ class _Desk {
 
   final calls = <String>[];
   late final core = _Core(calls);
+  late final setup = _Setup(calls);
   late final ProviderContainer container;
   late final ShikooController controller;
   DateTime? tunnel = DateTime.now();
   bool portFree = true;
   int delay = 50;
+
+  /// Run inside the next tunnel or port check, before it answers.
+  void Function()? onRunTime;
+  void Function()? onPort;
 
   ShikooState get state => container.read(shikooStateProvider);
 
@@ -161,10 +178,15 @@ class _Desk {
   }
 
   /// What CoreManager.onCrash does when the core's pipe closes under it.
+  void dieNow() => container.read(coreStatusProvider.notifier).value =
+      CoreStatus.disconnected;
+
   Future<void> die() async {
-    container.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+    dieNow();
     await pumpEventQueue();
   }
+
+  bool get coreUp => container.read(coreStatusProvider) == CoreStatus.connected;
 
   /// A start that failed, as CoreAction's: down without ever having been up.
   Future<void> failStart() async {
@@ -247,26 +269,111 @@ void main() {
     expect(desk.state.connection, ShikooConnection.on);
   });
 
-  test('a death with a second try counts once: a restart that came back down, '
-      'or came up and died at once, is tried one more time', () async {
+  test('a restart that came back down is tried once more and is no death; a '
+      'core that came up and died at once is one, counted', () async {
     final desk = _Desk();
     await desk.connect();
-    desk.core.outcomes.add(_upAndDown);
+    desk.core.outcomes.add(_stillDown);
     await desk.die();
     expect(desk.restarts, 2);
     expect(desk.state.connection, ShikooConnection.on);
 
-    desk.core.outcomes.add(_stillDown);
+    desk.core.outcomes.add(_upAndDown);
     await desk.die();
     expect(desk.restarts, 4);
     expect(desk.state.connection, ShikooConnection.on);
 
     await desk.die();
-    expect(desk.restarts, 5);
-    expect(desk.state.connection, ShikooConnection.on);
-    await desk.die();
-    expect(desk.restarts, 5);
+    expect(desk.restarts, 4);
     desk.expectDown();
+  });
+
+  test('two deaths during one restart are two deaths, each with its '
+      'restart', () async {
+    final desk = _Desk();
+    await desk.connect();
+    desk.core.outcomes.add([..._upAndDown, ..._upAndDown]);
+    await desk.die();
+    expect(desk.restarts, 3);
+    expect(desk.state.connection, ShikooConnection.on);
+
+    await desk.die();
+    expect(desk.restarts, 3);
+    desk.expectDown();
+  });
+
+  test('three deaths while the revive waits for the tunnel come back, each '
+      'with its restart; the fourth is left down', () async {
+    final desk = _Desk();
+    await desk.connect();
+    desk.tunnel = null;
+    for (var death = 1; death <= coreRevives; death++) {
+      await desk.die();
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      expect(desk.restarts, death);
+      expect(desk.state.connection, ShikooConnection.connecting);
+    }
+    desk.tunnel = DateTime.now();
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    expect(desk.state.connection, ShikooConnection.on);
+
+    await desk.die();
+    expect(desk.restarts, coreRevives);
+    desk.expectDown();
+  });
+
+  test('a core that dies while the tunnel is read again is not on: that '
+      'death gets its restart', () async {
+    final desk = _Desk();
+    await desk.connect();
+    desk.onRunTime = desk.dieNow;
+    await desk.die();
+    expect(desk.restarts, 2);
+    expect(desk.coreUp, isTrue);
+    expect(desk.state.connection, ShikooConnection.on);
+  });
+
+  test("a core that dies while the proxy's port is read again is not on: that "
+      'death gets its restart', () async {
+    final desk = _Desk();
+    await pumpEventQueue();
+    await desk.controller.setMode(ShikooMode.proxy);
+    await desk.connect();
+    desk
+      ..portFree = false
+      ..onPort = desk.dieNow;
+    await desk.die();
+    expect(desk.restarts, 2);
+    expect(desk.coreUp, isTrue);
+    expect(desk.state.connection, ShikooConnection.on);
+  });
+
+  test('a death while the revive gives up and disconnects is answered after '
+      'it', () async {
+    final desk = _Desk();
+    await desk.connect();
+    desk
+      ..tunnel = null
+      ..setup.onStop = desk.dieNow;
+    await desk.die();
+    desk.container.read(runTimeProvider.notifier).value = null;
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    expect(desk.restarts, 2);
+    expect(desk.coreUp, isTrue);
+    expect(desk.state.lastError, ShikooError.coreDown);
+  });
+
+  test('deaths while off say nothing; past the cap the core stays down and the '
+      'screen off', () async {
+    final desk = _Desk()..tunnel = null;
+    await pumpEventQueue();
+    for (var death = 1; death <= coreRevives + 1; death++) {
+      await desk.die();
+    }
+    expect(desk.calls, List.filled(coreRevives, 'restart'));
+    expect(desk.coreUp, isFalse);
+    expect(desk.state.connection, ShikooConnection.off);
+    expect(desk.state.lastError, isNull);
   });
 
   test('a death whose second try fails too is left down after two '
@@ -310,24 +417,35 @@ void main() {
     expect(desk.state.lastError, isNull);
   });
 
-  test('connect on a core left down restarts it first', () async {
-    final desk = _Desk();
-    await pumpEventQueue();
-    await desk.failStart();
-    expect(desk.calls, isEmpty);
+  test(
+    'connect on a core left down restarts it first; one that stays down '
+    'fails the connect as anything else would, never as a dropped one',
+    () async {
+      final desk = _Desk();
+      await pumpEventQueue();
+      await desk.failStart();
+      expect(desk.calls, isEmpty);
 
-    await desk.controller.connect();
-    expect(desk.calls, ['restart', 'run true']);
-    expect(desk.state.connection, ShikooConnection.on);
+      await desk.controller.connect();
+      expect(desk.calls, ['restart', 'run true']);
+      expect(desk.state.connection, ShikooConnection.on);
 
-    await desk.controller.disconnect();
-    await desk.failStart();
-    desk.core.outcomes.add(_stillDown);
-    desk.calls.clear();
-    await desk.controller.connect();
-    expect(desk.calls, ['restart']);
-    expect(desk.state.lastError, ShikooError.coreDown);
-  });
+      await desk.controller.disconnect();
+      await desk.failStart();
+      desk.core.outcomes.addAll([_stillDown, _stillDown]);
+      desk.calls.clear();
+      await desk.controller.connect();
+      expect(desk.calls, ['restart']);
+      expect(desk.state.lastError, ShikooError.connectTimeout);
+
+      desk.container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', '');
+      await desk.controller.connect();
+      expect(desk.restarts, 2);
+      expect(desk.state.lastError, ShikooError.noServer);
+    },
+  );
 
   test('a phone, or a computer still starting, connects without restarting '
       'the core', () async {
