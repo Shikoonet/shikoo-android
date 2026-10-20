@@ -797,7 +797,7 @@ class _WideLayout extends StatelessWidget {
     this.onAdd,
   });
 
-  final Widget power;
+  final _PowerZone power;
   final Widget card;
   final ScrollController scroll;
   final double room;
@@ -833,14 +833,27 @@ class _WideLayout extends StatelessWidget {
                 ),
                 Expanded(
                   child: FocusTraversalGroup(
-                    child: EdgeScroll(
-                      padding: const EdgeInsets.fromLTRB(
-                        ShikooSizes.scrollbar,
-                        0,
-                        ShikooSizes.scrollbar,
-                        Space.s4,
+                    // A message gets Space.s4 under it, past the centred part, so the
+                    // button stays put when it comes and only a short window scrolls.
+                    child: LayoutBuilder(
+                      builder: (context, box) => EdgeScroll(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: ShikooSizes.scrollbar,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: box.maxHeight - Space.s4,
+                              ),
+                              child: Center(child: power),
+                            ),
+                            if (power.message(ShikooL10n.of(context)) != null)
+                              const SizedBox(height: Space.s4),
+                          ],
+                        ),
                       ),
-                      child: Center(child: power),
                     ),
                   ),
                 ),
@@ -879,46 +892,20 @@ class _PowerZone extends StatelessWidget {
   /// The internet check has its card; «check this phone's internet» would contradict it.
   final bool checked;
 
-  @override
-  Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
-    final l = ShikooL10n.of(context);
-    final selected = state.selectedServer;
-    final gap = state.isTV ? Space.s4 : Space.s3;
-    final restingMessage = this.restingMessage;
-    if (state.service == null) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: state.isTV ? gap : 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: gap,
-          children: [
-            PowerButton(
-              connection: ShikooConnection.off,
-              connectedFor: Duration.zero,
-              isTV: state.isTV,
-              onPressed: null,
-              restingLabel: restingLabel,
-            ),
-            if (restingMessage != null)
-              Text(
-                restingMessage,
-                textAlign: TextAlign.center,
-                style: t.text(t.s.bodySm, color: t.c.textMuted),
-              ),
-          ],
-        ),
-      );
-    }
+  bool get _silent =>
+      state.connection == ShikooConnection.on &&
+      (state.selectedServer?.ping ?? 0) < 0;
+
+  // The phone's switch news is its bottom bar; the TV's is this slot, which never moves.
+  ShikooSwitch? get _shift => state.isTV ? state.switching : null;
+
+  String? message(ShikooL10n l) {
+    if (state.service == null) return null;
     final resting = restingFor(state);
-    final silent =
-        state.connection == ShikooConnection.on && (selected?.ping ?? 0) < 0;
-    // The phone's switch news is its bottom bar; the TV's is this slot, which never moves.
-    final shift = state.isTV ? state.switching : null;
-    final alarm = shift == null
-        ? silent
-        : shift.stage == ShikooSwitchStage.failed;
-    final message = switch (state.lastError) {
+    final selected = state.selectedServer;
+    final silent = _silent;
+    final shift = _shift;
+    return switch (state.lastError) {
       _ when resting == ShikooServiceStatus.revoked => null,
       _ when resting != null => renews ? l.renewToConnect : null,
       ShikooError.connectTimeout =>
@@ -954,6 +941,46 @@ class _PowerZone extends StatelessWidget {
             ? l.tvHint
             : null,
     };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final selected = state.selectedServer;
+    final gap = state.isTV ? Space.s4 : Space.s3;
+    final restingMessage = this.restingMessage;
+    if (state.service == null) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: state.isTV ? gap : 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: gap,
+          children: [
+            PowerButton(
+              connection: ShikooConnection.off,
+              connectedFor: Duration.zero,
+              isTV: state.isTV,
+              onPressed: null,
+              restingLabel: restingLabel,
+            ),
+            if (restingMessage != null)
+              Text(
+                restingMessage,
+                textAlign: TextAlign.center,
+                style: t.text(t.s.bodySm, color: t.c.textMuted),
+              ),
+          ],
+        ),
+      );
+    }
+    final resting = restingFor(state);
+    final silent = _silent;
+    final shift = _shift;
+    final alarm = shift == null
+        ? silent
+        : shift.stage == ShikooSwitchStage.failed;
+    final message = this.message(l);
     final slot = centred ? twoLines(context, t.text(t.s.bodySm)) : null;
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;

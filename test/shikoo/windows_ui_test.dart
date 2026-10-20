@@ -1049,12 +1049,10 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     }, variant: _windows);
 
-    testWidgets('at 100% text the line is whole in the short windows without '
-        "a scroll, which at most passes the message's kept room; at 125 and "
-        '150% the button column scrolls under a drawn bar, and the line can be '
-        'scrolled wholly into view; the narrow window draws its bar too', (
-      tester,
-    ) async {
+    testWidgets('at 100% text with no message the short windows do not scroll '
+        'at all; at 125 and 150% the button column scrolls under a drawn bar, '
+        'and the line can be scrolled wholly into view; the narrow window '
+        'draws its bar too', (tester) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       for (final language in ['fa', 'en']) {
         for (final window in const [
@@ -1071,11 +1069,7 @@ void main() {
               tester.element(find.byType(LocalProxy)),
             );
             if (scale == 1.0) {
-              expect(
-                column.position.maxScrollExtent,
-                lessThanOrEqualTo(Space.s4),
-                reason: why,
-              );
+              expect(column.position.maxScrollExtent, 0, reason: why);
               expect(
                 tester.getRect(find.byType(LocalProxy)).bottom,
                 lessThanOrEqualTo(window.height),
