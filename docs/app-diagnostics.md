@@ -50,7 +50,10 @@ App, `feat/app` at `cbe365e`:
 - Exit reasons: `GlobalState.lastExitInfo()` (`GlobalState.kt:42-57`, API 30+) returns the newest record's reason,
   time and description only; Dart has `getLastExitInfo` and the reason names `AppExitReason`
   (`lib/plugins/app.dart:185`, `lib/common/boot_record.dart:3-37`). `BootGuard` covers only a launch that never
-  finished (`lib/common/boot_guard.dart:36-75`).
+  finished (`lib/common/boot_guard.dart:36-75`), and the Shikoo app switches it off: below API 30 it took every stop
+  before `markRunning` (BACK, recents, a TV cleaner) for a crash, so `forgetUnfinishedLaunch`
+  (`lib/shikoo/app/main.dart:47,77-78`) closes the record before `bootstrap.init`. A real crash is reported only by
+  `ShikooDiag._offerCrash` (`lib/shikoo/engine/diag.dart:750-767`).
 - Go core: one process (no `android:process` in any manifest), so an unrecovered Go panic kills the UI too. FlClash
   recovers only its own method handlers (`core/method.go:104-123,288-296`, `core/lib.go:305-313`); mihomo's goroutines
   are unprotected. `logError` writes to stderr only with `debugStderr` (`core/common.go:414-419`). A deliberate panic
