@@ -328,17 +328,13 @@ class ShikooSizes {
 
   static const tvCanvas = Size(960, 540);
 
-  /// From `win-modes.html`: the window from frame `win-w-b`, the tray sizes from `.ctx`, the menu beside the clock.
   static const windowStart = Size(880, 540);
   static const windowMin = Size(400, 480);
 
-  /// The sign-in's and the home page's: one column under it. Here the home page's button column
-  /// is 284, room for [modeSwitch] and the local proxy line at 150%.
+  /// One column under it; here the home page's button column is 284, room for [modeSwitch] and the local proxy line at 150%.
   static final twoColumns =
       2 * desktop.safeX + desktop.pane + Space.s10 + splitButtons;
 
-  /// `--size-split-buttons`: the buttons beside the sign-in checklist, and the narrowest their column
-  /// gets before the page is one column again.
   static const splitButtons = 300.0;
   static const pageMax = 960.0;
   static const titleBar = 32.0;
@@ -360,7 +356,6 @@ class ShikooSizes {
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
 
-  /// `--size-speed-icon`, `--speed-icon-gap`, `--speed-gap`: the speed under the clock.
   static const speedIcon = 12.0;
   static const speedIconGap = 2.0;
   static const speedGap = 6.0;
@@ -392,8 +387,6 @@ class ShikooSizes {
   static const switchW = 52.0;
   static const switchH = 32.0;
   static const switchThumb = 24.0;
-
-  /// `--size-switch-thumb-off`: the off dot, centred where the on thumb would be.
   static const switchThumbOff = 16.0;
   static const borderRadio = 2.0;
   static const checkbox = 20.0;
