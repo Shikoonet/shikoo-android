@@ -38,7 +38,7 @@
 set -euo pipefail
 
 ROOT=${ROOT:-$HOME/android-toolchain}
-GO_VERSION=1.26.4
+GO_VERSION=1.26.10 # not FlClash's 1.26.4: its 32-bit runtime exits on a kernel release like 4.9.37_s5 (golang/go#79612)
 FLUTTER_VERSION=3.47.1
 JDK_MAJOR=17
 RUST_VERSION=1.95.0

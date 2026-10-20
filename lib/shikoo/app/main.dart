@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:fl_clash/bootstrap.dart';
+import 'package:fl_clash/common/boot_record.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -50,6 +51,7 @@ void main(List<String> args) {
         final version = await system.init();
         if (clockTooEarly(DateTime.now())) await _untilClockRight();
         fillFlClashHooks();
+        await forgetUnfinishedLaunch();
         final container = await bootstrap.init(version);
         if (system.isWindows) await shikooWindowStart(container);
         shikooStaging =
@@ -80,6 +82,11 @@ void main(List<String> args) {
     },
   );
 }
+
+/// Keeps FlClash's boot guard from its English dialogs and from dropping the service: below Android 11
+/// any stop before `markRunning` counts as a crash. Real ones reach `ShikooDiag._offerCrash`.
+Future<void> forgetUnfinishedLaunch() =>
+    preferences.saveBootRecord(const BootRecord());
 
 /// Before bootstrap: on Android the core loads only once Dart asks the service channel for it.
 Future<void> _untilClockRight() async {

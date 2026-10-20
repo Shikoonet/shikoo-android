@@ -651,8 +651,7 @@ final shikooControllerProvider = Provider<ShikooController>(
   ShikooController.new,
 );
 
-/// The desktop has no VPN service: there `setRunning` returns once the core took the start, and
-/// a core process that died takes the tunnel with it.
+/// The desktop has no VPN service: `setRunning` returns once the core took the start, and a dead core takes the tunnel.
 final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
   (ref) => () async {
     if (service case final android?) return android.getRunTime();

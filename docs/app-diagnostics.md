@@ -50,13 +50,18 @@ App, `feat/app` at `cbe365e`:
 - Exit reasons: `GlobalState.lastExitInfo()` (`GlobalState.kt:42-57`, API 30+) returns the newest record's reason,
   time and description only; Dart has `getLastExitInfo` and the reason names `AppExitReason`
   (`lib/plugins/app.dart:185`, `lib/common/boot_record.dart:3-37`). `BootGuard` covers only a launch that never
-  finished (`lib/common/boot_guard.dart:36-75`).
+  finished (`lib/common/boot_guard.dart:36-75`), and the Shikoo app switches it off: below API 30 it took every stop
+  before `markRunning` (BACK, recents, a TV cleaner) for a crash, so `forgetUnfinishedLaunch`
+  (`lib/shikoo/app/main.dart:47,77-78`) closes the record before `bootstrap.init`. A real crash is reported only by
+  `ShikooDiag._offerCrash` (`lib/shikoo/engine/diag.dart:750-767`).
 - Go core: one process (no `android:process` in any manifest), so an unrecovered Go panic kills the UI too. FlClash
   recovers only its own method handlers (`core/method.go:104-123,288-296`, `core/lib.go:305-313`); mihomo's goroutines
   are unprotected. `logError` writes to stderr only with `debugStderr` (`core/common.go:414-419`). A deliberate panic
   exists for testing: `coreController.crash()` (`lib/core/controller.dart:242`) → `core/hub.go:635-637`. Init has the
-  home dir: `core/hub.go:41-49`. `core/go.mod:3` says `go 1.21`; the build uses Go 1.26.4, and FlClash's CI runs
-  `go vet` (`.github/workflows/build.yaml:119,139`, per the verifier).
+  home dir: `core/hub.go:41-49`. `core/go.mod:3` says `go 1.21`; the build uses Go 1.26.10, and FlClash's CI runs
+  `go vet` (`.github/workflows/build.yaml:119,139`, per the verifier). A runtime throw at start, such as the uname
+  parse of Go 1.26.3 and 1.26.4 (golang/go#79612), leaves with `exit(2)` before `setCrashOutput` runs, so it writes
+  no `go-crash.txt` and no tombstone; its text reaches only logcat, under the tag `Go`.
 - The app's own traffic always goes through the tunnel when connected (`VpnService.kt:228-235` never excludes our
   package); `keepApiDirect` makes the door DIRECT with a mihomo rule (`account.dart:388-402`), so the door sees the
   customer's real address.
