@@ -394,6 +394,45 @@ void main() {
       expect(door.checks, 4);
     });
 
+    test(
+      'with the window closed it asks once in six hours, and after a '
+      'failure once in 15 minutes; an open window asks again at once',
+      () async {
+        const minute = Duration(minutes: 1);
+        const retry = Duration(minutes: 15);
+        final update = start();
+        await update.check(hidden: true);
+        expect(door.checks, 1);
+        clock = clock.add(const Duration(hours: 5, minutes: 59));
+        await update.check(hidden: true);
+        expect(door.checks, 1);
+
+        clock = clock.add(minute);
+        door.dead.add('door.test');
+        await update.check(hidden: true);
+        expect(door.checks, 2);
+        clock = clock.add(retry - minute);
+        await update.check(hidden: true);
+        expect(door.checks, 2);
+        await update.check();
+        expect(door.checks, 3);
+
+        clock = clock.add(retry - minute);
+        await update.check(hidden: true);
+        expect(door.checks, 3);
+        clock = clock.add(minute);
+        await update.check(hidden: true);
+        expect(door.checks, 4);
+        door.dead.clear();
+        clock = clock.add(retry);
+        await update.check(hidden: true);
+        expect(door.checks, 5);
+        clock = clock.add(retry);
+        await update.check(hidden: true);
+        expect(door.checks, 5, reason: 'answered: six hours again');
+      },
+    );
+
     test('keeps this build\'s part and clears everything else', () async {
       final old = File('${cache.path}/update/old.apk');
       await old.create(recursive: true);

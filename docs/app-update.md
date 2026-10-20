@@ -69,6 +69,8 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 - Entry `apks["windows-x64"]` (`Abi.windowsX64`; Windows on Arm has no entry and gets nothing). Its own
   `version_name` wins over the manifest's, which a Windows-only publish leaves at the Android version. Own code:
   `packageInfo.buildNumber`, the `+N` of the exe's ProductVersion (`--build-number`).
+- The 1-minute timer checks with the window closed beside the clock too (`check(hidden: true)`); there a failed check
+  waits `hiddenRetryEvery` (15 minutes) instead of a minute, so the card is ready when the window opens.
 - Seal (Sam: the Android signing keys, no key of its own): `sig` is base64 RSA PKCS#1 v1.5 over SHA-256, as
   `openssl dgst -sha256 -sign` makes it, of the ASCII `shikoonet-windows-update:<version_code>:<sha256 lowercase hex>`.
   The prefix keeps it apart from anything else the Android key signs; the number keeps an old build's seal off a newer

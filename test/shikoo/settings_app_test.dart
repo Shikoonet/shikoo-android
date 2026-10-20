@@ -355,6 +355,46 @@ void main() {
     }
   });
 
+  testWidgets('in a Windows window a press says the latest, a red failure, '
+      'the clock with its date row, then a found update in the row\'s place', (
+    tester,
+  ) async {
+    final container = await _pump(tester, size: const Size(1728, 984));
+    final red = ShikooTheme.of(tester.element(find.text(_check))).c.danger;
+    Future<void> press() async {
+      await tester.ensureVisible(find.text(_check));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_check));
+      await tester.pumpAndSettle();
+    }
+
+    for (final (UpdateError? answer, line) in const [
+      (null, _latest),
+      (UpdateError.network, _failed),
+      (UpdateError.clock, _clock),
+    ]) {
+      when(_engine.checkNow).thenAnswer((_) async => answer);
+      await press();
+      expect(
+        tester.widget<Text>(find.text(line)).style?.color == red,
+        answer != null,
+        reason: '$answer',
+      );
+      expect(
+        _row(_dateSettings),
+        answer == UpdateError.clock ? findsOneWidget : findsNothing,
+      );
+    }
+    when(_engine.checkNow).thenAnswer((_) async {
+      container.read(shikooUpdateOfferProvider.notifier).set(_cards['offered']);
+      return null;
+    });
+    await press();
+    expect(find.text(_check), findsNothing);
+    expect(find.text('نسخهٔ تازه آمده'), findsOneWidget);
+    verify(_engine.checkNow).called(4);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
   testWidgets('on the TV an update or a sign-in coming above the remote '
       'leaves it on its row', (tester) async {
     final container = await _pump(tester, isTV: true);

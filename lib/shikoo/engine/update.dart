@@ -24,6 +24,9 @@ import 'package:path_provider/path_provider.dart';
 
 const updateEvery = Duration(hours: 6);
 
+/// With the window closed nobody waits on the answer: a failed check is tried again after this, not every minute.
+const hiddenRetryEvery = Duration(minutes: 15);
+
 @visibleForTesting
 String sealKeyFor({required bool testDoor}) =>
     testDoor ? windowsSealKeyStaging : windowsSealKeyProduction;
@@ -131,6 +134,7 @@ class ShikooUpdate {
           Process.start(exe, arguments, mode: ProcessStartMode.inheritStdio);
 
   DateTime? _checked;
+  DateTime? _asked;
   Future<UpdateError?>? _checking;
   Future<void>? _downloading;
   Future<void>? _installing;
@@ -179,8 +183,11 @@ class ShikooUpdate {
     await check();
   }
 
-  Future<void> check() async {
-    if (isDue(_checked, now(), updateEvery)) await checkNow();
+  /// [hidden]: the window is closed, so a failure waits [hiddenRetryEvery].
+  Future<void> check({bool hidden = false}) async {
+    if (!isDue(_checked, now(), updateEvery)) return;
+    if (hidden && !isDue(_asked, now(), hiddenRetryEvery)) return;
+    await checkNow();
   }
 
   /// Settings' «بررسی به‌روزرسانی», past [updateEvery]; null once the door answered.
@@ -188,6 +195,7 @@ class ShikooUpdate {
       _checking ??= _check().whenComplete(() => _checking = null);
 
   Future<UpdateError?> _check() async {
+    _asked = now();
     AppRelease? release;
     try {
       release = await _api.update(abi);
