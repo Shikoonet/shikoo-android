@@ -3039,9 +3039,19 @@ void main() {
       await controller.refreshService(via: ShikooRoute.server);
       expect(way(), ShikooFailedWay.server);
 
+      ways.failing.remove('server');
+      _gone.add('/file/user111/a');
+      await controller.refreshService(via: ShikooRoute.server);
+      expect(
+        way(),
+        ShikooFailedWay.server,
+        reason: "an HTTP error through the server may be the core's own",
+      );
+      _gone.clear();
+
       container.read(runTimeProvider.notifier).value = null;
       await controller.refreshService(via: ShikooRoute.server);
-      expect(ways.taken, hasLength(3));
+      expect(ways.taken, hasLength(4));
       expect(state().refresh, ShikooRefresh.failed);
       expect(way(), ShikooFailedWay.notConnected);
     });

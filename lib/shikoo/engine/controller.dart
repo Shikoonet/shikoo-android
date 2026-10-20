@@ -228,16 +228,16 @@ enum ShikooLeg { direct, directOff, server, fallback }
 /// [panel]: the subscription server itself answered, with an error.
 enum ShikooFailedWay { directOff, direct, server, both, panel, notConnected }
 
-ShikooFailedWay failedWay(ShikooLeg? last, Object error) => switch (error) {
-  ShikooNotConnected() => ShikooFailedWay.notConnected,
-  DioException(response: _?) => ShikooFailedWay.panel,
-  _ => switch (last) {
-    ShikooLeg.direct => ShikooFailedWay.direct,
-    ShikooLeg.server => ShikooFailedWay.server,
-    ShikooLeg.fallback => ShikooFailedWay.both,
-    ShikooLeg.directOff || null => ShikooFailedWay.directOff,
-  },
-};
+ShikooFailedWay failedWay(ShikooLeg? last, Object error) =>
+    switch ((last, error)) {
+      (_, ShikooNotConnected()) => ShikooFailedWay.notConnected,
+      (ShikooLeg.direct || ShikooLeg.directOff, DioException(response: _?)) =>
+        ShikooFailedWay.panel,
+      (ShikooLeg.direct, _) => ShikooFailedWay.direct,
+      (ShikooLeg.server, _) => ShikooFailedWay.server,
+      (ShikooLeg.fallback, _) => ShikooFailedWay.both,
+      (ShikooLeg.directOff || null, _) => ShikooFailedWay.directOff,
+    };
 
 class ShikooNotConnected implements Exception {
   const ShikooNotConnected();
