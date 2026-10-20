@@ -527,6 +527,46 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
 
+    testWidgets('a tab shows its newest 200 rows only, copies the file lines '
+        'behind them, and counts at most 200 errors', (tester) async {
+      final copied = _clipboard(tester);
+      final start = _now.subtract(const Duration(hours: 5));
+      String at(int i) => _stamp(start.add(Duration(seconds: i)));
+      final connection = [
+        for (var i = 0; i < 250; i++) ...[
+          '${at(i)} T vpn step$i',
+          // The oldest row shown is a count; its plain line goes with it into «کپی».
+          if (i == 50) '${at(i)} T vpn step$i ×2',
+        ],
+      ];
+      final errors = [for (var i = 0; i < 250; i++) '${at(i)} E failure $i'];
+      await _pump(
+        tester,
+        lines: [...connection, ...errors],
+        size: const Size(900, 800),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(Segmented<LogTab>),
+          matching: find.text('۲۰۰'),
+        ),
+        findsOneWidget,
+      );
+      for (var i = 0; i < 5; i++) {
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, 100000),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('×۲'), findsOneWidget);
+      expect(find.textContaining('step49'), findsNothing);
+      await tester.tap(_button(_fa.localProxyCopy));
+      await tester.pump();
+      expect(copied, [connection.sublist(50).join('\n')]);
+      await tester.pump(const Duration(seconds: 2));
+    });
+
     testWidgets('a long tab opens on its newest line', (tester) async {
       final lines = [
         for (var i = 0; i < 80; i++)
