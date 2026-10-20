@@ -774,6 +774,42 @@ void main() {
     },
   );
 
+  test('no plant reaches the Logs page\'s lines or its copy, from any source, '
+      'before start, before attach or after', () async {
+    final h = await _harness();
+    final diag = h.diag;
+    for (final plant in _plants) {
+      diag.add('A', 'before start error $plant');
+    }
+    await diag.start(h.home.path);
+    for (final plant in _plants) {
+      diag.add('A', 'before attach failed $plant');
+    }
+    await diag.attach(h.container);
+    for (final plant in _plants) {
+      diag
+        ..add('A', 'after attach error $plant')
+        ..add('T', 'timeline $plant')
+        ..add('T', 'refresh $plant')
+        ..onLog(Log(logLevel: LogLevel.warning, payload: plant, dateTime: ''))
+        ..error(
+          StateError(plant),
+          StackTrace.fromString('#0      Foo.bar ($plant)'),
+        );
+    }
+    final entries = diag.logEntries();
+    final copied = entries.map((e) => e.line).join('\n');
+    expect([
+      for (final needle in _needles)
+        if (_leaked(copied, needle)) needle,
+    ], isEmpty);
+    expect(
+      entries.where((e) => e.tab == LogTab.errors).length,
+      greaterThan(3 * _plants.length),
+    );
+    expect(entries.where((e) => e.tab == LogTab.core), isNotEmpty);
+  });
+
   test('the report names exactly the keys the door takes', () async {
     final h = await _harness(
       state: ShikooState(

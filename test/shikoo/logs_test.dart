@@ -271,8 +271,9 @@ void main() {
       expect(LogEntry.parse('not a stamp T vpn on'), isNull);
     });
 
-    test('the page gets seven days of diag.log, cleaned again, in its order, '
-        'a pending repeat written first', () async {
+    test('the record gives seven days of diag.log as written, cleaned again, '
+        'a pending repeat written first; a line and its count are both kept '
+        'for «کپی»', () async {
       final old = _stamp(_now.subtract(const Duration(days: 8)));
       final diag = await _started([
         '$old T vpn on',
@@ -452,6 +453,64 @@ void main() {
       expect(find.text('امروز · ${date(midnight)}'), findsOneWidget);
       expect(find.text('دیروز · ${date(yesterday)}'), findsOneWidget);
       expect(find.text(date(old)), findsOneWidget);
+    });
+
+    testWidgets('a line written once and again with its count is one row, '
+        'counted once; «کپی» still takes both as written', (tester) async {
+      final copied = _clipboard(tester);
+      final lines = [
+        '$_t T vpn connecting',
+        '$_t T vpn connecting ×3',
+        '$_t T vpn on',
+        '$_t E Bad state: no element',
+        '$_t E Bad state: no element ×2',
+      ];
+      await _pump(tester, lines: lines, size: const Size(900, 800));
+      expect(find.textContaining('vpn connecting'), findsOneWidget);
+      expect(find.text('×۳'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(Segmented<LogTab>),
+          matching: find.text('۱'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(_button(_fa.localProxyCopy));
+      await tester.pump();
+      expect(copied, [lines.take(3).join('\n')]);
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('a long tab opens on its newest line', (tester) async {
+      final lines = [
+        for (var i = 0; i < 80; i++)
+          '${_stamp(_now.subtract(Duration(minutes: 200 - i)))} T vpn step$i',
+      ];
+      await _pump(tester, lines: lines);
+      final foot = tester.getRect(_button(_fa.reportSendToSupport)).top;
+      final newest = tester.getRect(find.textContaining('step79'));
+      expect(newest.bottom, lessThanOrEqualTo(foot));
+    });
+
+    testWidgets('a screen reader hears only the label «کپی» shows', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      _clipboard(tester);
+      await _pump(tester, size: const Size(900, 800));
+      String heard(String label) => tester
+          .getSemantics(
+            find
+                .descendant(of: _button(label), matching: find.byType(RichText))
+                .last,
+          )
+          .label;
+      expect(heard(_fa.localProxyCopy), _fa.localProxyCopy);
+      await tester.tap(_button(_fa.localProxyCopy));
+      await tester.pump();
+      expect(heard(_fa.localProxyCopied), _fa.localProxyCopied);
+      await tester.pump(const Duration(seconds: 2));
+      semantics.dispose();
     });
 
     testWidgets('the tabs sit right under the bar, as `.logs-head`', (

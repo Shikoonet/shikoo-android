@@ -131,6 +131,19 @@ double textHeight(
   return height;
 }
 
+/// [text]'s width on one line in [style], at the window's text size.
+double textWidth(BuildContext context, String text, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
 class PaneColumn extends StatelessWidget {
   const PaneColumn({super.key, this.padding = 0, required this.child});
 
@@ -557,9 +570,13 @@ class ShikooButton extends StatelessWidget {
                 : Stack(
                     alignment: AlignmentDirectional.centerStart,
                     children: [
+                      // Room only: a screen reader hears the shown label alone.
                       for (final other in roomFor)
-                        Visibility.maintain(
+                        Visibility(
                           visible: false,
+                          maintainSize: true,
+                          maintainAnimation: true,
+                          maintainState: true,
                           child: Text(other, maxLines: 1, style: style),
                         ),
                       text,

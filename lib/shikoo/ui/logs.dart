@@ -71,6 +71,22 @@ String logDay(BuildContext context, DateTime day, DateTime today) {
   return DateUtils.isSameDay(day, yesterday) ? l.logsYesterday(date) : date;
 }
 
+/// The recorder writes a repeated line once, then again with a count that takes that first one in: one row for both.
+List<LogEntry> _rows(List<LogEntry> lines) {
+  bool counted(int i) {
+    final next = i + 1 < lines.length ? lines[i + 1] : null;
+    return next != null &&
+        next.repeats > 1 &&
+        next.kind == lines[i].kind &&
+        next.text == lines[i].text;
+  }
+
+  return [
+    for (final (i, line) in lines.indexed)
+      if (!counted(i)) line,
+  ];
+}
+
 /// Frames `a-*` of happ-sections, variant الف: one tab of the record, newest at the bottom, over
 /// two buttons stuck to the page's bottom.
 class ShikooLogs extends ConsumerStatefulWidget {
@@ -119,15 +135,18 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
     return false;
   }
 
+  List<LogEntry> _of(LogTab tab) => [
+    for (final entry in _entries)
+      if (entry.tab == tab) entry,
+  ];
+
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final s = t.s;
-    final shown = [
-      for (final entry in _entries)
-        if (entry.tab == _tab) entry,
-    ];
+    final lines = _of(_tab);
+    final shown = _rows(lines);
     return SubPage(
       title: l.logsTitle,
       isTV: false,
@@ -152,11 +171,7 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
                   child: Segmented(
                     wraps: true,
                     selected: _tab,
-                    counts: {
-                      LogTab.errors: _entries
-                          .where((e) => e.tab == LogTab.errors)
-                          .length,
-                    },
+                    counts: {LogTab.errors: _rows(_of(LogTab.errors)).length},
                     options: {
                       LogTab.connection: l.logsConnection,
                       LogTab.subscription: l.logsSubscription,
@@ -179,7 +194,7 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
           Expanded(
             child: shown.isEmpty ? const _Empty() : _list(context, shown),
           ),
-          _foot(context, shown),
+          _foot(context, lines),
         ],
       ),
     );
@@ -304,7 +319,7 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
   }
 
   /// `.logs-foot`: side by side while both labels fit whole, else one under the other.
-  Widget _foot(BuildContext context, List<LogEntry> shown) {
+  Widget _foot(BuildContext context, List<LogEntry> lines) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final s = t.s;
@@ -323,7 +338,7 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
       icon: copied ? ShikooIcon.check : ShikooIcon.copy,
       positiveText: copied,
       height: ShikooSizes.touch,
-      onPressed: shown.isEmpty ? null : () => unawaited(_copy(shown)),
+      onPressed: lines.isEmpty ? null : () => unawaited(_copy(lines)),
     );
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -342,20 +357,14 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
         child: LayoutBuilder(
           builder: (context, box) {
             // ShikooButton's face: its label, Space.s4 each side, and an icon with Space.s2 after it.
-            double width(String label, {bool icon = true}) {
-              final painter = TextPainter(
-                text: TextSpan(
-                  text: label,
-                  style: t.text(s.body, weight: FontWeight.w700),
-                ),
-                textDirection: Directionality.of(context),
-                textScaler: MediaQuery.textScalerOf(context),
-                maxLines: 1,
-              )..layout();
-              final width = painter.width;
-              painter.dispose();
-              return width + 2 * Space.s4 + (icon ? s.icon + Space.s2 : 0);
-            }
+            double width(String label, {bool icon = true}) =>
+                textWidth(
+                  context,
+                  label,
+                  t.text(s.body, weight: FontWeight.w700),
+                ) +
+                2 * Space.s4 +
+                (icon ? s.icon + Space.s2 : 0);
 
             final both =
                 width(l.reportSendToSupport, icon: shikooDesktop) +

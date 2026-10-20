@@ -1054,18 +1054,6 @@ class _SegmentedState<T> extends State<Segmented<T>> {
             ? row(entries)
             : LayoutBuilder(
                 builder: (context, box) {
-                  double width(String text, TextStyle style) {
-                    final painter = TextPainter(
-                      text: TextSpan(text: text, style: style),
-                      textDirection: Directionality.of(context),
-                      textScaler: MediaQuery.textScalerOf(context),
-                      maxLines: 1,
-                    )..layout();
-                    final width = painter.width;
-                    painter.dispose();
-                    return width;
-                  }
-
                   final room =
                       (box.maxWidth - Space.s1 * (entries.length - 1)) /
                       entries.length;
@@ -1074,10 +1062,16 @@ class _SegmentedState<T> extends State<Segmented<T>> {
                     final badge = count == 0
                         ? 0.0
                         : Space.s1 +
-                              (width(localNumber(context, count), countStyle) +
+                              (textWidth(
+                                        context,
+                                        localNumber(context, count),
+                                        countStyle,
+                                      ) +
                                       2 * Space.s1)
                                   .clamp(ShikooSizes.count, double.infinity);
-                    return width(e.value, labelStyle(true)) + badge <= room;
+                    return textWidth(context, e.value, labelStyle(true)) +
+                            badge <=
+                        room;
                   });
                   if (fits) return row(entries);
                   final half = (entries.length + 1) ~/ 2;
