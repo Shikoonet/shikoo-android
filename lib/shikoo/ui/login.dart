@@ -309,8 +309,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     ];
     if (phase == LoginPhase.choosing &&
         identical(t.s, ShikooSizes.desktop) &&
-        MediaQuery.sizeOf(context).width >=
-            2 * t.s.safeX + t.s.pane + Space.s10 + ShikooSizes.splitButtons) {
+        MediaQuery.sizeOf(context).width >= ShikooSizes.twoColumns) {
       return _split(chosen(start: true), choose(), _checklist(login!));
     }
     final (Widget middle, List<Widget> actions) = switch (phase) {

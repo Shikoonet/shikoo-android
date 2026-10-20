@@ -260,16 +260,18 @@ void main() {
     );
   }, variant: _windows);
 
-  testWidgets('under 620 wide: the phone column, the button over the card', (
+  testWidgets('under 788 wide: the phone column, the button over the card', (
     tester,
   ) async {
-    await _pumpHome(tester, const Size(600, 508));
-    final card = tester.getRect(find.byType(ServiceCard));
-    final power = tester.getRect(find.byType(PowerButton));
-    expect(card.left, ShikooSizes.desktop.safeX);
-    expect(card.right, 600 - ShikooSizes.desktop.safeX);
-    expect(power.bottom, lessThan(card.top));
-    expect(power.center.dx, 300);
+    for (final width in const [600.0, 787.0]) {
+      await _pumpHome(tester, Size(width, 508));
+      final card = tester.getRect(find.byType(ServiceCard));
+      final power = tester.getRect(find.byType(PowerButton));
+      expect(card.left, ShikooSizes.desktop.safeX, reason: '$width');
+      expect(card.right, width - ShikooSizes.desktop.safeX, reason: '$width');
+      expect(power.bottom, lessThan(card.top), reason: '$width');
+      expect(power.center.dx, width / 2, reason: '$width');
+    }
   }, variant: _windows);
 
   testWidgets('Tab in the wide window stops once at everything, the top bar '
@@ -1217,57 +1219,117 @@ void main() {
       }
     }, variant: _windows);
 
-    testWidgets('in a two-column window too narrow for a dialog-wide message, '
-        'its room is measured at the column width: no message grows the '
-        'scroll, and each shows Space.s4 clear of the bottom', (tester) async {
-      _window(tester, const Size(760, 448));
-      for (final language in ['fa', 'en']) {
-        await tester.pumpWidget(
-          _app(
-            const ShikooHome(),
-            locale: Locale(language),
-            overrides: [
-              shikooStateProvider.overrideWith((ref) => ref.watch(_stateCell)),
-              shikooProbeProvider.overrideWith(_NoProbes.new),
-            ],
-          ),
-        );
-        final cell = ProviderScope.containerOf(
-          tester.element(find.byType(ShikooHome)),
-        ).read(_stateCell.notifier);
-        cell.set(_state(ShikooConnection.off));
-        await tester.pump();
-        final column = Scrollable.of(
-          tester.element(find.byType(PowerButton)),
-        ).position;
-        final rest = column.maxScrollExtent;
-        final l = lookupShikooL10n(Locale(language));
-        for (final (text, state) in [
-          (
-            l.vpnRefusedDesktop,
-            _state(ShikooConnection.error, error: ShikooError.vpnRefused),
-          ),
-          (l.busyPortDesktop, _state(ShikooConnection.error, busyPort: 7890)),
-          (
-            l.coreStartDesktop,
-            _state(ShikooConnection.error, error: ShikooError.coreStart),
-          ),
-        ]) {
-          cell.set(state);
-          await tester.pump();
-          await tester.pump();
-          expect(column.maxScrollExtent, rest, reason: '$language $text');
-          expect(
-            448 - tester.getRect(find.text(text)).bottom,
-            greaterThan(Space.s4 - 0.5),
-            reason: '$language $text',
-          );
-          cell.set(_state(ShikooConnection.off));
-          await tester.pump();
-          column.jumpTo(0);
-          await tester.pump();
+    testWidgets('in the narrowest two-column window, and the one-column page '
+        'under it, at 100 and 150%: a message has its room measured at the '
+        'column width, so none grows the scroll, and each shows Space.s4 '
+        'clear of the bottom', (tester) async {
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      for (final width in const [788.0, 760.0]) {
+        for (final scale in const [1.0, 1.5]) {
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          _window(tester, Size(width, 448));
+          for (final language in ['fa', 'en']) {
+            await tester.pumpWidget(
+              _app(
+                const ShikooHome(),
+                locale: Locale(language),
+                overrides: [
+                  shikooStateProvider.overrideWith(
+                    (ref) => ref.watch(_stateCell),
+                  ),
+                  shikooProbeProvider.overrideWith(_NoProbes.new),
+                ],
+              ),
+            );
+            final cell = ProviderScope.containerOf(
+              tester.element(find.byType(ShikooHome)),
+            ).read(_stateCell.notifier);
+            cell.set(_state(ShikooConnection.off));
+            await tester.pump();
+            final column = Scrollable.of(
+              tester.element(find.byType(PowerButton)),
+            ).position;
+            final rest = column.maxScrollExtent;
+            final l = lookupShikooL10n(Locale(language));
+            for (final (text, state) in [
+              (
+                l.vpnRefusedDesktop,
+                _state(ShikooConnection.error, error: ShikooError.vpnRefused),
+              ),
+              (
+                l.busyPortDesktop,
+                _state(ShikooConnection.error, busyPort: 7890),
+              ),
+              (
+                l.coreStartDesktop,
+                _state(ShikooConnection.error, error: ShikooError.coreStart),
+              ),
+            ]) {
+              final why = '${width.round()} ×$scale $language $text';
+              cell.set(state);
+              await tester.pump();
+              await tester.pump();
+              expect(column.maxScrollExtent, rest, reason: why);
+              expect(
+                448 - tester.getRect(find.text(text)).bottom,
+                greaterThan(Space.s4 - 0.5),
+                reason: why,
+              );
+              cell.set(_state(ShikooConnection.off));
+              await tester.pump();
+              column.jumpTo(0);
+              await tester.pump();
+            }
+          }
         }
       }
+    }, variant: _windows);
+
+    testWidgets('from 620 to 800 wide, at 100 to 150% and in both languages, '
+        'the page is two columns only from 788, and nothing overflows: the '
+        'mode switch, the local proxy line and the server pill fit their '
+        'column', (tester) async {
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final wrong = <String>[];
+      for (final language in ['fa', 'en']) {
+        for (final width in const <double>[
+          620,
+          640,
+          700,
+          760,
+          780,
+          787,
+          788,
+          800,
+        ]) {
+          for (final scale in const [1.0, 1.25, 1.5]) {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            for (final connection in [
+              ShikooConnection.off,
+              ShikooConnection.on,
+            ]) {
+              await _pumpHome(
+                tester,
+                Size(width, 448),
+                connection: connection,
+                locale: Locale(language),
+              );
+              final at =
+                  '$language ${width.round()} ×$scale ${connection.name}';
+              if (tester.takeException() case final error?) {
+                wrong.add('$at: ${'$error'.split('\n').first}');
+              }
+              final beside =
+                  tester.getRect(find.byType(PowerButton)).bottom >
+                  tester.getRect(find.byType(ServiceCard)).top;
+              if (beside != (width >= 788)) {
+                wrong.add('$at: ${beside ? 'two columns' : 'one column'}');
+              }
+            }
+          }
+        }
+      }
+      expect(wrong, isEmpty);
     }, variant: _windows);
 
     testWidgets('in the smallest window no gap of the button column goes '
@@ -1413,11 +1475,12 @@ void main() {
         'view', (tester) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       // Edges from a full 4 dp sweep: the wide column fits from 492/552/604, the narrow page's
-      // message stands clear from 516/576/628; each with the step under it, a near-edge height, samples.
+      // message stands clear from 516/576/628; each with the step under it, a near-edge height, samples,
+      // and one where its message is in view, yet 6 to 11 dp short of Space.s4 clear.
       const scales = <(double, List<double>)>[
-        (1.0, [448, 476, 488, 492, 512, 516, 560, 700, 800]),
-        (1.25, [448, 536, 548, 552, 560, 572, 576, 700, 800]),
-        (1.5, [448, 560, 588, 600, 604, 624, 628, 700, 800]),
+        (1.0, [448, 476, 480, 488, 492, 508, 512, 516, 560, 700, 800]),
+        (1.25, [448, 536, 544, 548, 552, 560, 564, 572, 576, 700, 800]),
+        (1.5, [448, 560, 588, 596, 600, 604, 616, 624, 628, 700, 800]),
       ];
       final wrong = <String>[];
       for (final language in ['fa', 'en']) {

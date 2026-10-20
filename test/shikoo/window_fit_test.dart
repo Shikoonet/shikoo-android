@@ -387,6 +387,17 @@ void main() {
     expect(fade(), findsNothing, reason: "a focused row's ring stays whole");
   }, variant: _windows);
 
+  testWidgets('the checklist goes beside its buttons from 788 wide, as the '
+      'home page does, and over them at 787', (tester) async {
+    for (final (width, beside) in [(787.0, false), (788.0, true)]) {
+      await _pump(tester, Size(width, 492), login: _choosing(4));
+      final list = tester.getRect(find.text(_l.chooseServicesDesktop));
+      final go = tester.getRect(_button(_l.continueButton));
+      expect(list.right < go.left, beside, reason: '$width');
+      if (!beside) expect(list.bottom, lessThan(go.top));
+    }
+  }, variant: _windows);
+
   testWidgets('a phone and a TV keep the sign-in as it was: the buttons '
       'scroll with the list, and no bar is pinned on', (tester) async {
     await _pump(tester, const Size(360, 640), login: _choosing(8));
