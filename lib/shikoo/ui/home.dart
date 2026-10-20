@@ -948,7 +948,7 @@ class _PowerZone extends StatelessWidget {
   double _room(BuildContext context, ShikooL10n l, double width) {
     final t = ShikooTheme.of(context);
     final style = t.text(t.s.bodySm);
-    // ponytail: measured on each build; cache by names and text size if a long list shows up.
+    // shortcut: measured on each build; cache by names and text size if a long list shows up.
     final names = {
       ?state.selectedServer?.name,
       for (final server in state.servers) server.name,

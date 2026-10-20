@@ -1111,7 +1111,7 @@ class Ping extends StatelessWidget {
 
   final ShikooServer server;
 
-  // ponytail: one fixed threshold taken from the frames (112 green, 130 amber); tune with real pings.
+  // shortcut: one fixed threshold taken from the frames (112 green, 130 amber); tune with real pings.
   static const _slowMs = 120;
 
   @override
