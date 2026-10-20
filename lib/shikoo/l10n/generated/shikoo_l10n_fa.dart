@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -1378,7 +1377,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get coreDownDesktop =>
-      'اتصال شیکونت از کار افتاد.\nدوباره وصل شو؛ اگر تکرار شد، از «پشتیبانی» بپرس.';
+      'اتصال شیکونت ناگهان قطع شد.\nدوباره وصل شو. اگر باز قطع شد، از «پشتیبانی» بپرس.';
 
   @override
   String get subCancelDesktop => 'برای لغو بزن';

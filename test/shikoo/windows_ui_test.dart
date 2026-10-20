@@ -1383,9 +1383,9 @@ void main() {
       }
     }, variant: _windows);
 
-    testWidgets('the three refusals under the button are whole at 100 to 150%, '
-        'in Persian and English, clear of the switch and the card; at 100% '
-        'the button stays put', (tester) async {
+    testWidgets('the three refusals and the dropped connection under the '
+        'button are whole at 100 to 150%, in Persian and English, clear of the '
+        'switch and the card; at 100% the button stays put', (tester) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       for (final language in ['fa', 'en']) {
         final locale = Locale(language);
@@ -1401,6 +1401,13 @@ void main() {
           ),
           (l.busyPortDesktop, null, 7890, false, ShikooMode.proxy),
           (l.helperFailedDesktop, null, null, true, ShikooMode.tunnel),
+          (
+            l.coreDownDesktop,
+            ShikooError.coreDown,
+            null,
+            false,
+            ShikooMode.tunnel,
+          ),
         ];
         for (final window in const [Size(880, 508), Size(400, 448)]) {
           for (final scale in const [1.0, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5]) {

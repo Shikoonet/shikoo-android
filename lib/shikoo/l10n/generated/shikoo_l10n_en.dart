@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -1433,7 +1432,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get coreDownDesktop =>
-      'ShikooNet\'s connection stopped working.\nConnect again; if it happens again, ask Support.';
+      'ShikooNet\'s connection dropped.\nConnect again. If it keeps dropping, ask Support.';
 
   @override
   String get subCancelDesktop => 'Click to cancel';

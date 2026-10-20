@@ -1044,6 +1044,18 @@ void main() {
     },
   );
 
+  test('a core that dies leaves its line in the record', () async {
+    final h = await _harness();
+    await h.diag.start(h.home.path);
+    await h.diag.attach(h.container);
+    h.diag.onCrash('core done');
+    final report = await h.diag.report(trigger: 'test', about: _about);
+    expect(
+      (report['log']! as List).cast<String>(),
+      contains(endsWith(' T core died core done')),
+    );
+  });
+
   test('the three probes go into the report as the door reads them', () async {
     final h = await _harness();
     await h.diag.start(h.home.path);

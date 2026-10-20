@@ -2249,7 +2249,7 @@ abstract class ShikooL10n {
   /// No description provided for @coreDownDesktop.
   ///
   /// In en, this message translates to:
-  /// **'ShikooNet\'s connection stopped working.\nConnect again; if it happens again, ask Support.'**
+  /// **'ShikooNet\'s connection dropped.\nConnect again. If it keeps dropping, ask Support.'**
   String get coreDownDesktop;
 
   /// No description provided for @subCancelDesktop.

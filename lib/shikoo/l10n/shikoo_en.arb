@@ -509,7 +509,7 @@
   "vpnMissingDesktop": "The tunnel didn't start on this computer.\nChoose Proxy, or ask Support.",
   "busyPortDesktop": "Another program is using ShikooNet's proxy port.\nClose it and connect again, or choose Tunnel.",
   "helperFailedDesktop": "The tunnel didn't turn on.\nConnect again, or choose Proxy.",
-  "coreDownDesktop": "ShikooNet's connection stopped working.\nConnect again; if it happens again, ask Support.",
+  "coreDownDesktop": "ShikooNet's connection dropped.\nConnect again. If it keeps dropping, ask Support.",
   "subCancelDesktop": "Click to cancel",
   "subRetryDesktop": "Click to retry",
   "updateFailedDesktop": "Check your internet and click again. Until then, connect with these servers.",
