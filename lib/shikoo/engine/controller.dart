@@ -1115,6 +1115,7 @@ class ShikooController {
     }
     final direct = _ref.read(directCoreProvider);
     final authorized = _ref.read(authorizedTunEnableProvider.notifier);
+    // shortcut: a service still too slow for one ping here gets the admin prompt, retry the ping first if reports show it.
     if (mode.tun &&
         (direct() || authorized.value != TunAuthorizationState.authorized)) {
       final admin = await (_admin ??= _ref
