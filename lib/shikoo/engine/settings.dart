@@ -97,6 +97,27 @@ void setAutoStart(WidgetRef ref, bool on) => ref
     .read(appSettingProvider.notifier)
     .update((s) => s.copyWith(autoLaunch: on));
 
+/// Windows' message for a new version, once per version: on until turned off in Settings.
+class ShikooUpdateNoticeNotifier extends Notifier<bool> {
+  static const _key = 'shikoo.updateNotice';
+
+  @override
+  bool build() => true;
+
+  Future<void> load() async =>
+      state = (await SharedPreferences.getInstance()).getBool(_key) ?? true;
+
+  Future<void> set(bool on) async {
+    state = on;
+    await (await SharedPreferences.getInstance()).setBool(_key, on);
+  }
+}
+
+final shikooUpdateNoticeProvider =
+    NotifierProvider<ShikooUpdateNoticeNotifier, bool>(
+      ShikooUpdateNoticeNotifier.new,
+    );
+
 /// FlClash's l10n has no Persian, so the VPN notification, its toasts and the launcher shortcut
 /// take these. [locale] is null before ShikooApp's first frame.
 ServiceTexts shikooServiceTexts(Locale? locale) {

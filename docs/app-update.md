@@ -48,7 +48,7 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 - UI: a card at the top of Home (phone and TV), D-pad reachable, never takes first focus from the power button. Forced:
   a full-screen page replacing Home; «پشتیبانی» sits beside the focused button in every state that can trap a customer
   (failed or broken download, no space, ready to install, installer did not open). The VPN keeps running. No system
-  notification.
+  notification on phones and TVs; Windows has one, below.
 - Download only on tap: stream GET with `Range: bytes=<have>-` into `<cache>/update/<file>.part` (206 appends, 200
   restarts, complete skips), sha256 in `Isolate.run`, mismatch deletes and says so, match renames to `.apk`. Progress
   in MB and percent; resumes after a restart; old files cleaned on each check.
@@ -71,6 +71,14 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
   `packageInfo.buildNumber`, the `+N` of the exe's ProductVersion (`--build-number`).
 - The 1-minute timer checks with the window closed beside the clock too (`check(hidden: true)`); there a failed check
   waits `hiddenRetryEvery` (15 minutes) instead of a minute, so the card is ready when the window opens.
+- Telling a closed window (Sam's «ج۱», `win-wave3/design/update-notice/variants.html`): while an offer stands, the menu
+  beside the clock heads its rows with «نسخهٔ تازه آمده», which opens the window on Home with the card in view. A
+  `version_code` new to this run, found while the window is hidden or minimized, also sends Windows' message from the
+  tray icon (`_balloon`, the close notice's), once per version (`shikoo.updateNoticed` holds the last one), unless Settings ›
+  Windows › «خبر نسخهٔ تازه با پیام ویندوز» is off (`shikoo.updateNotice`, on by default). A click on the message
+  opens the window as the menu row does (`NIN_BALLOONUSERCLICK`, SHIKOO_PATCHES `tray_plugin.cpp`). The message has
+  no buttons, so its text points at that switch; Windows hides it under Do not disturb or with notifications off,
+  and the menu row stays.
 - Seal (Sam: the Android signing keys, no key of its own): `sig` is base64 RSA PKCS#1 v1.5 over SHA-256, as
   `openssl dgst -sha256 -sign` makes it, of the ASCII `shikoonet-windows-update:<version_code>:<sha256 lowercase hex>`.
   The prefix keeps it apart from anything else the Android key signs; the number keeps an old build's seal off a newer

@@ -1538,6 +1538,21 @@ class ShikooL10nFa extends ShikooL10n {
   String get autoStartHelp => 'کنار ساعت، بی‌اتصال';
 
   @override
+  String get updateNotice => 'خبر نسخهٔ تازه با پیام ویندوز';
+
+  @override
+  String get updateNoticeHelp => 'یک بار برای هر نسخه';
+
+  @override
+  String updateNoticeTitle(String app) {
+    return 'نسخهٔ تازهٔ $app آمده';
+  }
+
+  @override
+  String get updateNoticeBody =>
+      'برای دیدن و نصب، روی همین پیام کلیک کن. اگر این پیام را نمی‌خواهی، در «تنظیمات»، بخش «ویندوز»، خاموشش کن.';
+
+  @override
   String get logsTitle => 'گزارش‌ها';
 
   @override

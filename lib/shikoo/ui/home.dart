@@ -437,7 +437,8 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             onReport: () => unawaited(openReport(context, 'connect')),
             firstFocus: _check,
           ),
-        if (update != null) UpdateCard(offer: update, isTV: state.isTV),
+        if (update != null)
+          UpdateCard(key: homeUpdateCard, offer: update, isTV: state.isTV),
         if (linkedTop != null) linkless(linkedTop),
         if (unlinked.isEmpty && current == null)
           ServiceCard(state: state, controller: controller, focus: _card),

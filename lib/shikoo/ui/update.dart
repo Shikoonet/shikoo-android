@@ -126,6 +126,9 @@ Future<void> _install(
   if (go ?? false) await update.allow();
 }
 
+/// Home's card, which the menu beside the clock and Windows' message bring into view.
+final homeUpdateCard = GlobalKey();
+
 /// `.card.update`: heads the home's cards, under the power button, which keeps the first focus;
 /// in Settings it takes the place of «بررسی به‌روزرسانی».
 class UpdateCard extends ConsumerStatefulWidget {

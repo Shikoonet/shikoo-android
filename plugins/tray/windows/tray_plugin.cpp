@@ -254,7 +254,7 @@ std::optional<LRESULT> TrayPlugin::HandleWindowProc(HWND window,
   }
 
   if (message == kTrayCallbackMessage) {
-    if (lparam == WM_LBUTTONUP) {
+    if (lparam == WM_LBUTTONUP || lparam == NIN_BALLOONUSERCLICK) {
       SendEvent("onIconActivated", flutter::EncodableValue());
     } else if (lparam == WM_RBUTTONUP) {
       SendEvent("onMenuRequested", flutter::EncodableValue());

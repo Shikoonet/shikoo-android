@@ -17,11 +17,15 @@ import 'package:fl_clash/shikoo/engine/account.dart' show shikooAccountProvider;
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart' show ShikooIcon;
 import 'package:fl_clash/shikoo/ui/service_card.dart' show restingFor;
 import 'package:fl_clash/shikoo/ui/theme.dart';
-import 'package:fl_clash/shikoo/ui/widgets.dart' show BrandMark, clockOf;
+import 'package:fl_clash/shikoo/ui/update.dart' show homeUpdateCard;
+import 'package:fl_clash/shikoo/ui/widgets.dart'
+    show BrandMark, clockOf, revealWithRing;
+import 'package:fl_clash/state.dart' show globalState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show Bidi;
 import 'package:launch_at_startup/launch_at_startup.dart';
@@ -83,6 +87,7 @@ typedef TrayActions = ({
   VoidCallback connect,
   VoidCallback disconnect,
   ValueChanged<ShikooMode> mode,
+  VoidCallback update,
   VoidCallback open,
   VoidCallback exit,
 });
@@ -117,6 +122,7 @@ TrayMenu shikooTrayMenu(
   required bool canConnect,
   required bool hasService,
   required bool signedIn,
+  required bool hasUpdate,
   required ShikooMode mode,
   required TrayActions on,
 }) {
@@ -148,6 +154,10 @@ TrayMenu shikooTrayMenu(
     muted: idle != null,
     time: connected ? clockOf(l.localeName, connectedFor) : null,
     rows: [
+      if (hasUpdate) ...[
+        row(l.updateTitle, on.update, icon: ShikooIcon.download),
+        null,
+      ],
       if (connected || connecting)
         row(l.trayDisconnect, on.disconnect, icon: ShikooIcon.power)
       else
@@ -186,6 +196,28 @@ Future<void> noticeOnce(Future<void> Function() notify) async {
   await notify();
 }
 
+const _updateNoticeKey = 'shikoo.updateNoticed';
+
+/// Once per version, only with Settings' switch on and nobody seeing the window; true once sent.
+@visibleForTesting
+Future<bool> noticeUpdate(
+  int code, {
+  required bool on,
+  required Future<bool> Function() hidden,
+  required Future<void> Function() notify,
+}) async {
+  if (!on) return false;
+  final prefs = await SharedPreferences.getInstance();
+  if (code <= (prefs.getInt(_updateNoticeKey) ?? 0)) return false;
+  if (!await hidden()) return false;
+  await prefs.setInt(_updateNoticeKey, code);
+  await notify();
+  return true;
+}
+
+Future<bool> _windowHidden() async =>
+    !await windowManager.isVisible() || await windowManager.isMinimized();
+
 /// Windows' own notification, from the tray icon: the window is hidden by then.
 Future<void> _balloon(String title, String body) async {
   final window = await windowManager.getId();
@@ -213,11 +245,14 @@ class ShikooWindow extends ConsumerStatefulWidget {
     super.key,
     required this.child,
     this.notify = _balloon,
+    this.hidden = _windowHidden,
     this.popup,
   });
 
   final Widget child;
   final Future<void> Function(String title, String body) notify;
+
+  final Future<bool> Function() hidden;
 
   /// A test's stand-in for the menu beside the clock.
   final TrayPopup? popup;
@@ -233,6 +268,9 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
   StreamSubscription<TrayEvent>? _menuRequests;
   bool _exiting = false;
 
+  /// The update message went out since the window last had the focus.
+  bool _noticed = false;
+
   @override
   void initState() {
     super.initState();
@@ -240,14 +278,49 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
     _popup.onClose = _showTray;
     _menuRequests = Tray.instance.events.listen((event) {
       if (event is TrayMenuRequested) unawaited(_openMenu());
+      // The tray plugin reports a click on the message as one on the icon (tray_plugin.cpp).
+      if (event is TrayIconActivated && _noticed) unawaited(_openUpdate());
     });
     // Not from build: FlClash stops building frames once the window has been hidden a while.
     ref
       ..listenManual(shikooStateProvider, (_, _) => _showTray())
       ..listenManual(shikooModeProvider, (_, _) => _showTray())
       ..listenManual(shikooLookProvider, (_, _) => _showTray())
-      ..listenManual(shikooAccountProvider, (_, _) => _showTray());
+      ..listenManual(shikooAccountProvider, (_, _) => _showTray())
+      ..listenManual<UpdateOffer?>(shikooUpdateOfferProvider, _onOffer);
+    unawaited(ref.read(shikooUpdateNoticeProvider.notifier).load());
     _showTray();
+  }
+
+  void _onOffer(UpdateOffer? before, UpdateOffer? now) {
+    _showTray();
+    final code = now?.release.versionCode;
+    if (code == null || code == before?.release.versionCode) return;
+    final l = lookupShikooL10n(Locale(ref.read(shikooLookProvider).language));
+    unawaited(
+      noticeUpdate(
+        code,
+        on: ref.read(shikooUpdateNoticeProvider),
+        hidden: widget.hidden,
+        notify: () =>
+            widget.notify(l.updateNoticeTitle(l.appName), l.updateNoticeBody),
+      ).then((sent) => _noticed |= sent),
+    );
+  }
+
+  Future<void> _openUpdate() async {
+    _noticed = false;
+    await window?.show();
+    globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    // Home builds its card only in the frames after it is drawn again.
+    for (var i = 0; i < 3 && homeUpdateCard.currentContext == null; i++) {
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    final card = homeUpdateCard.currentContext;
+    if (card != null && card.mounted) {
+      revealWithRing(card);
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
   }
 
   @override
@@ -260,6 +333,9 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
     _caption.dispose();
     super.dispose();
   }
+
+  @override
+  void onWindowFocus() => _noticed = false;
 
   /// Exit closes the window too, and says nothing.
   @override
@@ -311,11 +387,13 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
         canConnect: state.service != null && restingFor(state) == null,
         hasService: state.service != null,
         signedIn: ref.read(shikooAccountProvider).who != null,
+        hasUpdate: ref.read(shikooUpdateOfferProvider) != null,
         mode: mode,
         on: (
           connect: () => unawaited(controller.connect()),
           disconnect: () => unawaited(controller.disconnect()),
           mode: (mode) => unawaited(controller.setMode(mode)),
+          update: () => unawaited(_openUpdate()),
           open: () => unawaited(window?.show()),
           exit: _exit,
         ),

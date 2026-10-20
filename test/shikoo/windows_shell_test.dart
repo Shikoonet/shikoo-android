@@ -16,6 +16,7 @@ import 'package:fl_clash/shikoo/ui/login.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapMinTime;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -258,6 +259,102 @@ void main() {
     await tester.pump();
     expect(container.read(appSettingProvider).autoLaunch, isFalse);
   }, variant: _windows);
+
+  testWidgets(
+    '«خبر نسخهٔ تازه با پیام ویندوز» sits under «با ویندوز باز شود» '
+    'on Windows only, on until turned off, and the window starts with what '
+    'was saved',
+    (tester) async {
+      expect(ProviderContainer().read(shikooUpdateNoticeProvider), isTrue);
+      _size(tester, const Size(880, 900));
+      SharedPreferences.setMockInitialValues({'shikoo.updateNotice': false});
+      await _windowCalls(tester);
+      await tester.pumpWidget(_app(const ShikooSettings()));
+      await tester.pumpAndSettle();
+      final row = find.text(_l.updateNotice);
+      if (defaultTargetPlatform != TargetPlatform.windows) {
+        expect(row, findsNothing);
+        expect(find.text(_l.autoStart), findsNothing);
+        return;
+      }
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ShikooSettings)),
+      );
+      expect(find.text(_l.updateNoticeHelp), findsOne);
+      expect(
+        tester.getRect(row).top,
+        greaterThan(tester.getRect(find.text(_l.autoStart)).bottom),
+      );
+      expect(container.read(shikooUpdateNoticeProvider), isFalse);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(container.read(shikooUpdateNoticeProvider), isTrue);
+      expect(container.read(appSettingProvider).autoLaunch, isFalse);
+      final next = ProviderContainer();
+      addTearDown(next.dispose);
+      await next.read(shikooUpdateNoticeProvider.notifier).load();
+      expect(next.read(shikooUpdateNoticeProvider), isTrue);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(container.read(shikooUpdateNoticeProvider), isFalse);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.windows,
+      TargetPlatform.android,
+    }),
+  );
+
+  test("Windows' update message goes once per version and again for a newer "
+      'one, never while the window shows or with the switch off', () async {
+    SharedPreferences.setMockInitialValues({});
+    var hidden = true;
+    final sent = <int>[];
+    Future<bool> notice(int code, {bool on = true}) => noticeUpdate(
+      code,
+      on: on,
+      hidden: () async => hidden,
+      notify: () async => sent.add(code),
+    );
+    expect(await notice(56), isTrue);
+    expect(await notice(56), isFalse);
+    expect(await notice(55), isFalse, reason: 'an older one');
+    expect(await notice(57, on: false), isFalse);
+    hidden = false;
+    expect(await notice(57), isFalse);
+    hidden = true;
+    expect(await notice(57), isTrue, reason: 'not told while it showed');
+    expect(sent, [56, 57]);
+  });
+
+  test("the update message fits Windows' balloon, 63 characters of title "
+      'and 255 of body at most, in both languages and both builds', () {
+    addTearDown(() => shikooStaging = false);
+    for (final staging in [false, true]) {
+      shikooStaging = staging;
+      for (final code in ['fa', 'en']) {
+        final l = lookupShikooL10n(Locale(code));
+        expect(l.updateNoticeTitle(l.appName).length, lessThanOrEqualTo(63));
+        expect(l.updateNoticeBody.length, lessThanOrEqualTo(255));
+      }
+    }
+    shikooStaging = false;
+    final en = lookupShikooL10n(const Locale('en'));
+    expect(en.updateNoticeTitle(en.appName), 'A new ShikooNet version is out');
+  });
+
+  test('a click on the message beside the clock opens the window as one on '
+      'the icon does', () {
+    final cpp = File(
+      'plugins/tray/windows/tray_plugin.cpp',
+    ).readAsStringSync().replaceAll(RegExp(r'\s'), '');
+    expect(
+      cpp,
+      contains(
+        'if(lparam==WM_LBUTTONUP||lparam==NIN_BALLOONUSERCLICK){'
+        'SendEvent("onIconActivated"',
+      ),
+    );
+  });
 
   testWidgets('a greyed-out press takes the tap, so nothing under it acts, '
       'and leaves the focus where it was', (tester) async {

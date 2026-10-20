@@ -1594,6 +1594,21 @@ class ShikooL10nEn extends ShikooL10n {
   String get autoStartHelp => 'Beside the clock, not connected';
 
   @override
+  String get updateNotice => 'New version message from Windows';
+
+  @override
+  String get updateNoticeHelp => 'Once per version';
+
+  @override
+  String updateNoticeTitle(String app) {
+    return 'A new $app version is out';
+  }
+
+  @override
+  String get updateNoticeBody =>
+      'Click this message to see and install it. Don\'t want it? Turn it off in Settings, under Windows.';
+
+  @override
   String get logsTitle => 'Logs';
 
   @override

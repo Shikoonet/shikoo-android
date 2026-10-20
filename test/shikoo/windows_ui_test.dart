@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/constant.dart' show shikooStagingBuild;
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
@@ -9,6 +11,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart'
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -18,7 +21,9 @@ import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:fl_clash/state.dart' show globalState;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart'
     show BoxParentData, RenderParagraph, RenderRepaintBoundary;
@@ -42,6 +47,8 @@ const _computerAndPhone = TargetPlatformVariant({
 });
 
 class _Controller extends Mock implements ShikooController {}
+
+class _Update extends Mock implements ShikooUpdate {}
 
 class _Exits extends SystemAction {
   static int count = 0;
@@ -337,6 +344,7 @@ void main() {
       connect: () => picked.add('connect'),
       disconnect: () => picked.add('disconnect'),
       mode: (ShikooMode mode) => picked.add(mode.name),
+      update: () => picked.add('update'),
       open: () => picked.add('open'),
       exit: () => picked.add('exit'),
     );
@@ -346,6 +354,7 @@ void main() {
       bool canConnect = true,
       bool hasService = true,
       bool signedIn = true,
+      bool hasUpdate = false,
     }) => shikooTrayMenu(
       l,
       connection: connection,
@@ -354,6 +363,7 @@ void main() {
       canConnect: canConnect,
       hasService: hasService,
       signedIn: signedIn,
+      hasUpdate: hasUpdate,
       mode: mode,
       on: on,
     );
@@ -363,6 +373,7 @@ void main() {
             ? '-'
             : [
                 if (row.icon == ShikooIcon.power) 'power',
+                if (row.icon == ShikooIcon.download) 'download',
                 if (row.dot) '•',
                 row.enabled ? row.label : '(${row.label})',
               ].join(' '),
@@ -437,10 +448,12 @@ void main() {
         canConnect: false,
         hasService: false,
         signedIn: false,
+        hasUpdate: true,
         mode: ShikooMode.tunnel,
         on: on,
       );
       expect(en.head, 'Sign in first');
+      expect(en.rows.first!.label, 'A new version is out');
 
       TraySpec spec(ShikooConnection connection, ShikooMode mode) =>
           shikooTraySpec(
@@ -463,6 +476,20 @@ void main() {
       final waiting = spec(ShikooConnection.connecting, ShikooMode.tunnel);
       expect(waiting.toolTip, 'شیکونت · در حال اتصال');
       expect(waiting.icon.asset, 'assets/images/tray/windows/status_1.ico');
+    });
+
+    test('an offer heads the rows with its own, a rule under it, and the row '
+        'asks for the window', () {
+      final offered = menu(ShikooConnection.on, hasUpdate: true);
+      expect(labels(offered).take(4), [
+        'download نسخهٔ تازه آمده',
+        '-',
+        'power قطع کردن',
+        '-',
+      ]);
+      expect(labels(offered).skip(2), labels(menu(ShikooConnection.on)));
+      offered.rows.first!.run();
+      expect(picked.last, 'update');
     });
 
     test('the clock runs past an hour', () {
@@ -927,6 +954,279 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
       expect(popup.isOpen, isFalse, reason: 'the menu goes with the window');
+    }, variant: _windows);
+
+    testWidgets("an update found while nobody sees the window: Windows' "
+        'message once per version, the row atop the menu while it stands, and '
+        'both open the window on Home with the card in view', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      Tray.instance.resetForTesting();
+      final windowCalls = <String>[];
+      final messenger = tester.binding.defaultBinaryMessenger;
+      for (final channel in const ['window_manager', 'tray']) {
+        messenger.setMockMethodCallHandler(MethodChannel(channel), (
+          call,
+        ) async {
+          if (channel == 'window_manager') windowCalls.add(call.method);
+          return switch (call.method) {
+            'getId' => 0,
+            'show' => true,
+            _ => false,
+          };
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(MethodChannel(channel), null),
+        );
+      }
+      tester.view
+        ..physicalSize = const Size(880, 540)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var hidden = true;
+      final notices = <(String, String)>[];
+      final popup = _Popup();
+      final container = ProviderContainer(
+        overrides: [
+          shikooStateProvider.overrideWithValue(_state(ShikooConnection.on)),
+          shikooUpdateProvider.overrideWithValue(_Update()),
+        ],
+      );
+      addTearDown(container.dispose);
+      void offer(int? code) => container
+          .read(shikooUpdateOfferProvider.notifier)
+          .set(
+            code == null
+                ? null
+                : UpdateOffer(
+                    AppRelease(
+                      versionName: '1.0.$code',
+                      versionCode: code,
+                      minVersionCode: 0,
+                      size: 52080629,
+                      sha256: '',
+                      url: '',
+                    ),
+                  ),
+          );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            navigatorKey: globalState.navigatorKey,
+            locale: const Locale('fa'),
+            supportedLocales: ShikooL10n.supportedLocales,
+            localizationsDelegates: const [
+              ShikooL10n.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            theme: shikooThemeData(Brightness.light, tv: false),
+            builder: (context, child) => ShikooWindow(
+              popup: popup,
+              hidden: () async => hidden,
+              notify: (title, body) async => notices.add((title, body)),
+              child: child!,
+            ),
+            home: Consumer(
+              builder: (context, ref, _) {
+                final update = ref.watch(shikooUpdateOfferProvider);
+                return Scaffold(
+                  body: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 1500),
+                        if (update != null)
+                          UpdateCard(
+                            key: homeUpdateCard,
+                            offer: update,
+                            isTV: false,
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Future<void> fromWindows(
+        String channel,
+        String method, [
+        Object? arguments,
+      ]) => messenger.handlePlatformMessage(
+        channel,
+        const StandardMethodCodec().encodeMethodCall(
+          MethodCall(method, arguments),
+        ),
+        (_) {},
+      );
+      await fromWindows('tray', 'onMenuRequested');
+      await tester.idle();
+      List<String?> labels() => [
+        for (final row in popup.view!.menu.rows) row?.label,
+      ];
+      expect(labels().first, 'قطع کردن');
+      Rect card() => tester.getRect(find.byType(UpdateCard));
+      Future<void> elsewhere() async {
+        unawaited(
+          globalState.navigatorKey.currentState!.push(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('page')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('page'), findsOne);
+      }
+
+      await elsewhere();
+      windowCalls.clear();
+      await fromWindows('tray', 'onIconActivated');
+      await tester.pumpAndSettle();
+      expect(windowCalls, isNot(contains('show')), reason: 'no message yet');
+      expect(find.text('page'), findsOne);
+
+      offer(56);
+      await tester.idle();
+      final l = lookupShikooL10n(const Locale('fa'));
+      expect(notices, [('نسخهٔ تازهٔ شیکونت آمده', l.updateNoticeBody)]);
+      expect(labels().take(3), ['نسخهٔ تازه آمده', null, 'قطع کردن']);
+      expect(popup.view!.menu.rows.first!.icon, ShikooIcon.download);
+      offer(56);
+      await tester.idle();
+      expect(notices, hasLength(1), reason: 'the same version checked again');
+
+      hidden = false;
+      offer(57);
+      await tester.idle();
+      expect(notices, hasLength(1), reason: 'the window shows the card');
+      hidden = true;
+      offer(57);
+      await tester.idle();
+      expect(notices, hasLength(1), reason: 'shown with the window open');
+      offer(58);
+      await tester.idle();
+      expect(notices, hasLength(2), reason: 'a newer version');
+      await container.read(shikooUpdateNoticeProvider.notifier).set(false);
+      offer(59);
+      await tester.idle();
+      expect(notices, hasLength(2), reason: 'turned off in Settings');
+      await container.read(shikooUpdateNoticeProvider.notifier).set(true);
+
+      await fromWindows('tray', 'onIconActivated');
+      await tester.pumpAndSettle();
+      expect(windowCalls, contains('show'));
+      expect(find.text('page'), findsNothing);
+      expect(card().bottom, lessThanOrEqualTo(540));
+
+      tester.state<ScrollableState>(find.byType(Scrollable)).position.jumpTo(0);
+      await tester.pumpAndSettle();
+      await fromWindows('tray', 'onIconActivated');
+      await tester.pumpAndSettle();
+      expect(card().top, greaterThan(540), reason: 'the message was answered');
+
+      offer(60);
+      await tester.idle();
+      expect(notices, hasLength(3));
+      await fromWindows('window_manager', 'onEvent', {'eventName': 'focus'});
+      await fromWindows('tray', 'onIconActivated');
+      await tester.pumpAndSettle();
+      expect(card().top, greaterThan(540), reason: 'opened since, by hand');
+
+      await elsewhere();
+      popup.view!.menu.rows.first!.run();
+      await tester.pumpAndSettle();
+      expect(find.text('page'), findsNothing);
+      expect(card().bottom, lessThanOrEqualTo(540));
+
+      offer(null);
+      await tester.idle();
+      expect(labels().first, 'قطع کردن', reason: 'the row goes with the offer');
+    }, variant: _windows);
+
+    testWidgets("Windows' word on the window decides: a window shown, even "
+        'unfocused, gets no message; a minimized or hidden one does', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      Tray.instance.resetForTesting();
+      var visible = true;
+      var minimized = false;
+      final messenger = tester.binding.defaultBinaryMessenger;
+      for (final channel in const ['window_manager', 'tray']) {
+        messenger.setMockMethodCallHandler(MethodChannel(channel), (
+          call,
+        ) async {
+          return switch (call.method) {
+            'getId' => 0,
+            'show' => true,
+            'isVisible' => visible,
+            'isMinimized' => minimized,
+            _ => false,
+          };
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(MethodChannel(channel), null),
+        );
+      }
+      final notices = <String>[];
+      final container = ProviderContainer(
+        overrides: [
+          shikooStateProvider.overrideWithValue(_state(ShikooConnection.off)),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('en'),
+            supportedLocales: ShikooL10n.supportedLocales,
+            localizationsDelegates: const [
+              ShikooL10n.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            theme: shikooThemeData(Brightness.light, tv: false),
+            builder: (context, child) => ShikooWindow(
+              popup: _Popup(),
+              notify: (title, _) async => notices.add(title),
+              child: child!,
+            ),
+            home: const Scaffold(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Future<void> offer(int code) async {
+        container
+            .read(shikooUpdateOfferProvider.notifier)
+            .set(
+              UpdateOffer(
+                AppRelease(
+                  versionName: '1.0.$code',
+                  versionCode: code,
+                  minVersionCode: 0,
+                  size: 1,
+                  sha256: '',
+                  url: '',
+                ),
+              ),
+            );
+        await tester.idle();
+      }
+
+      await offer(56);
+      expect(notices, isEmpty);
+      minimized = true;
+      await offer(57);
+      expect(notices, ['نسخهٔ تازهٔ شیکونت آمده']);
+      visible = false;
+      minimized = false;
+      await offer(58);
+      expect(notices, hasLength(2));
     }, variant: _windows);
   });
 

@@ -119,11 +119,25 @@ class ShikooSettings extends ConsumerWidget {
       if (shikooDesktop)
         _Group(
           title: l.windowsGroup,
-          child: SwitchRow(
-            label: l.autoStart,
-            help: l.autoStartHelp,
-            on: ref.watch(shikooAutoStartProvider),
-            onChanged: (on) => setAutoStart(ref, on),
+          child: _Card(
+            rows: [
+              SwitchRow(
+                label: l.autoStart,
+                help: l.autoStartHelp,
+                on: ref.watch(shikooAutoStartProvider),
+                onChanged: (on) => setAutoStart(ref, on),
+                inCard: true,
+              ),
+              SwitchRow(
+                label: l.updateNotice,
+                help: l.updateNoticeHelp,
+                on: ref.watch(shikooUpdateNoticeProvider),
+                onChanged: (on) => unawaited(
+                  ref.read(shikooUpdateNoticeProvider.notifier).set(on),
+                ),
+                inCard: true,
+              ),
+            ],
           ),
         ),
       if (!isTV) ?order,

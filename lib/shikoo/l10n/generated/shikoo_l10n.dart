@@ -2504,6 +2504,30 @@ abstract class ShikooL10n {
   /// **'Beside the clock, not connected'**
   String get autoStartHelp;
 
+  /// No description provided for @updateNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'New version message from Windows'**
+  String get updateNotice;
+
+  /// No description provided for @updateNoticeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Once per version'**
+  String get updateNoticeHelp;
+
+  /// Windows' message beside the clock, at most 63 characters (szInfoTitle).
+  ///
+  /// In en, this message translates to:
+  /// **'A new {app} version is out'**
+  String updateNoticeTitle(String app);
+
+  /// At most 255 characters (szInfo); names the updateNotice switch and the windowsGroup it sits in.
+  ///
+  /// In en, this message translates to:
+  /// **'Click this message to see and install it. Don\'t want it? Turn it off in Settings, under Windows.'**
+  String get updateNoticeBody;
+
   /// No description provided for @logsTitle.
   ///
   /// In en, this message translates to:

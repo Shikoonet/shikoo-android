@@ -779,12 +779,16 @@ class SwitchRow extends StatelessWidget {
     required this.on,
     required this.onChanged,
     this.help,
+    this.inCard = false,
   });
 
   final String label;
   final bool on;
   final ValueChanged<bool> onChanged;
   final String? help;
+
+  /// One of several rows in a card that draws the surface: only the focus is drawn here.
+  final bool inCard;
 
   @override
   Widget build(BuildContext context) {
@@ -809,8 +813,10 @@ class SwitchRow extends StatelessWidget {
             vertical: Space.s3,
           ),
           decoration: ShapeDecoration(
-            color: focused ? t.c.focusBg : t.c.surface,
-            shadows: focused ? t.c.raisedShadow : t.c.cardShadow,
+            color: focused ? t.c.focusBg : (inCard ? null : t.c.surface),
+            shadows: focused
+                ? t.c.raisedShadow
+                : (inCard ? null : t.c.cardShadow),
             shape: shape,
           ),
           child: Row(
