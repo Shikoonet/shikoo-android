@@ -58,8 +58,10 @@ App, `feat/app` at `cbe365e`:
   recovers only its own method handlers (`core/method.go:104-123,288-296`, `core/lib.go:305-313`); mihomo's goroutines
   are unprotected. `logError` writes to stderr only with `debugStderr` (`core/common.go:414-419`). A deliberate panic
   exists for testing: `coreController.crash()` (`lib/core/controller.dart:242`) → `core/hub.go:635-637`. Init has the
-  home dir: `core/hub.go:41-49`. `core/go.mod:3` says `go 1.21`; the build uses Go 1.26.4, and FlClash's CI runs
-  `go vet` (`.github/workflows/build.yaml:119,139`, per the verifier).
+  home dir: `core/hub.go:41-49`. `core/go.mod:3` says `go 1.21`; the build uses Go 1.26.10, and FlClash's CI runs
+  `go vet` (`.github/workflows/build.yaml:119,139`, per the verifier). A runtime throw at start, such as the uname
+  parse of Go 1.26.3 and 1.26.4 (golang/go#79612), leaves with `exit(2)` before `setCrashOutput` runs, so it writes
+  no `go-crash.txt` and no tombstone; its text reaches only logcat, under the tag `Go`.
 - The app's own traffic always goes through the tunnel when connected (`VpnService.kt:228-235` never excludes our
   package); `keepApiDirect` makes the door DIRECT with a mihomo rule (`account.dart:388-402`), so the door sees the
   customer's real address.
