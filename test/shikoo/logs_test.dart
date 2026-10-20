@@ -182,6 +182,11 @@ List<String> _clipboard(WidgetTester tester) {
   return copied;
 }
 
+int _shownRows(WidgetTester tester) =>
+    (tester.widget<SliverList>(find.byType(SliverList)).delegate
+            as SliverChildBuilderDelegate)
+        .childCount!;
+
 /// Labels a narrower box cut: the tabs' and the two buttons'.
 List<String> _cut(WidgetTester tester) => [
   for (final finder in [
@@ -565,6 +570,61 @@ void main() {
       await tester.pump();
       expect(copied, [connection.sublist(50).join('\n')]);
       await tester.pump(const Duration(seconds: 2));
+    });
+
+    group('the rows shown and the lines «کپی» takes behind them', () {
+      String at(int i) => _stamp(
+        _now.subtract(const Duration(hours: 5)).add(Duration(seconds: i)),
+      );
+
+      Future<String> copy(WidgetTester tester, List<String> lines) async {
+        final copied = _clipboard(tester);
+        await _pump(tester, lines: lines, size: const Size(900, 800));
+        await tester.tap(_button(_fa.localProxyCopy));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+        return copied.single;
+      }
+
+      testWidgets('300 line and count pairs are 200 rows, their 400 lines', (
+        tester,
+      ) async {
+        final lines = [
+          for (var i = 0; i < 300; i++) ...[
+            '${at(i)} T vpn s$i',
+            '${at(i)} T vpn s$i ×2',
+          ],
+        ];
+        final copied = await copy(tester, lines);
+        expect(_shownRows(tester), 200);
+        expect(copied, lines.sublist(200).join('\n'));
+      });
+
+      testWidgets('a pair just past the 200th row stays out of the copy', (
+        tester,
+      ) async {
+        final lines = [
+          '${at(0)} T vpn p',
+          '${at(0)} T vpn p ×2',
+          for (var i = 1; i <= 200; i++) '${at(i)} T vpn s$i',
+        ];
+        final copied = await copy(tester, lines);
+        expect(_shownRows(tester), 200);
+        expect(copied, lines.sublist(2).join('\n'));
+      });
+
+      testWidgets('an older recorder\'s line with two counts after it is '
+          'copied whole', (tester) async {
+        final lines = [
+          '${at(0)} T vpn x',
+          '${at(1)} T vpn x ×2',
+          '${at(2)} T vpn x ×2',
+          '${at(3)} T vpn y',
+        ];
+        final copied = await copy(tester, lines);
+        expect(_shownRows(tester), 2);
+        expect(copied, lines.join('\n'));
+      });
     });
 
     testWidgets('a long tab opens on its newest line', (tester) async {

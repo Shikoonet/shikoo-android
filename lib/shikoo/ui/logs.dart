@@ -90,7 +90,9 @@ const logsRows = 200;
     rows.add(lines[i]);
     start = i;
   }
-  if (start > 0 && counted(start - 1)) start--;
+  while (start > 0 && counted(start - 1)) {
+    start--;
+  }
   return (rows: rows.reversed.toList(), lines: lines.sublist(start));
 }
 
