@@ -545,6 +545,7 @@ class SubPage extends StatelessWidget {
     required this.child,
     this.scrolls = true,
     this.wide = false,
+    this.barGap = true,
     this.hint,
   });
 
@@ -555,6 +556,9 @@ class SubPage extends StatelessWidget {
 
   /// A [child] that does not [scrolls] takes the page's width on a computer, not the pane's.
   final bool wide;
+
+  /// False for a page whose own head sits right under the bar, as `.logs-head`.
+  final bool barGap;
   final String? hint;
 
   @override
@@ -615,7 +619,7 @@ class SubPage extends StatelessWidget {
                               ],
                       ),
                     ),
-                    SizedBox(height: isTV ? Space.s3 : Space.s2),
+                    SizedBox(height: isTV ? Space.s3 : (barGap ? Space.s2 : 0)),
                     Expanded(
                       child: !scrolls
                           ? (wide

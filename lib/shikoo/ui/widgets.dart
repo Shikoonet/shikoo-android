@@ -555,7 +555,7 @@ class ShikooButton extends StatelessWidget {
             child: roomFor.isEmpty
                 ? text
                 : Stack(
-                    alignment: Alignment.center,
+                    alignment: AlignmentDirectional.centerStart,
                     children: [
                       for (final other in roomFor)
                         Visibility.maintain(

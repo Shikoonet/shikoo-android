@@ -133,6 +133,7 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
       isTV: false,
       scrolls: false,
       wide: true,
+      barGap: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -201,6 +202,7 @@ class _ShikooLogsState extends ConsumerState<ShikooLogs> {
               thickness: ShikooSizes.scrollThumb,
               radius: const Radius.circular(ShikooSizes.scrollThumb),
               thumbColor: t.c.outline,
+              crossAxisMargin: Space.s1,
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(
                   context,

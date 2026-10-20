@@ -9,6 +9,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart' show SvgIcon;
 import 'package:fl_clash/shikoo/ui/jalali.dart';
 import 'package:fl_clash/shikoo/ui/logs.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
@@ -381,6 +382,14 @@ void main() {
       await tester.pumpAndSettle();
       final copy = _button(_fa.localProxyCopy);
       final width = tester.getSize(copy).width;
+      // «کپی» sits by its icon, at the start of the room «کپی شد» keeps.
+      final icon = tester.getRect(
+        find.descendant(of: copy, matching: find.byType(SvgIcon)),
+      );
+      final label = tester.getRect(
+        find.descendant(of: copy, matching: find.text(_fa.localProxyCopy)).last,
+      );
+      expect(icon.left - label.right, closeTo(Space.s2, 0.5));
       await tester.tap(copy);
       await tester.pump();
       expect(copied, [
@@ -443,6 +452,16 @@ void main() {
       expect(find.text('امروز · ${date(midnight)}'), findsOneWidget);
       expect(find.text('دیروز · ${date(yesterday)}'), findsOneWidget);
       expect(find.text(date(old)), findsOneWidget);
+    });
+
+    testWidgets('the tabs sit right under the bar, as `.logs-head`', (
+      tester,
+    ) async {
+      await _pump(tester);
+      expect(
+        tester.getTopLeft(find.byType(Segmented<LogTab>)).dy,
+        ShikooSizes.phone.appbar,
+      );
     });
 
     testWidgets('«ارسال گزارش به پشتیبانی» opens the report preview', (
