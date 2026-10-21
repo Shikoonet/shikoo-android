@@ -1258,7 +1258,7 @@ void main() {
     }, variant: _windows);
 
     testWidgets('a sign-in and a new version at once send one message, not '
-        'two', (tester) async {
+        'two; one that fails leaves the next one free to go', (tester) async {
       SharedPreferences.setMockInitialValues({});
       Tray.instance.resetForTesting();
       final messenger = tester.binding.defaultBinaryMessenger;
@@ -1273,6 +1273,7 @@ void main() {
         );
       }
       final notices = <String>[];
+      var fails = false;
       final home = NotifierProvider<ShikooCell<bool>, bool>(
         () => ShikooCell(false),
       );
@@ -1297,7 +1298,10 @@ void main() {
             builder: (context, child) => ShikooWindow(
               popup: _Popup(),
               hidden: () async => true,
-              notify: (title, _) async => notices.add(title),
+              notify: (title, _) async {
+                if (fails) throw StateError('no balloon');
+                notices.add(title);
+              },
               child: child!,
             ),
             home: const Scaffold(),
@@ -1305,24 +1309,33 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      container.read(home.notifier).set(true);
-      container
-          .read(shikooUpdateOfferProvider.notifier)
-          .set(
-            const UpdateOffer(
-              AppRelease(
-                versionName: '1.0.72',
-                versionCode: 72,
-                minVersionCode: 0,
-                size: 1,
-                sha256: '',
-                url: '',
+      Future<void> offer(int code) async {
+        container
+            .read(shikooUpdateOfferProvider.notifier)
+            .set(
+              UpdateOffer(
+                AppRelease(
+                  versionName: '1.0.$code',
+                  versionCode: code,
+                  minVersionCode: 0,
+                  size: 1,
+                  sha256: '',
+                  url: '',
+                ),
               ),
-            ),
-          );
-      await tester.idle();
-      await tester.pumpAndSettle();
+            );
+        await tester.idle();
+        await tester.pumpAndSettle();
+      }
+
+      container.read(home.notifier).set(true);
+      await offer(72);
       expect(notices, hasLength(1));
+      fails = true;
+      await offer(73);
+      fails = false;
+      await offer(74);
+      expect(notices, hasLength(2));
     }, variant: _windows);
 
     testWidgets("Windows' word on the window decides: a window shown, even "

@@ -78,7 +78,8 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
   Windows › «خبر نسخهٔ تازه با پیام ویندوز» is off (`shikoo.updateNotice`, on by default). A click on the message
   opens the window as the menu row does (`NIN_BALLOONUSERCLICK`, SHIKOO_PATCHES `tray_plugin.cpp`). The message has
   no buttons, so its text points at that switch; Windows hides it under Do not disturb or with notifications off,
-  and the menu row stays.
+  and the menu row stays. Row and message come only while Home is shown (`shikooHomeShownProvider`) or the offer is
+  forced, whose page stands in for the sign-in; a sign-in under a standing offer brings them then.
 - Seal (Sam: the Android signing keys, no key of its own): `sig` is base64 RSA PKCS#1 v1.5 over SHA-256, as
   `openssl dgst -sha256 -sign` makes it, of the ASCII `shikoonet-windows-update:<version_code>:<sha256 lowercase hex>`.
   The prefix keeps it apart from anything else the Android key signs; the number keeps an old build's seal off a newer
