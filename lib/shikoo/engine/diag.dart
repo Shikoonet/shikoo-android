@@ -729,12 +729,9 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       _,
       shift,
     ) {
-      final verb = switch (shift?.stage) {
-        ShikooSwitchStage.moving => 'picked',
-        ShikooSwitchStage.failed => 'switch failed',
-        _ => null,
-      };
-      if (verb != null) add('T', 'server $verb ${withoutFlags(shift!.to)}');
+      if (shift?.stage == ShikooSwitchStage.failed) {
+        add('T', 'server switch failed ${withoutFlags(shift!.to)}');
+      }
     });
     container.listen(shikooStateProvider.select((s) => s.notice), (_, notice) {
       if (notice case SilentReplaced(:final silent, :final replacement)) {

@@ -982,7 +982,7 @@ void main() {
   });
 
   test(
-    'the timeline names the server in use, a pick, its failure and a silent replacement',
+    'the timeline names the server in use, a failed switch and a silent replacement',
     () async {
       const on = ShikooConnection.on;
       final h = await _harness(
@@ -1049,9 +1049,7 @@ void main() {
 
       expect(_serverLines(report), [
         'server in use Germany 5',
-        'server picked Turkey 2',
         'server switch failed Turkey 2',
-        'server picked ·',
         'server in use ·',
         'server silent · -> Netherlands 1',
         'server in use Netherlands 1',

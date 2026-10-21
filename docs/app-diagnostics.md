@@ -194,8 +194,9 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
   - one line per ping round («۱۲ جواب، ۳ بی‌جواب، بهترین ۱۸۰»);
   - the server in use, by its `servers` label: `server in use <label>` whenever it changes while connected (the
     connect, a switch landing, a replacement), `server tried <label>` when a connect fails with a server chosen
-    (none when no server answered), each once more when a report is built; a pick while connected
-    (`server picked <label>`) and its failure (`server switch failed <label>`); the app replacing its own silent pick
+    (none when no server answered), each once more when a report is built; a customer's pick, connected or not
+    (`server picked <label>`, from `selectServer`, so never one of the app's own picks), and a connected switch's
+    failure (`server switch failed <label>`); the app replacing its own silent pick
     (`server silent <old> -> <new>`). The door's `servers` section is `.strict()`, so it has no in-use field;
   - screen on and off; app start, resume and pause; the renderer line once per start;
   - at each start, every new exit record with its reason name (`LOW_MEMORY`, `SIGNALED`, `USER_REQUESTED`, `OTHER`,

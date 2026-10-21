@@ -15,6 +15,7 @@ import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/state.dart';
@@ -116,6 +117,14 @@ class _Panel extends ShikooController {
     ref.read(profilesProvider.notifier).put(Profile.normal(url: url));
     return null;
   }
+}
+
+class _Timeline extends ShikooDiag {
+  final lines = <String>[];
+
+  @override
+  void add(String kind, String text, {DateTime? at}) =>
+      lines.add('$kind $text');
 }
 
 const _version = 'V3.7.9 🆔 : (user123) 📊 (67 GB) ⏰ (23)';
@@ -1140,6 +1149,55 @@ void main() {
     await controller.pingAll();
     expect(proxies.picked, ['آلمان ۱', 'هلند ۱', 'هلند ۱']);
     expect(setup.runs, isEmpty);
+  });
+
+  test("the timeline tells a customer's pick, connected or not, and none of "
+      "the app's own", () async {
+    const germany = '🇩🇪 آلمان ۱';
+    final timeline = _Timeline();
+    final (:container, :core, :proxies, :setup) = _home([
+      shikooDiagProvider.overrideWithValue(timeline),
+    ]);
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: germany, type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    final pings = {germany: 50, 'هلند ۱': 90};
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: pings[name] ?? -1);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.selectServer('هلند ۱', service: 999);
+    await controller.pingAll();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    pings[germany] = -1;
+    await controller.pingAll();
+    await pumpEventQueue();
+    expect(proxies.picked, [germany, 'هلند ۱']);
+    expect(container.read(shikooStateProvider).notice, isA<SilentReplaced>());
+    expect(timeline.lines, isEmpty, reason: 'only the app picked so far');
+
+    pings[germany] = 50;
+    await controller.selectServer(germany);
+    container.read(runTimeProvider.notifier).value = null;
+    setup.tunnel = null;
+    await controller.disconnect();
+    await controller.selectServer('هلند ۱');
+
+    expect(proxies.picked, [germany, 'هلند ۱', germany, 'هلند ۱']);
+    expect(timeline.lines, [
+      'T server picked آلمان ۱',
+      'T server picked هلند ۱',
+    ]);
   });
 
   test('"no server answered" stays until the next try; a ping that finds '
