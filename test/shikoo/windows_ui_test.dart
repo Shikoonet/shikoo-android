@@ -1920,6 +1920,120 @@ void main() {
       expect(wrong, isEmpty);
     }, variant: _windows);
 
+    testWidgets('from the smallest window to 1280 × 864, at 100 and 150% and '
+        'in both languages, the ways menu opens whole at «▾» and the other '
+        'way sits beside or under the report link, both in view', (
+      tester,
+    ) async {
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      const long = 'آلمان ۲ - Hetzner Falkenstein premium';
+      final wrong = <String>[];
+      Future<void> pump(Size window, String language, {ShikooNotice? notice}) {
+        _window(tester, window);
+        return tester.pumpWidget(
+          _app(
+            const ShikooHome(),
+            locale: Locale(language),
+            overrides: [
+              shikooStateProvider.overrideWithValue(
+                _state(ShikooConnection.on, server: long, notice: notice),
+              ),
+            ],
+          ),
+        );
+      }
+
+      bool inside(Rect r, Rect box) =>
+          box.inflate(0.5).contains(r.topLeft) &&
+          box.inflate(0.5).contains(r.bottomRight);
+      for (final language in ['fa', 'en']) {
+        final l = lookupShikooL10n(Locale(language));
+        for (final window in const [
+          Size(400, 448),
+          Size(787, 448),
+          Size(788, 448),
+          Size(864, 492),
+          Size(1280, 864),
+        ]) {
+          for (final scale in const [1.0, 1.5]) {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            final at = '$language $window ×$scale';
+            await pump(window, language);
+            await tester.pumpAndSettle();
+            final caret = find.bySemanticsLabel(l.refreshWays).first;
+            await tester.ensureVisible(caret);
+            await tester.pumpAndSettle();
+            final c = tester.getRect(caret);
+            await tester.tap(caret);
+            await tester.pumpAndSettle();
+            final menu = tester.getRect(
+              find
+                  .ancestor(
+                    of: find.text(l.refreshDirect),
+                    matching: find.byType(IntrinsicWidth),
+                  )
+                  .first,
+            );
+            if (!inside(menu, Offset.zero & window)) {
+              wrong.add('$at: menu $menu');
+            }
+            if ((menu.top - c.bottom - Space.s1).abs() > 0.5 &&
+                (c.top - menu.bottom - Space.s1).abs() > 0.5) {
+              wrong.add('$at: menu $menu away from «▾» $c');
+            }
+            for (final text in [
+              l.refreshDirect,
+              l.refreshDirectHint,
+              l.refreshViaServer,
+              l.refreshViaServerHint(serverName(long)),
+            ]) {
+              if (!inside(tester.getRect(find.text(text)), menu)) {
+                wrong.add('$at: «$text» out of the menu');
+              }
+            }
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+            await tester.pumpAndSettle();
+
+            for (final (way, other) in [
+              (ShikooFailedWay.direct, l.refreshViaServer),
+              (ShikooFailedWay.server, l.refreshDirect),
+            ]) {
+              final why = '$at ${way.name}';
+              await pump(
+                window,
+                language,
+                notice: RefreshFailed(way: way, server: long),
+              );
+              await tester.pumpAndSettle();
+              final button = find
+                  .ancestor(
+                    of: find.text(other),
+                    matching: find.byType(ShikooButton),
+                  )
+                  .first;
+              final link = find.byWidgetPredicate(
+                (w) => w is LinkButton && w.label == l.reportSendToSupport,
+              );
+              final b = tester.getRect(button);
+              final k = tester.getRect(link);
+              if (b.overlaps(k)) wrong.add('$why: $other on the link');
+              for (final part in [link, button]) {
+                await tester.ensureVisible(part);
+                await tester.pumpAndSettle();
+                if (!inside(tester.getRect(part), Offset.zero & window)) {
+                  wrong.add('$why: ${tester.getRect(part)} not wholly seen');
+                }
+              }
+            }
+            if (tester.takeException() case final error?) {
+              wrong.add('$at: ${'$error'.split('\n').first}');
+            }
+          }
+        }
+      }
+      expect(wrong, isEmpty);
+    }, variant: _windows);
+
     testWidgets('a phone keeps its home without the local proxy line', (
       tester,
     ) async {
