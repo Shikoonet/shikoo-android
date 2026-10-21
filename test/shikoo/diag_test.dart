@@ -371,8 +371,10 @@ ShikooState _serversAt(
   String? selected,
   ShikooSwitch? switching,
   ShikooNotice? notice,
+  ShikooError? lastError,
 }) => ShikooState(
   connection: connection,
+  lastError: lastError,
   connectedFor: Duration.zero,
   isTV: false,
   servers: const [
@@ -1058,20 +1060,83 @@ void main() {
     },
   );
 
-  test('a report built while connected names the server in use', () async {
-    final h = await _harness(
-      state: _serversAt(ShikooConnection.on, selected: _germany),
-    );
-    await h.diag.start(h.home.path);
-    await h.diag.attach(h.container);
+  test(
+    'a failed connect names the server tried, and none when none answered',
+    () async {
+      const error = ShikooConnection.error;
+      const connecting = ShikooConnection.connecting;
+      final h = await _harness(
+        state: _serversAt(ShikooConnection.off, selected: _germany),
+      );
+      await h.diag.start(h.home.path);
+      await h.diag.attach(h.container);
+      Future<void> go(ShikooState state) async {
+        h.state.set(state);
+        await pumpEventQueue();
+      }
 
-    final report = await h.diag.report(
-      trigger: 'test',
-      about: _about,
-      checks: _noChecks,
-    );
+      await go(_serversAt(connecting, selected: _germany));
+      await go(
+        _serversAt(
+          error,
+          selected: _germany,
+          lastError: ShikooError.connectTimeout,
+        ),
+      );
+      await go(_serversAt(connecting, selected: _secretNamed));
+      await go(
+        _serversAt(
+          error,
+          selected: _secretNamed,
+          lastError: ShikooError.vpnRefused,
+        ),
+      );
+      await go(_serversAt(connecting));
+      await go(_serversAt(error, lastError: ShikooError.noServer));
+      await go(_serversAt(ShikooConnection.off));
 
-    expect(_serverLines(report), ['server in use Germany 5']);
+      final report = await h.diag.report(
+        trigger: 'test',
+        about: _about,
+        checks: _noChecks,
+      );
+
+      expect(_serverLines(report), [
+        'server tried Germany 5',
+        'server tried ·',
+      ]);
+      expect(_leaked(jsonEncode(report), _secretNamed), isFalse);
+    },
+  );
+
+  test('a report names the server in use or tried at the time', () async {
+    for (final (state, lines) in [
+      (
+        _serversAt(ShikooConnection.on, selected: _germany),
+        ['server in use Germany 5'],
+      ),
+      (
+        _serversAt(
+          ShikooConnection.error,
+          selected: _germany,
+          lastError: ShikooError.connectTimeout,
+        ),
+        ['server tried Germany 5'],
+      ),
+      (_serversAt(ShikooConnection.off, selected: _germany), <String>[]),
+    ]) {
+      final h = await _harness(state: state);
+      await h.diag.start(h.home.path);
+      await h.diag.attach(h.container);
+
+      final report = await h.diag.report(
+        trigger: 'test',
+        about: _about,
+        checks: _noChecks,
+      );
+
+      expect(_serverLines(report), lines, reason: state.connection.name);
+    }
   });
 
   testWidgets('a slow frame is summed up every 10 minutes, not every minute', (

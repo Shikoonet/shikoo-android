@@ -745,16 +745,18 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       }
     });
     // After the two above, so a cause changing with the server is told first.
-    container.listen(shikooStateProvider.select(_inUse), (_, label) {
-      if (label != null) add('T', 'server in use $label');
+    container.listen(shikooStateProvider.select(_serverLine), (_, line) {
+      if (line != null) add('T', line);
     });
     return _onStart();
   }
 
-  static String? _inUse(ShikooState state) =>
-      state.connection == ShikooConnection.on
-      ? state.selectedServer?.label
-      : null;
+  static String? _serverLine(ShikooState state) =>
+      switch ((state.connection, state.selectedServer?.label)) {
+        (ShikooConnection.on, final label?) => 'server in use $label',
+        (ShikooConnection.error, final label?) => 'server tried $label',
+        _ => null,
+      };
 
   Future<void> _onStart() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1107,7 +1109,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
   }) async {
     final probed = checks ?? await runProbes();
     final state = _container!.read(shikooStateProvider);
-    if (_inUse(state) case final label?) add('T', 'server in use $label');
+    if (_serverLine(state) case final line?) add('T', line);
     _flushRepeat();
     final now = DateTime.now();
     final known = _knownNow();
