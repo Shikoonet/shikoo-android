@@ -30,7 +30,7 @@ void main(List<String> args) {
       if (Platform.isWindows && args.contains('--restore-proxy')) {
         await restoreProxyAndExit();
       }
-      _hideLinksInLogs();
+      hideLinksInLogs();
       FlutterError.onError = (details) {
         shikooDiag.error(details.exception, details.stack);
         Future.microtask(() {
@@ -119,7 +119,8 @@ Future<void> _untilClockRight() async {
 }
 
 /// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`).
-void _hideLinksInLogs() {
+@visibleForTesting
+void hideLinksInLogs() {
   final print = debugPrint;
   final link = RegExp(r'[a-z][a-z0-9+.-]*://\S+', caseSensitive: false);
   debugPrint = (message, {wrapWidth}) {

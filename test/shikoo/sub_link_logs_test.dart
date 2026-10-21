@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/providers/app.dart' show logsProvider;
+import 'package:fl_clash/shikoo/app/main.dart' as app;
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -29,28 +30,27 @@ void main() {
     // The call `_fetch` makes for every update (lib/shikoo/engine/controller.dart).
     FlClashHttpOverrides.findProxyForReader(container.read, Uri.parse(_link));
     expect(printed, [contains(_link)]);
+    final raw = printed.single;
     expect(container.read(logsProvider).list.map((log) => log.payload), [
       contains(_link),
     ]);
 
     final main = File('lib/shikoo/app/main.dart').readAsStringSync();
-    final shape = RegExp(r"final link = RegExp\(r'([^']+)'").firstMatch(main)!;
     expect(
-      main.indexOf('_hideLinksInLogs();'),
+      main.indexOf('hideLinksInLogs();'),
       lessThan(main.indexOf('shikooDiag.start(')),
     );
-    final logcat = printed.single.replaceAll(
-      RegExp(shape[1]!, caseSensitive: false),
-      '<link>',
-    );
+    app.hideLinksInLogs();
+    FlClashHttpOverrides.findProxyForReader(container.read, Uri.parse(_link));
+    final logcat = printed.last;
     expect(logcat, '[APP] find <link> proxy: false');
 
     final home = Directory.systemTemp.createTempSync('sub-link-logs');
     addTearDown(() => home.deleteSync(recursive: true));
-    final diag = ShikooDiag()..add('A', printed.single);
+    final diag = ShikooDiag()..add('A', raw);
     await diag.start(home.path);
     diag
-      ..add('A', printed.single)
+      ..add('A', raw)
       ..release();
     final ring = File('${home.path}/shikoo/diag.log').readAsStringSync();
     final page = diag.logEntries().map((entry) => entry.line).join('\n');
@@ -58,7 +58,7 @@ void main() {
       ('logcat', logcat),
       ('diag.log', ring),
       ('Logs page and report log', page),
-      ('report logcat', cleanLine(printed.single, null)),
+      ('report logcat', cleanLine(raw, null)),
     ]) {
       expect(text, isNot(contains(_token)), reason: where);
       expect(text, isNot(contains('example.invalid')), reason: where);

@@ -21,7 +21,7 @@ App, `feat/app` at `cbe365e`:
   (`core/Clash.Meta/tunnel/tunnel.go:630,632`). A core error-level line pops FlClash's English toast
   (`core_manager.dart:82-89`).
 - Links reach logs here: `lib/common/http.dart:25` logs every URL Dart fetches, subscription tokens included;
-  `_hideLinksInLogs` (`lib/shikoo/app/main.dart:60-66`) scrubs only `debugPrint`, so `logsProvider` keeps the full
+  `hideLinksInLogs` (`lib/shikoo/app/main.dart:121-130`) scrubs only `debugPrint`, so `logsProvider` keeps the full
   link. `dart:io`'s `HttpException` prints `uri = …` inside error text. `[APP] onAppLink: …` (`lib/common/link.dart:48`)
   is not reached: only FlClash's own `Application._initLink` (`lib/application.dart:93`) listens, and Shikoo mounts
   `buildManagerStack` (`application.dart:21-50`) instead.
