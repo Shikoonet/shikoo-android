@@ -36,11 +36,12 @@ void main() {
     ]);
 
     final main = File('lib/shikoo/app/main.dart').readAsStringSync();
-    expect(main.indexOf('hideLinksInLogs();'), isNonNegative);
-    expect(
-      main.indexOf('hideLinksInLogs();'),
-      lessThan(main.indexOf('shikooDiag.start(')),
-    );
+    final call = RegExp(
+      r'^\s*hideLinksInLogs\(\);',
+      multiLine: true,
+    ).firstMatch(main)?.start;
+    expect(call, isNotNull);
+    expect(call, lessThan(main.indexOf('shikooDiag.start(')));
     app.hideLinksInLogs();
     FlClashHttpOverrides.findProxyForReader(container.read, Uri.parse(_link));
     final logcat = printed.last;
