@@ -396,6 +396,31 @@ void main() {
       expect(await thumb(on: true, way: way), greaterThan(0), reason: '$way');
       expect(await thumb(on: false, way: way), lessThan(0), reason: '$way');
     }
+    final row = tester.widget<Pressable>(
+      find.descendant(
+        of: find.byType(SwitchRow),
+        matching: find.byType(Pressable),
+      ),
+    );
+    expect(
+      (row.shape as RoundedSuperellipseBorder).borderRadius,
+      BorderRadius.circular(Radii.lg),
+      reason: 'a card of its own, not a row in one',
+    );
+    final surface = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byType(SwitchRow),
+            matching: find.byWidgetPredicate(
+              (w) => w is Container && w.decoration is ShapeDecoration,
+            ),
+          )
+          .first,
+    );
+    expect(
+      (surface.decoration! as ShapeDecoration).color,
+      ShikooTheme.of(tester.element(find.byType(SwitchRow))).c.surface,
+    );
   });
 
   group('sending', () {

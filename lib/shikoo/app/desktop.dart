@@ -20,6 +20,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart' show ShikooIcon;
+import 'package:fl_clash/shikoo/ui/login.dart' show shikooHomeShownProvider;
 import 'package:fl_clash/shikoo/ui/service_card.dart' show restingFor;
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart' show homeUpdateCard;
@@ -270,6 +271,7 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
 
   /// The update message went out since the window last had the focus.
   bool _noticed = false;
+  Future<void> _noticing = Future.value();
 
   @override
   void initState() {
@@ -287,25 +289,45 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
       ..listenManual(shikooModeProvider, (_, _) => _showTray())
       ..listenManual(shikooLookProvider, (_, _) => _showTray())
       ..listenManual(shikooAccountProvider, (_, _) => _showTray())
-      ..listenManual<UpdateOffer?>(shikooUpdateOfferProvider, _onOffer);
+      ..listenManual<UpdateOffer?>(shikooUpdateOfferProvider, _onOffer)
+      ..listenManual<bool>(shikooHomeShownProvider, (_, home) {
+        _showTray();
+        if (home) _notice();
+      });
     unawaited(ref.read(shikooUpdateNoticeProvider.notifier).load());
     _showTray();
+  }
+
+  /// Only an offer a page shows: Home's card, or the forced page, which stands in for the sign-in too.
+  UpdateOffer? get _shownOffer {
+    final offer = ref.read(shikooUpdateOfferProvider);
+    final shown = offer != null && offer.forced;
+    return shown || ref.read(shikooHomeShownProvider) ? offer : null;
   }
 
   void _onOffer(UpdateOffer? before, UpdateOffer? now) {
     _showTray();
     final code = now?.release.versionCode;
-    if (code == null || code == before?.release.versionCode) return;
+    if (code != null && code != before?.release.versionCode) _notice();
+  }
+
+  void _notice() {
+    final offer = _shownOffer;
+    if (offer == null) return;
     final l = lookupShikooL10n(Locale(ref.read(shikooLookProvider).language));
-    unawaited(
-      noticeUpdate(
-        code,
-        on: ref.read(shikooUpdateNoticeProvider),
-        hidden: widget.hidden,
-        notify: () =>
-            widget.notify(l.updateNoticeTitle(l.appName), l.updateNoticeBody),
-      ).then((sent) => _noticed |= sent),
-    );
+    _noticing = _noticing
+        .then(
+          (_) => noticeUpdate(
+            offer.release.versionCode,
+            on: ref.read(shikooUpdateNoticeProvider),
+            hidden: widget.hidden,
+            notify: () => widget.notify(
+              l.updateNoticeTitle(l.appName),
+              l.updateNoticeBody,
+            ),
+          ),
+        )
+        .then<void>((sent) => _noticed |= sent, onError: (Object _) {});
   }
 
   Future<void> _openUpdate() async {
@@ -387,7 +409,7 @@ class _ShikooWindowState extends ConsumerState<ShikooWindow>
         canConnect: state.service != null && restingFor(state) == null,
         hasService: state.service != null,
         signedIn: ref.read(shikooAccountProvider).who != null,
-        hasUpdate: ref.read(shikooUpdateOfferProvider) != null,
+        hasUpdate: _shownOffer != null,
         mode: mode,
         on: (
           connect: () => unawaited(controller.connect()),
