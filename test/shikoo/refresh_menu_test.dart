@@ -617,8 +617,9 @@ void main() {
         final start = language == 'fa'
             ? menu.right - card.right
             : menu.left - card.left;
-        if (start.abs() > 0.5)
+        if (start.abs() > 0.5) {
           wrong.add('$at: menu starts $start off the card');
+        }
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
       }
