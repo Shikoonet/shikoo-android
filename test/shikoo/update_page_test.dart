@@ -270,6 +270,7 @@ void main() {
     tester,
   ) async {
     await _pump(tester, _states['offered']!.$1);
+    expect(find.byKey(homeUpdateCard), findsOne);
     final card = tester.getRect(find.byType(UpdateCard));
     expect(
       card.top,

@@ -25,6 +25,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Home once this device holds a service, else sign-in. A TV without one never sees home: its
 /// `tv-home-no-service` gave way to `tv-login`.
+final shikooHomeShownProvider = Provider<bool>((ref) {
+  final hasService = ref.watch(
+    shikooStateProvider.select((s) => s.service != null),
+  );
+  return ref.watch(shikooLoginProvider) == null &&
+      (hasService || ref.watch(shikooAccountProvider).withoutLink.isNotEmpty);
+});
+
 class ShikooRoot extends ConsumerWidget {
   const ShikooRoot({super.key});
 
@@ -35,14 +43,9 @@ class ShikooRoot extends ConsumerWidget {
     )) {
       return const ForcedUpdatePage();
     }
+    if (ref.watch(shikooHomeShownProvider)) return const ShikooHome();
     final login = ref.watch(shikooLoginProvider);
     final account = ref.watch(shikooAccountProvider);
-    final hasService = ref.watch(
-      shikooStateProvider.select((s) => s.service != null),
-    );
-    if (login == null && (hasService || account.withoutLink.isNotEmpty)) {
-      return const ShikooHome();
-    }
     return LoginPage(
       login:
           login ??

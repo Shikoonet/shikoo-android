@@ -1105,11 +1105,15 @@ void main() {
       offer(56);
       await tester.idle();
       expect(notices, hasLength(1), reason: 'the same version checked again');
+      await fromWindows('window_manager', 'onEvent', {'eventName': 'focus'});
 
       hidden = false;
       offer(57);
       await tester.idle();
       expect(notices, hasLength(1), reason: 'the window shows the card');
+      await fromWindows('tray', 'onIconActivated');
+      await tester.pumpAndSettle();
+      expect(find.text('page'), findsOne, reason: 'no message, so no card');
       hidden = true;
       offer(57);
       await tester.idle();
@@ -1152,6 +1156,104 @@ void main() {
       offer(null);
       await tester.idle();
       expect(labels().first, 'قطع کردن', reason: 'the row goes with the offer');
+    }, variant: _windows);
+
+    testWidgets('without Home, as on the sign-in page, an update is neither in '
+        'the menu nor in a message; Home brings both, and a forced one, whose '
+        'page stands in for everything, has them at once', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      Tray.instance.resetForTesting();
+      final messenger = tester.binding.defaultBinaryMessenger;
+      for (final channel in const ['window_manager', 'tray']) {
+        messenger.setMockMethodCallHandler(MethodChannel(channel), (
+          call,
+        ) async {
+          return switch (call.method) {
+            'getId' => 0,
+            'show' => true,
+            _ => false,
+          };
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(MethodChannel(channel), null),
+        );
+      }
+      final notices = <String>[];
+      final popup = _Popup();
+      final home = NotifierProvider<ShikooCell<bool>, bool>(
+        () => ShikooCell(false),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          shikooStateProvider.overrideWithValue(_state(ShikooConnection.off)),
+          shikooHomeShownProvider.overrideWith((ref) => ref.watch(home)),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('fa'),
+            supportedLocales: ShikooL10n.supportedLocales,
+            localizationsDelegates: const [
+              ShikooL10n.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            theme: shikooThemeData(Brightness.light, tv: false),
+            builder: (context, child) => ShikooWindow(
+              popup: popup,
+              hidden: () async => true,
+              notify: (title, _) async => notices.add(title),
+              child: child!,
+            ),
+            home: const Scaffold(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await messenger.handlePlatformMessage(
+        'tray',
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('onMenuRequested'),
+        ),
+        (_) {},
+      );
+      await tester.idle();
+      String? first() => popup.view!.menu.rows.first?.label;
+      Future<void> offer(int code, {bool forced = false}) async {
+        container
+            .read(shikooUpdateOfferProvider.notifier)
+            .set(
+              UpdateOffer(
+                AppRelease(
+                  versionName: '1.0.$code',
+                  versionCode: code,
+                  minVersionCode: forced ? code : 0,
+                  size: 1,
+                  sha256: '',
+                  url: '',
+                ),
+                forced: forced,
+              ),
+            );
+        await tester.idle();
+      }
+
+      await offer(70);
+      expect(notices, isEmpty);
+      expect(first(), isNot('نسخهٔ تازه آمده'));
+      container.read(home.notifier).set(true);
+      await tester.idle();
+      expect(notices, hasLength(1), reason: 'signed in while hidden');
+      expect(first(), 'نسخهٔ تازه آمده');
+      container.read(home.notifier).set(false);
+      await tester.idle();
+      expect(first(), isNot('نسخهٔ تازه آمده'));
+      await offer(71, forced: true);
+      expect(notices, hasLength(2));
+      expect(first(), 'نسخهٔ تازه آمده');
     }, variant: _windows);
 
     testWidgets("Windows' word on the window decides: a window shown, even "
