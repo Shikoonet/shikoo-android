@@ -11,6 +11,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
+import 'package:fl_clash/shikoo/ui/refresh_menu.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -48,7 +49,11 @@ class CardFocus {
   final support = FocusNode();
   final ping = FocusNode();
   final refresh = FocusNode();
+  final caret = FocusNode();
   final report = FocusNode();
+
+  /// The failure message's other way.
+  final other = FocusNode();
   // ponytail: a removed server's node lives until the page goes; prune if lists churn a lot.
   final _rows = <String, FocusNode>{};
 
@@ -59,7 +64,9 @@ class CardFocus {
     support.dispose();
     ping.dispose();
     refresh.dispose();
+    caret.dispose();
     report.dispose();
+    other.dispose();
     for (final node in _rows.values) {
       node.dispose();
     }
@@ -81,6 +88,7 @@ class ServiceCard extends StatefulWidget {
     this.other = false,
     this.inUse,
     this.onFold,
+    this.tunnelServer,
   });
 
   final ShikooState state;
@@ -100,6 +108,9 @@ class ServiceCard extends StatefulWidget {
 
   /// The phone's arrow; the TV folds an open card only by opening another.
   final VoidCallback? onFold;
+
+  /// The server an update through the tunnel takes, when [state] selects none (another card).
+  final String? tunnelServer;
 
   @override
   State<ServiceCard> createState() => _ServiceCardState();
@@ -152,18 +163,25 @@ class _ServiceCardState extends State<ServiceCard> {
         : other
         ? () => controller.openService(service!.id)
         : () => unawaited(controller.pingAll());
+    final connected = state.connection == ShikooConnection.on;
+    final server = serverName(state.selected ?? widget.tunnelServer ?? '');
+    void refresh([ShikooRoute? via]) => unawaited(
+      other
+          ? controller.refreshOther(service!.id, via: via)
+          : controller.refreshService(via: via),
+    );
     final head = service == null
         ? null
         : _Head(
             service: service,
             refreshNode: focus.refresh,
+            caretNode: focus.caret,
             pingNode: focus.ping,
             refresh: state.refresh,
-            onRefresh: () => unawaited(
-              other
-                  ? controller.refreshOther(service.id)
-                  : controller.refreshService(),
-            ),
+            onRefresh: refresh,
+            onWay: refresh,
+            connected: connected,
+            server: server,
             onPing: onPing,
             pinging: state.pinging,
             isTV: state.isTV,
@@ -281,6 +299,10 @@ class _ServiceCardState extends State<ServiceCard> {
                       notice: notice,
                       isTV: state.isTV,
                       reportNode: focus.report,
+                      otherNode: focus.other,
+                      connected: connected,
+                      server: server,
+                      onWay: refresh,
                     ),
                   ),
                 if (service.usageKnown && !revoked)
@@ -773,9 +795,13 @@ class _Head extends StatelessWidget {
   const _Head({
     required this.service,
     this.refreshNode,
+    this.caretNode,
     this.pingNode,
     required this.refresh,
     required this.onRefresh,
+    required this.onWay,
+    required this.connected,
+    required this.server,
     this.onPing,
     this.pinging,
     required this.isTV,
@@ -785,9 +811,13 @@ class _Head extends StatelessWidget {
 
   final ShikooService service;
   final FocusNode? refreshNode;
+  final FocusNode? caretNode;
   final FocusNode? pingNode;
   final ShikooRefresh refresh;
   final VoidCallback onRefresh;
+  final void Function(ShikooRoute way) onWay;
+  final bool connected;
+  final String server;
   final VoidCallback? onPing;
   final ({int done, int total})? pinging;
   final bool isTV;
@@ -811,7 +841,12 @@ class _Head extends StatelessWidget {
     final sub = switch (refresh) {
       _ when pinging != null => l.pingProgress(pinging.done, pinging.total),
       _ when service.revoked => l.updateFailed,
-      ShikooRefresh.running => l.updating,
+      ShikooRefresh.running => switch (service.leg) {
+        ShikooLeg.server => l.updatingViaServer,
+        ShikooLeg.fallback => l.updatingFallback,
+        ShikooLeg.direct || ShikooLeg.directOff => l.updatingDirect,
+        null => l.updating,
+      },
       ShikooRefresh.failed when since == null || since.inMinutes < 1 =>
         l.updateFailed,
       ShikooRefresh.failed => l.updateFailedAgo(ago!),
@@ -820,18 +855,22 @@ class _Head extends StatelessWidget {
     };
     final busy = refresh == ShikooRefresh.running;
     final measuring = pinging != null;
-    final onRefresh = measuring ? null : (busy ? () {} : this.onRefresh);
     final onPing = this.onPing;
     final ping = onPing == null || busy ? null : (measuring ? () {} : onPing);
+    final controls = RefreshControls(
+      isTV: isTV,
+      busy: busy,
+      enabled: !measuring,
+      connected: connected,
+      server: server,
+      refreshNode: refreshNode,
+      caretNode: caretNode,
+      onRefresh: onRefresh,
+      onWay: onWay,
+    );
     final buttons = isTV
         ? [
-            ShikooButton(
-              label: l.refresh,
-              icon: ShikooIcon.refresh,
-              busy: busy,
-              focusNode: refreshNode,
-              onPressed: onRefresh,
-            ),
+            controls,
             if (onPing != null)
               ShikooButton(
                 label: l.ping,
@@ -842,13 +881,7 @@ class _Head extends StatelessWidget {
               ),
           ]
         : [
-            ShikooIconButton(
-              icon: ShikooIcon.refresh,
-              label: l.refreshServers,
-              color: t.c.textMuted,
-              busy: busy,
-              onPressed: onRefresh,
-            ),
+            controls,
             if (onPing != null)
               ShikooIconButton(
                 icon: ShikooIcon.gauge,
@@ -986,24 +1019,48 @@ class _Message extends StatelessWidget {
     required this.notice,
     required this.isTV,
     required this.reportNode,
+    required this.otherNode,
+    required this.connected,
+    required this.server,
+    required this.onWay,
   });
 
   final ShikooNotice notice;
   final bool isTV;
   final FocusNode reportNode;
+  final FocusNode otherNode;
+  final bool connected;
+  final String server;
+  final void Function(ShikooRoute way) onWay;
 
   @override
   Widget build(BuildContext context) {
     final l = ShikooL10n.of(context);
     final danger = notice is RefreshFailed;
     final clock = notice is RefreshFailed && (notice as RefreshFailed).clock;
+    final name = switch (notice) {
+      RefreshFailed(server: final server?) => serverName(server),
+      _ => server,
+    };
+    final otherWay = switch (notice) {
+      RefreshFailed(clock: false, way: ShikooFailedWay.direct) when connected =>
+        ShikooRoute.server,
+      RefreshFailed(clock: false, way: ShikooFailedWay.server) =>
+        ShikooRoute.direct,
+      _ => null,
+    };
     final (strong, rest) = switch (notice) {
       RefreshFailed(clock: true) => (l.clockWrongTitle, l.clockWrongHelp),
-      RefreshFailed() => (
+      RefreshFailed(:final way) => (
         l.updateFailedTitle,
-        isTV
-            ? l.updateFailedTv
-            : (shikooDesktop ? l.updateFailedDesktop : l.updateFailedTouch),
+        switch (way) {
+          ShikooFailedWay.directOff => l.updateFailedDirectOff,
+          ShikooFailedWay.direct => l.updateFailedDirect,
+          ShikooFailedWay.server => l.updateFailedViaServer(name),
+          ShikooFailedWay.both => l.updateFailedBoth(name),
+          ShikooFailedWay.panel => l.updateFailedPanel,
+          ShikooFailedWay.notConnected => l.updateFailedConnectFirst,
+        },
       ),
       SelectedReplaced(
         :final removed,
@@ -1041,6 +1098,19 @@ class _Message extends StatelessWidget {
       danger: danger,
     );
     void report() => unawaited(openReport(context, 'refresh'));
+    final other = otherWay == null
+        ? null
+        : ShikooButton(
+            label: otherWay == ShikooRoute.direct
+                ? l.refreshDirect
+                : l.refreshViaServer,
+            icon: otherWay == ShikooRoute.direct
+                ? ShikooIcon.wifi
+                : ShikooIcon.shield,
+            small: !isTV,
+            focusNode: otherNode,
+            onPressed: () => onWay(otherWay),
+          );
     return Padding(
       padding: const EdgeInsets.only(top: Space.s3),
       child: Column(
@@ -1051,11 +1121,32 @@ class _Message extends StatelessWidget {
           if (clock)
             const DateSettingsButton()
           else if (danger && isTV)
-            ShikooButton(
-              label: l.reportSendToSupport,
-              icon: ShikooIcon.report,
-              focusNode: reportNode,
-              onPressed: report,
+            Wrap(
+              spacing: Space.s3,
+              runSpacing: Space.s2,
+              children: [
+                ?other,
+                ShikooButton(
+                  label: l.reportSendToSupport,
+                  icon: ShikooIcon.report,
+                  focusNode: reportNode,
+                  onPressed: report,
+                ),
+              ],
+            )
+          else if (danger && other != null)
+            Wrap(
+              spacing: Space.s3,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                other,
+                IntrinsicWidth(
+                  child: LinkButton(
+                    label: l.reportSendToSupport,
+                    onPressed: report,
+                  ),
+                ),
+              ],
             )
           else if (danger)
             LinkButton(

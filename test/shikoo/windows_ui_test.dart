@@ -2442,10 +2442,7 @@ void main() {
       findsOne,
     );
     await home(ShikooConnection.on, notice: const RefreshFailed());
-    expect(
-      find.textContaining(pick(l.updateFailedDesktop, l.updateFailedTouch)),
-      findsOne,
-    );
+    expect(find.textContaining(l.updateFailedDirectOff), findsOne);
     await tester.pumpWidget(
       _app(
         locale: en,
@@ -2545,7 +2542,12 @@ void main() {
       l.subCancelDesktop,
       l.subRetryDesktop,
       l.errorConnectDesktop('x', 1),
-      l.updateFailedDesktop,
+      l.updateFailedDirectOff,
+      l.updateFailedDirect,
+      l.updateFailedViaServer('x'),
+      l.updateFailedBoth('x'),
+      l.updateFailedPanel,
+      l.updateFailedConnectFirst,
       l.noServiceHelpDesktop,
       l.loginTelegramNoteDesktop,
       l.noServiceHelpPasteDesktop,

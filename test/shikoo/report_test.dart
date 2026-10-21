@@ -13,6 +13,7 @@ import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
+import 'package:fl_clash/shikoo/ui/refresh_menu.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -931,7 +932,12 @@ void main() {
         await tester.sendKeyEvent(_ok);
         await tester.pumpAndSettle();
         expect(find.text(l.reportCrashTitle), findsNothing);
-        expect(_focused(), l.refresh);
+        expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<RefreshControls>(),
+          isNotNull,
+          reason: "down from it, the card's update or its «▾»",
+        );
       });
 
       testWidgets('$name: after a failed connect the report is the first stop '

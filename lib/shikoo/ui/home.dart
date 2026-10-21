@@ -407,6 +407,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                 renews: account.renewsOn(service.id),
                 other: !inUse,
                 inUse: mark,
+                tunnelServer: state.selected,
                 onFold: state.isTV
                     ? null
                     : () => accordion
@@ -600,13 +601,22 @@ class _CardKeys extends StatelessWidget {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
           onInvoke: (intent) {
             final from = primaryFocus;
-            final head = from == focus.refresh || from == focus.ping;
+            final head = {
+              focus.refresh,
+              focus.caret,
+              focus.ping,
+            }.contains(from);
             final next = switch (intent.direction) {
               TraversalDirection.down when head =>
-                _onScreen(focus.report) ? focus.report : focus.support,
+                [focus.other, focus.report].firstWhereOrNull(_onScreen) ??
+                    focus.support,
               TraversalDirection.up
                   when from == focus.renew || from == focus.support =>
-                _onScreen(focus.report) ? focus.report : focus.ping,
+                [
+                      if (from == focus.renew) focus.other,
+                      focus.report,
+                    ].firstWhereOrNull(_onScreen) ??
+                    focus.ping,
               _ => null,
             };
             if (_onScreen(next)) {

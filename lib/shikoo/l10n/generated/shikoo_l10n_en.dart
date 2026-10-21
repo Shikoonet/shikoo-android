@@ -214,12 +214,59 @@ class ShikooL10nEn extends ShikooL10n {
   String get updateFailedTitle => 'Couldn\'t update.';
 
   @override
-  String get updateFailedTouch =>
-      'Check your internet and tap again. Until then, connect with these servers.';
+  String get refreshWays => 'Choose how to update';
 
   @override
-  String get updateFailedTv =>
-      'Check your internet and press OK again. Until then, connect with these servers.';
+  String get refreshDirect => 'Update directly';
+
+  @override
+  String get refreshDirectHint =>
+      'Through this device\'s own internet, even while connected';
+
+  @override
+  String get refreshViaServer => 'Update through the server';
+
+  @override
+  String refreshViaServerHint(String server) {
+    return 'Through $server';
+  }
+
+  @override
+  String get refreshConnectFirst => 'Connect first';
+
+  @override
+  String get updatingDirect => 'Updating directly…';
+
+  @override
+  String get updatingViaServer => 'Updating through the server…';
+
+  @override
+  String get updatingFallback => 'No direct answer; trying the server…';
+
+  @override
+  String get updateFailedDirectOff =>
+      'No answer through this device\'s own internet. Connect with these servers, then try through the server.';
+
+  @override
+  String get updateFailedDirect =>
+      'No answer through this device\'s own internet. Try through the server.';
+
+  @override
+  String updateFailedViaServer(String server) {
+    return 'No answer through $server. Try directly, or pick another server.';
+  }
+
+  @override
+  String updateFailedBoth(String server) {
+    return 'No answer directly or through $server. Pick another server and try again.';
+  }
+
+  @override
+  String get updateFailedPanel =>
+      'ShikooNet\'s subscription server isn\'t answering right now; it\'s not your device. These servers still work, and it tries again by itself shortly.';
+
+  @override
+  String get updateFailedConnectFirst => 'Connect first.';
 
   @override
   String serversAdded(int count) {
@@ -1451,10 +1498,6 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get subRetryDesktop => 'Click to retry';
-
-  @override
-  String get updateFailedDesktop =>
-      'Check your internet and click again. Until then, connect with these servers.';
 
   @override
   String get noServiceHelpDesktop =>
