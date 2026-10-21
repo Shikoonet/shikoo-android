@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -34,6 +36,7 @@ ShikooState _state({
   ShikooLeg? leg,
   ShikooNotice? notice,
   DateTime? updatedAt,
+  String selected = 'آلمان ۲',
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -46,8 +49,12 @@ ShikooState _state({
     updatedAt: updatedAt ?? DateTime.now().subtract(const Duration(minutes: 5)),
     leg: leg,
   ),
-  servers: _servers,
-  selected: 'آلمان ۲',
+  servers: [
+    if (selected != 'آلمان ۲')
+      ShikooServer(name: selected, type: 'Vless', ping: 80),
+    ..._servers,
+  ],
+  selected: selected,
   refresh: refresh,
   notice: notice,
 );
@@ -553,6 +560,63 @@ void main() {
         () => rig.controller.refreshService(via: ShikooRoute.direct),
       ).called(1);
     });
+  });
+
+  testWidgets("the menu hangs under «▾», its end on «▾»'s and inside the "
+      'card: a TV of 960, 1280 and 1920, phones of 360 and 412, both '
+      'languages, a long server name', (tester) async {
+    const long = 'آلمان ۲ - Hetzner Falkenstein premium';
+    final wrong = <String>[];
+    for (final language in ['fa', 'en']) {
+      final l = lookupShikooL10n(Locale(language));
+      for (final (tv, size) in const [
+        (true, Size(960, 540)),
+        (true, Size(1280, 720)),
+        (true, Size(1920, 1080)),
+        (false, Size(360, 780)),
+        (false, Size(412, 915)),
+      ]) {
+        final at = '$language ${tv ? 'TV' : 'phone'} $size';
+        // The TV canvas is drawn ×k: Space.s1 under «▾» is that many pixels.
+        final k = tv ? math.min(size.width / 960, size.height / 540) : 1.0;
+        await _pump(
+          tester,
+          _state(tv: tv, selected: long),
+          size: size,
+          locale: language,
+        );
+        final caret = find.bySemanticsLabel(l.refreshWays).first;
+        await tester.ensureVisible(caret);
+        await tester.pumpAndSettle();
+        final c = tester.getRect(caret);
+        final card = tester.getRect(
+          find.ancestor(of: caret, matching: find.byType(ServiceCard)).first,
+        );
+        await tester.tap(caret);
+        await tester.pumpAndSettle();
+        final menu = tester.getRect(
+          find
+              .ancestor(
+                of: find.text(l.refreshDirect),
+                matching: find.byType(IntrinsicWidth),
+              )
+              .first,
+        );
+        if ((menu.top - c.bottom - Space.s1 * k).abs() > 0.5) {
+          wrong.add('$at: menu $menu not under «▾» $c');
+        }
+        final end = language == 'fa'
+            ? menu.left - c.left
+            : menu.right - c.right;
+        if (end.abs() > 0.5) wrong.add('$at: menu ends $end off «▾»');
+        if (menu.left < card.left - 0.5 || menu.right > card.right + 0.5) {
+          wrong.add('$at: menu $menu out of the card $card');
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+    }
+    expect(wrong, isEmpty);
   });
 
   testWidgets('a wide window: a right-click on the update opens the menu, '

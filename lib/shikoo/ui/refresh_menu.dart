@@ -38,8 +38,8 @@ class RefreshControls extends StatefulWidget {
   final FocusNode? refreshNode;
   final FocusNode? caretNode;
 
-  /// The card's bounds: the menu reaches from «▾» to its far edge, no further.
-  final Rect Function()? card;
+  /// The card it sits in: the menu reaches from «▾» to the card's far edge, no further.
+  final BuildContext? card;
 
   @override
   State<RefreshControls> createState() => _RefreshControlsState();
@@ -51,12 +51,24 @@ class _RefreshControlsState extends State<RefreshControls> {
 
   Future<void> _menu() async {
     final box = _caret.currentContext?.findRenderObject();
-    if (_open || widget.busy || box is! RenderBox) return;
+    final overlay = Navigator.of(
+      context,
+      rootNavigator: true,
+    ).overlay?.context.findRenderObject();
+    if (_open || widget.busy || box is! RenderBox || overlay is! RenderBox) {
+      return;
+    }
+    // In the menu's own layer: the TV canvas scales everything under it.
+    Rect place(RenderBox of) => MatrixUtils.transformRect(
+      of.getTransformTo(overlay),
+      Offset.zero & of.size,
+    );
+    final card = widget.card?.findRenderObject();
     setState(() => _open = true);
     final way = await showRefreshMenu(
       context,
-      anchor: box.localToGlobal(Offset.zero) & box.size,
-      within: widget.card?.call(),
+      anchor: place(box),
+      within: card is RenderBox ? place(card) : null,
       connected: widget.connected,
       server: widget.server,
       isTV: widget.isTV,
