@@ -2091,10 +2091,9 @@ void main() {
     }, variant: _windows);
 
     testWidgets('from the smallest window to 1280 × 864, at 100 and 150% and '
-        'in both languages, the ways menu opens whole at «▾» and the other '
-        'way sits beside or under the report link, both in view', (
-      tester,
-    ) async {
+        'in both languages, the ways menu opens whole under «▾», its end on '
+        "«▾»'s, inside the card and clear of the ping button; the other way "
+        'sits beside or under the report link, both in view', (tester) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       const long = 'آلمان ۲ - Hetzner Falkenstein premium';
       final wrong = <String>[];
@@ -2134,6 +2133,14 @@ void main() {
             await tester.ensureVisible(caret);
             await tester.pumpAndSettle();
             final c = tester.getRect(caret);
+            final card = tester.getRect(
+              find
+                  .ancestor(of: caret, matching: find.byType(ServiceCard))
+                  .first,
+            );
+            final ping = tester.getRect(
+              find.bySemanticsLabel(l.pingServers).first,
+            );
             await tester.tap(caret);
             await tester.pumpAndSettle();
             final menu = tester.getRect(
@@ -2150,6 +2157,16 @@ void main() {
             if ((menu.top - c.bottom - Space.s1).abs() > 0.5 &&
                 (c.top - menu.bottom - Space.s1).abs() > 0.5) {
               wrong.add('$at: menu $menu away from «▾» $c');
+            }
+            final end = language == 'fa'
+                ? menu.left - c.left
+                : menu.right - c.right;
+            if (end.abs() > 0.5) wrong.add('$at: menu ends $end off «▾»');
+            if (menu.left < card.left - 0.5 || menu.right > card.right + 0.5) {
+              wrong.add('$at: menu $menu out of the card $card');
+            }
+            if (menu.left < ping.right && menu.right > ping.left) {
+              wrong.add('$at: menu $menu under the ping button $ping');
             }
             for (final text in [
               l.refreshDirect,

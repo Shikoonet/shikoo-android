@@ -187,6 +187,10 @@ class _ServiceCardState extends State<ServiceCard> {
             isTV: state.isTV,
             onFold: widget.onFold,
             inUse: widget.onFold == null ? null : inUse,
+            card: () {
+              final box = context.findRenderObject()! as RenderBox;
+              return box.localToGlobal(Offset.zero) & box.size;
+            },
           );
     return Container(
       padding: EdgeInsets.only(
@@ -807,6 +811,7 @@ class _Head extends StatelessWidget {
     required this.isTV,
     this.onFold,
     this.inUse,
+    this.card,
   });
 
   final ShikooService service;
@@ -827,6 +832,7 @@ class _Head extends StatelessWidget {
 
   /// The phone's in-use mark, inside the fold button; the TV's is [InUseMark] around the head.
   final bool? inUse;
+  final Rect Function()? card;
 
   @override
   Widget build(BuildContext context) {
@@ -867,6 +873,7 @@ class _Head extends StatelessWidget {
       caretNode: caretNode,
       onRefresh: onRefresh,
       onWay: onWay,
+      card: card,
     );
     final buttons = isTV
         ? [

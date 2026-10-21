@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -22,6 +23,7 @@ class RefreshControls extends StatefulWidget {
     this.server = '',
     this.refreshNode,
     this.caretNode,
+    this.card,
   });
 
   final bool isTV;
@@ -35,6 +37,9 @@ class RefreshControls extends StatefulWidget {
   final String server;
   final FocusNode? refreshNode;
   final FocusNode? caretNode;
+
+  /// The card's bounds: the menu reaches from «▾» to its far edge, no further.
+  final Rect Function()? card;
 
   @override
   State<RefreshControls> createState() => _RefreshControlsState();
@@ -51,6 +56,7 @@ class _RefreshControlsState extends State<RefreshControls> {
     final way = await showRefreshMenu(
       context,
       anchor: box.localToGlobal(Offset.zero) & box.size,
+      within: widget.card?.call(),
       connected: widget.connected,
       server: widget.server,
       isTV: widget.isTV,
@@ -151,6 +157,7 @@ class _RefreshControlsState extends State<RefreshControls> {
 Future<ShikooRoute?> showRefreshMenu(
   BuildContext context, {
   required Rect anchor,
+  Rect? within,
   required bool connected,
   required String server,
   required bool isTV,
@@ -161,23 +168,29 @@ Future<ShikooRoute?> showRefreshMenu(
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
   pageBuilder: (context, _, _) => CustomSingleChildLayout(
-    delegate: _Below(anchor, Directionality.of(context)),
+    delegate: _Below(anchor, within, Directionality.of(context)),
     child: _Menu(connected: connected, server: server, isTV: isTV),
   ),
 );
 
 class _Below extends SingleChildLayoutDelegate {
-  _Below(this.anchor, this.direction);
+  _Below(this.anchor, this.within, this.direction);
 
   final Rect anchor;
+  final Rect? within;
   final TextDirection direction;
 
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      BoxConstraints(
-        maxWidth: constraints.maxWidth - 2 * Space.s4,
-        maxHeight: constraints.maxHeight,
-      );
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final width = constraints.maxWidth;
+    final room = direction == TextDirection.rtl
+        ? math.min(within?.right ?? width, width - Space.s2) - anchor.left
+        : anchor.right - math.max(within?.left ?? 0, Space.s2);
+    return BoxConstraints(
+      maxWidth: math.max(0.0, math.min(room, width - 2 * Space.s4)),
+      maxHeight: constraints.maxHeight,
+    );
+  }
 
   @override
   Offset getPositionForChild(Size size, Size child) {
@@ -195,7 +208,9 @@ class _Below extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_Below old) =>
-      old.anchor != anchor || old.direction != direction;
+      old.anchor != anchor ||
+      old.within != within ||
+      old.direction != direction;
 }
 
 class _Menu extends StatelessWidget {
