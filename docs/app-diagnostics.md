@@ -192,6 +192,10 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
   - subscription refresh result as a kind (`ok`, `http_404`, `timeout`, `tls`, `dns`), and door failures as the
     error kind `fix/wrong-clock` adds (no second type);
   - one line per ping round («۱۲ جواب، ۳ بی‌جواب، بهترین ۱۸۰»);
+  - the server in use, by its `servers` label: `server in use <label>` whenever it changes while connected (the
+    connect, a switch landing, a replacement) and once more when a report is built; a pick while connected
+    (`server picked <label>`) and its failure (`server switch failed <label>`); the app replacing its own silent pick
+    (`server silent <old> -> <new>`). The door's `servers` section is `.strict()`, so it has no in-use field;
   - screen on and off; app start, resume and pause; the renderer line once per start;
   - at each start, every new exit record with its reason name (`LOW_MEMORY`, `SIGNALED`, `USER_REQUESTED`, `OTHER`,
     `FREEZER`, `EXCESSIVE_RESOURCE_USAGE` and the rest, names from `AppExitReason`) and its time. That record is

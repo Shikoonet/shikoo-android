@@ -238,11 +238,12 @@ const _diagChannel = MethodChannel('shikoo/diag');
 final _now = DateTime.now();
 
 class _Harness {
-  _Harness(this.home, this.container, this.diag, this.sent);
+  _Harness(this.home, this.container, this.diag, this.sent, this.state);
 
   final Directory home;
   final ProviderContainer container;
   final ShikooDiag diag;
+  final ShikooCell<ShikooState> state;
 
   /// What reached `/report`, and the door's answer to the next one.
   final List<RequestOptions> sent;
@@ -295,32 +296,35 @@ Future<_Harness> _harness({
         ),
       ),
     );
+  final cell = NotifierProvider<ShikooCell<ShikooState>, ShikooState>(
+    () => ShikooCell(
+      state ??
+          ShikooState(
+            connection: ShikooConnection.off,
+            connectedFor: Duration.zero,
+            isTV: false,
+            servers: [
+              for (final plant in plants)
+                ShikooServer(name: plant, type: 'vless', ping: 120),
+            ],
+            others: [
+              for (final (i, plant) in plants.indexed)
+                ShikooService(
+                  id: i,
+                  name: plant,
+                  usedBytes: 1 << 30,
+                  totalBytes: 10 << 30,
+                ),
+            ],
+          ),
+    ),
+  );
   final container = ProviderContainer(
     overrides: [
       profilesProvider.overrideWith(
         () => TestProfiles([Profile.normal(label: 'x', url: _subLink)]),
       ),
-      shikooStateProvider.overrideWithValue(
-        state ??
-            ShikooState(
-              connection: ShikooConnection.off,
-              connectedFor: Duration.zero,
-              isTV: false,
-              servers: [
-                for (final plant in plants)
-                  ShikooServer(name: plant, type: 'vless', ping: 120),
-              ],
-              others: [
-                for (final (i, plant) in plants.indexed)
-                  ShikooService(
-                    id: i,
-                    name: plant,
-                    usedBytes: 1 << 30,
-                    totalBytes: 10 << 30,
-                  ),
-              ],
-            ),
-      ),
+      shikooStateProvider.overrideWith((ref) => ref.watch(cell)),
       shikooApiProvider.overrideWithValue(
         ShikooApi(['http://door.test'], door),
       ),
@@ -346,8 +350,52 @@ Future<_Harness> _harness({
     ..pollEvery = const Duration(hours: 1);
   await signIn.load();
   await signIn.start();
-  return _Harness(home, container, ShikooDiag(), sent);
+  return _Harness(
+    home,
+    container,
+    ShikooDiag(),
+    sent,
+    container.read(cell.notifier),
+  );
 }
+
+const _germany = '🇩🇪 Germany 5';
+const _turkey = '🇹🇷 Turkey 2';
+const _netherlands = '🇳🇱 Netherlands 1';
+
+/// The subscription link's path segment as a server's name: only the known-secret rule can catch it.
+const _secretNamed = 'PlantedPathToken';
+
+ShikooState _serversAt(
+  ShikooConnection connection, {
+  String? selected,
+  ShikooSwitch? switching,
+  ShikooNotice? notice,
+}) => ShikooState(
+  connection: connection,
+  connectedFor: Duration.zero,
+  isTV: false,
+  servers: const [
+    ShikooServer(name: _germany, type: 'vless', ping: 120),
+    ShikooServer(name: _turkey, type: 'vless', ping: -1),
+    ShikooServer(name: _secretNamed, type: 'vless', ping: 90),
+    ShikooServer(name: _netherlands, type: 'wireguard', ping: 80),
+  ],
+  selected: selected,
+  switching: switching,
+  notice: notice,
+);
+
+const _noChecks = (
+  domestic: (result: 'ok', ms: 1),
+  international: (result: 'ok', ms: 1),
+  door: (result: 'ok', ms: 1),
+);
+
+List<String> _serverLines(Map<String, Object?> report) => [
+  for (final line in (report['log']! as List).cast<String>())
+    if (line.substring(21).startsWith('T server ')) line.substring(23),
+];
 
 Response<Object?> _reportAnswer(RequestOptions options) => Response(
   requestOptions: options,
@@ -929,6 +977,101 @@ void main() {
     expect(report['crashes'], hasLength(10));
     expect(report['servers'], hasLength(300));
     expect(report['services'], hasLength(20));
+  });
+
+  test(
+    'the timeline names the server in use, a pick, its failure and a silent replacement',
+    () async {
+      const on = ShikooConnection.on;
+      final h = await _harness(
+        state: _serversAt(ShikooConnection.off, selected: _germany),
+      );
+      await h.diag.start(h.home.path);
+      await h.diag.attach(h.container);
+      Future<void> go(ShikooState state) async {
+        h.state.set(state);
+        await pumpEventQueue();
+      }
+
+      ShikooSwitch shift(String to, ShikooSwitchStage stage) =>
+          (to: to, from: _germany, stage: stage);
+
+      await go(_serversAt(ShikooConnection.connecting, selected: _germany));
+      await go(_serversAt(on, selected: _germany));
+      await go(
+        _serversAt(
+          on,
+          selected: _germany,
+          switching: shift(_turkey, ShikooSwitchStage.moving),
+        ),
+      );
+      await go(
+        _serversAt(
+          on,
+          selected: _germany,
+          switching: shift(_turkey, ShikooSwitchStage.failed),
+        ),
+      );
+      await go(
+        _serversAt(
+          on,
+          selected: _germany,
+          switching: shift(_secretNamed, ShikooSwitchStage.moving),
+        ),
+      );
+      await go(
+        _serversAt(
+          on,
+          selected: _secretNamed,
+          switching: shift(_secretNamed, ShikooSwitchStage.done),
+        ),
+      );
+      await go(
+        _serversAt(
+          on,
+          selected: _netherlands,
+          notice: const SilentReplaced(
+            silent: _secretNamed,
+            replacement: _netherlands,
+            moved: true,
+          ),
+        ),
+      );
+      await go(_serversAt(ShikooConnection.off, selected: _netherlands));
+
+      final report = await h.diag.report(
+        trigger: 'test',
+        about: _about,
+        checks: _noChecks,
+      );
+
+      expect(_serverLines(report), [
+        'server in use Germany 5',
+        'server picked Turkey 2',
+        'server switch failed Turkey 2',
+        'server picked ·',
+        'server in use ·',
+        'server silent · -> Netherlands 1',
+        'server in use Netherlands 1',
+      ]);
+      expect(_leaked(jsonEncode(report), _secretNamed), isFalse);
+    },
+  );
+
+  test('a report built while connected names the server in use', () async {
+    final h = await _harness(
+      state: _serversAt(ShikooConnection.on, selected: _germany),
+    );
+    await h.diag.start(h.home.path);
+    await h.diag.attach(h.container);
+
+    final report = await h.diag.report(
+      trigger: 'test',
+      about: _about,
+      checks: _noChecks,
+    );
+
+    expect(_serverLines(report), ['server in use Germany 5']);
   });
 
   testWidgets('a slow frame is summed up every 10 minutes, not every minute', (

@@ -18,6 +18,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/rendering.dart';
@@ -724,8 +725,36 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
         _pingRound(container.read(shikooStateProvider).servers);
       }
     });
+    container.listen(shikooStateProvider.select((s) => s.switching), (
+      _,
+      shift,
+    ) {
+      final verb = switch (shift?.stage) {
+        ShikooSwitchStage.moving => 'picked',
+        ShikooSwitchStage.failed => 'switch failed',
+        _ => null,
+      };
+      if (verb != null) add('T', 'server $verb ${withoutFlags(shift!.to)}');
+    });
+    container.listen(shikooStateProvider.select((s) => s.notice), (_, notice) {
+      if (notice case SilentReplaced(:final silent, :final replacement)) {
+        add(
+          'T',
+          'server silent ${withoutFlags(silent)} -> ${withoutFlags(replacement)}',
+        );
+      }
+    });
+    // After the two above, so a cause changing with the server is told first.
+    container.listen(shikooStateProvider.select(_inUse), (_, label) {
+      if (label != null) add('T', 'server in use $label');
+    });
     return _onStart();
   }
+
+  static String? _inUse(ShikooState state) =>
+      state.connection == ShikooConnection.on
+      ? state.selectedServer?.label
+      : null;
 
   Future<void> _onStart() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1077,10 +1106,11 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     ProbeChecks? checks,
   }) async {
     final probed = checks ?? await runProbes();
+    final state = _container!.read(shikooStateProvider);
+    if (_inUse(state) case final label?) add('T', 'server in use $label');
     _flushRepeat();
     final now = DateTime.now();
     final known = _knownNow();
-    final state = _container!.read(shikooStateProvider);
     final transports = ((about['network'] as Map?)?['transports'] as List?)
         ?.cast<String>();
     final services = [?state.service, ...state.others];
