@@ -36,6 +36,7 @@ void main() {
     ]);
 
     final main = File('lib/shikoo/app/main.dart').readAsStringSync();
+    expect(main.indexOf('hideLinksInLogs();'), isNonNegative);
     expect(
       main.indexOf('hideLinksInLogs();'),
       lessThan(main.indexOf('shikooDiag.start(')),

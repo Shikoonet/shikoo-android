@@ -565,7 +565,9 @@ void main() {
   testWidgets("the menu hangs under «▾», its end on «▾»'s and inside the "
       'card: a TV of 960, 1280 and 1920, phones of 360 and 412, both '
       'languages, a long server name', (tester) async {
-    const long = 'آلمان ۲ - Hetzner Falkenstein premium';
+    // Long enough that the menu always reaches the card's far edge, in both languages.
+    const long =
+        'آلمان ۲ - Hetzner Falkenstein premium dedicated 10 Gbit unmetered';
     final wrong = <String>[];
     for (final language in ['fa', 'en']) {
       final l = lookupShikooL10n(Locale(language));
@@ -612,6 +614,11 @@ void main() {
         if (menu.left < card.left - 0.5 || menu.right > card.right + 0.5) {
           wrong.add('$at: menu $menu out of the card $card');
         }
+        final start = language == 'fa'
+            ? menu.right - card.right
+            : menu.left - card.left;
+        if (start.abs() > 0.5)
+          wrong.add('$at: menu starts $start off the card');
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
       }

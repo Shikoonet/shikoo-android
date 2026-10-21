@@ -151,6 +151,7 @@ Widget _app(
   List<Override> overrides = const [],
   Locale locale = const Locale('fa'),
   Brightness brightness = Brightness.light,
+  bool titleBar = false,
 }) => ProviderScope(
   key: UniqueKey(),
   overrides: [noShots, ...overrides],
@@ -162,6 +163,15 @@ Widget _app(
       ...GlobalMaterialLocalizations.delegates,
     ],
     theme: shikooThemeData(brightness, tv: false),
+    // As ShikooWindow: its title bar sits over the navigator, which no longer starts at the window's top.
+    builder: titleBar
+        ? (_, child) => Column(
+            children: [
+              const SizedBox(height: ShikooSizes.titleBar),
+              Expanded(child: child!),
+            ],
+          )
+        : null,
     home: home,
   ),
 );
@@ -2117,6 +2127,7 @@ void main() {
           _app(
             const ShikooHome(),
             locale: Locale(language),
+            titleBar: true,
             overrides: [
               shikooStateProvider.overrideWithValue(
                 _state(ShikooConnection.on, server: long, notice: notice),
