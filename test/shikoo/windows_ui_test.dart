@@ -1256,6 +1256,74 @@ void main() {
       expect(first(), 'نسخهٔ تازه آمده');
     }, variant: _windows);
 
+    testWidgets('a sign-in and a new version at once send one message, not '
+        'two', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      Tray.instance.resetForTesting();
+      final messenger = tester.binding.defaultBinaryMessenger;
+      for (final channel in const ['window_manager', 'tray']) {
+        messenger.setMockMethodCallHandler(
+          MethodChannel(channel),
+          (call) async => call.method == 'getId' ? 0 : false,
+        );
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(MethodChannel(channel), null),
+        );
+      }
+      final notices = <String>[];
+      final home = NotifierProvider<ShikooCell<bool>, bool>(
+        () => ShikooCell(false),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          shikooStateProvider.overrideWithValue(_state(ShikooConnection.off)),
+          shikooHomeShownProvider.overrideWith((ref) => ref.watch(home)),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('fa'),
+            supportedLocales: ShikooL10n.supportedLocales,
+            localizationsDelegates: const [
+              ShikooL10n.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            theme: shikooThemeData(Brightness.light, tv: false),
+            builder: (context, child) => ShikooWindow(
+              popup: _Popup(),
+              hidden: () async => true,
+              notify: (title, _) async => notices.add(title),
+              child: child!,
+            ),
+            home: const Scaffold(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      container.read(home.notifier).set(true);
+      container
+          .read(shikooUpdateOfferProvider.notifier)
+          .set(
+            const UpdateOffer(
+              AppRelease(
+                versionName: '1.0.72',
+                versionCode: 72,
+                minVersionCode: 0,
+                size: 1,
+                sha256: '',
+                url: '',
+              ),
+            ),
+          );
+      await tester.idle();
+      await tester.pumpAndSettle();
+      expect(notices, hasLength(1));
+    }, variant: _windows);
+
     testWidgets("Windows' word on the window decides: a window shown, even "
         'unfocused, gets no message; a minimized or hidden one does', (
       tester,
