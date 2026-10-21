@@ -1380,6 +1380,9 @@ class ShikooController {
         _ref.read(_switchServiceProvider) == (other?.id ?? _current)) {
       return;
     }
+    _ref
+        .read(shikooDiagProvider)
+        .add('T', 'server picked ${withoutFlags(name)}');
     final tap = _endSwitch();
     if (_ref.read(_noticeProvider)
         case SilentReplaced() || SelectedReplaced()) {

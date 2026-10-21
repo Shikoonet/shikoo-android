@@ -22,6 +22,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/rendering.dart';
@@ -904,8 +905,35 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
         _pingRound(container.read(shikooStateProvider).servers);
       }
     });
+    container.listen(shikooStateProvider.select((s) => s.switching), (
+      _,
+      shift,
+    ) {
+      if (shift?.stage == ShikooSwitchStage.failed) {
+        add('T', 'server switch failed ${withoutFlags(shift!.to)}');
+      }
+    });
+    container.listen(shikooStateProvider.select((s) => s.notice), (_, notice) {
+      if (notice case SilentReplaced(:final silent, :final replacement)) {
+        add(
+          'T',
+          'server silent ${withoutFlags(silent)} -> ${withoutFlags(replacement)}',
+        );
+      }
+    });
+    // After the two above, so a cause changing with the server is told first.
+    container.listen(shikooStateProvider.select(_serverLine), (_, line) {
+      if (line != null) add('T', line);
+    });
     return _onStart();
   }
+
+  static String? _serverLine(ShikooState state) =>
+      switch ((state.connection, state.selectedServer?.label)) {
+        (ShikooConnection.on, final label?) => 'server in use $label',
+        (ShikooConnection.error, final label?) => 'server tried $label',
+        _ => null,
+      };
 
   Future<void> _onStart() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1286,10 +1314,11 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
         add('T', line);
       }
     } catch (_) {}
+    final state = _container!.read(shikooStateProvider);
+    if (_serverLine(state) case final line?) add('T', line);
     _flushRepeat();
     final now = DateTime.now();
     final known = _knownNow();
-    final state = _container!.read(shikooStateProvider);
     final transports = ((about['network'] as Map?)?['transports'] as List?)
         ?.cast<String>();
     final services = [?state.service, ...state.others];
