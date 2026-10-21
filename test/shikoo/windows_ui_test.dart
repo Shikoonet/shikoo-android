@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fl_clash/common/constant.dart' show shikooStagingBuild;
 import 'package:fl_clash/providers/providers.dart';
@@ -2978,6 +2979,88 @@ void main() {
       }
     }
   }, variant: _computerAndPhone);
+
+  testWidgets("a computer's ways menu has the frame's 8 corners and items "
+      'from 44 high, 4 above and below; a phone keeps 12 and 48', (
+    tester,
+  ) async {
+    final l = lookupShikooL10n(const Locale('fa'));
+    await _pumpHome(tester, const Size(864, 492));
+    await tester.tap(find.bySemanticsLabel(l.refreshWays).first);
+    await tester.pumpAndSettle();
+    final t = ShikooTheme.of(tester.element(find.text(l.refreshDirect)));
+    final box = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.text(l.refreshDirect),
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Container &&
+                  w.decoration is ShapeDecoration &&
+                  (w.decoration! as ShapeDecoration).shadows != null,
+            ),
+          )
+          .first,
+    );
+    final corner =
+        ((box.decoration! as ShapeDecoration).shape
+                as RoundedSuperellipseBorder)
+            .borderRadius;
+    expect(corner, BorderRadius.circular(shikooDesktop ? Radii.sm : Radii.md));
+    for (final text in [l.refreshDirect, l.refreshViaServer]) {
+      final item = tester.getRect(
+        find.ancestor(of: find.text(text), matching: find.byType(Pressable)),
+      );
+      final lines = tester.getRect(
+        find.ancestor(of: find.text(text), matching: find.byType(Column)).first,
+      );
+      if (shikooDesktop) {
+        expect(item.height, greaterThanOrEqualTo(t.s.button), reason: text);
+        expect(
+          lines.top - item.top,
+          closeTo(math.max(Space.s1, (t.s.button - lines.height) / 2), 0.01),
+          reason: text,
+        );
+      } else {
+        expect(item.height, greaterThanOrEqualTo(ShikooSizes.touch));
+        expect(lines.top - item.top, greaterThanOrEqualTo(Space.s2));
+      }
+    }
+  }, variant: _computerAndPhone);
+
+  testWidgets('a ways menu opened with a click takes its first arrow onto the '
+      'first way; one opened with Enter starts there, ring and all', (
+    tester,
+  ) async {
+    addTearDown(ringOnKeys());
+    final l = lookupShikooL10n(const Locale('fa'));
+    bool on(Finder found) => Focus.of(tester.element(found)).hasPrimaryFocus;
+    final first = find.text(l.refreshDirect);
+    final caret = find.bySemanticsLabel(l.refreshWays).first;
+    await _pumpHome(tester, const Size(864, 492));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(caret));
+    await mouse.down(tester.getCenter(caret));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    await mouse.removePointer();
+    expect(_ring, findsNothing);
+    expect(on(first), isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(on(first), isTrue);
+    expect(_ring, findsOne);
+
+    await _pumpHome(tester, const Size(864, 492));
+    for (var i = 0; i < 30 && !on(caret); i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(on(first), isTrue);
+    expect(_ring, findsOne);
+  }, variant: _windows);
 
   testWidgets('the other-device page asks a computer for a phone with '
       'Telegram, and a phone for another one', (tester) async {

@@ -238,7 +238,9 @@ class _Menu extends StatelessWidget {
             color: t.c.surface,
             shadows: t.c.raisedShadow,
             shape: RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(Radii.md),
+              borderRadius: BorderRadius.circular(
+                shikooDesktop ? Radii.sm : Radii.md,
+              ),
               side: BorderSide(color: t.c.border),
             ),
           ),
@@ -260,7 +262,10 @@ class _Menu extends StatelessWidget {
                         ? l.refreshDirectHintDesktop
                         : l.refreshDirectHint,
                     isTV: isTV,
-                    autofocus: true,
+                    autofocus:
+                        !shikooDesktop ||
+                        FocusManager.instance.highlightMode ==
+                            FocusHighlightMode.traditional,
                     onPressed: () => choose(ShikooRoute.direct),
                   ),
                   _Item(
@@ -319,11 +324,13 @@ class _ItemState extends State<_Item> {
     );
     Widget face(BuildContext context, bool focused) => Container(
       constraints: BoxConstraints(
-        minHeight: widget.isTV ? t.s.row + Space.s3 : ShikooSizes.touch,
+        minHeight: widget.isTV
+            ? t.s.row + Space.s3
+            : (shikooDesktop ? t.s.button : ShikooSizes.touch),
       ),
       padding: EdgeInsets.symmetric(
         horizontal: widget.isTV ? Space.s4 : Space.s3,
-        vertical: Space.s2,
+        vertical: shikooDesktop ? Space.s1 : Space.s2,
       ),
       decoration: ShapeDecoration(
         color: focused
