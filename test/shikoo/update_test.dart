@@ -937,8 +937,12 @@ void main() {
     test('the file is started in the turn it was hashed in, so a write '
         'queued during the disconnect lands only after the start', () async {
       final update = await ready();
+      final swapped = Completer<void>();
       afterDisconnect(
-        () => Timer.run(() => exe().writeAsBytesSync(utf8.encode('swapped'))),
+        () => Timer.run(() {
+          exe().writeAsBytesSync(utf8.encode('swapped'));
+          swapped.complete();
+        }),
       );
       final startedSha = <String>[];
       final start = update.startInstaller;
@@ -951,6 +955,8 @@ void main() {
       expect(startedSha, [_sha]);
       installer.exited.complete(1);
       await installing;
+      // A busy machine can poll the start before the write's turn; tearDown must not delete under it.
+      await swapped.future;
     });
 
     test(
