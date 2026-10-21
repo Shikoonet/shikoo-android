@@ -1054,11 +1054,16 @@ class _Message extends StatelessWidget {
       RefreshFailed(:final way) => (
         l.updateFailedTitle,
         switch (way) {
-          ShikooFailedWay.directOff => l.updateFailedDirectOff,
-          ShikooFailedWay.direct => l.updateFailedDirect,
+          ShikooFailedWay.directOff =>
+            shikooDesktop
+                ? l.updateFailedDirectOffDesktop
+                : l.updateFailedDirectOff,
+          ShikooFailedWay.direct =>
+            shikooDesktop ? l.updateFailedDirectDesktop : l.updateFailedDirect,
           ShikooFailedWay.server => l.updateFailedViaServer(name),
           ShikooFailedWay.both => l.updateFailedBoth(name),
-          ShikooFailedWay.panel => l.updateFailedPanel,
+          ShikooFailedWay.panel =>
+            shikooDesktop ? l.updateFailedPanelDesktop : l.updateFailedPanel,
           ShikooFailedWay.notConnected => l.updateFailedConnectFirst,
         },
       ),

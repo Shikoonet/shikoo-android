@@ -1476,6 +1476,22 @@ class ShikooL10nFa extends ShikooL10n {
       'گوشی‌ای با تلگرام داری؟ این کد تصویری را با دوربینش اسکن کن.';
 
   @override
+  String get refreshDirectHintDesktop =>
+      'از اینترنتِ خودِ این کامپیوتر، حتی وقتی وصلی';
+
+  @override
+  String get updateFailedDirectOffDesktop =>
+      'از اینترنتِ خودِ این کامپیوتر جواب نیامد. با همین سرورها وصل شو، بعد از راه سرور امتحان کن.';
+
+  @override
+  String get updateFailedDirectDesktop =>
+      'از اینترنتِ خودِ این کامپیوتر جواب نیامد. از راه سرور امتحان کن.';
+
+  @override
+  String get updateFailedPanelDesktop =>
+      'سرور اشتراکِ شیکو الان جواب نمی‌دهد؛ ایراد از این کامپیوتر نیست. همین سرورها کار می‌کنند و خودش کمی بعد دوباره امتحان می‌کند.';
+
+  @override
   String get modeLabel => 'روش اتصال';
 
   @override

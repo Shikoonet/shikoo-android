@@ -1533,6 +1533,22 @@ class ShikooL10nEn extends ShikooL10n {
       'Have a phone with Telegram? Scan this code with its camera.';
 
   @override
+  String get refreshDirectHintDesktop =>
+      'Through this computer\'s own internet, even while connected';
+
+  @override
+  String get updateFailedDirectOffDesktop =>
+      'No answer through this computer\'s own internet. Connect with these servers, then try through the server.';
+
+  @override
+  String get updateFailedDirectDesktop =>
+      'No answer through this computer\'s own internet. Try through the server.';
+
+  @override
+  String get updateFailedPanelDesktop =>
+      'ShikooNet\'s subscription server isn\'t answering right now; it\'s not this computer. These servers still work, and it tries again by itself shortly.';
+
+  @override
   String get modeLabel => 'Connection method';
 
   @override

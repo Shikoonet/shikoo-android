@@ -1983,7 +1983,7 @@ void main() {
             }
             for (final text in [
               l.refreshDirect,
-              l.refreshDirectHint,
+              l.refreshDirectHintDesktop,
               l.refreshViaServer,
               l.refreshViaServerHint(serverName(long)),
             ]) {
@@ -2492,6 +2492,64 @@ void main() {
       }
     }, variant: _windows);
 
+    testWidgets("a ways-menu item under the mouse is as faint as a row's, "
+        'never the chosen colour', (tester) async {
+      addTearDown(ringOnKeys());
+      for (final brightness in Brightness.values) {
+        final c = brightness == Brightness.light
+            ? ShikooColors.light
+            : ShikooColors.dark;
+        _window(tester, const Size(864, 492));
+        await tester.pumpWidget(
+          _app(
+            const ShikooHome(),
+            brightness: brightness,
+            overrides: [
+              shikooStateProvider.overrideWithValue(
+                _state(ShikooConnection.on),
+              ),
+            ],
+          ),
+        );
+        await tester.pump();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(1, 1));
+        final caret = tester.getCenter(
+          find.bySemanticsLabel(l.refreshWays).first,
+        );
+        await mouse.moveTo(caret);
+        await mouse.down(caret);
+        await mouse.up();
+        await mouse.moveTo(const Offset(1, 1));
+        await tester.pumpAndSettle();
+        final item = find
+            .ancestor(
+              of: find.text(l.refreshViaServer),
+              matching: find.byType(Pressable),
+            )
+            .first;
+        final menu = find
+            .ancestor(of: item, matching: find.byType(RepaintBoundary))
+            .first;
+        final edge = Offset(
+          tester.getRect(item).left + 3,
+          tester.getCenter(item).dy,
+        );
+        expect(await _pixel(tester, menu, edge), _looks(c.surface));
+
+        await mouse.moveTo(tester.getCenter(item));
+        await tester.pump();
+        final hovered = await _pixel(tester, menu, edge);
+        expect(
+          hovered,
+          _looks(Color.alphaBlend(c.hoverBg, c.surface)),
+          reason: '$brightness',
+        );
+        expect(hovered, isNot(_looks(c.selectedBg)));
+        await mouse.removePointer();
+      }
+    }, variant: _windows);
+
     testWidgets('the maximised sign-in keeps the brand and the buttons one '
         'group, 24 apart, in the middle; the language in the page\'s corner', (
       tester,
@@ -2556,7 +2614,12 @@ void main() {
       findsOne,
     );
     await home(ShikooConnection.on, notice: const RefreshFailed());
-    expect(find.textContaining(l.updateFailedDirectOff), findsOne);
+    expect(
+      find.textContaining(
+        pick(l.updateFailedDirectOffDesktop, l.updateFailedDirectOff),
+      ),
+      findsOne,
+    );
     await tester.pumpWidget(
       _app(
         locale: en,
@@ -2656,11 +2719,12 @@ void main() {
       l.subCancelDesktop,
       l.subRetryDesktop,
       l.errorConnectDesktop('x', 1),
-      l.updateFailedDirectOff,
-      l.updateFailedDirect,
+      l.refreshDirectHintDesktop,
+      l.updateFailedDirectOffDesktop,
+      l.updateFailedDirectDesktop,
       l.updateFailedViaServer('x'),
       l.updateFailedBoth('x'),
-      l.updateFailedPanel,
+      l.updateFailedPanelDesktop,
       l.updateFailedConnectFirst,
       l.noServiceHelpDesktop,
       l.loginTelegramNoteDesktop,
@@ -2669,6 +2733,62 @@ void main() {
       l.pasteEmptyHelpDesktop,
     ]) {
       expect(text, isNot(contains(RegExp('[Tt]ap'))));
+    }
+  }, variant: _computerAndPhone);
+
+  testWidgets('a computer says this computer where a phone says this device: '
+      'the ways menu and the failed update', (tester) async {
+    for (final language in ['fa', 'en']) {
+      final locale = Locale(language);
+      final l = lookupShikooL10n(locale);
+      String pick(String computer, String phone) =>
+          shikooDesktop ? computer : phone;
+      for (final (way, computer, phone) in [
+        (
+          ShikooFailedWay.directOff,
+          l.updateFailedDirectOffDesktop,
+          l.updateFailedDirectOff,
+        ),
+        (
+          ShikooFailedWay.direct,
+          l.updateFailedDirectDesktop,
+          l.updateFailedDirect,
+        ),
+        (
+          ShikooFailedWay.panel,
+          l.updateFailedPanelDesktop,
+          l.updateFailedPanel,
+        ),
+      ]) {
+        await _pumpHome(
+          tester,
+          const Size(880, 508),
+          notice: RefreshFailed(way: way),
+          locale: locale,
+        );
+        expect(
+          find.textContaining(pick(computer, phone)),
+          findsOne,
+          reason: '$language ${way.name}',
+        );
+      }
+      await _pumpHome(tester, const Size(880, 508), locale: locale);
+      await tester.tap(find.bySemanticsLabel(l.refreshWays).first);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(pick(l.refreshDirectHintDesktop, l.refreshDirectHint)),
+        findsOne,
+        reason: language,
+      );
+      for (final text in [
+        l.refreshDirectHintDesktop,
+        l.updateFailedDirectOffDesktop,
+        l.updateFailedDirectDesktop,
+        l.updateFailedPanelDesktop,
+      ]) {
+        expect(text, isNot(contains(RegExp('دستگاه|[Dd]evice'))));
+        expect(text, contains(RegExp('این کامپیوتر|this computer')));
+      }
     }
   }, variant: _computerAndPhone);
 

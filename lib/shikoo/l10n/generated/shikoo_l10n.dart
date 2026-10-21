@@ -2402,6 +2402,30 @@ abstract class ShikooL10n {
   /// **'Have a phone with Telegram? Scan this code with its camera.'**
   String get otherDeviceScanDesktop;
 
+  /// No description provided for @refreshDirectHintDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Through this computer\'s own internet, even while connected'**
+  String get refreshDirectHintDesktop;
+
+  /// No description provided for @updateFailedDirectOffDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer through this computer\'s own internet. Connect with these servers, then try through the server.'**
+  String get updateFailedDirectOffDesktop;
+
+  /// No description provided for @updateFailedDirectDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer through this computer\'s own internet. Try through the server.'**
+  String get updateFailedDirectDesktop;
+
+  /// No description provided for @updateFailedPanelDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet\'s subscription server isn\'t answering right now; it\'s not this computer. These servers still work, and it tries again by itself shortly.'**
+  String get updateFailedPanelDesktop;
+
   /// No description provided for @modeLabel.
   ///
   /// In en, this message translates to:

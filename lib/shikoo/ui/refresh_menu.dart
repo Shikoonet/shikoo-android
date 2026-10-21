@@ -241,7 +241,9 @@ class _Menu extends StatelessWidget {
                   _Item(
                     icon: ShikooIcon.wifi,
                     title: l.refreshDirect,
-                    hint: l.refreshDirectHint,
+                    hint: shikooDesktop
+                        ? l.refreshDirectHintDesktop
+                        : l.refreshDirectHint,
                     isTV: isTV,
                     autofocus: true,
                     onPressed: () => choose(ShikooRoute.direct),
@@ -309,7 +311,9 @@ class _ItemState extends State<_Item> {
         vertical: Space.s2,
       ),
       decoration: ShapeDecoration(
-        color: focused ? t.c.focusBg : (_hover && on ? t.c.selectedBg : null),
+        color: focused
+            ? t.c.focusBg
+            : (_hover && on && !shikooDesktop ? t.c.selectedBg : null),
         shape: shape,
       ),
       child: Row(
