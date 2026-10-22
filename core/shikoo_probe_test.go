@@ -12,6 +12,8 @@ import (
 
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/component/dialer"
+	C "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/tunnel"
 )
 
 func answerAfter(t *testing.T, wait time.Duration) string {
@@ -150,6 +152,30 @@ func TestTestProxyDelayWaitsTheGraceForWireGuard(t *testing.T) {
 	})
 	if err != nil || delay == nil || delay.Value != -1 {
 		t.Fatalf("delay %+v, err %v; want -1 from a peer that never answers", delay, err)
+	}
+	if took := time.Since(start); took < 600*time.Millisecond {
+		t.Fatalf("gave up after %v, before the 200 ms timeout and the 400 ms grace", took)
+	}
+}
+
+func TestTestDelayWaitsTheGraceForWireGuard(t *testing.T) {
+	withWireGuardGrace(t, 400*time.Millisecond)
+	proxy, err := adapter.ParseProxy(deadWireGuard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = proxy.Close() })
+	tunnel.UpdateProxies(map[string]C.Proxy{"wg": proxy}, nil)
+	t.Cleanup(func() { tunnel.UpdateProxies(nil, nil) })
+
+	start := time.Now()
+	delay := handleTestDelay(&TestDelayParams{
+		ProxyName: "wg",
+		TestUrl:   "http://10.0.0.1/generate_204",
+		Timeout:   200,
+	})
+	if delay == nil || delay.Value != -1 {
+		t.Fatalf("delay %+v; want -1 from a peer that never answers", delay)
 	}
 	if took := time.Since(start); took < 600*time.Millisecond {
 		t.Fatalf("gave up after %v, before the 200 ms timeout and the 400 ms grace", took)
