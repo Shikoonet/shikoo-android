@@ -33,7 +33,11 @@ type ownerTunnel struct {
 	finder  *physicalFinder
 }
 
-var ownerTun *ownerTunnel
+var (
+	ownerTun *ownerTunnel
+	// Sam (2026-10-23): an engine that would not start leaves its server on mihomo's tun until the next run.
+	ownerFailed string
+)
 
 // reCreateTun is listener.ReCreateTun, unless the server in use runs on the owner core.
 func reCreateTun(conf LC.Tun) {
@@ -47,20 +51,22 @@ func reCreateTun(conf LC.Tun) {
 			mapping, iranDirect = ownerInUse(raw, groupPick)
 		}
 	}
-	if mapping == nil {
-		stopOwnerTun()
+	key := fmt.Sprint(conf.Device, mapping, iranDirect)
+	if mapping == nil || key == ownerFailed {
+		closeOwnerTun()
 		listener.ReCreateTun(conf, tunnel.Tunnel)
 		return
 	}
-	key := fmt.Sprint(conf.Device, mapping, iranDirect)
 	if ownerTun != nil && ownerTun.key == key {
 		return
 	}
 	// mihomo's tun leaves first: its DNS would answer the endpoint's name with a fake address.
 	listener.ReCreateTun(LC.Tun{}, tunnel.Tunnel)
-	stopOwnerTun()
+	closeOwnerTun()
 	if err := startOwnerTun(conf.Device, key, mapping, iranDirect); err != nil {
-		log.Errorln("[WG] owner core did not start: %v", err)
+		log.Errorln("[WG] owner core did not start, mihomo carries the server: %v", err)
+		ownerFailed = key
+		listener.ReCreateTun(conf, tunnel.Tunnel)
 	}
 }
 
@@ -162,6 +168,11 @@ func newWintun(options singtun.Options) (wintun singtun.WinTun, err error) {
 }
 
 func stopOwnerTun() {
+	closeOwnerTun()
+	ownerFailed = ""
+}
+
+func closeOwnerTun() {
 	if ownerTun != nil {
 		ownerTun.close()
 		ownerTun = nil
