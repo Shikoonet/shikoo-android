@@ -193,12 +193,76 @@ func TestTheShippedIranianSetGivesARouteListAndroidTakes(t *testing.T) {
 			t.Errorf("%s Iranian = %v", ip, !inside)
 		}
 	}
+	all := float64(addresses(iran.Prefixes()))
 	from13, _, _ := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk, noResolve)
-	below13, _, _ := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk-1, noResolve)
-	t.Logf("Android 13+: %d routes, %d excluded; below 13: %d routes", len(from13.Routes), len(from13.Excluded), len(below13.Routes))
-	if len(from13.Excluded) == 0 || len(below13.Routes) <= len(from13.Excluded) {
-		t.Errorf("from13 %d excluded, below13 %d routes", len(from13.Excluded), len(below13.Routes))
+	if n := len(from13.Routes) + len(from13.Excluded); n > wgRouteBudget || n < wgRouteBudget/2 {
+		t.Errorf("Android 13+: %d routes", n)
 	}
+	excluded := addresses(parsePrefixes(from13.Excluded))
+	below13, _, _ := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk-1, noResolve)
+	if n := len(below13.Routes); n > wgRouteBudget || n < wgRouteBudget/2 {
+		t.Errorf("below 13: %d routes", n)
+	}
+	around := addresses([]netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}) - addresses(parsePrefixes(below13.Routes))
+	t.Logf("Android 13+: %d excluded, %.0f%% of Iran's addresses; below 13: %d routes, %.0f%%",
+		len(from13.Excluded), 100*float64(excluded)/all, len(below13.Routes), 100*float64(around)/all)
+	for _, plan := range []*ownerPlan{from13, below13} {
+		var b netipx.IPSetBuilder
+		for _, route := range plan.Routes {
+			b.AddPrefix(netip.MustParsePrefix(route))
+		}
+		for _, route := range plan.Excluded {
+			b.RemovePrefix(netip.MustParsePrefix(route))
+		}
+		tunnel := must(b.IPSet())
+		if tunnel.Contains(netip.MustParseAddr("2.144.0.1")) || !tunnel.Contains(netip.MustParseAddr("1.1.1.1")) {
+			t.Error("a wide Iranian block rides the tunnel, or a foreign one does not")
+		}
+	}
+}
+
+func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
+	var b netipx.IPSetBuilder
+	b.AddPrefix(netip.MustParsePrefix("2.176.0.0/12"))
+	for i := range 600 {
+		b.AddPrefix(netip.PrefixFrom(netip.AddrFrom4([4]byte{185, byte(i / 256), byte(i % 256), 0}), 24))
+	}
+	iran := must(b.IPSet())
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := len(plan.Routes) + len(plan.Excluded); n > wgRouteBudget {
+			t.Errorf("sdk %d: %d routes", sdk, n)
+		}
+		if sdk >= excludeRouteSdk && !slices.Contains(plan.Excluded, "2.176.0.0/12") {
+			t.Errorf("sdk %d: the /12 is not out: %v", sdk, plan.Excluded[:3])
+		}
+		if sdk < excludeRouteSdk && slices.ContainsFunc(plan.Routes, func(r string) bool {
+			return netip.MustParsePrefix(r).Contains(netip.MustParseAddr("2.176.0.1"))
+		}) {
+			t.Errorf("sdk %d: the /12 is still routed", sdk)
+		}
+	}
+}
+
+func parsePrefixes(values []string) []netip.Prefix {
+	out := make([]netip.Prefix, len(values))
+	for i, value := range values {
+		out[i] = netip.MustParsePrefix(value)
+	}
+	return out
+}
+
+func addresses(prefixes []netip.Prefix) uint64 {
+	var n uint64
+	for _, p := range prefixes {
+		if p.Addr().Is4() {
+			n += 1 << (32 - p.Bits())
+		}
+	}
+	return n
 }
 
 func must[T any](value T, err error) T {

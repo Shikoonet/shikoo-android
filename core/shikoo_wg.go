@@ -13,6 +13,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -254,26 +255,59 @@ func wgPlan(
 		return nil, nil, err
 	}
 	if iran != nil {
-		var cut netipx.IPSetBuilder
-		cut.AddSet(routes)
-		cut.Intersect(iran)
-		excluded, err := cut.IPSet()
-		if err != nil {
+		if routes, plan.Excluded, err = cutIran(routes, iran, sdk >= excludeRouteSdk); err != nil {
 			return nil, nil, err
-		}
-		if sdk >= excludeRouteSdk {
-			plan.Excluded = prefixStrings(excluded)
-		} else {
-			var left netipx.IPSetBuilder
-			left.AddSet(routes)
-			left.RemoveSet(excluded)
-			if routes, err = left.IPSet(); err != nil {
-				return nil, nil, err
-			}
 		}
 	}
 	plan.Routes = prefixStrings(routes)
 	return plan, &wgPrepared{server: fmt.Sprint(mapping["name"]), uapi: uapi.String(), peer: first}, nil
+}
+
+// One binder parcel takes a VPN's routes to every app watching the network: 2067 Iranian ranges overflowed it (Android
+// 15), 8747 routes around them crashed YouTube (7.1). So the widest blocks within wgRouteBudget go; the rest ride the server.
+const wgRouteBudget = 500
+
+func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.IPSet, excluded []string, err error) {
+	var inside netipx.IPSetBuilder
+	inside.AddSet(routes)
+	inside.Intersect(iran)
+	all, err := inside.IPSet()
+	if err != nil {
+		return nil, nil, err
+	}
+	blocks := all.Prefixes()
+	size := func(p netip.Prefix) int { return p.Addr().BitLen() - p.Bits() }
+	slices.SortStableFunc(blocks, func(a, b netip.Prefix) int { return size(b) - size(a) })
+	routesLeft, excluded = routes, []string{}
+	var cut netipx.IPSetBuilder
+	for i, j := 0, 0; i < len(blocks); i = j {
+		for j = i; j < len(blocks) && size(blocks[j]) == size(blocks[i]); j++ {
+			cut.AddPrefix(blocks[j])
+		}
+		out, err := cut.IPSet()
+		if err != nil {
+			return nil, nil, err
+		}
+		if excludeRoute {
+			if len(routes.Prefixes())+len(out.Prefixes()) > wgRouteBudget {
+				break
+			}
+			excluded = prefixStrings(out)
+			continue
+		}
+		var left netipx.IPSetBuilder
+		left.AddSet(routes)
+		left.RemoveSet(out)
+		around, err := left.IPSet()
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(around.Prefixes()) > wgRouteBudget {
+			break
+		}
+		routesLeft = around
+	}
+	return routesLeft, excluded, nil
 }
 
 func prefixStrings(set *netipx.IPSet) []string {
