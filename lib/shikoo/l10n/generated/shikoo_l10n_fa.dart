@@ -100,11 +100,11 @@ class ShikooL10nFa extends ShikooL10n {
   String get subRetryTouch => 'دوباره بزن';
 
   @override
-  String get speedUnit => 'مگ/ث';
+  String get speedUnit => 'مگ';
 
   @override
   String speedLabel(String down, String up) {
-    return 'سرعت دریافت $down مگابایت بر ثانیه، سرعت ارسال $up مگابایت بر ثانیه';
+    return 'سرعت دریافت $down مگابیت بر ثانیه، ارسال $up مگابیت بر ثانیه';
   }
 
   @override

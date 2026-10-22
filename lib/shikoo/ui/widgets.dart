@@ -45,8 +45,14 @@ String clockOf(String language, Duration d) => [
 
 const mebibyte = 1024 * 1024;
 
-String speedOf(String language, num bytes) =>
-    NumberFormat('0.0', language).format(bytes / mebibyte);
+// shortcut: above 999 a fourth digit widens the pill; add Gbps if a service ever gets there.
+String speedOf(String language, num bytes) {
+  final mbps = bytes * 8 / 1e6;
+  return NumberFormat(
+    mbps == 0 || mbps >= 99.95 ? '0' : '0.0',
+    language,
+  ).format(mbps > 0 && mbps < 0.1 ? 0.1 : mbps);
+}
 
 final _opensRtl = RegExp(
   r'^[^\p{L}\u200E\u200F]*(?:\u200F|(?=\p{L})[\p{Script=Arabic}\p{Script=Hebrew}])',
@@ -1043,7 +1049,6 @@ class _PowerButtonState extends State<PowerButton>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Connected, the speed takes its room: the circle holds no fourth line.
               if (!on) ...[
                 SvgIcon(
                   error ? ShikooIcon.alert : ShikooIcon.power,
@@ -1081,8 +1086,6 @@ class _PowerButtonState extends State<PowerButton>
                     tabular: true,
                   ),
                 ),
-                const SizedBox(height: Space.s1),
-                _Speed(color: fg),
               ],
               if (sub != null) ...[
                 const SizedBox(height: Space.s1),
@@ -1138,12 +1141,9 @@ class _PowerButtonState extends State<PowerButton>
   }
 }
 
-/// `.power .speed`: down, then up and the unit, shrunk where it would cross the circle. Watching
-/// the speed alone, it is all that a new sample redraws.
-class _Speed extends ConsumerWidget {
-  const _Speed({required this.color});
-
-  final Color color;
+/// `.pills`: watching the speed alone, they are all that a new sample redraws.
+class SpeedPills extends ConsumerWidget {
+  const SpeedPills({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1151,42 +1151,58 @@ class _Speed extends ConsumerWidget {
     final l = ShikooL10n.of(context);
     final language = Localizations.localeOf(context).languageCode;
     final (:down, :up) = ref.watch(shikooSpeedProvider);
-    final style = t.text(t.s.caption, color: color, tabular: true);
-    Widget part(ShikooIcon arrow, num bytes, [String? unit]) => Row(
+    final number = t.text(
+      t.s.speedPillText,
+      weight: FontWeight.w700,
+      tabular: true,
+    );
+    Widget row(ShikooIcon icon, String value) => Row(
       mainAxisSize: MainAxisSize.min,
       spacing: ShikooSizes.speedIconGap,
       children: [
         SvgIcon(
-          arrow,
-          size: ShikooSizes.speedIcon,
+          icon,
+          size: t.s.iconSm,
           stroke: ShikooSizes.iconStrokeStrong,
-          color: color,
+          color: t.c.positive,
         ),
+        Text(value, style: number),
         Text(
-          speedOf(language, bytes),
-          style: style.copyWith(fontWeight: FontWeight.w700),
+          l.speedUnit,
+          style: t.text(t.s.speedPillText, color: t.c.textMuted),
         ),
-        if (unit != null) Text(unit, style: style),
       ],
+    );
+    final widest = NumberFormat('00.0', language).format(0);
+    Widget pill(ShikooIcon icon, num bytes) => Container(
+      constraints: BoxConstraints(minHeight: t.s.speedPill),
+      padding: const EdgeInsetsDirectional.only(
+        start: ShikooSizes.speedPillStart,
+        end: ShikooSizes.speedPillEnd,
+      ),
+      decoration: ShapeDecoration(
+        color: t.c.surfaceSunken,
+        shape: const StadiumBorder(),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Visibility.maintain(visible: false, child: row(icon, widest)),
+          row(icon, speedOf(language, bytes)),
+        ],
+      ),
     );
     return Semantics(
       label: l.speedLabel(speedOf(language, down), speedOf(language, up)),
       excludeSemantics: true,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: t.s.power * ShikooSizes.speedWidth,
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: ShikooSizes.speedGap,
-            children: [
-              part(ShikooIcon.arrowDown, down),
-              part(ShikooIcon.arrowUp, up, l.speedUnit),
-            ],
-          ),
-        ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: Space.s2,
+        runSpacing: Space.s2,
+        children: [
+          pill(ShikooIcon.download, down),
+          pill(ShikooIcon.upload, up),
+        ],
       ),
     );
   }
