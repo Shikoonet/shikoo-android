@@ -358,11 +358,19 @@ void main() {
       r'^\[\w+\]$',
       multiLine: true,
     ).allMatches(iss.substring(0, at)).last[0]!;
-    final minVersion = iss.indexOf('\nMinVersion=10.0\n');
     final message = _versionMessage.firstMatch(iss);
 
-    expect(minVersion, isNot(-1));
-    expect(sectionAt(minVersion), '[Setup]');
+    for (final line in [
+      'ArchitecturesAllowed={{ARCH}}',
+      'ArchitecturesInstallIn64BitMode={{ARCH}}',
+      'MinVersion=10.0',
+    ]) {
+      final at = iss.indexOf('\n$line\n');
+      expect(at, isNot(-1), reason: line);
+      expect(sectionAt(at), '[Setup]', reason: line);
+      final key = '\n${line.split('=').first}=';
+      expect(key.allMatches(iss), hasLength(1), reason: line);
+    }
     expect(message, isNotNull);
     expect(sectionAt(message!.start), '[Messages]');
     final lines = message[1]!.split('%n');
