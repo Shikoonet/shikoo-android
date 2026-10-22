@@ -3376,8 +3376,9 @@ void main() {
     }
   });
 
-  test('after a 401 and a new sign-in the last connect error is gone; a tunnel '
-      'up through a card that stays is not touched', () async {
+  test('after a 401 and a new sign-in the last connect error is gone; a '
+      'connect under way, or a tunnel up through a card that stays, is not '
+      'touched', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final panel = await _panel(container, core);
     final controller = container.read(shikooControllerProvider);
@@ -3389,6 +3390,9 @@ void main() {
     await pumpEventQueue();
     unawaited(controller.connect());
     await pumpEventQueue();
+    controller.forgetError();
+    await pumpEventQueue();
+    expect(state().connection, ShikooConnection.connecting);
     controller.onVpnConsent('refused');
     await pumpEventQueue();
     expect(state().lastError, ShikooError.vpnRefused);
@@ -3413,6 +3417,46 @@ void main() {
     expect(state().service!.id, pasted);
     expect(state().connection, ShikooConnection.on);
     expect(setup.runs, isEmpty);
+  });
+
+  test('a press makes only its own update loud: a later automatic failure of '
+      'the same card shows no notice', () async {
+    final c = await _twoCards();
+    await c.controller.refreshService();
+    _gone.add('/file/user111/a');
+    await c.controller.refreshService(manual: false);
+    expect(c.state().refresh, ShikooRefresh.failed);
+    expect(c.state().notice, isNull);
+  });
+
+  test("the news of the card in use stays through another card's update and "
+      'leaves with its own next one, also a failed one', () async {
+    final c = await _twoCards();
+    List<String> fresh() => [
+      for (final s in c.state().servers)
+        if (s.fresh) s.name,
+    ];
+    c.setup.onApply = () => c.container.read(groupsProvider.notifier).value =
+        _servers(['آلمان ۱', 'هلند ۱', 'فرانسه ۱']);
+    await c.controller.refreshService(manual: false);
+    await c.controller.refreshOther(c.b);
+    expect(c.state().notice, isA<ServersChanged>());
+    expect(fresh(), ['فرانسه ۱']);
+
+    _gone.add('/file/user111/a');
+    await c.controller.refreshService(manual: false);
+    expect(c.state().notice, isNull);
+    expect(fresh(), isEmpty);
+  });
+
+  test("another card's good update leaves the failure notice of the card in "
+      'use', () async {
+    final c = await _twoCards();
+    _gone.add('/file/user111/a');
+    await c.controller.refreshService();
+    expect(c.state().notice, isA<RefreshFailed>());
+    await c.controller.refreshOther(c.b);
+    expect(c.state().notice, isA<RefreshFailed>());
   });
 
   group('an update leaves without the server, or through it', () {

@@ -132,7 +132,7 @@ class ShikooService {
 
   final bool usageKnown;
 
-  /// Of a service other than the current one; the current one's is [ShikooState.refresh].
+  /// This service's own update; for the one in use it is also [ShikooState.refresh].
   final ShikooRefresh refresh;
 
   final ShikooLeg? leg;
