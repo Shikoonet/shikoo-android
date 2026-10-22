@@ -836,8 +836,17 @@ void main() {
       find.text('اعتبارش تمام شد. بعد از تمدید، «دوباره» را بزن.'),
       findsOneWidget,
     );
-    for (final label in ['تمدید', 'پشتیبانی', 'دوباره']) {
-      expect(find.widgetWithText(ShikooButton, label), findsOneWidget);
+    // Renew in the card and in the top bar; support in the top bar alone.
+    for (final (label, count) in [
+      ('تمدید', 2),
+      ('پشتیبانی', 1),
+      ('دوباره', 1),
+    ]) {
+      expect(
+        find.widgetWithText(ShikooButton, label),
+        findsNWidgets(count),
+        reason: label,
+      );
     }
     expect(_focusedButton(), 'تمدید');
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
@@ -850,7 +859,7 @@ void main() {
 
   testWidgets('a service the shop turned off reads «غیرفعال شد» on the card '
       'before its end date; a disabled one renews, a removed or failed one '
-      'has support only (#31)', (tester) async {
+      'leaves the top bar its support only (#31)', (tester) async {
     final later = DateTime.now().add(const Duration(days: 24));
     for (final (status, tv) in [
       ('removed', true),
@@ -891,8 +900,8 @@ void main() {
       );
       expect(
         find.widgetWithText(ShikooButton, 'تمدید'),
-        renews ? findsOneWidget : findsNothing,
-        reason: why,
+        renews ? findsNWidgets(2) : findsNothing,
+        reason: "$why: the card's and the top bar's",
       );
       expect(
         find.text('با «تمدید» دوباره وصل می‌شوی.'),
@@ -904,9 +913,9 @@ void main() {
     }
   });
 
-  testWidgets('a service the door says the bot will not renew has support '
-      'only on the card, whatever its status; one it will renew keeps '
-      'renewal', (tester) async {
+  testWidgets('a service the door says the bot will not renew has no renewal, '
+      'whatever its status, and the TV starts on the top bar\'s support; one it '
+      'will renew keeps renewal', (tester) async {
     const removed =
         'غیرفعال شد و تمدید نمی‌شود. برای پیگیری، «پشتیبانی» را بزن.';
     const notRenewable =
@@ -943,8 +952,8 @@ void main() {
       final why = '$status, renewable $renewable, ${tv ? 'TV' : 'phone'}';
       expect(
         find.widgetWithText(ShikooButton, 'تمدید'),
-        renews ? findsOneWidget : findsNothing,
-        reason: why,
+        renews ? findsNWidgets(2) : findsNothing,
+        reason: "$why: the card's and the top bar's",
       );
       expect(
         find.text('با «تمدید» دوباره وصل می‌شوی.'),
@@ -1010,8 +1019,8 @@ void main() {
     expect(find.text('اینترنت گوشی را بررسی کن و دوباره بزن.'), findsOneWidget);
   });
 
-  testWidgets('on the phone a used-up service with no link has renew and '
-      'support, and no try-again', (tester) async {
+  testWidgets('on the phone a used-up service with no link has renew, support '
+      'in the top bar, and no try-again', (tester) async {
     await _pump(
       tester,
       tv: false,
@@ -1027,7 +1036,7 @@ void main() {
       find.text('حجمش تمام شد. با تمدید دوباره فعال می‌شود.'),
       findsOneWidget,
     );
-    expect(find.widgetWithText(ShikooButton, 'تمدید'), findsOneWidget);
+    expect(find.widgetWithText(ShikooButton, 'تمدید'), findsNWidgets(2));
     expect(find.widgetWithText(ShikooButton, 'پشتیبانی'), findsOneWidget);
     expect(find.widgetWithText(ShikooButton, 'دوباره'), findsNothing);
   });

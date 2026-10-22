@@ -1,0 +1,52 @@
+name: Shikoo helper on Windows
+
+# Windows minutes only when the helper changes: its proxy guard and service code build on Windows alone.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'services/helper/**'
+      - '.github/workflows/shikoo-helper-windows.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/helper/**'
+      - '.github/workflows/shikoo-helper-windows.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  helper:
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    runs-on: windows-2022
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The Rust of plugins/rust_api, as tools/windows-toolchain.ps1 sets it
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' plugins/rust_api/rust/rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component clippy,rustfmt
+          rustup default "$channel"
+          rustc --version
+
+      - run: cargo fmt --manifest-path services/helper/Cargo.toml -- --check
+
+      - name: Production and staging builds
+        run: |
+          for flavor in production staging; do
+            export SHIKOO_FLAVOR=$flavor
+            cargo clippy --manifest-path services/helper/Cargo.toml --features windows-service --all-targets -- -D warnings
+            cargo test --manifest-path services/helper/Cargo.toml --features windows-service
+          done

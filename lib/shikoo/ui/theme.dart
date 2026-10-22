@@ -239,7 +239,7 @@ class ShikooSizes {
   final double row;
   final double button;
 
-  /// `.btn-sm`: renew in a finished service's row; its touch target stays [touch].
+  /// `.btn-sm`: renew in a finished row and the phone's top bar; its touch target stays [touch].
   final double buttonSm;
   final double icon;
   final double iconSm;

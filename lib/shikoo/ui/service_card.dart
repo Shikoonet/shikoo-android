@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
-import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
@@ -46,7 +45,6 @@ ShikooServiceStatus? restingFor(ShikooState state) {
 /// The card nodes the remote is sent to by hand; a row by its server's name, wherever it sits.
 class CardFocus {
   final renew = FocusNode();
-  final support = FocusNode();
   final ping = FocusNode();
   final refresh = FocusNode();
   final caret = FocusNode();
@@ -61,7 +59,6 @@ class CardFocus {
 
   void dispose() {
     renew.dispose();
-    support.dispose();
     ping.dispose();
     refresh.dispose();
     caret.dispose();
@@ -74,8 +71,8 @@ class CardFocus {
 }
 
 /// `.card.svc` with its servers, as in `tv-ping.html`: name, status and the last update, the
-/// update's result, volume and validity, the panel's announcement, renew and support, then
-/// the server list.
+/// update's result, volume and validity, the panel's announcement, renew once it has ended
+/// (support is the top bar's), then the server list.
 class ServiceCard extends StatefulWidget {
   const ServiceCard({
     super.key,
@@ -151,7 +148,7 @@ class _ServiceCardState extends State<ServiceCard> {
     final service = state.service;
     final notice = state.notice;
     final revoked = service?.revoked ?? false;
-    final supportOnly = !revoked && !widget.renews;
+    final renews = !revoked && service?.ended != null && widget.renews;
     final busy = {
       ShikooConnection.on,
       ShikooConnection.connecting,
@@ -316,15 +313,13 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset,
                     child: _Notice(text: service.announce!),
                   ),
-                // Unkeyed, a message appearing above rebuilt Support and the remote fell off it.
-                Padding(
-                  key: const ValueKey('actions'),
-                  padding: inset.copyWith(top: Space.s3),
-                  child: Row(
-                    children: [
-                      if (revoked)
-                        Expanded(
-                          child: ShikooButton(
+                // Unkeyed, a message appearing above rebuilt Renew and the remote fell off it.
+                if (revoked || renews)
+                  Padding(
+                    key: const ValueKey('actions'),
+                    padding: inset.copyWith(top: Space.s3),
+                    child: revoked
+                        ? ShikooButton(
                             label: l.removeService,
                             dangerText: true,
                             onPressed: () => unawaited(
@@ -335,58 +330,22 @@ class _ServiceCardState extends State<ServiceCard> {
                                 connected: busy,
                               ),
                             ),
-                          ),
-                        )
-                      else if (!supportOnly)
-                        Expanded(
-                          child: ShikooButton(
+                          )
+                        : ShikooButton(
                             label: l.renew,
                             icon: state.isTV ? ShikooIcon.qr : null,
                             primary: true,
                             autofocus: state.isTV && restingFor(state) != null,
                             focusNode: focus.renew,
-                            onPressed: () => switch (widget.serviceId) {
-                              final id? => openLink(
-                                context,
-                                isTV: state.isTV,
-                                link: ShikooLinks.renewOne(id, widget.bot),
-                                title: l.renewTitle,
-                                help: l.renewHelpDirect,
-                              ),
-                              null => openLink(
-                                context,
-                                isTV: state.isTV,
-                                link: ShikooLinks.renew,
-                                title: l.renewTitle,
-                                help: l.renewHelpList,
-                                below: l.renewPickInList(
-                                  bidiName(service.username),
-                                ),
-                                strong: service.username,
-                              ),
-                            },
-                          ),
-                        ),
-                      if (!supportOnly) const SizedBox(width: Space.s2),
-                      Expanded(
-                        child: ShikooButton(
-                          label: l.support,
-                          icon: state.isTV ? ShikooIcon.qr : null,
-                          focusNode: focus.support,
-                          onPressed: () => unawaited(
-                            openSupport(
+                            onPressed: () => openRenew(
                               context,
                               isTV: state.isTV,
-                              link: service.supportLink,
-                              below: serviceTitle(context, service),
-                              trigger: 'support',
+                              bot: widget.bot,
+                              id: widget.serviceId,
+                              name: service.name,
                             ),
                           ),
-                        ),
-                      ),
-                    ],
                   ),
-                ),
                 if (service.ended == null &&
                     !state.isTV &&
                     (landed != null || (other && busy)))

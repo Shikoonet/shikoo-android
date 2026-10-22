@@ -447,6 +447,26 @@ class ShikooL10nEn extends ShikooL10n {
   String get close => 'Close';
 
   @override
+  String get chipFinished => 'Finished';
+
+  @override
+  String get renewPickTitle => 'Which service to renew?';
+
+  @override
+  String get renewPickHelp =>
+      'The ShikooNet bot opens that service\'s renewal page in Telegram.';
+
+  @override
+  String get pickHelpTv =>
+      'Next comes a code to scan with your phone\'s camera.';
+
+  @override
+  String get supportPickTitle => 'Support for which service?';
+
+  @override
+  String get supportPickHelp => 'That service\'s support opens.';
+
+  @override
   String get back => 'Back';
 
   @override
