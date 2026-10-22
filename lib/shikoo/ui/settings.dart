@@ -35,8 +35,7 @@ void openSettings(BuildContext context) => unawaited(
   ),
 );
 
-/// Frames `tv-settings-pre-login` and `phone-settings-pasted`: on the TV two columns, so
-/// nothing scrolls.
+/// Frames `tv-settings-pre-login` and `phone-settings-pasted`: on the TV two columns.
 class ShikooSettings extends ConsumerWidget {
   const ShikooSettings({super.key});
 
@@ -271,9 +270,14 @@ class ShikooSettings extends ConsumerWidget {
       ),
       _AppGroup(isTV: isTV),
     ];
+    final coreSwitch = state.coreSwitch;
     return SubPage(
       title: l.settings,
       isTV: isTV,
+      // The TV has no bar: a core switch's news holds the hint's place, moving nothing.
+      hint: isTV && coreSwitch != null
+          ? coreNews(l, coreSwitch).join(' ')
+          : null,
       child: _columns(groups, isTV: isTV),
     );
   }
@@ -396,8 +400,8 @@ class ShikooSettings extends ConsumerWidget {
 
 enum _Check { idle, checking, latest, failed, clock }
 
-/// Settings › App: the version, the core, a check that does not wait out the six hours, and
-/// About. A known update stands in for the check as Home's card (phone-cards-settings-app).
+/// Settings › App: the version, a check that does not wait out the six hours, and About. A
+/// known update stands in for the check as Home's card (phone-cards-settings-app).
 class _AppGroup extends ConsumerStatefulWidget {
   const _AppGroup({required this.isTV});
 
@@ -459,11 +463,6 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
               _Row(
                 title: l.version,
                 value: _version(context, ref.watch(shikooVersionProvider)),
-              ),
-              _Row(
-                title: l.settingsCore,
-                subtitle: l.settingsCoreHelp,
-                value: '\u2066${coreName()}\u2069',
               ),
               if (update == null)
                 _Row(
@@ -640,9 +639,16 @@ class SubPage extends StatelessWidget {
                         children: isTV
                             ? [
                                 heading,
-                                Text(
-                                  hint ?? l.backHintTv,
-                                  style: t.text(s.bodySm, color: t.c.textMuted),
+                                Flexible(
+                                  child: Text(
+                                    hint ?? l.backHintTv,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: t.text(
+                                      s.bodySm,
+                                      color: t.c.textMuted,
+                                    ),
+                                  ),
                                 ),
                               ]
                             : [
@@ -686,7 +692,7 @@ class SubPage extends StatelessWidget {
   }
 }
 
-/// On a TV two columns, the groups in turn, so nothing scrolls.
+/// On a TV two columns, the groups in turn.
 Widget _columns(List<Widget> groups, {required bool isTV}) => isTV
     ? Padding(
         padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),

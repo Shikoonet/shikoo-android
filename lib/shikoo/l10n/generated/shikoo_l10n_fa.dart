@@ -1131,12 +1131,6 @@ class ShikooL10nFa extends ShikooL10n {
       'در صفحهٔ بعد «منابع ناشناس» را پیدا و روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.';
 
   @override
-  String get settingsCore => 'هسته';
-
-  @override
-  String get settingsCoreHelp => 'همراه خودِ برنامه به‌روز می‌شود.';
-
-  @override
   String get settingsCheckUpdate => 'بررسی به‌روزرسانی';
 
   @override

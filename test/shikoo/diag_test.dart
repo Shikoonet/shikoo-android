@@ -14,6 +14,8 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart'
+    show coreName, flclashVersion;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -916,6 +918,16 @@ void main() {
     expect(device, containsPair('release', '10.0.26100'));
     expect(device, containsPair('ram_total_mb', 16384));
     expect(_doorKeys, containsAll(_keysOf({'device': device})));
+  });
+
+  // `flutter test --dart-define=SHIKOO_CORE=70f0570` checks a stamped build; a plain run, the fallback.
+  test('the report names FlClash and the core commit the build stamped, '
+      'within the 64 characters the door takes', () {
+    const stamp = String.fromEnvironment('SHIKOO_CORE');
+    final core = (_about['app']! as Map)['core']! as String;
+    expect(core, 'FlClash $flclashVersion, ${coreName()}');
+    expect(core, endsWith(stamp.isEmpty ? 'mihomo' : 'mihomo\u00A0$stamp'));
+    expect(core.length, lessThanOrEqualTo(64));
   });
 
   test('a PC names itself windows-x64; Android keeps its own ABI name', () {

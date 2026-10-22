@@ -1185,12 +1185,6 @@ class ShikooL10nEn extends ShikooL10n {
       'On the next screen, find and turn on Unknown sources, then press Back on the remote.';
 
   @override
-  String get settingsCore => 'Core';
-
-  @override
-  String get settingsCoreHelp => 'Updates together with the app.';
-
-  @override
   String get settingsCheckUpdate => 'Check for updates';
 
   @override

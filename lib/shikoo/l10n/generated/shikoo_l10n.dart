@@ -1838,18 +1838,6 @@ abstract class ShikooL10n {
   /// **'On the next screen, find and turn on Unknown sources, then press Back on the remote.'**
   String get installPermissionLegacyTv;
 
-  /// No description provided for @settingsCore.
-  ///
-  /// In en, this message translates to:
-  /// **'Core'**
-  String get settingsCore;
-
-  /// Under "Core" in Settings › App, whose value names the mihomo core by the core/Clash.Meta commit the release build stamps (e.g. mihomo 70f0570), or plain mihomo in a build without the stamp. There is no separate core download.
-  ///
-  /// In en, this message translates to:
-  /// **'Updates together with the app.'**
-  String get settingsCoreHelp;
-
   /// Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home.
   ///
   /// In en, this message translates to:

@@ -210,10 +210,11 @@ jobs:
               *) [ "$n" -eq 0 ] && [ "$pkg" = "$APP_ID" ] ;;
             esac || { echo "::error::$apk is $pkg and carries the staging server $n times"; exit 1; }
             core=$(git rev-parse --short=7 HEAD:core/Clash.Meta)
-            # The row's text holds a bidi isolate, so the compiler keeps it as a two-byte string.
+            # The diagnostics report names it. The compiler keeps a string past Latin-1 as two-byte,
+            # so both widths are searched.
             wide=$(sed 's/./&\\x00/g' <<<"$core")
             [ "$(unzip -p "$apk" 'lib/*/libapp.so' | LC_ALL=C grep -caP "$core|$wide" || true)" -gt 0 ] ||
-              { echo "::error::$apk does not name its core commit $core under «هسته»"; exit 1; }
+              { echo "::error::$apk does not name its core commit $core for the diagnostics report"; exit 1; }
           done
           (cd out && sha256sum ./*.apk | sed 's| \./| |' >SHA256SUMS)
           {

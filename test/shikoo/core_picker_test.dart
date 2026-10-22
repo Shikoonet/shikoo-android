@@ -81,16 +81,18 @@ ShikooState _settings({
   bool tv = false,
   List<ShikooCoreRow>? cores,
   bool iranDirect = true,
+  ShikooCoreSwitch? coreSwitch,
 }) => ShikooState(
-  connection: ShikooConnection.off,
+  connection: coreSwitch == null ? ShikooConnection.off : ShikooConnection.on,
   connectedFor: Duration.zero,
   isTV: tv,
   servers: const [],
   cores: cores ?? _rows(),
   iranDirect: iranDirect,
+  coreSwitch: coreSwitch,
 );
 
-/// x-via: «فنلاند ۲» is VLESS over XHTTP, which sing-box does not know.
+/// x-via: «فنلاند ۲», in use, is VLESS over XHTTP, which only sing-box does not know.
 ShikooState _home({
   bool tv = false,
   bool en = false,
@@ -120,16 +122,17 @@ ShikooState _home({
       ),
       ShikooServer(
         name: names[1],
-        type: vless == _singBox ? 'Socks5' : 'Vless',
+        type: vless == _mihomo ? 'Vless' : 'Socks5',
         ping: 84,
         protocol: ShikooProtocol.vless,
         core: vless,
       ),
       ShikooServer(
         name: names[2],
-        type: 'Vless',
+        type: vless == _xray ? 'Socks5' : 'Vless',
         ping: 112,
         protocol: ShikooProtocol.vless,
+        core: vless == _singBox ? _mihomo : vless,
       ),
       ShikooServer(
         name: names[3],
@@ -220,6 +223,10 @@ Future<_Rig> _pump(
       ),
     ),
   );
+  // Settings' language switch shows the saved look, not the app's locale.
+  await ProviderScope.containerOf(
+    tester.element(find.byKey(_screen)),
+  ).read(shikooLookProvider.notifier).setLanguage(locale);
   await tester.pumpAndSettle();
   return (controller: controller, holder: holder);
 }
@@ -414,16 +421,21 @@ void main() {
       await _shot(tester, 'a-sheet-en-dark');
     });
 
-    testWidgets('sing-box picked for VLESS says some servers stay on mihomo', (
-      tester,
-    ) async {
-      await _pump(tester, _settings(cores: _rows(vless: _singBox)));
-      await tester.ensureVisible(find.text(_fa.protocolVless));
-      await tester.tap(find.text(_fa.protocolVless));
-      await tester.pumpAndSettle();
-      expect(find.text(_fa.coreSingBoxVless), findsOneWidget);
-      await _shot(tester, 'x-sheet-light');
-    });
+    for (final b in Brightness.values) {
+      testWidgets('sing-box picked for VLESS says some servers stay on '
+          'mihomo (${b.name})', (tester) async {
+        await _pump(
+          tester,
+          _settings(cores: _rows(vless: _singBox)),
+          brightness: b,
+        );
+        await tester.ensureVisible(find.text(_fa.protocolVless));
+        await tester.tap(find.text(_fa.protocolVless));
+        await tester.pumpAndSettle();
+        expect(find.text(_fa.coreSingBoxVless), findsOneWidget);
+        await _shot(tester, 'x-sheet-${b.name}');
+      });
+    }
 
     testWidgets('large text ×1.45: the sheet and the rows fit', (tester) async {
       await _pump(tester, _settings(), textScale: 1.45);
@@ -435,62 +447,74 @@ void main() {
       await _shot(tester, 'a-sheet-145-light');
     });
 
-    testWidgets('«با میهومو» stands only beside a server the chosen core '
-        'does not know', (tester) async {
-      final rig = await _pump(tester, _home(), home: const ShikooHome());
-      final via = _fa.viaCore(_fa.coreMihomo);
-      expect(find.text(via), findsOneWidget);
-      final row = find.ancestor(
-        of: find.text(via),
-        matching: find.byType(ServerRow),
-      );
-      expect(
-        find.descendant(of: row, matching: find.text('فنلاند ۲')),
-        findsOneWidget,
-      );
-      await tester.ensureVisible(find.text(via));
-      await _shot(tester, 'x-via-light');
+    for (final b in Brightness.values) {
+      testWidgets('«با میهومو» stands only beside a server the chosen core '
+          'does not know (${b.name})', (tester) async {
+        final rig = await _pump(
+          tester,
+          _home(),
+          home: const ShikooHome(),
+          brightness: b,
+        );
+        final via = _fa.viaCore(_fa.coreMihomo);
+        expect(find.text(via), findsOneWidget);
+        final row = find.ancestor(
+          of: find.text(via),
+          matching: find.byType(ServerRow),
+        );
+        expect(
+          find.descendant(of: row, matching: find.text('فنلاند ۲')),
+          findsOneWidget,
+        );
+        await tester.ensureVisible(find.text(via));
+        await _shot(tester, 'x-via-${b.name}');
 
-      rig.holder.value = _home(vless: _mihomo);
-      await tester.pumpAndSettle();
-      expect(find.text(via), findsNothing);
-    });
+        for (final known in [_mihomo, _xray]) {
+          rig.holder.value = _home(vless: known);
+          await tester.pumpAndSettle();
+          expect(find.text(via), findsNothing, reason: known.name);
+        }
+      });
 
-    testWidgets('a core picked while connected: the server switch\'s bar, '
-        'over Settings too, and only «وصل نشد» when it fails', (tester) async {
-      final rig = await _pump(tester, _home(), home: const ShikooHome());
-      openSettings(tester.element(find.byType(ShikooHome)));
-      await tester.pumpAndSettle();
-      final xray = _fa.coreXray;
-      ShikooState at(ShikooSwitchStage stage) => _home(
-        coreSwitch: (
-          protocol: ShikooProtocol.wireguard,
-          to: _xray,
-          stage: stage,
-        ),
-      );
-      rig.holder.value = at(ShikooSwitchStage.moving);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text(_fa.coreSwitching(xray)), findsOneWidget);
-      expect(find.byType(ShikooSettings), findsOneWidget);
-      await tester.ensureVisible(find.text(_fa.coresGroup));
-      await tester.pump(const Duration(milliseconds: 300));
-      await _shot(tester, 'a-switch-light');
+      testWidgets('a core picked while connected: the server switch\'s bar, '
+          'over Settings too, and only «وصل نشد» when it fails (${b.name})', (
+        tester,
+      ) async {
+        final rig = await _pump(
+          tester,
+          _home(vless: _xray),
+          home: const ShikooHome(),
+          brightness: b,
+        );
+        openSettings(tester.element(find.byType(ShikooHome)));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text(_fa.coresGroup));
+        await tester.pumpAndSettle();
+        final xray = _fa.coreXray;
+        ShikooState at(ShikooSwitchStage stage) => _home(
+          vless: _xray,
+          coreSwitch: (protocol: ShikooProtocol.vless, to: _xray, stage: stage),
+        );
+        for (final (stage, line, shot) in [
+          (ShikooSwitchStage.moving, _fa.coreSwitching(xray), 'a-switch'),
+          (ShikooSwitchStage.done, _fa.coreSwitched(xray), 'a-switch-done'),
+          (ShikooSwitchStage.failed, _fa.powerFailed, 'a-switch-failed'),
+        ]) {
+          rig.holder.value = at(stage);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.text(line), findsOneWidget, reason: stage.name);
+          expect(find.byType(ShikooSettings), findsOneWidget);
+          await _shot(tester, '$shot-${b.name}');
+        }
+        expect(find.text(_fa.coreSwitching(xray)), findsNothing);
+        expect(find.text(_fa.coreSwitched(xray)), findsNothing);
 
-      rig.holder.value = at(ShikooSwitchStage.done);
-      await tester.pump();
-      expect(find.text(_fa.coreSwitched(xray)), findsOneWidget);
-
-      rig.holder.value = at(ShikooSwitchStage.failed);
-      await tester.pump();
-      expect(find.text(_fa.powerFailed), findsOneWidget);
-      expect(find.textContaining(xray), findsNothing);
-
-      rig.holder.value = _home();
-      await tester.pumpAndSettle();
-      expect(find.text(_fa.powerFailed), findsNothing);
-    });
+        rig.holder.value = _home(vless: _xray);
+        await tester.pumpAndSettle();
+        expect(find.text(_fa.powerFailed), findsNothing);
+      });
+    }
   });
 
   group('TV', () {
@@ -615,23 +639,73 @@ void main() {
       await _shot(tester, 'x-tv-en-dark');
     });
 
-    testWidgets('a core switch shows in the slot under the server pill', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        _home(
-          tv: true,
-          coreSwitch: (
-            protocol: ShikooProtocol.vless,
-            to: _xray,
-            stage: ShikooSwitchStage.moving,
+    for (final b in Brightness.values) {
+      testWidgets('a core switch shows in the slot under the server pill '
+          '(${b.name})', (tester) async {
+        await _pump(
+          tester,
+          _home(
+            tv: true,
+            vless: _xray,
+            coreSwitch: (
+              protocol: ShikooProtocol.vless,
+              to: _xray,
+              stage: ShikooSwitchStage.moving,
+            ),
           ),
-        ),
-        home: const ShikooHome(),
-      );
-      expect(find.text(_fa.coreSwitching(_fa.coreXray)), findsOneWidget);
-    });
+          home: const ShikooHome(),
+          brightness: b,
+        );
+        expect(find.text(_fa.coreSwitching(_fa.coreXray)), findsOneWidget);
+        await _shot(tester, 'a-tv-home-switch-${b.name}');
+      });
+
+      testWidgets('on Settings a core switch holds the hint\'s place for its '
+          'time, the remote and the rows staying put (${b.name})', (
+        tester,
+      ) async {
+        final cores = _rows(vless: _xray);
+        final rig = await _pump(
+          tester,
+          _settings(tv: true, cores: cores),
+          brightness: b,
+        );
+        final hint = find.text(_fa.backHintTv);
+        final slot = tester.getRect(hint);
+        final rows = _top(tester, _fa.coresGroup);
+        final remote = _focused();
+        for (final (stage, line, shot) in [
+          (
+            ShikooSwitchStage.moving,
+            _fa.coreSwitching(_fa.coreXray),
+            'a-tv-set-switch',
+          ),
+          (ShikooSwitchStage.done, _fa.coreSwitched(_fa.coreXray), null),
+          (ShikooSwitchStage.failed, _fa.powerFailed, 'a-tv-set-failed'),
+        ]) {
+          rig.holder.value = _settings(
+            tv: true,
+            cores: cores,
+            coreSwitch: (
+              protocol: ShikooProtocol.vless,
+              to: _xray,
+              stage: stage,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(hint, findsNothing, reason: stage.name);
+          final news = tester.getRect(find.text(line));
+          expect(news.top, closeTo(slot.top, 1), reason: stage.name);
+          expect(news.left, greaterThanOrEqualTo(0));
+          expect(_top(tester, _fa.coresGroup), rows, reason: 'nothing moves');
+          expect(_focused(), remote, reason: 'the remote stays');
+          if (shot != null) await _shot(tester, '$shot-${b.name}');
+        }
+        rig.holder.value = _settings(tv: true, cores: cores);
+        await tester.pumpAndSettle();
+        expect(hint, findsOneWidget);
+      });
+    }
   });
 
   group('Windows', () {
@@ -677,63 +751,76 @@ void main() {
       ).called(1);
     }, variant: windows);
 
-    testWidgets('Proxy mode greys the engine that owns the tunnel, keeps it '
-        'picked, and says why', (tester) async {
-      final rig = await _pump(tester, _settings(), proxy: true);
-      await tester.ensureVisible(find.text(_fa.protocolWireguard));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(_fa.protocolWireguard));
-      await tester.pumpAndSettle();
-      expect(find.text(_fa.coreTunnelOnly(_fa.modeTunnel)), findsOneWidget);
-      expect(
-        find.text(
-          '${_fa.coreProxyNow(_fa.modeProxy)} '
-          '${_fa.corePickForAll(_fa.protocolWireguard)}',
-        ),
-        findsOneWidget,
-      );
-      await _shot(tester, 'p-set-light');
-      await tester.tap(find.text(_fa.coreWireguard).last);
-      await tester.pumpAndSettle();
-      verifyNever(() => rig.controller.setCore(any(), any()));
-      await tester.tapAt(Offset.zero);
-      await tester.pumpAndSettle();
+    for (final b in Brightness.values) {
+      testWidgets('Proxy mode greys the engine that owns the tunnel, keeps it '
+          'picked, and says why (${b.name})', (tester) async {
+        final rig = await _pump(
+          tester,
+          _settings(),
+          proxy: true,
+          brightness: b,
+        );
+        await tester.ensureVisible(find.text(_fa.protocolWireguard));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(_fa.protocolWireguard));
+        await tester.pumpAndSettle();
+        expect(find.text(_fa.coreTunnelOnly(_fa.modeTunnel)), findsOneWidget);
+        expect(
+          find.text(
+            '${_fa.coreProxyNow(_fa.modeProxy)} '
+            '${_fa.corePickForAll(_fa.protocolWireguard)}',
+          ),
+          findsOneWidget,
+        );
+        await _shot(tester, 'p-set-${b.name}');
+        await tester.tap(find.text(_fa.coreWireguard).last);
+        await tester.pumpAndSettle();
+        verifyNever(() => rig.controller.setCore(any(), any()));
+        await tester.tapAt(Offset.zero);
+        await tester.pumpAndSettle();
 
-      rig.holder.value = _settings(cores: _rows(wireguard: _wireguard));
-      await tester.pumpAndSettle();
-      expect(find.text(_fa.coreWireguard), findsOneWidget, reason: 'kept');
-      await tester.ensureVisible(find.text(_fa.protocolVless));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(_fa.protocolVless));
-      await tester.pumpAndSettle();
-      expect(
-        find.text(
-          '${_fa.corePickForAll(_fa.protocolVless)} ${_fa.corePickAgain}',
-        ),
-        findsOneWidget,
-        reason: 'no engine of VLESS owns the tunnel',
-      );
-    }, variant: windows);
+        rig.holder.value = _settings(cores: _rows(wireguard: _wireguard));
+        await tester.pumpAndSettle();
+        expect(find.text(_fa.coreWireguard), findsOneWidget, reason: 'kept');
+        await tester.ensureVisible(find.text(_fa.protocolVless));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(_fa.protocolVless));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            '${_fa.corePickForAll(_fa.protocolVless)} ${_fa.corePickAgain}',
+          ),
+          findsOneWidget,
+          reason: 'no engine of VLESS owns the tunnel',
+        );
+      }, variant: windows);
+    }
 
-    testWidgets('«اتصال» under «زبان» and over «ویندوز»', (tester) async {
-      await _pump(tester, _settings());
-      expect(
-        _top(tester, _fa.language),
-        lessThan(_top(tester, _fa.connectionGroup)),
-      );
-      expect(
-        _top(tester, _fa.coresGroup),
-        lessThan(_top(tester, _fa.windowsGroup)),
-      );
-      await tester.ensureVisible(find.text(_fa.iranDirect));
-      await tester.pumpAndSettle();
-      await _shot(tester, 'i-win-light');
-    }, variant: windows);
+    for (final b in Brightness.values) {
+      testWidgets('«اتصال» under «زبان» and over «ویندوز» (${b.name})', (
+        tester,
+      ) async {
+        await _pump(tester, _settings(), brightness: b);
+        expect(
+          _top(tester, _fa.language),
+          lessThan(_top(tester, _fa.connectionGroup)),
+        );
+        expect(
+          _top(tester, _fa.coresGroup),
+          lessThan(_top(tester, _fa.windowsGroup)),
+        );
+        await tester.ensureVisible(find.text(_fa.connectionGroup));
+        await tester.pumpAndSettle();
+        await _shot(tester, 'i-win-${b.name}');
+      }, variant: windows);
+    }
 
-    testWidgets('«با میهومو» on the computer', (tester) async {
-      await _pump(tester, _home(), home: const ShikooHome());
-      expect(find.text(_fa.viaCore(_fa.coreMihomo)), findsOneWidget);
-      await _shot(tester, 'x-win-light');
-    }, variant: windows);
+    for (final b in Brightness.values) {
+      testWidgets('«با میهومو» on the computer (${b.name})', (tester) async {
+        await _pump(tester, _home(), home: const ShikooHome(), brightness: b);
+        expect(find.text(_fa.viaCore(_fa.coreMihomo)), findsOneWidget);
+        await _shot(tester, 'x-win-${b.name}');
+      }, variant: windows);
+    }
   });
 }

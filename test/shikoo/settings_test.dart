@@ -108,8 +108,8 @@ void main() {
     expect(flclashVersion, name.firstMatch(pubspec)![1]);
   });
 
-  test('the core row names the commit the build stamped, and a build without '
-      'the stamp names no number (#32)', () {
+  test('the core name carries the commit the build stamped, and a build '
+      'without the stamp names no number (#32)', () {
     expect(coreName('70f0570'), 'mihomo\u00A070f0570');
     expect(coreName(''), 'mihomo');
   });
