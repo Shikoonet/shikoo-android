@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:drift/native.dart';
 import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/desktop/model.dart';
 import 'package:fl_clash/core/interface.dart';
+import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
@@ -360,6 +362,31 @@ void main() {
       );
     },
   );
+
+  test('connected, the Iranian-sites switch reconnects an owner core, whose '
+      'routes are set as it builds the VPN, and leaves mihomo up', () async {
+    final before = database;
+    database = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await database.close();
+      database = before;
+    });
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+    );
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+
+    await home.controller.setIranDirect(false);
+    expect(home.setup.runs, [false, true]);
+    expect(home.container.read(shikooStateProvider).iranDirect, isFalse);
+
+    await _connectOn(home, 'A');
+    home.setup.runs.clear();
+    await home.controller.setIranDirect(true);
+    expect(home.setup.runs, isEmpty);
+  });
 
   test('WireGuard handed to a core behind mihomo keeps its ping exception: '
       'the core shows it as Socks5, the profile as WireGuard', () async {
