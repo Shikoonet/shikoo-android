@@ -142,3 +142,47 @@ class RouteAddressTest {
         }
     }
 }
+
+private fun optionsFor(core: String?, accessControl: AccessControlProps) =
+    optionsWithRoutes(emptyList()).copy(core = core, accessControlProps = accessControl)
+
+private fun accessControl(enable: Boolean, mode: AccessControlMode) = AccessControlProps(
+    enable = enable,
+    mode = mode,
+    acceptList = listOf("a.b"),
+    rejectList = listOf("c.d"),
+)
+
+class AppRulesTest {
+    private val self = "com.shikoonet.app"
+
+    @Test
+    fun `mihomo keeps this app in its VPN, as FlClash does`() {
+        val off = optionsFor(null, accessControl(false, AccessControlMode.REJECT_SELECTED))
+        assertEquals(AppRules(emptyList(), emptyList()), off.appRules(self))
+        assertEquals(
+            AppRules(emptyList(), listOf("c.d")),
+            optionsFor("", accessControl(true, AccessControlMode.REJECT_SELECTED)).appRules(self),
+        )
+        assertEquals(
+            AppRules(listOf("a.b", self), emptyList()),
+            optionsFor(null, accessControl(true, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
+        )
+    }
+
+    @Test
+    fun `an owner core leaves this app out of its VPN`() {
+        assertEquals(
+            AppRules(emptyList(), listOf(self)),
+            optionsFor("wireguard", accessControl(false, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
+        )
+        assertEquals(
+            AppRules(emptyList(), listOf("c.d", self)),
+            optionsFor("wireguard", accessControl(true, AccessControlMode.REJECT_SELECTED)).appRules(self),
+        )
+        assertEquals(
+            AppRules(listOf("a.b"), emptyList()),
+            optionsFor("wireguard", accessControl(true, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
+        )
+    }
+}

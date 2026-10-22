@@ -154,6 +154,13 @@ typedef ServiceTexts = ({
 /// notification, toast and shortcut strings for the locale it has loaded.
 ServiceTexts Function(Locale? locale)? serviceTexts;
 
+/// A core of the app's own that takes the VPN's descriptor instead of mihomo's
+/// tun, for one server; [iranDirect] keeps Iran's addresses out of its routes.
+typedef TunnelOwner = ({String core, String server, bool iranDirect});
+
+/// Set by an app with such cores; it may watch providers through [ref].
+TunnelOwner? Function(Ref ref)? tunnelOwner;
+
 @riverpod
 SharedState sharedState(Ref ref) {
   final locale = ref.watch(loadedLocaleProvider);
@@ -200,6 +207,7 @@ SharedState sharedState(Ref ref) {
   final onlyStatisticsProxy = appSetting.onlyStatisticsProxy;
   final crashlytics = appSetting.crashlytics;
   final testUrl = appSetting.testUrl;
+  final owner = tunnelOwner?.call(ref);
   final stack = clashConfig.stack;
   final port = clashConfig.mixedPort;
   return SharedState(
@@ -225,6 +233,9 @@ SharedState sharedState(Ref ref) {
       allowBypass: vpnSetting.allowBypass,
       bypassDomain: networkSetting.bypassDomain,
       routeAddress: clashConfig.routeAddress,
+      core: owner?.core ?? '',
+      server: owner?.server ?? '',
+      iranDirect: owner?.iranDirect ?? false,
     ),
   );
 }

@@ -7,5 +7,9 @@ const ShikooCoreSpec wireguardSpec = (
   serves: _serves,
 );
 
-bool _serves(ShikooProtocol protocol, Map<String, dynamic> _) =>
-    protocol == ShikooProtocol.wireguard;
+/// AmneziaWG, WARP's reserved bytes and a dialer chain are mihomo's alone (core/shikoo_wg.go refuses them).
+bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) =>
+    protocol == ShikooProtocol.wireguard &&
+    !server.containsKey('amnezia-wg-option') &&
+    !server.containsKey('reserved') &&
+    !server.containsKey('dialer-proxy');

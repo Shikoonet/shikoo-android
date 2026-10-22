@@ -20,6 +20,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
+import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -781,9 +782,19 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
 );
 
 // ponytail: trusts the panel's rules to send FlClash's IP lookups to the selected server.
+// The app is outside an owner core's VPN, so there the server's own handshake answers (core/shikoo_wg.go).
 final trafficPassesProvider = Provider<Future<bool> Function()>(
-  (_) =>
-      () async => (await request.checkIp()).data != null,
+  (ref) => () async {
+    final server = ref.read(shikooStateProvider).selectedServer;
+    if (server != null &&
+        ownsTunnel(server.core, ref.read(shikooCoreSpecsProvider))) {
+      final delay = await ref
+          .read(coreHandlerProvider)
+          .getDelay('', server.name);
+      return (delay?.value ?? 0) > 0;
+    }
+    return (await request.checkIp()).data != null;
+  },
 );
 
 /// FlClash loads a newly current profile in the next frame (CoreManager); an apply asked after
