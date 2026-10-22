@@ -334,12 +334,29 @@ func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 		t.Fatalf("answer %s (%v), want a delay for wg", frames[0], err)
 	}
 
+	carried := func() string {
+		params, _ := json.Marshal(TestDelayParams{ProxyName: ownerQuery})
+		fake := &fakeConn{}
+		previous := swapConn(fake)
+		defer swapConn(previous)
+		methodHandlers[asyncTestDelayMethod](&MethodCall{ID: "2", Method: asyncTestDelayMethod, Arguments: params}, MethodResponse{ID: "2"})
+		var answer struct{ Result Delay }
+		_ = json.Unmarshal(fake.frames(t)[0], &answer)
+		return answer.Result.Name
+	}
+	if got := carried(); got != "wg" {
+		t.Errorf("Dart's question got %q, want the owner's server", got)
+	}
 	server.Close()
 	if delay := ownerFor("wg").testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
 		t.Errorf("a server that is gone answered %d", delay.Value)
 	}
 	if ownerFor("other") != nil {
 		t.Error("the owner claims a server it does not hold")
+	}
+	stopOwner()
+	if got := carried(); got != "" {
+		t.Errorf("with no owner Dart's question got %q", got)
 	}
 }
 

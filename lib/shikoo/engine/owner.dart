@@ -1,3 +1,4 @@
+import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/providers/state.dart' show TunnelOwner;
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
@@ -11,13 +12,15 @@ final shikooOwnerProvider = Provider<TunnelOwner?>((ref) {
       (state) => (server: state.selected, core: state.selectedServer?.core),
     ),
   );
+  final down = ref.watch(shikooOwnerDownProvider);
+  final picked = down != null && down.server == server ? down.core : core;
   if (server == null ||
-      core == null ||
-      !ownsTunnel(core, ref.watch(shikooCoreSpecsProvider))) {
+      picked == null ||
+      !ownsTunnel(picked, ref.watch(shikooCoreSpecsProvider))) {
     return null;
   }
   return (
-    core: core.name,
+    core: picked.name,
     server: server,
     iranDirect: ref.watch(shikooIranDirectProvider),
   );
@@ -25,3 +28,23 @@ final shikooOwnerProvider = Provider<TunnelOwner?>((ref) {
 
 bool ownsTunnel(ShikooCore core, Map<ShikooCore, ShikooCoreSpec> specs) =>
     specs[core]!.shape == ShikooShape.ownsTunnel;
+
+typedef ShikooOwnerDown = ({String server, ShikooCore core});
+
+/// An owner engine that did not start this connection: mihomo carries the server, the pick stays (Sam, 2026-10-23).
+final shikooOwnerDownProvider =
+    NotifierProvider<ShikooOwnerDownNotifier, ShikooOwnerDown?>(
+      ShikooOwnerDownNotifier.new,
+    );
+
+class ShikooOwnerDownNotifier extends Notifier<ShikooOwnerDown?> {
+  @override
+  ShikooOwnerDown? build() => null;
+
+  void set(ShikooOwnerDown? down) => state = down;
+}
+
+final shikooOwnerQuery = '${String.fromCharCode(0)}shikoo-owner';
+
+Future<String?> ownerCarries(CoreController core) async =>
+    (await core.getDelay('', shikooOwnerQuery))?.name;

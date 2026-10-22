@@ -41,6 +41,10 @@ import (
 
 const shikooPrepareOwnerMethod CoreMethod = "shikooPrepareOwner"
 
+// ownerQuery is the delay test through which Dart asks which server the owner carries: lib/core, where a method of
+// its own would go, is FlClash's. No panel can name a server with a NUL.
+const ownerQuery = "\x00shikoo-owner"
+
 // What the official Android app runs with when the server's mapping says nothing: its own MTU, and the
 // keepalive and DNS of the panel's /links config, the one that app imports.
 const (
@@ -102,6 +106,10 @@ func init() {
 	methodHandlers[asyncTestDelayMethod] = func(call *MethodCall, response MethodResponse) {
 		var params TestDelayParams
 		if call.decodeArguments(&params) == nil {
+			if params.ProxyName == ownerQuery {
+				response.success(&Delay{Name: ownerServer(), Value: -1})
+				return
+			}
 			if owner := ownerFor(params.ProxyName); owner != nil {
 				safeGo(response, func() { response.success(owner.testDelay(&params)) })
 				return
@@ -436,6 +444,15 @@ func stopOwner() {
 	if owner != nil {
 		owner.dev.Close()
 	}
+}
+
+func ownerServer() string {
+	ownerMu.Lock()
+	defer ownerMu.Unlock()
+	if ownerRunning == nil {
+		return ""
+	}
+	return ownerRunning.server
 }
 
 func ownerFor(server string) *wgOwner {

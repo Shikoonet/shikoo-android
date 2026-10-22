@@ -623,6 +623,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final choices = ref.watch(shikooCoresProvider);
   final specs = ref.watch(shikooCoreSpecsProvider);
   final sources = ref.watch(_sourcesProvider);
+  final down = ref.watch(shikooOwnerDownProvider);
   final tunnel =
       !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun;
   List<ShikooServer> listOf(
@@ -638,15 +639,17 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
         (switching?.stage == ShikooSwitchStage.moving &&
             switching?.to == name &&
             switchService == id);
-    ShikooCore coreOf(String name) => loaded
-        ? runningCore(
+    ShikooCore coreOf(String name) => !loaded
+        ? coreFor(sources[name]!, choices, specs: specs, tunnel: tunnel)
+        : down?.server == name
+        ? ShikooCore.mihomo
+        : runningCore(
             sources[name],
             types[name]!,
             choices,
             specs: specs,
             tunnel: tunnel,
-          )
-        : coreFor(sources[name]!, choices, specs: specs, tunnel: tunnel);
+          );
     return [
       for (final name in keepOrder(orders[id] ?? const [], [...types.keys]))
         ShikooServer(
@@ -1247,6 +1250,7 @@ class ShikooController {
 
   Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
+    _ownerDown(null);
     _set(_Intent(connecting: true, error: error));
     final refused = await _desktopReady(attempt);
     if (attempt != _attempt) return;
@@ -1272,11 +1276,32 @@ class ShikooController {
     if (since != null) {
       _nativeStart(since);
       _set(_Intent(error: error));
+      await _checkOwner();
       unawaited(_checkSelected());
       return;
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
     await _setup.setRunning(false);
+  }
+
+  void _ownerDown(ShikooOwnerDown? down) =>
+      _ref.read(shikooOwnerDownProvider.notifier).set(down);
+
+  /// The VPN service hands the server to mihomo when the owner engine does not start; the state says so.
+  Future<void> _checkOwner() async {
+    final owner = _ref.read(shikooOwnerProvider);
+    if (owner == null) return;
+    String? carried;
+    try {
+      carried = await ownerCarries(_ref.read(coreHandlerProvider));
+    } catch (_) {
+      return;
+    }
+    if (carried == owner.server) return;
+    _ownerDown((
+      server: owner.server,
+      core: ShikooCore.values.byName(owner.core),
+    ));
   }
 
   /// FlClash's flags for the mode are set only here: with TUN on, each apply asks for the helper service.
@@ -1435,6 +1460,7 @@ class ShikooController {
 
   Future<void> disconnect() async {
     _attempt++;
+    _ownerDown(null);
     _endSwitch();
     _ref.read(_landedProvider.notifier).set(null);
     _nativeStart(null);

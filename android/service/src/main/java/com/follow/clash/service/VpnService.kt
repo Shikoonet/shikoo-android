@@ -119,9 +119,15 @@ class VpnService : SystemVpnService(), ManagedService {
         notifyVpnRevoked()
     }
 
+    // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
         val plan = if (options.ownsTunnel) {
-            Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
+            runCatching {
+                Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
+            }.getOrElse { error ->
+                GlobalState.log("Owner core has no plan, mihomo carries the server: $error")
+                return handleStart(options.copy(core = null))
+            }
         } else {
             null
         }
@@ -156,7 +162,7 @@ class VpnService : SystemVpnService(), ManagedService {
             establish()?.detachFd()
                 ?: error("VPN establishment was rejected by the system")
         }
-        synchronized(tunLock) {
+        val started = synchronized(tunLock) {
             tunRunning = true
             try {
                 // A Core that fails to take the descriptor leaves the system
@@ -179,11 +185,15 @@ class VpnService : SystemVpnService(), ManagedService {
                         )
                     },
                 ) { "Core rejected the tun file descriptor" }
+                true
             } catch (error: Exception) {
                 stopTunLocked()
-                throw error
+                if (plan == null) throw error
+                GlobalState.log("Owner core did not start, mihomo carries the server: $error")
+                false
             }
         }
+        if (!started) handleStart(options.copy(core = null))
     }
 
     private fun Builder.addAddressAndRoutes(options: VpnOptions) {

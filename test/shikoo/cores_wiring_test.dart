@@ -18,6 +18,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -154,6 +155,7 @@ Future<_Home> _home({
     (call) async =>
         Delay(name: call.positionalArguments[1] as String, url: '', value: 50),
   );
+  _engineCarries(core, 'W');
   for (final MapEntry(:key, :value) in choices.entries) {
     await container.read(shikooCoresProvider.notifier).set(key, value);
   }
@@ -195,6 +197,11 @@ Future<void> _connectOn(_Home home, String name) async {
   home.setup.tunnel = DateTime(2026);
   await pumpEventQueue();
 }
+
+/// What core/shikoo_wg.go answers when Dart asks which server the official engine carries.
+void _engineCarries(_Core core, String server) => when(
+  () => core.asyncTestDelay(any(), shikooOwnerQuery),
+).thenAnswer((_) async => Delay(name: server, url: '', value: -1));
 
 ShikooServer _server(_Home home, String name) => home.container
     .read(shikooStateProvider)
@@ -417,6 +424,38 @@ void main() {
     home.setup.runs.clear();
     await home.controller.setIranDirect(true);
     expect(home.setup.runs, isEmpty);
+  });
+
+  test('an official engine that does not start leaves the server on mihomo: '
+      'the switch fails, the server shows mihomo, and the pick stays for the '
+      'next connect, which asks for the engine again', () async {
+    final home = await _home(ready: {ShikooCore.wireguard});
+    _engineCarries(home.core, '');
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+
+    await home.controller.setCore(
+      ShikooProtocol.wireguard,
+      ShikooCore.wireguard,
+    );
+    expect(home.setup.runs, [false, true]);
+    expect(
+      home.container.read(shikooStateProvider).coreSwitch?.stage,
+      ShikooSwitchStage.failed,
+    );
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
+    expect(
+      home.container.read(shikooCoresProvider)[ShikooProtocol.wireguard],
+      ShikooCore.wireguard,
+    );
+    expect(home.container.read(shikooOwnerProvider)?.core, 'wireguard');
+
+    _engineCarries(home.core, 'W');
+    await home.controller.disconnect();
+    expect(_server(home, 'W').core, ShikooCore.wireguard);
+    await home.controller.connect();
+    await pumpEventQueue();
+    expect(_server(home, 'W').core, ShikooCore.wireguard);
   });
 
   test('WireGuard handed to a core behind mihomo keeps its ping exception: '
