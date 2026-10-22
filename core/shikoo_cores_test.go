@@ -2,12 +2,14 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/tunnel"
 )
 
 const shikooCoresYaml = `
@@ -23,18 +25,29 @@ type fakeShikooCore struct {
 	stopped int
 	err     error
 	short   bool
+	rename  bool
+	gens    int
+
+	// The address mihomo held for proxy "a" as each generation stopped.
+	heldAtStop []string
 }
 
 func (f *fakeShikooCore) start(proxies []map[string]any) ([]map[string]any, func(), error) {
+	gen := f.gens
+	f.gens++
 	var names []string
 	var out []map[string]any
 	for i, proxy := range proxies {
 		if _, marked := proxy[shikooCoreKey]; marked {
 			return nil, nil, errors.New("the marker reached the core")
 		}
-		names = append(names, proxy["name"].(string))
+		names = append(names, fmt.Sprint(proxy["name"]))
+		name := proxy["name"]
+		if f.rename {
+			name = fmt.Sprint(name, "-moved")
+		}
 		out = append(out, map[string]any{
-			"name": proxy["name"], "type": "socks5", "server": "127.0.0.1", "port": 20000 + i,
+			"name": name, "type": "socks5", "server": "127.0.0.1", "port": 20000 + 10*gen + i,
 		})
 	}
 	f.got = append(f.got, names)
@@ -44,7 +57,12 @@ func (f *fakeShikooCore) start(proxies []map[string]any) ([]map[string]any, func
 	if f.short {
 		out = out[:1]
 	}
-	return out, func() { f.stopped++ }, nil
+	return out, func() {
+		f.stopped++
+		if held := tunnel.Proxies()["a"]; held != nil {
+			f.heldAtStop = append(f.heldAtStop, held.Addr())
+		}
+	}, nil
 }
 
 func useFakeShikooCore(t *testing.T) *fakeShikooCore {
@@ -74,7 +92,11 @@ func parseShikooCores(t *testing.T, yaml string) *config.Config {
 func proxyTypes(cfg *config.Config, names ...string) []constant.AdapterType {
 	var types []constant.AdapterType
 	for _, name := range names {
-		types = append(types, cfg.Proxies[name].Type())
+		if proxy, ok := cfg.Proxies[name]; ok {
+			types = append(types, proxy.Type())
+		} else {
+			types = append(types, -1)
+		}
 	}
 	return types
 }
@@ -104,6 +126,7 @@ func TestShikooCoresLeaveAFailedCoreToMihomo(t *testing.T) {
 	}{
 		{"an error", func(f *fakeShikooCore) { f.err = errors.New("no") }, 0},
 		{"too few replacements", func(f *fakeShikooCore) { f.short = true }, 1},
+		{"replacements under other names", func(f *fakeShikooCore) { f.rename = true }, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := useFakeShikooCore(t)
@@ -170,5 +193,56 @@ func TestLoadConfigGoesThroughTheShikooCores(t *testing.T) {
 	}
 	if len(fake.got) != 1 || cfg.Proxies["a"].Type() != constant.Socks5 {
 		t.Errorf("loadConfig skipped the cores: got %v, a is %v", fake.got, cfg.Proxies["a"].Type())
+	}
+}
+
+func TestApplyConfigStopsTheOldCoresOnlyOnceMihomoHoldsTheNewConfig(t *testing.T) {
+	fake := useFakeShikooCore(t)
+	home, previous := t.TempDir(), constant.Path.HomeDir()
+	constant.SetHomeDir(home)
+	withCurrentConfig(t, nil)
+	t.Cleanup(func() {
+		constant.SetHomeDir(previous)
+		tunnel.UpdateProxies(nil, nil)
+	})
+	if err := os.WriteFile(filepath.Join(home, "config.yaml"), []byte(shikooCoresYaml), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	for range 2 {
+		if err := applyConfig(&SetupParams{}); err != nil {
+			t.Fatalf("applyConfig = %v", err)
+		}
+	}
+
+	if len(fake.heldAtStop) != 1 || fake.heldAtStop[0] != "127.0.0.1:20010" {
+		t.Errorf("as the first generation stopped mihomo held a at %v, want the second generation (127.0.0.1:20010)",
+			fake.heldAtStop)
+	}
+}
+
+func TestHandleShutdownStopsTheShikooCores(t *testing.T) {
+	fake := useFakeShikooCore(t)
+	parseShikooCores(t, shikooCoresYaml)
+	shikooCoresCommit()
+	parseShikooCores(t, shikooCoresYaml)
+	withCurrentConfig(t, &config.Config{General: &config.General{}, Controller: &config.Controller{}})
+	isInit.Store(true)
+
+	handleShutdown()
+
+	if fake.stopped != 2 || len(shikooCoresRunning)+len(shikooCoresStarting) != 0 {
+		t.Errorf("stopped %d of 2 generations; %d running, %d starting left", fake.stopped,
+			len(shikooCoresRunning), len(shikooCoresStarting))
+	}
+}
+
+func TestShikooCoresKeepAServerNamedByABareNumber(t *testing.T) {
+	fake := useFakeShikooCore(t)
+
+	cfg := parseShikooCores(t, "proxies:\n  - {name: 7, type: http, server: 1.1.1.1, port: 1, shikoo-core: fake}\n")
+
+	if got := proxyTypes(cfg, "7"); got[0] != constant.Socks5 || fake.stopped != 0 {
+		t.Errorf("type %v, stopped %d: a core that keeps the name 7 as YAML read it must still carry the server", got, fake.stopped)
 	}
 }

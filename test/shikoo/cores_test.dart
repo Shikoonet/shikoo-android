@@ -9,11 +9,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Every core of this build ready, as a package that lands flips its own.
-final _allReady = {
+/// Readiness is set here, not by the build, so a package that flips its own core's flag breaks nothing.
+Map<ShikooCore, ShikooCoreSpec> _readyOnly(Set<ShikooCore> ready) => {
   for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
-    core: (ready: true, shape: spec.shape, serves: spec.serves),
+    core: (
+      ready: core == ShikooCore.mihomo || ready.contains(core),
+      shape: spec.shape,
+      serves: spec.serves,
+    ),
 };
+
+final _allReady = _readyOnly(ShikooCore.values.toSet());
+final _noneReady = _readyOnly(const {});
 
 const _reality = {
   'name': 'آلمان ۱',
@@ -43,7 +50,11 @@ void main() {
       ShikooProtocol.vless: ShikooCore.singBox,
       ShikooProtocol.wireguard: ShikooCore.wireguard,
     };
-    expect(coreFor(_reality, choices), ShikooCore.mihomo, reason: 'not ready');
+    expect(
+      coreFor(_reality, choices, specs: _noneReady),
+      ShikooCore.mihomo,
+      reason: 'not ready',
+    );
     expect(coreFor(_reality, choices, specs: _allReady), ShikooCore.singBox);
     expect(coreFor(_xhttp, choices, specs: _allReady), ShikooCore.mihomo);
     expect(coreFor(_encrypted, choices, specs: _allReady), ShikooCore.mihomo);
@@ -88,6 +99,7 @@ void main() {
     final rows = coreRows(
       {ShikooProtocol.ssh, ShikooProtocol.vless, ShikooProtocol.other},
       const {ShikooProtocol.vless: ShikooCore.xray},
+      specs: _noneReady,
     );
     expect(rows.map((row) => row.protocol), [
       ShikooProtocol.vless,
@@ -131,11 +143,13 @@ void main() {
     expect(identical(markCores(config, const {}), config), isTrue);
     expect(
       identical(
-        markCores(config, const {ShikooProtocol.vless: ShikooCore.xray}),
+        markCores(config, const {
+          ShikooProtocol.vless: ShikooCore.xray,
+        }, specs: _noneReady),
         config,
       ),
       isTrue,
-      reason: 'xray is not ready in this build',
+      reason: 'xray is not ready',
     );
 
     final marked = markCores(config, const {

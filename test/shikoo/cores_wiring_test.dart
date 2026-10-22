@@ -55,6 +55,9 @@ class _Setup extends SetupAction {
   /// Holds an apply open until completed.
   Completer<void>? gate;
 
+  /// What the core runs after an apply, as FlClash's updateGroups would then read it.
+  void Function()? onApply;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
@@ -69,6 +72,7 @@ class _Setup extends SetupAction {
   }) async {
     applies++;
     await gate?.future;
+    onApply?.call();
     return true;
   }
 }
@@ -84,7 +88,7 @@ class _Timeline extends ShikooDiag {
 Map<ShikooCore, ShikooCoreSpec> _ready(Set<ShikooCore> cores) => {
   for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
     core: (
-      ready: spec.ready || cores.contains(core),
+      ready: core == ShikooCore.mihomo || cores.contains(core),
       shape: spec.shape,
       serves: spec.serves,
     ),
@@ -155,17 +159,7 @@ Future<_Home> _home({
   }
   container.read(currentProfileIdProvider.notifier).value = profile.id;
   container.read(initProvider.notifier).value = true;
-  container.read(groupsProvider.notifier).value = [
-    Group(
-      type: GroupType.Selector,
-      name: 'PROXY',
-      hidden: false,
-      all: [
-        for (final MapEntry(:key, :value) in running.entries)
-          Proxy(name: key, type: value),
-      ],
-    ),
-  ];
+  _run(container, running);
   container.listen(shikooStateProvider, (_, _) {});
   final controller = container.read(shikooControllerProvider);
   await pumpEventQueue();
@@ -177,6 +171,23 @@ Future<_Home> _home({
     setup: setup,
   );
 }
+
+/// The servers' types as the core runs them: Go swaps a server it hands to a core for a `Socks5`.
+void _run(ProviderContainer container, Map<String, String> running) =>
+    container.read(groupsProvider.notifier).value = [
+      Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          for (final MapEntry(:key, :value) in running.entries)
+            Proxy(name: key, type: value),
+        ],
+      ),
+    ];
+
+const _onMihomo = {'A': 'Vless', 'B': 'Vless', 'W': 'WireGuard'};
+const _vlessHandedOver = {'A': 'Socks5', 'B': 'Socks5', 'W': 'WireGuard'};
 
 Future<void> _connectOn(_Home home, String name) async {
   await home.controller.selectServer(name);
@@ -264,6 +275,7 @@ void main() {
     final home = await _home(ready: {ShikooCore.xray});
     await _connectOn(home, 'A');
     final gate = home.setup.gate = Completer<void>();
+    home.setup.onApply = () => _run(home.container, _vlessHandedOver);
 
     final setting = home.controller.setCore(
       ShikooProtocol.vless,
@@ -284,7 +296,9 @@ void main() {
     ));
     expect(home.setup.runs, isNot(contains(false)));
 
+    home.setup.onApply = () => _run(home.container, _onMihomo);
     await home.controller.setCore(ShikooProtocol.vless, ShikooCore.mihomo);
+    home.setup.onApply = () => _run(home.container, _vlessHandedOver);
     when(() => home.core.asyncTestDelay(any(), any())).thenAnswer(
       (call) async => Delay(
         name: call.positionalArguments[1] as String,
@@ -306,6 +320,23 @@ void main() {
     );
     await Future<void>.delayed(switchedFor);
     expect(home.container.read(shikooStateProvider).coreSwitch, isNull);
+  });
+
+  test('connected, a pick whose engine never starts is told failed even though '
+      'the server answers through mihomo, which keeps carrying it with the pick '
+      'kept', () async {
+    final home = await _home(ready: {ShikooCore.xray});
+    await _connectOn(home, 'A');
+    home.setup.onApply = () => _run(home.container, _onMihomo);
+
+    await home.controller.setCore(ShikooProtocol.vless, ShikooCore.xray);
+
+    final state = home.container.read(shikooStateProvider);
+    expect(state.coreSwitch?.stage, ShikooSwitchStage.failed);
+    expect(state.connection, ShikooConnection.on);
+    expect(state.selectedServer?.core, ShikooCore.mihomo);
+    expect(state.cores.first.chosen, ShikooCore.xray);
+    expect(home.setup.runs, isNot(contains(false)));
   });
 
   test(
