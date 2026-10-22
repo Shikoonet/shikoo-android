@@ -48,7 +48,8 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - mihomo OpenVPN: tls-auth is HMAC-SHA1 only in our core (`docs/extensibility.md:68-72`).
 - sing-box VLESS: v1.14.3 (latest stable, 2026-10-09) has no XHTTP (its transports are http, ws, quic, grpc and
   httpupgrade: `docs/configuration/shared/v2ray-transport.md`) and no `encryption` field (`outbound/vless.md`). **The
-  plan's table marks it ✓ for XHTTP; that is wrong.**
+  plan's table marks it ✓ for XHTTP; that is wrong.** Package «س» found the same in 1.15-alpha.
+- sing-box build tags (package «س»): `openvpn-client` needs `with_openvpn`, and REALITY needs `with_utls`.
 - A server the chosen core can't carry, or a core that isn't `ready` in this build, stays on mihomo, for that server
   only. The stored choice is kept.
 
@@ -238,6 +239,13 @@ door would refuse the report), and pinging unopened services through another cor
 - Behind-mihomo cores start with every config apply, even while disconnected: memory on the 2 GB box is unmeasured.
 - Go 1.27 no longer has seven settings the core had under `go 1.21`, so `godebug default=go1.21` cannot keep them:
   `asynctimerchan` (timer channels), `tls10server`, `tls3des`, `tlsrsakex` and `tlsunsafeekm` (old TLS suites and
-  key export), `x509keypairleaf` and `gotypesalias`. Tested so far: the core's unit tests and one emulator smoke test.
-  TLS and REALITY on real servers, the 32-bit box and Windows are not yet re-tested.
+  key export), `x509keypairleaf` and `gotypesalias`. The base build has 31 GODEBUG keys and the new core 26.
+  **In practice the TLS client no longer offers RSA key exchange or 3DES.** Seen in the app's own ClientHello on the
+  emulator, 2026-10-22: a plain VLESS+TLS server got no RSA-kex and no 3DES suite. A server that accepts only those
+  would stop working; none is known.
+- Tested with Go 1.27.3 on 2026-10-22 (emulator, local servers): the core's unit tests; HTTP servers through the fake
+  panel (ping, connect, switch, a dead server, disconnect); and a real VLESS REALITY handshake and a real VLESS+TLS
+  one against a local mihomo v1.19.32, both pinging, both carrying traffic, a switch between them while connected.
+  REALITY's ClientHello offered `X25519MLKEM768` in its key share, so ML-KEM stays on. **Not tested:** the panel's
+  real servers, WireGuard, the 32-bit box, and Windows.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
