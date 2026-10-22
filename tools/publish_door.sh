@@ -39,7 +39,7 @@ while read -r sha file <&3; do
   esac
   [ -n "$code" ] && [ -n "$abi" ] || { echo "::error::$apk has no versionCode or more than one ABI"; exit 1; }
   size=$(stat -c %s "$apk")
-  # Traefik v3 cuts a request whose body takes over 60 s (its default readTimeout) with a 502: 2 MiB fits under 35 KB/s
+  # Traefik v3 cuts a request whose body takes over 60 s (its default readTimeout) with a 502; 2 MiB still arrives at 35 KB/s
   for ((off = 0; off == 0 || off < size; off += 2 << 20)); do
     dd if="$apk" of="$work/chunk" bs=1M skip=$((off >> 20)) count=2 status=none
     door -T "$work/chunk" "$api/dl/upload/${apk##*/}?offset=$off" >/dev/null
