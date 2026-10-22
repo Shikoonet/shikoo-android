@@ -563,7 +563,7 @@ void main() {
   });
 
   testWidgets("the menu hangs under «▾», its end on «▾»'s and inside the "
-      'card: a TV of 960, 1280 and 1920, phones of 360 and 412, both '
+      'card: a TV of 960, 1280 and 1920, phones of 352, 360 and 412, both '
       'languages, a long server name', (tester) async {
     // Long enough that the menu always reaches the card's far edge, in both languages.
     const long =
@@ -575,6 +575,7 @@ void main() {
         (true, Size(960, 540)),
         (true, Size(1280, 720)),
         (true, Size(1920, 1080)),
+        (false, Size(352, 780)),
         (false, Size(360, 780)),
         (false, Size(412, 915)),
       ]) {
@@ -622,6 +623,59 @@ void main() {
         }
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
+      }
+    }
+    expect(wrong, isEmpty);
+  });
+
+  testWidgets('on phones of 320 and 351 at font ×1.15 the card has no room for '
+      'the menu beside «▾»: it keeps its 248, stays on the screen less 2·s4 '
+      'and wraps no line past two, in both languages', (tester) async {
+    final wrong = <String>[];
+    for (final width in const [320.0, 351.0]) {
+      final screen = Size(width, 700);
+      for (final language in ['fa', 'en']) {
+        final at = '$language ${width.toInt()}';
+        final l = lookupShikooL10n(Locale(language));
+        await _pump(
+          tester,
+          _state(),
+          size: screen,
+          locale: language,
+          textScale: 1.15,
+        );
+        await tester.tap(find.bySemanticsLabel(l.refreshWays).first);
+        await tester.pumpAndSettle();
+        await _shot(tester, 'phone-${width.toInt()}-menu-$language');
+        final box = find
+            .ancestor(
+              of: find.text(l.refreshDirect),
+              matching: find.byType(IntrinsicWidth),
+            )
+            .first;
+        final menu = tester.getRect(box);
+        if (menu.width < 248) wrong.add('$at: menu $menu under 248');
+        if (menu.width > screen.width - 2 * Space.s4 + 0.5) {
+          wrong.add('$at: menu $menu over the screen less 2·s4');
+        }
+        if (menu.left < Space.s2 - 0.5 ||
+            menu.right > screen.width - Space.s2 + 0.5) {
+          wrong.add('$at: menu $menu off the screen');
+        }
+        for (final p in tester.renderObjectList<RenderParagraph>(
+          find.descendant(of: box, matching: find.byType(RichText)),
+        )) {
+          final text = p.text.toPlainText();
+          final lines = p
+              .getBoxesForSelection(
+                TextSelection(baseOffset: 0, extentOffset: text.length),
+                boxHeightStyle: ui.BoxHeightStyle.max,
+              )
+              .map((b) => b.top.round())
+              .toSet()
+              .length;
+          if (lines > 2) wrong.add('$at: «$text» in $lines lines');
+        }
       }
     }
     expect(wrong, isEmpty);
