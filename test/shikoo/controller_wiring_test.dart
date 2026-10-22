@@ -3213,6 +3213,45 @@ void main() {
     }
   });
 
+  test('after a 401 and a new sign-in the last connect error is gone; a tunnel '
+      'up through a card that stays is not touched', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    final profiles = container.read(profilesActionProvider.notifier);
+    ShikooState state() => container.read(shikooStateProvider);
+    final pasted = container.read(currentProfileIdProvider)!;
+    final link = '$panel/file/user111/a';
+    await controller.addService(link, 'emu401', false);
+    await pumpEventQueue();
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    controller.onVpnConsent('refused');
+    await pumpEventQueue();
+    expect(state().lastError, ShikooError.vpnRefused);
+
+    // What the account's sync does on a 401: the error, then its own services.
+    controller.forgetError();
+    await profiles.deleteProfile(_pasted(container).single.id);
+    await pumpEventQueue();
+    await controller.addService(link, 'emu401', false);
+    await pumpEventQueue();
+    expect(state().lastError, isNull);
+    expect(state().connection, ShikooConnection.off);
+
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    setup.runs.clear();
+    expect(state().connection, ShikooConnection.on);
+    controller.forgetError();
+    await profiles.deleteProfile(_pasted(container).single.id);
+    await pumpEventQueue();
+    expect(state().service!.id, pasted);
+    expect(state().connection, ShikooConnection.on);
+    expect(setup.runs, isEmpty);
+  });
+
   group('an update leaves without the server, or through it', () {
     late ProviderContainer container;
     late _Core core;

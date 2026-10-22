@@ -1260,6 +1260,11 @@ class ShikooController {
     await _setup.setRunning(false);
   }
 
+  void forgetError() {
+    final intent = _ref.read(_intentProvider);
+    _set(_Intent(connecting: intent.connecting, waiting: intent.waiting));
+  }
+
   bool get _coreUp => _ref.read(coreStatusProvider) == CoreStatus.connected;
 
   Future<bool> _restartCore() => _ref
