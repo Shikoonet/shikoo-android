@@ -1,8 +1,8 @@
 diff --git a/adapter/outbound/wireguard.go b/adapter/outbound/wireguard.go
-index b856c5c..317e22e 100644
+index 54a671e..b4de2b3 100644
 --- a/adapter/outbound/wireguard.go
 +++ b/adapter/outbound/wireguard.go
-@@ -771,6 +771,17 @@ func (w *WireGuard) genIpcConf(ctx context.Context, updateOnly bool) (string, er
+@@ -802,6 +802,17 @@ func (w *WireGuard) genIpcConf(ctx context.Context, updateOnly bool) (string, er
  	return ipcConf, nil
  }
  
@@ -19,4 +19,4 @@ index b856c5c..317e22e 100644
 +
  // Close implements C.ProxyAdapter
  func (w *WireGuard) Close() error {
- 	if w.device != nil {
+ 	w.runCancel()
