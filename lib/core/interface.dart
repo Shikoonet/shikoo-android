@@ -31,6 +31,8 @@ mixin CoreInterface {
 
   Future<bool?> checkSeal(String key, String message, String sig);
 
+  Future<Map<String, dynamic>?> shikooOwner();
+
   Future<String> updateConfig(UpdateParams updateParams);
 
   Future<String> setupConfig(SetupParams setupParams);
@@ -375,6 +377,10 @@ abstract class CoreHandlerInterface with CoreInterface {
     );
     return data == null ? null : Delay.fromJson(data);
   }
+
+  @override
+  Future<Map<String, dynamic>?> shikooOwner() =>
+      invokeMethod<Map<String, dynamic>>(method: CoreMethod.shikooOwner);
 
   @override
   Future<bool?> checkSeal(String key, String message, String sig) =>

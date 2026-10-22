@@ -110,6 +110,10 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `lib/providers/actions/setup.dart` `getProfile`, after the script step and before `makeRealProfileTask`
   (`:350-355`). `task.dart` runs in an isolate without the providers, so it can't go there. A new upstream patch, like
   row 21.
+- `markCores` marks a server an owner core takes with `shikoo-owner: <core>` instead. Go does not remove it: the
+  Windows engine reads it from the applied `config.yaml`, and mihomo's parser ignores the key
+  (`TestMihomosParserIgnoresTheOwnerMark`). On Android the engine finds its server through `VpnOptions`; the mark
+  costs it nothing.
 - The controller stays the only door (`controller.dart:31`). Built in phase 2 (`1644b16a`):
   - `ShikooServer.protocol` from the profile's own mapping, and `ShikooServer.core`, the core really carrying it. For a
     core behind mihomo that is known from the running type: Go replaces a server it handed over, so one it left to
@@ -146,6 +150,12 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
 - An owner core in Go (ه۲) branches inside `handleStartTun` (`core/lib.go:219`): the fd goes to the engine instead of
   sing-tun, and the TunHandler's protect callback stays for mihomo's own sockets. ه۲ designs it.
+- `core/shikoo_owner.go` (new; built 2026-10-23): the core method `shikooOwner` answers `{"core": …, "server": …}`, the
+  core that owns the tunnel and the server it carries now, both empty when none does. Each owner engine registers from
+  its own `init()`: `registerShikooOwner(core string, carrying func() string)`, `carrying` returning the server it
+  carries now, `""` for none. The app asks once the tunnel is up (`ownerCarryingProvider`) and believes it for the
+  server in use only: an owner engine that never started leaves that server shown on mihomo, and a core switch to it
+  reads failed (Sam, 2026-10-23). Dart reaches it through `CoreMethod.shikooOwner` (`SHIKOO_PATCHES.md` row 51).
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
   requires.
 

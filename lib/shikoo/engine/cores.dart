@@ -36,6 +36,8 @@ const shikooDefaultCores = <ShikooProtocol, ShikooCore>{
 /// The proxy key `shikooCoresRewrite` (core/shikoo_cores.go) reads and removes.
 const shikooCoreKey = 'shikoo-core';
 
+const shikooOwnerKey = 'shikoo-owner';
+
 const ShikooCoreSpec _mihomo = (
   ready: true,
   shape: ShikooShape.mihomo,
@@ -84,20 +86,26 @@ ShikooCore coreFor(
       : ShikooCore.mihomo;
 }
 
-/// Go replaces a server it handed to a core, so one it left to mihomo still has its own type.
+/// Go swaps a server it hands behind mihomo, so a kept type means mihomo; [carried]: the owner Go reports ('' none).
 ShikooCore runningCore(
   Map<String, dynamic>? source,
   String runningType,
   ShikooChoices choices, {
   Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
   bool tunnel = true,
+  String? carried,
 }) {
   final server = source ?? {'type': runningType};
   final core = coreFor(server, choices, specs: specs, tunnel: tunnel);
-  if (specs[core]!.shape != ShikooShape.behindMihomo) return core;
-  return '${server['type']}'.toLowerCase() == runningType.toLowerCase()
-      ? ShikooCore.mihomo
-      : core;
+  return switch (specs[core]!.shape) {
+    ShikooShape.mihomo => core,
+    ShikooShape.ownsTunnel =>
+      carried == null || carried == core.name ? core : ShikooCore.mihomo,
+    ShikooShape.behindMihomo =>
+      '${server['type']}'.toLowerCase() == runningType.toLowerCase()
+          ? ShikooCore.mihomo
+          : core,
+  };
 }
 
 List<ShikooCoreRow> coreRows(
@@ -140,9 +148,13 @@ Map<String, dynamic> markCores(
     if (proxy is! Map) return proxy;
     final server = Map<String, dynamic>.from(proxy);
     final core = coreFor(server, choices, specs: specs);
-    if (specs[core]!.shape != ShikooShape.behindMihomo) return proxy;
+    final shape = specs[core]!.shape;
+    if (shape == ShikooShape.mihomo) return proxy;
     marked = true;
-    return {...server, shikooCoreKey: core.name};
+    final key = shape == ShikooShape.ownsTunnel
+        ? shikooOwnerKey
+        : shikooCoreKey;
+    return {...server, key: core.name};
   }
 
   final out = [for (final proxy in proxies) mark(proxy)];

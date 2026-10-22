@@ -124,6 +124,7 @@ Future<_Home> _home({
     'B': 'Vless',
     'W': 'WireGuard',
   },
+  ShikooCarrying? Function()? carrying,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final core = _Core();
@@ -142,6 +143,8 @@ Future<_Home> _home({
       trafficPassesProvider.overrideWithValue(() async => setup.traffic),
       shikooDiagProvider.overrideWithValue(_Timeline()),
       shikooCoreSpecsProvider.overrideWithValue(_ready(ready)),
+      if (carrying != null)
+        ownerCarryingProvider.overrideWithValue(() async => carrying()),
     ],
   );
   addTearDown(container.dispose);
@@ -420,4 +423,42 @@ void main() {
       reason: 'a VLESS server with no answer is not tried on traffic',
     );
   });
+
+  for (final (label, report, core, stage) in [
+    (
+      'never started: mihomo carries it, and the switch fails',
+      (core: '', server: ''),
+      ShikooCore.mihomo,
+      ShikooSwitchStage.failed,
+    ),
+    (
+      'carries it: the switch lands',
+      (core: 'wireguard', server: 'W'),
+      ShikooCore.wireguard,
+      ShikooSwitchStage.done,
+    ),
+  ]) {
+    test('connected, an owner core the Go core reports as $label', () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        carrying: () => report,
+      );
+      await _connectOn(home, 'W');
+      home.setup.runs.clear();
+
+      await home.controller.setCore(
+        ShikooProtocol.wireguard,
+        ShikooCore.wireguard,
+      );
+
+      final state = home.container.read(shikooStateProvider);
+      expect(home.setup.runs, [false, true]);
+      expect(state.selectedServer?.core, core);
+      expect(state.coreSwitch?.stage, stage);
+      expect(
+        home.container.read(shikooCoresProvider)[ShikooProtocol.wireguard],
+        ShikooCore.wireguard,
+      );
+    });
+  }
 }

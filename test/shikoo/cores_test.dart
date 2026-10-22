@@ -166,16 +166,48 @@ void main() {
     );
     expect(marked['mixed-port'], 7890);
     expect(_reality.containsKey(shikooCoreKey), isFalse);
+    final owned = markCores(config, const {
+      ShikooProtocol.wireguard: ShikooCore.wireguard,
+    }, specs: _allReady);
+    expect(
+      [
+        for (final proxy in owned['proxies'] as List)
+          ((proxy as Map)[shikooOwnerKey], proxy[shikooCoreKey]),
+      ],
+      [
+        (null, null),
+        (null, null),
+        ('wireguard', null),
+        (null, null),
+        (null, null),
+      ],
+      reason: 'an owner core gets its own key: Go hands only shikoo-core over',
+    );
     expect(
       identical(
         markCores(config, const {
           ShikooProtocol.wireguard: ShikooCore.wireguard,
-        }, specs: _allReady),
+        }, specs: _noneReady),
         config,
       ),
       isTrue,
-      reason: 'an owner core is not marked: it takes the tunnel instead',
     );
+  });
+
+  test('an owner core is trusted for the server in use only as far as the Go '
+      'core reports carrying it', () {
+    const wg = {ShikooProtocol.wireguard: ShikooCore.wireguard};
+    ShikooCore running(String? carried) => runningCore(
+      _wireguard,
+      'WireGuard',
+      wg,
+      specs: _allReady,
+      carried: carried,
+    );
+    expect(running(null), ShikooCore.wireguard, reason: 'not asked');
+    expect(running('wireguard'), ShikooCore.wireguard);
+    expect(running(''), ShikooCore.mihomo, reason: 'the engine did not start');
+    expect(running('openvpn'), ShikooCore.mihomo);
   });
 
   test('OpenVPN defaults to the official core once this build has it ready, '
@@ -222,9 +254,13 @@ void main() {
       'proxies': [ovpn],
     };
     expect(
-      identical(markCores(ovpnConfig, const {}, specs: official), ovpnConfig),
+      (markCores(ovpnConfig, const {}, specs: official)['proxies'] as List)
+          .single,
+      {...ovpn, shikooOwnerKey: 'openvpn'},
+    );
+    expect(
+      identical(markCores(ovpnConfig, const {}, specs: _noneReady), ovpnConfig),
       isTrue,
-      reason: 'a default that owns the tunnel is not marked',
     );
 
     ({ShikooCore chosen, ShikooCore defaultCore}) row(
