@@ -108,10 +108,21 @@ void main() {
     expect(flclashVersion, name.firstMatch(pubspec)![1]);
   });
 
-  test('the core row names the commit the build stamped, and a build without '
-      'the stamp names no number (#32)', () {
-    expect(coreName('70f0570'), 'mihomo\u00A070f0570');
-    expect(coreName(''), 'mihomo');
+  test('the core row names the version and the commit the build stamped, and '
+      'a build without the stamp the version alone (#32)', () {
+    expect(coreName('70f0570'), 'mihomo\u00A0$mihomoVersion\u00A0(70f0570)');
+    expect(coreName(''), 'mihomo\u00A0$mihomoVersion');
+  });
+
+  test('the core row\'s version belongs to the commit core/Clash.Meta is '
+      'pinned to', () {
+    final pinned = Process.runSync('git', [
+      'rev-parse',
+      '--short=7',
+      'HEAD:core/Clash.Meta',
+    ]).stdout.toString().trim();
+    // Moving the core: set mihomoVersion to the mihomo tag the new commit carries, then this pair.
+    expect((pinned, mihomoVersion), ('cd1023a', '1.19.33'));
   });
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
