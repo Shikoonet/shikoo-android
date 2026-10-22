@@ -38,7 +38,7 @@ class RefreshControls extends StatefulWidget {
   final FocusNode? refreshNode;
   final FocusNode? caretNode;
 
-  /// The card it sits in: the menu reaches from «▾» to the card's far edge, no further.
+  /// The card it sits in: the menu reaches from «▾» to the card's far edge, no further, when it fits.
   final BuildContext? card;
 
   @override
@@ -185,6 +185,8 @@ Future<ShikooRoute?> showRefreshMenu(
   ),
 );
 
+const _menuMinWidth = 248.0;
+
 class _Below extends SingleChildLayoutDelegate {
   _Below(this.anchor, this.within, this.direction);
 
@@ -198,8 +200,10 @@ class _Below extends SingleChildLayoutDelegate {
     final room = direction == TextDirection.rtl
         ? math.min(within?.right ?? width, width - Space.s2) - anchor.left
         : anchor.right - math.max(within?.left ?? 0, Space.s2);
+    // A card too narrow for the menu beside «▾»: the mockup's width, the clamp keeps it on screen.
+    final most = room < _menuMinWidth ? width : room;
     return BoxConstraints(
-      maxWidth: math.max(0.0, math.min(room, width - 2 * Space.s4)),
+      maxWidth: math.max(0.0, math.min(most, width - 2 * Space.s4)),
       maxHeight: constraints.maxHeight,
     );
   }
@@ -242,7 +246,7 @@ class _Menu extends StatelessWidget {
     final l = ShikooL10n.of(context);
     void choose(ShikooRoute way) => Navigator.of(context).pop(way);
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 248),
+      constraints: const BoxConstraints(minWidth: _menuMinWidth),
       child: IntrinsicWidth(
         child: Container(
           padding: EdgeInsets.all(isTV ? Space.s2 : Space.s1),

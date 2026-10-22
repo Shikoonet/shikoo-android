@@ -563,7 +563,7 @@ void main() {
   });
 
   testWidgets("the menu hangs under «▾», its end on «▾»'s and inside the "
-      'card: a TV of 960, 1280 and 1920, phones of 360 and 412, both '
+      'card: a TV of 960, 1280 and 1920, phones of 352, 360 and 412, both '
       'languages, a long server name', (tester) async {
     // Long enough that the menu always reaches the card's far edge, in both languages.
     const long =
@@ -575,6 +575,7 @@ void main() {
         (true, Size(960, 540)),
         (true, Size(1280, 720)),
         (true, Size(1920, 1080)),
+        (false, Size(352, 780)),
         (false, Size(360, 780)),
         (false, Size(412, 915)),
       ]) {
@@ -622,6 +623,53 @@ void main() {
         }
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
+      }
+    }
+    expect(wrong, isEmpty);
+  });
+
+  testWidgets('on a phone of 320 at font ×1.15 the card has no room for the '
+      'menu beside «▾»: it keeps its 248, stays on the screen and wraps no '
+      'line past two, in both languages', (tester) async {
+    const screen = Size(320, 700);
+    final wrong = <String>[];
+    for (final language in ['fa', 'en']) {
+      final l = lookupShikooL10n(Locale(language));
+      await _pump(
+        tester,
+        _state(),
+        size: screen,
+        locale: language,
+        textScale: 1.15,
+      );
+      await tester.tap(find.bySemanticsLabel(l.refreshWays).first);
+      await tester.pumpAndSettle();
+      await _shot(tester, 'phone-320-menu-$language');
+      final box = find
+          .ancestor(
+            of: find.text(l.refreshDirect),
+            matching: find.byType(IntrinsicWidth),
+          )
+          .first;
+      final menu = tester.getRect(box);
+      if (menu.width < 248) wrong.add('$language: menu $menu under 248');
+      if (menu.left < Space.s2 - 0.5 ||
+          menu.right > screen.width - Space.s2 + 0.5) {
+        wrong.add('$language: menu $menu off the screen');
+      }
+      for (final p in tester.renderObjectList<RenderParagraph>(
+        find.descendant(of: box, matching: find.byType(RichText)),
+      )) {
+        final text = p.text.toPlainText();
+        final lines = p
+            .getBoxesForSelection(
+              TextSelection(baseOffset: 0, extentOffset: text.length),
+              boxHeightStyle: ui.BoxHeightStyle.max,
+            )
+            .map((b) => b.top.round())
+            .toSet()
+            .length;
+        if (lines > 2) wrong.add('$language: «$text» in $lines lines');
       }
     }
     expect(wrong, isEmpty);
