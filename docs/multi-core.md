@@ -6,7 +6,7 @@
 > - **یک اصلاح در جدول نقشه:** سینگ‌باکس اکس‌اچ‌تی‌تی‌پی ندارد. سرورهای ویلسِ اکس‌اچ‌تی‌تی‌پی با سینگ‌باکس وصل نمی‌شوند و با میهومو می‌مانند.
 > - **«صاحب تونل» دو ضعف دارد:** سایت‌های ایرانی را فقط از روی نشانی عددی‌شان می‌شناسد، نه از روی نامشان؛ و عوض کردن سرور یعنی یک قطع و وصل کوتاه.
 
-Phase 1 of package «پ» (base), 2026-10-22: design only, nothing built or run. It replaces the 2026-10-20 decision (Xray
+Package «پ» (base), 2026-10-22: the design (phase 1), and what phase 2 built (§6). It replaces the 2026-10-20 decision (Xray
 automatic and invisible, as a fallback; `docs/xray-study.md`) with Sam's 2026-10-22 one: the user picks, per protocol,
 one of the cores that can carry it. Line numbers are at `5c6f159f`; mihomo paths are at `chen08209/Clash.Meta@8380d0e7`.
 "(guess)" marks a claim without a source.
@@ -70,10 +70,20 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | Ping | mihomo's URL test through the replacement `socks5`, then the engine, then the server: end to end. Unopened services (`_probeOther`, `testProxyDelay`) stay on mihomo (shortcut). | Before connecting: mihomo's adapter for the same server, or a probe the engine registers. Connected: `trafficPassesProvider` (`controller.dart:711`) uses the app's own IP check, which goes direct once the app is outside the VPN, so it must use the engine's handshake state instead. |
 | Speed and total | mihomo's trackers count the `socks5` connections: nothing to do | A Go engine pushes into `statistic.DefaultManager.PushUploaded/PushDownloaded` (`tunnel/statistic/manager.go:70-86`), so `getTraffic` stays as it is. A C++ engine needs its own bridge. |
 | Its sockets out of the tunnel | it dials through mihomo's `component/dialer`, which brings Android's protect (`core/lib.go:148-160`), Windows' interface binding and real DNS instead of fake-ip. Xray takes a dialer through `internet.UseAlternativeSystemDialer`; its `RegisterDialerController` has `DefaultSocketHook`'s signature. | Android: by leaving our package out. Windows: by binding to the physical interface. |
+| "Update through the server" (`_fetch`, `ShikooRoute.server`) | unchanged: the request goes to mihomo's local port, then the selected server, through the core the user picked | **It no longer rides the tunnel the customer uses.** The request still goes to mihomo's local port, so at best it reaches the panel through mihomo's *own* client for the same server, not through the owner core; if ه۲ leaves that port down while the owner core holds the tunnel, the way fails and only "direct" works. "Direct" is unchanged: with our package out of the VPN, every request of the app goes direct anyway. |
 | Changing the core | re-apply the config (`applyProfile(silence: true)`, as `followSubscriptions` does, `account.dart:616-623`); the tunnel stays up and the old engine stops after mihomo holds the new config | disconnect, then connect, as `setMode` does (`controller.dart:1231-1239`) |
 | Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address |
 | Lifecycle | lives with the applied config, inside `applyConfig` (Go). It runs while disconnected too, so pings work. | started and stopped by `VpnService` on Android, and by the core in TUN mode on Windows |
-| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: falls back to mihomo (question 3) |
+| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7) |
+
+**Sam's behaviour decisions (2026-10-22, through the lead):**
+- A core this build lacks shows switched off with «به‌زودی». So the state carries every core that can carry a protocol,
+  with `ready`, rather than dropping the ones that are not ready.
+- If the new core does not connect, the customer sees only «وصل نشد». There is no automatic way back to the old core.
+- Changing the core while connected uses today's server-switch notices («در حال رفتن به…» / «حالا از … وصلی»), named
+  after the core. The state's `coreSwitch` carries it.
+- Screens: design «الف», a «هسته‌ها» group in settings with one row per protocol the customer's services hold
+  (package «ص», branch `mc/ui`).
 
 ## 4. The seam, layer by layer
 
@@ -92,13 +102,23 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `lib/providers/actions/setup.dart` `getProfile`, after the script step and before `makeRealProfileTask`
   (`:350-355`). `task.dart` runs in an isolate without the providers, so it can't go there. A new upstream patch, like
   row 21.
-- The controller stays the only door (`controller.dart:31`):
-  - `ShikooServer.protocol` and `ShikooServer.core`, from the source mapping, read with `getConfig` as `_mainGroupOf`
-    already does for other services (`:1969-1975`);
-  - `ShikooState.cores`, and the action `setCore(protocol, core)`;
-  - the reconnect rule in `selectServer` (`:1368`), `selectService` (`:1871`) and `setCore`: while connected, reconnect
-    when the selected server's *tunnel key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and
-    `<core>/<server>` for an owner core.
+- The controller stays the only door (`controller.dart:31`). Built in phase 2 (`1644b16a`):
+  - `ShikooServer.protocol` from the profile's own mapping, and `ShikooServer.core`, the core really carrying it. For a
+    core behind mihomo that is known from the running type: Go replaces a server it handed over, so one it left to
+    mihomo keeps its own type.
+  - Every service's mappings are read with `getConfig`, as `_mainGroupOf` does for other services, once FlClash's boot
+    has finished (`initProvider`): profile files are readable only then.
+  - `ShikooState.cores`: one row per protocol the customer's services hold (`other` excluded), each with `chosen` (the
+    pick, or mihomo while the pick is not ready) and `options`, every core that can carry it with `ready`.
+  - `ShikooState.coreSwitch`: `(protocol, to, stage)` while a core change moves the server in use.
+  - `setCore(protocol, core)`: stores the pick, writes a timeline line for diagnostics, and re-applies the config.
+    Connected, if the server in use changes core, it shows `moving`, then `done` when that server answers through the new
+    core (or real traffic passes), else `failed`, and the pick stays.
+  - The reconnect rule, in `selectServer` and `setCore`: while connected, reconnect when the selected server's *tunnel
+    key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and `<core>/<server>` for an owner core.
+    `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
+  - Not done: the diagnostics report keeps its keys. The door refuses a whole report over a key it does not know
+    (`diag.dart`), so the choice goes into the timeline instead.
 
 **Go** (`core/`)
 - `core/shikoo_cores.go` (new): `registerShikooCore(name, start)`, called from `init()` in each `core/shikoo_<core>.go`,
@@ -110,9 +130,10 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - A core that isn't registered, or that fails, leaves its mappings to mihomo with the marker removed, and logs one
     line. The marker never reaches mihomo's parser.
 - `core/common.go` (already patched, row 24): `loadConfig` (`:368-374`) becomes `UnmarshalRawConfig`, then
-  `shikooCoresRewrite(raw)`, then `ParseRawConfig`, which is what `executor.ParseWithBytes` does through
-  `config.Parse` (`config/config.go:474-481`). After `hub.ApplyConfig(cfg)` (`:402`), one `shikooCoresCommit()` stops
-  the previous generation, beside `closeWireGuard(previous)`.
+  `shikooCoresParse(raw)`, which rewrites and then calls `ParseRawConfig`, what `executor.ParseWithBytes` does through
+  `config.Parse` (`config/config.go:474-481`); a config that fails to parse stops the cores it started. After
+  `hub.ApplyConfig(cfg)` (`:402`), one `shikooCoresCommit()` stops the previous generation, beside
+  `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
 - An owner core in Go (ه۲) branches inside `handleStartTun` (`core/lib.go:219`): the fd goes to the engine instead of
   sing-tun, and the TunHandler's protect callback stays for mihomo's own sockets. ه۲ designs it.
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
@@ -172,52 +193,45 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 `SHIKOO_PATCHES.md` rows (keep them all, renumber at integration), and translations (the screens package «ص» owns them;
 core packages add none).
 
-## 6. What base builds in phase 2
 
-1. `cores.dart` and the four stubs (`ready: false`), with `protocolOf`, `coreFor` and `markCores`.
+## 6. What base built in phase 2
+
+1. `cores.dart` and the four stubs (`ready: false`), with `protocolOf`, `coreFor`, `runningCore`, `coreRows`,
+   `tunnelKey` and `markCores`.
 2. `ShikooCoresNotifier`, loaded in the shell.
-3. The controller: protocol and core per server, `ShikooState.cores`, `setCore`, the reconnect rule, and WireGuard's
-   ping exception by source protocol.
+3. The controller: protocol and core per server, `ShikooState.cores` and `coreSwitch`, `setCore`, the reconnect rule,
+   and WireGuard's ping exception by the profile's protocol (§4).
 4. The `setup.dart` line; the Go registry and the `loadConfig` and commit hooks.
-5. The chosen cores in the diagnostics report (proposed).
-6. Go 1.27 (build-engineer), with a re-test of every mihomo protocol on phone, TV and Windows: the old `go 1.21` line's
-   runtime defaults go away (`docs/xray-study.md` §5), and loop variables become per-iteration.
-7. Tests:
-   - `test/shikoo/cores_test.dart`: `protocolOf` on panel-shaped mappings (REALITY, XHTTP, WireGuard, OpenVPN, SSH,
-     vmess); `coreFor` falling back (core not ready, XHTTP on sing-box, an owner core in Windows proxy mode);
-     `markCores` marking only behind-mihomo choices and leaving the config equal to its input when everything is
-     mihomo; the choice surviving a reload; and a check that every `ready` Go core has a
-     `registerShikooCore("<name>"` in `core/*.go`.
-   - The controller: the reconnect rule with a fake owner spec; WireGuard's exception still working when the running
-     type is `Socks5`.
-   - `core/shikoo_cores_test.go`: a fake registered core replaces the marked proxies; an unregistered one leaves them to
-     mihomo; the marker never reaches `ParseRawConfig`; the previous generation stops at commit.
-   - `flutter test` and `go test ./...` green in WSL, and a smoke test on phone and TV: with every choice at mihomo,
-     connecting, switching servers and pinging behave as today.
+5. Go 1.27.3: the `go 1.27` line, `-checklinkname=0`, and the version in the WSL and Windows toolchain scripts and both
+   Shikoo workflows (`SHIKOO_PATCHES.md` row 49). The Windows script now installs its own Go under
+   `D:\dev\windows-toolchain\go`; the shared `D:\dev\android-toolchain` is left alone.
+6. Tests: `test/shikoo/cores_test.dart`, `test/shikoo/cores_wiring_test.dart`, `core/shikoo_cores_test.go`, and the
+   profile-folder fixture in `test/shikoo/core_recover_test.dart` (a test that finishes FlClash's boot now reads profile
+   files).
 
-**Not built by base:** any engine, the owner road, the helper, the screens («ص»), and pinging unopened services through
-another core.
+**Not built by base:** any engine, the owner road, the helper, the screens («ص»), the chosen cores as a report key (the
+door would refuse the report), and pinging unopened services through another core.
 
-## 7. Open questions
+## 7. Decisions on the phase-1 questions (the lead, 2026-10-22)
 
-1. **VLESS:** one choice for all VLESS servers, or REALITY and XHTTP apart? With one, sing-box silently leaves XHTTP
-   servers on mihomo. (Sam, through the designs of «ط».)
-2. Should a screen say when a server fell back to mihomo (core not ready, or unable to carry it)? The state carries it
-   either way.
-3. **Windows proxy mode** with an owner core chosen: fall back to mihomo (proposed), or use tunnel mode for that
-   connection?
-4. If «س» finds a second executable is needed (OpenVPN 3 on Windows, or sing-box on its own): does base build the
-   helper's multi-binary form before ه۳ and ه۴ start, or the first package that needs it?
-5. **Go 1.27:** in base (proposed: one re-test for every package), or inside ه۱?
-6. Owner cores take the whole app out of the VPN on Android, against FlClash's deliberate choice to keep it in
-   (`VpnService.kt:232,238`), and they change the "traffic passes" check. Acceptable for owner cores only?
+1. **VLESS:** one choice for all VLESS servers. A server the chosen core cannot carry stays on mihomo, that server only
+   (XHTTP on sing-box, for example).
+2. Whether a screen says a server fell back to mihomo is the design's call. The state carries the real core of every
+   server (`ShikooServer.core`).
+3. **Windows proxy mode** with an owner core chosen: the servers stay on mihomo. How that shows is the design's call.
+4. The helper's multi-binary form waits for «س»'s result. Not built.
+5. **Go 1.27** is in base, with one re-test of every mihomo protocol.
+6. Leaving our package out of the VPN on Android, for owner cores only: accepted. Its effect on "update through the
+   server" is in §3; the lead tells Sam.
 
 ## 8. Not proven, and risks
 
-- Nothing here was built or run; every line was read on 2026-10-22.
 - Owner cores on Android below 13: the complement of GEOIP IR may be a long route list (guess), and the tunnel address
   and DNS must come from the panel's WireGuard fields.
 - Whether sing-box and mihomo fit in one binary («س»).
 - Xray answers SOCKS before it dials (`docs/xray-study.md` §7): a dead server behind Xray shows only in ping, not as a
   dial error.
 - Behind-mihomo cores start with every config apply, even while disconnected: memory on the 2 GB box is unmeasured.
+- The Go 1.27 runtime defaults (GODEBUG) are tested by the core's unit tests and one emulator smoke test only: TLS
+  and REALITY on real servers, the 32-bit box and Windows are not yet re-tested with it.
+- The Windows toolchain change was not run: no Windows build with Go 1.27 yet.

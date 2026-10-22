@@ -1,5 +1,6 @@
 import 'package:fl_clash/providers/config.dart' show appSettingProvider;
 import 'package:fl_clash/providers/state.dart' show ServiceTexts;
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,6 +88,36 @@ class ShikooLookNotifier extends Notifier<ShikooLook> {
 final shikooLookProvider = NotifierProvider<ShikooLookNotifier, ShikooLook>(
   ShikooLookNotifier.new,
 );
+
+/// This device only. A core this build no longer knows is skipped but its key kept, so going back a version loses nothing.
+class ShikooCoresNotifier extends Notifier<ShikooChoices> {
+  static String _key(ShikooProtocol protocol) => 'shikoo.core.${protocol.name}';
+
+  @override
+  ShikooChoices build() => const {};
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final known = ShikooCore.values.asNameMap();
+    state = {
+      for (final protocol in ShikooProtocol.values)
+        protocol: ?known[prefs.getString(_key(protocol))],
+    };
+  }
+
+  Future<void> set(ShikooProtocol protocol, ShikooCore core) async {
+    state = {...state, protocol: core};
+    await (await SharedPreferences.getInstance()).setString(
+      _key(protocol),
+      core.name,
+    );
+  }
+}
+
+final shikooCoresProvider =
+    NotifierProvider<ShikooCoresNotifier, ShikooChoices>(
+      ShikooCoresNotifier.new,
+    );
 
 /// FlClash's `autoLaunch`, which its WindowManager writes to Windows' Run key.
 final shikooAutoStartProvider = Provider<bool>(

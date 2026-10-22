@@ -10,7 +10,10 @@ $VsComponents = @(
   'Microsoft.VisualStudio.Component.VC.CMake.Project',
   'Microsoft.VisualStudio.Component.Windows11SDK.26100'
 )
-$Go = 'D:\dev\android-toolchain\go\bin\go.exe'
+# Its own Go: android-toolchain's is shared and older, and core/go.mod asks for 1.27 (docs/multi-core.md).
+$GoVersion = '1.27.3'
+$GoSha256 = 'f26081f438319757f8a1b46d7d0b2c5ec7583d4038e485e0aa725cfde7885fff'
+$Go = "$Root\go\bin\go.exe"
 $Dl = "$Root\_downloads"
 
 function Log([string]$m) { Write-Host "[$(Get-Date -Format HH:mm:ss)] $m" }
@@ -93,6 +96,11 @@ if (-not (Test-Path "$inno\ISCC.exe")) {
   if ($p.ExitCode) { throw "Inno Setup installer exit $($p.ExitCode)" }
 }
 
+if (-not ((Test-Path $Go) -and (& $Go env GOVERSION) -eq "go$GoVersion")) {
+  $zip = Fetch "https://redirector.gvt1.com/edgedl/go/go$GoVersion.windows-amd64.zip" "go$GoVersion.windows-amd64.zip" $GoSha256
+  if (Test-Path "$Root\go") { Remove-Item -Recurse -Force "$Root\go" }
+  Expand-Archive $zip $Root
+}
 & $Go env -w "GOMODCACHE=$Root\go-mod" "GOCACHE=$Root\go-build"
 
 New-Item -ItemType Directory -Force "$Root\tmp" | Out-Null
@@ -100,7 +108,7 @@ $envSh = @"
 # written by tools/windows-toolchain.ps1; source it after /d/dev/android-toolchain/env.sh
 export RUSTUP_HOME='$Root\rustup' CARGO_HOME='$Root\cargo' INNO_SETUP_PATH='$inno'
 export TEMP='$Root\tmp' TMP='$Root\tmp'
-export PATH="/d/dev/windows-toolchain/cargo/bin:`$PATH"
+export PATH="/d/dev/windows-toolchain/go/bin:/d/dev/windows-toolchain/cargo/bin:`$PATH"
 "@
 [IO.File]::WriteAllText("$Root\env.sh", ($envSh -replace "`r", '') + "`n")
 

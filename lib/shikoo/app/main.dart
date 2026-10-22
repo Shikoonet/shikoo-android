@@ -63,6 +63,7 @@ void main(List<String> args) {
         await keepIranDirect(container.read(shikooIranDirectProvider));
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
+        await container.read(shikooCoresProvider.notifier).load();
         await container.read(shikooSignInProvider).load();
         HttpOverrides.global = FlClashHttpOverrides(container);
         request.attach(container.read);

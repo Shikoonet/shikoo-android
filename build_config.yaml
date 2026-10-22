@@ -1,5 +1,6 @@
 tags: with_gvisor,no_easytier
-go_ldflags: "-w -s"
+# -checklinkname=0: Xray (docs/multi-core.md) reaches net internals by go:linkname, which Go 1.23+ refuses on Android.
+go_ldflags: "-w -s -checklinkname=0"
 core_dir: core
 core_name: ShikooNetCore
 lib_name: libclash
