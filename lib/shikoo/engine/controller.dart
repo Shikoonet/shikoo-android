@@ -2151,12 +2151,14 @@ class ShikooController {
     if (needsServers && ended == null) {
       await _needServers(body);
     }
-    final Profile profile;
+    Profile profile;
     try {
       profile = await draft.saveFile(body, validate: _validate);
     } on MessageException {
       if (ended == null) rethrow;
-      throw ShikooPanelEnded(ended);
+      if (!refresh) throw ShikooPanelEnded(ended);
+      // Its last servers stay on disk for the renewal; the panel's usage and date are what changed.
+      profile = draft.copyWith(lastUpdateDate: DateTime.now());
     }
     // ponytail: its just-saved config file stays behind, as with FlClash's own update.
     if (refresh &&

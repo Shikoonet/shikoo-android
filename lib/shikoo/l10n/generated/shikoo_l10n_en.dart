@@ -633,6 +633,9 @@ class ShikooL10nEn extends ShikooL10n {
       'Try again in a bit; if it still won\'t open, ask Support.';
 
   @override
+  String get pasteEnded => 'This service has ended; renew it to continue.';
+
+  @override
   String get loginTagline => 'For ShikooNet customers';
 
   @override

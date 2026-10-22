@@ -3,15 +3,20 @@ import 'dart:ui' as ui;
 
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:riverpod/misc.dart' show Override;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/no_shots.dart';
@@ -50,6 +55,10 @@ Future<void> _pump(
   ShikooAccount account, {
   required String locale,
   required Brightness brightness,
+  ShikooService? service,
+  ShikooRefresh refresh = ShikooRefresh.idle,
+  Widget home = const ShikooHome(),
+  List<Override> more = const [],
 }) async {
   SharedPreferences.setMockInitialValues({});
   final tv = look == _Look.tv;
@@ -77,8 +86,11 @@ Future<void> _pump(
             connectedFor: Duration.zero,
             isTV: tv,
             servers: const [],
+            service: service,
+            refresh: refresh,
           ),
         ),
+        ...more,
       ],
       child: MaterialApp(
         locale: Locale(locale),
@@ -92,7 +104,7 @@ Future<void> _pump(
           key: _screen,
           child: tv ? ShikooTvCanvas(child: child!) : child!,
         ),
-        home: const ShikooHome(),
+        home: home,
       ),
     ),
   );
@@ -186,17 +198,120 @@ Future<void> _all(WidgetTester tester, _Look look) async {
     for (final brightness in Brightness.values) {
       await _finished(tester, look, locale, brightness);
     }
+    await _refreshed(tester, look, locale);
   }
   await _finished(tester, look, 'fa', Brightness.light, status: 'expired');
   await _before(tester, look);
+  if (look == _Look.phone) await _refreshed(tester, look, 'fa', before: true);
 }
+
+const _onDevice = ShikooAccount(
+  who: TelegramAccount(name: 'مریم'),
+  bot: 'shikoonet_bot',
+  services: [
+    LinkedService(
+      id: 42,
+      title: 'user456 · پاسارگاد',
+      status: 'active',
+      profileId: 7,
+      renewable: true,
+    ),
+  ],
+);
+
+/// The service on this device after an update whose header was used up and whose config did not load.
+Future<void> _refreshed(
+  WidgetTester tester,
+  _Look look,
+  String locale, {
+  bool before = false,
+}) async {
+  await _pump(
+    tester,
+    look,
+    _onDevice,
+    locale: locale,
+    brightness: Brightness.light,
+    service: ShikooService(
+      id: 7,
+      name: 'user456 · پاسارگاد',
+      usedBytes: before ? 920 << 20 : 1 << 30,
+      totalBytes: 1 << 30,
+      expire: DateTime.now().add(const Duration(days: 20)),
+      updatedAt: DateTime.now(),
+    ),
+    refresh: before ? ShikooRefresh.failed : ShikooRefresh.idle,
+  );
+  final l = lookupShikooL10n(Locale(locale));
+  final why = '${look.name} $locale before $before';
+  expect(
+    find.textContaining(l.updateFailed, findRichText: true),
+    before ? findsWidgets : findsNothing,
+    reason: why,
+  );
+  if (before) return _shot(tester, 'card-${look.name}-$locale-before');
+  expect(find.text(l.stateExhausted), findsNWidgets(2), reason: why);
+  expect(find.text(l.serversAfterRenew), findsOneWidget, reason: why);
+  for (final label in [l.renew, l.support]) {
+    expect(
+      find.widgetWithText(ShikooButton, label),
+      findsOneWidget,
+      reason: '$label, $why',
+    );
+  }
+  await _shot(tester, 'card-${look.name}-$locale-refreshed');
+}
+
+class _Controller extends Mock implements ShikooController {}
 
 void main() {
   setUpAll(loadShikooFonts);
 
+  testWidgets('pasting a link its panel calls ended says so, and to renew', (
+    tester,
+  ) async {
+    final controller = _Controller();
+    when(() => controller.pasteService(any())).thenAnswer(
+      (_) async => (error: ShikooPasteError.exhausted, id: null, added: false),
+    );
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async => {'text': 'https://4g3.uk/sub/x'},
+    );
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    for (final locale in ['fa', 'en']) {
+      await _pump(
+        tester,
+        _Look.phone,
+        _onDevice,
+        locale: locale,
+        brightness: Brightness.light,
+        home: const AddService(),
+        more: [shikooControllerProvider.overrideWithValue(controller)],
+      );
+      final l = lookupShikooL10n(Locale(locale));
+      await tester.tap(find.text(l.pasteLink));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(l.pasteEnded, findRichText: true),
+        findsOneWidget,
+        reason: locale,
+      );
+      expect(
+        find.textContaining(l.pasteUnavailableTitle, findRichText: true),
+        findsNothing,
+        reason: locale,
+      );
+      await _shot(tester, 'paste-phone-$locale-light');
+    }
+  });
+
   testWidgets(
-    'a service its panel calls used up or past its date is a '
-    'finished card with «تمدید», never «باز نشد», on the phone',
+    'a service its panel calls used up or past its date is a finished card '
+    'with «تمدید», never «باز نشد» nor a failed update, on the phone',
     (tester) => _all(tester, _Look.phone),
   );
 

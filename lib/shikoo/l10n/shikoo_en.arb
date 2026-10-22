@@ -205,6 +205,8 @@
   "pasteUnavailableTitle": "Couldn't open the link right now.",
   "@pasteUnavailableTitle": {"description": "A server error (5xx), an empty answer, or a web page instead of a subscription. Only 404 and 410 say pasteRevokedTitle. Says nothing about a “server”: customers read that as the servers in the list."},
   "pasteUnavailableHelp": "Try again in a bit; if it still won't open, ask Support.",
+  "pasteEnded": "This service has ended; renew it to continue.",
+  "@pasteEnded": {"description": "The panel answered: the subscription is used up or past its date, so its servers will not load until renewal."},
   "loginTagline": "For ShikooNet customers",
   "loginTelegram": "Sign in with Telegram",
   "loginTelegramNote": "Telegram opens; tap “Approve” in the ShikooNet bot.",

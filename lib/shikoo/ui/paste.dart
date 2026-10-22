@@ -81,9 +81,9 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
                 ShikooPasteError.empty => l.pasteEmptyTitle,
                 ShikooPasteError.notShikoo => l.pasteNotShikooTitle,
                 ShikooPasteError.revoked => l.pasteRevokedTitle,
-                ShikooPasteError.unavailable ||
+                ShikooPasteError.unavailable => l.pasteUnavailableTitle,
                 ShikooPasteError.expired ||
-                ShikooPasteError.exhausted => l.pasteUnavailableTitle,
+                ShikooPasteError.exhausted => l.pasteEnded,
                 ShikooPasteError.offline => l.pasteOfflineTitle,
                 ShikooPasteError.clock => l.clockWrongTitle,
               },
@@ -92,9 +92,8 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
                   shikooDesktop ? l.pasteEmptyHelpDesktop : l.pasteEmptyHelp,
                 ShikooPasteError.notShikoo => l.pasteNotShikooHelp,
                 ShikooPasteError.revoked => l.pasteRevokedHelp,
-                ShikooPasteError.unavailable ||
-                ShikooPasteError.expired ||
-                ShikooPasteError.exhausted => l.pasteUnavailableHelp,
+                ShikooPasteError.unavailable => l.pasteUnavailableHelp,
+                ShikooPasteError.expired || ShikooPasteError.exhausted => '',
                 ShikooPasteError.offline =>
                   (shikooDesktop
                       ? l.pasteOfflineHelpDesktop

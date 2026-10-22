@@ -594,6 +594,9 @@ class ShikooL10nFa extends ShikooL10n {
       'کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.';
 
   @override
+  String get pasteEnded => 'این سرویس تمام شده؛ برای ادامه تمدیدش کن.';
+
+  @override
   String get loginTagline => 'مخصوص مشتری‌های شیکونت';
 
   @override

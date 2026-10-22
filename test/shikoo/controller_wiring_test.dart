@@ -3187,6 +3187,36 @@ void main() {
       expect(way(), ShikooFailedWay.panel);
     });
 
+    test('an answer the core cannot read with a used-up or past header is '
+        'that end, with its usage and date, and no failed update', () async {
+      when(
+        () => core.validateConfig(any()),
+      ).thenAnswer((_) async => 'proxy group[0]: `use` or `proxies` missing');
+      final past = DateTime.now().subtract(const Duration(days: 2));
+      final at = past.millisecondsSinceEpoch ~/ 1000;
+      _panelInfo = 'upload=0; download=5; total=1073741824; expire=$at';
+      await controller.refreshService();
+      final current = state().service!;
+      expect(state().refresh, ShikooRefresh.idle);
+      expect(state().notice, isNot(isA<RefreshFailed>()));
+      expect(
+        (current.ended, current.usedBytes, current.expire),
+        (
+          ShikooServiceStatus.expired,
+          5,
+          DateTime.fromMillisecondsSinceEpoch(at * 1000),
+        ),
+      );
+
+      _panelInfo = 'upload=7; download=1073741817; total=1073741824';
+      await controller.refreshOther(other.id);
+      final second = state().others.singleWhere((s) => s.id == other.id);
+      expect(
+        (second.ended, second.usedBytes, second.refresh),
+        (ShikooServiceStatus.exhausted, 1073741824, ShikooRefresh.idle),
+      );
+    });
+
     test("the panel's own answer is final, through either way", () async {
       container.read(runTimeProvider.notifier).value = 1;
       _gone.add('/file/user111/a');

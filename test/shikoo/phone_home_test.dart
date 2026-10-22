@@ -310,6 +310,8 @@ void main() {
       (ShikooPasteError.notShikoo, 'این لینک شیکونت نیست.'),
       (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
       (ShikooPasteError.unavailable, 'لینک الان باز نشد.'),
+      (ShikooPasteError.expired, 'این سرویس تمام شده؛ برای ادامه تمدیدش کن.'),
+      (ShikooPasteError.exhausted, 'این سرویس تمام شده؛ برای ادامه تمدیدش کن.'),
       (ShikooPasteError.clock, 'تاریخ و ساعت دستگاهت درست نیست.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {
