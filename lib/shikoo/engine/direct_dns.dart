@@ -7,12 +7,30 @@ const shikooDirectIds = 7470000;
 const iranDirectIds = shikooDirectIds + 200;
 const subscriptionDirectIds = shikooDirectIds + 500;
 
+const shikooRuleSets = {'shikoo-ir-site': 'domain', 'shikoo-ir-ip': 'ipcidr'};
+
 /// `category-ir` holds all of `.ir`. `no-resolve`: resolving here would hold up every foreign site, so
 /// an IP counts only for a connection that came without a name.
 final iranDirectRules = [
-  Rule.parse('GEOSITE,category-ir,DIRECT', id: iranDirectIds),
-  Rule.parse('GEOIP,IR,DIRECT,no-resolve', id: iranDirectIds + 1),
+  Rule.parse('RULE-SET,shikoo-ir-site,DIRECT', id: iranDirectIds),
+  Rule.parse('RULE-SET,shikoo-ir-ip,DIRECT,no-resolve', id: iranDirectIds + 1),
+  Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds + 2),
 ];
+
+void shikooRuleProviders(Map<dynamic, dynamic> config, Iterable<Rule> added) {
+  final used = {
+    for (final rule in added)
+      if (shikooRuleSets[rule.ruleProvider] case final behavior?)
+        rule.ruleProvider!: {
+          'type': 'file',
+          'behavior': behavior,
+          'format': 'mrs',
+          'path': './${rule.ruleProvider}.mrs',
+        },
+  };
+  if (used.isEmpty) return;
+  config['rule-providers'] = {...used, ...?(config['rule-providers'] as Map?)};
+}
 
 final _tunDomain = RegExp(r'^\(\(IN-TYPE,TUN\),\(DOMAIN,([^()]+)\)\)$');
 
@@ -34,7 +52,10 @@ Map<String, dynamic> shikooDns(
 
 String? _domain(Rule rule) => switch (rule.ruleAction) {
   RuleAction.DOMAIN => rule.content,
-  RuleAction.GEOSITE => 'geosite:${rule.content}',
+  RuleAction.DOMAIN_SUFFIX => '+.${rule.content}',
+  // An `ipcidr` set here fails the whole config, and the core falls back to one with no servers.
+  RuleAction.RULE_SET when shikooRuleSets[rule.ruleProvider] == 'domain' =>
+    'rule-set:${rule.ruleProvider}',
   RuleAction.AND => _tunDomain.firstMatch(rule.content ?? '')?[1],
   _ => null,
 };

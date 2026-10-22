@@ -247,6 +247,7 @@ Future<({String yaml, String md5})> _makeRealProfileTask(
     }
   }
   rawConfig['dns'] = shikooDns(rawConfig['dns'], addedRules);
+  shikooRuleProviders(rawConfig, addedRules);
   List<String> rules = [];
   if (data.rules.isEmpty) {
     if (rawConfig['rules'] != null) {
