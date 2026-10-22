@@ -315,8 +315,6 @@ github.com/sagernet/quic-go v0.61.0-sing-box-mod.9 h1:Lojx77uC63TxZO38Z1OSo6aOoB
 github.com/sagernet/quic-go v0.61.0-sing-box-mod.9/go.mod h1:hmLC8GJPp+BrpBgrgJnacvI4fZGIhasuy1ROJJ8GR4E=
 github.com/sagernet/sing v0.9.7-0.20260929150544-0ad23b637bd4 h1:d4WT3KO4zhp9qzPHUZCKqCP+ZmP1GXBsAmReqlnE4zA=
 github.com/sagernet/sing v0.9.7-0.20260929150544-0ad23b637bd4/go.mod h1:K3Owt3xPhHugvlnlPPxZJ/exXdaJfEPOTNorGk4AXjo=
-github.com/sagernet/sing-box v1.14.3 h1:cBg8TP5SPWoMAlWqTqbSNdHGKPUciZisjQbLtqFlMZA=
-github.com/sagernet/sing-box v1.14.3/go.mod h1:Yei01EtPLnLTpLho05THCbqUwfidsaE/0vm1oSu+XQA=
 github.com/sagernet/sing-mux v0.3.10-0.20260929204512-caf09fe32475 h1:aG0DqHEOjax7DyfE1GTAXZotOg3QGVCz3/8rCSua2kg=
 github.com/sagernet/sing-mux v0.3.10-0.20260929204512-caf09fe32475/go.mod h1:jricpwCOndDsTEM1TM3piJvhL/2Mm7OhLkm+JadJJ1Q=
 github.com/sagernet/sing-openvpn v0.1.1-0.20260929151220-7c3045dbddce h1:uB2DkIJLZ9waR/ZLBO9IF/ws5BWg0FEegLi90ibhX5I=

@@ -15,6 +15,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -112,6 +114,93 @@ proxies:
 	for _, stop := range shikooCoresRunning {
 		stop()
 	}
+}
+
+// Xray-core v26.9.8 and later refuse a REALITY ClientHello without X25519MLKEM768 ahead of X25519 (XTLS/REALITY
+// 8cdf7bf9); unpatched sing-box 1.14.3 strips it (row ۵۳ in SHIKOO_PATCHES.md).
+func TestSingBoxRealityOffersMLKEMBeforeX25519(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	hellos := make(chan []byte, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		header := make([]byte, 5)
+		if _, err := io.ReadFull(conn, header); err != nil {
+			return
+		}
+		body := make([]byte, int(header[3])<<8|int(header[4]))
+		if _, err := io.ReadFull(conn, body); err == nil {
+			hellos <- body
+		}
+	}()
+	_, public := x25519(t, base64.RawURLEncoding)
+	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
+  - {name: r, type: vless, server: 127.0.0.1, port: %d, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
+     servername: reality.test, client-fingerprint: chrome, reality-opts: {public-key: %s, short-id: 0123abcd},
+     shikoo-core: singBox}
+`, listener.Addr().(*net.TCPAddr).Port, public))
+	t.Cleanup(e2eStop)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if conn, err := cfg.Proxies["r"].DialContext(ctx, e2eTarget("127.0.0.1", 1)); err == nil {
+		defer conn.Close()
+	}
+
+	var hello []byte
+	select {
+	case hello = <-hellos:
+	case <-time.After(5 * time.Second):
+		t.Fatal("sing-box sent no ClientHello")
+	}
+	groups, shares := helloGroups(t, hello)
+	const mlkem, classic = 0x11ec, 0x001d
+	if len(shares) < 2 || shares[0] != mlkem || shares[1] != classic {
+		t.Errorf("key shares %#x, want X25519MLKEM768 then X25519", shares)
+	}
+	mlkemAt, classicAt := slices.Index(groups, mlkem), slices.Index(groups, classic)
+	if mlkemAt < 0 || mlkemAt > classicAt {
+		t.Errorf("supported groups %#x, want X25519MLKEM768 ahead of X25519", groups)
+	}
+}
+
+// helloGroups reads a ClientHello handshake message: its supported groups and its key shares' groups, GREASE left out.
+func helloGroups(t *testing.T, hello []byte) (groups, shares []uint16) {
+	t.Helper()
+	u16 := func(b []byte) int { return int(b[0])<<8 | int(b[1]) }
+	grease := func(v int) bool { return v&0x0f0f == 0x0a0a }
+	at := 4 + 2 + 32
+	at += 1 + int(hello[at])
+	at += 2 + u16(hello[at:])
+	at += 1 + int(hello[at])
+	end := at + 2 + u16(hello[at:])
+	for at += 2; at < end; {
+		kind, size := u16(hello[at:]), u16(hello[at+2:])
+		data := hello[at+4 : at+4+size]
+		switch kind {
+		case 10:
+			for i := 2; i < len(data); i += 2 {
+				if g := u16(data[i:]); !grease(g) {
+					groups = append(groups, uint16(g))
+				}
+			}
+		case 51:
+			for i := 2; i < len(data); i += 4 + u16(data[i+2:]) {
+				if g := u16(data[i:]); !grease(g) {
+					shares = append(shares, uint16(g))
+				}
+			}
+		}
+		at += 4 + size
+	}
+	return groups, shares
 }
 
 // The end-to-end test runs official servers from SHIKOO_E2E_BIN, unpacked, never installed:

@@ -1,0 +1,52 @@
+diff --git a/common/tls/reality_client.go b/common/tls/reality_client.go
+index 13f88e385bf..a19012905ba 100644
+--- a/common/tls/reality_client.go
++++ b/common/tls/reality_client.go
+@@ -145,21 +145,36 @@ func (e *RealityClientConfig) ClientHandshake(ctx context.Context, conn net.Conn
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	var mlkemCurve, mlkemKeyShare bool
+ 	for _, extension := range uConn.Extensions {
+-		if ce, ok := extension.(*utls.SupportedCurvesExtension); ok {
+-			ce.Curves = common.Filter(ce.Curves, func(curveID utls.CurveID) bool {
+-				return curveID != utls.X25519MLKEM768
+-			})
+-		}
+-		if ks, ok := extension.(*utls.KeyShareExtension); ok {
+-			ks.KeyShares = common.Filter(ks.KeyShares, func(share utls.KeyShare) bool {
+-				return share.Group != utls.X25519MLKEM768
++		switch ext := extension.(type) {
++		case *utls.SupportedCurvesExtension:
++			mlkemCurve = common.Contains(ext.Curves, utls.X25519MLKEM768)
++		case *utls.KeyShareExtension:
++			mlkemKeyShare = common.Any(ext.KeyShares, func(share utls.KeyShare) bool {
++				return share.Group == utls.X25519MLKEM768
+ 			})
+ 		}
+ 	}
+-	err = uConn.BuildHandshakeState()
+-	if err != nil {
+-		return nil, err
++	// A group without its key share draws a HelloRetryRequest from post-quantum-preferring targets, which uTLS cannot answer.
++	// A key share without its group is forbidden by RFC 8446, Section 4.2.8, and OpenSSL targets abort with illegal_parameter.
++	if mlkemCurve != mlkemKeyShare {
++		for _, extension := range uConn.Extensions {
++			if ce, ok := extension.(*utls.SupportedCurvesExtension); ok {
++				ce.Curves = common.Filter(ce.Curves, func(curveID utls.CurveID) bool {
++					return curveID != utls.X25519MLKEM768
++				})
++			}
++			if ks, ok := extension.(*utls.KeyShareExtension); ok {
++				ks.KeyShares = common.Filter(ks.KeyShares, func(share utls.KeyShare) bool {
++					return share.Group != utls.X25519MLKEM768
++				})
++			}
++		}
++		err = uConn.BuildHandshakeState()
++		if err != nil {
++			return nil, err
++		}
+ 	}
+ 
+ 	if len(uConfig.NextProtos) > 0 {
