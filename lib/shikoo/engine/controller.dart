@@ -1407,11 +1407,16 @@ class ShikooController {
   );
 
   /// While connected the core takes the new rules in place, with no reconnect.
+  /// An owner core sets Iran's routes only when it builds the VPN, so there the switch reconnects, as [setMode] does.
   Future<void> setIranDirect(bool on) async {
     final saved = _ref.read(shikooIranDirectProvider.notifier).set(on);
     await keepIranDirect(on);
     if (_running) await _setup.applyProfile(silence: true);
     await saved;
+    final up = _running || _ref.read(_intentProvider).connecting;
+    if (!up || _ref.read(shikooOwnerProvider) == null) return;
+    await disconnect();
+    await connect();
   }
 
   void onVpnConsent(String result) {
