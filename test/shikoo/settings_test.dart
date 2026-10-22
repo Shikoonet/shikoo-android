@@ -116,13 +116,19 @@ void main() {
 
   test('the core row\'s version belongs to the commit core/Clash.Meta is '
       'pinned to', () {
-    final pinned = Process.runSync('git', [
+    // The index, not HEAD: CI's comment-density step soft-resets HEAD to the PR's base.
+    final git = Process.runSync('git', [
       'rev-parse',
       '--short=7',
-      'HEAD:core/Clash.Meta',
-    ]).stdout.toString().trim();
+      ':core/Clash.Meta',
+    ]);
     // Moving the core: set mihomoVersion to the mihomo tag the new commit carries, then this pair.
-    expect((pinned, mihomoVersion), ('cd1023a', '1.19.33'));
+    expect(
+      (git.stdout.toString().trim(), mihomoVersion),
+      ('cd1023a', '1.19.33'),
+      reason:
+          'git rev-parse :core/Clash.Meta exit ${git.exitCode}: ${git.stderr}',
+    );
   });
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
