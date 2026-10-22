@@ -49,6 +49,15 @@ List<String> switchNews(ShikooL10n l, ShikooSwitch shift) =>
       ],
     };
 
+/// A service under the top bar's «پشتیبانی»; [below] names it under the TV's code.
+typedef _Helped = ({
+  String name,
+  String below,
+  String link,
+  String chip,
+  bool? ok,
+});
+
 /// Home, laid out after `design/mockups/tv.html` (frames `tv-home-*`) and `phone.html`.
 class ShikooHome extends ConsumerStatefulWidget {
   const ShikooHome({super.key});
@@ -61,6 +70,8 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _card = CardFocus();
   final _power = FocusNode();
   final _settings = FocusNode();
+  final _topRenew = FocusNode();
+  final _topSupport = FocusNode();
   final _linkless = FocusNode();
   final _crashSend = FocusNode();
   final _crashNo = FocusNode();
@@ -68,7 +79,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   final _inUse = FocusNode();
   final _scroll = ScrollController();
   final _cards = <int, GlobalKey>{};
-  (int?, bool, bool, bool)? _shown;
+  (int?, bool, FocusNode?, bool)? _shown;
 
   /// The only card, folded by its arrow; two cards or more fold and open as the controller says.
   bool _folded = false;
@@ -103,6 +114,8 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     _card.dispose();
     _power.dispose();
     _settings.dispose();
+    _topRenew.dispose();
+    _topSupport.dispose();
     _linkless.dispose();
     _crashSend.dispose();
     _crashNo.dispose();
@@ -198,6 +211,48 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     });
   }
 
+  /// The top bar's «پشتیبانی»: the one link every service shares, or a list of them. The list's
+  /// pick is reported with the screen as it was at this tap.
+  Future<void> _support(List<_Helped> services, {required bool isTV}) async {
+    final [first, ...rest] = services;
+    if (rest.every((service) => service.link == first.link)) {
+      return openSupport(
+        context,
+        isTV: isTV,
+        link: first.link,
+        below: rest.isEmpty ? first.below : null,
+        trigger: 'support',
+      );
+    }
+    final shots = await takeShots(context);
+    if (!mounted) return;
+    final l = ShikooL10n.of(context);
+    await chooseService(
+      context,
+      isTV: isTV,
+      title: l.supportPickTitle,
+      help: isTV ? l.pickHelpTv : l.supportPickHelp,
+      choices: [
+        for (final service in services)
+          (
+            name: service.name,
+            chip: service.chip,
+            ok: service.ok,
+            open: () => unawaited(
+              openSupport(
+                context,
+                isTV: isTV,
+                link: service.link,
+                below: service.below,
+                trigger: 'support',
+                shots: shots,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   double? _edge(int? id, {bool bottom = false}) {
     final box = _cards[id]?.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return null;
@@ -237,16 +292,17 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       final first = [
         _card.ping,
         _card.renew,
-        _card.support,
+        _card.refresh,
       ].firstWhereOrNull((node) => _onScreen(node) && node.canRequestFocus);
       if (first != null) jumpFocus(first.context!, first);
     });
   }
 
-  /// So the remote never stays on a button that just went away or went dead.
+  /// So the remote never stays on a button that just went away or went dead. [linkless]: the
+  /// first card is one with no link here, and the remote starts on this.
   void _focusFirst(
     ShikooState state, {
-    required bool linkless,
+    required FocusNode? linkless,
     required bool renews,
   }) {
     final service = state.service;
@@ -256,16 +312,20 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     // The open card became the one in use, by a server pressed there: the remote stays on it.
     final stays =
         _shown != null &&
-        service?.id == state.open &&
+        service != null &&
+        service.id == state.open &&
         !shown.$2 &&
         focused is! FocusScopeNode &&
         _onScreen(focused);
     _shown = shown;
     if (stays) return;
-    final resting = renews ? _card.renew : _card.support;
-    final first = linkless
-        ? _linkless
-        : (service == null ? _settings : (shown.$2 ? resting : _power));
+    // Not renewable, or revoked: the card has no renew, and support is the top bar's.
+    final resting = renews && !(service?.revoked ?? false)
+        ? _card.renew
+        : _topSupport;
+    final first =
+        linkless ??
+        (service == null ? _settings : (shown.$2 ? resting : _power));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && (ModalRoute.isCurrentOf(context) ?? true)) {
         first.requestFocus();
@@ -337,7 +397,13 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     ];
     final first = linkedTop ?? (hasService ? null : noLink.firstOrNull);
     final renews = account.renewsOn(current?.id);
-    _focusFirst(state, linkless: first != null, renews: renews);
+    _focusFirst(
+      state,
+      linkless: first == null
+          ? null
+          : (first.finished && !first.renews ? _topSupport : _linkless),
+      renews: renews,
+    );
     _onOpened(state);
     final wide =
         !state.isTV &&
@@ -451,10 +517,101 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       ],
     );
     final towardCard = state.selected ?? state.servers.firstOrNull?.name;
-    // A home with no service has its own paste button in its card.
-    final onAdd = current == null && unlinked.isEmpty
-        ? null
-        : () => unawaited(_add());
+    // A home with no service has its own paste and support buttons in its card.
+    final noService = current == null && unlinked.isEmpty;
+    final onAdd = noService ? null : () => unawaited(_add());
+    void renew(int? id, String name) => openRenew(
+      context,
+      isTV: state.isTV,
+      bot: account.bot,
+      id: id,
+      name: name,
+    );
+    ServiceChoice renewing(ShikooService service) {
+      final name = plainTitle(context, service);
+      return (
+        name: name,
+        chip: service.finished ? l.chipFinished : l.statusActive,
+        ok: !service.finished,
+        open: () => renew(account.serviceOf(service.id), name),
+      );
+    }
+
+    // Home's order with the finished ones last: a finished full card, then the finished rows.
+    final renewable = <ServiceChoice>[
+      for (final service in cards)
+        if (service.ended == null && account.renewsOn(service.id))
+          renewing(service),
+      for (final service in cards)
+        if (service.finished && account.renewsOn(service.id)) renewing(service),
+      for (final row in [if (linkedTop != null) finished.first, ...rows])
+        if (account.renews(row))
+          (
+            name: row.name,
+            chip: l.chipFinished,
+            ok: false,
+            open: () => renew(row.renewId, row.name),
+          ),
+    ];
+    final helped = <_Helped>[
+      for (final service in [
+        ...listed.where((service) => service.ended == null),
+        ...listed.where((service) => service.ended != null),
+      ])
+        (
+          name: plainTitle(context, service),
+          below: serviceTitle(context, service),
+          link: service.supportLink,
+          chip: switch (service.ended) {
+            null => l.statusActive,
+            ShikooServiceStatus.revoked => l.chipRevoked,
+            _ => l.chipFinished,
+          },
+          ok: service.ended == null,
+        ),
+      for (final linked in unlinked)
+        (
+          name: linked.title,
+          below: bidiName(linked.title),
+          link: ShikooLinks.support,
+          chip: linked.finished
+              ? l.chipFinished
+              : (linked.loadFailed ? l.loadFailedChip : l.noLinkChip),
+          ok: linked.finished || linked.loadFailed ? false : null,
+        ),
+    ];
+    final onRenew = switch (renewable) {
+      [] => null,
+      [final only] => only.open,
+      _ => () => unawaited(
+        chooseService(
+          context,
+          isTV: state.isTV,
+          title: l.renewPickTitle,
+          help: state.isTV ? l.pickHelpTv : l.renewPickHelp,
+          choices: renewable,
+        ),
+      ),
+    };
+    final top = [
+      if (onRenew != null)
+        ShikooButton(
+          label: l.renew,
+          icon: state.isTV ? ShikooIcon.qr : null,
+          small: !state.isTV,
+          primary: true,
+          focusNode: _topRenew,
+          onPressed: onRenew,
+        ),
+      if (!noService)
+        ShikooButton(
+          label: l.support,
+          icon: state.isTV ? ShikooIcon.qr : null,
+          small: !state.isTV,
+          focusNode: _topSupport,
+          onPressed: () => unawaited(_support(helped, isTV: state.isTV)),
+        ),
+    ];
     return PageWidth(
       child: Scaffold(
         backgroundColor: t.c.bg,
@@ -463,8 +620,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             policy: PageTraversalPolicy(),
             child: state.isTV
                 ? _TvLayout(
-                    noService: current == null && unlinked.isEmpty,
+                    noService: noService,
                     settings: _settings,
+                    actions: top,
                     power: _PowerKeys(
                       targets: [
                         _crashSend,
@@ -479,18 +637,18 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                   )
                 : wide
                 ? _WideLayout(
+                    bar: _AppBar(actions: top, onAdd: onAdd),
                     power: power,
                     card: card,
                     scroll: _scroll,
                     room: _room,
-                    onAdd: onAdd,
                   )
                 : _PhoneLayout(
+                    bar: _AppBar(actions: top, onAdd: onAdd),
                     power: power,
                     card: card,
                     scroll: _scroll,
                     room: _room,
-                    onAdd: onAdd,
                   ),
           ),
         ),
@@ -607,15 +765,13 @@ class _CardKeys extends StatelessWidget {
               focus.ping,
             }.contains(from);
             final next = switch (intent.direction) {
-              TraversalDirection.down when head =>
+              TraversalDirection.down when head => [
+                focus.other,
+                focus.report,
+                focus.renew,
+              ].firstWhereOrNull(_onScreen),
+              TraversalDirection.up when from == focus.renew =>
                 [focus.other, focus.report].firstWhereOrNull(_onScreen) ??
-                    focus.support,
-              TraversalDirection.up
-                  when from == focus.renew || from == focus.support =>
-                [
-                      if (from == focus.renew) focus.other,
-                      focus.report,
-                    ].firstWhereOrNull(_onScreen) ??
                     focus.ping,
               _ => null,
             };
@@ -646,12 +802,14 @@ class _TvLayout extends StatelessWidget {
   const _TvLayout({
     required this.noService,
     required this.settings,
+    required this.actions,
     required this.power,
     required this.card,
   });
 
   final bool noService;
   final FocusNode settings;
+  final List<Widget> actions;
   final Widget power;
   final Widget card;
 
@@ -671,12 +829,19 @@ class _TvLayout extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Brand(),
-                ShikooButton(
-                  label: ShikooL10n.of(context).settings,
-                  icon: ShikooIcon.gear,
-                  autofocus: noService,
-                  focusNode: settings,
-                  onPressed: () => openSettings(context),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: Space.s3,
+                  children: [
+                    ...actions,
+                    ShikooButton(
+                      label: ShikooL10n.of(context).settings,
+                      icon: ShikooIcon.gear,
+                      autofocus: noService,
+                      focusNode: settings,
+                      onPressed: () => openSettings(context),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -707,22 +872,20 @@ class _TvLayout extends StatelessWidget {
 /// `.appbar` and `.home`, which scroll as one (`.scroll-view` in phone-ping.html).
 class _PhoneLayout extends StatelessWidget {
   const _PhoneLayout({
+    required this.bar,
     required this.power,
     required this.card,
     required this.scroll,
     required this.room,
-    this.onAdd,
   });
 
+  final Widget bar;
   final Widget power;
   final Widget card;
   final ScrollController scroll;
 
   /// The switch bar's, which the last rows can rise above.
   final double room;
-
-  /// The «+» beside Settings (phone-p4a-home); none without it.
-  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -735,7 +898,7 @@ class _PhoneLayout extends StatelessWidget {
     );
     final page = Column(
       children: [
-        _AppBar(onAdd: onAdd),
+        bar,
         Padding(
           padding: EdgeInsets.symmetric(horizontal: s.safeX),
           child: Column(
@@ -763,37 +926,57 @@ class _PhoneLayout extends StatelessWidget {
 }
 
 class _AppBar extends StatelessWidget {
-  const _AppBar({this.onAdd});
+  const _AppBar({required this.actions, this.onAdd});
 
+  final List<Widget> actions;
+
+  /// The «+» beside Settings (phone-p4a-home); none without it.
   final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
     final s = ShikooTheme.of(context).s;
+    final icons = (onAdd == null ? 1 : 2) * ShikooSizes.touch;
     return Container(
       height: s.appbar,
       padding: EdgeInsetsDirectional.only(start: s.safeX, end: Space.s1),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Brand(),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (onAdd case final onAdd?)
-                ShikooIconButton(
-                  icon: ShikooIcon.plus,
-                  label: ShikooL10n.of(context).addServiceTooltip,
-                  onPressed: onAdd,
+      child: LayoutBuilder(
+        builder: (context, box) => Row(
+          children: [
+            const Expanded(child: Brand(fit: true)),
+            if (actions.isNotEmpty) ...[
+              // Text too large for even the mark alone beside them shrinks them, never overflows.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.max(
+                    0.0,
+                    box.maxWidth - icons - Space.s1 - s.mark - Space.s2,
+                  ),
                 ),
-              ShikooIconButton(
-                icon: ShikooIcon.gear,
-                label: ShikooL10n.of(context).settings,
-                onPressed: () => openSettings(context),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: Space.s2,
+                    children: actions,
+                  ),
+                ),
               ),
+              const SizedBox(width: Space.s1),
             ],
-          ),
-        ],
+            if (onAdd case final onAdd?)
+              ShikooIconButton(
+                icon: ShikooIcon.plus,
+                label: ShikooL10n.of(context).addServiceTooltip,
+                onPressed: onAdd,
+              ),
+            ShikooIconButton(
+              icon: ShikooIcon.gear,
+              label: ShikooL10n.of(context).settings,
+              onPressed: () => openSettings(context),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -802,18 +985,18 @@ class _AppBar extends StatelessWidget {
 /// `.win-home` (win-modes.html, frame `win-w-b`): the TV's two columns at the phone's sizes.
 class _WideLayout extends StatelessWidget {
   const _WideLayout({
+    required this.bar,
     required this.power,
     required this.card,
     required this.scroll,
     required this.room,
-    this.onAdd,
   });
 
+  final Widget bar;
   final Widget power;
   final Widget card;
   final ScrollController scroll;
   final double room;
-  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -821,7 +1004,7 @@ class _WideLayout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _AppBar(onAdd: onAdd),
+        bar,
         Expanded(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: s.safeX),
@@ -1418,78 +1601,64 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
               height: Leading.body,
             ),
           ),
-          const SizedBox(height: Space.s3),
-          Row(
-            spacing: Space.s2,
-            children: [
-              if (failed)
-                Expanded(
-                  child: ShikooButton(
-                    label: l.retry,
-                    icon: ShikooIcon.refresh,
-                    primary: true,
-                    busy: _busy,
-                    focusNode: widget.focusNode,
-                    onPressed: _busy ? () {} : () => unawaited(_retry()),
-                  ),
-                )
-              else if (!supportOnly)
-                Expanded(
-                  child: ShikooButton(
-                    label: renews
-                        ? l.renew
-                        : (isTV ? l.openBotTv : l.openBotTouch),
-                    icon: isTV
-                        ? ShikooIcon.qr
-                        : (renews ? null : ShikooIcon.plane),
-                    primary: true,
-                    focusNode: widget.focusNode,
-                    onPressed: () => renews
-                        ? openLink(
-                            context,
-                            isTV: isTV,
-                            link: ShikooLinks.renewOne(service.id, bot),
-                            title: l.renewTitle,
-                            help: l.renewHelpDirect,
-                          )
-                        : openLink(
-                            context,
-                            isTV: isTV,
-                            link: ShikooLinks.openBot(bot),
-                            title: l.openBotTitleTv,
-                            help: l.openBotHelpTv,
-                          ),
-                  ),
-                ),
-              if (finished || failed)
-                Expanded(
-                  child: ShikooButton(
-                    label: l.support,
-                    icon: isTV ? ShikooIcon.qr : null,
-                    primary: supportOnly,
-                    focusNode: supportOnly ? widget.focusNode : null,
-                    onPressed: () => unawaited(
-                      openSupport(
-                        context,
-                        isTV: isTV,
-                        below: bidiName(service.title),
-                        trigger: 'support',
-                      ),
+          // Not renewable, a phone's card is its text alone; support is the top bar's.
+          if (!supportOnly || isTV) ...[
+            const SizedBox(height: Space.s3),
+            Row(
+              spacing: Space.s2,
+              children: [
+                if (failed)
+                  Expanded(
+                    child: ShikooButton(
+                      label: l.retry,
+                      icon: ShikooIcon.refresh,
+                      primary: true,
+                      busy: _busy,
+                      focusNode: widget.focusNode,
+                      onPressed: _busy ? () {} : () => unawaited(_retry()),
+                    ),
+                  )
+                else if (!supportOnly)
+                  Expanded(
+                    child: ShikooButton(
+                      label: renews
+                          ? l.renew
+                          : (isTV ? l.openBotTv : l.openBotTouch),
+                      icon: isTV
+                          ? ShikooIcon.qr
+                          : (renews ? null : ShikooIcon.plane),
+                      primary: true,
+                      focusNode: widget.focusNode,
+                      onPressed: () => renews
+                          ? openRenew(
+                              context,
+                              isTV: isTV,
+                              bot: bot,
+                              id: service.id,
+                              name: service.title,
+                            )
+                          : openLink(
+                              context,
+                              isTV: isTV,
+                              link: ShikooLinks.openBot(bot),
+                              title: l.openBotTitleTv,
+                              help: l.openBotHelpTv,
+                            ),
                     ),
                   ),
-                ),
-              // The phone asks again by itself when it comes back from Telegram.
-              if (isTV && !failed)
-                Expanded(
-                  child: ShikooButton(
-                    label: l.retry,
-                    icon: ShikooIcon.refresh,
-                    busy: _busy,
-                    onPressed: _busy ? () {} : () => unawaited(_retry()),
+                // The phone asks again by itself when it comes back from Telegram.
+                if (isTV && !failed)
+                  Expanded(
+                    child: ShikooButton(
+                      label: l.retry,
+                      icon: ShikooIcon.refresh,
+                      busy: _busy,
+                      onPressed: _busy ? () {} : () => unawaited(_retry()),
+                    ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1542,36 +1711,13 @@ class _FinishedServicesState extends State<_FinishedServices> {
     });
   }
 
-  bool _renews(Finished row) =>
-      row.linked?.renews ?? widget.account.renewsOn(row.profileId);
-
-  void _renew(Finished row) {
-    if (!_renews(row)) {
-      unawaited(
-        openSupport(
-          context,
-          isTV: widget.isTV,
-          below: bidiName(row.name),
-          trigger: 'support',
-        ),
-      );
-      return;
-    }
-    final l = ShikooL10n.of(context);
-    final id = row.renewId;
-    final user = usernameOf(row.name);
-    openLink(
-      context,
-      isTV: widget.isTV,
-      link: id == null
-          ? ShikooLinks.renew
-          : ShikooLinks.renewOne(id, widget.account.bot),
-      title: l.renewTitle,
-      help: id == null ? l.renewHelpList : l.renewHelpDirect,
-      below: id == null ? l.renewPickInList(bidiName(user)) : null,
-      strong: id == null ? user : null,
-    );
-  }
+  void _renew(Finished row) => openRenew(
+    context,
+    isTV: widget.isTV,
+    bot: widget.account.bot,
+    id: row.renewId,
+    name: row.name,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1617,23 +1763,23 @@ class _FinishedServicesState extends State<_FinishedServices> {
               ],
             ),
           ),
-          if (isTV)
-            ExcludeFocus(
-              child: IgnorePointer(
-                child: ShikooButton(
-                  label: _renews(row) ? l.renew : l.support,
-                  icon: ShikooIcon.qr,
-                  small: true,
-                  onPressed: () {},
-                ),
-              ),
-            )
-          else
-            ShikooButton(
-              label: _renews(row) ? l.renew : l.support,
-              small: true,
-              onPressed: () => _renew(row),
-            ),
+          if (widget.account.renews(row))
+            isTV
+                ? ExcludeFocus(
+                    child: IgnorePointer(
+                      child: ShikooButton(
+                        label: l.renew,
+                        icon: ShikooIcon.qr,
+                        small: true,
+                        onPressed: () {},
+                      ),
+                    ),
+                  )
+                : ShikooButton(
+                    label: l.renew,
+                    small: true,
+                    onPressed: () => _renew(row),
+                  ),
         ],
       ),
     );
@@ -1702,7 +1848,9 @@ class _FinishedServicesState extends State<_FinishedServices> {
                   child: Pressable(
                     focusNode: i == 0 ? _first : null,
                     shape: shape,
-                    onPressed: () => _renew(row),
+                    onPressed: widget.account.renews(row)
+                        ? () => _renew(row)
+                        : null,
                     builder: (context, focused) => line(row, focused),
                   ),
                 )

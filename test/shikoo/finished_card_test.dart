@@ -155,13 +155,14 @@ Future<void> _finished(
     findsOneWidget,
     reason: why,
   );
-  for (final label in [l.renew, l.support]) {
+  for (final (label, count) in [(l.renew, 1), (l.support, 0)]) {
     expect(
       inCard(find.widgetWithText(ShikooButton, label)),
-      findsOneWidget,
-      reason: '$label, $why',
+      findsNWidgets(count),
+      reason: "$label, $why; support is the top bar's",
     );
   }
+  expect(find.widgetWithText(ShikooButton, l.support), findsOneWidget);
   if (!tv) {
     expect(
       inCard(find.widgetWithText(ShikooButton, l.retry)),
@@ -252,11 +253,14 @@ Future<void> _refreshed(
   if (before) return _shot(tester, 'card-${look.name}-$locale-before');
   expect(find.text(l.stateExhausted), findsNWidgets(2), reason: why);
   expect(find.text(l.serversAfterRenew), findsOneWidget, reason: why);
-  for (final label in [l.renew, l.support]) {
+  for (final (label, count, where) in [
+    (l.renew, 2, "the card's and the top bar's"),
+    (l.support, 1, "the top bar's"),
+  ]) {
     expect(
       find.widgetWithText(ShikooButton, label),
-      findsOneWidget,
-      reason: '$label, $why',
+      findsNWidgets(count),
+      reason: '$label, $where, $why',
     );
   }
   await _shot(tester, 'card-${look.name}-$locale-refreshed');

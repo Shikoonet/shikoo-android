@@ -348,13 +348,12 @@ void main() {
               ?.findAncestorWidgetOfExactType<ServiceCard>(),
           isNotNull,
         );
-        expect(
-          await _press(tester, LogicalKeyboardKey.arrowUp),
-          l.ping,
-          reason: "up from renew is the service card's own head first",
-        );
         await _press(tester, LogicalKeyboardKey.arrowUp);
-        expect(_inCard(), isTrue);
+        expect(
+          _inCard(),
+          isTrue,
+          reason: "down landed on the service card's head, right under it",
+        );
       });
 
       testWidgets('TV $where: with no button on the card, toward the card is '

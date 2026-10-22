@@ -49,20 +49,22 @@ Future<void> openReport(
 }
 
 /// «پشتیبانی»: chat or report, as a sheet on a phone and the QR dialog on a TV. Without a
-/// [trigger], chat only: a sent report's page, or a page showing a live sign-in code.
+/// [trigger], chat only: a sent report's page, or a page showing a live sign-in code. [shots]
+/// were taken at the tap when a list of services came between.
 Future<void> openSupport(
   BuildContext context, {
   required bool isTV,
   String link = ShikooLinks.support,
   String? below,
   String? trigger,
+  ReportShots? shots,
 }) async {
   final l = ShikooL10n.of(context);
-  final shots = trigger == null ? null : await takeShots(context);
+  final taken = trigger == null ? null : (shots ?? await takeShots(context));
   if (!context.mounted) return;
   void report(BuildContext dialog) {
     Navigator.pop(dialog);
-    unawaited(openReport(context, trigger!, shots));
+    unawaited(openReport(context, trigger!, taken));
   }
 
   if (isTV || trigger == null) {

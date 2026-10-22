@@ -599,7 +599,7 @@ void main() {
         );
         for (final path in [
           [l.dateSettings, l.retry, 'power'],
-          [l.renew, l.support, 'power'],
+          [l.renew, l.support, l.settings],
           [l.openBotTv, l.retry, 'power'],
         ]) {
           final went = await _walk(tester, path, towardPower);

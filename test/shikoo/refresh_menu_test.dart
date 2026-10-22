@@ -37,6 +37,7 @@ ShikooState _state({
   ShikooNotice? notice,
   DateTime? updatedAt,
   String selected = 'آلمان ۲',
+  bool ended = false,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -45,7 +46,7 @@ ShikooState _state({
     name: '5550123 · الماس',
     usedBytes: 33 << 30,
     totalBytes: 100 << 30,
-    expire: DateTime.now().add(const Duration(days: 23)),
+    expire: DateTime.now().add(Duration(days: ended ? -1 : 23)),
     updatedAt: updatedAt ?? DateTime.now().subtract(const Duration(minutes: 5)),
     leg: leg,
   ),
@@ -501,20 +502,19 @@ void main() {
     });
 
     testWidgets('one press down from anywhere in the head lands on the '
-        "failure's other way; up from renew comes back to it, up from support "
-        'to the report', (tester) async {
-      final rig = await onRefresh(
-        tester,
-        _state(
-          tv: true,
-          refresh: ShikooRefresh.failed,
-          updatedAt: DateTime.now().subtract(const Duration(days: 2)),
-          notice: const RefreshFailed(
-            way: ShikooFailedWay.server,
-            server: 'آلمان ۲',
-          ),
+        "failure's other way; on a finished card up from its renew comes back "
+        'to it', (tester) async {
+      ShikooState failed({bool ended = false}) => _state(
+        tv: true,
+        refresh: ShikooRefresh.failed,
+        updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+        notice: const RefreshFailed(
+          way: ShikooFailedWay.server,
+          server: 'آلمان ۲',
         ),
+        ended: ended,
       );
+      final rig = await onRefresh(tester, failed());
       final wrong = <String>[];
       for (final (from, start, key, to) in [
         (
@@ -530,23 +530,10 @@ void main() {
           LogicalKeyboardKey.arrowDown,
           _l.refreshDirect,
         ),
-        (
-          'renew',
-          find.text(_l.renew),
-          LogicalKeyboardKey.arrowUp,
-          _l.refreshDirect,
-        ),
-        (
-          'support',
-          find.text(_l.support),
-          LogicalKeyboardKey.arrowUp,
-          _l.reportSendToSupport,
-        ),
       ]) {
         await _focusOn(tester, start);
         final got = await _press(tester, key);
         if (got != to) wrong.add('$from ${key.debugName}: $got, not $to');
-        if (from == 'renew') await _shot(tester, 'tv-up-from-renew');
       }
       expect(wrong, isEmpty);
       await _focusOn(tester, find.text(_l.refresh));
@@ -559,6 +546,21 @@ void main() {
       verify(
         () => rig.controller.refreshService(via: ShikooRoute.direct),
       ).called(1);
+
+      rig.holder.value = failed(ended: true);
+      await tester.pumpAndSettle();
+      await _focusOn(
+        tester,
+        find.descendant(
+          of: find.byType(ServiceCard),
+          matching: find.text(_l.renew),
+        ),
+      );
+      expect(
+        await _press(tester, LogicalKeyboardKey.arrowUp),
+        _l.refreshDirect,
+      );
+      await _shot(tester, 'tv-up-from-renew');
     });
   });
 

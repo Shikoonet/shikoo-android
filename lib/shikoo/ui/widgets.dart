@@ -372,23 +372,37 @@ class _PressableState extends State<Pressable> {
   };
 }
 
-/// `.brand`: the letter mark and the word.
+/// `.brand`: the mark and the word, which [fit] drops short of Space.s2 to spare (`.strip.is-tight`).
 class Brand extends StatelessWidget {
-  const Brand({super.key});
+  const Brand({super.key, this.fit = false});
+
+  final bool fit;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BrandMark(size: t.s.mark),
-        const SizedBox(width: Space.s2),
-        Text(
-          ShikooL10n.of(context).appName,
-          style: t.text(t.s.title, weight: FontWeight.w800),
+    final name = ShikooL10n.of(context).appName;
+    final style = t.text(t.s.title, weight: FontWeight.w800);
+    final mark = BrandMark(size: t.s.mark);
+    Widget brand(bool word) => word
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              mark,
+              const SizedBox(width: Space.s2),
+              Text(name, style: style),
+            ],
+          )
+        : Semantics(label: name, child: mark);
+    if (!fit) return brand(true);
+    return LayoutBuilder(
+      builder: (context, box) => Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: brand(
+          t.s.mark + 2 * Space.s2 + textWidth(context, name, style) <=
+              box.maxWidth,
         ),
-      ],
+      ),
     );
   }
 }
