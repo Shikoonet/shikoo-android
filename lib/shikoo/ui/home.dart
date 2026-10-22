@@ -1046,6 +1046,18 @@ class _PowerZone extends StatelessWidget {
     final under = slot != null && state.connection == ShikooConnection.on;
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
+    final text = Text(
+      message ?? '',
+      maxLines: shikooDesktop ? null : 2,
+      overflow: shikooDesktop ? null : TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+      style: t.text(
+        t.s.bodySm,
+        color: resting != null || (!failed && !alarm)
+            ? t.c.textMuted
+            : t.c.danger,
+      ),
+    );
     final say = message != null || slot != null
         ? _InView(
             key: ValueKey(message),
@@ -1056,18 +1068,7 @@ class _PowerZone extends StatelessWidget {
                 minHeight: slot ?? 0,
                 maxHeight: shikooDesktop ? double.infinity : slot,
               ),
-              child: Text(
-                message ?? '',
-                maxLines: shikooDesktop ? null : 2,
-                overflow: shikooDesktop ? null : TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: t.text(
-                  t.s.bodySm,
-                  color: resting != null || (!failed && !alarm)
-                      ? t.c.textMuted
-                      : t.c.danger,
-                ),
-              ),
+              child: under ? Center(child: text) : text,
             ),
           )
         : null;

@@ -45,6 +45,7 @@ ShikooState _state(
   ShikooConnection connection, {
   bool tv = false,
   bool silent = false,
+  ShikooError? error,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -61,9 +62,11 @@ ShikooState _state(
   ],
   selected: 'آلمان ۲',
   sorted: true,
-  lastError: connection == ShikooConnection.error
-      ? ShikooError.connectTimeout
-      : null,
+  lastError:
+      error ??
+      (connection == ShikooConnection.error
+          ? ShikooError.connectTimeout
+          : null),
 );
 
 /// [speed] null keeps the engine's own, fed from FlClash's samples.
@@ -74,6 +77,7 @@ Future<void> _pumpHome(
   bool tv = false,
   String locale = 'fa',
   bool silent = false,
+  ShikooError? error,
   ({num down, num up})? speed,
 }) async {
   SharedPreferences.setMockInitialValues({});
@@ -90,7 +94,7 @@ Future<void> _pumpHome(
       overrides: [
         noShots,
         shikooStateProvider.overrideWithValue(
-          _state(connection, tv: tv, silent: silent),
+          _state(connection, tv: tv, silent: silent, error: error),
         ),
         if (speed != null) shikooSpeedProvider.overrideWithValue(speed),
       ],
@@ -366,6 +370,20 @@ void main() {
           reason: why,
         );
       }
+      await _pumpHome(
+        tester,
+        ShikooConnection.on,
+        tv: true,
+        error: ShikooError.serverChange,
+        speed: _load,
+      );
+      final l = ShikooL10n.of(tester.element(find.byType(ShikooHome)));
+      expect(find.byType(SpeedPills), findsNothing);
+      expect(
+        tester.getCenter(_text(l.errorServer)).dy,
+        closeTo(421, 1),
+        reason: 'one line of news, in the middle of its room',
+      );
     });
 
     testWidgets('in a window the pills take the message\'s room under the '
@@ -400,6 +418,19 @@ void main() {
           );
         }
       }
+      await _pumpHome(
+        tester,
+        ShikooConnection.on,
+        window: const Size(864, 492),
+        error: ShikooError.serverChange,
+        speed: _load,
+      );
+      final l = ShikooL10n.of(tester.element(find.byType(ShikooHome)));
+      expect(
+        tester.getCenter(_text(l.errorServer)).dy,
+        closeTo(282, 1),
+        reason: 'one line of news, in the middle of its room',
+      );
     }, variant: _windows);
 
     testWidgets('a new sample redraws the pills alone, not the home around '
