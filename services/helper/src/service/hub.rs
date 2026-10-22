@@ -1308,21 +1308,30 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
     async fn bodies_over_a_kilobyte_are_refused_before_they_are_read() {
-        let mut paths = vec!["/start", "/stop"];
+        let _state = lock_process_state();
+        let session_id = "0123456789abcdef0123456789abcdef".to_string();
+        let start = StartParams {
+            address: ALLOWED_CORE_ADDRESS.to_string(),
+            session_id: session_id.clone(),
+        };
+        let mut bodies = vec![
+            ("/start", serde_json::to_string(&start).unwrap()),
+            (
+                "/stop",
+                serde_json::to_string(&StopParams { session_id }).unwrap(),
+            ),
+        ];
         if cfg!(all(feature = "windows-service", target_os = "windows")) {
-            paths.push("/guard");
+            bodies.push(("/guard", r#"{"pid":0}"#.to_string()));
         }
-        let body = format!(
-            r#"{{"sessionId":"0123456789abcdef0123456789abcdef","pad":"{}"}}"#,
-            "x".repeat(BODY_LIMIT as usize)
-        );
-        for path in paths {
+        for (path, json) in bodies {
             let response = warp::test::request()
                 .method("POST")
                 .path(path)
                 .header("content-type", "application/json")
-                .body(&body)
+                .body(format!("{json}{}", " ".repeat(BODY_LIMIT as usize)))
                 .reply(&routes())
                 .await;
             assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{path}");
