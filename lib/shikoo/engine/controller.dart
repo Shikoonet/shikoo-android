@@ -387,8 +387,7 @@ typedef _Opened = ({
 
 final _openedProvider = _cell<_Opened?>(null);
 final _openRoundProvider = _cell<_Round>(_noRound);
-final _refreshProvider = _cell(ShikooRefresh.idle);
-final _othersRefreshProvider = _cell<Map<int, ShikooRefresh>>(const {});
+final _refreshesProvider = _cell<Map<int, ShikooRefresh>>(const {});
 final _legsProvider = _cell<Map<int, ShikooLeg>>(const {});
 final _freshProvider = _cell<Set<String>>(const {});
 final _pastedProvider = _cell<Set<int>>(const {});
@@ -553,7 +552,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final intent = ref.watch(_intentProvider);
   final profile = ref.watch(currentProfileProvider);
   final extras = ref.watch(_extrasProvider);
-  final refreshing = ref.watch(_othersRefreshProvider);
+  final refreshing = ref.watch(_refreshesProvider);
   final legs = ref.watch(_legsProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
@@ -665,7 +664,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
           (round.ended && !servers.any((server) => (server.ping ?? 0) > 0)),
     ),
     pinging: _progress(round, servers),
-    refresh: ref.watch(_refreshProvider),
+    refresh: refreshing[profile?.id] ?? ShikooRefresh.idle,
     notice: ref.watch(_noticeProvider),
     waiting: intent.waiting,
     switching: switching,
@@ -914,7 +913,7 @@ class ShikooController {
         if (previous?.$1 != null && previous!.$1 != service) {
           _arrived = false;
           scheduleMicrotask(() {
-            _carryRefresh(previous.$1!, service);
+            _notice(null);
             _forgetRound();
           });
         }
@@ -1006,11 +1005,11 @@ class ShikooController {
 
   /// The selection an update just took away, for the notice that names it.
   String? _removed;
-  Future<void>? _refreshing;
+  final _refreshing = <int, Future<void>>{};
   Future<void>? _refreshingDue;
   final _renewed = <int>{};
   final _renewedAt = <int, DateTime>{};
-  bool _manualRefresh = false;
+  final _manual = <int>{};
 
   SetupAction get _setup => _ref.read(setupActionProvider.notifier);
 
@@ -1364,7 +1363,7 @@ class ShikooController {
     _ref.read(_pingsProvider.notifier).set(const {});
     _ref.read(_orderProvider.notifier).set(const {});
     _ref.read(_freshProvider.notifier).set(const {});
-    _ref.read(_othersRefreshProvider.notifier).set(const {});
+    _ref.read(_refreshesProvider.notifier).set(const {});
     await _ref.read(savedOrderProvider.notifier).save(const []);
   }
 
@@ -1762,29 +1761,13 @@ class ShikooController {
     return passes && carriesTraffic() ? math.max(_ping(name) ?? 0, 0) : null;
   }
 
-  /// The in-use card's update state is kept apart from the others': it moves with its service.
-  void _carryRefresh(int from, int? to) {
-    final others = {..._ref.read(_othersRefreshProvider)};
-    final mine = _ref.read(_refreshProvider);
-    if (mine == ShikooRefresh.failed) others[from] = mine;
-    _ref
-        .read(_refreshProvider.notifier)
-        .set(others.remove(to) ?? ShikooRefresh.idle);
-    _ref.read(_othersRefreshProvider.notifier).set(others);
-    _notice(null);
-  }
-
   void _updated(int id) {
     shikooDiag.refreshed(id, null);
-    if (id == _ref.read(currentProfileIdProvider)) {
-      if (_ref.read(_refreshProvider) == ShikooRefresh.failed) {
-        _ref.read(_refreshProvider.notifier).set(ShikooRefresh.idle);
-      }
-      if (_ref.read(_noticeProvider) is RefreshFailed) _notice(null);
-    } else if (_ref.read(_othersRefreshProvider)[id] == ShikooRefresh.failed) {
-      _ref
-          .read(_othersRefreshProvider.notifier)
-          .set({..._ref.read(_othersRefreshProvider)}..remove(id));
+    if (_ref.read(_refreshesProvider)[id] == ShikooRefresh.failed) {
+      _mark(id, ShikooRefresh.idle);
+    }
+    if (id == _current && _ref.read(_noticeProvider) is RefreshFailed) {
+      _notice(null);
     }
   }
 
@@ -1979,65 +1962,45 @@ class ShikooController {
     }
   }
 
-  Future<void> refreshOther(int id, {ShikooRoute? via}) async {
-    final profile = _ref.read(profilesProvider).getProfile(id);
-    void mark(ShikooRefresh state) => _markOther(id, state);
-    if (profile == null ||
-        profile.url.isEmpty ||
-        _ref.read(_othersRefreshProvider)[id] == ShikooRefresh.running) {
-      return;
-    }
-    mark(ShikooRefresh.running);
-    try {
-      await _download(
-        profile.url,
-        label: profile.label,
-        refresh: true,
-        via: via,
-        onLeg: (leg) => _leg(id, leg),
-      );
-      mark(ShikooRefresh.idle);
-    } catch (error) {
-      mark(ShikooRefresh.failed);
-      _failed(id, error);
-    } finally {
-      _leg(id, null);
-    }
-  }
+  Future<void> refreshOther(int id, {ShikooRoute? via}) =>
+      _refreshCard(id, manual: false, via: via);
 
-  void _markOther(int id, ShikooRefresh state) => _ref
-      .read(_othersRefreshProvider.notifier)
-      .set({..._ref.read(_othersRefreshProvider), id: state});
+  void _mark(int id, ShikooRefresh state) {
+    final now = {..._ref.read(_refreshesProvider)}..remove(id);
+    _ref.read(_refreshesProvider.notifier).set({
+      ...now,
+      if (state != ShikooRefresh.idle) id: state,
+    });
+  }
 
   void _leg(int id, ShikooLeg? leg) {
     final legs = {..._ref.read(_legsProvider)}..remove(id);
     _ref.read(_legsProvider.notifier).set({...legs, id: ?leg});
   }
 
-  /// One update at a time; a press during an automatic one makes its failure visible.
+  /// One update at a time per service; a press during an automatic one makes its failure visible.
   Future<void> refreshService({bool manual = true, ShikooRoute? via}) {
-    _manualRefresh |= manual;
-    return _refreshing ??= _refresh(via).whenComplete(() {
-      _refreshing = null;
-      _manualRefresh = false;
+    final id = _current;
+    return id == null
+        ? Future.value()
+        : _refreshCard(id, manual: manual, via: via);
+  }
+
+  Future<void> _refreshCard(int id, {required bool manual, ShikooRoute? via}) {
+    if (manual) _manual.add(id);
+    return _refreshing[id] ??= _refresh(id, via).whenComplete(() {
+      _refreshing.remove(id);
+      _manual.remove(id);
     });
   }
 
-  Future<void> _refresh(ShikooRoute? via) async {
-    final profile = _ref.read(currentProfileProvider);
+  Future<void> _refresh(int id, ShikooRoute? via) async {
+    final profile = _ref.read(profilesProvider).getProfile(id);
     if (profile == null || profile.url.isEmpty) return;
     // Another card, or none after a sign-out, may be in use by the time the answer comes.
-    bool inUse() => profile.id == _current;
-    void status(ShikooRefresh state) {
-      if (inUse()) {
-        _ref.read(_refreshProvider.notifier).set(state);
-      } else if (_ref.read(profilesProvider).getProfile(profile.id) != null) {
-        _markOther(profile.id, state);
-      }
-    }
-
-    status(ShikooRefresh.running);
-    clearNews();
+    final started = id == _current;
+    _mark(id, ShikooRefresh.running);
+    if (started) clearNews();
     final before = _names(_group);
     final had = _validSelection();
     ShikooLeg? last;
@@ -2049,21 +2012,21 @@ class ShikooController {
         via: via,
         onLeg: (leg) {
           last = leg;
-          if (leg != null) _leg(profile.id, leg);
+          if (leg != null) _leg(id, leg);
         },
       );
       if (fresh == null) {
-        status(ShikooRefresh.idle);
+        _mark(id, ShikooRefresh.idle);
         return;
       }
-      if (!await _setup.applyProfile(silence: true)) {
+      if (fresh.id == _current && !await _setup.applyProfile(silence: true)) {
         throw StateError('apply');
       }
     } catch (error) {
-      final clock = await clockFailed(error, profile.url);
-      status(ShikooRefresh.failed);
-      _failed(profile.id, error);
-      if (inUse() && (_manualRefresh || clock)) {
+      final clock = id == _current && await clockFailed(error, profile.url);
+      _mark(id, ShikooRefresh.failed);
+      _failed(id, error);
+      if (id == _current && (_manual.contains(id) || clock)) {
         _notice(
           RefreshFailed(
             clock: clock,
@@ -2074,10 +2037,10 @@ class ShikooController {
       }
       return;
     } finally {
-      _leg(profile.id, null);
+      _leg(id, null);
     }
-    status(ShikooRefresh.idle);
-    if (!inUse()) return;
+    _mark(id, ShikooRefresh.idle);
+    if (!started || id != _current) return;
     _notice(null);
     final after = _names(_group);
     final removed = [

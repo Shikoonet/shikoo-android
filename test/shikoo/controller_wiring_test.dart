@@ -206,8 +206,14 @@ var _mostInFlight = 0;
 /// Paths the panel answers 404 for, as for a link it no longer knows.
 final _gone = <String>{};
 
-/// Paths whose answer waits until completed.
+/// The next request to a path waits until completed; the gate is gone once a request took it.
 final _held = <String, Completer<void>>{};
+
+Future<void> _taken(String path) async {
+  while (_held.containsKey(path)) {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+}
 
 DateTime? _panelClock;
 
@@ -236,9 +242,10 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   addTearDown(() => server.close(force: true));
   server.listen((call) async {
+    final held = _held.remove(call.uri.path)?.future;
     _mostInFlight = math.max(_mostInFlight, ++_inFlight);
     await Future<void>.delayed(const Duration(milliseconds: 20));
-    await _held[call.uri.path]?.future;
+    await held;
     if (_gone.contains(call.uri.path)) {
       call.response.statusCode = 404;
       await call.response.close();
@@ -345,6 +352,44 @@ List<Profile> _pasted(ProviderContainer container) => [
   for (final profile in container.read(profilesProvider))
     if (profile.url.startsWith('http://127.0.0.1')) profile,
 ];
+
+/// user111's and user222's cards from the test's panel, user111's in use.
+Future<
+  ({
+    ProviderContainer container,
+    _Setup setup,
+    ShikooController controller,
+    String panel,
+    int a,
+    int b,
+    ShikooState Function() state,
+  })
+>
+_twoCards() async {
+  final (:container, :core, :proxies, :setup) = _home();
+  final panel = await _panel(container, core);
+  final controller = container.read(shikooControllerProvider);
+  await controller.addService('$panel/file/user111/a');
+  await controller.addService('$panel/file/user222/a');
+  final [a, b] = _pasted(container);
+  container.read(currentProfileIdProvider.notifier).value = a.id;
+  await pumpEventQueue();
+  return (
+    container: container,
+    setup: setup,
+    controller: controller,
+    panel: panel,
+    a: a.id,
+    b: b.id,
+    state: () => container.read(shikooStateProvider),
+  );
+}
+
+ShikooRefresh _listed(ProviderContainer container, int id) => container
+    .read(shikooStateProvider)
+    .others
+    .firstWhere((s) => s.id == id)
+    .refresh;
 
 List<Group> _servers(List<String> names) => [
   Group(
@@ -3161,7 +3206,15 @@ void main() {
       setup.onApply = () => container.read(groupsProvider.notifier).value =
           _servers(['آلمان ۱', 'هلند ۱', 'فرانسه ۱']);
       await controller.refreshService();
-      expect(container.read(shikooStateProvider).notice, isA<ServersChanged>());
+      final updated = container.read(shikooStateProvider);
+      expect(updated.notice, isA<ServersChanged>());
+      expect(
+        [
+          for (final s in updated.servers)
+            if (s.fresh) s.name,
+        ],
+        ['فرانسه ۱'],
+      );
 
       if (leave == 'remove') {
         await controller.removeService(first.id);
@@ -3202,14 +3255,124 @@ void main() {
       ]);
       await pumpEventQueue();
       clearInteractions(core);
+      var applied = 0;
+      setup.onApply = () => applied++;
       answer.complete();
       await updating;
       await pumpEventQueue();
       final state = container.read(shikooStateProvider);
       expect(state.service!.id, next.id, reason: '$pick');
+      expect(applied, 0, reason: 'the core keeps the card in use');
       expect(state.notice, isNull, reason: '$pick');
       verifyNever(() => core.asyncTestDelay(any(), any()));
       expect(state.servers.where((s) => s.fresh), isEmpty, reason: '$pick');
+    }
+  });
+
+  test('back on a card whose update is still on its way, the card shows it, '
+      'then its outcome', () async {
+    final c = await _twoCards();
+    _gone.add('/file/user111/a');
+    final answer = _held['/file/user111/a'] = Completer<void>();
+    final updating = c.controller.refreshService();
+    c.controller.selectService(c.b);
+    await pumpEventQueue();
+    expect(_listed(c.container, c.a), ShikooRefresh.running);
+    c.controller.selectService(c.a);
+    await pumpEventQueue();
+    expect(c.state().refresh, ShikooRefresh.running);
+    answer.complete();
+    await updating;
+    expect(c.state().refresh, ShikooRefresh.failed);
+    expect(c.state().notice, isA<RefreshFailed>());
+  });
+
+  test('a card removed and added again while its old update is on its way '
+      'keeps its own state', () async {
+    final c = await _twoCards();
+    const path = '/file/user111/a';
+    final answer = _held[path] = Completer<void>();
+    final updating = c.controller.refreshService(manual: false);
+    await _taken(path);
+    await c.controller.removeService(c.a);
+    await c.controller.addService('${c.panel}$path');
+    await pumpEventQueue();
+    final again = c.state().service!.id;
+    expect(again, isNot(c.a));
+    _gone.add(path);
+    answer.complete();
+    await updating;
+    expect(c.state().service!.id, again);
+    expect(c.state().refresh, ShikooRefresh.idle);
+  });
+
+  test('a press on the card in use updates that card, also while the card '
+      "before's update is on its way", () async {
+    final c = await _twoCards();
+    final answer = _held['/file/user111/a'] = Completer<void>();
+    final first = c.controller.refreshService(manual: false);
+    c.controller.selectService(c.b);
+    await pumpEventQueue();
+    final before = c.state().service!.updatedAt!;
+    final pressed = c.controller.refreshService();
+    expect(c.state().refresh, ShikooRefresh.running);
+    answer.complete();
+    await Future.wait([first, pressed]);
+    expect(c.state().refresh, ShikooRefresh.idle);
+    expect(c.state().service!.updatedAt!.isAfter(before), isTrue);
+  });
+
+  test(
+    'a press on a card whose update is already on its way waits for that '
+    'one: no second request, so no older answer lands over a newer one',
+    () async {
+      final c = await _twoCards();
+      _gone.add('/file/user111/a');
+      final answer = _held['/file/user111/a'] = Completer<void>();
+      final first = c.controller.refreshService(manual: false);
+      c.controller.selectService(c.b);
+      await pumpEventQueue();
+      expect(_listed(c.container, c.a), ShikooRefresh.running);
+      final again = c.controller.refreshOther(c.a);
+      answer.complete();
+      await Future.wait([first, again]);
+      expect(_mostInFlight, 1);
+      expect(_listed(c.container, c.a), ShikooRefresh.failed);
+    },
+  );
+
+  test('a card taken into use while its own update is on its way shows it, '
+      'then the outcome; a new list reaches the core, news of the card '
+      'before does not', () async {
+    for (final ok in [false, true]) {
+      final c = await _twoCards();
+      if (!ok) _gone.add('/file/user222/a');
+      final answer = _held['/file/user222/a'] = Completer<void>();
+      final updating = c.controller.refreshOther(c.b);
+      if (ok) {
+        c.controller.selectService(c.b);
+      } else {
+        c.controller.openService(c.b);
+      }
+      await pumpEventQueue();
+      expect(c.state().service!.id, c.b, reason: '$ok');
+      expect(c.state().refresh, ShikooRefresh.running, reason: '$ok');
+      var applied = 0;
+      c.setup.onApply = () => applied++;
+      c.container.read(groupsProvider.notifier).value = _servers([
+        'هلند ۱',
+        'فرانسه ۱',
+      ]);
+      answer.complete();
+      await updating;
+      await pumpEventQueue();
+      expect(
+        c.state().refresh,
+        ok ? ShikooRefresh.idle : ShikooRefresh.failed,
+        reason: '$ok',
+      );
+      expect(applied, ok ? 1 : 0, reason: '$ok');
+      expect(c.state().notice, isNull, reason: '$ok');
     }
   });
 
