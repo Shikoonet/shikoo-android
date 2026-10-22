@@ -231,6 +231,29 @@ func TestSingBoxNeverGetsAKeyThatWouldPanic(t *testing.T) {
 	time.Sleep(2 * time.Second) // the supervisor tries a session at once, and a panic there ends this test binary
 }
 
+func TestSingBoxLeavesAKeyOnlyMihomoReadsToMihomo(t *testing.T) {
+	ca := e2ePKI(t, t.TempDir())
+	key := strings.Replace(ovpnStaticKey(t), "-----BEGIN OpenVPN Static key V1-----\n",
+		"-----BEGIN OpenVPN Static key V1-----\n# a comment\n", 1)
+	_, realityPublic := x25519(t, base64.RawURLEncoding)
+	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
+  - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
+     servername: a.test, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+  - {name: auth, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, tls-auth: %q,
+     key-direction: "1", shikoo-core: singBox}
+  - {name: crypt, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, tls-crypt: %q,
+     shikoo-core: singBox}
+`, realityPublic, ca, key, ca, key))
+	t.Cleanup(e2eStop)
+
+	got := proxyTypes(cfg, "reality", "auth", "crypt")
+	want := []C.AdapterType{C.Socks5, C.OpenVPN, C.OpenVPN}
+	if !slices.Equal(got, want) {
+		t.Fatalf("types %v, want %v: sing-openvpn refuses the key up front, so only those servers stay on mihomo", got, want)
+	}
+	time.Sleep(2 * time.Second) // a panic in sing-openvpn's goroutine would end this test binary
+}
+
 func TestSingBoxNewTurnsAPanicIntoAnError(t *testing.T) {
 	_, public := x25519(t, base64.RawURLEncoding)
 	out := map[string]any{"type": "vless", "tag": "s0", "detour": "mihomo", "server": "127.0.0.1", "server_port": 1,

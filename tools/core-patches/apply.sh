@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Applies every patch here to the core submodule (one already applied is skipped), sing-tun/ to a copy of sing-tun,
-# and sing-box/ to a copy of sing-box.
+# Applies every patch here to the core submodule (one already applied is skipped), and sing-tun/, sing-box/ and
+# sing-openvpn/ to copies of those modules.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -47,25 +47,29 @@ for patch in "$root"/tools/core-patches/sing-tun/*.patch; do
   echo "sing-tun patch $(basename "$patch"): applied to a copy of $singtun"
 done
 
-# sing-box, the same way: core/go.mod requires it and replaces it with a patched copy (row ۵۳ in SHIKOO_PATCHES.md).
-singbox=v1.14.3
-required=$(go -C "$root/core" list -m -f '{{.Version}}' github.com/sagernet/sing-box)
-if [ "$required" != "$singbox" ]; then
-  echo "core/go.mod requires sing-box $required, but tools/core-patches/sing-box and its replace line are for $singbox." >&2
-  echo "Rebase them, or drop them if sing-box fixed it, as row ۵۳ in SHIKOO_PATCHES.md says, before building." >&2
-  exit 1
-fi
-go -C "$root/core" mod download "github.com/sagernet/sing-box@$singbox"
-rm -rf "$core/shikoo-sing-box"
-cp -r "$(go -C "$root/core" list -m -f '{{.Dir}}' "github.com/sagernet/sing-box@$singbox")" "$core/shikoo-sing-box"
-chmod -R u+w "$core/shikoo-sing-box"
-for patch in "$root"/tools/core-patches/sing-box/*.patch; do
-  if ! git -C "$core" apply --directory=shikoo-sing-box "$patch"; then
-    echo "sing-box patch $(basename "$patch") does not apply to sing-box $singbox." >&2
+# sing-box and sing-openvpn, the same way: core/go.mod requires each and replaces it with a patched copy made here.
+patch_module() { # module version folder row
+  local required
+  required=$(go -C "$root/core" list -m -f '{{.Version}}' "$1")
+  if [ "$required" != "$2" ]; then
+    echo "core/go.mod requires $1 $required, but tools/core-patches/$3 and its replace line are for $2." >&2
+    echo "Rebase them, or drop them if upstream fixed it, as row $4 in SHIKOO_PATCHES.md says, before building." >&2
     exit 1
   fi
-  echo "sing-box patch $(basename "$patch"): applied to a copy of $singbox"
-done
+  go -C "$root/core" mod download "$1@$2"
+  rm -rf "$core/shikoo-$3"
+  cp -r "$(go -C "$root/core" list -m -f '{{.Dir}}' "$1@$2")" "$core/shikoo-$3"
+  chmod -R u+w "$core/shikoo-$3"
+  for patch in "$root/tools/core-patches/$3"/*.patch; do
+    if ! git -C "$core" apply --directory="shikoo-$3" "$patch"; then
+      echo "$3 patch $(basename "$patch") does not apply to $1 $2." >&2
+      exit 1
+    fi
+    echo "$3 patch $(basename "$patch"): applied to a copy of $2"
+  done
+}
+patch_module github.com/sagernet/sing-box v1.14.3 sing-box ۵۳
+patch_module github.com/sagernet/sing-openvpn v0.1.1-0.20260929151220-7c3045dbddce sing-openvpn ۵۴
 
 # git keeps the core's embedded CA bundle empty (mihomo's CI fills it), and Android 7 has no root for the SSL.com
 # chain of 1.1.1.1, the panel's DNS. Mozilla roots only, never a CA added to this machine. Windows has no such folder,
