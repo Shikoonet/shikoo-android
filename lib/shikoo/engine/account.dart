@@ -1071,6 +1071,7 @@ class ShikooSignIn {
             ShikooPasteError.exhausted => 'exhausted',
             _ => null,
           };
+          // shortcut: the server's date stays, so its row may read «امروز تمام شد»; carry the panel's expire if seen.
           status = ended ?? status;
           loadFailed = profileId == null && ended == null;
           if (loadFailed) unloaded++;
