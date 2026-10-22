@@ -1,36 +1,49 @@
+; SHIKOO_FLAVOR=staging in the environment of the build makes the test build: its own id, name, folders
+; and helper service, as the Helper built with build_config.yaml flavor: staging names it.
+#if GetEnv("SHIKOO_FLAVOR") == "staging"
+#define Title "ShikooNet Test"
+#define Id "D6F866A6-CE01-4C34-A9C5-C49D6D030A27"
+#define Service "ShikooNetTestHelperService"
+#else
+#define Title "{{DISPLAY_NAME}}"
+#define Id "{{APP_ID}}"
+#define Service "ShikooNetHelperService"
+#endif
 [Setup]
-AppId={{APP_ID}}
+AppId={#Id}
 AppVersion={{APP_VERSION}}
-AppName={{DISPLAY_NAME}}
+AppName={#Title}
 AppPublisher={{PUBLISHER_NAME}}
 AppPublisherURL={{PUBLISHER_URL}}
 AppSupportURL={{PUBLISHER_URL}}
 AppUpdatesURL={{PUBLISHER_URL}}
-DefaultDirName={{INSTALL_DIR_NAME}}
+DefaultDirName={autopf64}\{#Title}
 DisableProgramGroupPage=yes
+DisableDirPage=yes
+DisableReadyPage=yes
 OutputDir=.
 OutputBaseFilename={{OUTPUT_BASE_FILENAME}}
 Compression=lzma
 SolidCompression=yes
 SetupIconFile={{SETUP_ICON_FILE}}
+UninstallDisplayIcon={app}\{{EXECUTABLE_NAME}}
+UninstallDisplayName={#Title}
 WizardStyle=modern
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed={{ARCH}}
 ArchitecturesInstallIn64BitMode={{ARCH}}
 
 [Code]
-procedure KillProcesses;
+// Only this install's programs: the other flavor runs the same names from its own folder,
+// and the uninstaller's first copy runs from this folder too. The app goes alone, before the service:
+// it starts a new core when the service's removal takes its own.
+procedure KillProcesses(Names: String);
 var
-  Processes: TArrayOfString;
-  i: Integer;
   ResultCode: Integer;
 begin
-  Processes := ['FlClash.exe', 'FlClashCore.exe', 'FlClashHelperService.exe'];
-
-  for i := 0 to GetArrayLength(Processes)-1 do
-  begin
-    Exec('taskkill', '/f /im ' + Processes[i], '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -Command "Get-Process ' + Names + ' -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''' +
+    ExpandConstant('{app}') + '\*'' } | Stop-Process -Force"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 procedure UnregisterHelperService;
@@ -38,25 +51,49 @@ var
   HelperPath: String;
   ResultCode: Integer;
 begin
-  HelperPath := ExpandConstant('{app}\\FlClashHelperService.exe');
+  HelperPath := ExpandConstant('{app}\\ShikooNetHelperService.exe');
   if FileExists(HelperPath) then
   begin
     Exec(HelperPath, 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
+  end
+  else
+    // An antivirus may have taken the file and left its AutoStart service registered.
+    Exec(ExpandConstant('{sys}\sc.exe'), 'delete {#Service}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+// The proxy and its saved copy are in the HKCU and APPDATA of the user who started Setup, not of the account it elevated to.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
 begin
+  KillProcesses('ShikooNet');
   UnregisterHelperService;
-  KillProcesses;
+  KillProcesses('ShikooNet,ShikooNetCore,ShikooNetHelperService');
+  ExecAsOriginalUser(ExpandConstant('{app}\ShikooNet.exe'), '--restore-proxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := '';
 end;
 
-function InitializeUninstall(): Boolean;
+// With DisableReadyPage the tasks page still says Next; Install starts the install from there.
+procedure CurPageChanged(CurPageID: Integer);
 begin
-  UnregisterHelperService;
-  KillProcesses;
-  Result := True;
+  if CurPageID = wpSelectTasks then
+    WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);
+end;
+
+// usUninstall comes after the "are you sure?" question and before [UninstallRun]. The service goes before the kill:
+// killed while still registered, it is restarted by the SCM (crash_recovery in services/helper/src/service/windows.rs).
+// The two start-with-Windows values launch_at_startup names appName are in the HKCU of the account the uninstaller
+// elevated to, as the proxy of --restore-proxy is: ExecAsOriginalUser is not supported at uninstall time.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    KillProcesses('ShikooNet');
+    UnregisterHelperService;
+    KillProcesses('ShikooNet,ShikooNetCore,ShikooNetHelperService');
+    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#Title}');
+    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run', '{#Title}');
+  end;
 end;
 
 [Languages]
@@ -97,7 +134,23 @@ Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
-Name: "{autodesktop}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
+Name: "{autoprograms}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
+Name: "{autodesktop}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
+[Messages]
+SelectTasksLabel2=Select the additional tasks you would like Setup to perform while installing [name], then click Install.
+
 [Run]
-Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: {% if PRIVILEGES_REQUIRED == 'admin' %}runascurrentuser{% endif %} nowait postinstall skipifsilent
+; Installed here, with the rights Setup already has, so the first tunnel asks for none. PrepareToInstall removed it.
+Filename: "{app}\ShikooNetHelperService.exe"; Parameters: "install"; StatusMsg: "Starting the {#Title} service..."; Flags: runhidden
+Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{#Title}}"; Flags: runasoriginaluser nowait postinstall skipifsilent
+Filename: "{app}\\{{EXECUTABLE_NAME}}"; Flags: runasoriginaluser nowait skipifnotsilent
+[UninstallRun]
+; The first step of the uninstall, after CurUninstallStepChanged(usUninstall) closed the app and before
+; [UninstallDelete], the last step, deletes the data it reads Windows' earlier proxy from.
+Filename: "{app}\ShikooNet.exe"; Parameters: "--restore-proxy"; Flags: runhidden waituntilterminated; RunOnceId: "ShikooRestoreProxy"
+[UninstallDelete]
+; The app's data: path_provider_windows names it CompanyName\ProductName of windows/runner/Runner.rc.
+Type: filesandordirs; Name: "{userappdata}\ShikooNet\{#Title}"
+Type: dirifempty; Name: "{userappdata}\ShikooNet"
+Type: filesandordirs; Name: "{localappdata}\ShikooNet\{#Title}"
+Type: dirifempty; Name: "{localappdata}\ShikooNet"

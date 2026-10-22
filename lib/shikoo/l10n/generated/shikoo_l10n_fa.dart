@@ -100,6 +100,14 @@ class ShikooL10nFa extends ShikooL10n {
   String get subRetryTouch => 'دوباره بزن';
 
   @override
+  String get speedUnit => 'مگ/ث';
+
+  @override
+  String speedLabel(String down, String up) {
+    return 'سرعت دریافت $down مگابایت بر ثانیه، سرعت ارسال $up مگابایت بر ثانیه';
+  }
+
+  @override
   String get tvHint => 'دکمهٔ وسطِ ریموت را بزن تا وصل شوی';
 
   @override
@@ -1056,6 +1064,10 @@ class ShikooL10nFa extends ShikooL10n {
       'با نصب، شیکونت بسته می‌شود و اگر وصلی، اتصال هم؛ بعد دوباره بازش کن.';
 
   @override
+  String get updateClosesAppDesktop =>
+      'با نصب، ویندوز اجازه می‌خواهد و شیکونت بسته می‌شود؛ اگر وصلی، اتصال هم. بعد خودش باز می‌شود.';
+
+  @override
   String get updateDownloadFailedTitle => 'دریافت نشد.';
 
   @override
@@ -1306,4 +1318,351 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get orderTvPicked => 'در حال جابه‌جایی';
+
+  @override
+  String get noServerAnsweredHelpDesktop =>
+      'اینترنت این کامپیوتر را بررسی کن.\nاگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get logoutHelpDesktop => 'سرویس‌ها از این کامپیوتر پاک می‌شوند.';
+
+  @override
+  String get logoutBodyDesktop =>
+      'اتصال قطع می‌شود و سرویس‌ها از این کامپیوتر پاک می‌شوند. خودِ سرویس‌ها سر جایشان‌اند؛ با همان لینک یا با تلگرام برمی‌گردند.';
+
+  @override
+  String get logoutTitleDesktop => 'سرویس‌ها از این کامپیوتر پاک شوند؟';
+
+  @override
+  String get noServiceTitleDesktop => 'سرویسی روی این کامپیوتر نیست';
+
+  @override
+  String approvedBodyDesktop(String account) {
+    return 'این کامپیوتر به حساب تلگرامِ $account وصل شد، با این سرویس‌ها:';
+  }
+
+  @override
+  String approvedBodyOneDesktop(String account) {
+    return 'این کامپیوتر به حساب تلگرامِ $account وصل شد، با این سرویس:';
+  }
+
+  @override
+  String servicesFailedBodyDesktop(String account) {
+    return 'ورود با حساب تلگرامِ $account انجام شد، ولی فهرست سرویس‌ها از سرور نرسید. اینترنت این کامپیوتر را بررسی کن و دوباره امتحان کن.';
+  }
+
+  @override
+  String get rejectedBodyDesktop =>
+      'در تلگرام «رد» زده شد، پس این کامپیوتر وصل نشد. اگر اشتباهی بود، دوباره امتحان کن.';
+
+  @override
+  String get codeFailedHelpDesktop =>
+      'اینترنت کامپیوتر را بررسی کن و دوباره بزن.';
+
+  @override
+  String approvedBodyChooseDesktop(String account) {
+    return 'این کامپیوتر به حساب تلگرامِ $account وصل شد.';
+  }
+
+  @override
+  String get chooseServicesDesktop => 'کدام سرویس‌ها روی این کامپیوتر باشد؟';
+
+  @override
+  String servicesHereDesktop(int shown, int total) {
+    final intl.NumberFormat shownNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String shownString = shownNumberFormat.format(shown);
+    final intl.NumberFormat totalNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String totalString = totalNumberFormat.format(total);
+
+    return 'روی این کامپیوتر $shownString سرویس از $totalString سرویسِ حسابت هست. برای عوض کردن، خارج شو و دوباره وارد شو.';
+  }
+
+  @override
+  String get servicesAllHereDesktop =>
+      'همهٔ سرویس‌های حسابت روی این کامپیوتر است. برای عوض کردن، خارج شو و دوباره وارد شو.';
+
+  @override
+  String get orderServicesHelpDesktop => 'فقط روی همین کامپیوتر';
+
+  @override
+  String get noTelegramHereDesktop => 'تلگرام روی این کامپیوتر نیست؟';
+
+  @override
+  String get pasteOfflineHelpDesktop =>
+      'اینترنت کامپیوتر را بررسی کن و دوباره بزن.';
+
+  @override
+  String get addServiceHelpDesktop =>
+      'لینک اشتراک شیکونتِ سرویسِ دیگرت را کپی کن، بعد این دکمه را بزن. سرویس کنار بقیه، روی همین کامپیوتر می‌آید.';
+
+  @override
+  String get serviceAlreadyHereDesktop =>
+      'این سرویس از قبل روی این کامپیوتر هست.';
+
+  @override
+  String get removeServiceBodyDesktop =>
+      'این سرویس از این کامپیوتر پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.';
+
+  @override
+  String get removeServiceBodyConnectedDesktop =>
+      'اتصال قطع می‌شود و این سرویس از این کامپیوتر پاک می‌شود. خودِ سرویس سر جایش است و با همان لینک برمی‌گردد.';
+
+  @override
+  String get orderScreenHelpDesktop =>
+      'هر سرویس را با ≡ بگیر و بالا یا پایین ببر. ترتیب فقط روی همین کامپیوتر است و همان لحظه ذخیره می‌شود.';
+
+  @override
+  String get vpnRefusedDesktop =>
+      'اجازهٔ تونل داده نشد.\nدوباره وصل شو و «بله» را بزن، یا «پروکسی» را انتخاب کن.';
+
+  @override
+  String get vpnMissingDesktop =>
+      'تونل روی این کامپیوتر راه نیفتاد.\n«پروکسی» را انتخاب کن، یا از «پشتیبانی» بپرس.';
+
+  @override
+  String get busyPortDesktop =>
+      'برنامهٔ دیگری جای پروکسی شیکونت را گرفته است.\nآن برنامه را ببند و دوباره وصل شو، یا «تونل» را انتخاب کن.';
+
+  @override
+  String get helperFailedDesktop =>
+      'تونل روشن نشد.\nدوباره وصل شو، یا «پروکسی» را انتخاب کن.';
+
+  @override
+  String get coreDownDesktop =>
+      'اتصال شیکونت ناگهان قطع شد.\nدوباره وصل شو. اگر باز قطع شد، از «پشتیبانی» بپرس.';
+
+  @override
+  String get coreStartDesktop =>
+      'اتصال شیکونت راه نیفتاد.\nدوباره وصل شو. اگر باز هم نشد، از «پشتیبانی» بپرس.';
+
+  @override
+  String get subCancelDesktop => 'برای لغو بزن';
+
+  @override
+  String get subRetryDesktop => 'دوباره بزن';
+
+  @override
+  String get noServiceHelpDesktop =>
+      'سرویست روی حساب تلگرام دیگری است؟ اول در خودِ تلگرام به همان حساب برو، بعد «ورود با حساب دیگر» را بزن.';
+
+  @override
+  String errorConnectDesktop(String server, int seconds) {
+    final intl.NumberFormat secondsNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String secondsString = secondsNumberFormat.format(seconds);
+
+    return '$server تا $secondsString ثانیه جواب نداد. دوباره بزن، یا از فهرست سرور دیگری انتخاب کن.';
+  }
+
+  @override
+  String get loginTelegramNoteDesktop =>
+      'تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.';
+
+  @override
+  String get noServiceHelpPasteDesktop =>
+      'لینک اشتراکت را کپی کن، بعد «چسباندن لینک اشتراک» را بزن.\nلینک نداری؟ از «پشتیبانی» بپرس.';
+
+  @override
+  String get otherServiceHintDesktop =>
+      'با زدنِ یک سرور، اتصال به این سرویس می‌رود.';
+
+  @override
+  String get pasteEmptyHelpDesktop => 'لینک اشتراکت را کپی کن، بعد دوباره بزن.';
+
+  @override
+  String get otherDeviceScanDesktop =>
+      'گوشی‌ای با تلگرام داری؟ این کد تصویری را با دوربینش اسکن کن.';
+
+  @override
+  String get refreshDirectHintDesktop =>
+      'از اینترنتِ خودِ این کامپیوتر، حتی وقتی وصلی';
+
+  @override
+  String get updateFailedDirectOffDesktop =>
+      'از اینترنتِ خودِ این کامپیوتر جواب نیامد. با همین سرورها وصل شو، بعد از راه سرور امتحان کن.';
+
+  @override
+  String get updateFailedDirectDesktop =>
+      'از اینترنتِ خودِ این کامپیوتر جواب نیامد. از راه سرور امتحان کن.';
+
+  @override
+  String get updateFailedPanelDesktop =>
+      'سرور اشتراکِ شیکو الان جواب نمی‌دهد؛ ایراد از این کامپیوتر نیست. همین سرورها کار می‌کنند و خودش کمی بعد دوباره امتحان می‌کند.';
+
+  @override
+  String get modeLabel => 'روش اتصال';
+
+  @override
+  String get modeProxy => 'پروکسی';
+
+  @override
+  String get modeTunnel => 'تونل';
+
+  @override
+  String get modeProxyHint =>
+      'فقط مرورگر و برنامه‌هایی که از پروکسی ویندوز پیروی می‌کنند.';
+
+  @override
+  String get modeTunnelHint => 'همهٔ برنامه‌ها از شیکونت می‌روند، حتی بازی‌ها.';
+
+  @override
+  String get localProxyLabel => 'پروکسی:';
+
+  @override
+  String get localProxyCopy => 'کپی';
+
+  @override
+  String get localProxyCopied => 'کپی شد';
+
+  @override
+  String trayOff(String app) {
+    return '$app · قطع';
+  }
+
+  @override
+  String trayConnecting(String app) {
+    return '$app · در حال اتصال';
+  }
+
+  @override
+  String trayOn(String app, String server) {
+    return '$app · وصل، $server';
+  }
+
+  @override
+  String get trayHeadOff => 'قطع';
+
+  @override
+  String get trayHeadSignIn => 'اول وارد شو';
+
+  @override
+  String get trayHeadNoService => 'سرویسی نداری';
+
+  @override
+  String trayHeadConnecting(String server) {
+    return 'در حال اتصال · $server';
+  }
+
+  @override
+  String trayHeadOn(String server) {
+    return 'وصل · $server';
+  }
+
+  @override
+  String get trayConnect => 'وصل شدن';
+
+  @override
+  String get trayDisconnect => 'قطع کردن';
+
+  @override
+  String trayOpen(String app) {
+    return 'باز کردن $app';
+  }
+
+  @override
+  String get trayExit => 'خروج';
+
+  @override
+  String closedToTrayTitle(String app) {
+    return '$app کنار ساعت است';
+  }
+
+  @override
+  String closedToTrayBody(String app) {
+    return 'اتصال برقرار می‌ماند. برای باز کردن، روی نماد $app کنار ساعت دوبار کلیک کن. برای بستن کامل، روی نماد کلیک راست کن و «خروج» را بزن.';
+  }
+
+  @override
+  String get windowMinimize => 'کوچک کردن';
+
+  @override
+  String get windowMaximize => 'بزرگ کردن';
+
+  @override
+  String get windowRestore => 'اندازهٔ قبلی';
+
+  @override
+  String get windowClose => 'بستن';
+
+  @override
+  String get windowsGroup => 'ویندوز';
+
+  @override
+  String get autoStart => 'با ویندوز باز شود';
+
+  @override
+  String get autoStartHelp => 'کنار ساعت، بی‌اتصال';
+
+  @override
+  String get updateNotice => 'خبر نسخهٔ تازه با پیام ویندوز';
+
+  @override
+  String get updateNoticeHelp => 'یک بار برای هر نسخه';
+
+  @override
+  String updateNoticeTitle(String app) {
+    return 'نسخهٔ تازهٔ $app آمده';
+  }
+
+  @override
+  String get updateNoticeBody =>
+      'برای دیدن و نصب، روی همین پیام کلیک کن. اگر این پیام را نمی‌خواهی، در «تنظیمات»، بخش «ویندوز»، خاموشش کن.';
+
+  @override
+  String get logsTitle => 'گزارش‌ها';
+
+  @override
+  String logsRowHelp(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'آنچه برنامه در $daysString روز گذشته ثبت کرده';
+  }
+
+  @override
+  String get logsConnection => 'اتصال';
+
+  @override
+  String get logsSubscription => 'اشتراک';
+
+  @override
+  String get logsCore => 'هسته';
+
+  @override
+  String get logsErrors => 'خطاها';
+
+  @override
+  String get logsCaption => 'برای پشتیبانی؛ متن خط‌ها انگلیسی و فنی است.';
+
+  @override
+  String logsToday(String date) {
+    return 'امروز · $date';
+  }
+
+  @override
+  String logsYesterday(String date) {
+    return 'دیروز · $date';
+  }
+
+  @override
+  String logsJalaliDay(String weekday, String day, String month) {
+    return '$weekday $day $month';
+  }
+
+  @override
+  String get logsEmptyTitle => 'هنوز چیزی ثبت نشده';
+
+  @override
+  String logsEmptyHelp(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'هر چه برنامه در این بخش ثبت کند، تا $daysString روز این‌جا می‌ماند.';
+  }
 }

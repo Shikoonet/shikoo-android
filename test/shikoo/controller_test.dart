@@ -1,5 +1,11 @@
+import 'dart:io';
+
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -92,6 +98,74 @@ void main() {
       );
       expect(up, isNull);
       expect(calls, 2);
+    });
+
+    test('a desktop, which has no VPN service, asks its own run state and '
+        'the core process', () async {
+      final container = ProviderContainer(
+        overrides: [
+          runTimeProvider.overrideWithBuild((_, _) => 5000),
+          coreStatusProvider.overrideWithBuild((_, _) => CoreStatus.connected),
+        ],
+      );
+      addTearDown(container.dispose);
+      final native = container.read(nativeRunTimeProvider);
+      final start = (await native())!;
+      final since = DateTime.now().difference(start);
+      expect(since.inMilliseconds, inInclusiveRange(5000, 6000));
+
+      container.read(coreStatusProvider.notifier).value =
+          CoreStatus.disconnected;
+      expect(await native(), isNull, reason: 'the core process died');
+
+      container.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+      container.read(runTimeProvider.notifier).value = null;
+      expect(await native(), isNull, reason: 'stopped');
+    });
+
+    test('a desktop tunnel is up only once its adapter is', () async {
+      final adapters = <String>{};
+      final asked = <String>[];
+      final container = ProviderContainer(
+        overrides: [
+          runTimeProvider.overrideWithBuild((_, _) => 5000),
+          coreStatusProvider.overrideWithBuild((_, _) => CoreStatus.connected),
+          tunUpProvider.overrideWithValue((device) async {
+            asked.add(device);
+            return adapters.contains(device);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final native = container.read(nativeRunTimeProvider);
+      expect(await native(), isNotNull, reason: 'proxy mode has no adapter');
+      expect(asked, isEmpty);
+
+      container
+          .read(patchClashConfigProvider.notifier)
+          .update((c) => c.copyWith.tun(enable: true, device: 'ShikooNet'));
+      expect(await native(), isNull, reason: 'the helper failed: no TUN');
+      adapters.add('ShikooNet');
+      expect(await native(), isNotNull);
+      expect(asked, ['ShikooNet', 'ShikooNet']);
+    });
+
+    test('the port probe asks loopback only, the one address the core binds '
+        'with allow-lan off', () async {
+      final lan = (await NetworkInterface.list())
+          .expand((i) => i.addresses)
+          .where((a) => a.type == InternetAddressType.IPv4)
+          .firstOrNull;
+      if (lan == null) return markTestSkipped('no LAN address here');
+      final elsewhere = await ServerSocket.bind(lan, 0);
+      addTearDown(elsewhere.close);
+      final here = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(here.close);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final free = container.read(localPortFreeProvider);
+      expect(await free(elsewhere.port), isTrue);
+      expect(await free(here.port), isFalse);
     });
   });
 

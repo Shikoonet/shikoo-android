@@ -8,6 +8,11 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
+import 'package:flutter/gestures.dart'
+    show GestureBinding, PointerDownEvent, PointerEvent;
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show Bidi, NumberFormat;
 import 'package:material_ui/material_ui.dart';
 
@@ -31,6 +36,17 @@ String localNumber(BuildContext context, num value, [String pattern = '0']) =>
       pattern,
       Localizations.localeOf(context).languageCode,
     ).format(value);
+
+String clockOf(String language, Duration d) => [
+  d.inHours,
+  d.inMinutes % 60,
+  d.inSeconds % 60,
+].map(NumberFormat('00', language).format).join(':');
+
+const mebibyte = 1024 * 1024;
+
+String speedOf(String language, num bytes) =>
+    NumberFormat('0.0', language).format(bytes / mebibyte);
 
 final _opensRtl = RegExp(
   r'^[^\p{L}\u200E\u200F]*(?:\u200F|(?=\p{L})[\p{Script=Arabic}\p{Script=Hebrew}])',
@@ -91,6 +107,120 @@ void jumpFocus(BuildContext context, FocusNode node) {
   node.requestFocus();
 }
 
+/// As the text engine lays them out: it rounds each line to whole pixels, 36 for two of 17.55.
+double twoLines(BuildContext context, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: '\n', style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
+/// [text]'s height in [style] at [width], centred, at the window's text size.
+double textHeight(
+  BuildContext context,
+  String text,
+  TextStyle style,
+  double width,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textAlign: TextAlign.center,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout(maxWidth: width);
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
+/// [text]'s width unwrapped in [style], at the window's text size.
+double textWidth(BuildContext context, String text, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+class PaneColumn extends StatelessWidget {
+  const PaneColumn({super.key, this.padding = 0, required this.child});
+
+  final double padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ShikooTheme.of(context).s;
+    if (!identical(s, ShikooSizes.desktop)) return child;
+    return Center(
+      child: SizedBox(width: s.pane + 2 * padding, child: child),
+    );
+  }
+}
+
+/// [ShikooSizes.pageMax] wide at most, centred, a page's bars too; a dialog's scrim still fills the window.
+class PageWidth extends StatelessWidget {
+  const PageWidth({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    if (!identical(t.s, ShikooSizes.desktop)) return child;
+    return ColoredBox(
+      color: t.c.bg,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: ShikooSizes.pageMax),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+final _ringKeys = {
+  LogicalKeyboardKey.tab,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+};
+
+/// A browser's `:focus-visible`: Tab or an arrow key shows the ring, a click hides it again.
+VoidCallback ringOnKeys() {
+  final focus = FocusManager.instance;
+  bool key(KeyEvent event) {
+    if (event is KeyDownEvent && _ringKeys.contains(event.logicalKey)) {
+      focus.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+    }
+    return false;
+  }
+
+  void pointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      focus.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
+    }
+  }
+
+  focus.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
+  HardwareKeyboard.instance.addHandler(key);
+  GestureBinding.instance.pointerRouter.addGlobalRoute(pointer);
+  return () {
+    HardwareKeyboard.instance.removeHandler(key);
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(pointer);
+    focus.highlightStrategy = FocusHighlightStrategy.automatic;
+  };
+}
+
 /// A focusable, pressable surface. The remote's OK key and a tap both press it.
 /// The focus ring (`.is-focused`: 3dp, 2dp away) is drawn outside the child.
 class Pressable extends StatefulWidget {
@@ -101,12 +231,15 @@ class Pressable extends StatefulWidget {
     required this.builder,
     this.autofocus = false,
     this.focusNode,
+    this.solid = false,
   });
 
-  final VoidCallback onPressed;
+  /// Null greys it out: the ring stays and a tap is still taken, but the mouse lights nothing.
+  final VoidCallback? onPressed;
   final OutlinedBorder shape;
   final bool autofocus;
   final FocusNode? focusNode;
+  final bool solid;
   final Widget Function(BuildContext context, bool focused) builder;
 
   @override
@@ -115,6 +248,9 @@ class Pressable extends StatefulWidget {
 
 class _PressableState extends State<Pressable> {
   bool _highlight = false;
+  bool _hover = false;
+
+  FocusNode? _own;
 
   bool get _focused =>
       _highlight && (widget.focusNode?.hasPrimaryFocus ?? true);
@@ -138,6 +274,7 @@ class _PressableState extends State<Pressable> {
   @override
   void dispose() {
     widget.focusNode?.removeListener(_changed);
+    _own?.dispose();
     super.dispose();
   }
 
@@ -145,9 +282,11 @@ class _PressableState extends State<Pressable> {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     const gap = ShikooSizes.focusRingOffset;
+    final hover = _hover && shikooDesktop && widget.onPressed != null;
+    final node = widget.focusNode ?? (_own ??= FocusNode());
     return FocusableActionDetector(
       autofocus: widget.autofocus,
-      focusNode: widget.focusNode,
+      focusNode: node,
       onFocusChange: (focused) {
         if (focused) revealWithRing(context);
       },
@@ -155,40 +294,65 @@ class _PressableState extends State<Pressable> {
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
-            widget.onPressed();
+            // A computer's Enter or Space presses only what the ring shows: a click leaves none.
+            final ring =
+                FocusManager.instance.highlightMode ==
+                FocusHighlightMode.traditional;
+            if (!shikooDesktop || ring) widget.onPressed?.call();
             return null;
           },
         ),
       },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onPressed,
-        child: Stack(
-          clipBehavior: Clip.none,
-          fit: StackFit.passthrough,
-          children: [
-            widget.builder(context, _focused),
-            if (_focused)
-              Positioned.fill(
-                left: -gap,
-                top: -gap,
-                right: -gap,
-                bottom: -gap,
-                child: IgnorePointer(
+      // Its own region: the detector's hover waits for a key under [ringOnKeys].
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            // As anywhere on a computer, a click takes the focus: the next Tab goes on from here.
+            if (shikooDesktop && widget.onPressed != null) node.requestFocus();
+            widget.onPressed?.call();
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
+            fit: StackFit.passthrough,
+            children: [
+              if (hover && !widget.solid)
+                Positioned.fill(
                   child: DecoratedBox(
                     decoration: ShapeDecoration(
-                      shape: _grow(widget.shape, gap).copyWith(
-                        side: BorderSide(
-                          color: t.c.focusRing,
-                          width: ShikooSizes.focusRingWidth,
-                          strokeAlign: BorderSide.strokeAlignOutside,
+                      color: t.c.hoverBg,
+                      shape: widget.shape,
+                    ),
+                  ),
+                ),
+              Opacity(
+                opacity: hover && widget.solid ? ShikooColors.solidHover : 1,
+                child: widget.builder(context, _focused),
+              ),
+              if (_focused)
+                Positioned.fill(
+                  left: -gap,
+                  top: -gap,
+                  right: -gap,
+                  bottom: -gap,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: ShapeDecoration(
+                        shape: _grow(widget.shape, gap).copyWith(
+                          side: BorderSide(
+                            color: t.c.focusRing,
+                            width: ShikooSizes.focusRingWidth,
+                            strokeAlign: BorderSide.strokeAlignOutside,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -296,6 +460,8 @@ class ShikooButton extends StatelessWidget {
     this.dangerText = false,
     this.small = false,
     this.flat = false,
+    this.positiveText = false,
+    this.roomFor = const [],
     this.selected = false,
   });
 
@@ -305,6 +471,11 @@ class ShikooButton extends StatelessWidget {
 
   /// An outline button whose label is red, as the revoked card's «حذف».
   final bool dangerText;
+
+  final bool positiveText;
+
+  /// The labels it swaps between: it keeps the widest one's room, so a swap moves nothing.
+  final List<String> roomFor;
 
   /// Null greys the button out and the remote passes it by.
   final VoidCallback? onPressed;
@@ -338,7 +509,11 @@ class ShikooButton extends StatelessWidget {
         ? ShikooColors.onTelegram
         : primary
         ? t.c.onPrimary
-        : (danger ? t.c.onDanger : (dangerText ? t.c.danger : t.c.text));
+        : danger
+        ? t.c.onDanger
+        : dangerText
+        ? t.c.danger
+        : (positiveText ? t.c.positive : t.c.text);
     // `.btn-primary[disabled]`: a grey face, so it is never read as the outline button beside it.
     final fill = !enabled
         ? (primary ? t.c.surfaceSunken : null)
@@ -348,6 +523,17 @@ class ShikooButton extends StatelessWidget {
         ? t.c.primary
         : (danger ? t.c.danger : null);
     final icon = this.icon;
+    final style = t.text(
+      telegram ? ShikooSizes.buttonLgText : (small ? t.s.bodySm : t.s.body),
+      weight: FontWeight.w700,
+      color: fg,
+    );
+    final text = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
     final square = label.isEmpty;
     final side =
         height ??
@@ -393,18 +579,23 @@ class ShikooButton extends StatelessWidget {
             const SizedBox(width: Space.s2),
           if (!square)
             Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: t.text(
-                  telegram
-                      ? ShikooSizes.buttonLgText
-                      : (small ? t.s.bodySm : t.s.body),
-                  weight: FontWeight.w700,
-                  color: fg,
-                ),
-              ),
+              child: roomFor.isEmpty
+                  ? text
+                  : Stack(
+                      alignment: AlignmentDirectional.centerStart,
+                      children: [
+                        // Room only: a screen reader hears the shown label alone.
+                        for (final other in roomFor)
+                          Visibility(
+                            visible: false,
+                            maintainSize: true,
+                            maintainAnimation: true,
+                            maintainState: true,
+                            child: Text(other, maxLines: 1, style: style),
+                          ),
+                        text,
+                      ],
+                    ),
             ),
         ],
       ),
@@ -416,7 +607,8 @@ class ShikooButton extends StatelessWidget {
             shape: RoundedSuperellipseBorder(borderRadius: radius),
             autofocus: autofocus,
             focusNode: focusNode,
-            onPressed: onPressed ?? () {},
+            onPressed: onPressed,
+            solid: fill != null,
             builder: (context, focused) => small
                 ? Padding(
                     padding: EdgeInsets.symmetric(
@@ -616,16 +808,8 @@ class ServiceName extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final [user, ...rest] = name.split(' · ');
-        bool fits(String text, [TextStyle? at]) {
-          final painter = TextPainter(
-            text: TextSpan(text: text, style: at ?? style),
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout();
-          final width = painter.width;
-          painter.dispose();
-          return width <= box.maxWidth;
-        }
+        bool fits(String text, [TextStyle? at]) =>
+            textWidth(context, text, at ?? style) <= box.maxWidth;
 
         String cut(String user, [TextStyle? at]) {
           if (user.length <= 6 || fits(user, at)) return user;
@@ -807,12 +991,6 @@ class _PowerButtonState extends State<PowerButton>
     super.dispose();
   }
 
-  String _clock(Duration d) => [
-    d.inHours,
-    d.inMinutes % 60,
-    d.inSeconds % 60,
-  ].map((part) => localNumber(context, part, '00')).join(':');
-
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
@@ -838,8 +1016,13 @@ class _PowerButtonState extends State<PowerButton>
     };
     final sub = switch (conn) {
       ShikooConnection.connecting =>
-        widget.isTV ? l.subCancelTv : l.subCancelTouch,
-      ShikooConnection.error => widget.isTV ? l.subRetryTv : l.subRetryTouch,
+        widget.isTV
+            ? l.subCancelTv
+            : (shikooDesktop ? l.subCancelDesktop : l.subCancelTouch),
+      ShikooConnection.error =>
+        widget.isTV
+            ? l.subRetryTv
+            : (shikooDesktop ? l.subRetryDesktop : l.subRetryTouch),
       _ => null,
     };
     final fg = on ? c.onPositive : c.text;
@@ -860,17 +1043,20 @@ class _PowerButtonState extends State<PowerButton>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgIcon(
-                error ? ShikooIcon.alert : ShikooIcon.power,
-                size: conn == ShikooConnection.off && enabled
-                    ? ShikooSizes.powerIcon
-                    : ShikooSizes.powerIconOn,
-                stroke: ShikooSizes.iconStrokeStrong,
-                color: !enabled
-                    ? c.iconDisabled
-                    : (on ? fg : (error ? c.danger : c.textMuted)),
-              ),
-              const SizedBox(height: Space.s1),
+              // Connected, the speed takes its room: the circle holds no fourth line.
+              if (!on) ...[
+                SvgIcon(
+                  error ? ShikooIcon.alert : ShikooIcon.power,
+                  size: conn == ShikooConnection.off && enabled
+                      ? ShikooSizes.powerIcon
+                      : ShikooSizes.powerIconOn,
+                  stroke: ShikooSizes.iconStrokeStrong,
+                  color: !enabled
+                      ? c.iconDisabled
+                      : (error ? c.danger : c.textMuted),
+                ),
+                const SizedBox(height: Space.s1),
+              ],
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -883,7 +1069,10 @@ class _PowerButtonState extends State<PowerButton>
               if (on) ...[
                 const SizedBox(height: Space.s1),
                 Text(
-                  _clock(widget.connectedFor),
+                  clockOf(
+                    Localizations.localeOf(context).languageCode,
+                    widget.connectedFor,
+                  ),
                   textDirection: TextDirection.ltr,
                   style: t.text(
                     s.display,
@@ -892,6 +1081,8 @@ class _PowerButtonState extends State<PowerButton>
                     tabular: true,
                   ),
                 ),
+                const SizedBox(height: Space.s1),
+                _Speed(color: fg),
               ],
               if (sub != null) ...[
                 const SizedBox(height: Space.s1),
@@ -920,10 +1111,12 @@ class _PowerButtonState extends State<PowerButton>
           ),
           if (enabled)
             Pressable(
-              autofocus: true,
+              // A window starts with nothing chosen: Enter must not connect where no ring shows.
+              autofocus: !shikooDesktop,
               focusNode: widget.focusNode,
               shape: const CircleBorder(),
               onPressed: onPressed,
+              solid: true,
               builder: (context, focused) => face(focused),
             )
           else
@@ -940,6 +1133,60 @@ class _PowerButtonState extends State<PowerButton>
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// `.power .speed`: down, then up and the unit, shrunk where it would cross the circle. Watching
+/// the speed alone, it is all that a new sample redraws.
+class _Speed extends ConsumerWidget {
+  const _Speed({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final language = Localizations.localeOf(context).languageCode;
+    final (:down, :up) = ref.watch(shikooSpeedProvider);
+    final style = t.text(t.s.caption, color: color, tabular: true);
+    Widget part(ShikooIcon arrow, num bytes, [String? unit]) => Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: ShikooSizes.speedIconGap,
+      children: [
+        SvgIcon(
+          arrow,
+          size: ShikooSizes.speedIcon,
+          stroke: ShikooSizes.iconStrokeStrong,
+          color: color,
+        ),
+        Text(
+          speedOf(language, bytes),
+          style: style.copyWith(fontWeight: FontWeight.w700),
+        ),
+        if (unit != null) Text(unit, style: style),
+      ],
+    );
+    return Semantics(
+      label: l.speedLabel(speedOf(language, down), speedOf(language, up)),
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: t.s.power * ShikooSizes.speedWidth,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: ShikooSizes.speedGap,
+            children: [
+              part(ShikooIcon.arrowDown, down),
+              part(ShikooIcon.arrowUp, up, l.speedUnit),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -979,7 +1226,7 @@ class Ping extends StatelessWidget {
 
   final ShikooServer server;
 
-  // ponytail: one fixed threshold taken from the frames (112 green, 130 amber); tune with real pings.
+  // shortcut: one fixed threshold taken from the frames (112 green, 130 amber); tune with real pings.
   static const _slowMs = 120;
 
   @override
@@ -1370,6 +1617,133 @@ class LinkButton extends StatelessWidget {
               onPressed: onPressed,
               builder: (context, _) => Semantics(button: true, child: text()),
             ),
+    );
+  }
+}
+
+/// A computer's scrolling region: its bar drawn whenever there is more to see, the cut edge
+/// faded, and with [divider] a line where it meets the buttons stuck under it.
+class EdgeScroll extends StatefulWidget {
+  const EdgeScroll({
+    super.key,
+    required this.padding,
+    this.controller,
+    this.divider = false,
+    required this.child,
+  });
+
+  final EdgeInsetsGeometry padding;
+  final ScrollController? controller;
+  final bool divider;
+  final Widget child;
+
+  @override
+  State<EdgeScroll> createState() => _EdgeScrollState();
+}
+
+class _EdgeScrollState extends State<EdgeScroll> {
+  ScrollController? _own;
+  bool _scrolls = false;
+  double _fade = 0;
+  bool _focusInside = false;
+
+  ScrollController get _scroll =>
+      widget.controller ?? (_own ??= ScrollController());
+
+  @override
+  void dispose() {
+    _own?.dispose();
+    super.dispose();
+  }
+
+  bool _measure(Notification notification) {
+    if (notification
+        case ScrollMetricsNotification(depth: 0, :final metrics) ||
+            ScrollUpdateNotification(depth: 0, :final metrics)) {
+      final scrolls = metrics.maxScrollExtent > 0;
+      // No taller than what is left below, so a short scroll's last line is not faded.
+      final fade = metrics.extentAfter.clamp(0.0, ShikooSizes.fade);
+      if (scrolls != _scrolls || fade != _fade) {
+        setState(() {
+          _scrolls = scrolls;
+          _fade = fade;
+        });
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ShikooTheme.of(context).c;
+    return NotificationListener<Notification>(
+      onNotification: _measure,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          RawScrollbar(
+            controller: _scroll,
+            thumbVisibility: true,
+            thickness: ShikooSizes.scrollThumb,
+            radius: const Radius.circular(ShikooSizes.scrollThumb),
+            thumbColor: c.outline,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
+              child: Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onFocusChange: (inside) =>
+                    setState(() => _focusInside = inside),
+                child: LayoutBuilder(
+                  builder: (context, box) => SingleChildScrollView(
+                    controller: _scroll,
+                    padding: widget.padding,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: box.hasTightHeight
+                            ? (box.maxHeight - widget.padding.vertical).clamp(
+                                0.0,
+                                double.infinity,
+                              )
+                            : 0,
+                      ),
+                      child: widget.child,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_fade > 0 && !_focusInside)
+            PositionedDirectional(
+              start: 0,
+              end: 0,
+              bottom: 0,
+              height: _fade,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [c.bg.withValues(alpha: 0), c.bg],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (widget.divider && _scrolls)
+            PositionedDirectional(
+              start: 0,
+              end: 0,
+              bottom: 0,
+              height: 1,
+              child: ColoredBox(color: c.border),
+            ),
+        ],
+      ),
     );
   }
 }

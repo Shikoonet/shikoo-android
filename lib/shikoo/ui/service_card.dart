@@ -20,7 +20,7 @@ import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
 
-const _gib = 1024 * 1024 * 1024;
+const _gib = 1024 * mebibyte;
 
 const _nearlyUsed = 0.9;
 
@@ -187,6 +187,7 @@ class _ServiceCardState extends State<ServiceCard> {
             isTV: state.isTV,
             onFold: widget.onFold,
             inUse: widget.onFold == null ? null : inUse,
+            card: context,
           );
     return Container(
       padding: EdgeInsets.only(
@@ -207,7 +208,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 Padding(
                   padding: inset,
                   child: Text(
-                    state.isTV ? l.noServiceTitleTv : l.noServiceTitleTouch,
+                    state.isTV
+                        ? l.noServiceTitleTv
+                        : (shikooDesktop
+                              ? l.noServiceTitleDesktop
+                              : l.noServiceTitleTouch),
                     style: t.text(
                       t.s.title,
                       weight: FontWeight.w700,
@@ -218,7 +223,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 Padding(
                   padding: inset.copyWith(top: Space.s2),
                   child: Text(
-                    state.isTV ? l.noServiceHelp : l.noServiceHelpPaste,
+                    state.isTV
+                        ? l.noServiceHelp
+                        : (shikooDesktop
+                              ? l.noServiceHelpPasteDesktop
+                              : l.noServiceHelpPaste),
                     style: t.text(
                       t.s.bodySm,
                       color: t.c.textMuted,
@@ -501,9 +510,10 @@ class _Hint extends StatelessWidget {
       color: now ? t.c.positive : null,
       height: Leading.body,
     );
+    final hint = shikooDesktop ? l.otherServiceHintDesktop : l.otherServiceHint;
     final [shown, hidden] = now
-        ? [l.otherServiceNow, l.otherServiceHint]
-        : [l.otherServiceHint, l.otherServiceNow];
+        ? [l.otherServiceNow, hint]
+        : [hint, l.otherServiceNow];
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s3,
@@ -798,6 +808,7 @@ class _Head extends StatelessWidget {
     required this.isTV,
     this.onFold,
     this.inUse,
+    this.card,
   });
 
   final ShikooService service;
@@ -818,6 +829,7 @@ class _Head extends StatelessWidget {
 
   /// The phone's in-use mark, inside the fold button; the TV's is [InUseMark] around the head.
   final bool? inUse;
+  final BuildContext? card;
 
   @override
   Widget build(BuildContext context) {
@@ -858,6 +870,7 @@ class _Head extends StatelessWidget {
       caretNode: caretNode,
       onRefresh: onRefresh,
       onWay: onWay,
+      card: card,
     );
     final buttons = isTV
         ? [
@@ -1045,11 +1058,16 @@ class _Message extends StatelessWidget {
       RefreshFailed(:final way) => (
         l.updateFailedTitle,
         switch (way) {
-          ShikooFailedWay.directOff => l.updateFailedDirectOff,
-          ShikooFailedWay.direct => l.updateFailedDirect,
+          ShikooFailedWay.directOff =>
+            shikooDesktop
+                ? l.updateFailedDirectOffDesktop
+                : l.updateFailedDirectOff,
+          ShikooFailedWay.direct =>
+            shikooDesktop ? l.updateFailedDirectDesktop : l.updateFailedDirect,
           ShikooFailedWay.server => l.updateFailedViaServer(name),
           ShikooFailedWay.both => l.updateFailedBoth(name),
-          ShikooFailedWay.panel => l.updateFailedPanel,
+          ShikooFailedWay.panel =>
+            shikooDesktop ? l.updateFailedPanelDesktop : l.updateFailedPanel,
           ShikooFailedWay.notConnected => l.updateFailedConnectFirst,
         },
       ),

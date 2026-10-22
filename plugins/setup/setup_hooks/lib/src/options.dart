@@ -16,6 +16,7 @@ class BuildConfig {
     required this.outputDir,
     required this.helperDir,
     required this.helperName,
+    this.flavor = 'production',
   });
 
   final String tags;
@@ -26,6 +27,8 @@ class BuildConfig {
   final String outputDir;
   final String helperDir;
   final String helperName;
+
+  final String flavor;
 
   static const _defaults = BuildConfig(
     tags: 'with_gvisor',
@@ -55,6 +58,7 @@ class BuildConfig {
       outputDir: yaml['output_dir'] as String? ?? _defaults.outputDir,
       helperDir: yaml['helper_dir'] as String? ?? _defaults.helperDir,
       helperName: yaml['helper_name'] as String? ?? _defaults.helperName,
+      flavor: yaml['flavor'] as String? ?? _defaults.flavor,
     );
   }
 

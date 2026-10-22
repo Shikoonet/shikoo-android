@@ -35,11 +35,6 @@ class Window implements WindowPort {
       commonPrint.log('another instance owns the data directory, exiting');
       exit(0);
     }
-    if (system.isWindows) {
-      for (final scheme in protocolSchemes) {
-        protocol.register(scheme);
-      }
-    }
     if (system.isLinux) {
       unawaited(protocol.registerLinux(protocolSchemes));
     }

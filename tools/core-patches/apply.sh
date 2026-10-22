@@ -47,6 +47,7 @@ for patch in "$root"/tools/core-patches/sing-tun/*.patch; do
 done
 
 # git keeps the core's embedded CA bundle empty (mihomo's CI fills it), and Android 7 has no root for the SSL.com
-# chain of 1.1.1.1, the panel's DNS. Mozilla roots only, never a CA added to this machine.
-cat /usr/share/ca-certificates/mozilla/*.crt > "$core/component/ca/ca-certificates.crt"
+# chain of 1.1.1.1, the panel's DNS. Mozilla roots only, never a CA added to this machine. Windows has no such folder,
+# so its build is handed the Linux job's bundle in SHIKOO_CA_DIR and embeds the very same roots.
+cat "${SHIKOO_CA_DIR:-/usr/share/ca-certificates/mozilla}"/*.crt > "$core/component/ca/ca-certificates.crt"
 echo "core CA bundle: $(grep -c BEGIN "$core/component/ca/ca-certificates.crt") roots"

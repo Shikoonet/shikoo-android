@@ -97,7 +97,10 @@ Future<void> _install(
           (_, true) => l.installPermissionTv,
           _ => l.installPermissionTouch,
         }, style: paragraph),
-        Text(l.updateClosesApp, style: paragraph),
+        Text(
+          (shikooDesktop ? l.updateClosesAppDesktop : l.updateClosesApp),
+          style: paragraph,
+        ),
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),
           child: Row(
@@ -122,6 +125,9 @@ Future<void> _install(
   );
   if (go ?? false) await update.allow();
 }
+
+/// Home's card, which the menu beside the clock and Windows' message bring into view.
+final homeUpdateCard = GlobalKey();
 
 /// `.card.update`: heads the home's cards, under the power button, which keeps the first focus;
 /// in Settings it takes the place of «بررسی به‌روزرسانی».
@@ -177,7 +183,10 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
             ),
           ),
           _Step.downloading => (l.updateDownloading, _progress(l, offer)),
-          _ => (l.updateReady, l.updateClosesApp),
+          _ => (
+            l.updateReady,
+            (shikooDesktop ? l.updateClosesAppDesktop : l.updateClosesApp),
+          ),
         };
     final (label, primary, VoidCallback action) = switch (step) {
       _Step.offered => (l.updateGet, true, () => unawaited(update.download())),
@@ -250,17 +259,11 @@ class _UpdateCardState extends ConsumerState<UpdateCard> {
             LayoutBuilder(
               builder: (context, box) {
                 final scaler = MediaQuery.textScalerOf(context);
-                final painter = TextPainter(
-                  text: TextSpan(
-                    text: step == _Step.clock ? l.dateSettings : label,
-                    style: t.text(t.s.body, weight: FontWeight.w700),
-                  ),
-                  textDirection: Directionality.of(context),
-                  textScaler: scaler,
-                  maxLines: 1,
-                )..layout();
-                final labelWidth = painter.width;
-                painter.dispose();
+                final labelWidth = textWidth(
+                  context,
+                  step == _Step.clock ? l.dateSettings : label,
+                  t.text(t.s.body, weight: FontWeight.w700),
+                );
                 // `.update > .actions`: equal halves as Renew and Support, both whole when one won't fit.
                 if (step == _Step.clock) {
                   const date = DateSettingsButton(primary: true);
@@ -458,7 +461,9 @@ class _ForcedUpdatePageState extends ConsumerState<ForcedUpdatePage> {
           ),
         ),
       ],
-      more: problem != null ? null : l.updateClosesApp,
+      more: problem != null
+          ? null
+          : (shikooDesktop ? l.updateClosesAppDesktop : l.updateClosesApp),
       below: isTV ? (notice ?? progress ?? installFailed) : null,
     );
     final Widget page = isTV

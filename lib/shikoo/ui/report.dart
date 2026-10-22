@@ -574,7 +574,7 @@ class _Preview extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final s = t.s;
-    final toggle = _SwitchRow(
+    final toggle = SwitchRow(
       label: l.reportImagesSwitch,
       on: images,
       onChanged: onImages,
@@ -640,17 +640,37 @@ class _Preview extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: s.safeX),
-            child: TvScrollColumn(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: Space.s4,
-                children: [
-                  _Pictures(shots: shots, on: images),
-                  toggle,
-                  note,
-                ],
-              ),
-            ),
+            // A window is far shorter than a phone: there the picture gives way, so the note is never cut.
+            child: shikooDesktop
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: Space.s4,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: _Pictures(
+                            shots: shots,
+                            on: images,
+                            shrinks: true,
+                          ),
+                        ),
+                      ),
+                      toggle,
+                      note,
+                    ],
+                  )
+                : TvScrollColumn(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: Space.s4,
+                      children: [
+                        _Pictures(shots: shots, on: images),
+                        toggle,
+                        note,
+                      ],
+                    ),
+                  ),
           ),
         ),
         Padding(
@@ -744,32 +764,41 @@ class _Pictures extends StatelessWidget {
       spacing: Space.s3,
       children: [
         picture(shots.app, l.reportImageApp),
-        picture(shots.screen, l.reportImageScreen),
+        // Windows has no copy of the screen to give.
+        if (!shikooDesktop) picture(shots.screen, l.reportImageScreen),
       ],
     );
   }
 }
 
 /// `.card` › `.row[role=switch]`: the whole row toggles, and the remote stays on it.
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
+class SwitchRow extends StatelessWidget {
+  const SwitchRow({
+    super.key,
     required this.label,
     required this.on,
     required this.onChanged,
+    this.help,
+    this.inCard = false,
   });
 
   final String label;
   final bool on;
   final ValueChanged<bool> onChanged;
+  final String? help;
+
+  /// One of several rows in a card that draws the surface: only the focus is drawn here.
+  final bool inCard;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final s = t.s;
     final shape = RoundedSuperellipseBorder(
-      borderRadius: BorderRadius.circular(Radii.lg),
+      borderRadius: BorderRadius.circular(inCard ? Radii.md : Radii.lg),
     );
     const pad = (ShikooSizes.switchH - ShikooSizes.switchThumb) / 2;
+    final knob = on ? ShikooSizes.switchThumb : ShikooSizes.switchThumbOff;
     return Pressable(
       shape: shape,
       onPressed: () => onChanged(!on),
@@ -784,23 +813,33 @@ class _SwitchRow extends StatelessWidget {
             vertical: Space.s3,
           ),
           decoration: ShapeDecoration(
-            color: focused ? t.c.focusBg : t.c.surface,
-            shadows: focused ? t.c.raisedShadow : t.c.cardShadow,
+            color: focused ? t.c.focusBg : (inCard ? null : t.c.surface),
+            shadows: focused
+                ? t.c.raisedShadow
+                : (inCard ? null : t.c.cardShadow),
             shape: shape,
           ),
           child: Row(
             spacing: Space.s3,
             children: [
-              Expanded(child: Text(label, style: t.text(s.body))),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: t.text(s.body)),
+                    if (help case final help?)
+                      Text(help, style: t.text(s.bodySm, color: t.c.textMuted)),
+                  ],
+                ),
+              ),
               Container(
                 width: ShikooSizes.switchW,
                 height: ShikooSizes.switchH,
                 padding: const EdgeInsets.all(pad),
-                alignment: on
-                    ? AlignmentDirectional.centerEnd
-                    : AlignmentDirectional.centerStart,
+                // Sam's rule, not the reading direction: on at the right, off at the left, in Persian too.
+                alignment: on ? Alignment.centerRight : Alignment.centerLeft,
                 decoration: ShapeDecoration(
-                  color: on ? t.c.primary : t.c.surfaceSunken,
+                  color: on ? t.c.positive : t.c.surfaceSunken,
                   shape: const StadiumBorder(),
                 ),
                 // A foreground, as the mockup's inset box-shadow: a border would shrink the thumb.
@@ -809,17 +848,31 @@ class _SwitchRow extends StatelessWidget {
                     : ShapeDecoration(
                         shape: StadiumBorder(
                           side: BorderSide(
-                            color: t.c.outline,
+                            color: t.c.textMuted,
                             width: ShikooSizes.borderRadio,
                           ),
                         ),
                       ),
-                child: Container(
-                  width: ShikooSizes.switchThumb,
-                  height: ShikooSizes.switchThumb,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: on ? t.c.onPrimary : t.c.textMuted,
+                child: SizedBox.square(
+                  dimension: ShikooSizes.switchThumb,
+                  child: Center(
+                    child: Container(
+                      width: knob,
+                      height: knob,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: on ? t.c.onPositive : t.c.textMuted,
+                      ),
+                      child: on
+                          ? SvgIcon(
+                              ShikooIcon.check,
+                              size: s.iconSm,
+                              stroke: ShikooSizes.iconStrokeStrong,
+                              color: t.c.positive,
+                            )
+                          : null,
+                    ),
                   ),
                 ),
               ),

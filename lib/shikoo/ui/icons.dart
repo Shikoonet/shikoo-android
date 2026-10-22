@@ -10,6 +10,9 @@ enum ShikooIcon {
     '<path d="M9.96 4.89L10.5 2.52h3l.54 2.37 1.55.64 2.05-1.3 2.13 2.13-1.3 2.05.64 1.55 2.37.54v3l-2.37.54-.64 1.55 1.3 2.05-2.13 2.13-2.05-1.3-1.55.64-.54 2.37h-3l-.54-2.37-1.55-.64-2.05 1.3-2.13-2.13 1.3-2.05-.64-1.55-2.37-.54v-3l2.37-.54.64-1.55-1.3-2.05 2.13-2.13 2.05 1.3z"/><circle cx="12" cy="12" r="3"/>',
   ),
   check('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  copy(
+    '<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>',
+  ),
   alert(
     '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.4v.2"/>',
   ),
@@ -48,6 +51,11 @@ enum ShikooIcon {
     '<path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6"/><path d="M9 16.5h4"/>',
   ),
   plus('<path d="M12 5v14"/><path d="M5 12h14"/>'),
+  arrowDown('<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>'),
+  arrowUp('<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>'),
+  lines(
+    '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/>',
+  ),
   wifi(
     '<path d="M3.5 9.5a12 12 0 0 1 17 0"/><path d="M6.8 13a7.5 7.5 0 0 1 10.4 0"/><path d="M10 16.4a3 3 0 0 1 4 0"/>',
   ),
@@ -60,6 +68,11 @@ enum ShikooIcon {
 
   final String paths;
 }
+
+String svgOf(ShikooIcon icon, double stroke) =>
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+    'stroke="#000" stroke-width="$stroke" stroke-linecap="round" '
+    'stroke-linejoin="round">${icon.paths}</svg>';
 
 class SvgIcon extends StatelessWidget {
   const SvgIcon(
@@ -78,9 +91,7 @@ class SvgIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SvgPicture.string(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
-      'stroke="#000" stroke-width="$stroke" stroke-linecap="round" '
-      'stroke-linejoin="round">${icon.paths}</svg>',
+      svgOf(icon, stroke),
       width: size,
       height: size,
       colorFilter: ColorFilter.mode(color, BlendMode.srcIn),

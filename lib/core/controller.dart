@@ -204,6 +204,9 @@ class CoreController {
     return _interface.testProxyDelay(url, proxy);
   }
 
+  Future<bool?> checkSeal(String key, String message, String sig) =>
+      _interface.checkSeal(key, message, sig);
+
   Future<Map<String, dynamic>> getConfig(int id) async {
     final profilePath = await appPath.getProfilePath(id.toString());
     final data = Map<String, dynamic>.from(

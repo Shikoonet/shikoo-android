@@ -16,6 +16,7 @@ import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -656,6 +657,39 @@ void main() {
     verify(signIn.onMinute).called(1);
     verify(controller.refreshDue).called(1);
     verify(update.check).called(1);
+  });
+
+  test('beside the clock a desktop still asks for updates, as a check nobody '
+      'waits on; a phone or TV in the background asks nothing', () {
+    final controller = _Controller();
+    final signIn = _SignIn();
+    final update = _Update();
+    when(controller.refreshDue).thenAnswer((_) async {});
+    when(
+      () => update.check(hidden: any(named: 'hidden')),
+    ).thenAnswer((_) async {});
+    final container = ProviderContainer(
+      overrides: [
+        shikooControllerProvider.overrideWithValue(controller),
+        shikooSignInProvider.overrideWithValue(signIn),
+        shikooUpdateProvider.overrideWithValue(update),
+      ],
+    );
+    addTearDown(container.dispose);
+    when(() => controller.foreground).thenReturn(false);
+    everyMinute(container);
+    verifyNever(() => update.check(hidden: any(named: 'hidden')));
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    everyMinute(container);
+    verify(() => update.check(hidden: true)).called(1);
+    verifyNever(signIn.onMinute);
+    verifyNever(controller.refreshDue);
+    when(() => controller.foreground).thenReturn(true);
+    everyMinute(container);
+    verify(() => update.check()).called(1);
+    verify(signIn.onMinute).called(1);
   });
 
   _everywhere('the sign-in code', (tester, device, check) async {

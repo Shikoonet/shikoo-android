@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -22,6 +23,7 @@ class RefreshControls extends StatefulWidget {
     this.server = '',
     this.refreshNode,
     this.caretNode,
+    this.card,
   });
 
   final bool isTV;
@@ -36,6 +38,9 @@ class RefreshControls extends StatefulWidget {
   final FocusNode? refreshNode;
   final FocusNode? caretNode;
 
+  /// The card it sits in: the menu reaches from «▾» to the card's far edge, no further.
+  final BuildContext? card;
+
   @override
   State<RefreshControls> createState() => _RefreshControlsState();
 }
@@ -46,11 +51,24 @@ class _RefreshControlsState extends State<RefreshControls> {
 
   Future<void> _menu() async {
     final box = _caret.currentContext?.findRenderObject();
-    if (_open || widget.busy || box is! RenderBox) return;
+    final overlay = Navigator.of(
+      context,
+      rootNavigator: true,
+    ).overlay?.context.findRenderObject();
+    if (_open || widget.busy || box is! RenderBox || overlay is! RenderBox) {
+      return;
+    }
+    // In the menu's own layer: the TV canvas scales everything under it.
+    Rect place(RenderBox of) => MatrixUtils.transformRect(
+      of.getTransformTo(overlay),
+      Offset.zero & of.size,
+    );
+    final card = widget.card?.findRenderObject();
     setState(() => _open = true);
     final way = await showRefreshMenu(
       context,
-      anchor: box.localToGlobal(Offset.zero) & box.size,
+      anchor: place(box),
+      within: card is RenderBox ? place(card) : null,
       connected: widget.connected,
       server: widget.server,
       isTV: widget.isTV,
@@ -151,6 +169,7 @@ class _RefreshControlsState extends State<RefreshControls> {
 Future<ShikooRoute?> showRefreshMenu(
   BuildContext context, {
   required Rect anchor,
+  Rect? within,
   required bool connected,
   required String server,
   required bool isTV,
@@ -161,23 +180,29 @@ Future<ShikooRoute?> showRefreshMenu(
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
   pageBuilder: (context, _, _) => CustomSingleChildLayout(
-    delegate: _Below(anchor, Directionality.of(context)),
+    delegate: _Below(anchor, within, Directionality.of(context)),
     child: _Menu(connected: connected, server: server, isTV: isTV),
   ),
 );
 
 class _Below extends SingleChildLayoutDelegate {
-  _Below(this.anchor, this.direction);
+  _Below(this.anchor, this.within, this.direction);
 
   final Rect anchor;
+  final Rect? within;
   final TextDirection direction;
 
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      BoxConstraints(
-        maxWidth: constraints.maxWidth - 2 * Space.s4,
-        maxHeight: constraints.maxHeight,
-      );
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final width = constraints.maxWidth;
+    final room = direction == TextDirection.rtl
+        ? math.min(within?.right ?? width, width - Space.s2) - anchor.left
+        : anchor.right - math.max(within?.left ?? 0, Space.s2);
+    return BoxConstraints(
+      maxWidth: math.max(0.0, math.min(room, width - 2 * Space.s4)),
+      maxHeight: constraints.maxHeight,
+    );
+  }
 
   @override
   Offset getPositionForChild(Size size, Size child) {
@@ -195,7 +220,9 @@ class _Below extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_Below old) =>
-      old.anchor != anchor || old.direction != direction;
+      old.anchor != anchor ||
+      old.within != within ||
+      old.direction != direction;
 }
 
 class _Menu extends StatelessWidget {
@@ -223,7 +250,9 @@ class _Menu extends StatelessWidget {
             color: t.c.surface,
             shadows: t.c.raisedShadow,
             shape: RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(Radii.md),
+              borderRadius: BorderRadius.circular(
+                shikooDesktop ? Radii.sm : Radii.md,
+              ),
               side: BorderSide(color: t.c.border),
             ),
           ),
@@ -241,9 +270,14 @@ class _Menu extends StatelessWidget {
                   _Item(
                     icon: ShikooIcon.wifi,
                     title: l.refreshDirect,
-                    hint: l.refreshDirectHint,
+                    hint: shikooDesktop
+                        ? l.refreshDirectHintDesktop
+                        : l.refreshDirectHint,
                     isTV: isTV,
-                    autofocus: true,
+                    autofocus:
+                        !shikooDesktop ||
+                        FocusManager.instance.highlightMode ==
+                            FocusHighlightMode.traditional,
                     onPressed: () => choose(ShikooRoute.direct),
                   ),
                   _Item(
@@ -302,14 +336,18 @@ class _ItemState extends State<_Item> {
     );
     Widget face(BuildContext context, bool focused) => Container(
       constraints: BoxConstraints(
-        minHeight: widget.isTV ? t.s.row + Space.s3 : ShikooSizes.touch,
+        minHeight: widget.isTV
+            ? t.s.row + Space.s3
+            : (shikooDesktop ? t.s.button : ShikooSizes.touch),
       ),
       padding: EdgeInsets.symmetric(
         horizontal: widget.isTV ? Space.s4 : Space.s3,
-        vertical: Space.s2,
+        vertical: shikooDesktop ? Space.s1 : Space.s2,
       ),
       decoration: ShapeDecoration(
-        color: focused ? t.c.focusBg : (_hover && on ? t.c.selectedBg : null),
+        color: focused
+            ? t.c.focusBg
+            : (_hover && on && !shikooDesktop ? t.c.selectedBg : null),
         shape: shape,
       ),
       child: Row(

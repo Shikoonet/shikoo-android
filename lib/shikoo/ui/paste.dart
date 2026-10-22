@@ -86,11 +86,15 @@ class _PasteLinkState extends ConsumerState<PasteLink> {
                 ShikooPasteError.clock => l.clockWrongTitle,
               },
               rest: switch (error) {
-                ShikooPasteError.empty => l.pasteEmptyHelp,
+                ShikooPasteError.empty =>
+                  shikooDesktop ? l.pasteEmptyHelpDesktop : l.pasteEmptyHelp,
                 ShikooPasteError.notShikoo => l.pasteNotShikooHelp,
                 ShikooPasteError.revoked => l.pasteRevokedHelp,
                 ShikooPasteError.unavailable => l.pasteUnavailableHelp,
-                ShikooPasteError.offline => l.pasteOfflineHelp,
+                ShikooPasteError.offline =>
+                  (shikooDesktop
+                      ? l.pasteOfflineHelpDesktop
+                      : l.pasteOfflineHelp),
                 ShikooPasteError.clock => l.clockWrongHelp,
               },
             ),
@@ -125,7 +129,7 @@ class AddService extends StatelessWidget {
         spacing: Space.s4,
         children: [
           Text(
-            l.addServiceHelp,
+            (shikooDesktop ? l.addServiceHelpDesktop : l.addServiceHelp),
             style: t.text(
               t.s.bodySm,
               color: t.c.textMuted,

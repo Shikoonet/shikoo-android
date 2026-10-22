@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Publish the production APKs that staging built from current main?
+        description: Publish the production APKs and Windows installer that staging built from current main?
         required: true
         type: choice
         default: 'no'
@@ -53,7 +53,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: The production APKs staging built from current main
+      - name: The production APKs and Windows installer staging built from current main
         run: |
           set -euo pipefail
           sha=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
@@ -65,11 +65,14 @@ jobs:
           vn=${tag#staging-}
           mkdir staged out
           gh release download "$tag" --dir staged --pattern SHA256SUMS \
-            --pattern "ShikooNet-$vn-armeabi-v7a.apk" --pattern "ShikooNet-$vn-arm64-v8a.apk"
+            --pattern "ShikooNet-$vn-armeabi-v7a.apk" --pattern "ShikooNet-$vn-arm64-v8a.apk" \
+            --pattern "ShikooNet-$vn-windows-x64.exe" --pattern "ShikooNet-$vn-windows-x64.exe.sig"
           grep -E " ShikooNet-$vn-(armeabi-v7a|arm64-v8a)\.apk$" staged/SHA256SUMS >out/SHA256SUMS
           [ "$(wc -l <out/SHA256SUMS)" -eq 2 ] || { echo "::error::$tag holds no production APKs"; exit 1; }
+          grep -E " ShikooNet-$vn-windows-x64\.exe$" staged/SHA256SUMS >>out/SHA256SUMS ||
+            echo "::warning::$tag holds no Windows installer: the production door keeps its previous one"
           (cd staged && sha256sum -c ../out/SHA256SUMS)
-          mv staged/ShikooNet-*.apk out/
+          while read -r _ file; do mv "staged/$file" out/; [[ $file != *.exe ]] || mv "staged/$file.sig" out/; done <out/SHA256SUMS
           printf 'SHA=%s\nTAG=%s\nVN=%s\n' "$sha" "$tag" "$vn" >>"$GITHUB_ENV"
 
       - name: The production door, before anything is published
@@ -89,4 +92,4 @@ jobs:
           set -euo pipefail
           { echo "Promoted from $TAG (commit $SHA) by @$GITHUB_ACTOR. Same bytes, no rebuild. Forced update: $FORCE."
             echo '```'; cat out/SHA256SUMS; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY" >notes.md
-          gh release create "v$VN" out/*.apk out/SHA256SUMS --target "$SHA" --title "ShikooNet $VN" --notes-file notes.md
+          gh release create "v$VN" out/* --target "$SHA" --title "ShikooNet $VN" --notes-file notes.md

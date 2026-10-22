@@ -21,7 +21,7 @@ App, `feat/app` at `cbe365e`:
   (`core/Clash.Meta/tunnel/tunnel.go:630,632`). A core error-level line pops FlClash's English toast
   (`core_manager.dart:82-89`).
 - Links reach logs here: `lib/common/http.dart:25` logs every URL Dart fetches, subscription tokens included;
-  `_hideLinksInLogs` (`lib/shikoo/app/main.dart:60-66`) scrubs only `debugPrint`, so `logsProvider` keeps the full
+  `hideLinksInLogs` (`lib/shikoo/app/main.dart:121-130`) scrubs only `debugPrint`, so `logsProvider` keeps the full
   link. `dart:io`'s `HttpException` prints `uri = …` inside error text. `[APP] onAppLink: …` (`lib/common/link.dart:48`)
   is not reached: only FlClash's own `Application._initLink` (`lib/application.dart:93`) listens, and Shikoo mounts
   `buildManagerStack` (`application.dart:21-50`) instead.
@@ -271,8 +271,9 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
   layout, one only on the device is drawing or presenting. No screen shows a subscription link. The login page shows a
   live code and its bot-link QR (`lib/shikoo/ui/login.dart:65,439`), and no report entry point sits on it while a code
   is live: its entries are the «کد گرفته نشد» state and the result states (`servicesFailed`, `noService`), none of
-  which shows a code, and a failed paste offers none. If an entry is ever added there, its images are not taken while
-  a code is live.
+  which shows a code, and a failed paste offers none. On a computer Ctrl+R opens the Logs page over it all the same,
+  whose «ارسال گزارش به پشتیبانی» is one more entry; its images show the Logs page, which covers the code. If an entry
+  is ever added there, its images are not taken while a code is live.
 - **Within the server's limits, always** (otherwise the door refuses the whole report): every log line is cut to
   300 characters; the log keeps the newest `E` lines first, then the newest of the rest, up to 700; a crash text is
   cut to 8192 characters after cleaning, keeping the head; an image whose base64 string is over 400 KB is encoded
@@ -396,6 +397,29 @@ WP1 and WP6 write in shikoo-platform, outside the Telegram sign-in exception: ea
 
 Internet is WP5; the clock message is `fix/wrong-clock`. Every settings intent falls back to `ACTION_SETTINGS` when a
 TV lacks it.
+
+## Windows
+
+The same report and the same keys: the door's sections are `.strict()`, so a PC sends only keys Android sends too.
+
+- `app.abi` is `windows-x64` (Dart's `Abi` name with a dash), which the panel reads as a computer; Android keeps
+  `android_arm64` and the rest.
+- `device`: `model` (the product name; `device_info_plus` turns «Windows 10» into «11» from build 22000), `release`
+  (`major.minor.build`), `ram_total_mb`. The computer name, user name, registered owner and product and device ids
+  are never read into the report.
+- No Kotlin, so no logcat tail, exit records, SIMs, power, Private DNS, Data Saver, navigation mode, renderer
+  (`unknown`) or `screen` image; those keys stay out rather than guessed. The `app` image works as on Android.
+- The core is a process of its own: its stderr reaches the record as `A` lines (`DirectCoreLauncher` →
+  `commonPrint.log`), its log as `C`, and `handleInitClash` gives it the same `<home>/go-crash.txt`.
+- The user name, the profile folder's name (a renamed account keeps the old one), `COMPUTERNAME` and the host name are
+  known values, matched as whole words of any length, so they leave every line, crash text, server label and service
+  name; a path is `·` by shape already.
+- «تنظیمات اینترنت» opens `ms-settings:network-status`.
+- Each report adds two `T` lines: `windows proxy ours|other|off` (`ours` is enabled at `127.0.0.1:<mixed-port>`;
+  another app's proxy or setup script is `other`, its address left out) and `helper service running|installed|missing`
+  (FlClash's own ping, else the service's registry key). The door has no key for either.
+- The `screen` tile in the preview stays empty on Windows; hiding it, and «اینترنت گوشی» in the login error, belong to
+  the UI work.
 
 ## Must be proven on a real device
 

@@ -5,16 +5,63 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:fl_clash/providers/providers.dart' show versionProvider;
+import 'package:fl_clash/providers/providers.dart'
+    show runTimeProvider, versionProvider;
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart' show shikooSkew;
+import 'package:fl_clash/shikoo/engine/controller.dart'
+    show ShikooController, shikooControllerProvider;
+import 'package:fl_clash/shikoo/engine/diag.dart'
+    show ShikooDiag, shikooDiagProvider;
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
-final _apk = Uint8List.fromList(List.generate(20000, (i) => i * 7 % 256));
+/// Over three of the hash's 64 KiB reads, so hashing only the first one fails.
+final _apk = Uint8List.fromList(List.generate(200000, (i) => i * 7 % 256));
 final _sha = '${sha256.convert(_apk)}';
+
+/// Stands in for RSA, which the core's tests check against openssl: a seal holds only for its own key and message.
+String _sealOf(String key, String message) => 'seal($key|$message)';
+
+String _message(int code, String sha) => 'shikoonet-windows-update:$code:$sha';
+
+/// The connection, in the order the update drives it.
+class _Controller implements ShikooController {
+  _Controller(this.events, this.onDisconnect);
+
+  final List<String> events;
+  void Function() onDisconnect;
+
+  @override
+  Future<void> disconnect() async {
+    events.add('disconnect');
+    onDisconnect();
+  }
+
+  @override
+  Future<void> connect() async => events.add('connect');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Diag extends ShikooDiag {
+  final lines = <String>[];
+
+  @override
+  void add(String kind, String text, {DateTime? at}) =>
+      lines.add('$kind $text');
+}
+
+/// Inno's loader: it exits only when it did not install, as installing kills the app.
+class _Installer extends Fake implements Process {
+  final exited = Completer<int>();
+
+  @override
+  Future<int> get exitCode => exited.future;
+}
 
 /// The app door as docs/app-update.md pins it: the manifest, and `/dl/` with Range.
 class _Door implements HttpClientAdapter {
@@ -25,6 +72,11 @@ class _Door implements HttpClientAdapter {
   String sha = _sha;
   String? url;
   bool ranges = true;
+  int code = 2057;
+  int minimum = 2050;
+  String? entryVersion;
+  String? sig;
+  Map<String, Object?> others = {};
 
   /// The connection drops once a download reaches this byte of the file.
   int? dropAt;
@@ -71,12 +123,18 @@ class _Door implements HttpClientAdapter {
                   'version_name': '1.0.57',
                   'published_at': '2026-10-06T00:00:00.000Z',
                   'apks': {
+                    ...others,
                     abi: {
-                      'version_code': 2057,
-                      'min_version_code': 2050,
+                      'version_code': code,
+                      'min_version_code': minimum,
                       'size': _apk.length,
                       'sha256': sha,
-                      'url': url ?? '/dl/ShikooNet-1.0.57-$abi.apk',
+                      'url':
+                          url ??
+                          '/dl/ShikooNet-1.0.57-$abi.'
+                              '${abi.startsWith('windows') ? 'exe' : 'apk'}',
+                      'version_name': ?entryVersion,
+                      'sig': ?sig,
                     },
                   },
                 }
@@ -144,6 +202,13 @@ void main() {
   late bool canInstall;
   late bool hasSettings;
   late bool installerOpens;
+  late List<String> seals;
+  late bool? coreAnswers;
+  late List<String> events;
+  late List<List<String>> started;
+  late _Installer installer;
+  late bool startFails;
+  late _Diag diag;
 
   setUp(() async {
     door = _Door();
@@ -154,6 +219,13 @@ void main() {
     canInstall = true;
     hasSettings = true;
     installerOpens = true;
+    seals = [];
+    coreAnswers = true;
+    events = [];
+    started = [];
+    installer = _Installer();
+    startFails = false;
+    diag = _Diag();
     const channel = MethodChannel('shikoo/update');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -181,14 +253,40 @@ void main() {
       overrides: [
         shikooApiProvider.overrideWithValue(ShikooApi(bases, dio)),
         versionProvider.overrideWithBuild((_, _) => sdk),
+        shikooControllerProvider.overrideWithValue(
+          _Controller(
+            events,
+            () => container.read(runTimeProvider.notifier).value = null,
+          ),
+        ),
+        shikooDiagProvider.overrideWithValue(diag),
       ],
     );
     addTearDown(container.dispose);
+    container.listen(runTimeProvider, (_, _) {});
     return container.read(shikooUpdateProvider)
       ..abi = abi
       ..installed = installed
       ..cacheDir = (() async => cache)
-      ..now = (() => clock);
+      ..now = (() => clock)
+      ..sealKey = windowsSealKeyStaging
+      ..checkSeal = (key, message, sig) async {
+        seals.add(message);
+        return coreAnswers == null ? null : sig == _sealOf(key, message);
+      }
+      ..startInstaller = (exe, arguments) async {
+        events.add('start');
+        started.add([exe, ...arguments]);
+        if (startFails) throw const ProcessException('setup', [], 'refused');
+        return installer;
+      };
+  }
+
+  Future<void> until(bool Function() done) async {
+    for (var i = 0; i < 500 && !done(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(done(), isTrue);
   }
 
   UpdateOffer? offer() => container.read(shikooUpdateOfferProvider);
@@ -233,6 +331,9 @@ void main() {
         door.manifestStatus = 200;
         await start(abi: 'x86_64').check();
         expect(offer(), isNull);
+
+        await start(abi: '').check();
+        expect(offer(), isNull, reason: 'Windows on Arm has no build');
       },
     );
 
@@ -292,6 +393,45 @@ void main() {
       await update.check();
       expect(door.checks, 4);
     });
+
+    test(
+      'with the window closed it asks once in six hours, and after a '
+      'failure once in 15 minutes; an open window asks again at once',
+      () async {
+        const minute = Duration(minutes: 1);
+        const retry = Duration(minutes: 15);
+        final update = start();
+        await update.check(hidden: true);
+        expect(door.checks, 1);
+        clock = clock.add(const Duration(hours: 5, minutes: 59));
+        await update.check(hidden: true);
+        expect(door.checks, 1);
+
+        clock = clock.add(minute);
+        door.dead.add('door.test');
+        await update.check(hidden: true);
+        expect(door.checks, 2);
+        clock = clock.add(retry - minute);
+        await update.check(hidden: true);
+        expect(door.checks, 2);
+        await update.check();
+        expect(door.checks, 3);
+
+        clock = clock.add(retry - minute);
+        await update.check(hidden: true);
+        expect(door.checks, 3);
+        clock = clock.add(minute);
+        await update.check(hidden: true);
+        expect(door.checks, 4);
+        door.dead.clear();
+        clock = clock.add(retry);
+        await update.check(hidden: true);
+        expect(door.checks, 5);
+        clock = clock.add(retry);
+        await update.check(hidden: true);
+        expect(door.checks, 5, reason: 'answered: six hours again');
+      },
+    );
 
     test('keeps this build\'s part and clears everything else', () async {
       final old = File('${cache.path}/update/old.apk');
@@ -554,6 +694,362 @@ void main() {
       expect(await update.install(), InstallAsk.nothing);
       expect(offer()!.phase, UpdatePhase.offered);
       expect(native.map((c) => c.method), isNot(contains('install')));
+    });
+  });
+
+  test('the pinned keys are the Android signing keys, each on its own '
+      'door', () {
+    String spki(String key) => '${sha256.convert(base64.decode(key))}';
+    expect(
+      spki(windowsSealKeyProduction),
+      '429266157daac075aff8ee48280015479b62a8cb481cb2f216b5b54295fa3813',
+    );
+    expect(
+      spki(windowsSealKeyStaging),
+      '6ccafa8996adb23850ffcec057ea17247a908ebce7f5c5e064d1adaef7550e46',
+    );
+    expect(sealKeyFor(testDoor: false), windowsSealKeyProduction);
+    expect(sealKeyFor(testDoor: true), windowsSealKeyStaging);
+    final built = ProviderContainer();
+    addTearDown(built.dispose);
+    expect(
+      built.read(shikooUpdateProvider).sealKey,
+      windowsSealKeyProduction,
+      reason: 'flutter test passes no SHIKOO_API',
+    );
+  });
+
+  group('windows', () {
+    const windows = 'windows-x64';
+    final message = _message(56, _sha);
+
+    File exe() => File('${cache.path}/update/$_sha.exe');
+
+    setUp(() {
+      door
+        ..abi = windows
+        ..code = 56
+        ..minimum = 0
+        ..entryVersion = '1.0.56'
+        ..sig = _sealOf(windowsSealKeyStaging, message)
+        ..others = {
+          'arm64-v8a': {
+            'version_code': 57,
+            'min_version_code': 57,
+            'size': 1,
+            'sha256': 'ab' * 32,
+            'url': '/dl/ShikooNet-1.0.57-arm64-v8a.apk',
+          },
+        };
+    });
+
+    ShikooUpdate onWindows({int installed = 55}) =>
+        start(abi: windows, installed: installed);
+
+    test('offers its own entry under its own version name, sealed over its '
+        'number and checksum', () async {
+      await onWindows().check();
+      expect(offer()!.release.versionName, '1.0.56');
+      expect(offer()!.release.versionCode, 56);
+      expect(offer()!.forced, isFalse);
+      expect(
+        offer()!.release.url,
+        'http://door.test/dl/ShikooNet-1.0.57-windows-x64.exe',
+      );
+      expect(seals, [message]);
+    });
+
+    test(
+      'a manifest without its own name falls back to the one above',
+      () async {
+        door.entryVersion = null;
+        await onWindows().check();
+        expect(offer()!.release.versionName, '1.0.57');
+      },
+    );
+
+    test('a seal that is missing, wrong, unprefixed or made for another '
+        'number or file is never offered, forced or not', () async {
+      door.minimum = 56;
+      for (final sig in [
+        null,
+        _sealOf(windowsSealKeyStaging, _message(57, _sha)),
+        _sealOf(windowsSealKeyStaging, _message(56, 'ab' * 32)),
+        _sealOf(windowsSealKeyStaging, '56:$_sha'),
+        'x' * 344,
+      ]) {
+        door.sig = sig;
+        expect(await onWindows().checkNow(), isNull, reason: '$sig');
+        expect(offer(), isNull, reason: '$sig');
+      }
+      expect(diag.lines.toSet(), {'T update 56 not sealed'});
+      door.sig = _sealOf(windowsSealKeyStaging, message);
+      await onWindows().check();
+      expect(offer()!.forced, isTrue);
+    });
+
+    test('the production seal never passes on a staging build, nor the other '
+        'way', () async {
+      door.sig = _sealOf(windowsSealKeyProduction, message);
+      await onWindows().check();
+      expect(offer(), isNull);
+
+      door.sig = _sealOf(windowsSealKeyStaging, message);
+      await (onWindows()..sealKey = windowsSealKeyProduction).check();
+      expect(offer(), isNull);
+
+      door.sig = _sealOf(windowsSealKeyProduction, message);
+      await (onWindows()..sealKey = windowsSealKeyProduction).check();
+      expect(offer()!.release.versionCode, 56);
+    });
+
+    test(
+      'a core that does not answer is a failed check, asked again soon',
+      () async {
+        coreAnswers = null;
+        final update = onWindows();
+        expect(await update.checkNow(), UpdateError.network);
+        expect(offer(), isNull);
+        coreAnswers = true;
+        await update.check();
+        expect(offer()!.release.versionCode, 56);
+      },
+    );
+
+    test('the installed build or a newer one asks the core nothing', () async {
+      for (final installed in [56, 57, 2026091401]) {
+        await onWindows(installed: installed).check();
+        expect(offer(), isNull, reason: '$installed');
+      }
+      expect(seals, isEmpty);
+    });
+
+    test('a file on another door is not offered', () async {
+      door.url = 'http://elsewhere.test/dl/ShikooNet-1.0.56-windows-x64.exe';
+      await onWindows().check();
+      expect(offer(), isNull);
+    });
+
+    test('a download continues its part, and the finished .exe stays ready '
+        'across checks', () async {
+      await part().create(recursive: true);
+      await part().writeAsBytes(_apk.sublist(0, 3000));
+      final update = onWindows();
+      await update.check();
+      await update.download();
+      expect(
+        door.downloads.single.headers[HttpHeaders.rangeHeader],
+        'bytes=3000-',
+      );
+      expect(exe().readAsBytesSync(), _apk);
+
+      clock = clock.add(updateEvery);
+      await update.check();
+      expect(exe().existsSync(), isTrue);
+      expect(offer()!.phase, UpdatePhase.ready);
+    });
+
+    Future<ShikooUpdate> ready({bool connected = true}) async {
+      final update = onWindows();
+      await update.check();
+      await update.download();
+      if (connected) container.read(runTimeProvider.notifier).value = 1;
+      return update;
+    }
+
+    test('checks the seal while connected, then disconnects and starts the '
+        'quiet installer, never the Android permission', () async {
+      final update = await ready();
+      final installing = update.install();
+      await until(() => started.isNotEmpty);
+      expect(events, ['disconnect', 'start']);
+      expect(started.single, [
+        exe().path,
+        '/SILENT',
+        '/SUPPRESSMSGBOXES',
+        '/NORESTART',
+      ]);
+      expect(seals, [message, message]);
+      expect(native, isEmpty);
+      installer.exited.complete(0);
+      expect(await installing, InstallAsk.nothing);
+    });
+
+    void afterDisconnect(void Function() then) {
+      final controller =
+          container.read(shikooControllerProvider) as _Controller;
+      final cleared = controller.onDisconnect;
+      controller.onDisconnect = () {
+        cleared();
+        then();
+      };
+    }
+
+    test('a file swapped while disconnecting is deleted, never started, and '
+        'the connection comes back', () async {
+      final update = await ready();
+      afterDisconnect(
+        () => exe().writeAsBytesSync(utf8.encode('not the sealed file')),
+      );
+      await update.install();
+      expect(events, ['disconnect', 'connect']);
+      expect(started, isEmpty);
+      expect(exe().existsSync(), isFalse);
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, UpdateError.checksum);
+    });
+
+    test('a file gone or unreadable after the disconnect is a damaged one: the '
+        'connection comes back and the card says so', () async {
+      for (final unreadable in [false, true]) {
+        events.clear();
+        final update = await ready();
+        afterDisconnect(() {
+          exe().deleteSync();
+          // A directory in its place: no system reads it or deletes it as a file.
+          if (unreadable) Directory(exe().path).createSync();
+        });
+        await update.install();
+        expect(events, ['disconnect', 'connect'], reason: '$unreadable');
+        expect(started, isEmpty);
+        expect(offer()!.phase, UpdatePhase.offered);
+        expect(offer()!.error, UpdateError.checksum);
+      }
+    });
+
+    test('a file another program holds locked, as an antivirus may, is the '
+        'same, and stays where it is', () async {
+      final update = await ready();
+      RandomAccessFile? held;
+      addTearDown(() => held?.closeSync());
+      afterDisconnect(
+        () =>
+            held = exe().openSync(mode: FileMode.append)
+              ..lockSync(FileLock.exclusive),
+      );
+      await update.install();
+      expect(events, ['disconnect', 'connect']);
+      expect(started, isEmpty);
+      expect(exe().existsSync(), isTrue);
+      expect(offer()!.error, UpdateError.checksum);
+    }, skip: Platform.isWindows ? false : 'only Windows locks block reads');
+
+    test('the file is started in the turn it was hashed in, so a write '
+        'queued during the disconnect lands only after the start', () async {
+      final update = await ready();
+      final swapped = Completer<void>();
+      afterDisconnect(
+        () => Timer.run(() {
+          exe().writeAsBytesSync(utf8.encode('swapped'));
+          swapped.complete();
+        }),
+      );
+      final startedSha = <String>[];
+      final start = update.startInstaller;
+      update.startInstaller = (exe, arguments) {
+        startedSha.add('${sha256.convert(File(exe).readAsBytesSync())}');
+        return start(exe, arguments);
+      };
+      final installing = update.install();
+      await until(() => started.isNotEmpty);
+      expect(startedSha, [_sha]);
+      installer.exited.complete(1);
+      await installing;
+      // A busy machine can poll the start before the write's turn; tearDown must not delete under it.
+      await swapped.future;
+    });
+
+    test(
+      'a file changed before the install is deleted, with no disconnect',
+      () async {
+        final update = await ready();
+        exe().writeAsBytesSync([..._apk.sublist(0, _apk.length - 1), 0]);
+        await update.install();
+        expect(events, isEmpty);
+        expect(exe().existsSync(), isFalse);
+        expect(offer()!.error, UpdateError.checksum);
+      },
+    );
+
+    test('a file gone when the install is tapped is a damaged one, with no '
+        'disconnect', () async {
+      final update = await ready();
+      exe().deleteSync();
+      await update.install();
+      expect(events, isEmpty);
+      expect(started, isEmpty);
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, UpdateError.checksum);
+    });
+
+    test('one locked when the install is tapped is the same, and stays where '
+        'it is', () async {
+      final update = await ready();
+      final held = exe().openSync(mode: FileMode.append)
+        ..lockSync(FileLock.exclusive);
+      addTearDown(held.closeSync);
+      await update.install();
+      expect(events, isEmpty);
+      expect(started, isEmpty);
+      expect(exe().existsSync(), isTrue);
+      expect(offer()!.phase, UpdatePhase.offered);
+      expect(offer()!.error, UpdateError.checksum);
+    }, skip: Platform.isWindows ? false : 'only Windows locks block reads');
+
+    test('a seal the core no longer confirms keeps the connection and starts '
+        'nothing', () async {
+      final update = await ready();
+      coreAnswers = null;
+      await update.install();
+      expect(events, isEmpty);
+      expect(offer()!.phase, UpdatePhase.ready);
+      expect(offer()!.error, UpdateError.install);
+    });
+
+    test('an installer that exits while the app lives, refused at UAC, '
+        'reconnects and says the installer did not open', () async {
+      final update = await ready();
+      final installing = update.install();
+      await until(() => started.isNotEmpty);
+      installer.exited.complete(2);
+      await installing;
+      expect(events, ['disconnect', 'start', 'connect']);
+      expect(offer()!.phase, UpdatePhase.ready);
+      expect(offer()!.error, UpdateError.install);
+    });
+
+    test('one Windows would not start is the same', () async {
+      startFails = true;
+      final update = await ready();
+      await update.install();
+      expect(events, ['disconnect', 'start', 'connect']);
+      expect(offer()!.error, UpdateError.install);
+    });
+
+    test('only a connection that was on comes back, and not over one the '
+        'user started since', () async {
+      startFails = true;
+      await (await ready(connected: false)).install();
+      expect(events, ['disconnect', 'start']);
+
+      events.clear();
+      final update = await ready();
+      final controller =
+          container.read(shikooControllerProvider) as _Controller;
+      controller.onDisconnect = () {};
+      await update.install();
+      expect(events, ['disconnect', 'start']);
+    });
+
+    test('a second tap while installing starts nothing more', () async {
+      final update = await ready();
+      final first = update.install();
+      final second = update.install();
+      await until(() => started.isNotEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      installer.exited.complete(1);
+      await Future.wait([first, second]);
+      expect(started, hasLength(1));
     });
   });
 }

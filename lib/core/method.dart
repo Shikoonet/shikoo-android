@@ -36,6 +36,7 @@ enum CoreMethod {
   clearEffect,
   updateDns,
   testProxyDelay,
+  checkSeal,
 }
 
 class CoreMethodCall {

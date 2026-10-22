@@ -5,8 +5,11 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:fl_clash/bootstrap.dart';
 import 'package:fl_clash/common/boot_record.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
+import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -19,11 +22,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:rust_api/rust_api.dart';
 
 /// FlClash's `lib/main.dart` (v0.8.98) with ShikooApp; copy upstream changes to it by hand.
-void main() {
+void main(List<String> args) {
+  shikooAutostarted = args.contains(shikooAutostartArg);
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      _hideLinksInLogs();
+      if (Platform.isWindows && args.contains('--restore-proxy')) {
+        await restoreProxyAndExit();
+      }
+      hideLinksInLogs();
       FlutterError.onError = (details) {
         shikooDiag.error(details.exception, details.stack);
         Future.microtask(() {
@@ -46,7 +53,10 @@ void main() {
         fillFlClashHooks();
         await forgetUnfinishedLaunch();
         final container = await bootstrap.init(version);
-        shikooStaging = globalState.packageInfo.packageName.endsWith('.dev');
+        if (system.isWindows) await shikooWindowStart(container);
+        shikooStaging =
+            shikooStagingBuild ||
+            globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
@@ -63,6 +73,7 @@ void main() {
         commonPrint.log('init failed: $e $s', logLevel: LogLevel.error);
         shikooDiag.release();
         runApp(const ShikooInitErrorApp());
+        unawaited(window?.showInitFailure());
       }
     },
     (error, stack) {
@@ -102,11 +113,14 @@ Future<void> _untilClockRight() async {
       look: look,
     ),
   );
+  // The desktop window shows itself only once bootstrap ran.
+  unawaited(window?.showInitFailure());
   await right.future;
 }
 
 /// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`).
-void _hideLinksInLogs() {
+@visibleForTesting
+void hideLinksInLogs() {
   final print = debugPrint;
   final link = RegExp(r'[a-z][a-z0-9+.-]*://\S+', caseSensitive: false);
   debugPrint = (message, {wrapWidth}) {

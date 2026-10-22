@@ -103,6 +103,14 @@ jobs:
       # after setup-go: it copies sing-tun out of the Go module cache
       - run: bash tools/core-patches/apply.sh
 
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-ca
+          path: core/Clash.Meta/component/ca/ca-certificates.crt
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -227,8 +235,190 @@ jobs:
           gh release create "staging-$VN" out/*.apk out/SHA256SUMS --prerelease \
             --target "$SHA" --title "ShikooNet $VN (staging)" --notes-file out/NOTES.md
 
-  door:
+  windows:
     needs: build
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: LF line endings and long paths before the checkout, so the core's files are byte for byte the Linux job's
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: core-ca
+          path: ${{ runner.temp }}/core-ca
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+
+      - name: The core patches after setup-go, with the very CA roots the Android core got
+        env:
+          SHIKOO_CA_DIR: ${{ runner.temp }}/core-ca
+        run: |
+          bash tools/core-patches/apply.sh
+          echo "CORE=$(git rev-parse --short=7 HEAD:core/Clash.Meta)" >>"$GITHUB_ENV"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            .dart_tool/hooks_runner
+            .dart_tool/setup_build_cache
+            libclash
+          key: native-windows-${{ hashFiles('core/**', 'build_config.yaml', 'plugins/setup/**', 'plugins/rust_api/rust/**', 'services/helper/**') }}
+          restore-keys: native-windows-
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: The Rust of plugins/rust_api for the helper too, as tools/windows-toolchain.ps1 sets it
+        working-directory: plugins/rust_api/rust
+        run: |
+          rustup toolchain install
+          rustup default "$(rustup show active-toolchain | cut -d' ' -f1)"
+          rustc --version
+
+      - name: Inno Setup 6.7.3, as tools/windows-toolchain.ps1 installs it
+        shell: pwsh
+        run: |
+          $exe = "$env:RUNNER_TEMP\innosetup-6.7.3.exe"
+          curl.exe -fsSL --retry 5 -o $exe https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe
+          if ((Get-FileHash $exe).Hash -ne '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732') { throw 'innosetup-6.7.3.exe: wrong sha256' }
+          $p = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', '/NOICONS', "/DIR=$env:RUNNER_TEMP\inno" -Wait -PassThru
+          if ($p.ExitCode) { throw "Inno Setup installer exit $($p.ExitCode)" }
+          "INNO_SETUP_PATH=$env:RUNNER_TEMP\inno" >> $env:GITHUB_ENV
+
+      - name: Staging and production installers
+        run: |
+          set -euo pipefail
+          VN=$VERSION_PREFIX.$GITHUB_RUN_NUMBER API=${STAGING_API%/} BOT=${STAGING_BOT#@} rel=build/windows/x64/runner/Release
+          dart pub global activate -s git https://github.com/chen08209/flutter_distributor.git \
+            --git-ref v0.6.11-flclash.2 --git-path packages/flutter_distributor
+          # Inno's AppVersion is pubspec's version; FlClash's 0.8.98 would show in «Programs and Features»
+          sed -i "s/^version: .*/version: $VN/" pubspec.yaml
+          mkdir -p out
+          package() {
+            dart pub global run flutter_distributor:main package --skip-clean --platform windows --targets exe \
+              --artifact-name "$1" --build-target lib/shikoo/app/main.dart \
+              --flutter-build-args "build-name=$VN,build-number=$GITHUB_RUN_NUMBER" \
+              --build-dart-define APP_ENV=stable --build-dart-define SHIKOO_CORE="$CORE" "${@:2}"
+            mv "dist/$1" out/
+            staging=$(grep -caF "$API" "$rel/data/app.so" || true)
+            product=$(pwsh -NoProfile -Command "(Get-Item 'out/$1', '$rel/ShikooNet.exe').VersionInfo.ProductName.Trim() -join ' / '" | tr -d '\r')
+            port=$(grep -oaE 'http://127\.0\.0\.1:4789[0-9]' "$rel/data/app.so" | sort -u | paste -sd' ' || true)
+            service=$(grep -oaE 'ShikooNet(Test)?HelperService' "$rel/ShikooNetHelperService.exe" | sort -u | paste -sd' ' || true)
+            found="installer / app '$product', staging server $staging times, helper '$port', service '$service'"
+            echo "$1: $found"
+          }
+          # Staging needs all three: SHIKOO_FLAVOR for CMake and ISCC, build_config.yaml for the helper, the define for Dart.
+          flavor() {
+            sed -i "s/^flavor: .*/flavor: $1/" build_config.yaml
+            grep -qx "flavor: $1" build_config.yaml ||
+              { echo "::error::build_config.yaml has no 'flavor:' line to set to $1, so the helper would keep the other name"; exit 1; }
+          }
+          export SHIKOO_FLAVOR=staging
+          flavor staging
+          package "ShikooNet-$VN-staging-windows-x64.exe" --build-dart-define SHIKOO_FLAVOR=staging \
+            --build-dart-define SHIKOO_API="$API" --build-dart-define SHIKOO_BOT="$BOT"
+          [[ $product == 'ShikooNet Test / ShikooNet Test' && $staging -gt 0 && $port == http://127.0.0.1:47892 &&
+            $service == ShikooNetTestHelperService ]] ||
+            { echo "::error::the staging build is not the test one: $found"; exit 1; }
+          unset SHIKOO_FLAVOR
+          flavor production
+          package "ShikooNet-$VN-windows-x64.exe"
+          [[ $product == 'ShikooNet / ShikooNet' && $staging -eq 0 && $port == http://127.0.0.1:47891 &&
+            $service == ShikooNetHelperService ]] ||
+            { echo "::error::the production build is not the production one: $found"; exit 1; }
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: installers
+          path: out/*.exe
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: true
+
+  seal:
+    needs: [build, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: installers
+          path: out
+
+      - name: Seal each installer with its Android key, whose public half the app must hold
+        env:
+          STAGING_KEYSTORE_B64: ${{ secrets.SHIKOO_STAGING_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_B64: ${{ secrets.SHIKOO_RELEASE_KEYSTORE_B64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.SHIKOO_RELEASE_STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keys=$RUNNER_TEMP/seal && trap 'rm -rf "$keys"' EXIT
+          (umask 077 && mkdir "$keys")
+          seal() {
+            local exe=out/$1 want have
+            want=$(grep -zoP "const windowsSealKey$2\s*=\s*'\K[A-Za-z0-9+/]+=*(?=';)" lib/shikoo/engine/update.dart | tr -d '\0' || true)
+            [ -n "$want" ] || { echo "::error::lib/shikoo/engine/update.dart holds no windowsSealKey$2 = '<base64>'"; exit 1; }
+            [ -n "$3" ] || { echo "::error::the keystore for $1 is not in the secrets"; exit 1; }
+            base64 -d <<<"$3" >"$keys/keystore.p12"
+            KEY_PASS=$4 openssl pkcs12 -in "$keys/keystore.p12" -passin env:KEY_PASS -nocerts -nodes -out "$keys/key.pem"
+            openssl pkey -in "$keys/key.pem" -pubout -out "$keys/public.pem"
+            have=$(openssl pkey -pubin -in "$keys/public.pem" -outform DER | base64 -w0)
+            [ "$have" = "$want" ] || { echo "::error::the key for $1 is not the one windowsSealKey$2 names"; exit 1; }
+            printf 'shikoonet-windows-update:%s:%s' "$GITHUB_RUN_NUMBER" "$(sha256sum "$exe" | cut -c1-64)" >"$keys/message"
+            openssl dgst -sha256 -sign "$keys/key.pem" -out "$keys/seal" "$keys/message"
+            openssl dgst -sha256 -verify "$keys/public.pem" -signature "$keys/seal" "$keys/message"
+            { base64 -w0 "$keys/seal"; echo; } >"$exe.sig"
+            rm -f "$keys"/*
+          }
+          VN=$VERSION_PREFIX.$GITHUB_RUN_NUMBER
+          seal "ShikooNet-$VN-staging-windows-x64.exe" Staging "$STAGING_KEYSTORE_B64" android
+          seal "ShikooNet-$VN-windows-x64.exe" Production "$RELEASE_KEYSTORE_B64" "$RELEASE_STORE_PASSWORD"
+          echo "VN=$VN" >>"$GITHUB_ENV"
+
+      - name: Installers, seals and their sums into the staging pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release download "staging-$VN" --dir sums --pattern SHA256SUMS
+          grep -v 'windows-x64\.exe$' sums/SHA256SUMS >sums/new || true
+          for exe in out/*.exe; do printf '%s  %s\n' "$(sha256sum -b "$exe" | cut -c1-64)" "${exe#out/}"; done |
+            tee -a "$GITHUB_STEP_SUMMARY" >>sums/new
+          mv sums/new sums/SHA256SUMS
+          gh release upload "staging-$VN" out/* --clobber
+          gh release upload "staging-$VN" sums/SHA256SUMS --clobber
+
+  door:
+    needs: [build, seal]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -237,7 +427,7 @@ jobs:
           ref: ${{ needs.build.outputs.sha }}
           persist-credentials: false
 
-      - name: The staging APKs of this run, to the staging door
+      - name: The staging APKs and Windows installer of this run, to the staging door
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -249,8 +439,10 @@ jobs:
             exit 0
           fi
           vn=$VERSION_PREFIX.$GITHUB_RUN_NUMBER
-          gh release download "staging-$vn" --dir door --pattern SHA256SUMS --pattern "ShikooNet-$vn-staging-*.apk"
-          grep -E " ShikooNet-$vn-staging-[a-z0-9_-]+\.apk$" door/SHA256SUMS >door/staging.sums
+          gh release download "staging-$vn" --dir door --pattern SHA256SUMS --pattern "ShikooNet-$vn-staging-*"
+          grep -E " ShikooNet-$vn-staging-[a-z0-9_-]+\.(apk|exe)$" door/SHA256SUMS >door/staging.sums
           mv door/staging.sums door/SHA256SUMS
+          grep -q 'windows-x64\.exe$' door/SHA256SUMS ||
+            echo "::warning::no Windows installer in staging-$vn: the staging door keeps its previous one"
           (cd door && sha256sum -c SHA256SUMS)
           bash tools/publish_door.sh "$STAGING_API" door false

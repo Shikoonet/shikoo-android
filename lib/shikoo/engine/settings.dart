@@ -1,3 +1,4 @@
+import 'package:fl_clash/providers/config.dart' show appSettingProvider;
 import 'package:fl_clash/providers/state.dart' show ServiceTexts;
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/state.dart';
@@ -27,6 +28,8 @@ const _apiOverride = String.fromEnvironment('SHIKOO_API');
 const shikooApiBases = [
   _apiOverride == '' ? 'https://app.chopon.uk' : _apiOverride,
 ];
+
+const shikooTestDoor = _apiOverride != '';
 
 /// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.
 String? usableLink(String? url) {
@@ -84,6 +87,35 @@ class ShikooLookNotifier extends Notifier<ShikooLook> {
 final shikooLookProvider = NotifierProvider<ShikooLookNotifier, ShikooLook>(
   ShikooLookNotifier.new,
 );
+
+/// FlClash's `autoLaunch`, which its WindowManager writes to Windows' Run key.
+final shikooAutoStartProvider = Provider<bool>(
+  (ref) => ref.watch(appSettingProvider.select((s) => s.autoLaunch)),
+);
+
+void setAutoStart(WidgetRef ref, bool on) => ref
+    .read(appSettingProvider.notifier)
+    .update((s) => s.copyWith(autoLaunch: on));
+
+class ShikooUpdateNoticeNotifier extends Notifier<bool> {
+  static const _key = 'shikoo.updateNotice';
+
+  @override
+  bool build() => true;
+
+  Future<void> load() async =>
+      state = (await SharedPreferences.getInstance()).getBool(_key) ?? true;
+
+  Future<void> set(bool on) async {
+    state = on;
+    await (await SharedPreferences.getInstance()).setBool(_key, on);
+  }
+}
+
+final shikooUpdateNoticeProvider =
+    NotifierProvider<ShikooUpdateNoticeNotifier, bool>(
+      ShikooUpdateNoticeNotifier.new,
+    );
 
 /// FlClash's l10n has no Persian, so the VPN notification, its toasts and the launcher shortcut
 /// take these. [locale] is null before ShikooApp's first frame.

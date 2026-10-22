@@ -12,6 +12,7 @@ import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/internet_check.dart';
+import 'package:fl_clash/shikoo/ui/logs.dart';
 import 'package:fl_clash/shikoo/ui/order.dart';
 import 'package:fl_clash/shikoo/ui/paste.dart';
 import 'package:fl_clash/shikoo/ui/report.dart';
@@ -64,7 +65,9 @@ class ShikooSettings extends ConsumerWidget {
                   title: l.orderServices,
                   subtitle: isTV
                       ? l.orderServicesHelpTv
-                      : l.orderServicesHelpTouch,
+                      : (shikooDesktop
+                            ? l.orderServicesHelpDesktop
+                            : l.orderServicesHelpTouch),
                   forward: true,
                   onPressed: () => unawaited(
                     Navigator.push(
@@ -86,8 +89,11 @@ class ShikooSettings extends ConsumerWidget {
         : isTV
         ? l.changeServicesTv
         : here < account.total
-        ? l.servicesHereTouch(here, account.total)
-        : l.servicesAllHereTouch;
+        ? (shikooDesktop ? l.servicesHereDesktop : l.servicesHereTouch)(
+            here,
+            account.total,
+          )
+        : (shikooDesktop ? l.servicesAllHereDesktop : l.servicesAllHereTouch);
     final groups = [
       _Group(
         title: l.appearance,
@@ -110,6 +116,30 @@ class ShikooSettings extends ConsumerWidget {
           onSelect: (language) => unawaited(setLook.setLanguage(language)),
         ),
       ),
+      if (shikooDesktop)
+        _Group(
+          title: l.windowsGroup,
+          child: _Card(
+            rows: [
+              SwitchRow(
+                label: l.autoStart,
+                help: l.autoStartHelp,
+                on: ref.watch(shikooAutoStartProvider),
+                onChanged: (on) => setAutoStart(ref, on),
+                inCard: true,
+              ),
+              SwitchRow(
+                label: l.updateNotice,
+                help: l.updateNoticeHelp,
+                on: ref.watch(shikooUpdateNoticeProvider),
+                onChanged: (on) => unawaited(
+                  ref.read(shikooUpdateNoticeProvider.notifier).set(on),
+                ),
+                inCard: true,
+              ),
+            ],
+          ),
+        ),
       if (!isTV) ?order,
       PasteLink(
         onAdded: (_) => Navigator.popUntil(context, (route) => route.isFirst),
@@ -178,7 +208,10 @@ class ShikooSettings extends ConsumerWidget {
                       (true, true) => l.logoutHelpSignedInTv,
                       (true, false) => l.logoutHelpSignedInTouch,
                       (false, true) => l.logoutHelpTv,
-                      (false, false) => l.logoutHelpTouch,
+                      (false, false) =>
+                        (shikooDesktop
+                            ? l.logoutHelpDesktop
+                            : l.logoutHelpTouch),
                     },
                     onPressed: () =>
                         unawaited(_logOut(context, ref, isTV, who != null)),
@@ -197,6 +230,15 @@ class ShikooSettings extends ConsumerWidget {
                     forward: true,
                     onPressed: () => unawaited(_diagnose(context)),
                   ),
+                  if (!isTV)
+                    _Row(
+                      icon: ShikooIcon.lines,
+                      title: l.logsTitle,
+                      subtitle: l.logsRowHelp(ShikooDiag.keep.inDays),
+                      keys: shikooDesktop ? logsKeys : const [],
+                      forward: true,
+                      onPressed: () => openLogs(context),
+                    ),
                 ],
               ),
             ),
@@ -280,7 +322,11 @@ class ShikooSettings extends ConsumerWidget {
           Text(
             signedIn
                 ? l.logoutSignedInTitle
-                : (isTV ? l.logoutTitleTv : l.logoutTitleTouch),
+                : (isTV
+                      ? l.logoutTitleTv
+                      : (shikooDesktop
+                            ? l.logoutTitleDesktop
+                            : l.logoutTitleTouch)),
             style: t.text(t.s.title, weight: FontWeight.w700),
           ),
           Text(
@@ -288,7 +334,8 @@ class ShikooSettings extends ConsumerWidget {
               (true, true) => l.logoutSignedInBodyTv,
               (true, false) => l.logoutSignedInBodyTouch,
               (false, true) => l.logoutBodyTv,
-              (false, false) => l.logoutBodyTouch,
+              (false, false) =>
+                (shikooDesktop ? l.logoutBodyDesktop : l.logoutBodyTouch),
             },
             style: t.text(
               t.s.dialogText,
@@ -362,10 +409,11 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
     );
     if (ref.read(shikooUpdateOfferProvider) == null) return;
     // The answer to the press shows: on the TV the remote goes from the row that left to the
-    // card's button (tv-settings-app-found); on a phone the card scrolls into view once.
+    // card's button (tv-settings-app-found); on a phone the card scrolls into view once. A
+    // computer's click took the focus to the row, which would fall back to the top of the page.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (widget.isTV) {
+      if (widget.isTV || shikooDesktop) {
         jumpFocus(context, _cardButton);
       } else if (_card.currentContext case final card?) {
         revealWithRing(card);
@@ -511,6 +559,8 @@ class SubPage extends StatelessWidget {
     required this.isTV,
     required this.child,
     this.scrolls = true,
+    this.wide = false,
+    this.barGap = true,
     this.hint,
   });
 
@@ -518,6 +568,12 @@ class SubPage extends StatelessWidget {
   final bool isTV;
   final Widget child;
   final bool scrolls;
+
+  /// A [child] that does not [scrolls] takes the page's width on a computer, not the pane's.
+  final bool wide;
+
+  /// False for a page whose own head sits right under the bar, as `.logs-head`.
+  final bool barGap;
   final String? hint;
 
   @override
@@ -529,71 +585,75 @@ class SubPage extends StatelessWidget {
       title,
       style: t.text(s.title, weight: FontWeight.w700),
     );
-    return Scaffold(
-      backgroundColor: t.c.bg,
-      body: SafeArea(
-        bottom: isTV,
-        child: PageFocusScope(
-          child: FocusTraversalGroup(
-            policy: PageTraversalPolicy(),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isTV ? s.safeX : 0,
-                vertical: s.safeY,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    height: s.appbar + (isTV ? 2 * ShikooSizes.ring : 0),
-                    padding: isTV
-                        ? const EdgeInsets.symmetric(
-                            horizontal: ShikooSizes.ring,
-                          )
-                        : EdgeInsetsDirectional.only(
-                            start: Space.s1,
-                            end: s.safeX,
-                          ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      spacing: Space.s1,
-                      children: isTV
-                          ? [
-                              heading,
-                              Text(
-                                hint ?? l.backHintTv,
-                                style: t.text(s.bodySm, color: t.c.textMuted),
-                              ),
-                            ]
-                          : [
-                              ShikooIconButton(
-                                icon: ShikooIcon.back,
-                                label: l.back,
-                                flipInLtr: true,
-                                onPressed: () =>
-                                    unawaited(Navigator.maybePop(context)),
-                              ),
-                              Expanded(child: heading),
-                            ],
-                    ),
-                  ),
-                  SizedBox(height: isTV ? Space.s3 : Space.s2),
-                  Expanded(
-                    child: !scrolls
-                        ? child
-                        : isTV
-                        ? TvScrollColumn(child: child)
-                        : SingleChildScrollView(
-                            padding: EdgeInsets.fromLTRB(
-                              s.safeX,
-                              0,
-                              s.safeX,
-                              Space.s6 + MediaQuery.paddingOf(context).bottom,
+    return PageWidth(
+      child: Scaffold(
+        backgroundColor: t.c.bg,
+        body: SafeArea(
+          bottom: isTV,
+          child: PageFocusScope(
+            child: FocusTraversalGroup(
+              policy: PageTraversalPolicy(),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isTV ? s.safeX : 0,
+                  vertical: s.safeY,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      height: s.appbar + (isTV ? 2 * ShikooSizes.ring : 0),
+                      padding: isTV
+                          ? const EdgeInsets.symmetric(
+                              horizontal: ShikooSizes.ring,
+                            )
+                          : EdgeInsetsDirectional.only(
+                              start: Space.s1,
+                              end: s.safeX,
                             ),
-                            child: child,
-                          ),
-                  ),
-                ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        spacing: Space.s1,
+                        children: isTV
+                            ? [
+                                heading,
+                                Text(
+                                  hint ?? l.backHintTv,
+                                  style: t.text(s.bodySm, color: t.c.textMuted),
+                                ),
+                              ]
+                            : [
+                                ShikooIconButton(
+                                  icon: ShikooIcon.back,
+                                  label: l.back,
+                                  flipInLtr: true,
+                                  onPressed: () =>
+                                      unawaited(Navigator.maybePop(context)),
+                                ),
+                                Expanded(child: heading),
+                              ],
+                      ),
+                    ),
+                    SizedBox(height: isTV ? Space.s3 : (barGap ? Space.s2 : 0)),
+                    Expanded(
+                      child: !scrolls
+                          ? (wide
+                                ? child
+                                : PaneColumn(padding: s.safeX, child: child))
+                          : isTV
+                          ? TvScrollColumn(child: child)
+                          : SingleChildScrollView(
+                              padding: EdgeInsets.fromLTRB(
+                                s.safeX,
+                                0,
+                                s.safeX,
+                                Space.s6 + MediaQuery.paddingOf(context).bottom,
+                              ),
+                              child: PaneColumn(child: child),
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -845,11 +905,21 @@ class Segmented<T> extends StatefulWidget {
     required this.onSelect,
     this.autofocus = false,
     this.small = false,
+    this.counts = const {},
+    this.wraps = false,
   });
 
   final Map<T, String> options;
   final T selected;
-  final ValueChanged<T> onSelect;
+
+  /// `.cnt`: a red number after an option's label, none at zero.
+  final Map<T, int> counts;
+
+  /// Two rows when one would cut a label, as the Logs page's four tabs in large text.
+  final bool wraps;
+
+  /// Null greys every option out, as the mode switch while connecting.
+  final ValueChanged<T>? onSelect;
 
   /// Lands the remote on the chosen option.
   final bool autofocus;
@@ -875,17 +945,117 @@ class _SegmentedState<T> extends State<Segmented<T>> {
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    final Segmented(:options, :selected, :onSelect, :autofocus, :small) =
-        widget;
+    final Segmented(
+      :options,
+      :selected,
+      :onSelect,
+      :autofocus,
+      :small,
+      :counts,
+      :wraps,
+    ) = widget;
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Radii.sm),
     );
-    // The remote coming from another row lands on the chosen option, not the nearest one.
-    return Focus(
+    TextStyle labelStyle(bool chosen) => t.text(
+      small ? t.s.bodySm : t.s.body,
+      weight: chosen ? FontWeight.w700 : FontWeight.w500,
+      color: onSelect == null
+          ? (chosen ? t.c.textMuted : t.c.iconDisabled)
+          : (chosen ? t.c.text : t.c.textMuted),
+    );
+    final countStyle = t.text(
+      t.s.caption,
+      weight: FontWeight.w700,
+      color: t.c.onDanger,
+      height: 1,
+    );
+    Widget option(T value, String label) {
+      final count = counts[value] ?? 0;
+      return Flexible(
+        flex: small ? 0 : 1,
+        fit: FlexFit.tight,
+        child: Pressable(
+          focusNode: _nodes.putIfAbsent(value, FocusNode.new),
+          autofocus: autofocus && value == selected,
+          shape: shape,
+          onPressed: onSelect == null ? null : () => onSelect(value),
+          builder: (context, focused) {
+            final chosen = value == selected;
+            final text = Text(label, maxLines: 1, style: labelStyle(chosen));
+            return Semantics(
+              selected: chosen,
+              button: true,
+              enabled: onSelect != null,
+              child: Container(
+                height: small ? null : t.s.button,
+                padding: small
+                    ? const EdgeInsets.symmetric(
+                        horizontal: Space.s4,
+                        vertical: Space.s1,
+                      )
+                    : null,
+                alignment: Alignment.center,
+                decoration: ShapeDecoration(
+                  color: focused ? t.c.focusBg : (chosen ? t.c.surface : null),
+                  shadows: focused
+                      ? t.c.raisedShadow
+                      : (chosen ? t.c.cardShadow : null),
+                  shape: shape,
+                ),
+                child: count == 0
+                    ? text
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: Space.s1,
+                        children: [
+                          Flexible(child: text),
+                          Container(
+                            constraints: const BoxConstraints(
+                              minWidth: ShikooSizes.count,
+                              minHeight: ShikooSizes.count,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Space.s1,
+                            ),
+                            decoration: ShapeDecoration(
+                              color: t.c.danger,
+                              shape: const StadiumBorder(),
+                            ),
+                            child: Center(
+                              widthFactor: 1,
+                              heightFactor: 1,
+                              child: Text(
+                                localNumber(context, count),
+                                style: countStyle,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Widget row(Iterable<MapEntry<T, String>> entries) => Row(
+      mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
+      spacing: Space.s1,
+      children: [for (final e in entries) option(e.key, e.value)],
+    );
+    final entries = options.entries.toList();
+    // The remote or Tab coming from another row lands on the chosen option, not the nearest one;
+    // a click lands where it clicked.
+    final segmented = Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onFocusChange: (inside) {
-        if (inside) _nodes[selected]?.requestFocus();
+        final keys =
+            FocusManager.instance.highlightMode ==
+            FocusHighlightMode.traditional;
+        if (inside && keys) _nodes[selected]?.requestFocus();
       },
       child: Container(
         padding: const EdgeInsets.all(Space.s1),
@@ -895,60 +1065,45 @@ class _SegmentedState<T> extends State<Segmented<T>> {
             borderRadius: BorderRadius.circular(Radii.md),
           ),
         ),
-        child: Row(
-          mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
-          spacing: Space.s1,
-          children: [
-            for (final MapEntry(key: value, value: label) in options.entries)
-              Flexible(
-                flex: small ? 0 : 1,
-                fit: FlexFit.tight,
-                child: Pressable(
-                  focusNode: _nodes.putIfAbsent(value, FocusNode.new),
-                  autofocus: autofocus && value == selected,
-                  shape: shape,
-                  onPressed: () => onSelect(value),
-                  builder: (context, focused) {
-                    final chosen = value == selected;
-                    return Semantics(
-                      selected: chosen,
-                      button: true,
-                      child: Container(
-                        height: small ? null : t.s.button,
-                        padding: small
-                            ? const EdgeInsets.symmetric(
-                                horizontal: Space.s4,
-                                vertical: Space.s1,
-                              )
-                            : null,
-                        alignment: Alignment.center,
-                        decoration: ShapeDecoration(
-                          color: focused
-                              ? t.c.focusBg
-                              : (chosen ? t.c.surface : null),
-                          shadows: focused
-                              ? t.c.raisedShadow
-                              : (chosen ? t.c.cardShadow : null),
-                          shape: shape,
-                        ),
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          style: t.text(
-                            small ? t.s.bodySm : t.s.body,
-                            weight: chosen ? FontWeight.w700 : FontWeight.w500,
-                            color: chosen ? t.c.text : t.c.textMuted,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+        child: !wraps
+            ? row(entries)
+            : LayoutBuilder(
+                builder: (context, box) {
+                  final room =
+                      (box.maxWidth - Space.s1 * (entries.length - 1)) /
+                      entries.length;
+                  final fits = entries.every((e) {
+                    final count = counts[e.key] ?? 0;
+                    final badge = count == 0
+                        ? 0.0
+                        : Space.s1 +
+                              (textWidth(
+                                        context,
+                                        localNumber(context, count),
+                                        countStyle,
+                                      ) +
+                                      2 * Space.s1)
+                                  .clamp(ShikooSizes.count, double.infinity);
+                    return textWidth(context, e.value, labelStyle(true)) +
+                            badge <=
+                        room;
+                  });
+                  if (fits) return row(entries);
+                  final half = (entries.length + 1) ~/ 2;
+                  return Column(
+                    spacing: Space.s1,
+                    children: [
+                      row(entries.take(half)),
+                      row(entries.skip(half)),
+                    ],
+                  );
+                },
               ),
-          ],
-        ),
       ),
     );
+    return onSelect == null
+        ? IgnorePointer(child: ExcludeFocus(child: segmented))
+        : segmented;
   }
 }
 
@@ -1068,6 +1223,7 @@ class _Row extends StatelessWidget {
     this.danger = false,
     this.alert = false,
     this.busy = false,
+    this.keys = const [],
     this.onPressed,
   });
 
@@ -1075,6 +1231,9 @@ class _Row extends StatelessWidget {
 
   /// The subtitle in red, as `.row small.danger`.
   final bool alert;
+
+  /// `.keys`: a shortcut that opens the same page, before the chevron.
+  final List<String> keys;
 
   /// The title with bold parts.
   final List<InlineSpan>? rich;
@@ -1164,6 +1323,15 @@ class _Row extends StatelessWidget {
                     ],
                   ),
           ),
+          if (keys.isNotEmpty)
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: Space.s1,
+                children: [for (final key in keys) _Key(key)],
+              ),
+            ),
           if (forward)
             Transform.flip(
               flipX: ltr,
@@ -1182,6 +1350,44 @@ class _Row extends StatelessWidget {
       shape: shape,
       onPressed: onPressed,
       builder: (context, focused) => row(focused),
+    );
+  }
+}
+
+/// `.kbd`: a key cap whose lower edge is darker, as the mockup's inset shadow.
+class _Key extends StatelessWidget {
+  const _Key(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final shape = RoundedSuperellipseBorder(
+      borderRadius: BorderRadius.circular(Radii.sm),
+    );
+    const edge = 2.0;
+    return Container(
+      padding: const EdgeInsets.only(bottom: edge),
+      decoration: ShapeDecoration(color: t.c.border, shape: shape),
+      child: Container(
+        constraints: const BoxConstraints(
+          minWidth: ShikooSizes.key,
+          minHeight: ShikooSizes.key - edge,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+        alignment: Alignment.center,
+        decoration: ShapeDecoration(color: t.c.surfaceSunken, shape: shape),
+        child: Text(
+          label,
+          style: t.text(
+            t.s.caption,
+            weight: FontWeight.w700,
+            color: t.c.textMuted,
+            height: 1,
+          ),
+        ),
+      ),
     );
   }
 }
