@@ -193,17 +193,16 @@ void main() {
     });
 
     test('the guard lets go of a helper port that takes the request and '
-        'never answers', () async {
+        'never answers, after 5 seconds', () async {
       final silent = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       final held = <Socket>[];
       silent.listen(held.add);
+      final waited = Stopwatch()..start();
       await HttpOverrides.runWithHttpOverrides(
-        () => guardThisProcess(
-          port: silent.port,
-          timeout: const Duration(milliseconds: 200),
-        ),
+        () => guardThisProcess(port: silent.port),
         _RealHttp(),
       );
+      expect(waited.elapsedMilliseconds, inInclusiveRange(4900, 8000));
       expect(held, hasLength(1));
       for (final socket in held) {
         socket.destroy();

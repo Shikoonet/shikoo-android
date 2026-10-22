@@ -673,6 +673,7 @@ async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response,
         .is_some()
         || rejection.find::<warp::reject::LengthRequired>().is_some()
         || rejection.find::<warp::reject::PayloadTooLarge>().is_some()
+        || rejection.find::<ChunkedBody>().is_some()
     {
         return Ok(error_response(
             "invalidRequest",
@@ -701,10 +702,25 @@ async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response,
     ))
 }
 
+#[derive(Debug)]
+struct ChunkedBody;
+
+impl warp::reject::Reject for ChunkedBody {}
+
 /// The Helper runs as SYSTEM: a body gets read only when it says how long it is, and it is short.
+/// hyper 0.14 reads a chunked body to its end even beside a Content-Length, so chunked is refused.
 fn json_body<T: serde::de::DeserializeOwned + Send>(
-) -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
-    warp::body::content_length_limit(BODY_LIMIT).and(warp::body::json())
+) -> impl Filter<Extract = (T,), Error = Rejection> + Clone {
+    warp::header::headers_cloned()
+        .and_then(|headers: warp::http::HeaderMap| async move {
+            if headers.contains_key(warp::http::header::TRANSFER_ENCODING) {
+                return Err(warp::reject::custom(ChunkedBody));
+            }
+            Ok(())
+        })
+        .untuple_one()
+        .and(warp::body::content_length_limit(BODY_LIMIT))
+        .and(warp::body::json())
 }
 
 pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallible> + Clone {
@@ -1309,35 +1325,43 @@ mod tests {
 
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]
-    async fn bodies_over_a_kilobyte_are_refused_before_they_are_read() {
+    async fn bodies_over_a_kilobyte_or_chunked_are_refused_before_they_are_read() {
         let _state = lock_process_state();
         let session_id = "0123456789abcdef0123456789abcdef".to_string();
         let start = StartParams {
             address: ALLOWED_CORE_ADDRESS.to_string(),
             session_id: session_id.clone(),
         };
+        let stop = serde_json::to_string(&StopParams { session_id }).unwrap();
         let mut bodies = vec![
             ("/start", serde_json::to_string(&start).unwrap()),
-            (
-                "/stop",
-                serde_json::to_string(&StopParams { session_id }).unwrap(),
-            ),
+            ("/stop", stop.clone()),
         ];
         if cfg!(all(feature = "windows-service", target_os = "windows")) {
             bodies.push(("/guard", r#"{"pid":0}"#.to_string()));
         }
-        for (path, json) in bodies {
-            let response = warp::test::request()
+        let sized =
+            |json: &str, length: usize| format!("{json}{}", " ".repeat(length - json.len()));
+        let post = |path: &str, body: String| {
+            warp::test::request()
                 .method("POST")
                 .path(path)
                 .header("content-type", "application/json")
-                .body(format!("{json}{}", " ".repeat(BODY_LIMIT as usize)))
-                .reply(&routes())
-                .await;
-            assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{path}");
-            let reply: serde_json::Value = serde_json::from_slice(response.body()).unwrap();
-            assert_eq!(reply["code"], "invalidRequest", "{path}");
+                .body(body)
+        };
+        for (path, json) in bodies {
+            let lying = post(path, sized(&json, 200_000))
+                .header("content-length", "10")
+                .header("transfer-encoding", "chunked");
+            for (request, kind) in [(post(path, sized(&json, 1025)), "1025"), (lying, "chunked")] {
+                let response = request.reply(&routes()).await;
+                assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{path} {kind}");
+                let reply: serde_json::Value = serde_json::from_slice(response.body()).unwrap();
+                assert_eq!(reply["code"], "invalidRequest", "{path} {kind}");
+            }
         }
+        let response = post("/stop", sized(&stop, 1024)).reply(&routes()).await;
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[cfg(all(feature = "windows-service", target_os = "windows"))]
