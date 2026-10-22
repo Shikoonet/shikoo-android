@@ -221,6 +221,61 @@ func TestTheShippedIranianSetGivesARouteListAndroidTakes(t *testing.T) {
 	}
 }
 
+func TestTheSitesBlocksAreAllInTheShippedIranianSet(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range iranFirst {
+		if !iran.ContainsPrefix(p) {
+			t.Errorf("%s left the shipped Iranian set: its site would ride the server again", p)
+		}
+	}
+}
+
+func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := len(plan.Routes) + len(plan.Excluded); n > wgRouteBudget {
+			t.Errorf("sdk %d: %d routes", sdk, n)
+		}
+		var b netipx.IPSetBuilder
+		for _, route := range plan.Routes {
+			b.AddPrefix(netip.MustParsePrefix(route))
+		}
+		for _, route := range plan.Excluded {
+			b.RemovePrefix(netip.MustParsePrefix(route))
+		}
+		tunnel := must(b.IPSet())
+		for _, p := range iranFirst {
+			if tunnel.OverlapsPrefix(p) {
+				t.Errorf("sdk %d: %s still rides the tunnel", sdk, p)
+			}
+		}
+	}
+}
+
+func TestASitesBlockOutsideTheIranianSetStaysInTheTunnel(t *testing.T) {
+	var b netipx.IPSetBuilder
+	b.AddPrefix(netip.MustParsePrefix("2.144.0.0/14"))
+	b.AddPrefix(netip.MustParsePrefix("185.143.232.0/23"))
+	iran := must(b.IPSet())
+	plan, _, err := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(plan.Excluded, []string{"2.144.0.0/14", "185.143.232.0/23"}) {
+		t.Errorf("excluded %v: only what the Iranian set holds may leave the tunnel", plan.Excluded)
+	}
+}
+
 func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 	var b netipx.IPSetBuilder
 	b.AddPrefix(netip.MustParsePrefix("2.176.0.0/12"))

@@ -275,6 +275,27 @@ func wgPlan(
 // 15), 8747 routes around them crashed YouTube (7.1). So the widest blocks within wgRouteBudget go; the rest ride the server.
 const wgRouteBudget = 500
 
+// Out first, each while the shipped Iranian set holds all of it: 36 key sites' blocks (via Shecan, 2026-10-23).
+var iranFirst = []netip.Prefix{
+	netip.MustParsePrefix("185.143.232.0/22"), netip.MustParsePrefix("176.56.144.0/20"),
+	netip.MustParsePrefix("185.192.8.0/22"), netip.MustParsePrefix("82.99.192.0/18"),
+	netip.MustParsePrefix("185.30.4.0/22"), netip.MustParsePrefix("193.8.139.0/24"),
+	netip.MustParsePrefix("5.160.152.0/21"), netip.MustParsePrefix("89.43.0.0/20"),
+	netip.MustParsePrefix("164.215.56.0/21"), netip.MustParsePrefix("212.1.192.0/21"),
+	netip.MustParsePrefix("217.218.0.0/15"), netip.MustParsePrefix("91.212.252.0/24"),
+	netip.MustParsePrefix("5.160.192.0/18"), netip.MustParsePrefix("178.21.40.0/21"),
+	netip.MustParsePrefix("185.167.72.0/22"), netip.MustParsePrefix("91.240.180.0/22"),
+	netip.MustParsePrefix("212.80.16.0/20"), netip.MustParsePrefix("185.132.124.0/24"),
+	netip.MustParsePrefix("185.79.60.0/22"), netip.MustParsePrefix("185.210.200.0/22"),
+	netip.MustParsePrefix("91.232.64.0/22"), netip.MustParsePrefix("130.185.72.0/21"),
+	netip.MustParsePrefix("78.38.0.0/15"), netip.MustParsePrefix("77.104.64.0/18"),
+	netip.MustParsePrefix("77.237.64.0/19"), netip.MustParsePrefix("94.232.168.0/21"),
+	netip.MustParsePrefix("185.12.100.0/22"), netip.MustParsePrefix("185.188.104.0/22"),
+	netip.MustParsePrefix("185.147.176.0/22"), netip.MustParsePrefix("185.166.104.0/22"),
+	netip.MustParsePrefix("81.12.0.0/17"), netip.MustParsePrefix("2.176.0.0/12"),
+	netip.MustParsePrefix("5.106.0.0/16"),
+}
+
 func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.IPSet, excluded []string, err error) {
 	var inside netipx.IPSetBuilder
 	inside.AddSet(routes)
@@ -286,11 +307,22 @@ func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.
 	blocks := all.Prefixes()
 	size := func(p netip.Prefix) int { return p.Addr().BitLen() - p.Bits() }
 	slices.SortStableFunc(blocks, func(a, b netip.Prefix) int { return size(b) - size(a) })
-	routesLeft, excluded = routes, []string{}
-	var cut netipx.IPSetBuilder
+	tiers := [][]netip.Prefix{{}}
+	for _, p := range iranFirst {
+		if all.ContainsPrefix(p) {
+			tiers[0] = append(tiers[0], p)
+		}
+	}
 	for i, j := 0, 0; i < len(blocks); i = j {
 		for j = i; j < len(blocks) && size(blocks[j]) == size(blocks[i]); j++ {
-			cut.AddPrefix(blocks[j])
+		}
+		tiers = append(tiers, blocks[i:j])
+	}
+	routesLeft, excluded = routes, []string{}
+	var cut netipx.IPSetBuilder
+	for _, tier := range tiers {
+		for _, p := range tier {
+			cut.AddPrefix(p)
 		}
 		out, err := cut.IPSet()
 		if err != nil {
