@@ -510,7 +510,7 @@ ShikooState _openedState(ShikooState state, ShikooService service) {
     servers: opened?.servers ?? const [],
     pinging: opened?.pinging,
     sorted: opened?.sorted ?? false,
-    refresh: service.id == state.service?.id ? state.refresh : service.refresh,
+    refresh: service.refresh,
     open: state.open,
     landed: state.landed,
   );

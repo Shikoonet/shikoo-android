@@ -1022,6 +1022,7 @@ class ShikooSignIn {
     }
     if (token != _token) return null;
     if (answer == null) {
+      _ref.read(shikooControllerProvider).forgetError();
       await notMine();
       return null;
     }
