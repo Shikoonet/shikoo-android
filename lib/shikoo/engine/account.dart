@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpHeaders, InternetAddress;
+import 'dart:io' show File, HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -18,7 +18,9 @@ import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/foundation.dart' hide mergeSort;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' show join;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Sign-in with Telegram through the shop bot, against shikoo-platform's
@@ -588,6 +590,19 @@ Future<void> keepIranDirect(bool on) => database.transaction(() async {
     await database.rulesDao.putGlobalRule(rule);
   }
 });
+
+/// Left alone when unchanged: a tunnel still up from the last run may be reading them.
+Future<void> writeRuleSets(String home) async {
+  for (final name in shikooRuleSets.keys) {
+    final asset = await rootBundle.load('assets/data/$name.mrs');
+    final bytes = asset.buffer.asUint8List();
+    final file = File(join(home, '$name.mrs'));
+    if (await file.exists() && listEquals(await file.readAsBytes(), bytes)) {
+      continue;
+    }
+    await file.writeAsBytes(bytes, flush: true);
+  }
+}
 
 // shortcut: later hosts get no rule; raise it if an account can hold that many.
 const _subscriptionHosts = 500;
