@@ -5,11 +5,9 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
-import 'package:fl_clash/shikoo/ui/service_card.dart';
+import 'package:fl_clash/shikoo/ui/mode.dart' show LocalProxy;
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
-import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -18,38 +16,55 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/no_shots.dart';
 import '../helpers/test_profiles.dart';
 
-/// The design's `۲٫۴` and `۰٫۳`, in bytes a second.
-const _design = (down: 2516582, up: 314573);
+/// Bytes a second for megabits a second.
+num _mbps(num mbps) => mbps * 1e6 / 8;
 
-/// Three digits each way, every digit being as wide as any other.
-const _wide = (down: 888.8 * mebibyte, up: 888.8 * mebibyte);
+/// The admin's speed test: 32.5 down, 4.3 up.
+final _load = (down: _mbps(32.5), up: _mbps(4.3));
+final _wide = (down: _mbps(888), up: _mbps(888));
+const _idle = (down: 0, up: 0);
 
-final _speed = find.byWidgetPredicate((w) => '${w.runtimeType}' == '_Speed');
+/// Not the hidden row that holds each pill's room.
+bool _seen(Element e) =>
+    e.findAncestorWidgetOfExactType<Visibility>()?.visible ?? true;
 
-Finder _icon(ShikooIcon icon) =>
-    find.byWidgetPredicate((w) => w is SvgIcon && w.icon == icon);
+Finder _icon(ShikooIcon icon) => find.byElementPredicate(
+  (e) => e.widget is SvgIcon && (e.widget as SvgIcon).icon == icon && _seen(e),
+);
 
-ShikooState _state(ShikooConnection connection, {bool tv = false}) =>
-    ShikooState(
-      connection: connection,
-      connectedFor: const Duration(minutes: 12, seconds: 47),
-      isTV: tv,
-      service: ShikooService(
-        name: '5550123 · الماس',
-        usedBytes: 33 << 30,
-        totalBytes: 100 << 30,
-        updatedAt: DateTime.now(),
-      ),
-      servers: const [
-        ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
-        ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
-      ],
-      selected: 'آلمان ۲',
-      sorted: true,
-      lastError: connection == ShikooConnection.error
-          ? ShikooError.connectTimeout
-          : null,
-    );
+Finder _text(String text) => find.byElementPredicate(
+  (e) => e.widget is Text && (e.widget as Text).data == text && _seen(e),
+);
+
+Finder _inPills(Finder finder) =>
+    find.descendant(of: find.byType(SpeedPills), matching: finder);
+
+final _windows = TargetPlatformVariant.only(TargetPlatform.windows);
+
+ShikooState _state(
+  ShikooConnection connection, {
+  bool tv = false,
+  bool silent = false,
+}) => ShikooState(
+  connection: connection,
+  connectedFor: const Duration(minutes: 12, seconds: 47),
+  isTV: tv,
+  service: ShikooService(
+    name: '5550123 · الماس',
+    usedBytes: 33 << 30,
+    totalBytes: 100 << 30,
+    updatedAt: DateTime.now(),
+  ),
+  servers: [
+    ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: silent ? -1 : 84),
+    const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
+  ],
+  selected: 'آلمان ۲',
+  sorted: true,
+  lastError: connection == ShikooConnection.error
+      ? ShikooError.connectTimeout
+      : null,
+);
 
 /// [speed] null keeps the engine's own, fed from FlClash's samples.
 Future<void> _pumpHome(
@@ -58,7 +73,8 @@ Future<void> _pumpHome(
   Size window = const Size(360, 800),
   bool tv = false,
   String locale = 'fa',
-  ({num down, num up})? speed = _design,
+  bool silent = false,
+  ({num down, num up})? speed,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -73,7 +89,9 @@ Future<void> _pumpHome(
       key: UniqueKey(),
       overrides: [
         noShots,
-        shikooStateProvider.overrideWithValue(_state(connection, tv: tv)),
+        shikooStateProvider.overrideWithValue(
+          _state(connection, tv: tv, silent: silent),
+        ),
         if (speed != null) shikooSpeedProvider.overrideWithValue(speed),
       ],
       child: MaterialApp(
@@ -92,156 +110,302 @@ Future<void> _pumpHome(
   await tester.pump();
 }
 
-/// What moves when the speed comes: the button, the pill, the card and how far the page scrolls.
-List<Object?> _layout(WidgetTester tester) => [
-  tester.getRect(find.byType(PowerButton)),
-  tester.getRect(find.byType(NowPill)),
-  tester.getTopLeft(find.byType(ServiceCard)),
-  Scrollable.maybeOf(
-    tester.element(find.byType(PowerButton)),
-  )?.position.maxScrollExtent,
-];
+Rect _pill(WidgetTester tester, ShikooIcon icon) => tester.getRect(
+  find.ancestor(of: _icon(icon), matching: find.byType(Container)).first,
+);
 
 void main() {
-  test('one decimal of the card\'s MB, a GB being 1024 of them; under 50 KB '
-      'a second reads 0.0', () {
-    expect(speedOf('fa', _design.down), '۲٫۴', reason: 'not 2.5, as 10⁶ gives');
-    expect(speedOf('fa', _design.up), '۰٫۳');
-    expect(speedOf('en', _design.down), '2.4');
-    expect(speedOf('fa', 0), '۰٫۰');
-    expect(speedOf('fa', 50 * 1024 - 1), '۰٫۰');
-    expect(speedOf('fa', 50 * 1024), '۰٫۰');
-    expect(speedOf('fa', 52428), '۰٫۰', reason: 'the last byte under 0.05');
-    expect(speedOf('fa', 52429), '۰٫۱');
-    expect(speedOf('fa', 12 * mebibyte), '۱۲٫۰');
+  test('megabits a second: nothing is 0, any traffic at least 0.1, one '
+      'decimal under 100 and none from there', () {
+    for (final (mbps, language, shown) in [
+      (0, 'fa', '۰'),
+      (0.001, 'fa', '۰٫۱'),
+      (0.06, 'fa', '۰٫۱'),
+      (32.5, 'fa', '۳۲٫۵'),
+      (4.3, 'fa', '۴٫۳'),
+      (99.94, 'fa', '۹۹٫۹'),
+      (99.96, 'fa', '۱۰۰'),
+      (888, 'fa', '۸۸۸'),
+      (32.5, 'en', '32.5'),
+      (0, 'en', '0'),
+    ]) {
+      expect(speedOf(language, _mbps(mbps)), shown, reason: '$mbps $language');
+    }
+    expect(speedOf('fa', 1), '۰٫۱', reason: 'a single byte still moved');
   });
 
   group('with the real font', () {
     setUpAll(loadShikooFonts);
 
-    testWidgets('connected, the speed stands under the clock and the power '
-        'icon gives it room; in no other state is it there', (tester) async {
+    testWidgets('connected, two pills stand between the button and the '
+        'server; the circle keeps the label and the clock alone; in no other '
+        'state are they there', (tester) async {
       for (final connection in ShikooConnection.values) {
-        await _pumpHome(tester, connection);
+        await _pumpHome(tester, connection, speed: _load);
         final on = connection == ShikooConnection.on;
-        final why = '$connection';
-        expect(_speed, on ? findsOne : findsNothing, reason: why);
-        expect(_icon(ShikooIcon.arrowDown), on ? findsOne : findsNothing);
-        expect(find.text('مگ/ث'), on ? findsOne : findsNothing, reason: why);
-        expect(
-          _icon(ShikooIcon.power),
-          on || connection == ShikooConnection.error ? findsNothing : findsOne,
-          reason: why,
-        );
+        expect(find.byType(SpeedPills), on ? findsOne : findsNothing);
+        expect(_text('مگ'), on ? findsNWidgets(2) : findsNothing);
         if (!on) continue;
-        expect(find.text('۲٫۴'), findsOne);
-        expect(find.text('۰٫۳'), findsOne);
+        expect(find.text('۳۲٫۵'), findsOne);
+        expect(find.text('۴٫۳'), findsOne);
+        final circle = find.byType(PowerButton);
         expect(
-          tester.getRect(_speed).top,
-          greaterThan(tester.getRect(find.text('۰۰:۱۲:۴۷')).bottom),
+          [
+            for (final e
+                in find
+                    .descendant(of: circle, matching: find.byType(Text))
+                    .evaluate())
+              (e.widget as Text).data,
+          ],
+          ['وصل', '۰۰:۱۲:۴۷'],
         );
-        final digits = tester.widget<Text>(find.text('۲٫۴')).style!;
-        expect(digits.fontFeatures, [const FontFeature.tabularFigures()]);
-        expect(digits.fontSize, ShikooSizes.phone.caption);
+        expect(
+          find.descendant(of: circle, matching: find.byType(SvgIcon)),
+          findsNothing,
+        );
+        final pills = tester.getRect(find.byType(SpeedPills));
+        expect(pills.top, greaterThan(tester.getRect(circle).bottom - 1));
+        expect(
+          pills.bottom,
+          lessThan(tester.getRect(find.byType(NowPill)).top),
+        );
+        final number = tester.widget<Text>(find.text('۳۲٫۵')).style!;
+        expect(number.fontFeatures, [const FontFeature.tabularFigures()]);
+        expect(number.fontSize, ShikooSizes.phone.speedPillText);
+        expect(
+          _pill(tester, ShikooIcon.download).height,
+          ShikooSizes.phone.speedPill,
+        );
+        final unit = tester.widget<Text>(_text('مگ').first).style!;
+        expect(unit.color, ShikooColors.light.textMuted);
+        final icon = tester.widget<SvgIcon>(_icon(ShikooIcon.upload));
+        expect(
+          (icon.size, icon.color),
+          (ShikooSizes.phone.iconSm, ShikooColors.light.positive),
+        );
+      }
+    });
+
+    testWidgets('download comes first: on the right in Persian, on the left '
+        'in English', (tester) async {
+      for (final (locale, downOnRight) in [('fa', true), ('en', false)]) {
+        await _pumpHome(
+          tester,
+          ShikooConnection.on,
+          locale: locale,
+          speed: _load,
+        );
+        final down = _pill(tester, ShikooIcon.download);
+        final up = _pill(tester, ShikooIcon.upload);
+        expect(down.top, up.top, reason: '$locale: one row');
+        expect(down.center.dx > up.center.dx, downOnRight, reason: locale);
+      }
+    });
+
+    testWidgets('idle, each pill reads 0 and its unit', (tester) async {
+      await _pumpHome(tester, ShikooConnection.on, speed: _idle);
+      expect(_inPills(find.text('۰')), findsNWidgets(2));
+      expect(_inPills(_text('مگ')), findsNWidgets(2));
+      await _pumpHome(tester, ShikooConnection.on, locale: 'en', speed: _idle);
+      expect(_inPills(find.text('0')), findsNWidgets(2));
+      expect(_inPills(_text('Mbps')), findsNWidgets(2));
+    });
+
+    testWidgets('icon, number and unit keep together at any speed: the room '
+        'held for the widest goes to the pill\'s edges', (tester) async {
+      for (final locale in ['fa', 'en']) {
+        for (final speed in [_idle, _load]) {
+          await _pumpHome(
+            tester,
+            ShikooConnection.on,
+            locale: locale,
+            speed: speed,
+          );
+          final icon = tester.getRect(_icon(ShikooIcon.download));
+          final number = tester.getRect(
+            _text(speedOf(locale, speed.down)).first,
+          );
+          final unit = tester.getRect(
+            _text(locale == 'fa' ? 'مگ' : 'Mbps').first,
+          );
+          final gaps = locale == 'fa'
+              ? [icon.left - number.right, number.left - unit.right]
+              : [number.left - icon.right, unit.left - number.right];
+          for (final gap in gaps) {
+            expect(
+              gap,
+              closeTo(ShikooSizes.speedIconGap, 0.01),
+              reason: '$locale $speed',
+            );
+          }
+        }
+      }
+    });
+
+    testWidgets('a pill keeps its width as the number moves', (tester) async {
+      for (final locale in ['fa', 'en']) {
+        final widths = <double>{};
+        for (final speed in [_idle, _load, _wide]) {
+          await _pumpHome(
+            tester,
+            ShikooConnection.on,
+            locale: locale,
+            speed: speed,
+          );
+          widths.add(_pill(tester, ShikooIcon.download).width);
+        }
+        expect(widths, hasLength(1), reason: '$locale $widths');
       }
     });
 
     testWidgets('a screen reader hears both speeds in words, in either '
         'language', (tester) async {
       final semantics = tester.ensureSemantics();
-      await _pumpHome(tester, ShikooConnection.on);
+      await _pumpHome(tester, ShikooConnection.on, speed: _load);
       expect(
         find.bySemanticsLabel(
-          RegExp(
-            'سرعت دریافت ۲٫۴ مگابایت بر ثانیه، سرعت ارسال ۰٫۳ مگابایت بر ثانیه',
-          ),
+          'سرعت دریافت ۳۲٫۵ مگابیت بر ثانیه، ارسال ۴٫۳ مگابیت بر ثانیه',
         ),
         findsOne,
       );
-      await _pumpHome(tester, ShikooConnection.on, locale: 'en');
-      expect(find.text('MB/s'), findsOne);
+      await _pumpHome(tester, ShikooConnection.on, locale: 'en', speed: _load);
       expect(
         find.bySemanticsLabel(
-          RegExp(
-            'Download 2.4 megabytes per second, upload 0.3 megabytes per second',
-          ),
+          'Download 32.5 megabits per second, upload 4.3 megabits per second',
         ),
         findsOne,
       );
       semantics.dispose();
     });
 
-    testWidgets('the speed fits inside the circle and moves nothing around '
-        'it: phone at 100 and 145%, TV, and the short windows, in both '
-        'languages', (tester) async {
+    testWidgets('the narrowest phone at the largest text holds both pills at '
+        'three digits in one row, inside the page, in either language', (
+      tester,
+    ) async {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      final wrong = <String>[];
-      final screens = <(String, Size, bool, double, TargetPlatform)>[
-        ('phone', const Size(360, 800), false, 1, TargetPlatform.android),
-        ('phone', const Size(360, 800), false, 1.45, TargetPlatform.android),
-        ('tv', const Size(960, 540), true, 1, TargetPlatform.android),
-        ('window', const Size(864, 492), false, 1, TargetPlatform.windows),
-        ('window', const Size(880, 540), false, 1, TargetPlatform.windows),
-      ];
-      for (final (name, window, tv, scale, platform) in screens) {
-        debugDefaultTargetPlatformOverride = platform;
-        tester.platformDispatcher.textScaleFactorTestValue = scale;
-        for (final locale in ['fa', 'en']) {
-          for (final speed in [_design, _wide]) {
-            final at = '$name $window ×$scale $locale ${speed.down}';
-            await _pumpHome(
-              tester,
-              ShikooConnection.off,
-              window: window,
-              tv: tv,
-              locale: locale,
-              speed: speed,
-            );
-            final off = _layout(tester);
-            await _pumpHome(
-              tester,
-              ShikooConnection.on,
-              window: window,
-              tv: tv,
-              locale: locale,
-              speed: speed,
-            );
-            final error = tester.takeException();
-            if (error != null) wrong.add('$at: $error');
-            if (_layout(tester).toString() != off.toString()) {
-              wrong.add('$at: ${_layout(tester)} after $off');
-            }
-            final circle = tester.getRect(
-              find
-                  .descendant(
-                    of: find.byType(PowerButton),
-                    matching: find.byType(Container),
-                  )
-                  .first,
-            );
-            final line = tester.getRect(
-              find.descendant(of: _speed, matching: find.byType(Row)).first,
-            );
-            for (final corner in [
-              line.topLeft,
-              line.topRight,
-              line.bottomLeft,
-              line.bottomRight,
-            ]) {
-              final out = (corner - circle.center).distance - circle.width / 2;
-              if (out > 0.5) wrong.add('$at: $corner ${out}dp out of $circle');
-            }
-          }
+      tester.platformDispatcher.textScaleFactorTestValue =
+          ShikooSizes.roundTextScaleMax;
+      for (final locale in ['fa', 'en']) {
+        await _pumpHome(
+          tester,
+          ShikooConnection.on,
+          window: const Size(320, 800),
+          locale: locale,
+          speed: _wide,
+        );
+        expect(tester.takeException(), isNull, reason: locale);
+        final down = _pill(tester, ShikooIcon.download);
+        final up = _pill(tester, ShikooIcon.upload);
+        expect(down.top, up.top, reason: '$locale: one row');
+        for (final pill in [down, up]) {
+          expect(pill.left, greaterThanOrEqualTo(ShikooSizes.phone.safeX));
+          expect(pill.right, lessThanOrEqualTo(320 - ShikooSizes.phone.safeX));
         }
       }
-      debugDefaultTargetPlatformOverride = null;
-      expect(wrong, isEmpty, reason: wrong.join('\n'));
     });
 
-    testWidgets('a new sample redraws the speed alone, not the home around '
-        'it', (tester) async {
-      await _pumpHome(tester, ShikooConnection.on, speed: null);
-      expect(find.text('۰٫۰'), findsNWidgets(2));
+    testWidgets('on the phone, connecting moves the server down by the pill '
+        'row alone', (tester) async {
+      await _pumpHome(tester, ShikooConnection.off, speed: _load);
+      final off = tester.getTopLeft(find.byType(NowPill));
+      await _pumpHome(tester, ShikooConnection.on, speed: _load);
+      final on = tester.getTopLeft(find.byType(NowPill));
+      expect(on - off, Offset(0, ShikooSizes.phone.speedPill + Space.s3));
+    });
+
+    testWidgets('on the TV the pills are bigger and the remote never stops on '
+        'them', (tester) async {
+      await _pumpHome(tester, ShikooConnection.on, tv: true, speed: _load);
+      final pills = tester.getRect(find.byType(SpeedPills)).deflate(1);
+      expect([
+        for (final node in FocusManager.instance.rootScope.traversalDescendants)
+          if (node is! FocusScopeNode &&
+              node.canRequestFocus &&
+              pills.overlaps(node.rect))
+            node,
+      ], isEmpty);
+      expect(
+        tester.widget<Text>(find.text('۳۲٫۵')).style!.fontSize,
+        ShikooSizes.tv.speedPillText,
+      );
+      expect(
+        _pill(tester, ShikooIcon.download).height,
+        ShikooSizes.tv.speedPill,
+      );
+    });
+
+    testWidgets('on the TV the pills take the message\'s room under the '
+        'button and news takes theirs; the button stays at 274', (
+      tester,
+    ) async {
+      for (final (connection, silent) in [
+        (ShikooConnection.off, false),
+        (ShikooConnection.on, false),
+        (ShikooConnection.on, true),
+      ]) {
+        await _pumpHome(
+          tester,
+          connection,
+          tv: true,
+          silent: silent,
+          speed: _load,
+        );
+        final why = '$connection silent: $silent';
+        expect(tester.takeException(), isNull, reason: why);
+        final button = tester.getRect(find.byType(PowerButton));
+        expect(button.center.dy, closeTo(274, 0.5), reason: why);
+        if (connection != ShikooConnection.on) continue;
+        final l = ShikooL10n.of(tester.element(find.byType(ShikooHome)));
+        final news = _text(l.selectedDown(serverName('آلمان ۲')));
+        expect(find.byType(SpeedPills), silent ? findsNothing : findsOne);
+        final under = tester.getRect(silent ? news : find.byType(SpeedPills));
+        expect(under.top, greaterThan(button.bottom), reason: why);
+        expect(
+          under.bottom,
+          lessThan(tester.getRect(find.byType(NowPill)).top),
+          reason: why,
+        );
+      }
+    });
+
+    testWidgets('in a window the pills take the message\'s room under the '
+        'button, news takes theirs, and connecting moves no button nor '
+        'scrolls the short window', (tester) async {
+      for (final window in const [Size(864, 492), Size(880, 540)]) {
+        await _pumpHome(
+          tester,
+          ShikooConnection.off,
+          window: window,
+          speed: _load,
+        );
+        final off = tester.getCenter(find.byType(PowerButton));
+        for (final silent in [false, true]) {
+          await _pumpHome(
+            tester,
+            ShikooConnection.on,
+            window: window,
+            silent: silent,
+            speed: _load,
+          );
+          final why = '$window silent: $silent';
+          expect(tester.takeException(), isNull, reason: why);
+          expect(find.byType(SpeedPills), silent ? findsNothing : findsOne);
+          expect(tester.getCenter(find.byType(PowerButton)), off, reason: why);
+          expect(
+            Scrollable.of(
+              tester.element(find.byType(LocalProxy)),
+            ).position.maxScrollExtent,
+            0,
+            reason: why,
+          );
+        }
+      }
+    }, variant: _windows);
+
+    testWidgets('a new sample redraws the pills alone, not the home around '
+        'them', (tester) async {
+      await _pumpHome(tester, ShikooConnection.on);
+      expect(_inPills(find.text('۰')), findsNWidgets(2));
       final container = ProviderScope.containerOf(
         tester.element(find.byType(ShikooHome)),
       );
@@ -251,20 +415,21 @@ void main() {
       try {
         container
             .read(trafficsProvider.notifier)
-            .addTraffic(Traffic(down: _design.down, up: _design.up));
+            .addTraffic(Traffic(down: _load.down, up: _load.up));
         await tester.pump();
       } finally {
         debugOnRebuildDirtyWidget = null;
       }
-      expect(find.text('۲٫۴'), findsOne);
-      expect(rebuilt, contains('_Speed'));
+      expect(find.text('۳۲٫۵'), findsOne);
+      expect(rebuilt, contains('SpeedPills'));
       for (final whole in ['ShikooHome', 'PowerButton', '_PowerZone']) {
         expect(rebuilt, isNot(contains(whole)), reason: '$rebuilt');
       }
     });
   });
 
-  test('the engine passes on the core\'s latest sample, zero before one', () {
+  test('the engine passes on the core\'s latest one-second sample as it is, '
+      'never an average; zero before one', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     ({num down, num up}) speed() => container.read(shikooSpeedProvider);
@@ -273,7 +438,8 @@ void main() {
     traffics.addTraffic(const Traffic(down: 2000, up: 100));
     expect(speed(), (down: 2000, up: 100));
     traffics.addTraffic(const Traffic(down: 3000, up: 200));
-    expect(speed(), (down: 3000, up: 200));
+    traffics.addTraffic(const Traffic(down: 600, up: 50));
+    expect(speed(), (down: 600, up: 50));
     traffics.clear();
     expect(speed(), (down: 0, up: 0));
   });

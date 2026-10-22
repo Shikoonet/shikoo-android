@@ -1039,11 +1039,38 @@ class _PowerZone extends StatelessWidget {
         ? silent
         : shift.stage == ShikooSwitchStage.failed;
     final message = this.message(l);
-    final slot = shikooDesktop
+    final room = shikooDesktop
         ? _room(context, l, width)
         : (centred ? twoLines(context, t.text(t.s.bodySm)) : null);
+    final slot = room == null ? null : math.max(room, t.s.speedPill);
+    final under = slot != null && state.connection == ShikooConnection.on;
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
+    final say = message != null || slot != null
+        ? _InView(
+            key: ValueKey(message),
+            message: message,
+            // A computer's text can be set half as large again: the message grows, never cut.
+            child: ConstrainedBox(
+              constraints: BoxConstraints.tightFor(width: width).copyWith(
+                minHeight: slot ?? 0,
+                maxHeight: shikooDesktop ? double.infinity : slot,
+              ),
+              child: Text(
+                message ?? '',
+                maxLines: shikooDesktop ? null : 2,
+                overflow: shikooDesktop ? null : TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: t.text(
+                  t.s.bodySm,
+                  color: resting != null || (!failed && !alarm)
+                      ? t.c.textMuted
+                      : t.c.danger,
+                ),
+              ),
+            ),
+          )
+        : null;
     final items = [
       PowerButton(
         connection: state.connection,
@@ -1065,6 +1092,16 @@ class _PowerZone extends StatelessWidget {
                 ShikooConnection.on => controller.disconnect(),
               }),
       ),
+      if (under)
+        message == null
+            ? Container(
+                constraints: BoxConstraints(minHeight: slot),
+                alignment: Alignment.center,
+                child: const SpeedPills(),
+              )
+            : say!
+      else if (state.connection == ShikooConnection.on)
+        const SpeedPills(),
       if (resting == null) ...[
         NowPill(pick: state.pick, server: selected),
         if (shikooDesktop) ...[
@@ -1074,36 +1111,15 @@ class _PowerZone extends StatelessWidget {
           const LocalProxy(),
         ],
       ],
-      if (message != null || slot != null)
-        _InView(
-          key: ValueKey(message),
-          message: message,
-          // A computer's text can be set half as large again: the message grows, never cut.
-          child: ConstrainedBox(
-            constraints: BoxConstraints.tightFor(width: width).copyWith(
-              minHeight: slot ?? 0,
-              maxHeight: shikooDesktop ? double.infinity : slot,
-            ),
-            child: Text(
-              message ?? '',
-              maxLines: shikooDesktop ? null : 2,
-              overflow: shikooDesktop ? null : TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: t.text(
-                t.s.bodySm,
-                color: resting != null || (!failed && !alarm)
-                    ? t.c.textMuted
-                    : t.c.danger,
-              ),
-            ),
-          ),
-        ),
+      if (!under && say != null) say,
     ];
-    if (squeeze) return _Squeeze(gap: gap, keep: slot!, children: items);
+    if (squeeze) {
+      return _Squeeze(gap: gap, keep: under ? 0 : slot!, children: items);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Balances the message slot below, so the TV centres the button and pill alone.
+        // Balances the message's room, below or under the button, so the TV's button never moves.
         if (slot != null && state.isTV) SizedBox(height: gap + slot),
         for (final (i, item) in items.indexed) ...[
           if (i > 0) SizedBox(height: gap),

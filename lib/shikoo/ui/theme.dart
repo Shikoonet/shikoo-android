@@ -226,6 +226,8 @@ class ShikooSizes {
     required this.heroIcon,
     required this.qr,
     required this.reportImage,
+    required this.speedPill,
+    required this.speedPillText,
   });
 
   final double caption;
@@ -261,6 +263,10 @@ class ShikooSizes {
   /// The tallest a report preview's picture grows (`--size-report-image`).
   final double reportImage;
 
+  /// `--size-speed-pill` and `--text-speed-pill`: the pills under the round button, connected.
+  final double speedPill;
+  final double speedPillText;
+
   const ShikooSizes._touch({required this.safeX, this.pane = 0})
     : caption = 12,
       bodySm = 13,
@@ -287,7 +293,9 @@ class ShikooSizes {
       code = 28,
       heroIcon = 64,
       qr = 200,
-      reportImage = 200;
+      reportImage = 200,
+      speedPill = 32,
+      speedPillText = 15;
 
   static const phone = ShikooSizes._touch(safeX: 16);
 
@@ -322,6 +330,8 @@ class ShikooSizes {
     heroIcon: 64,
     qr: 300,
     reportImage: 240,
+    speedPill: 40,
+    speedPillText: 18,
   );
 
   static const touch = 48.0;
@@ -356,12 +366,9 @@ class ShikooSizes {
   static const powerIcon = 40.0;
   static const powerIconOn = 28.0;
 
-  static const speedIcon = 12.0;
-  static const speedIconGap = 2.0;
-  static const speedGap = 6.0;
-
-  /// The circle's width where the speed's lower edge meets it at [roundTextScaleMax], over [power].
-  static const speedWidth = 0.82;
+  static const speedIconGap = 3.0;
+  static const speedPillStart = 10.0;
+  static const speedPillEnd = 12.0;
 
   static const dot = 8.0;
   static const selectedBar = 4.0;

@@ -51,8 +51,9 @@ enum ShikooIcon {
     '<path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6"/><path d="M9 16.5h4"/>',
   ),
   plus('<path d="M12 5v14"/><path d="M5 12h14"/>'),
-  arrowDown('<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>'),
-  arrowUp('<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>'),
+  upload(
+    '<path d="M12 16V4.5"/><path d="M7 9.5l5-5 5 5"/><path d="M5 20h14"/>',
+  ),
   lines(
     '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/>',
   ),

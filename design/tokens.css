@@ -130,9 +130,10 @@
   --size-power-ring: 200px;    /* حلقهٔ دور دکمه */
   --size-power-icon: 40px;     /* آیکون دکمهٔ گرد، حالت قطع */
   --size-power-icon-on: 28px;  /* حالت‌های دیگر: کوچک‌تر تا نوشته جا شود */
-  --size-speed-icon: 12px;     /* پیکان‌های سرعت زیر ساعت، داخل دکمهٔ گرد */
-  --speed-gap: 6px;            /* فاصلهٔ دو نیمهٔ سرعت، دریافت و ارسال */
-  --speed-icon-gap: 2px;       /* فاصلهٔ پیکان، عدد و واحد */
+  --size-speed-pill: 32px;     /* قرص‌های سرعت زیر دکمهٔ گرد، وقتی وصل است؛ آیکونشان --size-icon-sm */
+  --speed-icon-gap: 3px;       /* فاصلهٔ آیکون، عدد و واحد داخل قرص */
+  --speed-pill-pad-start: 10px;
+  --speed-pill-pad-end: 12px;
   --size-bar: 8px;             /* ضخامت نوار حجم */
   --size-qr-sm: 200px;         /* QR ورودِ بی‌تلگرام روی گوشی */
   --size-dialog: 340px;        /* پنجرهٔ تأیید */
@@ -171,6 +172,7 @@
   --text-power: calc(15px * min(var(--font-scale), var(--text-scale-max-round)));   /* «اتصال»، «وصل» و … داخل دکمهٔ گرد */
   --text-display: calc(26px * min(var(--font-scale), var(--text-scale-max-round))); /* تایمر داخل دکمهٔ گرد */
   --text-power-sub: calc(12px * min(var(--font-scale), var(--text-scale-max-round)));
+  --text-speed-pill: calc(15px * var(--font-scale)); /* عدد و واحد قرص‌های سرعت */
 }
 
 :root[data-theme="light"] { color-scheme: light; }
@@ -187,6 +189,7 @@
   --text-power: 16px;
   --text-power-sub: 12px;
   --text-code: 40px;
+  --text-speed-pill: 18px;
 
   --border-width-control: 2px; /* ۴ پیکسل در عکس ۱۹۲۰ */
   --size-appbar: 40px;
@@ -206,6 +209,7 @@
   --size-hero-icon: 64px;      /* ۹۶ با چهار سرویس «ورود انجام شد» را از ۵۴۰ بلندتر می‌کرد */
   --size-power: 176px;
   --size-power-ring: 224px;
+  --size-speed-pill: 40px;
   --size-bar: 6px;
   --size-report-image: 240px;  /* عکس ۱۶:۹ تلویزیون؛ پیش‌نمایش بی‌اسکرول در ۵۴۰ جا می‌شود */
 

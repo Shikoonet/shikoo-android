@@ -106,11 +106,11 @@ class ShikooL10nEn extends ShikooL10n {
   String get subRetryTouch => 'Tap to retry';
 
   @override
-  String get speedUnit => 'MB/s';
+  String get speedUnit => 'Mbps';
 
   @override
   String speedLabel(String down, String up) {
-    return 'Download $down megabytes per second, upload $up megabytes per second';
+    return 'Download $down megabits per second, upload $up megabits per second';
   }
 
   @override
