@@ -155,6 +155,8 @@
   "summaryExpired": "اعتبارش {date} تمام شد. با تمدید دوباره فعال می‌شود.",
   "pasteUnavailableTitle": "لینک الان باز نشد.",
   "pasteUnavailableHelp": "کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.",
+  "pasteEndedTitle": "این سرویس تمام شده.",
+  "pasteEndedHelp": "از ربات شیکونت یا نماینده‌ات تمدیدش کن، بعد دوباره بچسبان.",
   "loginTagline": "مخصوص مشتری‌های شیکونت",
   "loginTelegram": "ورود با تلگرام",
   "loginTelegramNote": "تلگرام باز می‌شود؛ در ربات شیکونت «تأیید» را بزن.",

@@ -208,11 +208,15 @@ final _gone = <String>{};
 
 DateTime? _panelClock;
 
+const _unused = 'upload=0; download=0; total=1073741824';
+var _panelInfo = _unused;
+
 Future<String> _panel(ProviderContainer container, _Core core) async {
   globalState.container = container;
   _mostInFlight = 0;
   _gone.clear();
   _panelClock = null;
+  _panelInfo = _unused;
   when(() => core.validateConfig(any())).thenAnswer((_) async => '');
   when(() => core.getConfig(any())).thenAnswer(
     (_) async => {
@@ -242,7 +246,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
     call.response.headers
       ..contentType = ContentType('text', 'yaml', charset: 'utf-8')
       ..set('profile-title', 'base64:U2hp')
-      ..set('subscription-userinfo', 'upload=0; download=0; total=1073741824');
+      ..set('subscription-userinfo', _panelInfo);
     if (kind == 'file') {
       call.response.headers.set(
         'content-disposition',
@@ -2576,6 +2580,50 @@ void main() {
     expect(_pasted(container).map((p) => p.label), ['user333']);
   });
 
+  test('a config that will not load is the end the panel\'s header gives, '
+      'used up or past its date; with no end it is unavailable', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    when(
+      () => core.validateConfig(any()),
+    ).thenAnswer((_) async => 'proxy group[0]: `use` or `proxies` missing');
+    final past =
+        DateTime.now()
+            .subtract(const Duration(days: 2))
+            .millisecondsSinceEpoch ~/
+        1000;
+    for (final (info, failure) in [
+      (
+        'upload=1; download=1073741823; total=1073741824',
+        ShikooPasteError.exhausted,
+      ),
+      (
+        'upload=0; download=0; total=1073741824; expire=$past',
+        ShikooPasteError.expired,
+      ),
+      (_unused, ShikooPasteError.unavailable),
+      ('upload=5; download=5; total=0; expire=0', ShikooPasteError.unavailable),
+    ]) {
+      _panelInfo = info;
+      expect(
+        await controller.addService('$panel/file/user111/a'),
+        failure,
+        reason: info,
+      );
+    }
+    expect(_pasted(container), isEmpty);
+
+    _panelInfo = 'upload=0; download=0; total=1073741824; expire=$past';
+    when(() => core.validateConfig(any())).thenAnswer((_) async => '');
+    expect(await controller.addService('$panel/file/user111/a'), isNull);
+    final state = container.read(shikooStateProvider);
+    expect(
+      [?state.service, ...state.others].map((s) => (s.name, s.ended)),
+      contains(('user111', ShikooServiceStatus.expired)),
+    );
+  });
+
   test('a paste counts as pasted, also when it gives a known account its new '
       'link', () async {
     final (:container, :core, :proxies, :setup) = _home();
@@ -3034,11 +3082,13 @@ void main() {
     late ShikooController controller;
     late _Ways ways;
     late Profile other;
+    late _Setup setup;
 
     setUp(() async {
-      final (container: made, core: mock, proxies: _, setup: _) = _home();
+      final (container: made, core: mock, proxies: _, setup: runs) = _home();
       container = made;
       core = mock;
+      setup = runs;
       final panel = (await _panel(
         container,
         core,
@@ -3138,6 +3188,53 @@ void main() {
       expect(ways.taken, ['direct']);
       expect(state().refresh, ShikooRefresh.failed);
       expect(way(), ShikooFailedWay.panel);
+    });
+
+    test('an answer the core cannot read with a used-up or past header is '
+        'that end, with its usage and date, and no failed update', () async {
+      when(
+        () => core.validateConfig(any()),
+      ).thenAnswer((_) async => 'proxy group[0]: `use` or `proxies` missing');
+      _panelInfo = 'upload=5; download=5; total=0; expire=0';
+      await controller.refreshService();
+      expect(state().refresh, ShikooRefresh.failed, reason: 'no limit, no end');
+      expect(state().service!.ended, isNull);
+
+      container.read(runTimeProvider.notifier).value = 1;
+      final connection = state().connection;
+      final inUse = state().service!.id;
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      final asked = DateTime.now();
+      final past = DateTime.now().subtract(const Duration(days: 2));
+      final at = past.millisecondsSinceEpoch ~/ 1000;
+      _panelInfo = 'upload=0; download=5; total=1073741824; expire=$at';
+      await controller.refreshService();
+      await pumpEventQueue();
+      final current = state().service!;
+      expect(state().refresh, ShikooRefresh.idle);
+      expect(state().notice, isNot(isA<RefreshFailed>()));
+      expect(
+        (current.ended, current.usedBytes, current.expire),
+        (
+          ShikooServiceStatus.expired,
+          5,
+          DateTime.fromMillisecondsSinceEpoch(at * 1000),
+        ),
+      );
+      expect(current.updatedAt!.isBefore(asked), isFalse, reason: 'just now');
+      expect(
+        (connection, state().connection, current.id),
+        (ShikooConnection.on, ShikooConnection.on, inUse),
+      );
+      expect(setup.runs, isNot(contains(false)), reason: 'never stopped');
+
+      _panelInfo = 'upload=7; download=1073741817; total=1073741824';
+      await controller.refreshOther(other.id);
+      final second = state().others.singleWhere((s) => s.id == other.id);
+      expect(
+        (second.ended, second.usedBytes, second.refresh),
+        (ShikooServiceStatus.exhausted, 1073741824, ShikooRefresh.idle),
+      );
     });
 
     test("the panel's own answer is final, through either way", () async {

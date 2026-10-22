@@ -1056,16 +1056,24 @@ class ShikooSignIn {
       final was = before.remove(row.id);
       var profileId = _existing(was?.profileId);
       var loadFailed = false;
+      var status = row.status;
       final url = _linkOf(row);
       if (url != null && _urlOf(profileId) != url) {
-        final added = await _add(url, row.label);
+        final (added, failure) = await _add(url, row.label);
         if (token != _token) {
           await _drop(added);
           return null;
         }
         if (added == null) {
           failed = true;
-          loadFailed = profileId == null;
+          final ended = switch (failure) {
+            ShikooPasteError.expired => 'expired',
+            ShikooPasteError.exhausted => 'exhausted',
+            _ => null,
+          };
+          // shortcut: the server's date stays, so its row may read «امروز تمام شد»; carry the panel's expire if seen.
+          status = ended ?? status;
+          loadFailed = profileId == null && ended == null;
           if (loadFailed) unloaded++;
         } else {
           if (profileId != added) await _drop(profileId);
@@ -1081,7 +1089,7 @@ class ShikooSignIn {
         LinkedService(
           id: row.id,
           title: row.label,
-          status: row.status,
+          status: status,
           profileId: profileId,
           expiresAt: row.expiresAt,
           loadFailed: loadFailed,
@@ -1130,11 +1138,11 @@ class ShikooSignIn {
       .firstWhereOrNull((p) => normalLink(p.url) == url)
       ?.id;
 
-  Future<int?> _add(String url, String label) async {
+  Future<(int?, ShikooPasteError?)> _add(String url, String label) async {
     final failure = await _ref
         .read(shikooControllerProvider)
         .addService(url, label, false);
-    return failure == null ? _profileOf(url) : null;
+    return (failure == null ? _profileOf(url) : null, failure);
   }
 
   Future<void> _drop(int? profileId) async {

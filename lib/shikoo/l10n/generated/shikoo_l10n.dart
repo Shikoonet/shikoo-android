@@ -1028,6 +1028,18 @@ abstract class ShikooL10n {
   /// **'Try again in a bit; if it still won\'t open, ask Support.'**
   String get pasteUnavailableHelp;
 
+  /// The panel answered: the subscription is used up or past its date, so its servers will not load until renewal.
+  ///
+  /// In en, this message translates to:
+  /// **'This service has ended.'**
+  String get pasteEndedTitle;
+
+  /// No description provided for @pasteEndedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew it in the ShikooNet bot or with your reseller, then try again.'**
+  String get pasteEndedHelp;
+
   /// No description provided for @loginTagline.
   ///
   /// In en, this message translates to:

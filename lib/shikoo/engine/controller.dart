@@ -2146,11 +2146,20 @@ class ShikooController {
       autoUpdate: false,
       subscriptionInfo: _subscriptionInfo(header('subscription-userinfo')),
     );
+    final ended = _serviceFrom(draft).ended;
     // A panel may send a used-up or expired service with no servers until renewal.
-    if (needsServers && _serviceFrom(draft).ended == null) {
+    if (needsServers && ended == null) {
       await _needServers(body);
     }
-    final profile = await draft.saveFile(body, validate: _validate);
+    Profile profile;
+    try {
+      profile = await draft.saveFile(body, validate: _validate);
+    } on MessageException {
+      if (ended == null) rethrow;
+      if (!refresh) throw ShikooPanelEnded(ended);
+      // Its last servers stay on disk for the renewal; the panel's usage and date are what changed.
+      profile = draft.copyWith(lastUpdateDate: DateTime.now());
+    }
     // ponytail: its just-saved config file stays behind, as with FlClash's own update.
     if (refresh &&
         !_ref.read(profilesProvider).any((p) => p.id == profile.id)) {
