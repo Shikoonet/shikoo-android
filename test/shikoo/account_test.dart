@@ -238,7 +238,9 @@ Future<_Harness> _harness({
   ) async {
     final url = call.positionalArguments[0] as String;
     await _beforeAdd?.call(url);
-    if (url.contains('dead')) return null;
+    if (url.contains('dead')) return ShikooPasteError.unavailable;
+    if (url.contains('no-net')) return ShikooPasteError.offline;
+    if (url.contains('gone-404')) return ShikooPasteError.revoked;
     if (url.contains('used-up')) return ShikooPasteError.exhausted;
     if (url.contains('past-date')) return ShikooPasteError.expired;
     final existing = container
@@ -1107,6 +1109,8 @@ void main() {
         _service(1, 'used', url: 'https://sub.4g3.uk/used-up'),
         _service(2, 'late', url: 'https://sub.4g3.uk/past-date'),
         _service(3, 'gone', url: 'https://sub.4g3.uk/dead'),
+        _service(4, 'away', url: 'https://sub.4g3.uk/no-net'),
+        _service(5, 'unknown', url: 'https://sub.4g3.uk/gone-404'),
       ];
       expect(await _signedIn(h), isNull, reason: 'home');
       expect(
@@ -1118,6 +1122,8 @@ void main() {
           (1, 'exhausted', false, true, true),
           (2, 'expired', false, true, true),
           (3, 'active', true, false, false),
+          (4, 'active', true, false, false),
+          (5, 'active', true, false, false),
         ],
       );
     });

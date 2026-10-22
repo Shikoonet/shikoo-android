@@ -1031,8 +1031,14 @@ abstract class ShikooL10n {
   /// The panel answered: the subscription is used up or past its date, so its servers will not load until renewal.
   ///
   /// In en, this message translates to:
-  /// **'This service has ended; renew it to continue.'**
-  String get pasteEnded;
+  /// **'This service has ended.'**
+  String get pasteEndedTitle;
+
+  /// No description provided for @pasteEndedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew it in the ShikooNet bot or with your reseller, then try again.'**
+  String get pasteEndedHelp;
 
   /// No description provided for @loginTagline.
   ///

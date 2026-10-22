@@ -2603,6 +2603,7 @@ void main() {
         ShikooPasteError.expired,
       ),
       (_unused, ShikooPasteError.unavailable),
+      ('upload=5; download=5; total=0; expire=0', ShikooPasteError.unavailable),
     ]) {
       _panelInfo = info;
       expect(
@@ -3081,11 +3082,13 @@ void main() {
     late ShikooController controller;
     late _Ways ways;
     late Profile other;
+    late _Setup setup;
 
     setUp(() async {
-      final (container: made, core: mock, proxies: _, setup: _) = _home();
+      final (container: made, core: mock, proxies: _, setup: runs) = _home();
       container = made;
       core = mock;
+      setup = runs;
       final panel = (await _panel(
         container,
         core,
@@ -3192,6 +3195,16 @@ void main() {
       when(
         () => core.validateConfig(any()),
       ).thenAnswer((_) async => 'proxy group[0]: `use` or `proxies` missing');
+      _panelInfo = 'upload=5; download=5; total=0; expire=0';
+      await controller.refreshService();
+      expect(state().refresh, ShikooRefresh.failed, reason: 'no limit, no end');
+      expect(state().service!.ended, isNull);
+
+      container.read(runTimeProvider.notifier).value = 1;
+      final connection = state().connection;
+      final inUse = state().service!.id;
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      final asked = DateTime.now();
       final past = DateTime.now().subtract(const Duration(days: 2));
       final at = past.millisecondsSinceEpoch ~/ 1000;
       _panelInfo = 'upload=0; download=5; total=1073741824; expire=$at';
@@ -3207,6 +3220,12 @@ void main() {
           DateTime.fromMillisecondsSinceEpoch(at * 1000),
         ),
       );
+      expect(current.updatedAt!.isBefore(asked), isFalse, reason: 'just now');
+      expect(
+        (connection, state().connection, current.id),
+        (ShikooConnection.on, ShikooConnection.on, inUse),
+      );
+      expect(setup.runs, isNot(contains(false)), reason: 'never stopped');
 
       _panelInfo = 'upload=7; download=1073741817; total=1073741824';
       await controller.refreshOther(other.id);

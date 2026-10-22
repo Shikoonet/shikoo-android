@@ -130,6 +130,10 @@ ShikooPasted _failed(ShikooPasteError error) =>
 
 const ShikooPasted _added = (error: null, id: 7, added: true);
 
+const _ended =
+    'این سرویس تمام شده. از ربات شیکونت یا نماینده‌ات تمدیدش کن، بعد دوباره '
+    'بچسبان.';
+
 Finder _icon(ShikooIcon icon) =>
     find.byWidgetPredicate((w) => w is SvgIcon && w.icon == icon);
 
@@ -310,8 +314,8 @@ void main() {
       (ShikooPasteError.notShikoo, 'این لینک شیکونت نیست.'),
       (ShikooPasteError.revoked, 'این لینک باطل شده یا منقضی است.'),
       (ShikooPasteError.unavailable, 'لینک الان باز نشد.'),
-      (ShikooPasteError.expired, 'این سرویس تمام شده؛ برای ادامه تمدیدش کن.'),
-      (ShikooPasteError.exhausted, 'این سرویس تمام شده؛ برای ادامه تمدیدش کن.'),
+      (ShikooPasteError.expired, _ended),
+      (ShikooPasteError.exhausted, _ended),
       (ShikooPasteError.clock, 'تاریخ و ساعت دستگاهت درست نیست.'),
       (ShikooPasteError.offline, 'اینترنت وصل نیست.'),
     ]) {

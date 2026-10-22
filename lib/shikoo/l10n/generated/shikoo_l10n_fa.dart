@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -594,7 +595,11 @@ class ShikooL10nFa extends ShikooL10n {
       'کمی بعد دوباره بزن؛ اگر باز نشد، از «پشتیبانی» بپرس.';
 
   @override
-  String get pasteEnded => 'این سرویس تمام شده؛ برای ادامه تمدیدش کن.';
+  String get pasteEndedTitle => 'این سرویس تمام شده.';
+
+  @override
+  String get pasteEndedHelp =>
+      'از ربات شیکونت یا نماینده‌ات تمدیدش کن، بعد دوباره بچسبان.';
 
   @override
   String get loginTagline => 'مخصوص مشتری‌های شیکونت';

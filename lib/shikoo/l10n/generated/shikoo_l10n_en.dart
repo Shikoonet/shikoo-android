@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -633,7 +634,11 @@ class ShikooL10nEn extends ShikooL10n {
       'Try again in a bit; if it still won\'t open, ask Support.';
 
   @override
-  String get pasteEnded => 'This service has ended; renew it to continue.';
+  String get pasteEndedTitle => 'This service has ended.';
+
+  @override
+  String get pasteEndedHelp =>
+      'Renew it in the ShikooNet bot or with your reseller, then try again.';
 
   @override
   String get loginTagline => 'For ShikooNet customers';

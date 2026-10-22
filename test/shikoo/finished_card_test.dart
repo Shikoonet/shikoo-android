@@ -283,29 +283,36 @@ void main() {
       () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
     );
     for (final locale in ['fa', 'en']) {
-      await _pump(
-        tester,
-        _Look.phone,
-        _onDevice,
-        locale: locale,
-        brightness: Brightness.light,
-        home: const AddService(),
-        more: [shikooControllerProvider.overrideWithValue(controller)],
-      );
-      final l = lookupShikooL10n(Locale(locale));
-      await tester.tap(find.text(l.pasteLink));
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining(l.pasteEnded, findRichText: true),
-        findsOneWidget,
-        reason: locale,
-      );
-      expect(
-        find.textContaining(l.pasteUnavailableTitle, findRichText: true),
-        findsNothing,
-        reason: locale,
-      );
-      await _shot(tester, 'paste-phone-$locale-light');
+      for (final brightness in Brightness.values) {
+        await _pump(
+          tester,
+          _Look.phone,
+          _onDevice,
+          locale: locale,
+          brightness: brightness,
+          home: const AddService(),
+          more: [shikooControllerProvider.overrideWithValue(controller)],
+        );
+        final l = lookupShikooL10n(Locale(locale));
+        final why = '$locale ${brightness.name}';
+        await tester.tap(find.text(l.pasteLink));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            '${l.pasteEndedTitle} ${l.pasteEndedHelp}',
+            findRichText: true,
+          ),
+          findsOneWidget,
+          reason: why,
+        );
+        expect(
+          find.textContaining(l.pasteUnavailableTitle, findRichText: true),
+          findsNothing,
+          reason: why,
+        );
+        expect(find.text(l.renew), findsNothing, reason: 'message only, $why');
+        await _shot(tester, 'paste-phone-$locale-${brightness.name}');
+      }
     }
   });
 
