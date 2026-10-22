@@ -77,8 +77,17 @@ publishing waits for it to end. Rejected: a separate static Coolify app (same up
 
 ### Bot
 
-No code: in each panel, Content → client apps, two rows: «شیکونت — گوشی» → `https://app.chopon.uk/dl/arm64-v8a` and
-«شیکونت — تلویزیون و باکس» → `…/dl/armeabi-v7a` (staging: `app-dev`). Links never change between releases.
+No code: in each panel, Content → client apps, two rows:
+«اپ شیکونت اندروید گوشی» → `https://app.livqoro.ir/dl/arm64-v8a` and «اپ شیکونت اندروید TV و باکس» →
+`…/dl/armeabi-v7a` (staging: `https://app-dev.chopon.uk`). Links never change between releases.
+
+`app.livqoro.ir` (2026-10-22) is ArvanCloud's CDN in front of the production door: a CNAME to `app.chopon.uk`, origin
+over HTTPS. A custom host header is a paid Arvan plan, so `shikoo-prod-app` carries a second Traefik router instead:
+four labels `traefik.http.routers.https-livqoro-<uuid>.` `entryPoints=https`, `rule=Host(app.livqoro.ir)`,
+`service=https-0-<uuid>` and `tls=true`, with no cert resolver. The origin answers that name with Traefik's default
+certificate, which Arvan accepts. Arvan keeps the versioned APKs (`immutable`) and never the stable 302 (`no-store`,
+platform #791). `https://app.chopon.uk/dl/<abi>` still works as the fallback. The door counts only cache misses, and
+customers behind one Arvan edge share that edge's per-IP bucket.
 
 ## Defaults (conductor, until Sam objects)
 
