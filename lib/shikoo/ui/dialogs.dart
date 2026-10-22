@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -137,6 +140,155 @@ void openLink(
       },
     ),
   );
+}
+
+/// «تمدید» of one service: the bot's page for [id], or its list with [name]'s username to find.
+void openRenew(
+  BuildContext context, {
+  required bool isTV,
+  required String? bot,
+  required int? id,
+  required String name,
+}) {
+  final l = ShikooL10n.of(context);
+  final user = usernameOf(name);
+  openLink(
+    context,
+    isTV: isTV,
+    link: id == null ? ShikooLinks.renew : ShikooLinks.renewOne(id, bot),
+    title: l.renewTitle,
+    help: id == null ? l.renewHelpList : l.renewHelpDirect,
+    below: id == null ? l.renewPickInList(bidiName(user)) : null,
+    strong: id == null ? user : null,
+  );
+}
+
+/// A row of [chooseService]; no [chip] for a state the account does not name.
+typedef ServiceChoice = ({
+  String name,
+  String? chip,
+  bool ok,
+  VoidCallback open,
+});
+
+/// top-bar-actions (`.choose-list`): the top bar's «تمدید» or «پشتیبانی» over several services.
+/// The chosen one opens once the list is gone, so the TV's code stands over the home alone.
+Future<void> chooseService(
+  BuildContext context, {
+  required bool isTV,
+  required String title,
+  required String help,
+  required List<ServiceChoice> choices,
+}) async {
+  final chosen = await showShikooDialog<ServiceChoice>(
+    context,
+    children: (dialog) {
+      final t = ShikooTheme.of(dialog);
+      final shape = RoundedSuperellipseBorder(
+        borderRadius: BorderRadius.circular(Radii.md),
+      );
+      Widget row(ServiceChoice choice, bool focused) {
+        final [user, ...tier] = choice.name.split(' · ');
+        final chip = choice.chip;
+        return Container(
+          constraints: BoxConstraints(minHeight: t.s.row),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s3,
+            vertical: Space.s2,
+          ),
+          decoration: ShapeDecoration(
+            color: focused ? t.c.focusBg : null,
+            shape: shape,
+          ),
+          child: Row(
+            spacing: Space.s3,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      bidiName(user),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.text(
+                        t.s.body,
+                        weight: FontWeight.w700,
+                        height: Leading.snug,
+                      ),
+                    ),
+                    if (tier.isNotEmpty)
+                      Text(
+                        bidiName(tier.join(' · ')),
+                        style: t.text(
+                          t.s.bodySm,
+                          color: t.c.textMuted,
+                          height: Leading.snug,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (chip != null)
+                StatusChip(
+                  status: choice.ok
+                      ? ShikooServiceStatus.active
+                      : ShikooServiceStatus.expired,
+                  label: chip,
+                ),
+              SvgIcon(
+                ShikooIcon.chevronFwd,
+                size: t.s.iconSm,
+                color: t.c.textMuted,
+              ),
+            ],
+          ),
+        );
+      }
+
+      return [
+        Text(title, style: t.text(t.s.title, weight: FontWeight.w700)),
+        Text(
+          help,
+          style: t.text(
+            t.s.dialogText,
+            color: t.c.textMuted,
+            height: Leading.body,
+          ),
+        ),
+        // `.choose-list`'s rows reach Space.s3 into the dialog's margin, their text in line with the title's.
+        LayoutBuilder(
+          builder: (context, box) => OverflowBox(
+            fit: OverflowBoxFit.deferToChild,
+            minWidth: box.maxWidth + 2 * Space.s3,
+            maxWidth: box.maxWidth + 2 * Space.s3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: Space.s1,
+              children: [
+                for (final (i, choice) in choices.indexed)
+                  Pressable(
+                    autofocus: i == 0,
+                    shape: shape,
+                    onPressed: () => Navigator.pop(dialog, choice),
+                    builder: (context, focused) => row(choice, focused),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: ShikooButton(
+            label: ShikooL10n.of(dialog).close,
+            flat: !isTV,
+            onPressed: () => Navigator.pop(dialog),
+          ),
+        ),
+      ];
+    },
+  );
+  if (chosen != null && context.mounted) chosen.open();
 }
 
 /// `.qr-tile.sm`.

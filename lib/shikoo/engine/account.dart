@@ -189,6 +189,8 @@ class ShikooAccount {
   int? serviceOf(int? profileId) => _linked(profileId)?.id;
 
   bool renewsOn(int? profileId) => _linked(profileId)?.botRenews ?? true;
+
+  bool renews(Finished row) => row.linked?.renews ?? renewsOn(row.profileId);
 }
 
 final shikooAccountProvider =

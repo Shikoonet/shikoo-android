@@ -408,6 +408,26 @@ class ShikooL10nFa extends ShikooL10n {
   String get close => 'بستن';
 
   @override
+  String get chipFinished => 'تمام‌شده';
+
+  @override
+  String get renewPickTitle => 'کدام سرویس را تمدید کنی؟';
+
+  @override
+  String get renewPickHelp =>
+      'ربات شیکونت در تلگرام صفحهٔ تمدید همان سرویس را باز می‌کند.';
+
+  @override
+  String get pickHelpTv =>
+      'بعد یک کد تصویری می‌آید که با دوربین گوشی اسکنش می‌کنی.';
+
+  @override
+  String get supportPickTitle => 'برای کدام سرویس پشتیبانی می‌خواهی؟';
+
+  @override
+  String get supportPickHelp => 'پشتیبانی همان سرویس باز می‌شود.';
+
+  @override
   String get back => 'بازگشت';
 
   @override

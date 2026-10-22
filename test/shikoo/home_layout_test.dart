@@ -216,33 +216,33 @@ void main() {
     _tvScreen(tester);
     await _pumpTvHome(tester, _tv(ShikooConnection.off));
     expect(_focused(), 'power');
+    // tv-c: along the bar, and up from the card to renew. Up from the power button is what stands
+    // above it: Settings in this wide test font, «پشتیبانی» in Vazirmatn (_topBarInVazirmatn).
     final moves = [
       ('power', _up, 'تنظیمات'),
       ('power', _down, 'power'),
       ('power', _towardPower, 'power'),
       ('power', _towardCard, 'فنلاند ۲'),
+      ('پشتیبانی', _towardCard, 'تمدید'),
+      ('پشتیبانی', _towardPower, 'تنظیمات'),
+      ('تمدید', _towardPower, 'پشتیبانی'),
+      ('تنظیمات', _towardCard, 'پشتیبانی'),
       ('تنظیمات', _down, 'power'),
-      ('به‌روزرسانی', _up, 'تنظیمات'),
-      ('به‌روزرسانی', _down, 'پشتیبانی'),
+      ('پشتیبانی', _down, 'پینگ'),
+      ('تمدید', _down, 'پینگ'),
+      ('به‌روزرسانی', _up, 'تمدید'),
+      ('به‌روزرسانی', _down, 'آلمان ۲'),
       ('به‌روزرسانی', _towardPower, '▾'),
       ('به‌روزرسانی', _towardCard, 'به‌روزرسانی'),
-      ('▾', _up, 'تنظیمات'),
-      ('▾', _down, 'پشتیبانی'),
+      ('▾', _up, 'تمدید'),
+      ('▾', _down, 'آلمان ۲'),
       ('▾', _towardPower, 'پینگ'),
       ('▾', _towardCard, 'به‌روزرسانی'),
-      ('پینگ', _up, 'تنظیمات'),
-      ('پینگ', _down, 'پشتیبانی'),
+      ('پینگ', _up, 'تمدید'),
+      ('پینگ', _down, 'آلمان ۲'),
       ('پینگ', _towardPower, 'power'),
       ('پینگ', _towardCard, '▾'),
-      ('تمدید', _up, 'پینگ'),
-      ('پشتیبانی', _up, 'پینگ'),
-      ('تمدید', _down, 'آلمان ۲'),
-      ('پشتیبانی', _down, 'آلمان ۲'),
-      ('تمدید', _towardPower, 'پشتیبانی'),
-      ('پشتیبانی', _towardPower, 'power'),
-      ('پشتیبانی', _towardCard, 'تمدید'),
-      ('تمدید', _towardCard, 'تمدید'),
-      ('آلمان ۲', _up, 'پشتیبانی'),
+      ('آلمان ۲', _up, 'به‌روزرسانی'),
       ('هلند ۱', _towardPower, 'power'),
     ];
     final wrong = <String>[];
@@ -590,7 +590,7 @@ void main() {
         tester.getTopLeft(find.byType(ServiceCard)).dy -
         tester.getTopLeft(column).dy;
 
-    await _focus(tester, 'پشتیبانی');
+    await _focus(tester, 'پینگ');
     expect(await _press(tester, _down), 'سرور 1');
     expect(headTop(), lessThan(Space.s4 * 2 + Space.s2));
 
@@ -1135,6 +1135,31 @@ void main() {
   group('in Vazirmatn', () {
     setUpAll(loadShikooFonts);
     _switchOnTv();
+    _topBarOnTv();
+  });
+}
+
+void _topBarOnTv() {
+  testWidgets('tv-c: the remote starts on the power button, up is «پشتیبانی» '
+      'right above it, along the bar renew and Settings, and up from the card '
+      'renew', (tester) async {
+    _tvScreen(tester);
+    await _pumpTvHome(tester, _tv(ShikooConnection.on));
+    await tester.pumpAndSettle();
+    expect(_focused(), 'power');
+    final wrong = <String>[];
+    for (final (from, key, to) in [
+      ('power', _up, 'پشتیبانی'),
+      ('پشتیبانی', _towardCard, 'تمدید'),
+      ('پشتیبانی', _towardPower, 'تنظیمات'),
+      ('به‌روزرسانی', _up, 'تمدید'),
+      ('پینگ', _up, 'تمدید'),
+    ]) {
+      await _focus(tester, from);
+      final got = await _press(tester, key);
+      if (got != to) wrong.add('$from ${key.debugName} -> $got, not $to');
+    }
+    expect(wrong, isEmpty);
   });
 }
 
