@@ -305,15 +305,20 @@ func TestTheOwnerCarriesPacketsAndCountsThem(t *testing.T) {
 	}
 }
 
-func TestStopTunStopsTheOwnerAndForgetsAPreparedServer(t *testing.T) {
+// handleStartOwner stops the last tunnel between the plan and the start.
+func TestStopTunStopsTheOwnerButKeepsTheNextPlan(t *testing.T) {
 	startTestOwner(t)
+	next := &wgPrepared{server: "next"}
 	ownerMu.Lock()
-	ownerPrepared = &wgPrepared{server: "next"}
+	ownerPrepared = next
 	ownerMu.Unlock()
 	stopOwner()
-	if ownerFor("wg") != nil || ownerPrepared != nil {
-		t.Error("the owner outlived its stop")
+	if ownerFor("wg") != nil || ownerPrepared != next {
+		t.Error("the stop took the owner's place wrong")
 	}
+	ownerMu.Lock()
+	ownerPrepared = nil
+	ownerMu.Unlock()
 	if err := startOwner(tuntest.NewChannelTUN().TUN()); err == nil {
 		t.Error("started with nothing prepared")
 	}

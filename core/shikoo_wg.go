@@ -350,7 +350,8 @@ func readIPSet(path string) (*netipx.IPSet, error) {
 	return set.ToIPSet(), nil
 }
 
-// startOwner runs the prepared server on [t], and closes [t] when it cannot. The caller holds tunLock.
+// startOwner runs the prepared server on [t], and closes [t] when it cannot. The caller holds tunLock and has
+// stopped the last tunnel, which keeps what was prepared for this one.
 func startOwner(t tun.Device) error {
 	ownerMu.Lock()
 	prepared := ownerPrepared
@@ -397,7 +398,6 @@ func stopOwner() {
 	ownerMu.Lock()
 	owner := ownerRunning
 	ownerRunning = nil
-	ownerPrepared = nil
 	ownerMu.Unlock()
 	if owner != nil {
 		owner.dev.Close()
