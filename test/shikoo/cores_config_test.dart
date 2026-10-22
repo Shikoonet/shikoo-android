@@ -7,7 +7,6 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/core.dart';
-import 'package:fl_clash/shikoo/engine/core_xray.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
@@ -48,12 +47,13 @@ void main() {
       overrides: [
         coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
         shikooCoreSpecsProvider.overrideWithValue({
-          ...shikooCoreSpecs,
-          ShikooCore.xray: (
-            ready: true,
-            shape: ShikooShape.behindMihomo,
-            serves: xraySpec.serves,
-          ),
+          for (final MapEntry(key: core, value: spec)
+              in shikooCoreSpecs.entries)
+            core: (
+              ready: core == ShikooCore.mihomo || core == ShikooCore.xray,
+              shape: spec.shape,
+              serves: spec.serves,
+            ),
         }),
       ],
     );

@@ -86,7 +86,7 @@ class _Timeline extends ShikooDiag {
 Map<ShikooCore, ShikooCoreSpec> _ready(Set<ShikooCore> cores) => {
   for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
     core: (
-      ready: spec.ready || cores.contains(core),
+      ready: core == ShikooCore.mihomo || cores.contains(core),
       shape: spec.shape,
       serves: spec.serves,
     ),
