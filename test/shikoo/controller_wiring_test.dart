@@ -3209,6 +3209,7 @@ void main() {
       final at = past.millisecondsSinceEpoch ~/ 1000;
       _panelInfo = 'upload=0; download=5; total=1073741824; expire=$at';
       await controller.refreshService();
+      await pumpEventQueue();
       final current = state().service!;
       expect(state().refresh, ShikooRefresh.idle);
       expect(state().notice, isNot(isA<RefreshFailed>()));
