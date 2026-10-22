@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:test/test.dart';
 
@@ -161,6 +162,17 @@ void main() {
       expect(
         addFailure(const FormatException('no servers')),
         ShikooPasteError.unavailable,
+      );
+    });
+
+    test("is the panel's own end when its header said so", () {
+      expect(
+        addFailure(const ShikooPanelEnded(ShikooServiceStatus.exhausted)),
+        ShikooPasteError.exhausted,
+      );
+      expect(
+        addFailure(const ShikooPanelEnded(ShikooServiceStatus.expired)),
+        ShikooPasteError.expired,
       );
     });
 

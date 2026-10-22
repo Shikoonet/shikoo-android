@@ -239,6 +239,8 @@ Future<_Harness> _harness({
     final url = call.positionalArguments[0] as String;
     await _beforeAdd?.call(url);
     if (url.contains('dead')) return null;
+    if (url.contains('used-up')) return ShikooPasteError.exhausted;
+    if (url.contains('past-date')) return ShikooPasteError.expired;
     final existing = container
         .read(profilesProvider)
         .where((p) => p.url == url)
@@ -1091,6 +1093,33 @@ void main() {
       ];
       await h.signIn.sync();
       expect(failed(h.container), {2: false}, reason: '1 loaded this time');
+    });
+
+    test('a link its panel calls used up or past its date is that end, for '
+        '«تمدید», not a failed load; alone it still signs in', () async {
+      final alone = await _harness();
+      alone.api.services = [
+        _service(1, 'used', url: 'https://sub.4g3.uk/used-up'),
+      ];
+      expect((await _signedIn(alone))?.phase, LoginPhase.approved);
+      final h = await _harness();
+      h.api.services = [
+        _service(1, 'used', url: 'https://sub.4g3.uk/used-up'),
+        _service(2, 'late', url: 'https://sub.4g3.uk/past-date'),
+        _service(3, 'gone', url: 'https://sub.4g3.uk/dead'),
+      ];
+      expect(await _signedIn(h), isNull, reason: 'home');
+      expect(
+        [
+          for (final s in h.container.read(shikooAccountProvider).withoutLink)
+            (s.id, s.status, s.loadFailed, s.finished, s.renews),
+        ],
+        [
+          (1, 'exhausted', false, true, true),
+          (2, 'expired', false, true, true),
+          (3, 'active', true, false, false),
+        ],
+      );
     });
 
     test(

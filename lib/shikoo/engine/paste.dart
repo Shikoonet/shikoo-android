@@ -4,7 +4,23 @@ import 'package:dio/dio.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum ShikooPasteError { empty, notShikoo, revoked, unavailable, offline, clock }
+enum ShikooPasteError {
+  empty,
+  notShikoo,
+  revoked,
+  unavailable,
+  offline,
+  clock,
+  expired,
+  exhausted,
+}
+
+/// The panel's `subscription-userinfo` said [status] and its config did not load.
+class ShikooPanelEnded implements Exception {
+  const ShikooPanelEnded(this.status);
+
+  final ShikooServiceStatus status;
+}
 
 /// Why a paste failed, or the service it brought: [added] here, or on this device already.
 typedef ShikooPasted = ({ShikooPasteError? error, int? id, bool added});
@@ -70,6 +86,9 @@ String normalLink(String link) {
 }
 
 ShikooPasteError addFailure(Object error) => switch (error) {
+  ShikooPanelEnded(status: ShikooServiceStatus.exhausted) =>
+    ShikooPasteError.exhausted,
+  ShikooPanelEnded() => ShikooPasteError.expired,
   TimeoutException() => ShikooPasteError.offline,
   DioException(type: DioExceptionType.badResponse, :final response)
       when const {404, 410}.contains(response?.statusCode) =>
