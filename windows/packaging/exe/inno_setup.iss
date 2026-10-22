@@ -137,6 +137,10 @@ Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 [Icons]
 Name: "{autoprograms}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
 Name: "{autodesktop}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
+[Registry]
+; At every sign-in, for every user: Windows' proxy left on this flavor's port by an app that died with its core
+; is turned off (fix-proxy, services/helper/src/service/proxy_guard.rs); the app's next launch puts the earlier one back.
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#Title} Proxy Fix"; ValueData: """{app}\ShikooNetHelperService.exe"" fix-proxy"; Flags: uninsdeletevalue
 [Messages]
 SelectTasksLabel2=Select the additional tasks you would like Setup to perform while installing [name], then click Install.
 ; Inno 6.7.3 shows this one message for both ArchitecturesAllowed and MinVersion. The box reads left to right, so a

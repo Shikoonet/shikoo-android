@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/core/interface.dart';
@@ -16,6 +18,9 @@ import 'package:proxy/proxy_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
+
+/// The test binding answers every HttpClient request with 400 and never sends it.
+class _RealHttp extends HttpOverrides {}
 
 class _Windows extends ProxyPlatform {
   final calls = <String>[];
@@ -128,6 +133,7 @@ void main() {
         asked.add('$host:$port');
         return answering.contains(port);
       },
+      guard: () async {},
     );
 
     setUp(() {
@@ -144,6 +150,65 @@ void main() {
 
     Future<bool> saved() async => (await SharedPreferences.getInstance())
         .containsKey(ShikooSystemProxy.savedKey);
+
+    test('every connect asks the helper to guard this process, without '
+        'waiting for its answer', () async {
+      var guards = 0;
+      final proxy = ShikooSystemProxy(
+        windows,
+        () => 7890,
+        read: () => now,
+        write: (_) => true,
+        guard: () {
+          guards++;
+          return Completer<void>().future;
+        },
+      );
+      expect(await proxy.startProxy(7890, const []), isTrue);
+      expect(await proxy.startProxy(7890, const []), isTrue);
+      expect(await proxy.stopProxy(), isTrue);
+      expect(guards, 2);
+    });
+
+    test("the guard posts this process's pid to the helper, and a helper "
+        'that is not there is no error', () async {
+      final helper = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final asked = Completer<String>();
+      helper.listen((request) async {
+        final body = await utf8.decodeStream(request);
+        asked.complete(
+          '${request.method} ${request.uri.path} '
+          '${request.headers.contentType?.mimeType} $body',
+        );
+        request.response.statusCode = HttpStatus.noContent;
+        await request.response.close();
+      });
+      await HttpOverrides.runWithHttpOverrides(() async {
+        final port = helper.port;
+        await guardThisProcess(port: port);
+        expect(await asked.future, 'POST /guard application/json {"pid":$pid}');
+        await helper.close(force: true);
+        await guardThisProcess(port: port);
+      }, _RealHttp());
+    });
+
+    test('the guard lets go of a helper port that takes the request and '
+        'never answers, after 5 seconds', () async {
+      final silent = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final held = <Socket>[];
+      silent.listen(held.add);
+      final waited = Stopwatch()..start();
+      await HttpOverrides.runWithHttpOverrides(
+        () => guardThisProcess(port: silent.port),
+        _RealHttp(),
+      );
+      expect(waited.elapsedMilliseconds, inInclusiveRange(4900, 8000));
+      expect(held, hasLength(1));
+      for (final socket in held) {
+        socket.destroy();
+      }
+      await silent.close();
+    });
 
     test("is this app's only while on and at its port", () {
       expect(proxyIsOurs(ours, 7890), isTrue);

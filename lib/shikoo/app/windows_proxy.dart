@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fl_clash/common/constant.dart' show helperPort, localhost;
 import 'package:fl_clash/shikoo/app/wininet.dart';
 import 'package:proxy/proxy_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,6 +52,24 @@ Future<bool> _listening(String host, int port) async {
   }
 }
 
+/// The helper turns the proxy off once this process dies (`proxy_guard.rs`); a missing or older helper is no matter.
+Future<void> guardThisProcess({int port = helperPort}) async {
+  final client = HttpClient()..findProxy = ((_) => 'DIRECT');
+  final body = utf8.encode(jsonEncode({'pid': pid}));
+  try {
+    await () async {
+      final request = await client.post(localhost, port, '/guard')
+        ..headers.contentType = ContentType.json
+        ..contentLength = body.length
+        ..add(body);
+      await (await request.close()).drain<void>();
+    }().timeout(const Duration(seconds: 5));
+  } catch (_) {
+  } finally {
+    client.close(force: true);
+  }
+}
+
 /// Puts back the setting from before connect, kept on disk until then, unless another app set its own since.
 class ShikooSystemProxy extends ProxyPlatform {
   ShikooSystemProxy(
@@ -58,6 +78,7 @@ class ShikooSystemProxy extends ProxyPlatform {
     this.read = readWinProxy,
     this.write = writeWinProxy,
     this.listening = _listening,
+    this.guard = guardThisProcess,
   });
 
   final ProxyPlatform _inner;
@@ -65,6 +86,7 @@ class ShikooSystemProxy extends ProxyPlatform {
   final WinProxy? Function() read;
   final bool Function(WinProxy setting) write;
   final Future<bool> Function(String host, int port) listening;
+  final Future<void> Function() guard;
 
   static const savedKey = 'shikoo.windowsProxy';
   bool _launch = true;
@@ -90,7 +112,9 @@ class ShikooSystemProxy extends ProxyPlatform {
             jsonEncode({..._toJson(now), 'port': port}),
           );
         }
-        return _inner.startProxy(port, bypassDomain);
+        final started = await _inner.startProxy(port, bypassDomain);
+        unawaited(guard());
+        return started;
       });
 
   @override

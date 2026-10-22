@@ -194,7 +194,9 @@ void main() {
     );
     final service = iss
         .split('\n')
-        .where((line) => line.contains('"{app}\\$appHelperService.exe"'))
+        .where(
+          (line) => line.startsWith('Filename: "{app}\\$appHelperService.exe"'),
+        )
         .toList();
     expect(service, hasLength(1));
     expect(service.single, contains('Parameters: "install"'));
@@ -347,6 +349,45 @@ void main() {
     expect(
       read('windows/packaging/exe/make_config.yaml'),
       contains('display_name: ShikooNet\n'),
+    );
+  });
+
+  test("every sign-in runs this flavor's helper as fix-proxy, which clears only "
+      "this flavor's port and app, with no window; the uninstall removes the "
+      'entry', () {
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+    const entry =
+        r'Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; '
+        r'ValueType: string; ValueName: "{#Title} Proxy Fix"; '
+        r'ValueData: """{app}\ShikooNetHelperService.exe"" fix-proxy"; '
+        'Flags: uninsdeletevalue\n';
+    final at = iss.indexOf(entry);
+    expect(at, isNot(-1));
+    expect(
+      RegExp(
+        r'^\[\w+\]$',
+        multiLine: true,
+      ).allMatches(iss.substring(0, at)).last[0],
+      '[Registry]',
+    );
+    expect(
+      read('services/helper/src/service/windows.rs'),
+      contains('OsStr::new("fix-proxy") => ServiceCommand::FixProxy,'),
+    );
+    expect(
+      read('services/helper/src/service/proxy_guard.rs'),
+      allOf(
+        contains(
+          'PROXY_PORT: u16 = if cfg!(shikoo_staging) { 17471 } else { 17470 };',
+        ),
+        contains('APP_EXE: &str = "ShikooNet.exe";'),
+      ),
+    );
+    expect(
+      read('services/helper/src/main.rs'),
+      contains(
+        '#![cfg_attr(all(windows, not(test)), windows_subsystem = "windows")]',
+      ),
     );
   });
 

@@ -1,4 +1,5 @@
 use crate::service::hub::run_service_until;
+use crate::service::proxy_guard::fix_proxy;
 
 use anyhow::{bail, Context, Result};
 use std::ffi::{OsStr, OsString};
@@ -43,6 +44,7 @@ enum ServiceCommand {
     Run,
     Install,
     Uninstall,
+    FixProxy,
 }
 
 pub fn main() -> Result<()> {
@@ -50,6 +52,7 @@ pub fn main() -> Result<()> {
         ServiceCommand::Run => start_service().map_err(Into::into),
         ServiceCommand::Install => install_service(),
         ServiceCommand::Uninstall => uninstall_service(),
+        ServiceCommand::FixProxy => fix_proxy(),
     }
 }
 
@@ -59,6 +62,7 @@ fn service_command(args: impl IntoIterator<Item = OsString>) -> Result<ServiceCo
         None => ServiceCommand::Run,
         Some(value) if value == OsStr::new("install") => ServiceCommand::Install,
         Some(value) if value == OsStr::new("uninstall") => ServiceCommand::Uninstall,
+        Some(value) if value == OsStr::new("fix-proxy") => ServiceCommand::FixProxy,
         Some(value) => bail!("unknown helper command: {}", value.to_string_lossy()),
     };
     if args.next().is_some() {
@@ -340,6 +344,10 @@ mod tests {
         assert_eq!(
             service_command([OsString::from("uninstall")]).unwrap(),
             ServiceCommand::Uninstall
+        );
+        assert_eq!(
+            service_command([OsString::from("fix-proxy")]).unwrap(),
+            ServiceCommand::FixProxy
         );
     }
 
