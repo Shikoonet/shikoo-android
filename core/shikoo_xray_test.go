@@ -7,10 +7,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -93,31 +95,106 @@ func TestXrayOutboundConvertsWhatThePanelSends(t *testing.T) {
 	}
 }
 
-func TestXrayOutboundLeavesToMihomoWhatXrayWouldChange(t *testing.T) {
-	plain := map[string]any{"name": "p", "type": "vless", "server": "cdn.example.com", "port": 443, "uuid": xrayTestUUID, "tls": true}
-	refused := map[string]map[string]any{
-		"skip-cert-verify":         with(plain, map[string]any{"skip-cert-verify": true}),
-		"pinned certificate":       with(plain, map[string]any{"fingerprint": "ab"}),
-		"sing-mux":                 with(plain, map[string]any{"smux": map[string]any{"enabled": true}}),
-		"dialer-proxy":             with(plain, map[string]any{"dialer-proxy": "other"}),
-		"h2, gone from Xray":       with(plain, map[string]any{"network": "h2"}),
-		"tcp with an http header":  with(plain, map[string]any{"network": "http"}),
-		"no TLS to a public host":  with(plain, map[string]any{"tls": false, "server": "8.8.8.8"}),
-		"REALITY on ws":            with(plain, map[string]any{"network": "ws", "reality-opts": map[string]any{"public-key": base64.RawURLEncoding.EncodeToString(make([]byte, 32))}}),
-		"xhttp download-settings":  with(plain, map[string]any{"network": "xhttp", "xhttp-opts": map[string]any{"download-settings": map[string]any{"path": "/d"}}}),
-		"ech":                      with(plain, map[string]any{"ech-opts": map[string]any{"enable": true}}),
-		"AmneziaWG":                {"name": "a", "type": "wireguard", "server": "1.2.3.4", "port": 1, "private-key": wgKey(t), "public-key": wgKey(t), "amnezia-wg-option": map[string]any{"jc": 4}},
-		"WireGuard with two peers": {"name": "two", "type": "wireguard", "private-key": wgKey(t), "peers": []any{map[string]any{"server": "1.2.3.4", "port": 1, "public-key": wgKey(t)}}},
-		"vmess":                    {"name": "v", "type": "vmess", "server": "1.2.3.4", "port": 1},
+// The same file is test/shikoo/xray_test.dart's: Dart marks for Xray exactly what Go then hands to it.
+func TestXrayServesWhatDartSays(t *testing.T) {
+	content, err := os.ReadFile("testdata/xray_serves.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for name, proxy := range refused {
-		if out, err := xrayOutbound(proxy); err == nil {
-			t.Errorf("%s: Xray took it as %v", name, out)
+	var cases []struct {
+		Serves bool           `json:"serves"`
+		Proxy  map[string]any `json:"proxy"`
+	}
+	if err := json.Unmarshal(content, &cases); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases {
+		if _, err := xrayOutbound(c.Proxy); (err == nil) != c.Serves {
+			t.Errorf("%v: Xray takes it %v (%v), want %v", c.Proxy["name"], err == nil, err, c.Serves)
 		}
 	}
-	if _, err := xrayOutbound(with(plain, map[string]any{"tls": false, "server": "10.0.0.1"})); err != nil {
-		t.Errorf("no TLS to a private host is Xray's to carry: %v", err)
+}
+
+// A refusal Xray only meets while the whole core starts takes every server off Xray, never the whole apply.
+func TestXrayFailureLeavesTheApplyStanding(t *testing.T) {
+	wg := map[string]any{
+		"name": "wg", "type": "wireguard", "server": "1.2.3.4", "port": 51820, "ip": "10.0.0.2",
+		"private-key": wgKey(t), "public-key": wgKey(t), "udp": true,
 	}
+	cfg := parseShikooCores(t, fmt.Sprintf(`
+proxies:
+  - {name: wg, type: wireguard, server: 1.2.3.4, port: 51820, ip: 10.0.0.2, private-key: %q, public-key: %q, dns: ["1.1.1.1:53"], shikoo-core: xray}
+`, wg["private-key"], wg["public-key"]))
+	if got := cfg.Proxies["wg"].Type(); got != constant.WireGuard {
+		t.Errorf("wg is %v, want mihomo's own WireGuard", got)
+	}
+	// Past the conversion's checks: Xray's WireGuard itself panics on this DNS while the core starts.
+	_, err := runXray(map[string]any{"outbounds": []any{map[string]any{
+		"protocol": "wireguard",
+		"settings": map[string]any{
+			"secretKey": wg["private-key"], "address": []string{"10.0.0.2"}, "noKernelTun": true, "remoteDNS": []string{"dns.google"},
+			"peers": []any{map[string]any{"publicKey": wg["public-key"], "endpoint": "1.2.3.4:51820"}},
+		},
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "panicked") {
+		t.Errorf("err %v, want Xray's panic as an error", err)
+	}
+}
+
+func TestXraySocksIsLoopbackAndNeedsItsPassword(t *testing.T) {
+	plain := map[string]any{"name": "a", "type": "vless", "server": "10.0.0.1", "port": 443, "uuid": xrayTestUUID}
+	first, stop, err := startXray([]map[string]any{plain})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	second, stopSecond, err := startXray([]map[string]any{plain})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopSecond()
+	socks := first[0]
+	if socks["server"] != "127.0.0.1" || socks["password"] == second[0]["password"] || len(socks["password"].(string)) < 26 {
+		t.Fatalf("%v and %v: want 127.0.0.1 and a fresh long password each start", socks, second[0])
+	}
+	port := fmt.Sprint(socks["port"])
+	if conn, err := net.DialTimeout("tcp", net.JoinHostPort(outsideIP(t), port), time.Second); err == nil {
+		_ = conn.Close()
+		t.Error("the SOCKS answers outside loopback")
+	}
+	answer := func(greeting []byte, user, password string) []byte {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = conn.Close() }()
+		_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+		reply := make([]byte, 2)
+		if _, err := conn.Write(greeting); err != nil || readFull(conn, reply) != nil || user == "" {
+			return reply
+		}
+		auth := append([]byte{1, byte(len(user))}, user...)
+		auth = append(append(auth, byte(len(password))), password...)
+		if _, err := conn.Write(auth); err != nil || readFull(conn, reply) != nil {
+			return []byte{0xff, 0xff}
+		}
+		return reply
+	}
+	if reply := answer([]byte{5, 1, 0}, "", ""); reply[1] == 0 {
+		t.Error("the SOCKS took a client without a password")
+	}
+	password := socks["password"].(string)
+	if reply := answer([]byte{5, 1, 2}, xrayUser, "x"+password[1:]); reply[1] == 0 {
+		t.Error("the SOCKS took a wrong password")
+	}
+	if reply := answer([]byte{5, 1, 2}, xrayUser, password); reply[1] != 0 {
+		t.Errorf("the SOCKS refused its own password: % x", reply)
+	}
+}
+
+func readFull(conn net.Conn, buf []byte) error {
+	_, err := io.ReadFull(conn, buf)
+	return err
 }
 
 // An Xray server in this process, the panel's mappings marked as Dart marks them, and mihomo's own

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 
 	"github.com/metacubex/mihomo/adapter/outbound"
@@ -33,6 +34,14 @@ func init() {
 const xrayUser = "shikoo"
 
 var xrayDecoder = structure.NewDecoder(structure.Option{TagName: "proxy", WeaklyTypedInput: true, KeyReplacer: structure.DefaultKeyReplacer})
+
+// A server with a key the conversion does not read stays with mihomo; core/testdata/xray_serves.json holds Dart to this.
+var xrayKeys = map[any]string{
+	"vless": "uuid flow tls alpn servername client-fingerprint reality-opts network ws-opts grpc-opts xhttp-opts " +
+		"encryption packet-encoding xudp packet-addr skip-cert-verify smux",
+	"wireguard": "ip ipv6 private-key public-key pre-shared-key reserved allowed-ips mtu persistent-keepalive dns " +
+		"remote-dns-resolve",
+}
 
 // startXray leaves a server Xray cannot carry to mihomo by handing its own mapping back.
 func startXray(proxies []map[string]any) ([]map[string]any, func(), error) {
@@ -69,7 +78,7 @@ func startXray(proxies []map[string]any) ([]map[string]any, func(), error) {
 	if len(outbounds) == 0 {
 		return replacements, func() {}, nil
 	}
-	config, err := json.Marshal(map[string]any{
+	stop, err := runXray(map[string]any{
 		"log":      map[string]any{"loglevel": "warning"},
 		"inbounds": inbounds, "outbounds": outbounds,
 		"routing": map[string]any{"rules": rules},
@@ -77,37 +86,51 @@ func startXray(proxies []map[string]any) ([]map[string]any, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	instance, err := xcore.StartInstance("json", config)
+	return replacements, stop, nil
+}
+
+// runXray turns a panic inside Xray into an error: the apply stands, and mihomo carries these servers.
+func runXray(config map[string]any) (stop func(), err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("xray panicked: %v", r)
+		}
+	}()
+	raw, err := json.Marshal(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	instance, err := xcore.StartInstance("json", raw)
+	if err != nil {
+		return nil, err
 	}
 	// Xray's own log app took the handler while it started; mihomo's log is the one the app reads.
 	xlog.RegisterHandler(xrayLog{})
-	return replacements, func() { _ = instance.Close() }, nil
+	return func() { _ = instance.Close() }, nil
 }
 
 // xrayOutbound is checked by Xray's own config builder, so what it refuses (VLESS without TLS to a public
 // address, REALITY on ws, …) stays with mihomo too.
 func xrayOutbound(proxy map[string]any) (map[string]any, error) {
-	var basic outbound.BasicOption
-	if err := xrayDecoder.Decode(proxy, &basic); err != nil {
-		return nil, err
+	keys, known := xrayKeys[proxy["type"]]
+	if !known {
+		return nil, fmt.Errorf("type %v", proxy["type"])
 	}
-	if basic.DialerProxy != "" || basic.Interface != "" || basic.RoutingMark != 0 || basic.IPVersion != 0 {
-		return nil, errors.New("a dialer option only mihomo honours")
+	allowed := strings.Fields("name type server port udp " + keys)
+	for key := range proxy {
+		if !slices.Contains(allowed, key) {
+			return nil, fmt.Errorf("key %s", key)
+		}
 	}
 	if mux, _ := proxy["smux"].(map[string]any); mux["enabled"] == true {
 		return nil, errors.New("sing-mux")
 	}
 	var out map[string]any
 	var err error
-	switch proxy["type"] {
-	case "vless":
+	if proxy["type"] == "vless" {
 		out, err = xrayVless(proxy)
-	case "wireguard":
+	} else {
 		out, err = xrayWireGuard(proxy)
-	default:
-		err = fmt.Errorf("type %v", proxy["type"])
 	}
 	if err != nil {
 		return nil, err
@@ -131,15 +154,8 @@ func xrayVless(proxy map[string]any) (map[string]any, error) {
 	if err := xrayDecoder.Decode(proxy, &o); err != nil {
 		return nil, err
 	}
-	switch {
-	// allowInsecure is gone from Xray; pinning and client certificates have no mapping written here.
-	case o.SkipCertVerify || o.Fingerprint != "" || o.Certificate != "" || o.NameCertVerify != "":
-		return nil, errors.New("certificate options")
-	case o.ECHOpts.Enable || o.ShadowTLSOpts != (outbound.ShadowTLSOptions{}) ||
-		o.RestlsOpts != (outbound.RestlsOptions{}) || o.JLSOpts != (outbound.JLSOptions{}):
-		return nil, errors.New("a TLS wrapper Xray lacks")
-	case len(o.WSHeaders) > 0:
-		return nil, errors.New("ws-headers")
+	if o.SkipCertVerify {
+		return nil, errors.New("skip-cert-verify")
 	}
 
 	stream := map[string]any{"network": "raw"}
@@ -166,6 +182,9 @@ func xrayVless(proxy map[string]any) (map[string]any, error) {
 		x := o.XHTTPOpts
 		if x.DownloadSettings != nil {
 			return nil, errors.New("xhttp download-settings")
+		}
+		if lo, hi, err := conf.ParseRangeString(x.ScMaxEachPostBytes); err == nil && min(lo, hi) <= 0 && max(lo, hi) > 0 {
+			return nil, errors.New("sc-max-each-post-bytes from 0, on which Xray's first dial panics")
 		}
 		settings := map[string]any{
 			"path": x.Path, "host": x.Host, "mode": x.Mode, "headers": x.Headers, "noGRPCHeader": x.NoGRPCHeader,
@@ -236,13 +255,24 @@ func xrayWireGuard(proxy map[string]any) (map[string]any, error) {
 	if err := xrayDecoder.Decode(proxy, &o); err != nil {
 		return nil, err
 	}
-	switch {
-	case len(o.Peers) > 0:
-		return nil, errors.New("several peers")
-	case o.AmneziaWGOption != nil:
-		return nil, errors.New("AmneziaWG")
-	case len(o.Reserved) != 0 && len(o.Reserved) != 3:
+	if len(o.Reserved) != 0 && len(o.Reserved) != 3 {
 		return nil, errors.New("reserved is not three bytes")
+	}
+	// Xray parses these only as the whole core starts, the DNS by panicking: one bad server would stop them all.
+	var addresses []string
+	for _, address := range []string{o.Ip, o.Ipv6} {
+		if address == "" {
+			continue
+		}
+		if _, err := netip.ParsePrefix(address); err != nil && !isIP(address) {
+			return nil, fmt.Errorf("address %s", address)
+		}
+		addresses = append(addresses, address)
+	}
+	for _, dns := range o.Dns {
+		if !isIP(dns) {
+			return nil, fmt.Errorf("dns %s", dns)
+		}
 	}
 	// Xray would ask the system resolver, which answers fake-ip inside the tunnel.
 	// shortcut: a server named by a domain is resolved once per config; upgrade if a panel's WireGuard host moves.
@@ -251,12 +281,6 @@ func xrayWireGuard(proxy map[string]any) (map[string]any, error) {
 	ip, err := resolver.ResolveIPWithResolver(resolver.WithInitiator(ctx, resolver.InitiatorProxy), o.Server, resolver.ProxyServerHostResolver)
 	if err != nil {
 		return nil, err
-	}
-	var addresses []string
-	for _, address := range []string{o.Ip, o.Ipv6} {
-		if address != "" {
-			addresses = append(addresses, address)
-		}
 	}
 	allowed := o.AllowedIPs
 	if len(allowed) == 0 {
@@ -291,23 +315,20 @@ func withoutHost(headers map[string]string) (map[string]string, string) {
 	return rest, host
 }
 
+func isIP(s string) bool {
+	_, err := netip.ParseAddr(s)
+	return err == nil
+}
+
 // shortcut: another process can take the port before Xray binds it, and then mihomo carries every server of this
 // apply; upgrade to reading Xray's own listener if that is ever seen.
 func freeLoopbackPort() (int, error) {
-	for range 8 {
-		tcp, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			return 0, err
-		}
-		port := tcp.Addr().(*net.TCPAddr).Port
-		udp, err := net.ListenPacket("udp", fmt.Sprintf("127.0.0.1:%d", port))
-		_ = tcp.Close()
-		if err == nil {
-			_ = udp.Close()
-			return port, nil
-		}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
 	}
-	return 0, errors.New("no free loopback port for both TCP and UDP")
+	defer func() { _ = listener.Close() }()
+	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 // xrayDialer sends Xray's sockets through mihomo's dialer: Android's protect, Windows' interface binding and
