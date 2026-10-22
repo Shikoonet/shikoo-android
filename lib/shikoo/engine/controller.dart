@@ -1592,11 +1592,11 @@ class ShikooController {
     final running = _serversOf(
       _group,
     ).firstWhereOrNull((proxy) => proxy.name == name)?.type;
+    if (mapping == null && running == null) return _switching(null);
     final source =
         mapping ??
         _ref.read(_sourcesProvider)[target]?[name] ??
-        (running == null ? null : {'type': running});
-    if (source == null) return _switching(null);
+        {'type': running};
     if (ms <= 0 && protocolOf(source) != ShikooProtocol.wireguard) {
       _setPing(target, name, -1);
       return show(ShikooSwitchStage.failed);
