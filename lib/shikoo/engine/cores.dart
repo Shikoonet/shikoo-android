@@ -2,6 +2,7 @@ import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
 import 'package:fl_clash/shikoo/engine/core_sing_box.dart';
 import 'package:fl_clash/shikoo/engine/core_wireguard.dart';
 import 'package:fl_clash/shikoo/engine/core_xray.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum ShikooCore { mihomo, xray, singBox, wireguard, openvpn }
@@ -9,6 +10,8 @@ enum ShikooCore { mihomo, xray, singBox, wireguard, openvpn }
 enum ShikooShape { mihomo, behindMihomo, ownsTunnel }
 
 enum ShikooProtocol { vless, wireguard, openvpn, ssh, other }
+
+enum ShikooPlatform { android, windows }
 
 typedef ShikooChoices = Map<ShikooProtocol, ShikooCore>;
 
@@ -54,9 +57,27 @@ const shikooCoreSpecs = <ShikooCore, ShikooCoreSpec>{
   ShikooCore.openvpn: openvpnSpec,
 };
 
+/// A ready core whose engine runs on some platforms only; one missing here is ready on every platform.
+const shikooReadyOn = <ShikooCore, Set<ShikooPlatform>>{};
+
 final shikooCoreSpecsProvider = Provider<Map<ShikooCore, ShikooCoreSpec>>(
-  (_) => shikooCoreSpecs,
+  (ref) => readyHere(
+    ref.watch(shikooDesktopProvider)
+        ? ShikooPlatform.windows
+        : ShikooPlatform.android,
+  ),
 );
+
+Map<ShikooCore, ShikooCoreSpec> readyHere(
+  ShikooPlatform platform, {
+  Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
+  Map<ShikooCore, Set<ShikooPlatform>> readyOn = shikooReadyOn,
+}) => {
+  for (final MapEntry(key: core, value: spec) in specs.entries)
+    core: readyOn[core]?.contains(platform) ?? true
+        ? spec
+        : (ready: false, shape: spec.shape, serves: spec.serves),
+};
 
 /// Read from the profile's own mapping: mihomo names a server it handed to Xray `Socks5`.
 ShikooProtocol protocolOf(Map<String, dynamic> server) =>

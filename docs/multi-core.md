@@ -105,7 +105,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 - `cores.dart` (new): the types, `protocolOf(mapping)`, `coreFor(mapping, choices)` and `markCores(rawConfig, choices)`.
 - One spec file per new core (new; base creates them as stubs): `core_xray.dart`, `core_sing_box.dart`,
   `core_wireguard.dart`, `core_openvpn.dart`. Each holds one record: `ready` (false until its package lands), its shape,
-  and `serves(protocol, mapping)`. A package edits only its own file.
+  and `serves(protocol, mapping)`. A package edits only its own file, but for one line: a ready core whose engine runs
+  on some platforms only adds `core: {platforms}` to `shikooReadyOn` in `cores.dart`, and `shikooCoreSpecsProvider`
+  shows it not ready elsewhere (`readyHere`).
 - `markCores` adds `shikoo-core: <name>` to each proxy mapping that goes to a behind-mihomo core. It runs in
   `lib/providers/actions/setup.dart` `getProfile`, after the script step and before `makeRealProfileTask`
   (`:350-355`). `task.dart` runs in an isolate without the providers, so it can't go there. A new upstream patch, like

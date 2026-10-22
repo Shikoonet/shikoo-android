@@ -305,6 +305,34 @@ void main() {
     expect(singBoxSpec.serves(ShikooProtocol.openvpn, const {}), isTrue);
   });
 
+  test('a core ready on some platforms only is not ready elsewhere, its shape '
+      'and reach kept, so its servers stay on mihomo there', () {
+    const readyOn = {
+      ShikooCore.wireguard: {ShikooPlatform.android},
+    };
+    Map<ShikooCore, ShikooCoreSpec> on(
+      ShikooPlatform platform, [
+      Map<ShikooCore, ShikooCoreSpec>? specs,
+    ]) => readyHere(platform, specs: specs ?? _allReady, readyOn: readyOn);
+    final windows = on(ShikooPlatform.windows)[ShikooCore.wireguard]!;
+
+    expect(on(ShikooPlatform.android)[ShikooCore.wireguard]!.ready, isTrue);
+    expect(windows.ready, isFalse);
+    expect(windows.shape, ShikooShape.ownsTunnel);
+    expect(windows.serves, same(_allReady[ShikooCore.wireguard]!.serves));
+    expect(on(ShikooPlatform.windows)[ShikooCore.xray]!.ready, isTrue);
+    expect(
+      on(ShikooPlatform.android, _noneReady)[ShikooCore.wireguard]!.ready,
+      isFalse,
+    );
+    expect(
+      coreFor(_wireguard, {
+        ShikooProtocol.wireguard: ShikooCore.wireguard,
+      }, specs: on(ShikooPlatform.windows)),
+      ShikooCore.mihomo,
+    );
+  });
+
   test('a core behind mihomo is ready only if the Go core registers it under '
       'the same name, and Go registers no other', () {
     final registered = {
