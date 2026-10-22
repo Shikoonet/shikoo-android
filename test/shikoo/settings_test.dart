@@ -122,12 +122,13 @@ void main() {
       '--short=7',
       ':core/Clash.Meta',
     ]);
-    // Moving the core: set mihomoVersion to the mihomo tag the new commit carries, then this pair.
     expect(
       (git.stdout.toString().trim(), mihomoVersion),
       ('cd1023a', '1.19.33'),
       reason:
-          'git rev-parse :core/Clash.Meta exit ${git.exitCode}: ${git.stderr}',
+          'A moved core needs mihomoVersion set to its mihomo tag, then this '
+          'pair. git rev-parse :core/Clash.Meta exit ${git.exitCode}: '
+          '${git.stderr}',
     );
   });
 
