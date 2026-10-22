@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/metacubex/mihomo/adapter"
+	C "github.com/metacubex/mihomo/constant"
 )
 
 // testProxyDelay is handleTestDelay on a proxy built from a profile the core has not loaded, closed
@@ -51,7 +53,7 @@ func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
 	}
 	defer releaseDelayTestSlot()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout(proxy, timeout))
 	defer cancel()
 	delay, err := proxy.URLTest(ctx, url, anyDelayTestStatus)
 	if err != nil {
@@ -59,4 +61,15 @@ func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
 	}
 	delayData.Value = delayValue(delay)
 	return delayData, nil
+}
+
+// wireGuardGrace is wireguard-go's RekeyTimeout: a probe's first dial builds the device, and a lost
+// first handshake goes out again only this much later (SHIKOO_PATCHES 48). A var so tests skip it.
+var wireGuardGrace = 5 * time.Second
+
+func probeTimeout(proxy C.Proxy, timeout time.Duration) time.Duration {
+	if proxy.Type() == C.WireGuard {
+		return timeout + wireGuardGrace
+	}
+	return timeout
 }

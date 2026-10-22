@@ -292,7 +292,7 @@ func handleTestDelay(params *TestDelayParams) *Delay {
 	}
 	defer releaseDelayTestSlot()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout(proxy, timeout))
 	defer cancel()
 
 	delay, err := proxy.URLTest(ctx, url, anyDelayTestStatus)
