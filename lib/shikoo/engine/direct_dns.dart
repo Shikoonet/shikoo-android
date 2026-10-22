@@ -39,22 +39,29 @@ final _tunDomain = RegExp(r'^\(\(IN-TYPE,TUN\),\(DOMAIN,([^()]+)\)\)$');
 Map<String, dynamic> shikooDns(
   Map<String, dynamic> dns,
   Iterable<Rule> added,
+  Object? subscriptionSets,
 ) => {
   for (final MapEntry(:key, :value) in dns.entries)
     if (key != 'listen') key: value,
   'nameserver-policy': {
     for (final rule in added)
       if (rule.id >= shikooDirectIds && rule.id < shikooDirectIds + 1000)
-        ?_domain(rule): 'system',
+        ?_domain(rule, subscriptionSets): 'system',
     ...?(dns['nameserver-policy'] as Map?),
   },
 };
 
-String? _domain(Rule rule) => switch (rule.ruleAction) {
+String? _domain(
+  Rule rule,
+  Object? subscriptionSets,
+) => switch (rule.ruleAction) {
   RuleAction.DOMAIN => rule.content,
   RuleAction.DOMAIN_SUFFIX => '+.${rule.content}',
-  // An `ipcidr` set here fails the whole config, and the core falls back to one with no servers.
-  RuleAction.RULE_SET when shikooRuleSets[rule.ruleProvider] == 'domain' =>
+  // An `ipcidr` set here, or a subscription's set of our name, fails the whole config: no servers.
+  RuleAction.RULE_SET
+      when shikooRuleSets[rule.ruleProvider] == 'domain' &&
+          !(subscriptionSets is Map &&
+              subscriptionSets.containsKey(rule.ruleProvider)) =>
     'rule-set:${rule.ruleProvider}',
   RuleAction.AND => _tunDomain.firstMatch(rule.content ?? '')?[1],
   _ => null,
