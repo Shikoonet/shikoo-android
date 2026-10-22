@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpHeaders, InternetAddress;
+import 'dart:io' show File, HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:fl_clash/common/print.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/database/database.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
@@ -18,7 +20,9 @@ import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/foundation.dart' hide mergeSort;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' show join;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Sign-in with Telegram through the shop bot, against shikoo-platform's
@@ -578,6 +582,32 @@ Future<void> keepApiDirect() async {
     await database.rulesDao.putGlobalRule(
       apiDirectRule(url, shikooDirectIds + 100 + i),
     );
+  }
+}
+
+/// Banks and payment gateways refuse a foreign address. One transaction a call: quick turns land in order.
+Future<void> keepIranDirect(bool on) => database.transaction(() async {
+  if (!on) return database.rulesDao.delRules(iranDirectRules.map((r) => r.id));
+  for (final rule in iranDirectRules) {
+    await database.rulesDao.putGlobalRule(rule);
+  }
+});
+
+/// Left alone when unchanged: a tunnel still up from the last run may be reading them.
+/// A failed write only sends Iranian sites through the server; the app still starts.
+Future<void> writeRuleSets(String home) async {
+  try {
+    for (final name in shikooRuleSets.keys) {
+      final asset = await rootBundle.load('assets/data/$name.mrs');
+      final bytes = asset.buffer.asUint8List();
+      final file = File(join(home, '$name.mrs'));
+      if (await file.exists() && listEquals(await file.readAsBytes(), bytes)) {
+        continue;
+      }
+      await file.writeAsBytes(bytes, flush: true);
+    }
+  } catch (e) {
+    commonPrint.log('rule sets not written: $e', logLevel: LogLevel.warning);
   }
 }
 

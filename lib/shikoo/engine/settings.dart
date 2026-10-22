@@ -128,8 +128,10 @@ void setAutoStart(WidgetRef ref, bool on) => ref
     .read(appSettingProvider.notifier)
     .update((s) => s.copyWith(autoLaunch: on));
 
-class ShikooUpdateNoticeNotifier extends Notifier<bool> {
-  static const _key = 'shikoo.updateNotice';
+class ShikooSwitchNotifier extends Notifier<bool> {
+  ShikooSwitchNotifier(this._key);
+
+  final String _key;
 
   @override
   bool build() => true;
@@ -143,10 +145,14 @@ class ShikooUpdateNoticeNotifier extends Notifier<bool> {
   }
 }
 
-final shikooUpdateNoticeProvider =
-    NotifierProvider<ShikooUpdateNoticeNotifier, bool>(
-      ShikooUpdateNoticeNotifier.new,
-    );
+final shikooUpdateNoticeProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.updateNotice'),
+);
+
+/// Iranian sites bypass the VPN. Turned with `ShikooController.setIranDirect`, which moves the core too.
+final shikooIranDirectProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.iranDirect'),
+);
 
 /// FlClash's l10n has no Persian, so the VPN notification, its toasts and the launcher shortcut
 /// take these. [locale] is null before ShikooApp's first frame.
