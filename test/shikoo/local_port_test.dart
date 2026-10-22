@@ -192,6 +192,25 @@ void main() {
       }, _RealHttp());
     });
 
+    test('the guard lets go of a helper port that takes the request and '
+        'never answers', () async {
+      final silent = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final held = <Socket>[];
+      silent.listen(held.add);
+      await HttpOverrides.runWithHttpOverrides(
+        () => guardThisProcess(
+          port: silent.port,
+          timeout: const Duration(milliseconds: 200),
+        ),
+        _RealHttp(),
+      );
+      expect(held, hasLength(1));
+      for (final socket in held) {
+        socket.destroy();
+      }
+      await silent.close();
+    });
+
     test("is this app's only while on and at its port", () {
       expect(proxyIsOurs(ours, 7890), isTrue);
       expect(

@@ -50,6 +50,7 @@ const PROTOCOL_VERSION_HEADER: &str = "x-flclash-helper-protocol";
 const PROTOCOL_VERSION: &str = "6";
 const EXPECTED_CORE_SHA256: &str = env!("CORE_SHA256");
 const LOG_CAPACITY: usize = 100;
+const BODY_LIMIT: u64 = 1024;
 const CORE_EXIT_TIMEOUT: Duration = Duration::from_millis(1500);
 const CORE_GRACEFUL_EXIT_TIMEOUT: Duration = Duration::from_millis(3000);
 const CORE_EXIT_POLL_INTERVAL: Duration = Duration::from_millis(20);
@@ -670,6 +671,8 @@ async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response,
     if rejection
         .find::<warp::filters::body::BodyDeserializeError>()
         .is_some()
+        || rejection.find::<warp::reject::LengthRequired>().is_some()
+        || rejection.find::<warp::reject::PayloadTooLarge>().is_some()
     {
         return Ok(error_response(
             "invalidRequest",
@@ -698,6 +701,12 @@ async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response,
     ))
 }
 
+/// The Helper runs as SYSTEM: a body gets read only when it says how long it is, and it is short.
+fn json_body<T: serde::de::DeserializeOwned + Send>(
+) -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
+    warp::body::content_length_limit(BODY_LIMIT).and(warp::body::json())
+}
+
 pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallible> + Clone {
     // Matching the path before the method keeps an unknown path rejecting as
     // "not found" instead of the method mismatch another endpoint reports.
@@ -710,13 +719,13 @@ pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallibl
     let api_start = warp::path("start")
         .and(warp::path::end())
         .and(warp::post())
-        .and(warp::body::json())
+        .and(json_body())
         .and_then(start_request);
 
     let api_stop = warp::path("stop")
         .and(warp::path::end())
         .and(warp::post())
-        .and(warp::body::json())
+        .and(json_body())
         .and_then(stop_request);
 
     let api_logs = warp::path("logs")
@@ -729,7 +738,7 @@ pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallibl
     let api = api.or(warp::path("guard")
         .and(warp::path::end())
         .and(warp::post())
-        .and(warp::body::json())
+        .and(json_body())
         .and_then(guard_request));
     api.recover(handle_rejection)
 }
@@ -1296,6 +1305,30 @@ mod tests {
             core_path().unwrap().file_name().unwrap(),
             std::ffi::OsStr::new(env!("CORE_NAME"))
         );
+    }
+
+    #[tokio::test]
+    async fn bodies_over_a_kilobyte_are_refused_before_they_are_read() {
+        let mut paths = vec!["/start", "/stop"];
+        if cfg!(all(feature = "windows-service", target_os = "windows")) {
+            paths.push("/guard");
+        }
+        let body = format!(
+            r#"{{"sessionId":"0123456789abcdef0123456789abcdef","pad":"{}"}}"#,
+            "x".repeat(BODY_LIMIT as usize)
+        );
+        for path in paths {
+            let response = warp::test::request()
+                .method("POST")
+                .path(path)
+                .header("content-type", "application/json")
+                .body(&body)
+                .reply(&routes())
+                .await;
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{path}");
+            let reply: serde_json::Value = serde_json::from_slice(response.body()).unwrap();
+            assert_eq!(reply["code"], "invalidRequest", "{path}");
+        }
     }
 
     #[cfg(all(feature = "windows-service", target_os = "windows"))]

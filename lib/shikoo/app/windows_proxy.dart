@@ -53,19 +53,20 @@ Future<bool> _listening(String host, int port) async {
 }
 
 /// The helper turns the proxy off once this process dies (`proxy_guard.rs`); a missing or older helper is no matter.
-Future<void> guardThisProcess({int port = helperPort}) async {
-  final client = HttpClient()
-    ..findProxy = ((_) => 'DIRECT')
-    ..connectionTimeout = const Duration(seconds: 2);
+Future<void> guardThisProcess({
+  int port = helperPort,
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final client = HttpClient()..findProxy = ((_) => 'DIRECT');
+  final body = utf8.encode(jsonEncode({'pid': pid}));
   try {
-    final body = utf8.encode(jsonEncode({'pid': pid}));
-    final request = await client.post(localhost, port, '/guard')
-      ..headers.contentType = ContentType.json
-      ..contentLength = body.length
-      ..add(body);
-    await (await request.close()).drain<void>().timeout(
-      const Duration(seconds: 5),
-    );
+    await () async {
+      final request = await client.post(localhost, port, '/guard')
+        ..headers.contentType = ContentType.json
+        ..contentLength = body.length
+        ..add(body);
+      await (await request.close()).drain<void>();
+    }().timeout(timeout);
   } catch (_) {
   } finally {
     client.close(force: true);

@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr, thread};
-use windows_sys::Win32::Foundation::{CloseHandle, GlobalFree, HANDLE, INVALID_HANDLE_VALUE};
+use windows_sys::Win32::Foundation::{
+    CloseHandle, GlobalFree, HANDLE, INVALID_HANDLE_VALUE, WAIT_TIMEOUT,
+};
 use windows_sys::Win32::NetworkManagement::Rras::{
     RasEnumEntriesW, ERROR_BUFFER_TOO_SMALL, RASENTRYNAMEW,
 };
@@ -48,7 +50,7 @@ impl Drop for Handle {
 /// it, as FlClash's `stopProxy` does; the app's next launch puts the setting from before it back.
 pub fn fix_proxy() -> Result<()> {
     let app = std::env::current_exe()?.with_file_name(APP_EXE);
-    if should_clear(lan_proxy(), || app_alive(&app), port_answers) && !set_direct() {
+    if should_clear(lan_proxy, || app_alive(&app), port_answers) && !set_direct() {
         bail!("could not turn Windows' proxy off");
     }
     Ok(())
@@ -59,9 +61,10 @@ static GUARDED: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 /// `POST /guard`: once this install's app at `pid` exits, `fix-proxy` runs as the user of its
 /// session, since WinINet is not for services. Any other process is refused.
 pub(super) fn guard(pid: u32) -> bool {
-    let Ok(helper) = std::env::current_exe() else {
-        return false;
-    };
+    std::env::current_exe().is_ok_and(|helper| guard_beside(pid, helper))
+}
+
+fn guard_beside(pid: u32, helper: PathBuf) -> bool {
     let (Some(process), Some(session)) = (
         open_app(pid, &helper.with_file_name(APP_EXE)),
         session_of(pid),
@@ -87,20 +90,26 @@ pub(super) fn guard(pid: u32) -> bool {
     true
 }
 
+/// One that has already exited is refused, or every call for it would start a cleaner of its own.
 fn open_app(pid: u32, app: &Path) -> Option<Handle> {
     let process = open(pid, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE)?;
-    image_path(&process)
-        .is_some_and(|image| is_app(&image, app))
-        .then_some(process)
+    // SAFETY: a wait of no time on a handle this function owns.
+    let running = unsafe { WaitForSingleObject(process.0, 0) } == WAIT_TIMEOUT;
+    (running && image_path(&process).is_some_and(|image| is_app(&image, app))).then_some(process)
+}
+
+/// Quoted, since the folder under Program Files has a space in its name.
+fn cleaner_command(helper: &Path) -> OsString {
+    let mut command = OsString::from("\"");
+    command.push(helper);
+    command.push("\" fix-proxy");
+    command
 }
 
 fn run_in_session(session: u32, helper: &Path) -> io::Result<()> {
     let wide = |text: &OsStr| -> Vec<u16> { text.encode_wide().chain([0]).collect() };
     let application = wide(helper.as_os_str());
-    let mut command = OsString::from("\"");
-    command.push(helper);
-    command.push("\" fix-proxy");
-    let mut command = wide(&command);
+    let mut command = wide(&cleaner_command(helper));
     let mut desktop = wide(OsStr::new(r"winsta0\default"));
     // SAFETY: LocalSystem holds the SE_TCB_NAME WTSQueryUserToken needs; every buffer outlives the
     // calls, and each handle and the environment block is released once.
@@ -141,15 +150,19 @@ fn run_in_session(session: u32, helper: &Path) -> io::Result<()> {
     }
 }
 
+/// The proxy is read again last: during the wait for the port another app, or this one's next
+/// launch putting the earlier setting back, may have set its own.
 fn should_clear(
-    lan: Option<(u32, String)>,
+    mut lan: impl FnMut() -> Option<(u32, String)>,
     app_alive: impl FnOnce() -> bool,
     port_answers: impl FnOnce() -> bool,
 ) -> bool {
-    lan.is_some_and(|(flags, server)| {
-        flags & PROXY_TYPE_PROXY != 0 && server == format!("127.0.0.1:{PROXY_PORT}")
-    }) && !app_alive()
-        && !port_answers()
+    let mut ours = || {
+        lan().is_some_and(|(flags, server)| {
+            flags & PROXY_TYPE_PROXY != 0 && server == format!("127.0.0.1:{PROXY_PORT}")
+        })
+    };
+    ours() && !port_answers() && !app_alive() && ours()
 }
 
 fn option(id: u32, value: u32) -> INTERNET_PER_CONN_OPTIONW {
@@ -200,8 +213,12 @@ fn lan_proxy() -> Option<(u32, String)> {
 }
 
 /// `stopProxy` of `plugins/proxy/windows/proxy_plugin.cpp`: DIRECT alone, on the LAN and every dial-up entry.
+fn direct_options() -> [INTERNET_PER_CONN_OPTIONW; 1] {
+    [option(INTERNET_PER_CONN_FLAGS, PROXY_TYPE_DIRECT)]
+}
+
 fn set_direct() -> bool {
-    let mut options = [option(INTERNET_PER_CONN_FLAGS, PROXY_TYPE_DIRECT)];
+    let mut options = direct_options();
     let mut list = option_list(&mut options);
     let mut set = |connection: *mut u16| {
         list.pszConnection = connection;
@@ -367,7 +384,7 @@ mod tests {
 
     fn clears(flags: u32, server: &str, app_alive: bool, port_answers: bool) -> bool {
         should_clear(
-            Some((flags, server.to_string())),
+            || Some((flags, server.to_string())),
             || app_alive,
             || port_answers,
         )
@@ -384,22 +401,74 @@ mod tests {
         for server in ["127.0.0.1:10808", &format!("http={OURS};https={OURS}"), ""] {
             assert!(!clears(ON, server, false, false), "{server}");
         }
-        assert!(!should_clear(None, || false, || false));
+        assert!(!should_clear(|| None, || false, || false));
+    }
+
+    #[test]
+    fn reads_the_proxy_then_the_port_then_the_app_then_the_proxy_again() {
+        let asked = std::cell::RefCell::new(Vec::new());
+        let ours = || Some((ON, OURS.to_string()));
+        let cleared = should_clear(
+            || {
+                asked.borrow_mut().push("proxy");
+                ours()
+            },
+            || {
+                asked.borrow_mut().push("app");
+                false
+            },
+            || {
+                asked.borrow_mut().push("port");
+                false
+            },
+        );
+        assert!(cleared);
+        assert_eq!(*asked.borrow(), ["proxy", "port", "app", "proxy"]);
+
+        let mut reads = 0;
+        let set_back_during_the_wait = || {
+            reads += 1;
+            if reads == 1 {
+                ours()
+            } else {
+                Some((ON, "127.0.0.1:10808".to_string()))
+            }
+        };
+        assert!(!should_clear(set_back_during_the_wait, || false, || false));
     }
 
     #[test]
     fn asks_about_the_app_and_its_port_only_for_this_builds_proxy() {
         let unasked = || -> bool { panic!("asked") };
         assert!(!should_clear(
-            Some((ON, OTHER_BUILD.to_string())),
+            || Some((ON, OTHER_BUILD.to_string())),
             unasked,
             unasked
         ));
         assert!(!should_clear(
-            Some((ON, OURS.to_string())),
-            || true,
-            unasked
+            || Some((ON, OURS.to_string())),
+            unasked,
+            || true
         ));
+    }
+
+    #[test]
+    fn writes_direct_alone() {
+        let [flags] = direct_options();
+        assert_eq!(flags.dwOption, INTERNET_PER_CONN_FLAGS);
+        assert_eq!(unsafe { flags.Value.dwValue }, PROXY_TYPE_DIRECT);
+    }
+
+    #[test]
+    fn the_cleaner_command_quotes_a_folder_with_a_space() {
+        assert_eq!(
+            cleaner_command(Path::new(
+                r"C:\Program Files\ShikooNet Test\ShikooNetHelperService.exe"
+            )),
+            OsString::from(
+                r#""C:\Program Files\ShikooNet Test\ShikooNetHelperService.exe" fix-proxy"#
+            )
+        );
     }
 
     #[test]
@@ -418,48 +487,84 @@ mod tests {
         }
     }
 
-    /// Windows' own ping under the app's name, in a folder of its own.
-    fn spawn_named_app(folder: &str) -> (Child, PathBuf) {
-        let directory = std::env::temp_dir().join(format!("{folder}-{}", std::process::id()));
-        std::fs::create_dir_all(&directory).unwrap();
-        let app = directory.join(APP_EXE);
-        let system = std::env::var_os("SystemRoot").unwrap();
-        std::fs::copy(Path::new(&system).join(r"System32\PING.EXE"), &app).unwrap();
-        let child = Command::new(&app)
-            .args(["-n", "60", "127.0.0.1"])
-            .stdout(Stdio::null())
-            .spawn()
-            .unwrap();
-        (child, app)
+    /// Windows' own ping under the app's name, in a folder of its own that goes with it.
+    struct NamedApp {
+        child: Child,
+        path: PathBuf,
+    }
+
+    impl NamedApp {
+        fn spawn(folder: &str) -> Self {
+            let directory = std::env::temp_dir().join(format!("{folder}-{}", std::process::id()));
+            std::fs::create_dir_all(&directory).unwrap();
+            let path = directory.join(APP_EXE);
+            let system = std::env::var_os("SystemRoot").unwrap();
+            std::fs::copy(Path::new(&system).join(r"System32\PING.EXE"), &path).unwrap();
+            let child = Command::new(&path)
+                .args(["-n", "60", "127.0.0.1"])
+                .stdout(Stdio::null())
+                .spawn()
+                .unwrap();
+            Self { child, path }
+        }
+
+        fn end(&mut self) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+
+    impl Drop for NamedApp {
+        fn drop(&mut self) {
+            self.end();
+            let _ = std::fs::remove_dir_all(self.path.parent().unwrap());
+        }
     }
 
     #[test]
     fn the_app_is_alive_only_from_its_own_folder() {
-        let (mut child, app) = spawn_named_app("shikoo-proxy-guard-alive");
-        let alive = app_alive(&app);
-        let other = app_alive(&app.with_file_name("Other").join(APP_EXE));
-        child.kill().unwrap();
-        child.wait().unwrap();
-        drop(child);
-        assert!(alive);
-        assert!(!other);
-        assert!(!app_alive(&app));
-        std::fs::remove_dir_all(app.parent().unwrap()).unwrap();
+        let mut app = NamedApp::spawn("shikoo-proxy-guard-alive");
+        assert!(app_alive(&app.path));
+        assert!(!app_alive(&app.path.with_file_name("Other").join(APP_EXE)));
+        app.end();
+        assert!(!app_alive(&app.path));
     }
 
     #[test]
     fn guards_only_the_app_beside_the_helper() {
-        let (mut child, app) = spawn_named_app("shikoo-proxy-guard-open");
-        let opened = open_app(child.id(), &app).is_some();
-        let elsewhere = open_app(child.id(), &app.with_file_name("Other").join(APP_EXE)).is_some();
-        child.kill().unwrap();
-        child.wait().unwrap();
-        assert!(opened);
-        assert!(!elsewhere);
+        let app = NamedApp::spawn("shikoo-proxy-guard-open");
+        assert!(open_app(app.child.id(), &app.path).is_some());
+        let elsewhere = app.path.with_file_name("Other").join(APP_EXE);
+        assert!(open_app(app.child.id(), &elsewhere).is_none());
         let beside_the_test = std::env::current_exe().unwrap().with_file_name(APP_EXE);
         assert!(open_app(std::process::id(), &beside_the_test).is_none());
         assert!(!guard(std::process::id()));
         assert!(!guard(0));
-        std::fs::remove_dir_all(app.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn guards_a_running_app_once_and_refuses_it_once_it_has_exited() {
+        let mut app = NamedApp::spawn("shikoo-proxy-guard-once");
+        let pid = app.child.id();
+        let helper = app.path.with_file_name("ShikooNetHelperService.exe");
+        let guards = || {
+            GUARDED
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|&&p| p == pid)
+                .count()
+        };
+        assert!(guard_beside(pid, helper.clone()));
+        assert!(guard_beside(pid, helper.clone()));
+        assert_eq!(guards(), 1);
+        app.end();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while guards() > 0 {
+            assert!(Instant::now() < deadline, "still guarded after the exit");
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert!(!guard_beside(pid, helper));
+        assert_eq!(guards(), 0);
     }
 }
