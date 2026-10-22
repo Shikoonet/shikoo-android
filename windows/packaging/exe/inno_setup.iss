@@ -32,6 +32,7 @@ WizardStyle=modern
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed={{ARCH}}
 ArchitecturesInstallIn64BitMode={{ARCH}}
+MinVersion=10.0
 
 [Code]
 // Only this install's programs: the other flavor runs the same names from its own folder,
@@ -138,6 +139,9 @@ Name: "{autoprograms}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"
 Name: "{autodesktop}\{#Title}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"; Tasks: desktopicon
 [Messages]
 SelectTasksLabel2=Select the additional tasks you would like Setup to perform while installing [name], then click Install.
+; Inno 6.7.3 shows this one message for both ArchitecturesAllowed and MinVersion. The box reads left to right, so a
+; Persian line ending in a period or a colon shows it at its start: none at the ends, and the handle on its own line.
+WindowsVersionNotSupported=شیکونت فقط روی نسخهٔ ۶۴ بیتی ویندوز ۱۰ یا ۱۱ نصب می‌شود و روی این کامپیوتر نصب نمی‌شود%nاپ شیکونت را روی گوشی نصب کن، یا در تلگرام به پشتیبانی پیام بده%n@admiinturbo%n%nShikooNet needs 64-bit Windows 10 or 11.
 
 [Run]
 ; Installed here, with the rights Setup already has, so the first tunnel asks for none. PrepareToInstall removed it.

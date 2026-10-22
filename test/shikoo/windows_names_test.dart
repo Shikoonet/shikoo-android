@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart' show helperServiceName;
 import 'package:fl_clash/shikoo/engine/mode.dart' show shikooDesktopPort;
+import 'package:fl_clash/shikoo/engine/settings.dart' show ShikooLinks;
 import 'package:flutter_test/flutter_test.dart';
 
 String read(String path) => File(path).readAsStringSync();
@@ -164,16 +165,19 @@ void main() {
     );
   });
 
-  test('the installer is English only, in three pages ending in Install, '
-      'installs the helper service on every install, and removes it even '
-      'without its file', () {
+  test('the installer is English but for its one Windows-too-old message, in '
+      'three pages ending in Install, installs the helper service on every '
+      'install, and removes it even without its file', () {
     final iss = read('windows/packaging/exe/inno_setup.iss');
 
     expect(
       read('windows/packaging/exe/make_config.yaml'),
       contains('locales:\n  - lang: en\nprivileges_required'),
     );
-    expect(iss, isNot(contains(RegExp('[؀-ۿ]'))));
+    expect(
+      iss.replaceFirst(_versionMessage, ''),
+      isNot(contains(RegExp('[؀-ۿ]'))),
+    );
     expect(
       iss,
       allOf(contains('DisableDirPage=yes'), contains('DisableReadyPage=yes')),
@@ -345,8 +349,46 @@ void main() {
       contains('display_name: ShikooNet\n'),
     );
   });
+
+  test('a 32-bit or pre-10 Windows stops Setup with one message: two Persian '
+      'lines without end punctuation, the support handle on its own line, '
+      'then one English line', () {
+    final iss = read('windows/packaging/exe/inno_setup.iss');
+    String sectionAt(int at) => RegExp(
+      r'^\[\w+\]$',
+      multiLine: true,
+    ).allMatches(iss.substring(0, at)).last[0]!;
+    final message = _versionMessage.firstMatch(iss);
+
+    for (final line in [
+      'ArchitecturesAllowed={{ARCH}}',
+      'ArchitecturesInstallIn64BitMode={{ARCH}}',
+      'MinVersion=10.0',
+    ]) {
+      final at = iss.indexOf('\n$line\n');
+      expect(at, isNot(-1), reason: line);
+      expect(sectionAt(at), '[Setup]', reason: line);
+      final key = '\n${line.split('=').first}=';
+      expect(key.allMatches(iss), hasLength(1), reason: line);
+    }
+    expect(message, isNotNull);
+    expect(sectionAt(message!.start), '[Messages]');
+    final lines = message[1]!.split('%n');
+    expect(lines, hasLength(5));
+    for (final persian in lines.take(2)) {
+      expect(persian, contains(RegExp('[؀-ۿ]')));
+      expect(persian, isNot(matches(RegExp(r'[.:،؛!؟]$'))));
+    }
+    expect(lines[1], allOf(contains('گوشی'), contains('پشتیبانی')));
+    expect(lines[2], ShikooLinks.support.replaceFirst('https://t.me/', '@'));
+    expect(lines.skip(3), ['', 'ShikooNet needs 64-bit Windows 10 or 11.']);
+  });
 }
 
+final _versionMessage = RegExp(
+  r'^WindowsVersionNotSupported=(.*)$',
+  multiLine: true,
+);
 const _run = r'Software\Microsoft\Windows\CurrentVersion\Run';
 const _approved =
     r'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run';
