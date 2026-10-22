@@ -213,16 +213,16 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     });
   }
 
-  /// The top bar's «پشتیبانی»: the one link every service shares, or a list of them. The list's
-  /// pick is reported with the screen as it was at this tap.
+  /// The top bar's «پشتیبانی»: the one link every service shares, Shikoo's with none on the home,
+  /// or a list of them. The list's pick is reported with the screen as it was at this tap.
   Future<void> _support(List<_Shown> services, {required bool isTV}) async {
-    final [first, ...rest] = services;
-    if (rest.every((service) => service.link == first.link)) {
+    final links = {for (final service in services) service.link};
+    if (links.length < 2) {
       return openSupport(
         context,
         isTV: isTV,
-        link: first.link,
-        below: rest.isEmpty ? first.below : null,
+        link: links.firstOrNull ?? ShikooLinks.support,
+        below: services.length == 1 ? services.single.below : null,
         trigger: 'support',
       );
     }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -66,6 +67,7 @@ Future<ValueNotifier<ShikooState>> _pump(
   String locale = 'fa',
   ShikooController? controller,
   ShikooAccount? account,
+  ShikooDiag? diag,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -81,7 +83,7 @@ Future<ValueNotifier<ShikooState>> _pump(
     ProviderScope(
       key: UniqueKey(),
       overrides: [
-        noShots,
+        diag == null ? noShots : shikooDiagProvider.overrideWithValue(diag),
         shikooVersionProvider.overrideWithValue('1.0.0'),
         if (controller != null)
           shikooControllerProvider.overrideWithValue(controller),
@@ -3387,6 +3389,59 @@ void main() {
     ]);
   });
 
+  testWidgets("with the account's one service ended long ago and no link here, "
+      "the home shows none: support at the top opens Shikoo's own, and there "
+      'is no renew', (tester) async {
+    await _pump(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: true,
+        servers: [],
+      ),
+      account: ShikooAccount(
+        bot: 'Test_Shikoo_bot',
+        services: [
+          LinkedService(
+            id: 61,
+            title: 'acct61 · طلایی',
+            status: 'expired',
+            expiresAt: shikooNow().subtract(const Duration(days: 40)),
+          ),
+        ],
+      ),
+    );
+    expect(find.widgetWithText(ShikooButton, 'تمدید'), findsNothing);
+    await tester.tap(_top('پشتیبانی'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('برای کدام سرویس پشتیبانی می‌خواهی؟'), findsNothing);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      ShikooLinks.support,
+    );
+  });
+
+  testWidgets('support picked from the list reports the screen as it was at '
+      "the top bar's tap, never a second picture over the list", (
+    tester,
+  ) async {
+    final shots = _CountShots();
+    final (state, account) = _many(helpOf7: 'https://t.me/help_b');
+    await _pump(tester, state, account: account, diag: shots);
+    await tester.tap(_top('پشتیبانی'));
+    await tester.pumpAndSettle();
+    expect(shots.taken, 1, reason: 'at the tap, before the list');
+    await tester.tap(find.text(bidiName('7000000123_700a')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      'https://t.me/help_b',
+    );
+    expect(shots.taken, 1);
+  });
+
   // Last, as the font stays for every test after: the widths are Vazirmatn's, as on a phone.
   group('in Vazirmatn', () {
     setUpAll(loadShikooFonts);
@@ -3411,6 +3466,13 @@ void main() {
         final name = find.text(l.appName);
         expect(name, word ? findsOneWidget : findsNothing, reason: why);
         expect(find.byType(BrandMark), findsOneWidget, reason: why);
+        if (!word) {
+          expect(
+            find.bySemanticsLabel(l.appName),
+            findsOneWidget,
+            reason: '$why: a screen reader still hears the name',
+          );
+        }
         final renew = tester.getRect(_top(l.renew));
         expect(renew.height, ShikooSizes.touch, reason: '$why: not shrunk');
         if (word) {
@@ -3479,6 +3541,16 @@ void main() {
       ],
     ),
   );
+}
+
+class _CountShots extends NoShots {
+  int taken = 0;
+
+  @override
+  Future<Uint8List?> captureScreen() async {
+    taken++;
+    return null;
+  }
 }
 
 /// The top bar's own [label]: it comes before any card's.

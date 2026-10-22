@@ -230,23 +230,11 @@ Future<void> chooseService(
                 ),
               ),
               if (chip != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.s3,
-                    vertical: Space.s1,
-                  ),
-                  decoration: ShapeDecoration(
-                    color: choice.ok ? t.c.positiveSoft : t.c.dangerSoft,
-                    shape: const StadiumBorder(),
-                  ),
-                  child: Text(
-                    chip,
-                    style: t.text(
-                      t.s.caption,
-                      weight: FontWeight.w700,
-                      color: choice.ok ? t.c.positive : t.c.danger,
-                    ),
-                  ),
+                StatusChip(
+                  status: choice.ok
+                      ? ShikooServiceStatus.active
+                      : ShikooServiceStatus.expired,
+                  label: chip,
                 ),
               SvgIcon(
                 ShikooIcon.chevronFwd,

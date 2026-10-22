@@ -906,17 +906,22 @@ String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
     };
 
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.status}) : disabled = false;
+  const StatusChip({super.key, required this.status, this.label})
+    : disabled = false;
 
   /// A finished service of the account; one the shop turned off reads «غیرفعال شد», not expired.
   StatusChip.linked(LinkedService service, {super.key})
     : status = service.status == 'exhausted'
           ? ShikooServiceStatus.exhausted
           : ShikooServiceStatus.expired,
-      disabled = service.disabled;
+      disabled = service.disabled,
+      label = null;
 
   final ShikooServiceStatus status;
   final bool disabled;
+
+  /// In place of [status]'s own words, as the top bar's lists' «تمام‌شده».
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -933,7 +938,7 @@ class StatusChip extends StatelessWidget {
         shape: const StadiumBorder(),
       ),
       child: Text(
-        disabled ? l.finishedDisabled : statusLabel(l, status),
+        label ?? (disabled ? l.finishedDisabled : statusLabel(l, status)),
         style: t.text(
           t.s.caption,
           weight: FontWeight.w700,
