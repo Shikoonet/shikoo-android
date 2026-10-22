@@ -9,17 +9,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Every core of this build ready, as a package that lands flips its own.
-final _allReady = _readiness(true);
-final _noneReady = {
-  ..._readiness(false),
-  ShikooCore.mihomo: shikooCoreSpecs[ShikooCore.mihomo]!,
+/// Readiness is set here, not by the build, so a package that flips its own core's flag breaks nothing.
+Map<ShikooCore, ShikooCoreSpec> _readyOnly(Set<ShikooCore> ready) => {
+  for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
+    core: (
+      ready: core == ShikooCore.mihomo || ready.contains(core),
+      shape: spec.shape,
+      serves: spec.serves,
+    ),
 };
 
-Map<ShikooCore, ShikooCoreSpec> _readiness(bool ready) => {
-  for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
-    core: (ready: ready, shape: spec.shape, serves: spec.serves),
-};
+final _allReady = _readyOnly(ShikooCore.values.toSet());
+final _noneReady = _readyOnly(const {});
 
 const _reality = {
   'name': 'آلمان ۱',
