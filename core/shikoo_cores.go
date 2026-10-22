@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/log"
@@ -68,9 +69,10 @@ func shikooCoresRewrite(raw *config.RawConfig) {
 			proxies[j] = raw.Proxy[i]
 		}
 		replacements, stop, err := start(proxies)
-		if err == nil && len(replacements) != len(at) {
-			stop()
-			err = fmt.Errorf("%d replacements for %d servers", len(replacements), len(at))
+		if err == nil {
+			if err = shikooCoresMatch(proxies, replacements); err != nil {
+				stop()
+			}
 		}
 		if err != nil {
 			log.Warnln("[SHIKOO] core %s failed; mihomo carries its %d servers: %v", name, len(at), err)
@@ -81,6 +83,26 @@ func shikooCoresRewrite(raw *config.RawConfig) {
 		}
 		shikooCoresStarting = append(shikooCoresStarting, stop)
 	}
+}
+
+// shikooCoresMatch: a replacement under another name leaves the groups naming a proxy that is gone, and the config fails.
+func shikooCoresMatch(proxies, replacements []map[string]any) error {
+	if len(replacements) != len(proxies) {
+		return fmt.Errorf("%d replacements for %d servers", len(replacements), len(proxies))
+	}
+	for j, proxy := range proxies {
+		if name, _ := replacements[j]["name"].(string); name != fmt.Sprint(proxy["name"]) {
+			return fmt.Errorf("replacement %d is named %q, not %q", j, name, proxy["name"])
+		}
+	}
+	return nil
+}
+
+func shikooCoresShutdown() {
+	for _, stop := range slices.Concat(shikooCoresRunning, shikooCoresStarting) {
+		stop()
+	}
+	shikooCoresRunning, shikooCoresStarting = nil, nil
 }
 
 func shikooCoresCommit() {

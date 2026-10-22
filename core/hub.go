@@ -88,6 +88,7 @@ func handleShutdown() bool {
 	listener.StopListener()
 	updater.StopGeoUpdater()
 	executor.Shutdown()
+	shikooCoresShutdown()
 	currentConfig = nil
 	isInit.Store(false)
 	configMu.Unlock()
