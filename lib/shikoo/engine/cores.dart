@@ -2,12 +2,16 @@ import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
 import 'package:fl_clash/shikoo/engine/core_sing_box.dart';
 import 'package:fl_clash/shikoo/engine/core_wireguard.dart';
 import 'package:fl_clash/shikoo/engine/core_xray.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum ShikooCore { mihomo, xray, singBox, wireguard, openvpn }
 
 enum ShikooShape { mihomo, behindMihomo, ownsTunnel }
 
 enum ShikooProtocol { vless, wireguard, openvpn, ssh, other }
+
+enum ShikooPlatform { android, windows }
 
 typedef ShikooChoices = Map<ShikooProtocol, ShikooCore>;
 
@@ -19,15 +23,23 @@ typedef ShikooCoreSpec = ({
 
 typedef ShikooCoreOption = ({ShikooCore core, bool ready});
 
-/// [chosen] is mihomo while the user's pick is not ready in this build.
+/// [chosen] and [defaultCore] (what a protocol gets with no pick of the user's) are mihomo while not ready.
 typedef ShikooCoreRow = ({
   ShikooProtocol protocol,
   ShikooCore chosen,
+  ShikooCore defaultCore,
   List<ShikooCoreOption> options,
 });
 
+/// A protocol not listed defaults to mihomo. OpenVPN: Sam, 2026-10-23.
+const shikooDefaultCores = <ShikooProtocol, ShikooCore>{
+  ShikooProtocol.openvpn: ShikooCore.openvpn,
+};
+
 /// The proxy key `shikooCoresRewrite` (core/shikoo_cores.go) reads and removes.
 const shikooCoreKey = 'shikoo-core';
+
+const shikooOwnerKey = 'shikoo-owner';
 
 const ShikooCoreSpec _mihomo = (
   ready: true,
@@ -43,6 +55,28 @@ const shikooCoreSpecs = <ShikooCore, ShikooCoreSpec>{
   ShikooCore.singBox: singBoxSpec,
   ShikooCore.wireguard: wireguardSpec,
   ShikooCore.openvpn: openvpnSpec,
+};
+
+/// A ready core whose engine runs on some platforms only; one missing here is ready on every platform.
+const shikooReadyOn = <ShikooCore, Set<ShikooPlatform>>{};
+
+final shikooCoreSpecsProvider = Provider<Map<ShikooCore, ShikooCoreSpec>>(
+  (ref) => readyHere(
+    ref.watch(shikooDesktopProvider)
+        ? ShikooPlatform.windows
+        : ShikooPlatform.android,
+  ),
+);
+
+Map<ShikooCore, ShikooCoreSpec> readyHere(
+  ShikooPlatform platform, {
+  Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
+  Map<ShikooCore, Set<ShikooPlatform>> readyOn = shikooReadyOn,
+}) => {
+  for (final MapEntry(key: core, value: spec) in specs.entries)
+    core: readyOn[core]?.contains(platform) ?? true
+        ? spec
+        : (ready: false, shape: spec.shape, serves: spec.serves),
 };
 
 /// Read from the profile's own mapping: mihomo names a server it handed to Xray `Socks5`.
@@ -63,7 +97,8 @@ ShikooCore coreFor(
   bool tunnel = true,
 }) {
   final protocol = protocolOf(server);
-  final core = choices[protocol] ?? ShikooCore.mihomo;
+  final core =
+      choices[protocol] ?? shikooDefaultCores[protocol] ?? ShikooCore.mihomo;
   final spec = specs[core]!;
   return spec.ready &&
           spec.serves(protocol, server) &&
@@ -72,20 +107,26 @@ ShikooCore coreFor(
       : ShikooCore.mihomo;
 }
 
-/// Go replaces a server it handed to a core, so one it left to mihomo still has its own type.
+/// Go swaps a server it hands behind mihomo, so a kept type means mihomo; [carried]: the owner Go reports ('' none).
 ShikooCore runningCore(
   Map<String, dynamic>? source,
   String runningType,
   ShikooChoices choices, {
   Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
   bool tunnel = true,
+  String? carried,
 }) {
   final server = source ?? {'type': runningType};
   final core = coreFor(server, choices, specs: specs, tunnel: tunnel);
-  if (specs[core]!.shape != ShikooShape.behindMihomo) return core;
-  return '${server['type']}'.toLowerCase() == runningType.toLowerCase()
-      ? ShikooCore.mihomo
-      : core;
+  return switch (specs[core]!.shape) {
+    ShikooShape.mihomo => core,
+    ShikooShape.ownsTunnel =>
+      carried == null || carried == core.name ? core : ShikooCore.mihomo,
+    ShikooShape.behindMihomo =>
+      '${server['type']}'.toLowerCase() == runningType.toLowerCase()
+          ? ShikooCore.mihomo
+          : core,
+  };
 }
 
 List<ShikooCoreRow> coreRows(
@@ -98,6 +139,7 @@ List<ShikooCoreRow> coreRows(
       (
         protocol: protocol,
         chosen: coreFor({'type': protocol.name}, choices, specs: specs),
+        defaultCore: coreFor({'type': protocol.name}, const {}, specs: specs),
         options: [
           for (final MapEntry(key: core, value: spec) in specs.entries)
             if (spec.serves(protocol, const {}))
@@ -127,9 +169,13 @@ Map<String, dynamic> markCores(
     if (proxy is! Map) return proxy;
     final server = Map<String, dynamic>.from(proxy);
     final core = coreFor(server, choices, specs: specs);
-    if (specs[core]!.shape != ShikooShape.behindMihomo) return proxy;
+    final shape = specs[core]!.shape;
+    if (shape == ShikooShape.mihomo) return proxy;
     marked = true;
-    return {...server, shikooCoreKey: core.name};
+    final key = shape == ShikooShape.ownsTunnel
+        ? shikooOwnerKey
+        : shikooCoreKey;
+    return {...server, key: core.name};
   }
 
   final out = [for (final proxy in proxies) mark(proxy)];

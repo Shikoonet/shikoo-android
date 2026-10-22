@@ -17,14 +17,29 @@ import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/test_profiles.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
+
+/// The proxy of each connection the app opens, null for direct; every one is refused.
+class _Legs extends HttpOverrides {
+  final proxies = <String?>[];
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) =>
+      super.createHttpClient(context)
+        ..connectionFactory = (_, host, port) {
+          proxies.add(host == null ? null : '$host:$port');
+          return Future.error(const SocketException('refused'));
+        };
+}
 
 class _Proxies extends ProxiesAction {
   final picked = <String>[];
@@ -53,6 +68,9 @@ class _Setup extends SetupAction {
   /// Holds an apply open until completed.
   Completer<void>? gate;
 
+  /// What the core runs after an apply, as FlClash's updateGroups would then read it.
+  void Function()? onApply;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
@@ -67,6 +85,7 @@ class _Setup extends SetupAction {
   }) async {
     applies++;
     await gate?.future;
+    onApply?.call();
     return true;
   }
 }
@@ -87,7 +106,7 @@ class _Timeline extends ShikooDiag {
 Map<ShikooCore, ShikooCoreSpec> _ready(Set<ShikooCore> cores) => {
   for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
     core: (
-      ready: spec.ready || cores.contains(core),
+      ready: core == ShikooCore.mihomo || cores.contains(core),
       shape: spec.shape,
       serves: spec.serves,
     ),
@@ -125,6 +144,8 @@ Future<_Home> _home({
     'B': 'Vless',
     'W': 'WireGuard',
   },
+  ShikooCarrying? Function()? carrying,
+  bool desktop = false,
   bool proxy = false,
 }) async {
   SharedPreferences.setMockInitialValues({});
@@ -144,10 +165,10 @@ Future<_Home> _home({
       trafficPassesProvider.overrideWithValue(() async => setup.traffic),
       shikooDiagProvider.overrideWithValue(_Timeline()),
       shikooCoreSpecsProvider.overrideWithValue(_ready(ready)),
-      if (proxy) ...[
-        shikooDesktopProvider.overrideWithValue(true),
-        shikooModeProvider.overrideWith(_ProxyMode.new),
-      ],
+      shikooDesktopProvider.overrideWithValue(desktop || proxy),
+      if (proxy) shikooModeProvider.overrideWith(_ProxyMode.new),
+      if (carrying != null)
+        ownerCarryingProvider.overrideWithValue(() async => carrying()),
     ],
   );
   addTearDown(container.dispose);
@@ -163,17 +184,7 @@ Future<_Home> _home({
   }
   container.read(currentProfileIdProvider.notifier).value = profile.id;
   container.read(initProvider.notifier).value = true;
-  container.read(groupsProvider.notifier).value = [
-    Group(
-      type: GroupType.Selector,
-      name: 'PROXY',
-      hidden: false,
-      all: [
-        for (final MapEntry(:key, :value) in running.entries)
-          Proxy(name: key, type: value),
-      ],
-    ),
-  ];
+  _run(container, running);
   container.listen(shikooStateProvider, (_, _) {});
   final controller = container.read(shikooControllerProvider);
   await pumpEventQueue();
@@ -185,6 +196,23 @@ Future<_Home> _home({
     setup: setup,
   );
 }
+
+/// The servers' types as the core runs them: Go swaps a server it hands to a core for a `Socks5`.
+void _run(ProviderContainer container, Map<String, String> running) =>
+    container.read(groupsProvider.notifier).value = [
+      Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          for (final MapEntry(:key, :value) in running.entries)
+            Proxy(name: key, type: value),
+        ],
+      ),
+    ];
+
+const _onMihomo = {'A': 'Vless', 'B': 'Vless', 'W': 'WireGuard'};
+const _vlessHandedOver = {'A': 'Socks5', 'B': 'Socks5', 'W': 'WireGuard'};
 
 Future<void> _connectOn(_Home home, String name) async {
   await home.controller.selectServer(name);
@@ -204,6 +232,12 @@ void main() {
     AppPath.supportDirectory = AppPath.temporaryDirectory =
         AppPath.cacheDirectory = () async => files;
     AppPath.downloadDirectory = () async => files;
+    globalState.packageInfo = PackageInfo(
+      appName: 'FlClash',
+      packageName: 'com.follow.clash',
+      version: '0.8.98',
+      buildNumber: '1',
+    );
   });
 
   test('each server carries its profile protocol and the core really carrying '
@@ -286,6 +320,7 @@ void main() {
     final home = await _home(ready: {ShikooCore.xray});
     await _connectOn(home, 'A');
     final gate = home.setup.gate = Completer<void>();
+    home.setup.onApply = () => _run(home.container, _vlessHandedOver);
 
     final setting = home.controller.setCore(
       ShikooProtocol.vless,
@@ -306,7 +341,9 @@ void main() {
     ));
     expect(home.setup.runs, isNot(contains(false)));
 
+    home.setup.onApply = () => _run(home.container, _onMihomo);
     await home.controller.setCore(ShikooProtocol.vless, ShikooCore.mihomo);
+    home.setup.onApply = () => _run(home.container, _vlessHandedOver);
     when(() => home.core.asyncTestDelay(any(), any())).thenAnswer(
       (call) async => Delay(
         name: call.positionalArguments[1] as String,
@@ -328,6 +365,23 @@ void main() {
     );
     await Future<void>.delayed(switchedFor);
     expect(home.container.read(shikooStateProvider).coreSwitch, isNull);
+  });
+
+  test('connected, a pick whose engine never starts is told failed even though '
+      'the server answers through mihomo, which keeps carrying it with the pick '
+      'kept', () async {
+    final home = await _home(ready: {ShikooCore.xray});
+    await _connectOn(home, 'A');
+    home.setup.onApply = () => _run(home.container, _onMihomo);
+
+    await home.controller.setCore(ShikooProtocol.vless, ShikooCore.xray);
+
+    final state = home.container.read(shikooStateProvider);
+    expect(state.coreSwitch?.stage, ShikooSwitchStage.failed);
+    expect(state.connection, ShikooConnection.on);
+    expect(state.selectedServer?.core, ShikooCore.mihomo);
+    expect(state.cores.first.chosen, ShikooCore.xray);
+    expect(home.setup.runs, isNot(contains(false)));
   });
 
   test(
@@ -413,4 +467,87 @@ void main() {
       reason: 'a VLESS server with no answer is not tried on traffic',
     );
   });
+
+  for (final (label, report, core, stage) in [
+    (
+      'never started: mihomo carries it, and the switch fails',
+      (core: '', server: ''),
+      ShikooCore.mihomo,
+      ShikooSwitchStage.failed,
+    ),
+    (
+      'carries it: the switch lands',
+      (core: 'wireguard', server: 'W'),
+      ShikooCore.wireguard,
+      ShikooSwitchStage.done,
+    ),
+  ]) {
+    test('connected, an owner core the Go core reports as $label', () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        carrying: () => report,
+      );
+      await _connectOn(home, 'W');
+      home.setup.runs.clear();
+
+      await home.controller.setCore(
+        ShikooProtocol.wireguard,
+        ShikooCore.wireguard,
+      );
+
+      final state = home.container.read(shikooStateProvider);
+      expect(home.setup.runs, [false, true]);
+      expect(state.selectedServer?.core, core);
+      expect(state.coreSwitch?.stage, stage);
+      expect(
+        home.container.read(shikooCoresProvider)[ShikooProtocol.wireguard],
+        ShikooCore.wireguard,
+      );
+    });
+  }
+
+  for (final (label, desktop, report, aside) in [
+    (
+      'on Windows, an owner core carrying the server in use sends them through '
+          "mihomo's port",
+      true,
+      (core: 'wireguard', server: 'W'),
+      true,
+    ),
+    (
+      'on Android the app is out of the VPN: direct',
+      false,
+      (core: 'wireguard', server: 'W'),
+      false,
+    ),
+    (
+      'on Windows, an owner engine that never started leaves mihomo the tunnel: '
+          'direct',
+      true,
+      (core: '', server: ''),
+      false,
+    ),
+  ]) {
+    test("connected, the app's own direct requests: $label", () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+        carrying: () => report,
+        desktop: desktop,
+      );
+      await _connectOn(home, 'W');
+      final mihomo =
+          'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
+      globalState.container = home.container;
+      final legs = _Legs();
+
+      await HttpOverrides.runWithHttpOverrides(() async {
+        try {
+          await home.controller.refreshService();
+        } catch (_) {}
+      }, legs);
+
+      expect(legs.proxies, aside ? [mihomo] : [null, mihomo]);
+    });
+  }
 }
