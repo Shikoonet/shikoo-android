@@ -2,7 +2,7 @@ import 'package:fl_clash/shikoo/engine/cores.dart';
 
 /// Package h1 of docs/multi-core.md: Xray inside the Go core, behind mihomo.
 const ShikooCoreSpec xraySpec = (
-  ready: false,
+  ready: true,
   shape: ShikooShape.behindMihomo,
   serves: _serves,
 );
