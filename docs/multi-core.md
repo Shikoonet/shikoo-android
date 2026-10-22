@@ -81,6 +81,9 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - A core this build lacks shows switched off with «به‌زودی». So the state carries every core that can carry a protocol,
   with `ready`, rather than dropping the ones that are not ready.
 - If the new core does not connect, the customer sees only «وصل نشد». There is no automatic way back to the old core.
+- **2026-10-23:** if the picked core's engine does not start at all, Go leaves its servers to mihomo, which keeps
+  carrying them: the customer sees «وصل نشد», the server shows «با میهومو» (`ShikooServer.core`), and the pick stays.
+  For owner cores the same rule is package h2's to build.
 - Changing the core while connected uses today's server-switch notices («در حال رفتن به…» / «حالا از … وصلی»), named
   after the core. The state's `coreSwitch` carries it.
 - Screens: design «الف», a «هسته‌ها» group in settings with one row per protocol the customer's services hold
@@ -113,8 +116,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     pick, or mihomo while the pick is not ready) and `options`, every core that can carry it with `ready`.
   - `ShikooState.coreSwitch`: `(protocol, to, stage)` while a core change moves the server in use.
   - `setCore(protocol, core)`: stores the pick, writes a timeline line for diagnostics, and re-applies the config.
-    Connected, if the server in use changes core, it shows `moving`, then `done` when that server answers through the new
-    core (or real traffic passes), else `failed`, and the pick stays.
+    Connected, if the server in use changes core, it shows `moving`, then `done` only when, with the groups read again
+    after the apply, that server's `ShikooServer.core` is the new core and it answers (or real traffic passes); else
+    `failed`, and the pick stays. The answer alone proves nothing: a server Go left to mihomo answers through mihomo.
   - The reconnect rule, in `selectServer` and `setCore`: while connected, reconnect when the selected server's *tunnel
     key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and `<core>/<server>` for an owner core.
     `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
@@ -173,7 +177,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 | `lib/shikoo/app/main.dart` | load the choice before `runApp` |
 | `lib/shikoo/engine/diag.dart` | the chosen cores in the report (proposed) |
 | `lib/providers/actions/setup.dart` (upstream) | the `markCores` call |
-| `core/shikoo_cores.go` (new), `core/common.go` | registry, rewrite, commit |
+| `core/shikoo_cores.go` (new), `core/common.go`, `core/hub.go` | registry, rewrite, commit, stop on shutdown |
 | `core/go.mod` (`go` and `godebug` lines), the Go version in `tools/wsl-toolchain.sh:41`, `.github/workflows/shikoo-ci.yml:19`, `shikoo-staging.yml:19` and the Windows toolchain | Go 1.27 (build-engineer) |
 
 **Shared; ه۲ owns them, ه۳ builds on ه۲'s branch:** `VpnOptions` (Kotlin, Dart and its generated file,
@@ -203,14 +207,16 @@ core packages add none).
 3. The controller: protocol and core per server, `ShikooState.cores` and `coreSwitch`, `setCore`, the reconnect rule,
    and WireGuard's ping exception by the profile's protocol (§4).
 4. The `setup.dart` line; the Go registry and the `loadConfig` and commit hooks.
-5. Go 1.27.3: the `go 1.27` line with `godebug default=go1.21`, and the version in the WSL and Windows toolchain
+5. Go 1.27.3: the `go 1.27` line with `toolchain go1.27.3` and `godebug default=go1.21`, and the version in the WSL and Windows toolchain
    scripts and both Shikoo workflows (`SHIKOO_PATCHES.md` row 49). The `godebug` line keeps the runtime defaults the
    core had under `go 1.21`, `tlsmlkem=0` included (package «س»'s advice); REALITY does not read that setting, since
    `metacubex/utls` v1.8.8 has the read commented out (`defaults.go:15,21`). `-checklinkname=0` is not in the base: no
    dependency here needs it. The first of h1 (Xray) and h4 (sing-box) to land adds it to `go_ldflags` in
    `build_config.yaml`; the other makes the same one-line change, which git merges cleanly. The Windows script now installs its own Go under
    `D:\dev\windows-toolchain\go`; the shared `D:\dev\android-toolchain` is left alone.
-6. Tests: `test/shikoo/cores_test.dart`, `test/shikoo/cores_wiring_test.dart`, `core/shikoo_cores_test.go`, and the
+6. Tests: `test/shikoo/cores_test.dart`, `test/shikoo/cores_wiring_test.dart`, `test/shikoo/cores_config_test.dart`
+   (FlClash's own `getProfile` marks a ready core's servers), `core/shikoo_cores_test.go` (a replacement under
+   another name, the old generation stopped only after `hub.ApplyConfig`, shutdown), and the
    profile-folder fixture in `test/shikoo/core_recover_test.dart` (a test that finishes FlClash's boot now reads profile
    files).
 
@@ -240,9 +246,11 @@ door would refuse the report), and pinging unopened services through another cor
 - Go 1.27 no longer has seven settings the core had under `go 1.21`, so `godebug default=go1.21` cannot keep them:
   `asynctimerchan` (timer channels), `tls10server`, `tls3des`, `tlsrsakex` and `tlsunsafeekm` (old TLS suites and
   key export), `x509keypairleaf` and `gotypesalias`. The base build has 31 GODEBUG keys and the new core 26.
-  **In practice the TLS client no longer offers RSA key exchange or 3DES.** Seen in the app's own ClientHello on the
-  emulator, 2026-10-22: a plain VLESS+TLS server got no RSA-kex and no 3DES suite. A server that accepts only those
-  would stop working; none is known.
+  **They touch only Go's standard `crypto/tls` and its timers.** VLESS+TLS and DoH go through `metacubex/tls` v0.1.8,
+  which always leaves RSA key exchange and 3DES out and always offers the ML-KEM curves, whatever GODEBUG says
+  (`defaults.go:16-21,52-58`); the verifier saw the same plain-TLS ClientHello (`rsa_kex=[] 3des=[]`) on the base build
+  with Go 1.26.10. Whatever in the core still uses the standard `crypto/tls` no longer offers RSA key exchange or
+  3DES; which parts those are was not listed.
 - Tested with Go 1.27.3 on 2026-10-22 (emulator, local servers): the core's unit tests; HTTP servers through the fake
   panel (ping, connect, switch, a dead server, disconnect); and a real VLESS REALITY handshake and a real VLESS+TLS
   one against a local mihomo v1.19.32, both pinging, both carrying traffic, a switch between them while connected.
