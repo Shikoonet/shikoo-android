@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:drift/native.dart';
 import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/desktop/model.dart';
 import 'package:fl_clash/core/interface.dart';
+import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
@@ -17,9 +19,11 @@ import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -4829,6 +4833,55 @@ void main() {
       expect(next.read(shikooModeProvider), ShikooMode.tunnel);
       await next.read(shikooModeProvider.notifier).load();
       expect(next.read(shikooModeProvider), ShikooMode.proxy);
+      await done(controller);
+    });
+
+    test('Iranian sites go direct from the start; turned while off, the next '
+        'connect reads it, and while connected in either mode the core takes '
+        'it in place, which the next launch keeps', () async {
+      final before = database;
+      database = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await database.close();
+        database = before;
+      });
+      Future<bool> stored() async =>
+          (await database.rulesDao.queryGlobalAddedRules().get()).any(
+            (rule) => rule.id == iranDirectIds,
+          );
+      final (:container, :setup) = windows();
+      final controller = await ready(container, setup);
+      var applied = 0;
+      setup.onApply = () => applied++;
+      bool shown() => container.read(shikooStateProvider).iranDirect;
+      expect(shown(), isTrue);
+
+      await controller.setIranDirect(false);
+      expect((applied, await stored(), shown()), (0, false, false));
+
+      await controller.connect();
+      for (final mode in [ShikooMode.tunnel, ShikooMode.proxy]) {
+        await controller.setMode(mode);
+        expect(tun(container), mode == ShikooMode.tunnel);
+        final (runs, from) = (setup.runs.length, applied);
+        for (final on in [true, false]) {
+          await controller.setIranDirect(on);
+          expect((await stored(), shown()), (on, on));
+        }
+        expect((setup.runs.length, applied - from), (runs, 2));
+      }
+
+      await controller.setIranDirect(true);
+      final next = ProviderContainer();
+      addTearDown(next.dispose);
+      await next.read(shikooIranDirectProvider.notifier).load();
+      expect(
+        (next.read(shikooIranDirectProvider), await stored()),
+        (true, true),
+      );
+      await controller.setIranDirect(false);
+      await next.read(shikooIranDirectProvider.notifier).load();
+      expect(next.read(shikooIranDirectProvider), isFalse);
       await done(controller);
     });
 
