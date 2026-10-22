@@ -1,7 +1,7 @@
 # CLAUDE.md — اپ اندروید شیکو (`shikoo-android`)
 
 > این پوشه ۲۰۲۶-۱۰-۰۲ ساخته شد تا کار اپ اندروید از `shikoo-platform` جدا باشد (خواستهٔ Sam).
-> از ۲۰۲۶-۱۰-۰۳ ریپوی private `Shikoonet/shikoo-android` است: فورک FlClash v0.8.98، با اجازهٔ Sam.
+> از ۲۰۲۶-۱۰-۰۳ ریپوی `Shikoonet/shikoo-android` است: فورک FlClash v0.8.98، با اجازهٔ Sam. ریپو **عمومی** (public) است: هر چه push شود همه می‌بینند، و دقیقه‌های GitHub Actions آن رایگان است.
 > این فایل در `.claude/CLAUDE.md` است و `CLAUDE.md` ریشه (مال FlClash) آن را صدا می‌زند.
 > هر چه این‌جا می‌نویسی کامیت می‌شود: نه رمز، نه لینک اشتراک، نه کلید.
 
