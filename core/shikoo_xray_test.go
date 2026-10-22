@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +14,8 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"os"
+	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/constant"
 	xcore "github.com/xtls/xray-core/core"
@@ -139,6 +143,117 @@ proxies:
 	if err == nil || !strings.Contains(err.Error(), "panicked") {
 		t.Errorf("err %v, want Xray's panic as an error", err)
 	}
+	// Past the conversion's checks again: Xray's config builder itself panics on this encryption.
+	err = xrayBuild(map[string]any{"protocol": "vless", "settings": map[string]any{
+		"address": "1.1.1.1", "port": 443, "id": xrayTestUUID, "encryption": "mlkem768x25519plus.native.0rtt.",
+	}})
+	if err == nil || !strings.Contains(err.Error(), "panicked") {
+		t.Errorf("err %v, want the builder's panic as this server's error", err)
+	}
+}
+
+func TestXrayStartsAServerAloneWhenTogetherTheyFail(t *testing.T) {
+	var started [][]string
+	previous := xrayRun
+	xrayRun = func(config map[string]any) (func(), error) {
+		var tags []string
+		for _, out := range config["outbounds"].([]any) {
+			tags = append(tags, out.(map[string]any)["tag"].(string))
+		}
+		started = append(started, tags)
+		if slices.Contains(tags, "out1") {
+			return nil, errors.New("refused while starting")
+		}
+		return func() {}, nil
+	}
+	t.Cleanup(func() { xrayRun = previous })
+	plain := func(name string) map[string]any {
+		return map[string]any{"name": name, "type": "vless", "server": "10.0.0.1", "port": 80, "uuid": xrayTestUUID}
+	}
+	replacements, stop, err := startXray([]map[string]any{plain("a"), plain("b"), plain("c")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop()
+	var types []any
+	for _, replacement := range replacements {
+		types = append(types, replacement["type"])
+	}
+	if fmt.Sprint(types) != "[socks5 vless socks5]" || fmt.Sprint(started[len(started)-1]) != "[out0 out2]" {
+		t.Errorf("types %v after starts %v: want only b on mihomo and the others started together", types, started)
+	}
+}
+
+// Values Xray meets only at run time, where its panic would end the whole app: each runs in a process of its own.
+var xrayRunTimeCases = map[string]map[string]any{
+	"xhttp posts of -5": {"type": "vless", "uuid": xrayTestUUID, "network": "xhttp",
+		"xhttp-opts": map[string]any{"path": "/p", "mode": "packet-up", "sc-max-each-post-bytes": "-5"}},
+	"xhttp posts from 0": {"type": "vless", "uuid": xrayTestUUID, "network": "xhttp",
+		"xhttp-opts": map[string]any{"path": "/p", "mode": "packet-up", "sc-max-each-post-bytes": "0-1000"}},
+	"xhttp posts past int32": {"type": "vless", "uuid": xrayTestUUID, "network": "xhttp",
+		"xhttp-opts": map[string]any{"path": "/p", "mode": "packet-up", "sc-max-each-post-bytes": "1-2147483648"}},
+	"wireguard mtu -1": {"type": "wireguard", "ip": "10.9.0.2", "mtu": -1},
+}
+
+func TestXrayBadValuesKeepTheProcess(t *testing.T) {
+	if os.Getenv("XRAY_RUN_TIME_CASE") != "" {
+		t.Skip("child")
+	}
+	began := time.Now()
+	for name := range xrayRunTimeCases {
+		child := exec.Command(os.Args[0], "-test.run", "^TestXrayRunTimeCase$", "-test.count=1")
+		child.Env = append(os.Environ(), "XRAY_RUN_TIME_CASE="+name)
+		out, err := child.CombinedOutput()
+		if err != nil || !strings.Contains(string(out), "kept the process") {
+			t.Errorf("%s: the process ended (%v): %s", name, err, out[:min(len(out), 400)])
+		}
+	}
+	t.Logf("%d cases in %v", len(xrayRunTimeCases), time.Since(began).Round(time.Millisecond))
+}
+
+func TestXrayRunTimeCase(t *testing.T) {
+	name := os.Getenv("XRAY_RUN_TIME_CASE")
+	if name == "" {
+		t.Skip("parent")
+	}
+	server, client := wgPair(t), wgPair(t)
+	ports := [2]int{}
+	for i := range ports {
+		ports[i], _ = freeLoopbackPort()
+	}
+	_, err := runXray(map[string]any{
+		"inbounds": []any{
+			map[string]any{"listen": "127.0.0.1", "port": ports[0], "protocol": "vless", "settings": map[string]any{
+				"clients": []any{map[string]any{"id": xrayTestUUID}}, "decryption": "none"},
+				"streamSettings": map[string]any{"network": "xhttp", "xhttpSettings": map[string]any{"path": "/p"}}},
+			map[string]any{"listen": "127.0.0.1", "port": ports[1], "protocol": "wireguard", "settings": map[string]any{
+				"secretKey": server.private, "peers": []any{map[string]any{"publicKey": client.public, "allowedIPs": []string{"10.9.0.2/32"}}}}},
+		},
+		"outbounds": []any{map[string]any{"protocol": "freedom", "settings": map[string]any{"finalRules": []any{map[string]any{"action": "allow"}}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := with(xrayRunTimeCases[name], map[string]any{"name": "bad", "server": "127.0.0.1", "port": ports[0], "udp": true})
+	if proxy["type"] == "wireguard" {
+		proxy = with(proxy, map[string]any{"port": ports[1], "private-key": client.private, "public-key": server.public})
+	}
+	replacements, stop, err := startXray([]map[string]any{proxy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	if replacements[0]["type"] == "socks5" {
+		parsed, err := adapter.ParseProxy(replacements[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, _ = parsed.URLTest(ctx, "http://"+net.JoinHostPort(outsideIP(t), "9")+"/", anyDelayTestStatus)
+		cancel()
+		time.Sleep(time.Second)
+	}
+	fmt.Println("kept the process")
 }
 
 func TestXraySocksIsLoopbackAndNeedsItsPassword(t *testing.T) {
