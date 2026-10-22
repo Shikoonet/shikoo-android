@@ -15,6 +15,7 @@ import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
@@ -56,6 +57,13 @@ typedef ShikooSwitch = ({String to, String from, ShikooSwitchStage stage});
 
 typedef ShikooLanded = ({int id, bool arrived});
 
+/// A core change while connected that moves the server in use, told as a server switch is.
+typedef ShikooCoreSwitch = ({
+  ShikooProtocol protocol,
+  ShikooCore to,
+  ShikooSwitchStage stage,
+});
+
 /// The open card's list while another service has the tunnel: measured there, never connected to.
 typedef ShikooOpened = ({
   int id,
@@ -80,12 +88,19 @@ class ShikooServer {
     this.ping,
     this.testing = false,
     this.fresh = false,
+    this.protocol = ShikooProtocol.other,
+    this.core = ShikooCore.mihomo,
   });
 
   final String name;
 
   /// The engine's protocol name, kept as data so a new protocol needs no screen change.
   final String type;
+
+  final ShikooProtocol protocol;
+
+  /// The core carrying it now: mihomo too when the user's pick cannot, or this build lacks it.
+  final ShikooCore core;
 
   /// Milliseconds; null = not tested yet, -1 = no answer.
   final int? ping;
@@ -276,6 +291,8 @@ class ShikooState {
     this.landed,
     this.busyPort,
     this.helperFailed = false,
+    this.cores = const [],
+    this.coreSwitch,
   });
 
   final ShikooConnection connection;
@@ -314,6 +331,11 @@ class ShikooState {
 
   final int? busyPort;
   final bool helperFailed;
+
+  /// A row per protocol the customer's services have; [ShikooServer.core] is what each server really gets.
+  final List<ShikooCoreRow> cores;
+
+  final ShikooCoreSwitch? coreSwitch;
 
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
@@ -402,6 +424,17 @@ final _switchServiceProvider = _cell<int?>(null);
 
 /// The tunnel's real start; FlClash's run time starts at the press, before the consent dialog.
 final _nativeStartProvider = _cell<DateTime?>(null);
+
+/// Each service's servers as its profile has them, per id: the core only shows the type it runs.
+final _sourcesProvider = _cell<Map<int, Map<String, Map<String, dynamic>>>>(
+  const {},
+);
+
+final shikooCoreSpecsProvider = Provider<Map<ShikooCore, ShikooCoreSpec>>(
+  (_) => shikooCoreSpecs,
+);
+
+final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
 typedef _Extras = ({String? announce, String? supportUrl, String? account});
@@ -584,17 +617,33 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final selected = byName.containsKey(chosen) ? chosen : null;
   final switching = ref.watch(_switchProvider);
   final switchService = ref.watch(_switchServiceProvider);
+  final choices = ref.watch(shikooCoresProvider);
+  final specs = ref.watch(shikooCoreSpecsProvider);
+  final sources = ref.watch(_sourcesProvider);
+  final tunnel =
+      !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun;
   List<ShikooServer> listOf(
     int? id,
     Map<String, String> types,
+    Map<String, Map<String, dynamic>> sources,
     _Round round, {
     Set<String> fresh = const {},
+    bool loaded = true,
   }) {
     bool testing(String name) =>
         round.pending.contains(name) ||
         (switching?.stage == ShikooSwitchStage.moving &&
             switching?.to == name &&
             switchService == id);
+    ShikooCore coreOf(String name) => loaded
+        ? runningCore(
+            sources[name],
+            types[name]!,
+            choices,
+            specs: specs,
+            tunnel: tunnel,
+          )
+        : coreFor(sources[name]!, choices, specs: specs, tunnel: tunnel);
     return [
       for (final name in keepOrder(orders[id] ?? const [], [...types.keys]))
         ShikooServer(
@@ -603,6 +652,8 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
           ping: testing(name) ? null : pings[id]?[name],
           testing: testing(name),
           fresh: fresh.contains(name),
+          protocol: protocolOf(sources[name] ?? {'type': types[name]}),
+          core: coreOf(name),
         ),
     ];
   }
@@ -610,6 +661,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final servers = listOf(
     profile?.id,
     {for (final proxy in byName.values) proxy.name: proxy.type},
+    sources[profile?.id] ?? const {},
     round,
     fresh: fresh,
   );
@@ -625,10 +677,16 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     if ((opened.id == profile?.id && !landing) || !ids.contains(opened.id)) {
       return null;
     }
-    final servers = listOf(opened.id, {
-      for (final MapEntry(:key, :value) in opened.proxies.entries)
-        key: '${value['type']}',
-    }, openRound);
+    final servers = listOf(
+      opened.id,
+      {
+        for (final MapEntry(:key, :value) in opened.proxies.entries)
+          key: '${value['type']}',
+      },
+      opened.proxies,
+      openRound,
+      loaded: false,
+    );
     return (
       id: opened.id,
       servers: servers,
@@ -676,6 +734,16 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     landed: ref.watch(_landedProvider),
     busyPort: intent.busyPort,
     helperFailed: intent.helperFailed,
+    cores: coreRows(
+      {
+        for (final id in ids)
+          for (final server in sources[id]?.values ?? const <Never>[])
+            protocolOf(server),
+      },
+      choices,
+      specs: specs,
+    ),
+    coreSwitch: ref.watch(_coreSwitchProvider),
   );
 });
 
@@ -892,7 +960,10 @@ int? serviceInstead(ShikooState state) {
 class ShikooController {
   // Microtasks: Riverpod forbids writing other providers while this one is being built.
   ShikooController(this._ref) {
-    _ref.onDispose(() => _switched?.cancel());
+    _ref.onDispose(() {
+      _switched?.cancel();
+      _coreSwitched?.cancel();
+    });
     _ref.listen(shikooStateProvider.select(serviceInstead), (_, id) {
       if (id != null) scheduleMicrotask(() => selectService(id));
     }, fireImmediately: true);
@@ -921,9 +992,22 @@ class ShikooController {
         if (!_arrived && service != null && names.isNotEmpty) {
           scheduleMicrotask(_arrive);
         }
+        if (service != null && names.isNotEmpty) {
+          scheduleMicrotask(_loadSources);
+        }
       },
       fireImmediately: true,
     );
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => [for (final x in s.listed) '${x.id} ${x.updatedAt}'].join(','),
+      ),
+      (_, _) => scheduleMicrotask(_loadSources),
+      fireImmediately: true,
+    );
+    _ref.listen(initProvider, (_, init) {
+      if (init) scheduleMicrotask(_loadSources);
+    });
     _ref.listen(runTimeProvider.select((time) => time != null), (_, running) {
       scheduleMicrotask(
         running
@@ -1001,6 +1085,8 @@ class ShikooController {
   int _deaths = 0;
   String? _pickInCore;
   Timer? _switched;
+  Timer? _coreSwitched;
+  int _coreMove = 0;
   String? _awaiting;
   DateTime _awaitingUntil = DateTime(0);
 
@@ -1238,6 +1324,72 @@ class ShikooController {
     await connect();
   }
 
+  /// A core behind mihomo only needs the config again; a change of who owns the tunnel needs a reconnect.
+  /// Connected, moving the server in use is told as a server switch, and a failed one stays (Sam, 2026-10-22).
+  Future<void> setCore(ShikooProtocol protocol, ShikooCore core) async {
+    final name = _validSelection();
+    final was = _ref.read(shikooStateProvider).selectedServer?.core;
+    final before = name == null ? null : _tunnelKeyOf(name);
+    await _ref.read(shikooCoresProvider.notifier).set(protocol, core);
+    _ref
+        .read(shikooDiagProvider)
+        .add('T', 'core ${protocol.name} ${core.name}');
+    if (_ref.read(currentProfileProvider) == null) return;
+    final to = name == null ? null : _coreFor(name);
+    final move = ++_coreMove;
+    final told =
+        _running && !_ref.read(_intentProvider).connecting && to != was;
+    void show(ShikooSwitchStage stage) =>
+        _coreSwitching((protocol: protocol, to: to!, stage: stage), move);
+    if (told) show(ShikooSwitchStage.moving);
+    await _setup.applyProfile(silence: true);
+    if (name == null) return;
+    final up = _running || _ref.read(_intentProvider).connecting;
+    if (up && _tunnelKeyOf(name) != before) {
+      await disconnect();
+      await connect();
+    }
+    if (!told) return;
+    final group = _group;
+    final passes =
+        _running &&
+        group != null &&
+        await _probe(_testUrl(group), name) != null;
+    show(passes ? ShikooSwitchStage.done : ShikooSwitchStage.failed);
+  }
+
+  void _coreSwitching(ShikooCoreSwitch next, int move) {
+    if (move != _coreMove) return;
+    _coreSwitched?.cancel();
+    final cell = _ref.read(_coreSwitchProvider.notifier)..set(next);
+    if (next.stage != ShikooSwitchStage.moving) {
+      _coreSwitched = Timer(switchedFor, () => cell.set(null));
+    }
+  }
+
+  bool get _tunnel =>
+      !_ref.read(shikooDesktopProvider) || _ref.read(shikooModeProvider).tun;
+
+  ShikooCore _coreFor(String name, [_Opened? other]) {
+    final running = _serversOf(
+      _group,
+    ).firstWhereOrNull((proxy) => proxy.name == name)?.type;
+    return coreFor(
+      other?.proxies[name] ??
+          _ref.read(_sourcesProvider)[_current]?[name] ??
+          {'type': running},
+      _ref.read(shikooCoresProvider),
+      specs: _ref.read(shikooCoreSpecsProvider),
+      tunnel: _tunnel,
+    );
+  }
+
+  String _tunnelKeyOf(String name, [_Opened? other]) => tunnelKey(
+    _coreFor(name, other),
+    name,
+    specs: _ref.read(shikooCoreSpecsProvider),
+  );
+
   void onVpnConsent(String result) {
     if (!_ref.read(_intentProvider).connecting) return;
     _attempt++;
@@ -1391,7 +1543,17 @@ class ShikooController {
     final from = _validSelection();
     final connected = _running && !_ref.read(_intentProvider).connecting;
     if (connected && from != null && (other != null || from != name)) {
-      return _switchTo(name, from, tap, other);
+      if (_tunnelKeyOf(from) == _tunnelKeyOf(name, other)) {
+        return _switchTo(name, from, tap, other);
+      }
+      if (other == null) {
+        await _choose(name, byApp: false);
+      } else {
+        await _moveTo(other, name);
+        await _ref.read(serviceAppliedProvider)();
+      }
+      await disconnect();
+      return connect();
     }
     if (other != null) return _moveTo(other, name);
     await _choose(name, byApp: false);
@@ -1427,13 +1589,15 @@ class ShikooController {
       },
     );
     if (tap != _tap) return;
-    final type =
-        mapping?['type'] ??
-        _serversOf(
-          _group,
-        ).firstWhereOrNull((proxy) => proxy.name == name)?.type;
-    if (type == null) return _switching(null);
-    if (ms <= 0 && '$type'.toLowerCase() != 'wireguard') {
+    final running = _serversOf(
+      _group,
+    ).firstWhereOrNull((proxy) => proxy.name == name)?.type;
+    final source =
+        mapping ??
+        _ref.read(_sourcesProvider)[target]?[name] ??
+        (running == null ? null : {'type': running});
+    if (source == null) return _switching(null);
+    if (ms <= 0 && protocolOf(source) != ShikooProtocol.wireguard) {
       _setPing(target, name, -1);
       return show(ShikooSwitchStage.failed);
     }
@@ -1972,6 +2136,19 @@ class ShikooController {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Profiles are readable only once FlClash's boot has set their folder; a failed read keeps what was there.
+  Future<void> _loadSources() async {
+    if (!_ref.read(initProvider)) return;
+    final loaded = <int, Map<String, Map<String, dynamic>>>{};
+    for (final service in _ref.read(shikooStateProvider).listed) {
+      final servers =
+          (await _mainGroupOf(service.id))?.servers ??
+          _ref.read(_sourcesProvider)[service.id];
+      if (servers != null) loaded[service.id] = servers;
+    }
+    _ref.read(_sourcesProvider.notifier).set(loaded);
   }
 
   Future<void> refreshOther(int id, {ShikooRoute? via}) async {

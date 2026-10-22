@@ -60,6 +60,7 @@ void main(List<String> args) {
         await keepApiDirect();
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
+        await container.read(shikooCoresProvider.notifier).load();
         await container.read(shikooSignInProvider).load();
         HttpOverrides.global = FlClashHttpOverrides(container);
         request.attach(container.read);
