@@ -184,8 +184,9 @@ assets do not count against that storage.
   built by `jq`. The door hashes every file and refuses a mismatch (422) without changing the live release. The token
   comes only from `DOOR_TOKEN`, goes to curl through a `0600` header file in a temporary folder, and is never on a command
   line or in the log.
-- The bot and a website link to `https://app.chopon.uk/dl/armeabi-v7a` and `…/dl/arm64-v8a`, which never change between
-  releases (panel rows, `docs/app-update.md` › Bot).
+- The bot and a website link to `https://app.livqoro.ir/dl/armeabi-v7a` and `…/dl/arm64-v8a` (ArvanCloud in front of the
+  door; `https://app.chopon.uk/dl/<abi>` still works), which never change between releases (panel rows,
+  `docs/app-update.md` › Bot).
 
 ## 4. Signing and door secrets
 
