@@ -276,6 +276,7 @@ class ShikooState {
     this.landed,
     this.busyPort,
     this.helperFailed = false,
+    this.iranDirect = true,
   });
 
   final ShikooConnection connection;
@@ -314,6 +315,9 @@ class ShikooState {
 
   final int? busyPort;
   final bool helperFailed;
+
+  /// Iranian sites bypass the VPN; turned with [ShikooController.setIranDirect].
+  final bool iranDirect;
 
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
@@ -676,6 +680,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     landed: ref.watch(_landedProvider),
     busyPort: intent.busyPort,
     helperFailed: intent.helperFailed,
+    iranDirect: ref.watch(shikooIranDirectProvider),
   );
 });
 
@@ -1236,6 +1241,14 @@ class ShikooController {
     }
     await disconnect();
     await connect();
+  }
+
+  /// While connected the core takes the new rules in place, with no reconnect.
+  Future<void> setIranDirect(bool on) async {
+    final saved = _ref.read(shikooIranDirectProvider.notifier).set(on);
+    await keepIranDirect(on);
+    if (_running) await _setup.applyProfile(silence: true);
+    await saved;
   }
 
   void onVpnConsent(String result) {

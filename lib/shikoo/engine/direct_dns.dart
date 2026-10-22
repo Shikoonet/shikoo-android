@@ -4,7 +4,15 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 
 const shikooDirectIds = 7470000;
+const iranDirectIds = shikooDirectIds + 200;
 const subscriptionDirectIds = shikooDirectIds + 500;
+
+/// `category-ir` holds all of `.ir`. `no-resolve`: resolving here would hold up every foreign site, so
+/// an IP counts only for a connection that came without a name.
+final iranDirectRules = [
+  Rule.parse('GEOSITE,category-ir,DIRECT', id: iranDirectIds),
+  Rule.parse('GEOIP,IR,DIRECT,no-resolve', id: iranDirectIds + 1),
+];
 
 final _tunDomain = RegExp(r'^\(\(IN-TYPE,TUN\),\(DOMAIN,([^()]+)\)\)$');
 
@@ -26,6 +34,7 @@ Map<String, dynamic> shikooDns(
 
 String? _domain(Rule rule) => switch (rule.ruleAction) {
   RuleAction.DOMAIN => rule.content,
+  RuleAction.GEOSITE => 'geosite:${rule.content}',
   RuleAction.AND => _tunDomain.firstMatch(rule.content ?? '')?[1],
   _ => null,
 };
