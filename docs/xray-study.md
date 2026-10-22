@@ -16,6 +16,9 @@ Xray's SOCKS behaviour.
 
 ## 1. Version, Go and the 32-bit crash
 
+- **Correction, 2026-10-22:** v26.10.17 was withdrawn: its release and its tag now answer 404 on GitHub's API. The
+  release to use is **v26.10.21** (2026-10-21, not a prerelease, `go 1.27` in its `go.mod`). Package «س» built it;
+  the lines below are the study's, about v26.10.17.
 - Newest release **v26.10.17** (2026-10-17, `prerelease=true`). GitHub's `releases/latest` is v26.3.27 (2026-03-27).
   *(review)* All 16 releases after v26.3.27 are prereleases, not "almost all".
 - v26.10.17 says `go 1.27` in `go.mod`; its official binaries report `go1.27.2`. v26.3.27 was built with Go 1.26.1

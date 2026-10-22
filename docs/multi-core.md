@@ -173,7 +173,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 | `lib/shikoo/engine/diag.dart` | the chosen cores in the report (proposed) |
 | `lib/providers/actions/setup.dart` (upstream) | the `markCores` call |
 | `core/shikoo_cores.go` (new), `core/common.go` | registry, rewrite, commit |
-| `core/go.mod` (`go` line), `build_config.yaml` (`-checklinkname=0`), the Go version in `tools/wsl-toolchain.sh:41`, `.github/workflows/shikoo-ci.yml:19`, `shikoo-staging.yml:19` and the Windows toolchain | Go 1.27 (build-engineer) |
+| `core/go.mod` (`go` and `godebug` lines), the Go version in `tools/wsl-toolchain.sh:41`, `.github/workflows/shikoo-ci.yml:19`, `shikoo-staging.yml:19` and the Windows toolchain | Go 1.27 (build-engineer) |
 
 **Shared; ه۲ owns them, ه۳ builds on ه۲'s branch:** `VpnOptions` (Kotlin, Dart and its generated file,
 `system.dart`), `VpnService.kt` `handleStart`, the `startTun` path (`Core.kt`, `core/lib.go`), and
@@ -202,8 +202,12 @@ core packages add none).
 3. The controller: protocol and core per server, `ShikooState.cores` and `coreSwitch`, `setCore`, the reconnect rule,
    and WireGuard's ping exception by the profile's protocol (§4).
 4. The `setup.dart` line; the Go registry and the `loadConfig` and commit hooks.
-5. Go 1.27.3: the `go 1.27` line, `-checklinkname=0`, and the version in the WSL and Windows toolchain scripts and both
-   Shikoo workflows (`SHIKOO_PATCHES.md` row 49). The Windows script now installs its own Go under
+5. Go 1.27.3: the `go 1.27` line with `godebug default=go1.21`, and the version in the WSL and Windows toolchain
+   scripts and both Shikoo workflows (`SHIKOO_PATCHES.md` row 49). The `godebug` line keeps the runtime defaults the
+   core had under `go 1.21`, `tlsmlkem=0` included (package «س»'s advice); REALITY does not read that setting, since
+   `metacubex/utls` v1.8.8 has the read commented out (`defaults.go:15,21`). `-checklinkname=0` is not in the base: no
+   dependency here needs it. The first of h1 (Xray) and h4 (sing-box) to land adds it to `go_ldflags` in
+   `build_config.yaml`; the other makes the same one-line change, which git merges cleanly. The Windows script now installs its own Go under
    `D:\dev\windows-toolchain\go`; the shared `D:\dev\android-toolchain` is left alone.
 6. Tests: `test/shikoo/cores_test.dart`, `test/shikoo/cores_wiring_test.dart`, `core/shikoo_cores_test.go`, and the
    profile-folder fixture in `test/shikoo/core_recover_test.dart` (a test that finishes FlClash's boot now reads profile
@@ -232,6 +236,8 @@ door would refuse the report), and pinging unopened services through another cor
 - Xray answers SOCKS before it dials (`docs/xray-study.md` §7): a dead server behind Xray shows only in ping, not as a
   dial error.
 - Behind-mihomo cores start with every config apply, even while disconnected: memory on the 2 GB box is unmeasured.
-- The Go 1.27 runtime defaults (GODEBUG) are tested by the core's unit tests and one emulator smoke test only: TLS
-  and REALITY on real servers, the 32-bit box and Windows are not yet re-tested with it.
+- Go 1.27 no longer has seven settings the core had under `go 1.21`, so `godebug default=go1.21` cannot keep them:
+  `asynctimerchan` (timer channels), `tls10server`, `tls3des`, `tlsrsakex` and `tlsunsafeekm` (old TLS suites and
+  key export), `x509keypairleaf` and `gotypesalias`. Tested so far: the core's unit tests and one emulator smoke test.
+  TLS and REALITY on real servers, the 32-bit box and Windows are not yet re-tested.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
