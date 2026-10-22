@@ -272,6 +272,9 @@ proxies:
 
 func udpRoundTrip(t *testing.T, proxy constant.Proxy, to *net.UDPAddr) string {
 	t.Helper()
+	if !proxy.SupportUDP() {
+		t.Errorf("%s: mihomo's tunnel would send it no UDP", proxy.Name())
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	ip, _ := netip.AddrFromSlice(to.IP.To4())
