@@ -49,13 +49,15 @@ List<String> switchNews(ShikooL10n l, ShikooSwitch shift) =>
       ],
     };
 
-/// A service under the top bar's «پشتیبانی»; [below] names it under the TV's code.
-typedef _Helped = ({
+/// A service the home shows, in its order with the ended last, for the top bar's lists.
+typedef _Shown = ({
   String name,
   String below,
   String link,
-  String chip,
-  bool? ok,
+  String? chip,
+  bool ok,
+  int? renewId,
+  bool renews,
 });
 
 /// Home, laid out after `design/mockups/tv.html` (frames `tv-home-*`) and `phone.html`.
@@ -213,7 +215,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 
   /// The top bar's «پشتیبانی»: the one link every service shares, or a list of them. The list's
   /// pick is reported with the screen as it was at this tap.
-  Future<void> _support(List<_Helped> services, {required bool isTV}) async {
+  Future<void> _support(List<_Shown> services, {required bool isTV}) async {
     final [first, ...rest] = services;
     if (rest.every((service) => service.link == first.link)) {
       return openSupport(
@@ -520,65 +522,60 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     // A home with no service has its own paste and support buttons in its card.
     final noService = current == null && unlinked.isEmpty;
     final onAdd = noService ? null : () => unawaited(_add());
-    void renew(int? id, String name) => openRenew(
-      context,
-      isTV: state.isTV,
-      bot: account.bot,
-      id: id,
-      name: name,
+    _Shown onDevice(ShikooService service) => (
+      name: plainTitle(context, service),
+      below: serviceTitle(context, service),
+      link: service.supportLink,
+      chip: switch (service.ended) {
+        null => l.statusActive,
+        ShikooServiceStatus.revoked => l.chipRevoked,
+        _ => l.chipFinished,
+      },
+      ok: service.ended == null,
+      renewId: account.serviceOf(service.id),
+      renews: !service.revoked && account.renewsOn(service.id),
     );
-    ServiceChoice renewing(ShikooService service) {
-      final name = plainTitle(context, service);
-      return (
-        name: name,
-        chip: service.finished ? l.chipFinished : l.statusActive,
-        ok: !service.finished,
-        open: () => renew(account.serviceOf(service.id), name),
-      );
-    }
-
-    // Home's order with the finished ones last: a finished full card, then the finished rows.
-    final renewable = <ServiceChoice>[
-      for (final service in cards)
-        if (service.ended == null && account.renewsOn(service.id))
-          renewing(service),
-      for (final service in cards)
-        if (service.finished && account.renewsOn(service.id)) renewing(service),
-      for (final row in [if (linkedTop != null) finished.first, ...rows])
-        if (account.renews(row))
-          (
-            name: row.name,
-            chip: l.chipFinished,
-            ok: false,
-            open: () => renew(row.renewId, row.name),
-          ),
+    // An account's service with no link here: the bot renews an active one by its own rule.
+    _Shown ofAccount(LinkedService linked) => (
+      name: linked.title,
+      below: bidiName(linked.title),
+      link: ShikooLinks.support,
+      chip: linked.finished
+          ? l.chipFinished
+          : (linked.status == 'active' ? l.statusActive : null),
+      ok: !linked.finished,
+      renewId: linked.id,
+      renews: linked.finished ? linked.renews : linked.botRenews,
+    );
+    final seen = [
+      for (final service in cards) onDevice(service),
+      for (final linked in noLink) ofAccount(linked),
+      if (linkedTop != null) ofAccount(linkedTop),
+      for (final service in revoked) onDevice(service),
+      for (final row in rows)
+        row.linked == null
+            ? onDevice(listed.firstWhere((s) => s.id == row.profileId))
+            : ofAccount(row.linked!),
     ];
-    final helped = <_Helped>[
-      for (final service in [
-        ...listed.where((service) => service.ended == null),
-        ...listed.where((service) => service.ended != null),
-      ])
-        (
-          name: plainTitle(context, service),
-          below: serviceTitle(context, service),
-          link: service.supportLink,
-          chip: switch (service.ended) {
-            null => l.statusActive,
-            ShikooServiceStatus.revoked => l.chipRevoked,
-            _ => l.chipFinished,
-          },
-          ok: service.ended == null,
-        ),
-      for (final linked in unlinked)
-        (
-          name: linked.title,
-          below: bidiName(linked.title),
-          link: ShikooLinks.support,
-          chip: linked.finished
-              ? l.chipFinished
-              : (linked.loadFailed ? l.loadFailedChip : l.noLinkChip),
-          ok: linked.finished || linked.loadFailed ? false : null,
-        ),
+    final shown = [
+      ...seen.where((service) => service.ok),
+      ...seen.where((service) => !service.ok),
+    ];
+    final renewable = <ServiceChoice>[
+      for (final service in shown)
+        if (service.renews)
+          (
+            name: service.name,
+            chip: service.chip,
+            ok: service.ok,
+            open: () => openRenew(
+              context,
+              isTV: state.isTV,
+              bot: account.bot,
+              id: service.renewId,
+              name: service.name,
+            ),
+          ),
     ];
     final onRenew = switch (renewable) {
       [] => null,
@@ -609,7 +606,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           icon: state.isTV ? ShikooIcon.qr : null,
           small: !state.isTV,
           focusNode: _topSupport,
-          onPressed: () => unawaited(_support(helped, isTV: state.isTV)),
+          onPressed: () => unawaited(_support(shown, isTV: state.isTV)),
         ),
     ];
     return PageWidth(

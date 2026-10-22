@@ -3128,7 +3128,7 @@ void main() {
 
     final (state, account) = _many();
     await _pump(tester, state, account: account);
-    Future<List<(String, String)>> open() async {
+    Future<List<(String, String?)>> open() async {
       await tester.tap(_top('تمدید'));
       await tester.pumpAndSettle();
       return _choices(tester, 'کدام سرویس را تمدید کنی؟');
@@ -3254,10 +3254,10 @@ void main() {
       expect(_choices(tester, 'برای کدام سرویس پشتیبانی می‌خواهی؟'), [
         ('user123', 'فعال'),
         ('7000000123_700a', 'فعال'),
-        ('7000000123_c0e0', 'تمام‌شده'),
         ('user456', 'لینک باطل شده'),
+        ('7000000123_c0e0', 'تمام‌شده'),
         ('user999', 'تمام‌شده'),
-      ]);
+      ], reason: "the home's order: the revoked card, then the finished row");
       await tester.tap(find.text(bidiName('7000000123_700a')));
       await tester.pumpAndSettle();
       expect(
@@ -3276,6 +3276,116 @@ void main() {
       );
     },
   );
+
+  testWidgets("renew at the top lists the account's services with no link "
+      'here that the bot renews, each by its own id, one whose state the '
+      'account does not name with no chip; one alone opens at once', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _phone(isTV: true),
+      account: const ShikooAccount(
+        bot: 'Test_Shikoo_bot',
+        services: [
+          LinkedService(id: 44, title: 'acct44 · نقره‌ای', status: 'active'),
+          LinkedService(id: 45, title: 'acct45 · برنزی', status: 'on_hold'),
+          LinkedService(
+            id: 46,
+            title: 'acct46 · طلایی',
+            status: 'active',
+            renewable: false,
+          ),
+        ],
+      ),
+    );
+    await tester.tap(_top('تمدید'));
+    await tester.pumpAndSettle();
+    expect(_choices(tester, 'کدام سرویس را تمدید کنی؟'), [
+      ('user123', 'فعال'),
+      ('acct44', 'فعال'),
+      ('acct45', null),
+    ], reason: 'not acct46, which the bot will not renew');
+    await tester.tap(find.text(bidiName('acct44')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      'https://t.me/Test_Shikoo_bot?start=rnw_44',
+    );
+
+    await _pump(
+      tester,
+      const ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: true,
+        servers: [],
+      ),
+      account: const ShikooAccount(
+        bot: 'Test_Shikoo_bot',
+        services: [
+          LinkedService(id: 44, title: 'acct44 · نقره‌ای', status: 'active'),
+        ],
+      ),
+    );
+    await tester.tap(_top('تمدید'));
+    await tester.pumpAndSettle();
+    expect(find.text('کدام سرویس را تمدید کنی؟'), findsNothing);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      'https://t.me/Test_Shikoo_bot?start=rnw_44',
+    );
+  });
+
+  testWidgets('support at the top weighs only what the home shows: a service '
+      'ended long ago, hidden there, neither makes a list with its own link '
+      'nor stands in one', (tester) async {
+    final now = shikooNow();
+    ShikooService service(int id, String name, {int days = 20, String? help}) =>
+        ShikooService(
+          id: id,
+          name: name,
+          usedBytes: 1 << 30,
+          totalBytes: 50 << 30,
+          expire: now.add(Duration(days: days)),
+          supportUrl: help,
+        );
+    final hidden = service(
+      5,
+      'user555 · طلایی',
+      days: -40,
+      help: 'https://t.me/help_old',
+    );
+    ShikooState home(List<ShikooService> more) => ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: true,
+      servers: _servers,
+      selected: 'آلمان ۲',
+      service: service(0, 'user123 · الماس'),
+      others: [hidden, ...more],
+    );
+    await _pump(tester, home([]));
+    expect(find.textContaining('user555'), findsNothing, reason: '40 days');
+    await tester.tap(_top('پشتیبانی'));
+    await tester.pumpAndSettle();
+    expect(find.text('برای کدام سرویس پشتیبانی می‌خواهی؟'), findsNothing);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      ShikooLinks.support,
+    );
+
+    await _pump(
+      tester,
+      home([service(7, 'user789 · معمولی', help: 'https://t.me/help_b')]),
+    );
+    await tester.tap(_top('پشتیبانی'));
+    await tester.pumpAndSettle();
+    expect(_choices(tester, 'برای کدام سرویس پشتیبانی می‌خواهی؟'), [
+      ('user123', 'فعال'),
+      ('user789', 'فعال'),
+    ]);
+  });
 
   // Last, as the font stays for every test after: the widths are Vazirmatn's, as on a phone.
   group('in Vazirmatn', () {
@@ -3374,8 +3484,8 @@ void main() {
 /// The top bar's own [label]: it comes before any card's.
 Finder _top(String label) => find.widgetWithText(ShikooButton, label).first;
 
-/// [title]'s list of services, top down: each row's name and its chip.
-List<(String, String)> _choices(WidgetTester tester, String title) {
+/// [title]'s list of services, top down: each row's name and its chip, for names with a tier.
+List<(String, String?)> _choices(WidgetTester tester, String title) {
   final dialog = find
       .ancestor(of: find.text(title), matching: find.byType(Column))
       .first;
@@ -3383,7 +3493,7 @@ List<(String, String)> _choices(WidgetTester tester, String title) {
       .descendant(of: dialog, matching: find.byType(Pressable))
       .evaluate()
       .toList();
-  (String, String) row(Element element) {
+  (String, String?) row(Element element) {
     final texts = [
       for (final text in tester.widgetList<Text>(
         find.descendant(
@@ -3395,7 +3505,7 @@ List<(String, String)> _choices(WidgetTester tester, String title) {
     ];
     final isolates = {0x2068, 0x2069};
     final name = texts.first.runes.where((rune) => !isolates.contains(rune));
-    return (String.fromCharCodes(name), texts.last);
+    return (String.fromCharCodes(name), texts.length > 2 ? texts.last : null);
   }
 
   // The last is «بستن».

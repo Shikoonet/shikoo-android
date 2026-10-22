@@ -163,11 +163,11 @@ void openRenew(
   );
 }
 
-/// A row of [chooseService]; [ok] null is a grey chip, as «بدون لینک».
+/// A row of [chooseService]; no [chip] for a state the account does not name.
 typedef ServiceChoice = ({
   String name,
-  String chip,
-  bool? ok,
+  String? chip,
+  bool ok,
   VoidCallback open,
 });
 
@@ -189,11 +189,7 @@ Future<void> chooseService(
       );
       Widget row(ServiceChoice choice, bool focused) {
         final [user, ...tier] = choice.name.split(' · ');
-        final (fill, ink) = switch (choice.ok) {
-          true => (t.c.positiveSoft, t.c.positive),
-          false => (t.c.dangerSoft, t.c.danger),
-          null => (t.c.surfaceSunken, t.c.textMuted),
-        };
+        final chip = choice.chip;
         return Container(
           constraints: BoxConstraints(minHeight: t.s.row),
           padding: const EdgeInsets.symmetric(
@@ -233,24 +229,25 @@ Future<void> chooseService(
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Space.s3,
-                  vertical: Space.s1,
-                ),
-                decoration: ShapeDecoration(
-                  color: fill,
-                  shape: const StadiumBorder(),
-                ),
-                child: Text(
-                  choice.chip,
-                  style: t.text(
-                    t.s.caption,
-                    weight: FontWeight.w700,
-                    color: ink,
+              if (chip != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.s3,
+                    vertical: Space.s1,
+                  ),
+                  decoration: ShapeDecoration(
+                    color: choice.ok ? t.c.positiveSoft : t.c.dangerSoft,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text(
+                    chip,
+                    style: t.text(
+                      t.s.caption,
+                      weight: FontWeight.w700,
+                      color: choice.ok ? t.c.positive : t.c.danger,
+                    ),
                   ),
                 ),
-              ),
               SvgIcon(
                 ShikooIcon.chevronFwd,
                 size: t.s.iconSm,
