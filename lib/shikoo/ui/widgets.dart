@@ -919,8 +919,6 @@ class StatusChip extends StatelessWidget {
 
   final ShikooServiceStatus status;
   final bool disabled;
-
-  /// In place of [status]'s own words, as the top bar's lists' «تمام‌شده».
   final String? label;
 
   @override
