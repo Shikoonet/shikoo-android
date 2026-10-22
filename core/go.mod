@@ -1,6 +1,6 @@
 module core
 
-go 1.21
+go 1.27
 
 replace github.com/metacubex/mihomo => ./Clash.Meta
 

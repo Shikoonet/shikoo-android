@@ -16,7 +16,7 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.47.1'
-  GO_VERSION: '1.26.10'
+  GO_VERSION: '1.27.3'
   NDK_VERSION: r28c
   VERSION_PREFIX: '1.0'
   APP_ID: com.shikoonet.app
