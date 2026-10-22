@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/inbound"
 	"github.com/metacubex/mihomo/component/updater"
 	"github.com/metacubex/mihomo/config"
@@ -844,5 +845,29 @@ func TestTestDelayStopsQueueingOnceTheTimeoutIsSpent(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("handleTestDelay outlived the timeout it was given, waiting for a slot")
+	}
+}
+
+func TestTestDelayWaitsTheGraceForWireGuard(t *testing.T) {
+	withWireGuardGrace(t, 400*time.Millisecond)
+	proxy, err := adapter.ParseProxy(deadWireGuard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = proxy.Close() })
+	tunnel.UpdateProxies(map[string]constant.Proxy{"wg": proxy}, nil)
+	t.Cleanup(func() { tunnel.UpdateProxies(nil, nil) })
+
+	start := time.Now()
+	delay := handleTestDelay(&TestDelayParams{
+		ProxyName: "wg",
+		TestUrl:   "http://10.0.0.1/generate_204",
+		Timeout:   200,
+	})
+	if delay == nil || delay.Value != -1 {
+		t.Fatalf("delay %+v; want -1 from a peer that never answers", delay)
+	}
+	if took := time.Since(start); took < 600*time.Millisecond {
+		t.Fatalf("gave up after %v, before the 200 ms timeout and the 400 ms grace", took)
 	}
 }
