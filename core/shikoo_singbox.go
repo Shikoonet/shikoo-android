@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
 
+	madapter "github.com/metacubex/mihomo/adapter"
 	mihomo "github.com/metacubex/mihomo/adapter/outbound"
 	"github.com/metacubex/mihomo/common/structure"
 	"github.com/metacubex/mihomo/component/dialer"
@@ -149,20 +152,11 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 				allowed = []string{"0.0.0.0/0", "::/0"}
 			}
 			sbPeers = append(sbPeers, map[string]any{"address": peer.Server, "port": peer.Port,
-				"public_key": peer.PublicKey, "pre_shared_key": peer.PreSharedKey, "allowed_ips": allowed,
-				"reserved": peer.Reserved, "persistent_keepalive_interval": o.PersistentKeepalive})
+				"public_key": peer.PublicKey, "pre_shared_key": peer.PreSharedKey,
+				"allowed_ips": singBoxPrefixes(allowed...), "reserved": peer.Reserved,
+				"persistent_keepalive_interval": o.PersistentKeepalive})
 		}
-		var address []string
-		prefix := func(ip, bits string) {
-			if ip != "" && !strings.Contains(ip, "/") {
-				ip += bits
-			}
-			if ip != "" {
-				address = append(address, ip)
-			}
-		}
-		prefix(o.Ip, "/32")
-		prefix(o.Ipv6, "/128")
+		address := singBoxPrefixes(o.Ip, o.Ipv6)
 		out = map[string]any{"type": "wireguard", "address": address, "private_key": o.PrivateKey, "peers": sbPeers,
 			"mtu": o.MTU, "domain_resolver": "proxy-server"}
 		return out, true, o.UDP, nil
@@ -220,8 +214,25 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 	return nil, false, false, fmt.Errorf("sing-box does not carry %v", proxy["type"])
 }
 
-// startSingBox runs one sing-box for every server it can carry: one SOCKS user per server on a loopback port,
-// and each server's sockets dialed by mihomo (singBoxMihomo).
+func singBoxPrefixes(ips ...string) (prefixes []string) {
+	for _, ip := range ips {
+		if addr, err := netip.ParseAddr(ip); err == nil {
+			ip = netip.PrefixFrom(addr, addr.BitLen()).String()
+		}
+		if ip != "" {
+			prefixes = append(prefixes, ip)
+		}
+	}
+	return prefixes
+}
+
+type singBoxServer struct {
+	index           int
+	out             map[string]any
+	isEndpoint, udp bool
+}
+
+// startSingBox runs one sing-box for the servers it can carry, each a SOCKS user on one loopback port.
 func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -232,34 +243,68 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 	password := rand.Text()
-	replacements := slices.Clone(proxies)
-	outbounds := []any{map[string]any{"type": "mihomo", "tag": "mihomo"}, map[string]any{"type": "block", "tag": "block"}}
-	var endpoints, users, rules []any
+	var servers []singBoxServer
 	for i, proxy := range proxies {
 		if !singBoxServes(proxy) {
 			continue
 		}
-		out, isEndpoint, udp, err := singBoxConvert(proxy)
-		if err != nil {
+		// A bad OpenVPN key panics in sing-openvpn's own goroutine and ends the app: mihomo's parser refuses it first.
+		parsed, err := madapter.ParseProxy(maps.Clone(proxy))
+		if err == nil {
+			parsed.Close()
+		}
+		out, isEndpoint, udp, convertErr := singBoxConvert(proxy)
+		if err = errors.Join(err, convertErr); err != nil {
 			log.Warnln("[SHIKOO] sing-box cannot carry %v; mihomo does: %v", proxy["name"], err)
 			continue
 		}
-		tag := "s" + strconv.Itoa(i)
-		out["tag"], out["detour"] = tag, "mihomo"
-		if isEndpoint {
-			endpoints = append(endpoints, out)
-		} else {
-			outbounds = append(outbounds, out)
+		out["tag"], out["detour"] = "s"+strconv.Itoa(i), "mihomo"
+		servers = append(servers, singBoxServer{i, out, isEndpoint, udp})
+	}
+	if len(servers) == 0 {
+		return proxies, func() {}, nil
+	}
+	instance, err := singBoxNew(singBoxConfig(port, password, servers), true)
+	if err != nil {
+		// One server sing-box refuses would take every other to mihomo: each refused one stays there alone.
+		kept := slices.DeleteFunc(slices.Clone(servers), func(server singBoxServer) bool {
+			check, err := singBoxNew(singBoxConfig(port, password, []singBoxServer{server}), false)
+			if err != nil {
+				log.Warnln("[SHIKOO] sing-box cannot carry %v; mihomo does: %v", proxies[server.index]["name"], err)
+				return true
+			}
+			check.Close()
+			return false
+		})
+		if len(kept) == 0 || len(kept) == len(servers) {
+			return nil, nil, err
 		}
-		users = append(users, map[string]any{"username": tag, "password": password})
-		rules = append(rules, map[string]any{"auth_user": tag, "outbound": tag})
-		replacements[i] = map[string]any{"name": proxy["name"], "type": "socks5", "server": "127.0.0.1", "port": port,
-			"username": tag, "password": password, "udp": udp}
+		servers = kept
+		if instance, err = singBoxNew(singBoxConfig(port, password, servers), true); err != nil {
+			return nil, nil, err
+		}
 	}
-	if len(users) == 0 {
-		return replacements, func() {}, nil
+	replacements := slices.Clone(proxies)
+	for _, server := range servers {
+		replacements[server.index] = map[string]any{"name": proxies[server.index]["name"], "type": "socks5",
+			"server": "127.0.0.1", "port": port, "username": server.out["tag"], "password": password, "udp": server.udp}
 	}
-	instance, err := singBoxNew(map[string]any{
+	return replacements, func() { instance.Close() }, nil
+}
+
+func singBoxConfig(port int, password string, servers []singBoxServer) map[string]any {
+	outbounds := []any{map[string]any{"type": "mihomo", "tag": "mihomo"}, map[string]any{"type": "block", "tag": "block"}}
+	var endpoints, users, rules []any
+	for _, server := range servers {
+		if server.isEndpoint {
+			endpoints = append(endpoints, server.out)
+		} else {
+			outbounds = append(outbounds, server.out)
+		}
+		users = append(users, map[string]any{"username": server.out["tag"], "password": password})
+		rules = append(rules, map[string]any{"auth_user": server.out["tag"], "outbound": server.out["tag"]})
+	}
+	return map[string]any{
 		"log": map[string]any{"level": "warn"},
 		"dns": map[string]any{"final": "resolver", "servers": []any{
 			map[string]any{"type": "mihomo", "tag": "resolver"},
@@ -270,15 +315,20 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 		"outbounds": outbounds,
 		"endpoints": endpoints,
 		"route":     map[string]any{"rules": rules, "final": "block"},
-	})
-	if err != nil {
-		return nil, nil, err
 	}
-	return replacements, func() { instance.Close() }, nil
 }
 
 // singBoxNew registers only what startSingBox writes, so the rest of sing-box stays out of the binary.
-func singBoxNew(config map[string]any) (*box.Box, error) {
+func singBoxNew(config map[string]any, start bool) (instance *box.Box, err error) {
+	// sing-box panics on some input it should refuse (a REALITY short_id over 8 bytes), and this goroutine is mihomo's.
+	defer func() {
+		if r := recover(); r != nil {
+			if instance != nil {
+				instance.Close()
+			}
+			instance, err = nil, fmt.Errorf("sing-box: %v", r)
+		}
+	}()
 	inbounds := inbound.NewRegistry()
 	socks.RegisterInbound(inbounds)
 	outbounds := outbound.NewRegistry()
@@ -312,11 +362,10 @@ func singBoxNew(config map[string]any) (*box.Box, error) {
 	if err != nil {
 		return nil, err
 	}
-	instance, err := box.New(box.Options{Context: ctx, Options: options})
-	if err != nil {
-		return nil, err
+	if instance, err = box.New(box.Options{Context: ctx, Options: options}); err != nil || !start {
+		return instance, err
 	}
-	if err := instance.Start(); err != nil {
+	if err = instance.Start(); err != nil {
 		instance.Close()
 		return nil, err
 	}

@@ -11,11 +11,13 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
@@ -24,14 +26,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
 
+	madapter "github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/resolver"
+	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	mDNS "github.com/miekg/dns"
 	"golang.org/x/crypto/ssh"
@@ -168,6 +173,176 @@ func TestSingBoxRealityOffersMLKEMBeforeX25519(t *testing.T) {
 	mlkemAt, classicAt := slices.Index(groups, mlkem), slices.Index(groups, classic)
 	if mlkemAt < 0 || mlkemAt > classicAt {
 		t.Errorf("supported groups %#x, want X25519MLKEM768 ahead of X25519", groups)
+	}
+}
+
+// ovpnStaticKey is a random OpenVPN static key in the file format, comment lines included.
+func ovpnStaticKey(t *testing.T) string {
+	t.Helper()
+	key := make([]byte, 256)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatal(err)
+	}
+	text := "#\n# 2048 bit OpenVPN static key\n#\n-----BEGIN OpenVPN Static key V1-----\n"
+	for i := 0; i < len(key); i += 16 {
+		text += hex.EncodeToString(key[i:i+16]) + "\n"
+	}
+	return text + "-----END OpenVPN Static key V1-----\n"
+}
+
+// sing-openvpn reads control-channel keys in its own goroutine, where a bad one panics and ends the app.
+func TestSingBoxNeverGetsAKeyThatWouldPanic(t *testing.T) {
+	ca := e2ePKI(t, t.TempDir())
+	key := ovpnStaticKey(t)
+	lines := strings.Split(key, "\n")
+	short := strings.Join(append(lines[3:12], lines[19:]...), "\n")
+	v2 := "-----BEGIN OpenVPN tls-crypt-v2 client key-----\nAAAA\n-----END OpenVPN tls-crypt-v2 client key-----\n"
+	_, realityPublic := x25519(t, base64.RawURLEncoding)
+	proxy := func(name string, extra string) string {
+		return fmt.Sprintf("  - {name: %q, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, %s, "+
+			"shikoo-core: singBox}\n", name, ca, extra)
+	}
+	yaml := "proxies:\n" + proxy("good", fmt.Sprintf("tls-auth: %q, key-direction: \"1\"", key)) +
+		proxy("garbage", `tls-auth: garbage, key-direction: "1"`) +
+		proxy("short", fmt.Sprintf("tls-auth: %q, key-direction: \"1\"", short)) +
+		proxy("crypt garbage", "tls-crypt: garbage") +
+		proxy("crypt v2 garbage", "tls-crypt-v2: garbage") +
+		proxy("crypt v2 empty", fmt.Sprintf("tls-crypt-v2: %q", v2)) +
+		fmt.Sprintf("  - {name: long short-id, type: vless, server: 127.0.0.1, port: 1, "+
+			"uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, servername: a.test, "+
+			"reality-opts: {public-key: %s, short-id: 0123456789abcdef01}, shikoo-core: singBox}\n", realityPublic)
+	raw, err := config.UnmarshalRawConfig([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(e2eStop)
+
+	shikooCoresRewrite(raw)
+
+	types := map[string]any{}
+	for _, mapping := range raw.Proxy {
+		types[mapping["name"].(string)] = mapping["type"]
+	}
+	want := map[string]any{"good": "socks5", "garbage": "openvpn", "short": "openvpn", "crypt garbage": "openvpn",
+		"crypt v2 garbage": "openvpn", "crypt v2 empty": "openvpn", "long short-id": "vless"}
+	if !maps.Equal(types, want) {
+		t.Fatalf("types %v, want %v: what mihomo's parser refuses stays on mihomo", types, want)
+	}
+	time.Sleep(2 * time.Second) // the supervisor tries a session at once, and a panic there ends this test binary
+}
+
+func TestSingBoxNewTurnsAPanicIntoAnError(t *testing.T) {
+	_, public := x25519(t, base64.RawURLEncoding)
+	out := map[string]any{"type": "vless", "tag": "s0", "detour": "mihomo", "server": "127.0.0.1", "server_port": 1,
+		"uuid": "4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11", "tls": map[string]any{"enabled": true, "server_name": "a.test",
+			"utls":    map[string]any{"enabled": true, "fingerprint": "chrome"},
+			"reality": map[string]any{"enabled": true, "public_key": public, "short_id": "0123456789abcdef01"}}}
+
+	instance, err := singBoxNew(singBoxConfig(1, "x", []singBoxServer{{0, out, false, false}}), false)
+
+	if err == nil || instance != nil {
+		t.Fatalf("a short_id over 8 bytes gave %v, %v; want sing-box's panic as an error", instance, err)
+	}
+}
+
+func TestSingBoxLeavesOnlyTheServerItRefusesToMihomo(t *testing.T) {
+	_, realityPublic := x25519(t, base64.RawURLEncoding)
+	wgPrivate, wgPublic := x25519(t, base64.StdEncoding)
+	ca := e2ePKI(t, t.TempDir())
+	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
+  - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
+     servername: a.test, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+  - {name: bare allowed-ips, type: wireguard, server: 127.0.0.1, port: 1, ip: 10.0.0.2, private-key: %q,
+     public-key: %q, allowed-ips: ["0.0.0.0", "::"], udp: true, shikoo-core: singBox}
+  - {name: odd comp-lzo, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, comp-lzo: odd,
+     shikoo-core: singBox}
+`, realityPublic, wgPrivate, wgPublic, ca))
+	t.Cleanup(e2eStop)
+
+	got := proxyTypes(cfg, "reality", "bare allowed-ips", "odd comp-lzo")
+	want := []C.AdapterType{C.Socks5, C.Socks5, C.OpenVPN}
+	if !slices.Equal(got, want) {
+		t.Fatalf("types %v, want %v: mihomo takes the comp-lzo sing-box refuses, and only that server", got, want)
+	}
+}
+
+func TestSingBoxSocksIsLocalWithAFreshSecret(t *testing.T) {
+	_, public := x25519(t, base64.RawURLEncoding)
+	mapping := map[string]any{"name": "r", "type": "vless", "server": "127.0.0.1", "port": 1,
+		"uuid": "4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11", "tls": true, "servername": "a.test",
+		"reality-opts": map[string]any{"public-key": public, "short-id": "0123abcd"}}
+	var passwords []string
+	for range 2 {
+		replacements, stop, err := startSingBox([]map[string]any{maps.Clone(mapping)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(stop)
+		socks := replacements[0]
+		password := socks["password"].(string)
+		if socks["server"] != "127.0.0.1" || len(password) < 20 {
+			t.Fatalf("replacement %v: want 127.0.0.1 and a password of 20 characters or more", socks)
+		}
+		passwords = append(passwords, password)
+		outside := net.JoinHostPort(e2eHostIP(t), strconv.Itoa(socks["port"].(int)))
+		if conn, err := net.DialTimeout("tcp", outside, time.Second); err == nil {
+			conn.Close()
+			t.Fatalf("sing-box's SOCKS answers on %s, not only on loopback", outside)
+		}
+		wrong := maps.Clone(socks)
+		wrong["password"] = password + "x"
+		proxy, err := madapter.ParseProxy(wrong)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		conn, err := proxy.DialContext(ctx, e2eTarget("127.0.0.1", 1))
+		cancel()
+		if err == nil {
+			conn.Close()
+			t.Fatal("sing-box's SOCKS took a wrong password")
+		}
+	}
+	if passwords[0] == passwords[1] {
+		t.Fatal("two generations share a password")
+	}
+}
+
+// mihomo resolves a VLESS or SSH server's name with its proxy-server resolver, never the tunnel's.
+func TestSingBoxServerNameGoesToMihomosProxyServerResolver(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	reached := make(chan struct{}, 1)
+	go func() {
+		if conn, err := listener.Accept(); err == nil {
+			conn.Close()
+			reached <- struct{}{}
+		}
+	}()
+	asked := e2eNames(t, &resolver.ProxyServerHostResolver, map[string]string{"vless.shikoo.test.": "127.0.0.1"})
+	tunnel := e2eNames(t, &resolver.DefaultResolver, nil)
+	_, public := x25519(t, base64.RawURLEncoding)
+	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
+  - {name: r, type: vless, server: vless.shikoo.test, port: %d, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
+     servername: a.test, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+`, listener.Addr().(*net.TCPAddr).Port, public))
+	t.Cleanup(e2eStop)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if conn, err := cfg.Proxies["r"].DialContext(ctx, e2eTarget("127.0.0.1", 1)); err == nil {
+		defer conn.Close()
+	}
+
+	select {
+	case <-reached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("sing-box never reached the server by its name")
+	}
+	if !slices.Contains(*asked, "vless.shikoo.test.") || slices.Contains(*tunnel, "vless.shikoo.test.") {
+		t.Fatalf("proxy-server resolver asked %v, tunnel resolver asked %v", *asked, *tunnel)
 	}
 }
 
@@ -625,11 +800,19 @@ func (f *fakeResolver) ExchangeContext(_ context.Context, m *mDNS.Msg) (*mDNS.Ms
 	return reply, nil
 }
 
-func (f *fakeResolver) LookupIP(context.Context, string) ([]netip.Addr, error) {
-	return nil, errors.New("fake")
+// LookupIP answers a literal as itself and a name from answers, as mihomo's dialer asks it for a server.
+func (f *fakeResolver) LookupIP(_ context.Context, host string) ([]netip.Addr, error) {
+	if ip, err := netip.ParseAddr(host); err == nil {
+		return []netip.Addr{ip}, nil
+	}
+	f.asked = append(f.asked, host+".")
+	if ip, ok := f.answers[host+"."]; ok {
+		return []netip.Addr{netip.MustParseAddr(ip)}, nil
+	}
+	return nil, errors.New("fake: no answer")
 }
-func (f *fakeResolver) LookupIPv4(context.Context, string) ([]netip.Addr, error) {
-	return nil, errors.New("fake")
+func (f *fakeResolver) LookupIPv4(ctx context.Context, host string) ([]netip.Addr, error) {
+	return f.LookupIP(ctx, host)
 }
 func (f *fakeResolver) LookupIPv6(context.Context, string) ([]netip.Addr, error) {
 	return nil, errors.New("fake")
@@ -637,7 +820,7 @@ func (f *fakeResolver) LookupIPv6(context.Context, string) ([]netip.Addr, error)
 func (f *fakeResolver) ResolveECH(context.Context, string) ([]byte, error) {
 	return nil, errors.New("fake")
 }
-func (f *fakeResolver) Invalid() bool    { return false }
+func (f *fakeResolver) Invalid() bool    { return true }
 func (f *fakeResolver) ClearCache()      {}
 func (f *fakeResolver) ResetConnection() {}
 
