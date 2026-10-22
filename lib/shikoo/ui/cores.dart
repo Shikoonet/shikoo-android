@@ -72,11 +72,6 @@ Future<void> pickCore(
       ],
     );
   } else if (shikooDesktop) {
-    // The click's focus scrolls the row clear of the edge first (revealWithRing): one frame
-    // scrolls, the next lays the row out where it now is.
-    await WidgetsBinding.instance.endOfFrame;
-    await WidgetsBinding.instance.endOfFrame;
-    if (!context.mounted) return;
     final overlay =
         Navigator.of(
               context,
@@ -84,6 +79,11 @@ Future<void> pickCore(
             ).overlay!.context.findRenderObject()!
             as RenderBox;
     final box = context.findRenderObject()! as RenderBox;
+    // The click's focus scrolls the row clear of the edge first (revealWithRing): one frame
+    // scrolls, the next lays the row out where it now is.
+    await WidgetsBinding.instance.endOfFrame;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!context.mounted || !box.attached) return;
     picked = await showMenuBelow<ShikooCore>(
       context,
       anchor: MatrixUtils.transformRect(

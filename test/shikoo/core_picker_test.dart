@@ -98,6 +98,7 @@ ShikooState _home({
   bool en = false,
   ShikooCore vless = _singBox,
   ShikooCoreSwitch? coreSwitch,
+  ShikooSwitch? switching,
 }) {
   final names = en
       ? ['Netherlands 1', 'Germany 2', 'Finland 2', 'UK 1', 'USA 2']
@@ -150,6 +151,7 @@ ShikooState _home({
     selected: names[2],
     cores: _rows(vless: vless),
     coreSwitch: coreSwitch,
+    switching: switching,
   );
 }
 
@@ -476,6 +478,43 @@ void main() {
         }
       });
 
+      testWidgets('a core switch ending leaves the bar to a server switch '
+          'still on its way (${b.name})', (tester) async {
+        final rig = await _pump(
+          tester,
+          _home(vless: _xray),
+          home: const ShikooHome(),
+          brightness: b,
+        );
+        const done = (
+          protocol: ShikooProtocol.vless,
+          to: _xray,
+          stage: ShikooSwitchStage.done,
+        );
+        const moving = (
+          to: 'آلمان ۲',
+          from: 'فنلاند ۲',
+          stage: ShikooSwitchStage.moving,
+        );
+        final core = _fa.coreSwitched(_fa.coreXray);
+        final server = _fa.switchingTo(serverName('آلمان ۲'));
+        for (final (state, line) in [
+          (_home(vless: _xray, coreSwitch: done), core),
+          (_home(vless: _xray, coreSwitch: done, switching: moving), server),
+          (_home(vless: _xray, switching: moving), server),
+        ]) {
+          rig.holder.value = state;
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(SnackBar), findsOneWidget, reason: line);
+          expect(find.text(line), findsOneWidget);
+        }
+        await _shot(tester, 'a-switch-then-server-${b.name}');
+        rig.holder.value = _home(vless: _xray);
+        await tester.pumpAndSettle();
+        expect(find.byType(SnackBar), findsNothing);
+      });
+
       testWidgets('a core picked while connected: the server switch\'s bar, '
           'over Settings too, and only «وصل نشد» when it fails (${b.name})', (
         tester,
@@ -609,6 +648,17 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text(_fa.coreSoon), findsOneWidget);
       await _shot(tester, 'a-tv-dialog-145-light');
+    });
+
+    testWidgets('with no kind of server yet, no «هسته‌ها», and «حساب» crosses '
+        'to the second column', (tester) async {
+      await _pump(tester, _settings(tv: true, cores: const []));
+      expect(find.text(_fa.coresGroup), findsNothing);
+      expect(
+        _start(tester, _fa.account),
+        closeTo(_start(tester, _fa.language), 1),
+      );
+      await _shot(tester, 'i-tv-no-cores-light');
     });
 
     testWidgets('English, dark: the switch under «Connection»', (tester) async {
@@ -814,6 +864,75 @@ void main() {
         await _shot(tester, 'i-win-${b.name}');
       }, variant: windows);
     }
+
+    testWidgets('a row low in the window still gets its whole list, inside '
+        'the window', (tester) async {
+      await _pump(tester, _settings());
+      await Scrollable.ensureVisible(
+        tester.element(find.text(_fa.protocolWireguard)),
+        alignment: 0.4,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_fa.protocolWireguard));
+      await tester.pumpAndSettle();
+      final menu = tester.getRect(
+        find
+            .ancestor(
+              of: find.text(_fa.corePickTitle(_fa.protocolWireguard)),
+              matching: find.byType(IntrinsicWidth),
+            )
+            .first,
+      );
+      expect(menu.top, greaterThanOrEqualTo(Space.s2));
+      expect(
+        menu.bottom,
+        lessThanOrEqualTo(ShikooSizes.windowStart.height - Space.s2),
+      );
+      await _shot(tester, 'a-win-low-light');
+    }, variant: windows);
+
+    testWidgets('Proxy mode with the official engine picked: the list shows it '
+        'picked and greyed, and neither it nor closing changes the pick', (
+      tester,
+    ) async {
+      final rig = await _pump(
+        tester,
+        _settings(cores: _rows(wireguard: _wireguard)),
+        proxy: true,
+      );
+      await tester.ensureVisible(find.text(_fa.protocolWireguard));
+      await tester.pumpAndSettle();
+      expect(find.text(_fa.coreWireguard), findsOneWidget, reason: 'the row');
+      await tester.tap(find.text(_fa.protocolWireguard));
+      await tester.pumpAndSettle();
+      final option = find
+          .ancestor(
+            of: find.text(_fa.coreWireguard).last,
+            matching: find.byType(Row),
+          )
+          .first;
+      expect(
+        find.descendant(
+          of: option,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Container &&
+                w.decoration is BoxDecoration &&
+                (w.decoration! as BoxDecoration).shape == BoxShape.circle,
+          ),
+        ),
+        findsOneWidget,
+        reason: 'its radio holds the dot',
+      );
+      expect(find.text(_fa.coreTunnelOnly(_fa.modeTunnel)), findsOneWidget);
+      await _shot(tester, 'p-set-kept-light');
+      await tester.tap(find.text(_fa.coreWireguard).last);
+      await tester.pumpAndSettle();
+      await tester.tapAt(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(find.text(_fa.corePickTitle(_fa.protocolWireguard)), findsNothing);
+      verifyNever(() => rig.controller.setCore(any(), any()));
+    }, variant: windows);
 
     for (final b in Brightness.values) {
       testWidgets('«با میهومو» on the computer (${b.name})', (tester) async {

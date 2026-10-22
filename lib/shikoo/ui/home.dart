@@ -276,13 +276,14 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 
   @override
   Widget build(BuildContext context) {
+    // One bar for both: the end of one switch leaves the bar to the other, if it still runs.
     ref.listen(
       shikooStateProvider.select((state) => state.switching),
-      (_, next) => _onSwitch(next),
+      (_, next) => _onSwitch(next ?? ref.read(shikooStateProvider).coreSwitch),
     );
     ref.listen(
       shikooStateProvider.select((state) => state.coreSwitch),
-      (_, next) => _onSwitch(next),
+      (_, next) => _onSwitch(next ?? ref.read(shikooStateProvider).switching),
     );
     ref.listen(shikooStateProvider.select((state) => state.service?.id), (
       before,

@@ -250,7 +250,7 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
 | Section | Fields (nothing else; the server refuses unknown keys) |
 |---|---|
 | meta | schema 1, device time at send, trigger |
-| app | version name, build number, core version (the value Settings › App shows), ABI, staging or production, signed in, language, theme |
+| app | version name, build number, core version (`core`: FlClash's and the stamped mihomo commit, e.g. `FlClash 0.8.98, mihomo 70f0570`; Settings no longer shows it), ABI, staging or production, signed in, language, theme |
 | device | `tv` (from `system.isTV`), manufacturer, brand, model, device, Android release, SDK, security patch, ABIs, low-RAM flag, RAM total/free MB, disk free MB, time zone name and offset, locale |
 | screen | logical size dp, device pixel ratio, text scale, padding and insets dp, bold text, navigation mode |
 | graphics | Impeller backend (`vulkan`, `opengles` or `unknown`), read once per start from our own logcat (`logcat -d -s flutter:I`) |

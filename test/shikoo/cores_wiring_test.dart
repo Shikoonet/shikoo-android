@@ -71,6 +71,11 @@ class _Setup extends SetupAction {
   }
 }
 
+class _ProxyMode extends ShikooModeNotifier {
+  @override
+  ShikooMode build() => ShikooMode.proxy;
+}
+
 class _Timeline extends ShikooDiag {
   final lines = <String>[];
 
@@ -120,6 +125,7 @@ Future<_Home> _home({
     'B': 'Vless',
     'W': 'WireGuard',
   },
+  bool proxy = false,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final core = _Core();
@@ -138,6 +144,10 @@ Future<_Home> _home({
       trafficPassesProvider.overrideWithValue(() async => setup.traffic),
       shikooDiagProvider.overrideWithValue(_Timeline()),
       shikooCoreSpecsProvider.overrideWithValue(_ready(ready)),
+      if (proxy) ...[
+        shikooDesktopProvider.overrideWithValue(true),
+        shikooModeProvider.overrideWith(_ProxyMode.new),
+      ],
     ],
   );
   addTearDown(container.dispose);
@@ -227,6 +237,20 @@ void main() {
       (core: ShikooCore.singBox, ready: false),
       (core: ShikooCore.wireguard, ready: false),
     ]);
+  });
+
+  test('Windows in Proxy mode keeps an owner pick in its row, while its '
+      'servers go through mihomo', () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      proxy: true,
+    );
+
+    final state = home.container.read(shikooStateProvider);
+    expect(state.cores.last.protocol, ShikooProtocol.wireguard);
+    expect(state.cores.last.chosen, ShikooCore.wireguard);
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
   });
 
   test('a pick this build lacks shows as not ready and every server stays on '

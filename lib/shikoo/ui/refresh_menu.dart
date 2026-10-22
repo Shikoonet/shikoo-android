@@ -265,11 +265,12 @@ class _Below extends SingleChildLayoutDelegate {
         ? anchor.left
         : anchor.right - child.width;
     final below = anchor.bottom + Space.s1;
+    final y = below + child.height <= size.height
+        ? below
+        : anchor.top - Space.s1 - child.height;
     return Offset(
       x.clamp(Space.s2, size.width - child.width - Space.s2),
-      below + child.height <= size.height
-          ? below
-          : anchor.top - Space.s1 - child.height,
+      math.max(Space.s2, math.min(y, size.height - child.height - Space.s2)),
     );
   }
 
