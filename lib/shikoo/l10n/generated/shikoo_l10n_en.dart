@@ -1796,6 +1796,16 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String coreProxyFallback(
+    String proxy,
+    String protocol,
+    String tunnel,
+    String core,
+  ) {
+    return 'In $proxy mode, $protocol servers connect via mihomo; in $tunnel, via $core.';
+  }
+
+  @override
   String corePickTitle(String protocol) {
     return 'Connect $protocol with';
   }

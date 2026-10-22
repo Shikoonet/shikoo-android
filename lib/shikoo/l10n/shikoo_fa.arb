@@ -454,6 +454,7 @@
   "coreSingBoxVless": "بعضی سرورهای ویلس را بلد نیست؛ آن‌ها با میهومو وصل می‌شوند.",
   "coreTunnelOnly": "فقط در حالت «{mode}»",
   "coreProxyNow": "الان حالت «{mode}» است.",
+  "coreProxyFallback": "در حالت «{proxy}»، سرورهای {protocol} با میهومو وصل می‌شوند؛ در «{tunnel}»، با {core}.",
   "corePickTitle": "{protocol} با کدام هسته وصل شود؟",
   "corePickForAll": "انتخابت برای همهٔ سرورهای {protocol} است.",
   "corePickAgain": "اگر وصلی، چند ثانیه قطع و دوباره وصل می‌شوی.",

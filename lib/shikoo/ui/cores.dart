@@ -263,7 +263,14 @@ class _CoreList extends ConsumerWidget {
                 vertical: Space.s2,
               ),
               child: Text(
-                options.any((o) => tunnelOnly(o.core))
+                tunnelOnly(row.chosen)
+                    ? l.coreProxyFallback(
+                        l.modeProxy,
+                        protocol,
+                        l.modeTunnel,
+                        coreLabel(l, row.chosen),
+                      )
+                    : options.any((o) => tunnelOnly(o.core))
                     ? '${l.coreProxyNow(l.modeProxy)} ${l.corePickForAll(protocol)}'
                     : '${l.corePickForAll(protocol)} ${l.corePickAgain}',
                 style: t.text(t.s.caption, color: t.c.textMuted),

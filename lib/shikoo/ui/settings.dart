@@ -278,6 +278,7 @@ class ShikooSettings extends ConsumerWidget {
       hint: isTV && coreSwitch != null
           ? coreNews(l, coreSwitch).join(' ')
           : null,
+      hintAlert: isTV && coreSwitch?.stage == ShikooSwitchStage.failed,
       child: _columns(groups, isTV: isTV),
     );
   }
@@ -584,6 +585,7 @@ class SubPage extends StatelessWidget {
     this.wide = false,
     this.barGap = true,
     this.hint,
+    this.hintAlert = false,
   });
 
   final String title;
@@ -597,6 +599,9 @@ class SubPage extends StatelessWidget {
   /// False for a page whose own head sits right under the bar, as `.logs-head`.
   final bool barGap;
   final String? hint;
+
+  /// The [hint] in red, as a failure under Home's server pill.
+  final bool hintAlert;
 
   @override
   Widget build(BuildContext context) {
@@ -646,7 +651,9 @@ class SubPage extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: t.text(
                                       s.bodySm,
-                                      color: t.c.textMuted,
+                                      color: hintAlert
+                                          ? t.c.danger
+                                          : t.c.textMuted,
                                     ),
                                   ),
                                 ),

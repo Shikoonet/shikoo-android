@@ -2822,6 +2822,17 @@ abstract class ShikooL10n {
   /// **'{mode} mode is on.'**
   String coreProxyNow(String mode);
 
+  /// Windows in Proxy mode, under a core list whose chosen core owns the tunnel: where its servers go now and in Tunnel mode. {proxy} is modeProxy, {tunnel} modeTunnel.
+  ///
+  /// In en, this message translates to:
+  /// **'In {proxy} mode, {protocol} servers connect via mihomo; in {tunnel}, via {core}.'**
+  String coreProxyFallback(
+    String proxy,
+    String protocol,
+    String tunnel,
+    String core,
+  );
+
   /// No description provided for @corePickTitle.
   ///
   /// In en, this message translates to:

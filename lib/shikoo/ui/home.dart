@@ -1044,10 +1044,11 @@ class _PowerZone extends StatelessWidget {
     }
     final resting = restingFor(state);
     final silent = _silent;
-    final shift = _shift;
-    final alarm = shift == null
-        ? silent
-        : shift.stage == ShikooSwitchStage.failed;
+    final alarm = switch ((_shift, _coreShift)) {
+      (final shift?, _) => shift.stage == ShikooSwitchStage.failed,
+      (_, final core?) => core.stage == ShikooSwitchStage.failed,
+      _ => silent,
+    };
     final message = this.message(l);
     final room = shikooDesktop
         ? _room(context, l, width)

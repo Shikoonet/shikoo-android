@@ -225,10 +225,14 @@ Future<_Rig> _pump(
       ),
     ),
   );
+  final screen = tester.element(find.byKey(_screen));
   // Settings' language switch shows the saved look, not the app's locale.
   await ProviderScope.containerOf(
-    tester.element(find.byKey(_screen)),
+    screen,
   ).read(shikooLookProvider.notifier).setLanguage(locale);
+  await tester.runAsync(
+    () => precacheImage(const AssetImage(shikooMarkAsset), screen),
+  );
   await tester.pumpAndSettle();
   return (controller: controller, holder: holder);
 }
@@ -496,12 +500,31 @@ void main() {
           from: 'فنلاند ۲',
           stage: ShikooSwitchStage.moving,
         );
+        const coreMoving = (
+          protocol: ShikooProtocol.vless,
+          to: _xray,
+          stage: ShikooSwitchStage.moving,
+        );
+        const arrived = (
+          to: 'آلمان ۲',
+          from: 'فنلاند ۲',
+          stage: ShikooSwitchStage.done,
+        );
         final core = _fa.coreSwitched(_fa.coreXray);
         final server = _fa.switchingTo(serverName('آلمان ۲'));
+        final coreOnWay = _fa.coreSwitching(_fa.coreXray);
+        final serverDone = _fa.switchedTo(serverName('آلمان ۲'));
         for (final (state, line) in [
           (_home(vless: _xray, coreSwitch: done), core),
           (_home(vless: _xray, coreSwitch: done, switching: moving), server),
           (_home(vless: _xray, switching: moving), server),
+          // The other way: a server switch ending leaves the bar to the core's.
+          (_home(vless: _xray, coreSwitch: coreMoving), coreOnWay),
+          (
+            _home(vless: _xray, coreSwitch: coreMoving, switching: arrived),
+            serverDone,
+          ),
+          (_home(vless: _xray, coreSwitch: coreMoving), coreOnWay),
         ]) {
           rig.holder.value = state;
           await tester.pump();
@@ -690,9 +713,9 @@ void main() {
     });
 
     for (final b in Brightness.values) {
-      testWidgets('a core switch shows in the slot under the server pill '
-          '(${b.name})', (tester) async {
-        await _pump(
+      testWidgets('a core switch shows in the slot under the server pill, '
+          'a failure in red (${b.name})', (tester) async {
+        final rig = await _pump(
           tester,
           _home(
             tv: true,
@@ -706,8 +729,25 @@ void main() {
           home: const ShikooHome(),
           brightness: b,
         );
-        expect(find.text(_fa.coreSwitching(_fa.coreXray)), findsOneWidget);
+        final news = find.text(_fa.coreSwitching(_fa.coreXray));
+        expect(news, findsOneWidget);
+        final t = ShikooTheme.of(tester.element(news));
+        expect(tester.widget<Text>(news).style?.color, t.c.textMuted);
         await _shot(tester, 'a-tv-home-switch-${b.name}');
+
+        rig.holder.value = _home(
+          tv: true,
+          vless: _xray,
+          coreSwitch: (
+            protocol: ShikooProtocol.vless,
+            to: _xray,
+            stage: ShikooSwitchStage.failed,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final failed = find.text(_fa.powerFailed);
+        expect(tester.widget<Text>(failed).style?.color, t.c.danger);
+        await _shot(tester, 'a-tv-home-failed-${b.name}');
       });
 
       testWidgets('on Settings a core switch holds the hint\'s place for its '
@@ -749,6 +789,12 @@ void main() {
           expect(news.left, greaterThanOrEqualTo(0));
           expect(_top(tester, _fa.coresGroup), rows, reason: 'nothing moves');
           expect(_focused(), remote, reason: 'the remote stays');
+          final t = ShikooTheme.of(tester.element(find.text(line)));
+          expect(
+            tester.widget<Text>(find.text(line)).style?.color,
+            stage == ShikooSwitchStage.failed ? t.c.danger : t.c.textMuted,
+            reason: stage.name,
+          );
           if (shot != null) await _shot(tester, '$shot-${b.name}');
         }
         rig.holder.value = _settings(tv: true, cores: cores);
@@ -891,48 +937,73 @@ void main() {
       await _shot(tester, 'a-win-low-light');
     }, variant: windows);
 
-    testWidgets('Proxy mode with the official engine picked: the list shows it '
-        'picked and greyed, and neither it nor closing changes the pick', (
-      tester,
-    ) async {
-      final rig = await _pump(
-        tester,
-        _settings(cores: _rows(wireguard: _wireguard)),
-        proxy: true,
+    for (final b in Brightness.values) {
+      testWidgets(
+        'Proxy mode with the official engine picked: the list shows it '
+        'picked and greyed, says where its servers go, and neither it nor '
+        'closing changes the pick (${b.name})',
+        (tester) async {
+          final rig = await _pump(
+            tester,
+            _settings(cores: _rows(wireguard: _wireguard)),
+            proxy: true,
+            brightness: b,
+          );
+          await tester.ensureVisible(find.text(_fa.protocolWireguard));
+          await tester.pumpAndSettle();
+          expect(
+            find.text(_fa.coreWireguard),
+            findsOneWidget,
+            reason: 'the row',
+          );
+          await tester.tap(find.text(_fa.protocolWireguard));
+          await tester.pumpAndSettle();
+          final option = find
+              .ancestor(
+                of: find.text(_fa.coreWireguard).last,
+                matching: find.byType(Row),
+              )
+              .first;
+          expect(
+            find.descendant(
+              of: option,
+              matching: find.byWidgetPredicate(
+                (w) =>
+                    w is Container &&
+                    w.decoration is BoxDecoration &&
+                    (w.decoration! as BoxDecoration).shape == BoxShape.circle,
+              ),
+            ),
+            findsOneWidget,
+            reason: 'its radio holds the dot',
+          );
+          expect(find.text(_fa.coreTunnelOnly(_fa.modeTunnel)), findsOneWidget);
+          expect(
+            find.text(
+              _fa.coreProxyFallback(
+                _fa.modeProxy,
+                _fa.protocolWireguard,
+                _fa.modeTunnel,
+                _fa.coreWireguard,
+              ),
+            ),
+            findsOneWidget,
+          );
+          expect(find.text(_fa.coreProxyNow(_fa.modeProxy)), findsNothing);
+          await _shot(tester, 'p-set-kept-${b.name}');
+          await tester.tap(find.text(_fa.coreWireguard).last);
+          await tester.pumpAndSettle();
+          await tester.tapAt(Offset.zero);
+          await tester.pumpAndSettle();
+          expect(
+            find.text(_fa.corePickTitle(_fa.protocolWireguard)),
+            findsNothing,
+          );
+          verifyNever(() => rig.controller.setCore(any(), any()));
+        },
+        variant: windows,
       );
-      await tester.ensureVisible(find.text(_fa.protocolWireguard));
-      await tester.pumpAndSettle();
-      expect(find.text(_fa.coreWireguard), findsOneWidget, reason: 'the row');
-      await tester.tap(find.text(_fa.protocolWireguard));
-      await tester.pumpAndSettle();
-      final option = find
-          .ancestor(
-            of: find.text(_fa.coreWireguard).last,
-            matching: find.byType(Row),
-          )
-          .first;
-      expect(
-        find.descendant(
-          of: option,
-          matching: find.byWidgetPredicate(
-            (w) =>
-                w is Container &&
-                w.decoration is BoxDecoration &&
-                (w.decoration! as BoxDecoration).shape == BoxShape.circle,
-          ),
-        ),
-        findsOneWidget,
-        reason: 'its radio holds the dot',
-      );
-      expect(find.text(_fa.coreTunnelOnly(_fa.modeTunnel)), findsOneWidget);
-      await _shot(tester, 'p-set-kept-light');
-      await tester.tap(find.text(_fa.coreWireguard).last);
-      await tester.pumpAndSettle();
-      await tester.tapAt(Offset.zero);
-      await tester.pumpAndSettle();
-      expect(find.text(_fa.corePickTitle(_fa.protocolWireguard)), findsNothing);
-      verifyNever(() => rig.controller.setCore(any(), any()));
-    }, variant: windows);
+    }
 
     for (final b in Brightness.values) {
       testWidgets('«با میهومو» on the computer (${b.name})', (tester) async {

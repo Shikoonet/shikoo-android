@@ -1738,6 +1738,16 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String coreProxyFallback(
+    String proxy,
+    String protocol,
+    String tunnel,
+    String core,
+  ) {
+    return 'در حالت «$proxy»، سرورهای $protocol با میهومو وصل می‌شوند؛ در «$tunnel»، با $core.';
+  }
+
+  @override
   String corePickTitle(String protocol) {
     return '$protocol با کدام هسته وصل شود؟';
   }

@@ -110,7 +110,7 @@ void main() {
 
   test('the core name carries the commit the build stamped, and a build '
       'without the stamp names no number (#32)', () {
-    expect(coreName('70f0570'), 'mihomo\u00A070f0570');
+    expect(coreName('70f0570'), 'mihomo 70f0570');
     expect(coreName(''), 'mihomo');
   });
 
