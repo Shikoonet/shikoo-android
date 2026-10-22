@@ -252,6 +252,8 @@ void main() {
     final row = find.text(_l.autoStart);
     expect(row, findsOne);
     expect(container.read(appSettingProvider).autoLaunch, isFalse);
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
     await tester.tap(row);
     await tester.pump();
     expect(container.read(appSettingProvider).autoLaunch, isTrue);
