@@ -9,21 +9,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Every core of this build ready, as a package that lands flips its own.
-final _allReady = {
-  for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
-    core: (ready: true, shape: spec.shape, serves: spec.serves),
-};
-
-/// Only mihomo ready, whichever packages have landed.
-final _noneReady = {
+/// Readiness is set here, not by the build, so a package that flips its own core's flag breaks nothing.
+Map<ShikooCore, ShikooCoreSpec> _readyOnly(Set<ShikooCore> ready) => {
   for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
     core: (
-      ready: core == ShikooCore.mihomo,
+      ready: core == ShikooCore.mihomo || ready.contains(core),
       shape: spec.shape,
       serves: spec.serves,
     ),
 };
+
+final _allReady = _readyOnly(ShikooCore.values.toSet());
+final _noneReady = _readyOnly(const {});
 
 const _reality = {
   'name': 'آلمان ۱',
@@ -146,11 +143,13 @@ void main() {
     expect(identical(markCores(config, const {}), config), isTrue);
     expect(
       identical(
-        markCores(config, const {ShikooProtocol.vless: ShikooCore.xray}),
+        markCores(config, const {
+          ShikooProtocol.vless: ShikooCore.xray,
+        }, specs: _noneReady),
         config,
       ),
       isTrue,
-      reason: 'xray is not ready in this build',
+      reason: 'xray is not ready',
     );
 
     final marked = markCores(config, const {
