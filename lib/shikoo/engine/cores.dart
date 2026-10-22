@@ -2,6 +2,7 @@ import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
 import 'package:fl_clash/shikoo/engine/core_sing_box.dart';
 import 'package:fl_clash/shikoo/engine/core_wireguard.dart';
 import 'package:fl_clash/shikoo/engine/core_xray.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum ShikooCore { mihomo, xray, singBox, wireguard, openvpn }
 
@@ -44,6 +45,10 @@ const shikooCoreSpecs = <ShikooCore, ShikooCoreSpec>{
   ShikooCore.wireguard: wireguardSpec,
   ShikooCore.openvpn: openvpnSpec,
 };
+
+final shikooCoreSpecsProvider = Provider<Map<ShikooCore, ShikooCoreSpec>>(
+  (_) => shikooCoreSpecs,
+);
 
 /// Read from the profile's own mapping: mihomo names a server it handed to Xray `Socks5`.
 ShikooProtocol protocolOf(Map<String, dynamic> server) =>

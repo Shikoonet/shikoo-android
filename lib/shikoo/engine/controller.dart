@@ -29,6 +29,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+export 'package:fl_clash/shikoo/engine/cores.dart' show shikooCoreSpecsProvider;
+
 /// The only door from Shikoo screens into FlClash's engine (docs/extensibility.md section 1).
 
 enum ShikooConnection { off, connecting, on, error }
@@ -428,10 +430,6 @@ final _nativeStartProvider = _cell<DateTime?>(null);
 /// Each service's servers as its profile has them, per id: the core only shows the type it runs.
 final _sourcesProvider = _cell<Map<int, Map<String, Map<String, dynamic>>>>(
   const {},
-);
-
-final shikooCoreSpecsProvider = Provider<Map<ShikooCore, ShikooCoreSpec>>(
-  (_) => shikooCoreSpecs,
 );
 
 final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
@@ -1325,7 +1323,8 @@ class ShikooController {
   }
 
   /// A core behind mihomo only needs the config again; a change of who owns the tunnel needs a reconnect.
-  /// Connected, moving the server in use is told as a server switch, and a failed one stays (Sam, 2026-10-22).
+  /// Connected, moving the server in use is told as a server switch. It is done only once the core really carrying
+  /// the server is the pick: a pick whose engine would not start leaves it on mihomo, failed, the pick kept (Sam, 2026-10-23).
   Future<void> setCore(ShikooProtocol protocol, ShikooCore core) async {
     final name = _validSelection();
     final was = _ref.read(shikooStateProvider).selectedServer?.core;
@@ -1351,7 +1350,9 @@ class ShikooController {
     }
     if (!told) return;
     final group = _group;
+    final landed = _ref.read(shikooStateProvider).selectedServer?.core == to;
     final passes =
+        landed &&
         _running &&
         group != null &&
         await _probe(_testUrl(group), name) != null;
