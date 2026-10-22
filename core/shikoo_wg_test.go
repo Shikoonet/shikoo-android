@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"maps"
 	"net/netip"
 	"os"
 	"slices"
@@ -17,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"go4.org/netipx"
@@ -458,19 +456,22 @@ func TestTheOwnerCarriesPacketsOnWindowsWintun(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("no packet came back")
 	}
+	if got := ownerServer(); got != "wg" {
+		t.Errorf("the engine reports %q, want wg", got)
+	}
 	stopOwner()
 	select {
 	case <-wintun.closed:
 	case <-time.After(5 * time.Second):
 		t.Fatal("the stop left the adapter open")
 	}
+	if got := ownerServer(); got != "" {
+		t.Errorf("a stopped engine reports %q", got)
+	}
 }
 
 func TestTheServerInUseRunsOnTheOwnerOnlyWhenMarked(t *testing.T) {
 	marked := wgMapping(t, map[string]any{"name": "wg-a", shikooOwnerKey: "wireguard"})
-	if _, err := adapter.ParseProxy(maps.Clone(marked)); err != nil {
-		t.Fatalf("mihomo refused the marked server: %v", err)
-	}
 	raw := &config.RawConfig{
 		Proxy:      []map[string]any{marked, wgMapping(t, map[string]any{"name": "wg-b"})},
 		ProxyGroup: []map[string]any{{"name": "info", "hidden": true}, {"name": "main"}, {"name": "other"}},

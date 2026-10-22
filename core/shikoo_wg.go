@@ -446,6 +446,15 @@ func stopOwner() {
 	}
 }
 
+func ownerServer() string {
+	ownerMu.Lock()
+	defer ownerMu.Unlock()
+	if ownerRunning == nil {
+		return ""
+	}
+	return ownerRunning.server
+}
+
 func ownerFor(server string) *wgOwner {
 	ownerMu.Lock()
 	defer ownerMu.Unlock()

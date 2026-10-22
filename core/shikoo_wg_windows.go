@@ -33,6 +33,9 @@ type ownerTunnel struct {
 	finder  *physicalFinder
 }
 
+// Windows only: a name registers once per binary (core/shikoo_owner.go), and Android's build has its own.
+func init() { registerShikooOwner("wireguard", ownerServer) }
+
 var (
 	ownerTun *ownerTunnel
 	// Sam (2026-10-23): an engine that would not start leaves its server on mihomo's tun until the next run.
