@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -245,6 +246,50 @@ proxies:
 	if udpSockets.Load() == 0 {
 		t.Error("WireGuard's socket skipped mihomo's dialer")
 	}
+
+	echo, err := net.ListenPacket("udp", net.JoinHostPort(outsideIP(t), "0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = echo.Close() })
+	go func() {
+		buf := make([]byte, 1500)
+		for {
+			n, from, err := echo.ReadFrom(buf)
+			if err != nil {
+				return
+			}
+			_, _ = echo.WriteTo(buf[:n], from)
+		}
+	}()
+	to := echo.LocalAddr().(*net.UDPAddr)
+	for _, name := range []string{"reality", "wireguard"} {
+		if got := udpRoundTrip(t, cfg.Proxies[name], to); got != "ping "+name {
+			t.Errorf("%s: UDP came back as %q", name, got)
+		}
+	}
+}
+
+func udpRoundTrip(t *testing.T, proxy constant.Proxy, to *net.UDPAddr) string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ip, _ := netip.AddrFromSlice(to.IP.To4())
+	conn, err := proxy.ListenPacketContext(ctx, &constant.Metadata{NetWork: constant.UDP, DstIP: ip, DstPort: uint16(to.Port)})
+	if err != nil {
+		t.Fatalf("%s: %v", proxy.Name(), err)
+	}
+	defer func() { _ = conn.Close() }()
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	if _, err := conn.WriteTo([]byte("ping "+proxy.Name()), to); err != nil {
+		t.Fatalf("%s: %v", proxy.Name(), err)
+	}
+	buf := make([]byte, 64)
+	n, _, err := conn.ReadFrom(buf)
+	if err != nil {
+		t.Fatalf("%s: no UDP answer: %v", proxy.Name(), err)
+	}
+	return string(buf[:n])
 }
 
 func with(base map[string]any, changes map[string]any) map[string]any {

@@ -291,6 +291,8 @@ func withoutHost(headers map[string]string) (map[string]string, string) {
 	return rest, host
 }
 
+// shortcut: another process can take the port before Xray binds it, and then mihomo carries every server of this
+// apply; upgrade to reading Xray's own listener if that is ever seen.
 func freeLoopbackPort() (int, error) {
 	for range 8 {
 		tcp, err := net.Listen("tcp", "127.0.0.1:0")
