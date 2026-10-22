@@ -1,10 +1,12 @@
+use super::hub::log_message;
 use anyhow::{bail, Result};
-use std::ffi::{c_void, OsString};
+use std::ffi::{c_void, OsStr, OsString};
 use std::net::{SocketAddr, TcpStream};
-use std::os::windows::ffi::OsStringExt;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
-use std::{mem, ptr, thread};
+use std::{io, mem, ptr, thread};
 use windows_sys::Win32::Foundation::{CloseHandle, GlobalFree, HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::NetworkManagement::Rras::{
     RasEnumEntriesW, ERROR_BUFFER_TOO_SMALL, RASENTRYNAMEW,
@@ -18,10 +20,13 @@ use windows_sys::Win32::Networking::WinInet::{
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
-use windows_sys::Win32::System::RemoteDesktop::ProcessIdToSessionId;
+use windows_sys::Win32::System::Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock};
+use windows_sys::Win32::System::RemoteDesktop::{ProcessIdToSessionId, WTSQueryUserToken};
 use windows_sys::Win32::System::Threading::{
-    GetCurrentProcessId, OpenProcess, QueryFullProcessImageNameW, PROCESS_ACCESS_RIGHTS,
-    PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    CreateProcessAsUserW, GetCurrentProcessId, OpenProcess, QueryFullProcessImageNameW,
+    WaitForSingleObject, CREATE_UNICODE_ENVIRONMENT, INFINITE, PROCESS_ACCESS_RIGHTS,
+    PROCESS_INFORMATION, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_SYNCHRONIZE, STARTUPINFOW,
 };
 
 /// `shikooDesktopPort` of `lib/shikoo/engine/mode.dart`: the port the app sets as Windows' proxy.
@@ -47,6 +52,93 @@ pub fn fix_proxy() -> Result<()> {
         bail!("could not turn Windows' proxy off");
     }
     Ok(())
+}
+
+static GUARDED: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+
+/// `POST /guard`: once this install's app at `pid` exits, `fix-proxy` runs as the user of its
+/// session, since WinINet is not for services. Any other process is refused.
+pub(super) fn guard(pid: u32) -> bool {
+    let Ok(helper) = std::env::current_exe() else {
+        return false;
+    };
+    let (Some(process), Some(session)) = (
+        open_app(pid, &helper.with_file_name(APP_EXE)),
+        session_of(pid),
+    ) else {
+        return false;
+    };
+    let mut guarded = GUARDED.lock().unwrap_or_else(PoisonError::into_inner);
+    if guarded.contains(&pid) {
+        return true;
+    }
+    guarded.push(pid);
+    thread::spawn(move || {
+        // SAFETY: the open handle keeps the pid from being reused until the wait ends.
+        unsafe { WaitForSingleObject(process.0, INFINITE) };
+        GUARDED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .retain(|&other| other != pid);
+        if let Err(error) = run_in_session(session, &helper) {
+            log_message(format!("Helper could not run fix-proxy: {error}"));
+        }
+    });
+    true
+}
+
+fn open_app(pid: u32, app: &Path) -> Option<Handle> {
+    let process = open(pid, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE)?;
+    image_path(&process)
+        .is_some_and(|image| is_app(&image, app))
+        .then_some(process)
+}
+
+fn run_in_session(session: u32, helper: &Path) -> io::Result<()> {
+    let wide = |text: &OsStr| -> Vec<u16> { text.encode_wide().chain([0]).collect() };
+    let application = wide(helper.as_os_str());
+    let mut command = OsString::from("\"");
+    command.push(helper);
+    command.push("\" fix-proxy");
+    let mut command = wide(&command);
+    let mut desktop = wide(OsStr::new(r"winsta0\default"));
+    // SAFETY: LocalSystem holds the SE_TCB_NAME WTSQueryUserToken needs; every buffer outlives the
+    // calls, and each handle and the environment block is released once.
+    unsafe {
+        let mut token = 0;
+        if WTSQueryUserToken(session, &mut token) == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let token = Handle(token);
+        let mut environment = ptr::null_mut();
+        if CreateEnvironmentBlock(&mut environment, token.0, 0) == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let mut startup: STARTUPINFOW = mem::zeroed();
+        startup.cb = mem::size_of::<STARTUPINFOW>() as u32;
+        startup.lpDesktop = desktop.as_mut_ptr();
+        let mut created: PROCESS_INFORMATION = mem::zeroed();
+        let started = CreateProcessAsUserW(
+            token.0,
+            application.as_ptr(),
+            command.as_mut_ptr(),
+            ptr::null(),
+            ptr::null(),
+            0,
+            CREATE_UNICODE_ENVIRONMENT,
+            environment,
+            ptr::null(),
+            &startup,
+            &mut created,
+        );
+        let error = io::Error::last_os_error();
+        DestroyEnvironmentBlock(environment);
+        if started == 0 {
+            return Err(error);
+        }
+        drop((Handle(created.hProcess), Handle(created.hThread)));
+        Ok(())
+    }
 }
 
 fn should_clear(
@@ -352,6 +444,22 @@ mod tests {
         assert!(alive);
         assert!(!other);
         assert!(!app_alive(&app));
+        std::fs::remove_dir_all(app.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn guards_only_the_app_beside_the_helper() {
+        let (mut child, app) = spawn_named_app("shikoo-proxy-guard-open");
+        let opened = open_app(child.id(), &app).is_some();
+        let elsewhere = open_app(child.id(), &app.with_file_name("Other").join(APP_EXE)).is_some();
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(opened);
+        assert!(!elsewhere);
+        let beside_the_test = std::env::current_exe().unwrap().with_file_name(APP_EXE);
+        assert!(open_app(std::process::id(), &beside_the_test).is_none());
+        assert!(!guard(std::process::id()));
+        assert!(!guard(0));
         std::fs::remove_dir_all(app.parent().unwrap()).unwrap();
     }
 }

@@ -76,6 +76,13 @@ struct PingParams {
     core_sha256: String,
 }
 
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GuardParams {
+    pid: u32,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StartResponse {
@@ -634,6 +641,19 @@ async fn ping_request(ping_params: PingParams) -> Result<warp::reply::Response, 
         }))
 }
 
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+async fn guard_request(params: GuardParams) -> Result<warp::reply::Response, Infallible> {
+    let guarded = tokio::task::spawn_blocking(move || super::proxy_guard::guard(params.pid)).await;
+    Ok(match guarded {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        _ => error_response(
+            "invalidRequest",
+            "not this install's app",
+            StatusCode::FORBIDDEN,
+        ),
+    })
+}
+
 async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response, Infallible> {
     if rejection.find::<warp::reject::InvalidQuery>().is_some() {
         return Ok(warp::reply::with_header(
@@ -704,11 +724,14 @@ pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallibl
         .and(warp::get())
         .map(get_logs);
 
-    api_ping
-        .or(api_start)
-        .or(api_stop)
-        .or(api_logs)
-        .recover(handle_rejection)
+    let api = api_ping.or(api_start).or(api_stop).or(api_logs);
+    #[cfg(all(feature = "windows-service", target_os = "windows"))]
+    let api = api.or(warp::path("guard")
+        .and(warp::path::end())
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(guard_request));
+    api.recover(handle_rejection)
 }
 
 pub(super) fn ensure_core_sha256_configured() -> anyhow::Result<()> {
@@ -1273,6 +1296,31 @@ mod tests {
             core_path().unwrap().file_name().unwrap(),
             std::ffi::OsStr::new(env!("CORE_NAME"))
         );
+    }
+
+    #[cfg(all(feature = "windows-service", target_os = "windows"))]
+    #[tokio::test]
+    async fn guard_takes_no_process_but_this_installs_app() {
+        for (body, status) in [
+            (
+                format!(r#"{{"pid":{}}}"#, std::process::id()),
+                StatusCode::FORBIDDEN,
+            ),
+            (r#"{"pid":0}"#.to_string(), StatusCode::FORBIDDEN),
+            (
+                r#"{"pid":4,"path":"other.exe"}"#.to_string(),
+                StatusCode::BAD_REQUEST,
+            ),
+        ] {
+            let response = warp::test::request()
+                .method("POST")
+                .path("/guard")
+                .header("content-type", "application/json")
+                .body(&body)
+                .reply(&routes())
+                .await;
+            assert_eq!(response.status(), status, "{body}");
+        }
     }
 
     #[cfg(not(target_os = "linux"))]
