@@ -206,6 +206,9 @@ var _mostInFlight = 0;
 /// Paths the panel answers 404 for, as for a link it no longer knows.
 final _gone = <String>{};
 
+/// Paths whose answer waits until completed.
+final _held = <String, Completer<void>>{};
+
 DateTime? _panelClock;
 
 const _unused = 'upload=0; download=0; total=1073741824';
@@ -215,6 +218,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   globalState.container = container;
   _mostInFlight = 0;
   _gone.clear();
+  _held.clear();
   _panelClock = null;
   _panelInfo = _unused;
   when(() => core.validateConfig(any())).thenAnswer((_) async => '');
@@ -234,6 +238,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   server.listen((call) async {
     _mostInFlight = math.max(_mostInFlight, ++_inFlight);
     await Future<void>.delayed(const Duration(milliseconds: 20));
+    await _held[call.uri.path]?.future;
     if (_gone.contains(call.uri.path)) {
       call.response.statusCode = 404;
       await call.response.close();
@@ -339,6 +344,18 @@ Future<void> _clockTest(String certificate, DateTime at) async {
 List<Profile> _pasted(ProviderContainer container) => [
   for (final profile in container.read(profilesProvider))
     if (profile.url.startsWith('http://127.0.0.1')) profile,
+];
+
+List<Group> _servers(List<String> names) => [
+  Group(
+    type: GroupType.Selector,
+    name: 'PROXY',
+    hidden: false,
+    all: [
+      const Proxy(name: _version, type: 'Vless'),
+      for (final name in names) Proxy(name: name, type: 'Vless'),
+    ],
+  ),
 ];
 
 void main() {
@@ -3074,6 +3091,126 @@ void main() {
     controller.selectService(failing.id);
     await pumpEventQueue();
     expect(container.read(shikooStateProvider).refresh, ShikooRefresh.failed);
+  });
+
+  test('a card chosen while the one before still updates keeps its own state '
+      'when that update fails', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    await controller.addService('$panel/file/user111/a');
+    await controller.addService('$panel/file/user222/a');
+    final [failing, ok] = _pasted(container);
+    container.read(currentProfileIdProvider.notifier).value = failing.id;
+    await pumpEventQueue();
+    _gone.add('/file/user111/a');
+    final answer = _held['/file/user111/a'] = Completer<void>();
+    final updating = controller.refreshService();
+    controller.selectService(ok.id);
+    await pumpEventQueue();
+    answer.complete();
+    await updating;
+    final state = container.read(shikooStateProvider);
+    expect(state.service!.id, ok.id);
+    expect(state.refresh, ShikooRefresh.idle);
+    expect(state.notice, isNull);
+    expect(
+      state.others.firstWhere((s) => s.id == failing.id).refresh,
+      ShikooRefresh.failed,
+    );
+  });
+
+  test('a 401 that signs out while an update is on its way leaves no '
+      '«به‌روز نشد» on the card of the next sign-in', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    final profiles = container.read(profilesActionProvider.notifier);
+    await profiles.deleteProfile(container.read(currentProfileIdProvider)!);
+    final link = '$panel/file/user111/a';
+    await controller.addService(link, 'emu401', false);
+    await pumpEventQueue();
+    final old = container.read(currentProfileIdProvider)!;
+    _gone.add('/file/user111/a');
+    final answer = _held['/file/user111/a'] = Completer<void>();
+    final updating = controller.refreshService(manual: false);
+    // What the account does to its services on a 401 (`notMine`), and again on the next sign-in.
+    await profiles.deleteProfile(old);
+    await pumpEventQueue();
+    answer.complete();
+    await updating;
+    _gone.clear();
+    await controller.addService(link, 'emu401', false);
+    final state = container.read(shikooStateProvider);
+    expect(state.service!.id, isNot(old));
+    expect(state.refresh, ShikooRefresh.idle);
+  });
+
+  test("news of a card's update leaves with the card: removed, or signed out "
+      'and in again', () async {
+    for (final leave in ['remove', 'sign out']) {
+      final (:container, :core, :proxies, :setup) = _home();
+      final panel = await _panel(container, core);
+      final controller = container.read(shikooControllerProvider);
+      final link = '$panel/file/user111/a';
+      await controller.addService(link);
+      await controller.addService('$panel/file/user222/a');
+      final first = _pasted(container).first;
+      container.read(currentProfileIdProvider.notifier).value = first.id;
+      await pumpEventQueue();
+      setup.onApply = () => container.read(groupsProvider.notifier).value =
+          _servers(['آلمان ۱', 'هلند ۱', 'فرانسه ۱']);
+      await controller.refreshService();
+      expect(container.read(shikooStateProvider).notice, isA<ServersChanged>());
+
+      if (leave == 'remove') {
+        await controller.removeService(first.id);
+      } else {
+        final profiles = container.read(profilesActionProvider.notifier);
+        for (final profile in [...container.read(profilesProvider)]) {
+          await profiles.deleteProfile(profile.id);
+        }
+        await pumpEventQueue();
+        await controller.addService(link, 'user111', false);
+      }
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect(state.service!.id, isNot(first.id), reason: leave);
+      expect(state.notice, isNull, reason: leave);
+    }
+  });
+
+  test('an update that lands after another card took over neither compares '
+      "that card's list with its own nor measures it", () async {
+    for (final pick in [null, 'آلمان ۱']) {
+      final (:container, :core, :proxies, :setup) = _home();
+      final panel = await _panel(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await controller.addService('$panel/file/user111/a');
+      await controller.addService('$panel/file/user222/a');
+      final [updated, next] = _pasted(container);
+      container.read(currentProfileIdProvider.notifier).value = updated.id;
+      await pumpEventQueue();
+      if (pick != null) await controller.selectServer(pick);
+      final answer = _held['/file/user111/a'] = Completer<void>();
+      final updating = controller.refreshService();
+      controller.selectService(next.id);
+      await pumpEventQueue();
+      container.read(groupsProvider.notifier).value = _servers([
+        'هلند ۱',
+        'فرانسه ۱',
+      ]);
+      await pumpEventQueue();
+      clearInteractions(core);
+      answer.complete();
+      await updating;
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect(state.service!.id, next.id, reason: '$pick');
+      expect(state.notice, isNull, reason: '$pick');
+      verifyNever(() => core.asyncTestDelay(any(), any()));
+      expect(state.servers.where((s) => s.fresh), isEmpty, reason: '$pick');
+    }
   });
 
   group('an update leaves without the server, or through it', () {

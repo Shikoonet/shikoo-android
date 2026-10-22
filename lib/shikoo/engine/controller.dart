@@ -1766,7 +1766,7 @@ class ShikooController {
         .read(_refreshProvider.notifier)
         .set(others.remove(to) ?? ShikooRefresh.idle);
     _ref.read(_othersRefreshProvider.notifier).set(others);
-    if (_ref.read(_noticeProvider) is RefreshFailed) _notice(null);
+    _notice(null);
   }
 
   void _updated(int id) {
@@ -1976,9 +1976,7 @@ class ShikooController {
 
   Future<void> refreshOther(int id, {ShikooRoute? via}) async {
     final profile = _ref.read(profilesProvider).getProfile(id);
-    void mark(ShikooRefresh state) => _ref
-        .read(_othersRefreshProvider.notifier)
-        .set({..._ref.read(_othersRefreshProvider), id: state});
+    void mark(ShikooRefresh state) => _markOther(id, state);
     if (profile == null ||
         profile.url.isEmpty ||
         _ref.read(_othersRefreshProvider)[id] == ShikooRefresh.running) {
@@ -2002,6 +2000,10 @@ class ShikooController {
     }
   }
 
+  void _markOther(int id, ShikooRefresh state) => _ref
+      .read(_othersRefreshProvider.notifier)
+      .set({..._ref.read(_othersRefreshProvider), id: state});
+
   void _leg(int id, ShikooLeg? leg) {
     final legs = {..._ref.read(_legsProvider)}..remove(id);
     _ref.read(_legsProvider.notifier).set({...legs, id: ?leg});
@@ -2019,8 +2021,17 @@ class ShikooController {
   Future<void> _refresh(ShikooRoute? via) async {
     final profile = _ref.read(currentProfileProvider);
     if (profile == null || profile.url.isEmpty) return;
-    final status = _ref.read(_refreshProvider.notifier);
-    status.set(ShikooRefresh.running);
+    // Another card, or none after a sign-out, may be in use by the time the answer comes.
+    bool inUse() => profile.id == _current;
+    void status(ShikooRefresh state) {
+      if (inUse()) {
+        _ref.read(_refreshProvider.notifier).set(state);
+      } else if (_ref.read(profilesProvider).getProfile(profile.id) != null) {
+        _markOther(profile.id, state);
+      }
+    }
+
+    status(ShikooRefresh.running);
     clearNews();
     final before = _names(_group);
     final had = _validSelection();
@@ -2037,7 +2048,7 @@ class ShikooController {
         },
       );
       if (fresh == null) {
-        status.set(ShikooRefresh.idle);
+        status(ShikooRefresh.idle);
         return;
       }
       if (!await _setup.applyProfile(silence: true)) {
@@ -2045,9 +2056,9 @@ class ShikooController {
       }
     } catch (error) {
       final clock = await clockFailed(error, profile.url);
-      status.set(ShikooRefresh.failed);
+      status(ShikooRefresh.failed);
       _failed(profile.id, error);
-      if (_manualRefresh || clock) {
+      if (inUse() && (_manualRefresh || clock)) {
         _notice(
           RefreshFailed(
             clock: clock,
@@ -2060,7 +2071,8 @@ class ShikooController {
     } finally {
       _leg(profile.id, null);
     }
-    status.set(ShikooRefresh.idle);
+    status(ShikooRefresh.idle);
+    if (!inUse()) return;
     _notice(null);
     final after = _names(_group);
     final removed = [
