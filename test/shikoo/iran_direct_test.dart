@@ -7,6 +7,7 @@ import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' show join;
 import 'package:yaml/yaml.dart';
@@ -142,6 +143,27 @@ void main() {
     expect(on, {...off, 'shikoo-ir-site': _ours['shikoo-ir-site']});
   });
 
+  test("a subscription's set named like ours keeps its place and leaves the "
+      'DNS policy, which the core would refuse for an ipcidr set', () async {
+    await keepIranDirect(true);
+    final theirs = {
+      'type': 'inline',
+      'behavior': 'ipcidr',
+      'payload': ['10.0.0.0/8'],
+    };
+    final config = await _config(
+      panelSets: <String, Object>{'shikoo-ir-site': theirs},
+    );
+    expect((config['rule-providers'] as YamlMap)['shikoo-ir-site'], theirs);
+    expect(
+      ((config['dns'] as YamlMap)['nameserver-policy'] as YamlMap).keys,
+      allOf(
+        isNot(contains('rule-set:shikoo-ir-site')),
+        contains('+.xn--mgba3a4fra'),
+      ),
+    );
+  });
+
   test("the rules keep Shikoo's ids, apart from the door's and the "
       "subscriptions'", () async {
     await keepIranDirect(true);
@@ -205,5 +227,18 @@ void main() {
     await writeRuleSets(home.path);
     expect(sha('shikoo-ir-site'), _shipped['shikoo-ir-site']);
     expect(file('shikoo-ir-ip').statSync().modified, kept);
+  });
+
+  test('a home the sets cannot be written to is logged and the start goes '
+      'on', () async {
+    final home = Directory.systemTemp.createTempSync('shikoo-sets-');
+    addTearDown(() => home.deleteSync(recursive: true));
+    final lines = <String?>[];
+    final print = debugPrint;
+    debugPrint = (message, {wrapWidth}) => lines.add(message);
+    addTearDown(() => debugPrint = print);
+
+    await expectLater(writeRuleSets(join(home.path, 'missing')), completes);
+    expect(lines, [startsWith('[APP] rule sets not written')]);
   });
 }

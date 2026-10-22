@@ -5,8 +5,10 @@ import 'dart:io' show File, HttpHeaders, InternetAddress;
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:fl_clash/common/print.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/database/database.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
@@ -592,15 +594,20 @@ Future<void> keepIranDirect(bool on) => database.transaction(() async {
 });
 
 /// Left alone when unchanged: a tunnel still up from the last run may be reading them.
+/// A failed write only sends Iranian sites through the server; the app still starts.
 Future<void> writeRuleSets(String home) async {
-  for (final name in shikooRuleSets.keys) {
-    final asset = await rootBundle.load('assets/data/$name.mrs');
-    final bytes = asset.buffer.asUint8List();
-    final file = File(join(home, '$name.mrs'));
-    if (await file.exists() && listEquals(await file.readAsBytes(), bytes)) {
-      continue;
+  try {
+    for (final name in shikooRuleSets.keys) {
+      final asset = await rootBundle.load('assets/data/$name.mrs');
+      final bytes = asset.buffer.asUint8List();
+      final file = File(join(home, '$name.mrs'));
+      if (await file.exists() && listEquals(await file.readAsBytes(), bytes)) {
+        continue;
+      }
+      await file.writeAsBytes(bytes, flush: true);
     }
-    await file.writeAsBytes(bytes, flush: true);
+  } catch (e) {
+    commonPrint.log('rule sets not written: $e', logLevel: LogLevel.warning);
   }
 }
 
