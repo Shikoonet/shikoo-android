@@ -4,7 +4,8 @@ go 1.27
 
 toolchain go1.27.3
 
-// Keeps the go 1.21 runtime defaults Go 1.27 still has (26 of 31); the 7 it dropped touch only std crypto/tls and timers.
+// Keeps the go 1.21 runtime defaults Go 1.27 still has: 24 of the base's 31 keys, same values, and 2 new ones
+// (tracebacklabels, x509sslcertoverrideplatform); the 7 it dropped touch only std crypto/tls and timers.
 godebug default=go1.21
 
 replace github.com/metacubex/mihomo => ./Clash.Meta

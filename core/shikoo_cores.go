@@ -17,7 +17,7 @@ const shikooCoreKey = "shikoo-core"
 var (
 	shikooCores = map[string]shikooCoreStart{}
 
-	// Only applyConfig changes these, under configMu.
+	// Changed only under configMu.
 	shikooCoresRunning  []func()
 	shikooCoresStarting []func()
 )
@@ -91,8 +91,8 @@ func shikooCoresMatch(proxies, replacements []map[string]any) error {
 		return fmt.Errorf("%d replacements for %d servers", len(replacements), len(proxies))
 	}
 	for j, proxy := range proxies {
-		if name, _ := replacements[j]["name"].(string); name != fmt.Sprint(proxy["name"]) {
-			return fmt.Errorf("replacement %d is named %q, not %q", j, name, proxy["name"])
+		if name := fmt.Sprint(replacements[j]["name"]); name != fmt.Sprint(proxy["name"]) {
+			return fmt.Errorf("replacement %d is named %q, not %q", j, name, fmt.Sprint(proxy["name"]))
 		}
 	}
 	return nil

@@ -41,7 +41,7 @@ func (f *fakeShikooCore) start(proxies []map[string]any) ([]map[string]any, func
 		if _, marked := proxy[shikooCoreKey]; marked {
 			return nil, nil, errors.New("the marker reached the core")
 		}
-		names = append(names, proxy["name"].(string))
+		names = append(names, fmt.Sprint(proxy["name"]))
 		name := proxy["name"]
 		if f.rename {
 			name = fmt.Sprint(name, "-moved")
@@ -234,5 +234,15 @@ func TestHandleShutdownStopsTheShikooCores(t *testing.T) {
 	if fake.stopped != 2 || len(shikooCoresRunning)+len(shikooCoresStarting) != 0 {
 		t.Errorf("stopped %d of 2 generations; %d running, %d starting left", fake.stopped,
 			len(shikooCoresRunning), len(shikooCoresStarting))
+	}
+}
+
+func TestShikooCoresKeepAServerNamedByABareNumber(t *testing.T) {
+	fake := useFakeShikooCore(t)
+
+	cfg := parseShikooCores(t, "proxies:\n  - {name: 7, type: http, server: 1.1.1.1, port: 1, shikoo-core: fake}\n")
+
+	if got := proxyTypes(cfg, "7"); got[0] != constant.Socks5 || fake.stopped != 0 {
+		t.Errorf("type %v, stopped %d: a core that keeps the name 7 as YAML read it must still carry the server", got, fake.stopped)
 	}
 }
