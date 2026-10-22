@@ -231,17 +231,19 @@ const probeLimit = Duration(seconds: 5);
 const domesticProbes = ['http://www.aparat.com/', 'http://www.digikala.com/'];
 const internationalProbe = 'http://connectivitycheck.gstatic.com/generate_204';
 
-/// Never through FlClash's local proxy: its own 502 would pass for an Iranian site's answer.
+/// Direct, but for [proxy] ([ownerAside]): through FlClash's local proxy its own 502 is no Iranian site's answer.
 Future<ProbeChecks> runProbes({
   List<String> domestic = domesticProbes,
   String international = internationalProbe,
   List<String> doors = shikooApiBases,
   Duration limit = probeLimit,
+  String? proxy,
 }) async {
   final dio =
       Dio(BaseOptions(followRedirects: false, validateStatus: (_) => true))
         ..httpClientAdapter = IOHttpClientAdapter(
-          createHttpClient: () => HttpClient()..findProxy = (_) => 'DIRECT',
+          createHttpClient: () =>
+              HttpClient()..findProxy = (_) => proxy ?? 'DIRECT',
         );
   Future<Probe> one(String url, {String method = 'GET', int? want}) async {
     final watch = Stopwatch()..start();
@@ -251,7 +253,10 @@ Future<ProbeChecks> runProbes({
           .request<void>(url, options: Options(method: method))
           .timeout(limit);
       final code = response.statusCode;
-      result = want == null || code == want ? 'ok' : 'http_$code';
+      final proxyFailed = proxy != null && code == HttpStatus.badGateway;
+      result = !proxyFailed && (want == null || code == want)
+          ? 'ok'
+          : 'http_$code';
     } catch (error) {
       result = failureKind(error);
     }
@@ -1307,7 +1312,11 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     bool images = true,
     ProbeChecks? checks,
   }) async {
-    final probed = checks ?? await runProbes();
+    final probed =
+        checks ??
+        await runProbes(
+          proxy: ownerAside(_container!.read, Uri.parse(internationalProbe)),
+        );
     try {
       for (final line
           in await _windows?.call(_container!) ?? const <String>[]) {
