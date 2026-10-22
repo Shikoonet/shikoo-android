@@ -164,8 +164,6 @@ class _RefreshControlsState extends State<RefreshControls> {
   }
 }
 
-/// `.rmenu` under [anchor], its end edge on the anchor's; Back, Esc or a tap outside closes it,
-/// and the remote returns to the button that opened it.
 Future<ShikooRoute?> showRefreshMenu(
   BuildContext context, {
   required Rect anchor,
@@ -173,15 +171,68 @@ Future<ShikooRoute?> showRefreshMenu(
   required bool connected,
   required String server,
   required bool isTV,
-}) => showGeneralDialog<ShikooRoute>(
+}) => showMenuBelow<ShikooRoute>(
+  context,
+  anchor: anchor,
+  within: within,
+  label: ShikooL10n.of(context).refreshWays,
+  isTV: isTV,
+  child: _Menu(connected: connected, server: server, isTV: isTV),
+);
+
+/// `.rmenu` under [anchor], its end edge on the anchor's; Back, Esc or a tap outside closes it,
+/// and the remote returns to what opened it. [anchor] and [within] are in the overlay's space.
+/// Without a [width] the menu is as wide as its content, at least 248.
+Future<T?> showMenuBelow<T>(
+  BuildContext context, {
+  required Rect anchor,
+  Rect? within,
+  required String label,
+  required bool isTV,
+  double? width,
+  required Widget child,
+}) => showGeneralDialog<T>(
   context: context,
   barrierDismissible: true,
-  barrierLabel: ShikooL10n.of(context).refreshWays,
+  barrierLabel: label,
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
   pageBuilder: (context, _, _) => CustomSingleChildLayout(
     delegate: _Below(anchor, within, Directionality.of(context)),
-    child: _Menu(connected: connected, server: server, isTV: isTV),
+    child: ConstrainedBox(
+      constraints: width == null
+          ? const BoxConstraints(minWidth: _menuMinWidth)
+          : BoxConstraints.tightFor(width: width),
+      child: IntrinsicWidth(
+        child: Builder(
+          builder: (context) {
+            final t = ShikooTheme.of(context);
+            return Container(
+              padding: EdgeInsets.all(isTV ? Space.s2 : Space.s1),
+              decoration: ShapeDecoration(
+                color: t.c.surface,
+                shadows: t.c.raisedShadow,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(
+                    shikooDesktop ? Radii.sm : Radii.md,
+                  ),
+                  side: BorderSide(color: t.c.border),
+                ),
+              ),
+              child: Material(
+                type: MaterialType.transparency,
+                child: Semantics(
+                  scopesRoute: true,
+                  explicitChildNodes: true,
+                  label: label,
+                  child: child,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ),
   ),
 );
 
@@ -242,65 +293,36 @@ class _Menu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     void choose(ShikooRoute way) => Navigator.of(context).pop(way);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: _menuMinWidth),
-      child: IntrinsicWidth(
-        child: Container(
-          padding: EdgeInsets.all(isTV ? Space.s2 : Space.s1),
-          decoration: ShapeDecoration(
-            color: t.c.surface,
-            shadows: t.c.raisedShadow,
-            shape: RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(
-                shikooDesktop ? Radii.sm : Radii.md,
-              ),
-              side: BorderSide(color: t.c.border),
-            ),
-          ),
-          child: Material(
-            type: MaterialType.transparency,
-            child: Semantics(
-              scopesRoute: true,
-              explicitChildNodes: true,
-              label: l.refreshWays,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: isTV ? Space.s1 : 0,
-                children: [
-                  _Item(
-                    icon: ShikooIcon.wifi,
-                    title: l.refreshDirect,
-                    hint: shikooDesktop
-                        ? l.refreshDirectHintDesktop
-                        : l.refreshDirectHint,
-                    isTV: isTV,
-                    autofocus:
-                        !shikooDesktop ||
-                        FocusManager.instance.highlightMode ==
-                            FocusHighlightMode.traditional,
-                    onPressed: () => choose(ShikooRoute.direct),
-                  ),
-                  _Item(
-                    icon: ShikooIcon.shield,
-                    title: l.refreshViaServer,
-                    hint: connected
-                        ? l.refreshViaServerHint(server)
-                        : l.refreshConnectFirst,
-                    isTV: isTV,
-                    onPressed: connected
-                        ? () => choose(ShikooRoute.server)
-                        : null,
-                  ),
-                ],
-              ),
-            ),
-          ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: isTV ? Space.s1 : 0,
+      children: [
+        _Item(
+          icon: ShikooIcon.wifi,
+          title: l.refreshDirect,
+          hint: shikooDesktop
+              ? l.refreshDirectHintDesktop
+              : l.refreshDirectHint,
+          isTV: isTV,
+          autofocus:
+              !shikooDesktop ||
+              FocusManager.instance.highlightMode ==
+                  FocusHighlightMode.traditional,
+          onPressed: () => choose(ShikooRoute.direct),
         ),
-      ),
+        _Item(
+          icon: ShikooIcon.shield,
+          title: l.refreshViaServer,
+          hint: connected
+              ? l.refreshViaServerHint(server)
+              : l.refreshConnectFirst,
+          isTV: isTV,
+          onPressed: connected ? () => choose(ShikooRoute.server) : null,
+        ),
+      ],
     );
   }
 }

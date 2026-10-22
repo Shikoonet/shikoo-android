@@ -1672,4 +1672,102 @@ class ShikooL10nFa extends ShikooL10n {
 
     return 'هر چه برنامه در این بخش ثبت کند، تا $daysString روز این‌جا می‌ماند.';
   }
+
+  @override
+  String get connectionGroup => 'اتصال';
+
+  @override
+  String get iranDirect => 'سایت‌های ایرانی بدون فیلترشکن';
+
+  @override
+  String get iranDirectHelp =>
+      'بانک، درگاه پرداخت و سایت‌های ایرانی مستقیم باز می‌شوند، حتی وقتی وصلی.';
+
+  @override
+  String get coresGroup => 'هسته‌ها';
+
+  @override
+  String get coresNote =>
+      'هر نوع سرور با کدام هسته وصل شود. اگر مطمئن نیستی، دست نزن.';
+
+  @override
+  String get protocolVless => 'ویلس';
+
+  @override
+  String get protocolWireguard => 'وایرگارد';
+
+  @override
+  String get protocolOpenvpn => 'اوپن‌وی‌پی‌ان';
+
+  @override
+  String get protocolSsh => 'اس‌اس‌اچ';
+
+  @override
+  String get coreMihomo => 'میهومو';
+
+  @override
+  String get coreXray => 'اکس‌ری';
+
+  @override
+  String get coreSingBox => 'سینگ‌باکس';
+
+  @override
+  String get coreWireguard => 'وایرگارد رسمی';
+
+  @override
+  String get coreOpenvpn => 'اوپن‌وی‌پی‌ان رسمی';
+
+  @override
+  String get coreMihomoHelp => 'پیش‌فرض';
+
+  @override
+  String get coreWireguardHelp => 'موتور برنامهٔ رسمی وایرگارد';
+
+  @override
+  String get coreOpenvpnHelp => 'موتور برنامهٔ رسمی اوپن‌وی‌پی‌ان';
+
+  @override
+  String get coreSoon => 'به‌زودی';
+
+  @override
+  String get coreSingBoxVless =>
+      'بعضی سرورهای ویلس را بلد نیست؛ آن‌ها با میهومو وصل می‌شوند.';
+
+  @override
+  String coreTunnelOnly(String mode) {
+    return 'فقط در حالت «$mode»';
+  }
+
+  @override
+  String coreProxyNow(String mode) {
+    return 'الان حالت «$mode» است.';
+  }
+
+  @override
+  String corePickTitle(String protocol) {
+    return '$protocol با کدام هسته وصل شود؟';
+  }
+
+  @override
+  String corePickForAll(String protocol) {
+    return 'انتخابت برای همهٔ سرورهای $protocol است.';
+  }
+
+  @override
+  String get corePickAgain => 'اگر وصلی، چند ثانیه قطع و دوباره وصل می‌شوی.';
+
+  @override
+  String viaCore(String core) {
+    return 'با $core';
+  }
+
+  @override
+  String coreSwitching(String core) {
+    return 'در حال وصل شدن با «$core»…';
+  }
+
+  @override
+  String coreSwitched(String core) {
+    return 'حالا با «$core» وصلی.';
+  }
 }

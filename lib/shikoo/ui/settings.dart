@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
+import 'package:fl_clash/shikoo/ui/cores.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -116,6 +118,27 @@ class ShikooSettings extends ConsumerWidget {
           onSelect: (language) => unawaited(setLook.setLanguage(language)),
         ),
       ),
+      _Group(
+        title: l.connectionGroup,
+        child: SwitchRow(
+          label: l.iranDirect,
+          help: l.iranDirectHelp,
+          on: state.iranDirect,
+          onChanged: (on) =>
+              unawaited(ref.read(shikooControllerProvider).setIranDirect(on)),
+        ),
+      ),
+      if (state.cores.isNotEmpty)
+        _Group(
+          title: l.coresGroup,
+          note: l.coresNote,
+          child: _Card(
+            rows: [
+              for (final row in state.cores)
+                _CoreRow(key: ValueKey(row.protocol), row: row),
+            ],
+          ),
+        ),
       if (shikooDesktop)
         _Group(
           title: l.windowsGroup,
@@ -1220,6 +1243,7 @@ class _Row extends StatelessWidget {
     this.value,
     this.icon,
     this.forward = false,
+    this.down = false,
     this.danger = false,
     this.alert = false,
     this.busy = false,
@@ -1228,6 +1252,9 @@ class _Row extends StatelessWidget {
   });
 
   final String title;
+
+  /// `.value + .icon`: a small ⌄ after the value, for a row that opens a list of choices.
+  final bool down;
 
   /// The subtitle in red, as `.row small.danger`.
   final bool alert;
@@ -1332,6 +1359,12 @@ class _Row extends StatelessWidget {
                 children: [for (final key in keys) _Key(key)],
               ),
             ),
+          if (down)
+            SvgIcon(
+              ShikooIcon.chevronDown,
+              size: s.iconSm,
+              color: t.c.textMuted,
+            ),
           if (forward)
             Transform.flip(
               flipX: ltr,
@@ -1350,6 +1383,24 @@ class _Row extends StatelessWidget {
       shape: shape,
       onPressed: onPressed,
       builder: (context, focused) => row(focused),
+    );
+  }
+}
+
+/// Option «الف»: a kind of server and its core; its list opens from here, under it on a computer.
+class _CoreRow extends ConsumerWidget {
+  const _CoreRow({super.key, required this.row});
+
+  final ShikooCoreRow row;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = ShikooL10n.of(context);
+    return _Row(
+      title: protocolLabel(l, row.protocol),
+      value: coreLabel(l, row.chosen),
+      down: true,
+      onPressed: () => unawaited(pickCore(context, ref, row)),
     );
   }
 }

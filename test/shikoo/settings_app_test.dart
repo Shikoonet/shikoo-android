@@ -234,6 +234,7 @@ void main() {
           await _focus(tester, _row(_check));
           await tester.sendKeyEvent(LogicalKeyboardKey.select);
         } else {
+          await tester.ensureVisible(find.text(_check));
           await tester.tap(find.text(_check));
         }
         await tester.pump();
@@ -274,6 +275,7 @@ void main() {
         await _focus(tester, _row(_check));
         await _press(tester, LogicalKeyboardKey.select);
       } else {
+        await tester.ensureVisible(find.text(_check));
         await tester.tap(find.text(_check));
         await tester.pumpAndSettle();
       }
@@ -329,10 +331,14 @@ void main() {
       });
       if (isTV) {
         // By keys, as on a TV: Up must not undo the Down that reached the row.
-        await _press(tester, LogicalKeyboardKey.arrowLeft);
+        expect(
+          await _press(tester, LogicalKeyboardKey.arrowDown),
+          'سایت‌های ایرانی بدون فیلترشکن',
+        );
         expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
         await _press(tester, LogicalKeyboardKey.select);
       } else {
+        await tester.ensureVisible(find.text(_check));
         await tester.tap(find.text(_check));
         await tester.pumpAndSettle();
       }
@@ -348,8 +354,8 @@ void main() {
       expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'درباره');
       expect(
         await _press(tester, LogicalKeyboardKey.arrowUp),
-        'فارسی',
-        reason: 'the chosen language, not the option nearest the card',
+        'سایت‌های ایرانی بدون فیلترشکن',
+        reason: 'version and core are only text',
       );
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'دریافت');
@@ -425,7 +431,10 @@ void main() {
   ) async {
     await _pump(tester, isTV: true);
     expect(_focused(), 'خودکار');
-    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'فارسی');
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowDown),
+      'سایت‌های ایرانی بدون فیلترشکن',
+    );
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
   });

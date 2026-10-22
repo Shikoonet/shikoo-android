@@ -10,6 +10,7 @@ import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/cores.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -74,7 +75,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   bool _folded = false;
 
   ({int id, double? top})? _opening;
-  final _news = ValueNotifier<ShikooSwitch?>(null);
+  final _news = ValueNotifier<Record?>(null);
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _bar;
 
   /// From the bar's top to the screen's bottom, so the list can end above it.
@@ -114,7 +115,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   }
 
   /// phone-switch-*: one bar from the tap to the end, its words following the switch.
-  void _onSwitch(ShikooSwitch? next) {
+  void _onSwitch(Record? next) {
     if (next == null) return _bar?.close();
     _news.value = next;
     if (_bar != null || ref.read(shikooStateProvider).isTV) return;
@@ -277,6 +278,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   Widget build(BuildContext context) {
     ref.listen(
       shikooStateProvider.select((state) => state.switching),
+      (_, next) => _onSwitch(next),
+    );
+    ref.listen(
+      shikooStateProvider.select((state) => state.coreSwitch),
       (_, next) => _onSwitch(next),
     );
     ref.listen(shikooStateProvider.select((state) => state.service?.id), (
@@ -513,6 +518,7 @@ ShikooState _openedState(ShikooState state, ShikooService service) {
     refresh: service.id == state.service?.id ? state.refresh : service.refresh,
     open: state.open,
     landed: state.landed,
+    cores: state.cores,
   );
 }
 
@@ -908,6 +914,7 @@ class _PowerZone extends StatelessWidget {
 
   // The phone's switch news is its bottom bar; the TV's is this slot, which never moves.
   ShikooSwitch? get _shift => state.isTV ? state.switching : null;
+  ShikooCoreSwitch? get _coreShift => state.isTV ? state.coreSwitch : null;
 
   String? message(ShikooL10n l) {
     if (state.service == null) return null;
@@ -915,6 +922,7 @@ class _PowerZone extends StatelessWidget {
     final selected = state.selectedServer;
     final silent = _silent;
     final shift = _shift;
+    final coreShift = _coreShift;
     return switch (state.lastError) {
       _ when resting == ShikooServiceStatus.revoked => null,
       _ when resting != null => renews ? l.renewToConnect : null,
@@ -947,6 +955,7 @@ class _PowerZone extends StatelessWidget {
         serverName(shift!.to),
       ),
       null when shift != null => switchNews(l, shift).join(' '),
+      null when coreShift != null => coreNews(l, coreShift).join(' '),
       null when silent => l.selectedDown(serverName(selected!.name)),
       null =>
         state.isTV && state.connection == ShikooConnection.off
@@ -1251,7 +1260,7 @@ class _InViewState extends State<_InView> {
 class _SwitchBar extends StatelessWidget {
   const _SwitchBar({required this.news, required this.onTop});
 
-  final ValueNotifier<ShikooSwitch?> news;
+  final ValueNotifier<Record?> news;
   final ValueChanged<double> onTop;
 
   @override
@@ -1268,8 +1277,12 @@ class _SwitchBar extends StatelessWidget {
             onTop(box.localToGlobal(Offset.zero).dy);
           }
         });
-        final [first, ...rest] = switchNews(l, shift!);
-        final icon = switch (shift.stage) {
+        final (stage, [first, ...rest]) = switch (shift) {
+          final ShikooCoreSwitch core => (core.stage, coreNews(l, core)),
+          final ShikooSwitch server => (server.stage, switchNews(l, server)),
+          _ => throw StateError('$shift'),
+        };
+        final icon = switch (stage) {
           ShikooSwitchStage.moving => null,
           ShikooSwitchStage.done => ShikooIcon.check,
           ShikooSwitchStage.failed => ShikooIcon.alert,

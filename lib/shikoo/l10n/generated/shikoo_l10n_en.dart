@@ -1730,4 +1730,103 @@ class ShikooL10nEn extends ShikooL10n {
 
     return 'Whatever the app records here stays for $daysString days.';
   }
+
+  @override
+  String get connectionGroup => 'Connection';
+
+  @override
+  String get iranDirect => 'Iranian sites without VPN';
+
+  @override
+  String get iranDirectHelp =>
+      'Banks, payment pages and Iranian sites open directly, even while connected.';
+
+  @override
+  String get coresGroup => 'Cores';
+
+  @override
+  String get coresNote =>
+      'Which core connects each kind of server. If unsure, leave it as it is.';
+
+  @override
+  String get protocolVless => 'VLESS';
+
+  @override
+  String get protocolWireguard => 'WireGuard';
+
+  @override
+  String get protocolOpenvpn => 'OpenVPN';
+
+  @override
+  String get protocolSsh => 'SSH';
+
+  @override
+  String get coreMihomo => 'mihomo';
+
+  @override
+  String get coreXray => 'Xray';
+
+  @override
+  String get coreSingBox => 'sing-box';
+
+  @override
+  String get coreWireguard => 'WireGuard (official)';
+
+  @override
+  String get coreOpenvpn => 'OpenVPN (official)';
+
+  @override
+  String get coreMihomoHelp => 'Default';
+
+  @override
+  String get coreWireguardHelp => 'The official WireGuard app\'s engine';
+
+  @override
+  String get coreOpenvpnHelp => 'The official OpenVPN app\'s engine';
+
+  @override
+  String get coreSoon => 'Soon';
+
+  @override
+  String get coreSingBoxVless =>
+      'Doesn\'t know some VLESS servers; those connect via mihomo.';
+
+  @override
+  String coreTunnelOnly(String mode) {
+    return '$mode mode only';
+  }
+
+  @override
+  String coreProxyNow(String mode) {
+    return '$mode mode is on.';
+  }
+
+  @override
+  String corePickTitle(String protocol) {
+    return 'Connect $protocol with';
+  }
+
+  @override
+  String corePickForAll(String protocol) {
+    return 'Your choice applies to every $protocol server.';
+  }
+
+  @override
+  String get corePickAgain =>
+      'If you\'re connected, you\'ll reconnect for a few seconds.';
+
+  @override
+  String viaCore(String core) {
+    return 'via $core';
+  }
+
+  @override
+  String coreSwitching(String core) {
+    return 'Reconnecting with “$core”…';
+  }
+
+  @override
+  String coreSwitched(String core) {
+    return 'Now connected with “$core”.';
+  }
 }

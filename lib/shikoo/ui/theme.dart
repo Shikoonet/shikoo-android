@@ -352,6 +352,9 @@ class ShikooSizes {
   static const titleMark = 16.0;
   static const modeSwitch = 280.0;
   static const modeHint = 320.0;
+
+  /// `.menu` of the core picker: its foot wraps here instead of widening it.
+  static const coreMenu = 272.0;
   static const trayMenu = 248.0;
   static const trayRow = 32.0;
   static const trayIcon = 16.0;
@@ -396,6 +399,7 @@ class ShikooSizes {
   static const switchThumb = 24.0;
   static const switchThumbOff = 16.0;
   static const borderRadio = 2.0;
+  static const radio = 20.0;
   static const checkbox = 20.0;
   static const iconStroke = 2.0;
   static const iconStrokeStrong = 2.25;
