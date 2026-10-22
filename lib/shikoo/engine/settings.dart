@@ -148,8 +148,13 @@ final shikooVersionProvider = Provider<String>(
 /// The FlClash under this build; a test holds it to `pubspec.yaml`, which each upstream tag raises.
 const flclashVersion = '0.8.98';
 
-/// The `core/Clash.Meta` commit the release workflows stamp (`--dart-define=SHIKOO_CORE`) and then
-/// look for in every APK. The fork has no version of its own: its `constant.Version` is a stale
-/// "1.10.0" that no build sets, so a build without the stamp names no number at all.
+/// The mihomo tag under `core/Clash.Meta`; a test holds it to the submodule commit. The fork's own
+/// `constant.Version` is a stale "1.10.0" that no build sets, and the fork carries no mihomo tags.
+const mihomoVersion = '1.19.33';
+
+/// The version, then the `core/Clash.Meta` commit the release workflows stamp
+/// (`--dart-define=SHIKOO_CORE`); a build without the stamp names the version alone.
 String coreName([String stamp = const String.fromEnvironment('SHIKOO_CORE')]) =>
-    stamp.isEmpty ? 'mihomo' : 'mihomo\u00A0$stamp';
+    'mihomo\u00A0$mihomoVersion${stamp.isEmpty ? '' : '\u00A0($stamp)'}';
+
+final shikooCoreProvider = Provider<String>((ref) => coreName());

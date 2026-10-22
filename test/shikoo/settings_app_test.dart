@@ -10,6 +10,7 @@ import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,11 +33,8 @@ const _clock =
     'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
 const _dateSettings = 'تنظیمات تاریخ و ساعت';
 
-/// `flutter test --dart-define=SHIKOO_CORE=70f0570` checks the stamped row; a plain run, the fallback.
-const _stamp = String.fromEnvironment('SHIKOO_CORE');
-const _core = _stamp == ''
-    ? '\u2066mihomo\u2069'
-    : '\u2066mihomo\u00A0$_stamp\u2069';
+/// The core row as a release build stamps it, its longest.
+final _core = '\u2066${coreName('cd1023a')}\u2069';
 
 const _release = AppRelease(
   versionName: '1.0.58',
@@ -109,6 +107,7 @@ Future<ProviderContainer> _pump(
       ),
       shikooControllerProvider.overrideWithValue(_Controller()),
       shikooVersionProvider.overrideWithValue('1.0.57'),
+      shikooCoreProvider.overrideWithValue(coreName('cd1023a')),
       shikooUpdateOfferProvider.overrideWith(() => ShikooCell(offer)),
       shikooUpdateProvider.overrideWithValue(_engine),
     ],
@@ -181,6 +180,26 @@ void _growOnPress(ProviderContainer container, String to) {
     grow();
     return InstallAsk.nothing;
   });
+}
+
+/// The core on one line, inside its row, at 90% of the user's text size or more.
+void _expectCoreOnOneLine(WidgetTester tester, String reason) {
+  final value = find.text(_core);
+  final paragraph = tester.renderObject<RenderParagraph>(value);
+  final whole = TextSelection(baseOffset: 0, extentOffset: _core.length);
+  final tops = paragraph.getBoxesForSelection(whole).map((box) => box.top);
+  expect(tops.toSet(), hasLength(1), reason: reason);
+  final drawn = tester.getRect(value);
+  final row = tester.getRect(
+    find.ancestor(of: value, matching: find.byType(Wrap)).first,
+  );
+  expect(drawn.left, greaterThanOrEqualTo(row.left - 0.01), reason: reason);
+  expect(drawn.right, lessThanOrEqualTo(row.right + 0.01), reason: reason);
+  expect(
+    drawn.width / paragraph.size.width,
+    greaterThanOrEqualTo(0.9),
+    reason: reason,
+  );
 }
 
 double _cardBottom(WidgetTester tester) =>
@@ -569,6 +588,29 @@ void main() {
       await _pump(tester, size: small, scale: 1.45, offer: offer);
       expect(tester.takeException(), isNull, reason: name);
     }
+  });
+
+  testWidgets('the core row, with version and commit, keeps one line on a 320 '
+      'or 360 phone at font 1.15 or 1.45 in both languages, and on the TV', (
+    tester,
+  ) async {
+    for (final language in ['fa', 'en']) {
+      for (final width in [320.0, 360.0]) {
+        for (final scale in [1.15, 1.45]) {
+          final reason = '$language $width × $scale';
+          await _pump(
+            tester,
+            size: Size(width * 2, 1600),
+            scale: scale,
+            language: language,
+          );
+          expect(tester.takeException(), isNull, reason: reason);
+          _expectCoreOnOneLine(tester, reason);
+        }
+      }
+    }
+    await _pump(tester, isTV: true);
+    _expectCoreOnOneLine(tester, 'TV');
   });
 
   testWidgets('on the TV the page scrolls in its own column: room for the ring '
