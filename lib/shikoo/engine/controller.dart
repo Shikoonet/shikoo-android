@@ -22,6 +22,7 @@ import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/wireguard.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -484,6 +485,7 @@ MainGroup? mainGroupOf(Map<String, dynamic> config) {
     for (final proxy in config['proxies'] as List? ?? const [])
       if (proxy is Map) '${proxy['name']}': Map<String, dynamic>.from(proxy),
   };
+  proxies.values.forEach(wireGuardDefaults);
   for (final group in config['proxy-groups'] as List? ?? const []) {
     if (group is! Map || group['hidden'] == true) continue;
     return (
