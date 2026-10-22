@@ -15,6 +15,16 @@ final _allReady = {
     core: (ready: true, shape: spec.shape, serves: spec.serves),
 };
 
+/// Only mihomo ready, whichever packages have landed.
+final _noneReady = {
+  for (final MapEntry(key: core, value: spec) in shikooCoreSpecs.entries)
+    core: (
+      ready: core == ShikooCore.mihomo,
+      shape: spec.shape,
+      serves: spec.serves,
+    ),
+};
+
 const _reality = {
   'name': 'آلمان ۱',
   'type': 'vless',
@@ -43,7 +53,11 @@ void main() {
       ShikooProtocol.vless: ShikooCore.singBox,
       ShikooProtocol.wireguard: ShikooCore.wireguard,
     };
-    expect(coreFor(_reality, choices), ShikooCore.mihomo, reason: 'not ready');
+    expect(
+      coreFor(_reality, choices, specs: _noneReady),
+      ShikooCore.mihomo,
+      reason: 'not ready',
+    );
     expect(coreFor(_reality, choices, specs: _allReady), ShikooCore.singBox);
     expect(coreFor(_xhttp, choices, specs: _allReady), ShikooCore.mihomo);
     expect(coreFor(_encrypted, choices, specs: _allReady), ShikooCore.mihomo);
@@ -88,6 +102,7 @@ void main() {
     final rows = coreRows(
       {ShikooProtocol.ssh, ShikooProtocol.vless, ShikooProtocol.other},
       const {ShikooProtocol.vless: ShikooCore.xray},
+      specs: _noneReady,
     );
     expect(rows.map((row) => row.protocol), [
       ShikooProtocol.vless,

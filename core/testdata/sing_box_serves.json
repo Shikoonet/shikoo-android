@@ -1,0 +1,23 @@
+[
+  {"serves": true, "proxy": {"name": "reality", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "udp": true, "tls": true, "network": "tcp", "flow": "xtls-rprx-vision", "servername": "a.com", "client-fingerprint": "chrome", "reality-opts": {"public-key": "k", "short-id": "s"}}},
+  {"serves": true, "proxy": {"name": "ws", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "tls": true, "network": "ws", "encryption": "none", "ws-opts": {"path": "/p", "headers": {"Host": "a.com"}}}},
+  {"serves": true, "proxy": {"name": "grpc", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "tls": true, "network": "grpc", "grpc-opts": {"grpc-service-name": "g"}}},
+  {"serves": false, "proxy": {"name": "xhttp", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "network": "xhttp"}},
+  {"serves": false, "proxy": {"name": "encrypted", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "encryption": "mlkem768x25519plus.native.0rtt.k"}},
+  {"serves": false, "proxy": {"name": "h2", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "network": "h2"}},
+  {"serves": false, "proxy": {"name": "ech", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "ech-opts": {"enable": true}}},
+  {"serves": false, "proxy": {"name": "vision udp443", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "flow": "xtls-rprx-vision-udp443"}},
+  {"serves": false, "proxy": {"name": "old fingerprint", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "client-fingerprint": "chrome_psk"}},
+  {"serves": false, "proxy": {"name": "chained", "type": "vless", "server": "1.1.1.1", "port": 443, "uuid": "u", "dialer-proxy": "other"}},
+  {"serves": true, "proxy": {"name": "wg", "type": "wireguard", "server": "1.1.1.1", "port": 51820, "ip": "10.0.0.2", "private-key": "k", "public-key": "p", "udp": true, "mtu": 1280}},
+  {"serves": true, "proxy": {"name": "wg dns", "type": "wireguard", "server": "1.1.1.1", "port": 51820, "ip": "10.0.0.2", "private-key": "k", "public-key": "p", "remote-dns-resolve": false, "dns": ["1.1.1.1"]}},
+  {"serves": false, "proxy": {"name": "wg remote dns", "type": "wireguard", "server": "1.1.1.1", "port": 51820, "ip": "10.0.0.2", "private-key": "k", "public-key": "p", "remote-dns-resolve": true, "dns": ["1.1.1.1"]}},
+  {"serves": false, "proxy": {"name": "amnezia", "type": "wireguard", "server": "1.1.1.1", "port": 51820, "ip": "10.0.0.2", "private-key": "k", "public-key": "p", "amnezia-wg-option": {"jc": 4}}},
+  {"serves": true, "proxy": {"name": "ovpn", "type": "openvpn", "server": "vpn.a.com", "port": 1194, "proto": "udp", "ca": "c", "username": "u", "password": "p", "tls-auth": "t", "key-direction": "1", "auth": "SHA256", "data-ciphers": ["AES-256-GCM"]}},
+  {"serves": false, "proxy": {"name": "ovpn tap", "type": "openvpn", "server": "vpn.a.com", "port": 1194, "dev": "tap", "ca": "c"}},
+  {"serves": false, "proxy": {"name": "ovpn peer info", "type": "openvpn", "server": "vpn.a.com", "port": 1194, "ca": "c", "peer-info": {"IV_GUI_VER": "x"}}},
+  {"serves": true, "proxy": {"name": "ssh", "type": "ssh", "server": "1.1.1.1", "port": 22, "username": "u", "password": "p", "host-key": ["ssh-ed25519 AAAA"]}},
+  {"serves": false, "proxy": {"name": "ssh mark", "type": "ssh", "server": "1.1.1.1", "port": 22, "username": "u", "routing-mark": 1}},
+  {"serves": false, "proxy": {"name": "vmess", "type": "vmess", "server": "1.1.1.1", "port": 443, "uuid": "u", "alterId": 0, "cipher": "auto"}},
+  {"serves": false, "proxy": {"name": "hy2", "type": "hysteria2", "server": "1.1.1.1", "port": 443, "password": "p"}}
+]

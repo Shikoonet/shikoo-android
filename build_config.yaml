@@ -1,4 +1,4 @@
-tags: with_gvisor,no_easytier
+tags: with_gvisor,no_easytier,with_utls
 go_ldflags: "-w -s"
 core_dir: core
 core_name: ShikooNetCore
