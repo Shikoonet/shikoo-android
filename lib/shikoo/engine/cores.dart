@@ -20,12 +20,18 @@ typedef ShikooCoreSpec = ({
 
 typedef ShikooCoreOption = ({ShikooCore core, bool ready});
 
-/// [chosen] is mihomo while the user's pick is not ready in this build.
+/// [chosen] and [defaultCore] (what a protocol gets with no pick of the user's) are mihomo while not ready.
 typedef ShikooCoreRow = ({
   ShikooProtocol protocol,
   ShikooCore chosen,
+  ShikooCore defaultCore,
   List<ShikooCoreOption> options,
 });
+
+/// A protocol not listed defaults to mihomo. OpenVPN: Sam, 2026-10-23.
+const shikooDefaultCores = <ShikooProtocol, ShikooCore>{
+  ShikooProtocol.openvpn: ShikooCore.openvpn,
+};
 
 /// The proxy key `shikooCoresRewrite` (core/shikoo_cores.go) reads and removes.
 const shikooCoreKey = 'shikoo-core';
@@ -68,7 +74,8 @@ ShikooCore coreFor(
   bool tunnel = true,
 }) {
   final protocol = protocolOf(server);
-  final core = choices[protocol] ?? ShikooCore.mihomo;
+  final core =
+      choices[protocol] ?? shikooDefaultCores[protocol] ?? ShikooCore.mihomo;
   final spec = specs[core]!;
   return spec.ready &&
           spec.serves(protocol, server) &&
@@ -103,6 +110,7 @@ List<ShikooCoreRow> coreRows(
       (
         protocol: protocol,
         chosen: coreFor({'type': protocol.name}, choices, specs: specs),
+        defaultCore: coreFor({'type': protocol.name}, const {}, specs: specs),
         options: [
           for (final MapEntry(key: core, value: spec) in specs.entries)
             if (spec.serves(protocol, const {}))

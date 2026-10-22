@@ -178,6 +178,89 @@ void main() {
     );
   });
 
+  test('OpenVPN defaults to the official core once this build has it ready, '
+      "never over the user's own pick nor in Windows' proxy mode", () {
+    const ovpn = {'name': 'ovpn', 'type': 'openvpn'};
+    final official = _readyOnly({ShikooCore.openvpn});
+    expect(
+      coreFor(ovpn, const {}, specs: _noneReady),
+      ShikooCore.mihomo,
+      reason: 'the default is not ready yet',
+    );
+    expect(coreFor(ovpn, const {}, specs: official), ShikooCore.openvpn);
+    expect(
+      coreFor(ovpn, const {}, specs: official, tunnel: false),
+      ShikooCore.mihomo,
+      reason: 'proxy mode has no tunnel for it to own',
+    );
+    expect(
+      coreFor(ovpn, const {
+        ShikooProtocol.openvpn: ShikooCore.mihomo,
+      }, specs: official),
+      ShikooCore.mihomo,
+    );
+    expect(
+      coreFor(ovpn, const {
+        ShikooProtocol.openvpn: ShikooCore.singBox,
+      }, specs: _allReady),
+      ShikooCore.singBox,
+    );
+    expect(
+      runningCore(ovpn, 'OpenVPN', const {}, specs: official),
+      ShikooCore.openvpn,
+    );
+    expect(
+      [
+        _reality,
+        _wireguard,
+        _ssh,
+      ].map((server) => coreFor(server, const {}, specs: _allReady)),
+      everyElement(ShikooCore.mihomo),
+      reason: 'the other protocols still default to mihomo',
+    );
+    final ovpnConfig = <String, dynamic>{
+      'proxies': [ovpn],
+    };
+    expect(
+      identical(markCores(ovpnConfig, const {}, specs: official), ovpnConfig),
+      isTrue,
+      reason: 'a default that owns the tunnel is not marked',
+    );
+
+    ({ShikooCore chosen, ShikooCore defaultCore}) row(
+      ShikooChoices choices,
+      Map<ShikooCore, ShikooCoreSpec> specs,
+    ) {
+      final row = coreRows(
+        {ShikooProtocol.openvpn},
+        choices,
+        specs: specs,
+      ).single;
+      return (chosen: row.chosen, defaultCore: row.defaultCore);
+    }
+
+    expect(row(const {}, _noneReady), (
+      chosen: ShikooCore.mihomo,
+      defaultCore: ShikooCore.mihomo,
+    ));
+    expect(row(const {}, official), (
+      chosen: ShikooCore.openvpn,
+      defaultCore: ShikooCore.openvpn,
+    ));
+    expect(row(const {ShikooProtocol.openvpn: ShikooCore.mihomo}, official), (
+      chosen: ShikooCore.mihomo,
+      defaultCore: ShikooCore.openvpn,
+    ));
+    expect(
+      coreRows(
+        {ShikooProtocol.vless},
+        const {},
+        specs: _allReady,
+      ).single.defaultCore,
+      ShikooCore.mihomo,
+    );
+  });
+
   test('each stub carries what its package starts from', () {
     expect(xraySpec.shape, ShikooShape.behindMihomo);
     expect(singBoxSpec.shape, ShikooShape.behindMihomo);

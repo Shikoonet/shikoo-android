@@ -58,7 +58,11 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - A `ShikooCoresNotifier` in `lib/shikoo/engine/settings.dart`, beside `ShikooLookNotifier` (`:52-89`): one
   SharedPreferences key per row, `shikoo.core.<protocol>` = the core's name.
 - Device only: never sent to the server, and not backed up (`allowBackup="false"`, `SHIKOO_PATCHES.md` row 10).
-- No key means mihomo. A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
+- No key means the protocol's default, `shikooDefaultCores` in `cores.dart`: **OpenVPN defaults to the official core**
+  (Sam, 2026-10-23), every other protocol to mihomo. Changing a default is one line there; WireGuard's waits for the
+  phone test. A default this build does not have ready, or one a server cannot use, means mihomo until it is, with
+  nothing for the user to do. A pick of the user's, mihomo included, is stored and always wins over the default.
+- A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
 - Loaded in the shell before `runApp`, as the look is (`lib/shikoo/app/main.dart:62`), so the first config apply already
   sees it.
 
@@ -75,7 +79,7 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | Changing the core | re-apply the config (`applyProfile(silence: true)`, as `followSubscriptions` does, `account.dart:616-623`); the tunnel stays up and the old engine stops after mihomo holds the new config | disconnect, then connect, as `setMode` does (`controller.dart:1231-1239`) |
 | Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address |
 | Lifecycle | lives with the applied config, inside `applyConfig` (Go). It runs while disconnected too, so pings work. | started and stopped by `VpnService` on Android, and by the core in TUN mode on Windows |
-| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7) |
+| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7), the official OpenVPN default included |
 
 **Sam's behaviour decisions (2026-10-22, through the lead):**
 - A core this build lacks shows switched off with «به‌زودی». So the state carries every core that can carry a protocol,
@@ -113,7 +117,8 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - Every service's mappings are read with `getConfig`, as `_mainGroupOf` does for other services, once FlClash's boot
     has finished (`initProvider`): profile files are readable only then.
   - `ShikooState.cores`: one row per protocol the customer's services hold (`other` excluded), each with `chosen` (the
-    pick, or mihomo while the pick is not ready) and `options`, every core that can carry it with `ready`.
+    pick, or mihomo while the pick is not ready), `defaultCore` (what the protocol gets with no pick, mihomo while its
+    default is not ready) and `options`, every core that can carry it with `ready`.
   - `ShikooState.coreSwitch`: `(protocol, to, stage)` while a core change moves the server in use.
   - `setCore(protocol, core)`: stores the pick, writes a timeline line for diagnostics, and re-applies the config.
     Connected, if the server in use changes core, it shows `moving`, then `done` only when, with the groups read again
