@@ -36,7 +36,7 @@
   "settingsChecking": "Checking…",
   "settingsUpToDate": "You have the latest version.",
   "settingsCheckFailed": "Couldn't check; check your internet and try again.",
-  "@settingsCoreHelp": {"description": "Under \"Core\" in Settings › App, whose value names mihomo by its release and the core/Clash.Meta commit the release build stamps (e.g. mihomo 1.19.33 (cd1023a)). There is no separate core download."},
+  "@settingsCoreHelp": {"description": "Under \"Core\" in Settings › App, whose value names mihomo by its release and the core/Clash.Meta commit the release build stamps (e.g. mihomo 1.19.33 (cd1023a)), or by its release alone in a build without the stamp. There is no separate core download."},
   "@settingsCheckUpdate": {"description": "Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home."},
   "@settingsCheckFailed": {"description": "Red line under settingsCheckUpdate; tapping the row again retries. When the check was refused for this device's clock, the red line is clockWrongTitle followed by clockWrongHelp, and a plain settings row dateSettings with the gear icon follows, before About."}
 }
