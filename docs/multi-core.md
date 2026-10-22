@@ -131,6 +131,11 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - The reconnect rule, in `selectServer` and `setCore`: while connected, reconnect when the selected server's *tunnel
     key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and `<core>/<server>` for an owner core.
     `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
+  - `ownerAside(read, url)` (route «ج», Windows only): while an owner core carries the server in use, the app's own
+    "direct" requests take mihomo's local port, whose DIRECT rules leave by the physical card, since Windows cannot
+    keep the app out of that tunnel. It covers `_fetch`'s direct leg, which then has no server fallback (it would be the
+    same port), and the report's `runProbes`, where that port's own 502 counts as a failure, not an Iranian site's
+    answer. Null on Android, whose VPN leaves our package out, and whenever mihomo carries the server.
   - Not done: the diagnostics report keeps its keys. The door refuses a whole report over a key it does not know
     (`diag.dart`), so the choice goes into the timeline instead.
 

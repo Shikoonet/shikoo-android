@@ -930,6 +930,19 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
   }
 }
 
+/// Windows cannot keep the app out of a tunnel an owner core holds, so the app's direct requests take mihomo's port,
+/// whose DIRECT rules leave by the physical card. Null elsewhere: Android keeps the app out of such a VPN.
+String? ownerAside(ProviderReader read, Uri url) {
+  if (!read(shikooDesktopProvider)) return null;
+  final core = read(shikooStateProvider).selectedServer?.core;
+  if (core == null ||
+      read(shikooCoreSpecsProvider)[core]!.shape != ShikooShape.ownsTunnel) {
+    return null;
+  }
+  final proxy = FlClashHttpOverrides.findProxyForReader(read, url);
+  return proxy == 'DIRECT' ? null : proxy;
+}
+
 Future<Response<Uint8List>> _get(String url, String? proxy) async {
   final dio = Dio()
     ..httpClientAdapter = IOHttpClientAdapter(
@@ -2314,11 +2327,12 @@ class ShikooController {
       return _get(url, server);
     }
     onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
+    final aside = ownerAside(_ref.read, Uri.parse(url));
     try {
-      return await _get(url, null);
+      return await _get(url, aside);
     } catch (error) {
       final answered = error is DioException && error.response != null;
-      if (via != null || !connected || answered) rethrow;
+      if (via != null || !connected || answered || aside != null) rethrow;
       onLeg?.call(ShikooLeg.fallback);
       return _get(url, server);
     }
