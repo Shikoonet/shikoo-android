@@ -208,8 +208,8 @@ core packages add none).
    and WireGuard's ping exception by the profile's protocol (§4).
 4. The `setup.dart` line; the Go registry and the `loadConfig` and commit hooks.
 5. Go 1.27.3: the `go 1.27` line with `toolchain go1.27.3` and `godebug default=go1.21`, and the version in the WSL and Windows toolchain
-   scripts and both Shikoo workflows (`SHIKOO_PATCHES.md` row 49). The `godebug` line keeps the runtime defaults the
-   core had under `go 1.21`, `tlsmlkem=0` included (package «س»'s advice); REALITY does not read that setting, since
+   scripts and both Shikoo workflows (`SHIKOO_PATCHES.md` row 49). The `godebug` line keeps the 24 runtime defaults of
+   `go 1.21` that Go 1.27 still has, `tlsmlkem=0` included (package «س»'s advice); REALITY does not read that setting, since
    `metacubex/utls` v1.8.8 has the read commented out (`defaults.go:15,21`). `-checklinkname=0` is not in the base: no
    dependency here needs it. The first of h1 (Xray) and h4 (sing-box) to land adds it to `go_ldflags` in
    `build_config.yaml`; the other makes the same one-line change, which git merges cleanly. The Windows script now installs its own Go under
@@ -245,7 +245,8 @@ door would refuse the report), and pinging unopened services through another cor
 - Behind-mihomo cores start with every config apply, even while disconnected: memory on the 2 GB box is unmeasured.
 - Go 1.27 no longer has seven settings the core had under `go 1.21`, so `godebug default=go1.21` cannot keep them:
   `asynctimerchan` (timer channels), `tls10server`, `tls3des`, `tlsrsakex` and `tlsunsafeekm` (old TLS suites and
-  key export), `x509keypairleaf` and `gotypesalias`. The base build has 31 GODEBUG keys and the new core 26.
+  key export), `x509keypairleaf` and `gotypesalias`. The base build has 31 GODEBUG keys and the new core 26: the
+  24 Go 1.27 still has, with the same values, plus `tracebacklabels` and `x509sslcertoverrideplatform`, new in Go 1.27.
   **They touch only Go's standard `crypto/tls` and its timers.** VLESS+TLS and DoH go through `metacubex/tls` v0.1.8,
   which always leaves RSA key exchange and 3DES out and always offers the ML-KEM curves, whatever GODEBUG says
   (`defaults.go:16-21,52-58`); the verifier saw the same plain-TLS ClientHello (`rsa_kex=[] 3des=[]`) on the base build
@@ -257,3 +258,42 @@ door would refuse the report), and pinging unopened services through another cor
   REALITY's ClientHello offered `X25519MLKEM768` in its key share, so ML-KEM stays on. **Not tested:** the panel's
   real servers, WireGuard, the 32-bit box, and Windows.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
+
+## 9. From the packages, not yet verified (از بسته‌ها، هنوز سنجیده نشده)
+
+What the packages report about their own branches, copied here before their verifiers have checked it.
+
+**sing-box (h4, `mc/singbox` at `83fe5f44`; evidence in `.notes/mc-singbox-2026-10-22/`)**
+- In process, not a second binary: sing-box 1.14.3 runs inside the Go core, one instance per config apply, behind a
+  SOCKS inbound on `127.0.0.1` with a random port and one user and password per server. The previous instance stops at
+  the next `shikooCoresCommit`. So the Windows helper needs no second binary for sing-box (§4, decision 4).
+- A minimal registry instead of sing-box's `include`: the socks inbound; vless, ssh, block and a `mihomo` outbound;
+  the wireguard and openvpn endpoints; two `mihomo` DNS transports. `libclash.so` grows about 15 MB raw, about 5 MB in
+  the APK; the spike, which linked all of `include`, grew about 26 MB.
+- Build tags: only `with_utls` was added (REALITY and the uTLS fingerprints). The package found that `with_wireguard`
+  and `with_openvpn` only enable `include/` files, which this registry does not use; package «س» had said
+  `openvpn-client` needs `with_openvpn` (§1). `with_gvisor` was already there.
+- No `-checklinkname=0`: android/arm64, android/arm and windows/amd64 linked without it.
+- Sockets: every server is dialed through the `mihomo` outbound (mihomo's `dialer.DialContext` and `ListenPacket`), so
+  Android's protect and Windows' interface binding apply. Server names resolve with mihomo's resolvers, never the
+  tunnel's fake-ip.
+- Servers left on mihomo (`singBoxServes`, the Dart `serves`, kept equal by `core/testdata/sing_box_serves.json`): any
+  key outside the type's list; VLESS networks other than tcp, ws and grpc (XHTTP and h2 included); VLESS
+  `encryption`; a flow other than `xtls-rprx-vision`; an unknown fingerprint; `remote-dns-resolve: true`; OpenVPN with
+  `dev tap`.
+- **Open risk, REALITY:** sing-box 1.14.3, 1.15.0-alpha.12 and `testing` strip X25519MLKEM768 from a REALITY
+  ClientHello, and Xray-core v26.9.8 and later reject such a ClientHello, so sing-box cannot reach current Xray REALITY
+  servers (SagerNet/sing-box#4520, open since 2026-09-11). Measured: against Xray 26.10.21 sing-box 1.14.3 fails and
+  mihomo connects; with the fix `dfd19d10` sing-box connects too. Against Xray 25.4.30 with a target that prefers
+  X25519MLKEM768, mihomo fails and sing-box connects.
+- OpenVPN: the endpoint connects at start, once per server, and keeps the session while the app is disconnected. Until
+  its handshake ends, dials fail with `endpoint is not ready yet`, so a ping or a core switch right after an apply can
+  show a false "no answer".
+- A dead server shows as a failed ping, not a dial error: sing-box answers SOCKS first, as Xray does.
+- Memory (Linux amd64 RSS): 35.2 MB on base and 41.3 MB with sing-box after init, the difference file-backed; a
+  running instance adds about 5 MB with 3 servers and 7.5 MB with 30.
+- MVS raised mihomo's dependencies (for example `x/net` 0.35→0.57, `x/crypto` 0.33→0.54, `miekg/dns` 1.1.63→1.1.72).
+  The core tests pass; mihomo's protocols are not re-tested on real servers.
+
+**Official WireGuard (h2):** its notes (`D:\dev\shikoo-spike\wgo-logs\for-doc.md`) did not exist on 2026-10-23, so
+nothing is copied yet.
