@@ -29,7 +29,6 @@ import (
 	P "github.com/metacubex/mihomo/constant/provider"
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/rules/provider"
-	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"go4.org/netipx"
 	wgconn "golang.zx2c4.com/wireguard/conn"
@@ -423,12 +422,8 @@ func startOwner(t tun.Device) error {
 	if err != nil {
 		return err
 	}
-	// A device a ping left in mihomo's client of this server would answer with the same key. The apply that
-	// follows every start builds that client again, idle.
-	if proxy := tunnel.AllProxies()[prepared.server]; proxy != nil && proxy.Type() == constant.WireGuard {
-		_ = proxy.Close()
-	}
 	ownerRunning.Store(owner)
+	shikooOwnerTakes(prepared.server)
 	return nil
 }
 

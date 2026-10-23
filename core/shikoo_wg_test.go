@@ -13,6 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/adapter"
+	"github.com/metacubex/mihomo/adapter/outbound"
+	C "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"go4.org/netipx"
 	wgconn "golang.zx2c4.com/wireguard/conn"
@@ -479,5 +483,27 @@ func TestStopTunStopsTheOwnerButKeepsTheNextPlan(t *testing.T) {
 	ownerMu.Unlock()
 	if err := startOwner(tuntest.NewChannelTUN().TUN()); err == nil {
 		t.Error("started with nothing prepared")
+	}
+}
+
+type closeSpy struct {
+	C.Proxy
+	carryingAtClose *[]string
+}
+
+func (spy closeSpy) Close() error {
+	*spy.carryingAtClose = append(*spy.carryingAtClose, ownerServer())
+	return nil
+}
+
+// Once carrying, so the gate already refuses that client when its earlier session is closed.
+func TestStartingTheOwnerClosesMihomosEarlierClientOfItsServer(t *testing.T) {
+	var closes []string
+	proxies, providers := tunnel.Proxies(), tunnel.Providers()
+	tunnel.UpdateProxies(map[string]C.Proxy{"wg": closeSpy{adapter.NewProxy(outbound.NewDirect()), &closes}}, providers)
+	t.Cleanup(func() { tunnel.UpdateProxies(proxies, providers) })
+	startTestOwner(t)
+	if !slices.Equal(closes, []string{"wg"}) {
+		t.Errorf("mihomo's client of the server was closed %d times, the engine carrying %q", len(closes), closes)
 	}
 }
