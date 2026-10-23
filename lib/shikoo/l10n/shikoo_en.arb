@@ -622,7 +622,7 @@
   "coreWireguard": "WireGuard (official)",
   "@coreWireguard": {"description": "The official WireGuard engine, beside mihomo's own WireGuard. Persian writes every core's name in Persian letters."},
   "coreOpenvpn": "OpenVPN (official)",
-  "coreMihomoHelp": "Default",
+  "coreDefault": "Default",
   "coreWireguardHelp": "The official WireGuard app's engine",
   "coreOpenvpnHelp": "The official OpenVPN app's engine",
   "coreSoon": "Soon",

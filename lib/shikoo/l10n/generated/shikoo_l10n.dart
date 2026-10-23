@@ -2780,11 +2780,11 @@ abstract class ShikooL10n {
   /// **'OpenVPN (official)'**
   String get coreOpenvpn;
 
-  /// No description provided for @coreMihomoHelp.
+  /// No description provided for @coreDefault.
   ///
   /// In en, this message translates to:
   /// **'Default'**
-  String get coreMihomoHelp;
+  String get coreDefault;
 
   /// No description provided for @coreWireguardHelp.
   ///

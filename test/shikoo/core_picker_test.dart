@@ -34,14 +34,17 @@ const _singBox = ShikooCore.singBox;
 const _wireguard = ShikooCore.wireguard;
 const _openvpn = ShikooCore.openvpn;
 
-/// The mockup's four kinds, in the engine's order; only sing-box for WireGuard is not ready.
+/// The mockup's four kinds, in the engine's order: sing-box for WireGuard is not ready, and
+/// OpenVPN's new cores, its default the official one (Sam, 2026-10-23), only with [openvpnReady].
 List<ShikooCoreRow> _rows({
   ShikooCore vless = _mihomo,
   ShikooCore wireguard = _mihomo,
+  bool openvpnReady = false,
 }) => [
   (
     protocol: ShikooProtocol.vless,
     chosen: vless,
+    defaultCore: _mihomo,
     options: const [
       (core: _mihomo, ready: true),
       (core: _xray, ready: true),
@@ -51,6 +54,7 @@ List<ShikooCoreRow> _rows({
   (
     protocol: ShikooProtocol.wireguard,
     chosen: wireguard,
+    defaultCore: _mihomo,
     options: const [
       (core: _mihomo, ready: true),
       (core: _xray, ready: true),
@@ -60,16 +64,18 @@ List<ShikooCoreRow> _rows({
   ),
   (
     protocol: ShikooProtocol.openvpn,
-    chosen: _mihomo,
-    options: const [
+    chosen: openvpnReady ? _openvpn : _mihomo,
+    defaultCore: openvpnReady ? _openvpn : _mihomo,
+    options: [
       (core: _mihomo, ready: true),
-      (core: _singBox, ready: true),
-      (core: _openvpn, ready: true),
+      (core: _singBox, ready: openvpnReady),
+      (core: _openvpn, ready: openvpnReady),
     ],
   ),
   (
     protocol: ShikooProtocol.ssh,
     chosen: _mihomo,
+    defaultCore: _mihomo,
     options: const [
       (core: _mihomo, ready: true),
       (core: _singBox, ready: true),
@@ -275,6 +281,19 @@ Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
   return _focused();
 }
 
+/// The line under [core]'s name in the open list, or null.
+String? _lineUnder(String core) {
+  final column = find
+      .ancestor(of: find.text(core).last, matching: find.byType(Column))
+      .first;
+  final texts = find
+      .descendant(of: column, matching: find.byType(Text))
+      .evaluate()
+      .map((e) => (e.widget as Text).data)
+      .toList();
+  return texts.length > 1 ? texts[1] : null;
+}
+
 /// Puts the remote on the row that holds [text].
 Future<void> _focusOn(WidgetTester tester, String text) async {
   final pressable = find
@@ -368,7 +387,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text(_fa.coreMihomoHelp), findsOneWidget);
+      expect(find.text(_fa.coreDefault), findsOneWidget);
       expect(find.text(_fa.coreWireguardHelp), findsOneWidget);
       expect(find.text(_fa.coreSoon), findsOneWidget);
       // The mockup's order: the official engine before sing-box.
@@ -393,6 +412,31 @@ void main() {
       ).called(1);
     });
 
+    for (final b in Brightness.values) {
+      testWidgets('OpenVPN today: «پیش‌فرض» under mihomo, the official engine '
+          'with «به‌زودی» (${b.name})', (tester) async {
+        await _pump(tester, _settings(), brightness: b);
+        await tester.ensureVisible(find.text(_fa.protocolOpenvpn));
+        await tester.tap(find.text(_fa.protocolOpenvpn));
+        await tester.pumpAndSettle();
+        expect(_lineUnder(_fa.coreMihomo), _fa.coreDefault);
+        expect(_lineUnder(_fa.coreOpenvpn), _fa.coreOpenvpnHelp);
+        expect(find.text(_fa.coreSoon), findsNWidgets(2));
+        await _shot(tester, 'o-sheet-${b.name}');
+      });
+    }
+
+    testWidgets('«پیش‌فرض» stands under the core the row names as default', (
+      tester,
+    ) async {
+      await _pump(tester, _settings(cores: _rows(openvpnReady: true)));
+      await tester.ensureVisible(find.text(_fa.protocolOpenvpn));
+      await tester.tap(find.text(_fa.protocolOpenvpn));
+      await tester.pumpAndSettle();
+      expect(_lineUnder(_fa.coreOpenvpn), _fa.coreDefault);
+      expect(_lineUnder(_fa.coreMihomo), isNull);
+    });
+
     testWidgets('the current core picked again changes nothing', (
       tester,
     ) async {
@@ -400,7 +444,7 @@ void main() {
       await tester.ensureVisible(find.text(_fa.protocolVless));
       await tester.tap(find.text(_fa.protocolVless));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(_fa.coreMihomoHelp));
+      await tester.tap(find.text(_fa.coreDefault));
       await tester.pumpAndSettle();
       expect(find.text(_fa.corePickTitle(_fa.protocolVless)), findsNothing);
       verifyNever(() => rig.controller.setCore(any(), any()));
@@ -659,6 +703,25 @@ void main() {
       expect(find.text(_fa.corePickTitle(_fa.protocolWireguard)), findsNothing);
       verifyNever(() => rig.controller.setCore(any(), any()));
     });
+
+    for (final b in Brightness.values) {
+      testWidgets(
+        'OpenVPN today on the TV: «پیش‌فرض» under mihomo, the official '
+        'engine with «به‌زودی» (${b.name})',
+        (tester) async {
+          await _pump(tester, _settings(tv: true), brightness: b);
+          await _focusOn(tester, _fa.protocolOpenvpn);
+          expect(
+            await _press(tester, LogicalKeyboardKey.select),
+            _fa.coreMihomo,
+            reason: 'the remote on the current core',
+          );
+          expect(_lineUnder(_fa.coreMihomo), _fa.coreDefault);
+          expect(find.text(_fa.coreSoon), findsNWidgets(2));
+          await _shot(tester, 'o-tv-dialog-${b.name}');
+        },
+      );
+    }
 
     testWidgets('large text ×1.45: Settings and the dialog fit', (
       tester,

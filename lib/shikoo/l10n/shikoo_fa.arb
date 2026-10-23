@@ -447,7 +447,7 @@
   "coreSingBox": "سینگ‌باکس",
   "coreWireguard": "وایرگارد رسمی",
   "coreOpenvpn": "اوپن‌وی‌پی‌ان رسمی",
-  "coreMihomoHelp": "پیش‌فرض",
+  "coreDefault": "پیش‌فرض",
   "coreWireguardHelp": "موتور برنامهٔ رسمی وایرگارد",
   "coreOpenvpnHelp": "موتور برنامهٔ رسمی اوپن‌وی‌پی‌ان",
   "coreSoon": "به‌زودی",

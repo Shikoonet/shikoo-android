@@ -212,9 +212,9 @@ class _CoreList extends ConsumerWidget {
           label: coreLabel(l, core),
           help: switch (core) {
             _ when tunnelOnly(core) => l.coreTunnelOnly(l.modeTunnel),
+            _ when core == row.defaultCore => l.coreDefault,
             ShikooCore.singBox when row.protocol == ShikooProtocol.vless =>
               l.coreSingBoxVless,
-            ShikooCore.mihomo => l.coreMihomoHelp,
             ShikooCore.wireguard => l.coreWireguardHelp,
             ShikooCore.openvpn => l.coreOpenvpnHelp,
             _ => null,

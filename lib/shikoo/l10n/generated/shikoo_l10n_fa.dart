@@ -1712,7 +1712,7 @@ class ShikooL10nFa extends ShikooL10n {
   String get coreOpenvpn => 'اوپن‌وی‌پی‌ان رسمی';
 
   @override
-  String get coreMihomoHelp => 'پیش‌فرض';
+  String get coreDefault => 'پیش‌فرض';
 
   @override
   String get coreWireguardHelp => 'موتور برنامهٔ رسمی وایرگارد';

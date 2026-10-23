@@ -1770,7 +1770,7 @@ class ShikooL10nEn extends ShikooL10n {
   String get coreOpenvpn => 'OpenVPN (official)';
 
   @override
-  String get coreMihomoHelp => 'Default';
+  String get coreDefault => 'Default';
 
   @override
   String get coreWireguardHelp => 'The official WireGuard app\'s engine';
