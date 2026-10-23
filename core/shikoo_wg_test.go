@@ -419,8 +419,10 @@ func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 	if got := carried(); got != "wg" {
 		t.Errorf("Dart's question got %q, want the owner's server", got)
 	}
-	if delay := ownerPing(&TestDelayParams{ProxyName: "other", Timeout: 3000}); delay.Value != -1 {
-		t.Errorf("the owner answered %d for a server it does not hold", delay.Value)
+	// At once: a handshake for it would wait out wireguard-go's 5 s between initiations, then time out as -1 too.
+	asked := time.Now()
+	if delay := ownerPing(&TestDelayParams{ProxyName: "other", Timeout: 3000}); delay.Value != -1 || time.Since(asked) > time.Second {
+		t.Errorf("the owner answered %d after %v for a server it does not hold", delay.Value, time.Since(asked))
 	}
 	server.Close()
 	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
