@@ -607,4 +607,29 @@ void main() {
 
     expect(_server(home, 'W').core, ShikooCore.wireguard);
   });
+
+  test("in Windows' proxy mode the cores row keeps the owner pick and names "
+      'mihomo as its carrier', () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      desktop: true,
+    );
+    (ShikooCore, ShikooCore) row() {
+      final row = home.container
+          .read(shikooStateProvider)
+          .cores
+          .firstWhere((row) => row.protocol == ShikooProtocol.wireguard);
+      return (row.chosen, row.carrier);
+    }
+
+    expect(row(), (ShikooCore.wireguard, ShikooCore.wireguard));
+
+    await home.container
+        .read(shikooModeProvider.notifier)
+        .save(ShikooMode.proxy);
+    await pumpEventQueue();
+
+    expect(row(), (ShikooCore.wireguard, ShikooCore.mihomo));
+  });
 }

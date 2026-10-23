@@ -638,8 +638,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final specs = ref.watch(shikooCoreSpecsProvider);
   final sources = ref.watch(_sourcesProvider);
   final carrying = ref.watch(_carryingProvider);
-  final tunnel =
-      !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun;
+  final tunnel = ref.watch(shikooTunnelProvider);
   List<ShikooServer> listOf(
     int? id,
     Map<String, String> types,
@@ -765,6 +764,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       },
       choices,
       specs: specs,
+      tunnel: tunnel,
     ),
     coreSwitch: ref.watch(_coreSwitchProvider),
   );
@@ -1422,8 +1422,7 @@ class ShikooController {
     }
   }
 
-  bool get _tunnel =>
-      !_ref.read(shikooDesktopProvider) || _ref.read(shikooModeProvider).tun;
+  bool get _tunnel => _ref.read(shikooTunnelProvider);
 
   ShikooCore _coreFor(String name, [_Opened? other]) {
     final running = _serversOf(

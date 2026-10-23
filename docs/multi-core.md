@@ -124,7 +124,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     has finished (`initProvider`): profile files are readable only then.
   - `ShikooState.cores`: one row per protocol the customer's services hold (`other` excluded), each with `chosen` (the
     pick, or mihomo while the pick is not ready), `defaultCore` (what the protocol gets with no pick, mihomo while its
-    default is not ready) and `options`, every core that can carry it with `ready`.
+    default is not ready), `carrier` (what carries it in the current mode: mihomo for an owner core in Windows' proxy
+    mode, where `chosen` keeps the pick; `markCores` marks by the same rule) and `options`, every core that can carry it
+    with `ready`. `shikooTunnelProvider` is that mode, `shikooReadyOnProvider` the platform rule (`shikooReadyOn`).
   - `ShikooState.coreSwitch`: `(protocol, to, stage)` while a core change moves the server in use.
   - `setCore(protocol, core)`: stores the pick, writes a timeline line for diagnostics, and re-applies the config.
     Connected, if the server in use changes core, it shows `moving`, then `done` only when, with the groups read again
