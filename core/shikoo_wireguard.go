@@ -10,7 +10,7 @@ import (
 // ponytail: WireGuard only (SHIKOO_PATCHES.md row 24); a QUIC outbound keeps a pre-VPN socket too, add it if one ships.
 func rebindWireGuard() {
 	for _, proxy := range tunnel.AllProxies() {
-		outbound.ShikooRebind(proxy.Adapter())
+		outbound.ShikooRebind(shikooUngated(proxy.Adapter()))
 	}
 }
 
