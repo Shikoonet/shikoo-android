@@ -17,14 +17,29 @@ import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/test_profiles.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
+
+/// The proxy of each connection the app opens, null for direct; every one is refused.
+class _Legs extends HttpOverrides {
+  final proxies = <String?>[];
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) =>
+      super.createHttpClient(context)
+        ..connectionFactory = (_, host, port) {
+          proxies.add(host == null ? null : '$host:$port');
+          return Future.error(const SocketException('refused'));
+        };
+}
 
 class _Proxies extends ProxiesAction {
   final picked = <String>[];
@@ -124,6 +139,8 @@ Future<_Home> _home({
     'B': 'Vless',
     'W': 'WireGuard',
   },
+  ShikooCarrying? Function()? carrying,
+  bool desktop = false,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final core = _Core();
@@ -142,6 +159,9 @@ Future<_Home> _home({
       trafficPassesProvider.overrideWithValue(() async => setup.traffic),
       shikooDiagProvider.overrideWithValue(_Timeline()),
       shikooCoreSpecsProvider.overrideWithValue(_ready(ready)),
+      shikooDesktopProvider.overrideWithValue(desktop),
+      if (carrying != null)
+        ownerCarryingProvider.overrideWithValue(() async => carrying()),
     ],
   );
   addTearDown(container.dispose);
@@ -205,6 +225,12 @@ void main() {
     AppPath.supportDirectory = AppPath.temporaryDirectory =
         AppPath.cacheDirectory = () async => files;
     AppPath.downloadDirectory = () async => files;
+    globalState.packageInfo = PackageInfo(
+      appName: 'FlClash',
+      packageName: 'com.follow.clash',
+      version: '0.8.98',
+      buildNumber: '1',
+    );
   });
 
   test('each server carries its profile protocol and the core really carrying '
@@ -420,4 +446,87 @@ void main() {
       reason: 'a VLESS server with no answer is not tried on traffic',
     );
   });
+
+  for (final (label, report, core, stage) in [
+    (
+      'never started: mihomo carries it, and the switch fails',
+      (core: '', server: ''),
+      ShikooCore.mihomo,
+      ShikooSwitchStage.failed,
+    ),
+    (
+      'carries it: the switch lands',
+      (core: 'wireguard', server: 'W'),
+      ShikooCore.wireguard,
+      ShikooSwitchStage.done,
+    ),
+  ]) {
+    test('connected, an owner core the Go core reports as $label', () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        carrying: () => report,
+      );
+      await _connectOn(home, 'W');
+      home.setup.runs.clear();
+
+      await home.controller.setCore(
+        ShikooProtocol.wireguard,
+        ShikooCore.wireguard,
+      );
+
+      final state = home.container.read(shikooStateProvider);
+      expect(home.setup.runs, [false, true]);
+      expect(state.selectedServer?.core, core);
+      expect(state.coreSwitch?.stage, stage);
+      expect(
+        home.container.read(shikooCoresProvider)[ShikooProtocol.wireguard],
+        ShikooCore.wireguard,
+      );
+    });
+  }
+
+  for (final (label, desktop, report, aside) in [
+    (
+      'on Windows, an owner core carrying the server in use sends them through '
+          "mihomo's port",
+      true,
+      (core: 'wireguard', server: 'W'),
+      true,
+    ),
+    (
+      'on Android the app is out of the VPN: direct',
+      false,
+      (core: 'wireguard', server: 'W'),
+      false,
+    ),
+    (
+      'on Windows, an owner engine that never started leaves mihomo the tunnel: '
+          'direct',
+      true,
+      (core: '', server: ''),
+      false,
+    ),
+  ]) {
+    test("connected, the app's own direct requests: $label", () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+        carrying: () => report,
+        desktop: desktop,
+      );
+      await _connectOn(home, 'W');
+      final mihomo =
+          'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
+      globalState.container = home.container;
+      final legs = _Legs();
+
+      await HttpOverrides.runWithHttpOverrides(() async {
+        try {
+          await home.controller.refreshService();
+        } catch (_) {}
+      }, legs);
+
+      expect(legs.proxies, aside ? [mihomo] : [null, mihomo]);
+    });
+  }
 }

@@ -32,7 +32,7 @@ void main() {
   });
 
   test('the config FlClash writes for the core marks the servers a ready core '
-      'behind mihomo carries, and no other', () async {
+      'behind mihomo carries, and those an owner core takes, apart', () async {
     SharedPreferences.setMockInitialValues({});
     final core = _Core();
     when(() => core.getConfig(any())).thenAnswer(
@@ -56,7 +56,11 @@ void main() {
           for (final MapEntry(key: core, value: spec)
               in shikooCoreSpecs.entries)
             core: (
-              ready: core == ShikooCore.mihomo || core == ShikooCore.xray,
+              ready: const {
+                ShikooCore.mihomo,
+                ShikooCore.xray,
+                ShikooCore.wireguard,
+              }.contains(core),
               shape: spec.shape,
               serves: spec.serves,
             ),
@@ -64,9 +68,9 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    await container
-        .read(shikooCoresProvider.notifier)
-        .set(ShikooProtocol.vless, ShikooCore.xray);
+    final picks = container.read(shikooCoresProvider.notifier);
+    await picks.set(ShikooProtocol.vless, ShikooCore.xray);
+    await picks.set(ShikooProtocol.wireguard, ShikooCore.wireguard);
 
     final made = await container
         .read(setupActionProvider.notifier)
@@ -86,10 +90,11 @@ void main() {
         );
 
     expect(made.yaml, contains('$shikooCoreKey: "xray"'));
+    expect(made.yaml, contains('$shikooOwnerKey: "wireguard"'));
     expect(
-      shikooCoreKey.allMatches(made.yaml),
-      hasLength(1),
-      reason: 'WireGuard stays on mihomo',
+      [shikooCoreKey, shikooOwnerKey].map((key) => key.allMatches(made.yaml)),
+      everyElement(hasLength(1)),
+      reason: 'one server each',
     );
   });
 }

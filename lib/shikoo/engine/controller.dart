@@ -434,6 +434,24 @@ final _sourcesProvider = _cell<Map<int, Map<String, Map<String, dynamic>>>>(
 
 final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
 
+typedef ShikooCarrying = ({String core, String server});
+
+/// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null if unknown.
+final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
+  (ref) => () async {
+    try {
+      final data = await ref.read(coreHandlerProvider).shikooOwner();
+      return data == null
+          ? null
+          : (core: '${data['core'] ?? ''}', server: '${data['server'] ?? ''}');
+    } catch (_) {
+      return null;
+    }
+  },
+);
+
+final _carryingProvider = _cell<ShikooCarrying?>(null);
+
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
 typedef _Extras = ({String? announce, String? supportUrl, String? account});
 
@@ -618,6 +636,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final choices = ref.watch(shikooCoresProvider);
   final specs = ref.watch(shikooCoreSpecsProvider);
   final sources = ref.watch(_sourcesProvider);
+  final carrying = ref.watch(_carryingProvider);
   final tunnel =
       !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun;
   List<ShikooServer> listOf(
@@ -640,6 +659,11 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
             choices,
             specs: specs,
             tunnel: tunnel,
+            carried: name != selected || carrying == null
+                ? null
+                : carrying.server == name
+                ? carrying.core
+                : '',
           )
         : coreFor(sources[name]!, choices, specs: specs, tunnel: tunnel);
     return [
@@ -906,6 +930,19 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
   }
 }
 
+/// Windows cannot keep the app out of a tunnel an owner core holds, so the app's direct requests take mihomo's port,
+/// whose DIRECT rules leave by the physical card. Null elsewhere: Android keeps the app out of such a VPN.
+String? ownerAside(ProviderReader read, Uri url) {
+  if (!read(shikooDesktopProvider)) return null;
+  final core = read(shikooStateProvider).selectedServer?.core;
+  if (core == null ||
+      read(shikooCoreSpecsProvider)[core]!.shape != ShikooShape.ownsTunnel) {
+    return null;
+  }
+  final proxy = FlClashHttpOverrides.findProxyForReader(read, url);
+  return proxy == 'DIRECT' ? null : proxy;
+}
+
 Future<Response<Uint8List>> _get(String url, String? proxy) async {
   final dio = Dio()
     ..httpClientAdapter = IOHttpClientAdapter(
@@ -1009,10 +1046,14 @@ class ShikooController {
     _ref.listen(runTimeProvider.select((time) => time != null), (_, running) {
       scheduleMicrotask(
         running
-            ? _reconcile
+            ? () {
+                _reconcile();
+                unawaited(_checkCarrying());
+              }
             : () {
                 _nativeStart(null);
                 _endSwitch();
+                _ref.read(_carryingProvider.notifier).set(null);
               },
       );
     });
@@ -1255,6 +1296,8 @@ class ShikooController {
     if (attempt != _attempt) return;
     if (since != null) {
       _nativeStart(since);
+      await _checkCarrying();
+      if (attempt != _attempt) return;
       _set(_Intent(error: error));
       unawaited(_checkSelected());
       return;
@@ -1359,6 +1402,11 @@ class ShikooController {
     show(passes ? ShikooSwitchStage.done : ShikooSwitchStage.failed);
   }
 
+  Future<void> _checkCarrying() async {
+    final carrying = await _ref.read(ownerCarryingProvider)();
+    if (_running) _ref.read(_carryingProvider.notifier).set(carrying);
+  }
+
   void _coreSwitching(ShikooCoreSwitch next, int move) {
     if (move != _coreMove) return;
     _coreSwitched?.cancel();
@@ -1408,6 +1456,7 @@ class ShikooController {
     _attempt++;
     _endSwitch();
     _ref.read(_landedProvider.notifier).set(null);
+    _ref.read(_carryingProvider.notifier).set(null);
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
@@ -2278,11 +2327,12 @@ class ShikooController {
       return _get(url, server);
     }
     onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
+    final aside = ownerAside(_ref.read, Uri.parse(url));
     try {
-      return await _get(url, null);
+      return await _get(url, aside);
     } catch (error) {
       final answered = error is DioException && error.response != null;
-      if (via != null || !connected || answered) rethrow;
+      if (via != null || !connected || answered || aside != null) rethrow;
       onLeg?.call(ShikooLeg.fallback);
       return _get(url, server);
     }
