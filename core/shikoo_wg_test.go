@@ -266,7 +266,7 @@ func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
 	}
 }
 
-// Shecan's answers of 2026-10-23: Shaparak's gateways, Sadad, Behpardakht, Irancell, Alibaba, Myket and Mofid.
+// Shecan's answers of 2026-10-23: every Shaparak gateway that resolved, then Sadad, Behpardakht and key sites.
 func TestThePaymentGatewaysAndKeyAppsLeaveTheTunnel(t *testing.T) {
 	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
 	if err != nil {
@@ -285,8 +285,11 @@ func TestThePaymentGatewaysAndKeyAppsLeaveTheTunnel(t *testing.T) {
 			b.RemovePrefix(netip.MustParsePrefix(route))
 		}
 		tunnel := must(b.IPSet())
-		for _, ip := range []string{"185.167.73.34", "91.240.182.20", "212.80.25.62", "185.132.124.159",
-			"185.203.160.10", "185.132.124.157", "92.42.50.130", "45.89.201.10", "185.120.222.22", "46.102.128.10"} {
+		for _, ip := range []string{"185.167.73.34", "91.240.182.20", "212.80.25.62", "185.132.124.159", "185.79.62.3",
+			"91.232.66.12", "185.210.200.12", "185.203.160.31", "87.107.134.3", "78.157.33.101", "185.60.32.60",
+			"193.3.31.85", "185.25.172.22", "185.203.160.10", "185.132.124.157", "92.42.50.130", "45.89.201.10",
+			"185.120.222.22", "46.102.128.10", "195.225.232.37", "212.16.67.13", "91.207.138.45", "185.231.114.218",
+			"45.157.244.26", "185.78.23.170"} {
 			if tunnel.Contains(netip.MustParseAddr(ip)) {
 				t.Errorf("sdk %d: %s rides the tunnel", sdk, ip)
 			}

@@ -260,7 +260,7 @@ const (
 	wgRoutesBudget   = 1000
 )
 
-// Out first, each while the shipped Iranian set holds all of it: the blocks of 36 key sites, then 28 more (Shecan).
+// Out first, each while the shipped Iranian set holds all of it: key sites' and payment gateways' blocks (Shecan).
 var iranFirst = []netip.Prefix{
 	netip.MustParsePrefix("185.143.232.0/22"), netip.MustParsePrefix("176.56.144.0/20"),
 	netip.MustParsePrefix("185.192.8.0/22"), netip.MustParsePrefix("82.99.192.0/18"),
@@ -285,7 +285,12 @@ var iranFirst = []netip.Prefix{
 	netip.MustParsePrefix("79.175.128.0/18"), netip.MustParsePrefix("185.60.136.0/22"),
 	netip.MustParsePrefix("37.156.144.0/22"), netip.MustParsePrefix("194.41.48.0/22"),
 	netip.MustParsePrefix("194.156.140.0/22"), netip.MustParsePrefix("95.128.194.0/24"),
-	netip.MustParsePrefix("85.15.0.0/18"),
+	netip.MustParsePrefix("85.15.0.0/18"), netip.MustParsePrefix("185.60.32.0/22"),
+	netip.MustParsePrefix("87.107.0.0/16"), netip.MustParsePrefix("78.157.32.0/19"),
+	netip.MustParsePrefix("193.3.31.0/24"), netip.MustParsePrefix("185.25.172.0/22"),
+	netip.MustParsePrefix("195.225.232.0/24"), netip.MustParsePrefix("212.16.64.0/21"),
+	netip.MustParsePrefix("91.207.138.0/23"), netip.MustParsePrefix("185.231.112.0/22"),
+	netip.MustParsePrefix("45.157.244.0/22"), netip.MustParsePrefix("185.78.20.0/22"),
 }
 
 // cutIran takes Iran's blocks out up to the route budget: the key sites, then IPv4, then IPv6, each family by size.
