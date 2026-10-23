@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -328,6 +329,9 @@ proxy-groups:
 		t.Errorf("%d generations, %d sockets through the hook: the server socket must be dialed again with the hook on",
 			opened, hooked.Load())
 	}
+	if held := tunnel.Proxies()["a"].Addr(); held != "127.0.0.1:21020" {
+		t.Errorf("mihomo holds a at %s, want the new generation (127.0.0.1:21020)", held)
+	}
 	selector := tunnel.Proxies()["G"].(interface{ Adapter() constant.ProxyAdapter }).Adapter().(*outboundgroup.Selector)
 	if now := selector.Now(); now != "b" {
 		t.Errorf("the group holds %q after the rebuild, want the pick b", now)
@@ -339,17 +343,80 @@ func TestWithNoCoreBehindMihomoTheTunnelRebuildsNothing(t *testing.T) {
 proxies:
   - {name: b, type: http, server: 1.1.1.2, port: 1}
 `)
-	applied := 0
-	previous := setupConfig
-	setupConfig = func(params *SetupParams) error {
-		applied++
-		return previous(params)
-	}
-	t.Cleanup(func() { setupConfig = previous })
+	running := currentConfig
 
 	shikooCoresAfterTun()
 
-	if applied != 0 {
-		t.Errorf("applied %d times with only mihomo's own clients, which dial lazily", applied)
+	if currentConfig != running {
+		t.Error("applied again with only mihomo's own clients, which dial lazily")
+	}
+}
+
+func useCountingCore(t *testing.T) *int {
+	t.Helper()
+	generations := 0
+	registerShikooCore("counting", func(proxies []map[string]any) ([]map[string]any, func(), error) {
+		generations++
+		var out []map[string]any
+		for i, proxy := range proxies {
+			out = append(out, map[string]any{
+				"name": proxy["name"], "type": "socks5", "server": "127.0.0.1", "port": 22000 + 10*generations + i,
+			})
+		}
+		return out, func() {}, nil
+	})
+	t.Cleanup(func() {
+		delete(shikooCores, "counting")
+		shikooCoresShutdown()
+	})
+	return &generations
+}
+
+func TestTheRebuildKeepsEveryPickTheLastApplyHadAndTheSelectGroupsMadeSince(t *testing.T) {
+	useCountingCore(t)
+	appliedHome(t, `
+proxies:
+  - {name: a, type: http, server: 1.1.1.1, port: 1, shikoo-core: counting}
+  - {name: b, type: http, server: 1.1.1.2, port: 1}
+  - {name: c, type: http, server: 1.1.1.3, port: 1}
+proxy-groups:
+  - {name: OUT, type: select, proxies: [IN, b]}
+  - {name: IN, type: select, proxies: [a, c]}
+  - {name: AUTO, type: url-test, proxies: [a, b, c], url: "http://127.0.0.1:1/", interval: 3600, lazy: true}
+`)
+	if err := applyConfig(&SetupParams{SelectedMap: map[string]string{"OUT": "IN", "AUTO": "b"}}); err != nil {
+		t.Fatalf("applyConfig = %v", err)
+	}
+	patchSelectGroup(map[string]string{"IN": "c"})
+
+	shikooCoresAfterTun()
+
+	got := map[string]string{}
+	for _, name := range []string{"OUT", "IN", "AUTO"} {
+		got[name] = groupNow(t, tunnel.Proxies()[name])
+	}
+	if want := map[string]string{"OUT": "IN", "IN": "c", "AUTO": "b"}; !maps.Equal(got, want) {
+		t.Errorf("after the rebuild %v, want %v: the url-test pick of the last apply and the select pick since", got, want)
+	}
+}
+
+func TestTheRebuildRunsWhatGoAppliedNotAConfigFileDartIsWriting(t *testing.T) {
+	generations := useCountingCore(t)
+	appliedHome(t, `
+proxies:
+  - {name: a, type: http, server: 1.1.1.1, port: 1, shikoo-core: counting}
+  - {name: b, type: http, server: 1.1.1.2, port: 1}
+proxy-groups:
+  - {name: G, type: select, proxies: [a, b]}
+`)
+	torn := []byte("proxies:\n  - {name: a, type: http, ser")
+	if err := os.WriteFile(filepath.Join(constant.Path.HomeDir(), "config.yaml"), torn, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	shikooCoresAfterTun()
+
+	if _, ok := tunnel.Proxies()["G"]; !ok || *generations != 2 {
+		t.Errorf("group G kept: %v, %d generations: the rebuild must run the config Go last applied", ok, *generations)
 	}
 }

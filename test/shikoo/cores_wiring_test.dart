@@ -845,19 +845,26 @@ void main() {
     expect(_server(home, 'W').core, ShikooCore.mihomo);
   });
 
-  for (final (label, report, rebuilt) in <(String, ShikooCarrying, bool)>[
-    (
-      "an owner engine carried the server: mihomo's client of it is built "
-          'again',
-      (core: 'wireguard', server: 'W'),
-      true,
-    ),
-    ('mihomo carried it: nothing to build', (core: '', server: ''), false),
-  ]) {
+  for (final (label, picks, report, rebuilt)
+      in <(String, ShikooChoices, ShikooCarrying, bool)>[
+        (
+          "an owner engine carried the server: mihomo's client of it is built "
+              'again',
+          {ShikooProtocol.wireguard: ShikooCore.wireguard},
+          (core: 'wireguard', server: 'W'),
+          true,
+        ),
+        (
+          'mihomo carried it: nothing to build',
+          {},
+          (core: '', server: ''),
+          false,
+        ),
+      ]) {
     test('disconnecting after a session where $label', () async {
       final home = await _home(
         ready: {ShikooCore.wireguard},
-        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+        choices: picks,
         carrying: () => report,
       );
       await _connectOn(home, 'W');
@@ -870,6 +877,68 @@ void main() {
       expect(home.setup.forced, rebuilt ? [true] : isEmpty);
     });
   }
+
+  test(
+    "Go's report alone also counts: an engine started from the tile on an "
+    "older owner pick gets mihomo's client built again at disconnect",
+    () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        carrying: () => (core: 'wireguard', server: 'W'),
+      );
+      await _connectOn(home, 'W');
+      home.setup.forced.clear();
+
+      await home.controller.disconnect();
+      await pumpEventQueue();
+
+      expect(home.setup.forced, [true]);
+    },
+  );
+
+  test('an owner engine that took the server after Go answered "none" at '
+      "connect still gets mihomo's client built again at disconnect", () async {
+    ShikooCarrying report = (core: '', server: '');
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => report,
+    );
+    await _connectOn(home, 'W');
+    report = (core: 'wireguard', server: 'W');
+    home.setup.forced.clear();
+
+    await home.controller.disconnect();
+    await pumpEventQueue();
+
+    expect(home.setup.forced, [true]);
+  });
+
+  test('an owner engine that died mid-session, Go then answering "none", '
+      "still gets mihomo's client built again at disconnect", () async {
+    ShikooCarrying report = (core: 'wireguard', server: 'W');
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => report,
+      desktop: true,
+    );
+    await _connectOn(home, 'W');
+    report = (core: '', server: '');
+    globalState.container = home.container;
+    await HttpOverrides.runWithHttpOverrides(() async {
+      try {
+        await home.controller.refreshService();
+      } catch (_) {}
+    }, _Legs());
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
+    home.setup.forced.clear();
+
+    await home.controller.disconnect();
+    await pumpEventQueue();
+
+    expect(home.setup.forced, [true]);
+  });
 
   test("the tunnel stopping by itself after an owner session builds mihomo's "
       'client of the server again too', () async {

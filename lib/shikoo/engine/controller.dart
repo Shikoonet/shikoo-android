@@ -1108,7 +1108,7 @@ class ShikooController {
                 _nativeStart(null);
                 _endSwitch();
                 _watchOwner(false);
-                if (_forgetCarrying()) unawaited(_rebuildClients());
+                if (_endOwnerRoad()) unawaited(_rebuildClients());
               },
       );
     });
@@ -1467,12 +1467,15 @@ class ShikooController {
 
   /// No answer reads as none: the server shows mihomo, a switch to its owner core fails, [ownerAside] stays off.
   Future<void> _checkCarrying() async {
-    final carrying = await _ref.read(ownerCarryingProvider)();
-    if (_running) {
-      _ref
-          .read(_carryingProvider.notifier)
-          .set(carrying ?? (core: '', server: ''));
-    }
+    final carrying =
+        await _ref.read(ownerCarryingProvider)() ?? (core: '', server: '');
+    if (!_running) return;
+    final selected = _ref.read(shikooStateProvider).selected;
+    _ownerRoad =
+        _ownerRoad ||
+        carrying.server.isNotEmpty ||
+        (selected != null && _tunnelKeyOf(selected) != ShikooCore.mihomo.name);
+    _ref.read(_carryingProvider.notifier).set(carrying);
   }
 
   void _coreSwitching(ShikooCoreSwitch next, int move) {
@@ -1586,15 +1589,19 @@ class ShikooController {
     _attempt++;
     _endSwitch();
     _ref.read(_landedProvider.notifier).set(null);
-    final took = _forgetCarrying();
+    final took = _endOwnerRoad();
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
     if (took) await _rebuildClients();
   }
 
-  bool _forgetCarrying() {
-    final took = _ref.read(_carryingProvider)?.server.isNotEmpty ?? false;
+  /// Sticky until the rebuild: a later "none" from Go cannot undo a client `shikooOwnerTakes` closed.
+  bool _ownerRoad = false;
+
+  bool _endOwnerRoad() {
+    final took = _ownerRoad;
+    _ownerRoad = false;
     _ref.read(_carryingProvider.notifier).set(null);
     return took;
   }
