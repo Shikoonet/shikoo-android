@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/metacubex/mihomo/adapter"
@@ -23,6 +24,8 @@ var (
 	// Changed only under configMu.
 	shikooCoresRunning  []func()
 	shikooCoresStarting []func()
+	shikooLastConfig    []byte
+	shikooLastSelected  map[string]string
 )
 
 func registerShikooCore(name string, start shikooCoreStart) {
@@ -106,20 +109,31 @@ func shikooCoresMatch(proxies, replacements []map[string]any) error {
 // shikooCoresAfterTun: a socket a core opened at apply before Android's tunnel has no protect (multi-core.md §4).
 func shikooCoresAfterTun() {
 	configMu.Lock()
-	running := len(shikooCoresRunning) > 0
-	configMu.Unlock()
-	if !running {
+	defer configMu.Unlock()
+	if len(shikooCoresRunning) == 0 {
 		return
 	}
-	if failed := handleSetupConfig(&SetupParams{TestURL: currentTestURL(), SelectedMap: liveSelections()}); failed != "" {
-		logError("rebuilding the cores once the tunnel is up: %s", failed)
+	// From memory, not config.yaml, which Dart may be writing in place right now.
+	raw, err := config.UnmarshalRawConfig(shikooLastConfig)
+	if err != nil {
+		logError("rebuilding the cores once the tunnel is up: %v", err)
+		return
 	}
+	cfg, err := shikooCoresParse(raw)
+	if err != nil {
+		logError("rebuilding the cores once the tunnel is up: %v", err)
+		return
+	}
+	applyLoaded(cfg, liveSelections())
 }
 
 func liveSelections() map[string]string {
 	selectMu.Lock()
 	defer selectMu.Unlock()
-	selected := map[string]string{}
+	selected := maps.Clone(shikooLastSelected)
+	if selected == nil {
+		selected = map[string]string{}
+	}
 	for name, proxy := range tunnel.AllProxies() {
 		if outbound, ok := proxy.(*adapter.Proxy); ok {
 			if selector, ok := outbound.ProxyAdapter.(*outboundgroup.Selector); ok {
