@@ -17,15 +17,23 @@ func TestTheRegistryHandsTheCarriedServersPingToTheEngine(t *testing.T) {
 	previous := swapConn(fake)
 	defer swapConn(previous)
 	methodHandlers[asyncTestDelayMethod](&MethodCall{ID: "1", Method: asyncTestDelayMethod, Arguments: params}, MethodResponse{ID: "1"})
-	var frames [][]byte
-	for deadline := time.Now().Add(5 * time.Second); len(frames) == 0 && time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		frames = fake.frames(t)
+	type reply struct {
+		ID     string
+		Result Delay
 	}
-	if len(frames) != 1 {
-		t.Fatalf("%d answers", len(frames))
+	var answer reply
+	for deadline := time.Now().Add(5 * time.Second); answer.ID != "1"; time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("no answer")
+		}
+		for _, frame := range fake.frames(t) {
+			var r reply
+			if json.Unmarshal(frame, &r) == nil && r.ID == "1" {
+				answer = r
+			}
+		}
 	}
-	var answer struct{ Result Delay }
-	if err := json.Unmarshal(frames[0], &answer); err != nil || answer.Result.Value <= 0 || answer.Result.Name != "wg" {
-		t.Fatalf("answer %s (%v), want a delay for wg", frames[0], err)
+	if answer.Result.Value <= 0 || answer.Result.Name != "wg" {
+		t.Fatalf("answer %+v, want a delay for wg", answer.Result)
 	}
 }

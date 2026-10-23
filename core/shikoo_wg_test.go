@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -471,15 +472,19 @@ func wgServer(t *testing.T, client []byte) (*device.Device, *tuntest.ChannelTUN,
 	return dev, channel, public, port
 }
 
-func startTestOwner(t *testing.T) (*device.Device, *tuntest.ChannelTUN, *tuntest.ChannelTUN) {
+func startTestOwner(t *testing.T, set ...map[string]any) (*device.Device, *tuntest.ChannelTUN, *tuntest.ChannelTUN) {
 	t.Helper()
 	private, public := wgKeyPair(t)
 	server, serverTun, serverPublic, port := wgServer(t, public)
 	t.Cleanup(server.Close)
-	_, prepared, err := wgPlan(map[string]any{
+	mapping := map[string]any{
 		"name": "wg", "type": "wireguard", "server": "127.0.0.1", "port": port, "ip": "10.13.13.2",
 		"private-key": b64(private), "public-key": b64(serverPublic),
-	}, nil, 35, noResolve)
+	}
+	for _, more := range set {
+		maps.Copy(mapping, more)
+	}
+	_, prepared, err := wgPlan(mapping, nil, 35, noResolve)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -539,6 +544,31 @@ func TestAPingRightAfterTheEnginesHandshakeTimesThatHandshake(t *testing.T) {
 	delay := owner.testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 3000})
 	if delay.Value <= 0 || int64(delay.Value) != max(took.Milliseconds(), 1) || time.Since(asked) > time.Second {
 		t.Errorf("answered %d after %v, want the engine's own handshake (%v) at once", delay.Value, time.Since(asked), took)
+	}
+}
+
+func TestTheEngineShakesHandsAtStartWithoutAKeepalive(t *testing.T) {
+	startTestOwner(t, map[string]any{"persistent-keepalive": 0})
+	owner := ownerRunning.Load()
+	for deadline := time.Now().Add(3 * time.Second); owner.lastHandshake().IsZero(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("no handshake at start: the first ping would wait for one that never leaves")
+		}
+	}
+}
+
+// A rekey or a retry of wireguard-go's own, with the engine's last ask older than RekeyTimeout.
+func TestAPingRightAfterWireGuardsOwnInitiationWaitsItOut(t *testing.T) {
+	startTestOwner(t)
+	owner := ownerRunning.Load()
+	for deadline := time.Now().Add(3 * time.Second); owner.lastHandshake().IsZero(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the engine never shook hands")
+		}
+	}
+	owner.asked.Store(time.Now().Add(-device.RekeyTimeout).UnixNano())
+	if delay := owner.testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 8000}); delay.Value <= 0 {
+		t.Errorf("a healthy server answered %d", delay.Value)
 	}
 }
 

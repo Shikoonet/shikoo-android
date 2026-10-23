@@ -69,9 +69,10 @@ type ownerPlan struct {
 }
 
 type wgPrepared struct {
-	server string
-	uapi   string
-	peer   device.NoisePublicKey
+	server    string
+	uapi      string
+	peer      device.NoisePublicKey
+	keepalive int
 }
 
 type wgOwner struct {
@@ -250,7 +251,7 @@ func wgPlan(
 		}
 	}
 	plan.Routes = prefixStrings(routes)
-	return plan, &wgPrepared{server: fmt.Sprint(mapping["name"]), uapi: uapi.String(), peer: first}, nil
+	return plan, &wgPrepared{server: fmt.Sprint(mapping["name"]), uapi: uapi.String(), peer: first, keepalive: keepalive}, nil
 }
 
 // One binder parcel takes a VPN's routes to every app watching the network: on the emulator 1500 excluded ranges failed it
@@ -464,19 +465,27 @@ func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
 		Errorf:   func(format string, args ...any) { log.Warnln("[WG] "+format, args...) },
 	}
 	dev := device.NewDevice(countingTun{t}, wgconn.NewDefaultBind(), logger)
-	if err := dev.IpcSet(prepared.uapi); err != nil {
+	// Up would send a keepalive, and so an initiation, before the engine could time one of its own.
+	keepalive := "public_key=" + hex.EncodeToString(prepared.peer[:]) + "\nupdate_only=true\npersistent_keepalive_interval="
+	if err := dev.IpcSet(prepared.uapi + keepalive + "0\n"); err != nil {
 		dev.Close()
 		return nil, err
 	}
 	dev.DisableSomeRoamingForBrokenMobileSemantics()
-	owner := &wgOwner{server: prepared.server, dev: dev, peer: dev.LookupPeer(prepared.peer)}
-	owner.asked.Store(time.Now().UnixNano())
 	if err := dev.Up(); err != nil {
 		dev.Close()
 		return nil, err
 	}
+	owner := &wgOwner{server: prepared.server, dev: dev, peer: dev.LookupPeer(prepared.peer)}
+	owner.asked.Store(time.Now().UnixNano())
 	if owner.peer != nil {
 		_ = owner.peer.SendHandshakeInitiation(false)
+	}
+	if prepared.keepalive > 0 {
+		if err := dev.IpcSet(keepalive + strconv.Itoa(prepared.keepalive) + "\n"); err != nil {
+			dev.Close()
+			return nil, err
+		}
 	}
 	return owner, nil
 }
@@ -518,8 +527,11 @@ func (o *wgOwner) testDelay(params *TestDelayParams) *Delay {
 	start := time.Now()
 	asked := time.Unix(0, o.asked.Load())
 	if start.Sub(asked) >= device.RekeyTimeout {
-		asked = start
-		o.asked.Store(start.UnixNano())
+		if sinceItsOwn := time.Since(o.lastHandshake()); sinceItsOwn < device.RekeyTimeout {
+			time.Sleep(device.RekeyTimeout - sinceItsOwn)
+		}
+		asked = time.Now()
+		o.asked.Store(asked.UnixNano())
 		if o.peer.SendHandshakeInitiation(false) != nil {
 			return delay
 		}
