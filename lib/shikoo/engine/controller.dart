@@ -436,7 +436,8 @@ final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
 
 typedef ShikooCarrying = ({String core, String server});
 
-/// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null if unknown.
+/// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no
+/// answer in two seconds.
 final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
   (ref) => () async {
     try {
@@ -1402,9 +1403,14 @@ class ShikooController {
     show(passes ? ShikooSwitchStage.done : ShikooSwitchStage.failed);
   }
 
+  /// No answer reads as none: the server shows mihomo, a switch to its owner core fails, [ownerAside] stays off.
   Future<void> _checkCarrying() async {
     final carrying = await _ref.read(ownerCarryingProvider)();
-    if (_running) _ref.read(_carryingProvider.notifier).set(carrying);
+    if (_running) {
+      _ref
+          .read(_carryingProvider.notifier)
+          .set(carrying ?? (core: '', server: ''));
+    }
   }
 
   void _coreSwitching(ShikooCoreSwitch next, int move) {

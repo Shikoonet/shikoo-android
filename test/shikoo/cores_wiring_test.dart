@@ -401,7 +401,10 @@ void main() {
   test(
     'connected, picking an owner core for the server in use reconnects',
     () async {
-      final home = await _home(ready: {ShikooCore.wireguard});
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        carrying: () => (core: 'wireguard', server: 'W'),
+      );
       await _connectOn(home, 'W');
       home.setup.runs.clear();
 
@@ -447,20 +450,33 @@ void main() {
     );
   });
 
-  for (final (label, report, core, stage) in [
-    (
-      'never started: mihomo carries it, and the switch fails',
-      (core: '', server: ''),
-      ShikooCore.mihomo,
-      ShikooSwitchStage.failed,
-    ),
-    (
-      'carries it: the switch lands',
-      (core: 'wireguard', server: 'W'),
-      ShikooCore.wireguard,
-      ShikooSwitchStage.done,
-    ),
-  ]) {
+  for (final (label, report, core, stage)
+      in <(String, ShikooCarrying?, ShikooCore, ShikooSwitchStage)>[
+        (
+          'never started: mihomo carries it, and the switch fails',
+          (core: '', server: ''),
+          ShikooCore.mihomo,
+          ShikooSwitchStage.failed,
+        ),
+        (
+          'silent: read as never started',
+          null,
+          ShikooCore.mihomo,
+          ShikooSwitchStage.failed,
+        ),
+        (
+          'carrying another server: not this one',
+          (core: 'wireguard', server: 'another'),
+          ShikooCore.mihomo,
+          ShikooSwitchStage.failed,
+        ),
+        (
+          'carries it: the switch lands',
+          (core: 'wireguard', server: 'W'),
+          ShikooCore.wireguard,
+          ShikooSwitchStage.done,
+        ),
+      ]) {
     test('connected, an owner core the Go core reports as $label', () async {
       final home = await _home(
         ready: {ShikooCore.wireguard},
@@ -485,7 +501,14 @@ void main() {
     });
   }
 
-  for (final (label, desktop, report, aside) in [
+  for (final (label, desktop, report, aside) in <(String, bool, ShikooCarrying?, bool)>[
+    (
+      'on Windows, an owner engine that gives no answer counts as not '
+          'carrying: direct',
+      true,
+      null,
+      false,
+    ),
     (
       'on Windows, an owner core carrying the server in use sends them through '
           "mihomo's port",
@@ -556,4 +579,32 @@ void main() {
       expect(legs.proxies.toSet(), {aside ? mihomo : null});
     });
   }
+
+  test('a server not in use shows its pick, whatever Go says of the one in '
+      'use', () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => (core: '', server: ''),
+    );
+
+    await _connectOn(home, 'A');
+
+    expect(_server(home, 'W').core, ShikooCore.wireguard);
+  });
+
+  test("disconnecting forgets Go's answer, so the pick shows again", () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => (core: '', server: ''),
+    );
+    await _connectOn(home, 'W');
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
+
+    await home.controller.disconnect();
+    await pumpEventQueue();
+
+    expect(_server(home, 'W').core, ShikooCore.wireguard);
+  });
 }

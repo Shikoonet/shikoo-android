@@ -168,8 +168,8 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     second session with the same key or username: not FlClash's `checkIp`, not "update through the server" (which now
     fails with an owner core; "direct" works), not mihomo's own delay test. Package ه۲ saw such a session cut the
     owner's own connection for about 40 s. Not carried (the engine never started, or it is another server), the gate
-    passes everything through, and `rebindWireGuard` reaches the client behind it. The app asks once the tunnel is up (`ownerCarryingProvider`) and believes it for the
-  server in use only: an owner engine that never started leaves that server shown on mihomo, and a core switch to it
+    passes everything through, and `rebindWireGuard` reaches the client behind it. The app asks once the tunnel is up (`ownerCarryingProvider`, two seconds at most; no answer reads as none) and
+  believes it for the server in use only: an owner engine that never started leaves that server shown on mihomo, and a core switch to it
   reads failed (Sam, 2026-10-23). Dart reaches it through `CoreMethod.shikooOwner` (`SHIKOO_PATCHES.md` row 51).
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
   requires.

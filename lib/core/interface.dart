@@ -380,7 +380,10 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<Map<String, dynamic>?> shikooOwner() =>
-      invokeMethod<Map<String, dynamic>>(method: CoreMethod.shikooOwner);
+      invokeMethod<Map<String, dynamic>>(
+        method: CoreMethod.shikooOwner,
+        timeout: const Duration(seconds: 2),
+      );
 
   @override
   Future<bool?> checkSeal(String key, String message, String sig) =>
