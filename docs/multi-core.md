@@ -164,8 +164,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   core that owns the tunnel and the server it carries now, both empty when none does. Each owner engine registers from
   its own `init()`: `registerShikooOwner(core string, carrying func() string, ping func(*TestDelayParams) *Delay)`,
   `carrying` returning the server it carries now, `""` for none, and `ping` answering a delay test of that server from
-  the engine's own session (nil: mihomo answers, and the gate below makes that a failure). Neither assumes the engine
-  runs in this process. The app asks once the tunnel is up (`ownerCarryingProvider`, two seconds at most; no answer
+  the engine's own session. **`ping` is required in practice:** with nil, mihomo answers, the gate below makes that a
+  failure, so the server in use shows dead and every `setCore` to the owner core ends `failed`. When `carrying` first
+  returns a server, the engine calls `shikooOwnerTakes(server)`. Neither assumes the engine runs in this process. The app asks once the tunnel is up (`ownerCarryingProvider`, two seconds at most; no answer
   reads as none) and believes it for the server in use only: an owner engine that never started leaves that server
   shown on mihomo, and a core switch to it reads failed (Sam, 2026-10-23). Dart reaches it through
   `CoreMethod.shikooOwner` (`SHIKOO_PATCHES.md` row 51).
@@ -174,10 +175,14 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     is enough). It may run while `applyConfig` holds `configMu`, so it never takes `configMu`. Its synchronisation is
     the engine's. `ping` runs on a goroutine of its own and may take up to the delay test's timeout.
   - **One identity, one session:** `shikooCoresParse` puts `shikooOwnerGate` on every proxy marked `shikoo-owner`. While
-    an owner carries that server, mihomo's own client of it refuses to dial or listen, so nothing on the device opens a
-    second session with the same key or username: not FlClash's `checkIp`, not "update through the server" through
-    mihomo's port (it fails on Android; Windows sends a plain request instead, see `ownerAside`), not mihomo's own delay
-    test. Package ه۲ saw such a session cut the owner's own connection for about 40 s. Not carried (the engine never
+    an owner carries that server, mihomo's own client of it refuses to dial or listen, so mihomo opens no new session
+    with the same key or username: not for FlClash's `checkIp`, not for "update through the server" through mihomo's
+    port (it fails on Android; Windows sends a plain request instead, see `ownerAside`), not for its own delay test. A
+    session the client opened before the owner took the server (a ping round while off) is not the gate's: WireGuard
+    keeps it alive with handshakes and keepalives until the next apply, so `shikooOwnerTakes` closes that client.
+    Package ه۲ saw such a session cut the owner's own connection for about 40 s.
+  - **Known limit:** `testProxyDelay`, the ping of servers of a service not opened, builds its own client from the
+    mapping and has no gate. It reaches the carried server only if another service holds the same key or username. Not carried (the engine never
     started, or it is another server), the gate passes everything through, and `rebindWireGuard` reaches the client
     behind it.
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own

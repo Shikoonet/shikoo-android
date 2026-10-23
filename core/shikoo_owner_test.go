@@ -159,6 +159,31 @@ func TestMihomosClientOfAServerAnOwnerCarriesNeverReachesIt(t *testing.T) {
 	}
 }
 
+func TestTakingAServerSilencesMihomosClientThatDialedItBefore(t *testing.T) {
+	peer := listenSilentPeer(t)
+	cfg := gatedWireGuard(t, peer)
+	carrying := fakeOwner(t, nil)
+	previousProxies, previousProviders := tunnel.Proxies(), tunnel.Providers()
+	tunnel.UpdateProxies(cfg.Proxies, cfg.Providers)
+	t.Cleanup(func() { tunnel.UpdateProxies(previousProxies, previousProviders) })
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, _ = cfg.Proxies["G"].DialContext(ctx, toTCP)
+	if len(peer.heard()) == 0 {
+		t.Fatal("the ping round before connect sent no handshake")
+	}
+
+	*carrying = "W"
+	shikooOwnerTakes("W")
+	at := len(peer.heard())
+	// A peer that never answers gets the handshake again every five seconds while the client lives.
+	time.Sleep(6 * time.Second)
+
+	if more := len(peer.heard()) - at; more > 0 {
+		t.Fatalf("mihomo's client sent %d packets to W after the owner took it", more)
+	}
+}
+
 func TestAServerNoOwnerCarriesStaysMihomosAndRebinds(t *testing.T) {
 	peer := listenSilentPeer(t)
 	cfg := gatedWireGuard(t, peer)

@@ -8,6 +8,7 @@ import (
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/tunnel"
 )
 
 const shikooOwnerMethod CoreMethod = "shikooOwner"
@@ -83,6 +84,14 @@ func shikooOwnerGates(raw *config.RawConfig, cfg *config.Config) {
 		if proxy, ok := cfg.Proxies[fmt.Sprint(mapping["name"])].(*adapter.Proxy); ok {
 			proxy.ProxyAdapter = shikooOwnerGate{proxy.ProxyAdapter}
 		}
+	}
+}
+
+// shikooOwnerTakes, from an owner engine once it carries server: a client of mihomo's that dialed it before, a ping
+// round while off, would keep its session alive past the gate until the next apply.
+func shikooOwnerTakes(server string) {
+	if proxy := tunnel.AllProxies()[server]; proxy != nil {
+		_ = proxy.Close()
 	}
 }
 
