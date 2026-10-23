@@ -529,4 +529,31 @@ void main() {
       expect(legs.proxies, aside ? [mihomo] : [null, mihomo]);
     });
   }
+
+  for (final (label, desktop, aside) in [
+    ("on Windows, through mihomo's port", true, true),
+    ('on Android, direct', false, false),
+  ]) {
+    test('connected on an owner core, the internet check of the card and of '
+        'settings: $label', () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+        carrying: () => (core: 'wireguard', server: 'W'),
+        desktop: desktop,
+      );
+      await _connectOn(home, 'W');
+      final mihomo =
+          'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
+      final legs = _Legs();
+
+      await HttpOverrides.runWithHttpOverrides(
+        () => home.container.read(shikooProbeProvider.notifier).probe(),
+        legs,
+      );
+
+      expect(legs.proxies, isNotEmpty);
+      expect(legs.proxies.toSet(), {aside ? mihomo : null});
+    });
+  }
 }

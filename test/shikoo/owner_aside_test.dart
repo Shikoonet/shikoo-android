@@ -44,12 +44,25 @@ void main() {
     expect(proxy.asked, unorderedEquals(['HEAD', 'GET', 'GET']));
   });
 
-  test('through the local proxy, any other answer from the Iranian site still '
-      'counts', () async {
-    final proxy = await _answering(HttpStatus.movedPermanently);
+  test('through the local proxy, its own 407 (proxy authentication) is no '
+      'Iranian site either', () async {
+    final proxy = await _answering(HttpStatus.proxyAuthenticationRequired);
 
-    expect((await _probe(proxy.port)).domestic.result, 'ok');
+    expect((await _probe(proxy.port)).domestic.result, 'http_407');
   });
+
+  for (final status in [
+    HttpStatus.movedPermanently,
+    HttpStatus.forbidden,
+    HttpStatus.serviceUnavailable,
+  ]) {
+    test("through the local proxy, a $status may be the Iranian site's own "
+        'answer, and counts', () async {
+      final proxy = await _answering(status);
+
+      expect((await _probe(proxy.port)).domestic.result, 'ok');
+    });
+  }
 
   test(
     'direct, a 502 from the Iranian site itself is still an answer',
