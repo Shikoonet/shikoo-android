@@ -140,7 +140,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     keep the app out of that tunnel. It covers `_fetch`'s direct leg and every internet check (`ownerProbes`), where
     that port's own 502 or 407 counts as a failure, not a site's answer. The server leg, asked for or as the fallback,
     is then a plain request: the owner's tunnel holds the app, so it leaves by the server in use, and mihomo's gated
-    client stays shut. So a freshly pasted link, which has no DIRECT rule yet, still arrives by the server. Null on Android, whose VPN leaves our package out, and whenever mihomo carries the server.
+    client stays shut. So a freshly pasted link, which has no DIRECT rule yet, still arrives by the server. Before
+    these legs the app asks Go again (two seconds at most): an engine that stopped since connect leaves them to
+    mihomo. Null on Android, whose VPN leaves our package out, and whenever mihomo carries the server.
   - Not done: the diagnostics report keeps its keys. The door refuses a whole report over a key it does not know
     (`diag.dart`), so the choice goes into the timeline instead.
 

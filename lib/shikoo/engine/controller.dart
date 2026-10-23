@@ -2326,7 +2326,12 @@ class ShikooController {
       Uri.parse(url),
     );
     final connected = server != 'DIRECT';
-    final aside = ownerAside(_ref.read, Uri.parse(url));
+    var aside = ownerAside(_ref.read, Uri.parse(url));
+    if (aside != null) {
+      // Go was asked at connect; an engine that stopped since must not keep the app's requests on its road.
+      await _checkCarrying();
+      aside = ownerAside(_ref.read, Uri.parse(url));
+    }
     // The owner's tunnel holds the app on Windows: a plain request leaves by the server, and mihomo's client stays shut.
     final byServer = aside == null ? server : null;
     if (via == ShikooRoute.server) {

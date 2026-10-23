@@ -644,4 +644,31 @@ void main() {
 
     expect(row(), (ShikooCore.wireguard, ShikooCore.mihomo));
   });
+
+  test('on Windows the app asks Go again before its own requests: an engine '
+      'that stopped since connect leaves them to mihomo', () async {
+    ShikooCarrying report = (core: 'wireguard', server: 'W');
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => report,
+      desktop: true,
+    );
+    await _connectOn(home, 'W');
+    expect(_server(home, 'W').core, ShikooCore.wireguard);
+    report = (core: '', server: '');
+    final mihomo =
+        'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
+    globalState.container = home.container;
+    final legs = _Legs();
+
+    await HttpOverrides.runWithHttpOverrides(() async {
+      try {
+        await home.controller.refreshService(via: ShikooRoute.server);
+      } catch (_) {}
+    }, legs);
+
+    expect(legs.proxies, [mihomo]);
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
+  });
 }
