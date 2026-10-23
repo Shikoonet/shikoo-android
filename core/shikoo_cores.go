@@ -38,8 +38,10 @@ func shikooCoresParse(raw *config.RawConfig) (*config.Config, error) {
 			stop()
 		}
 		shikooCoresStarting = nil
+		return cfg, err
 	}
-	return cfg, err
+	shikooOwnerGates(raw, cfg)
+	return cfg, nil
 }
 
 func shikooCoresRewrite(raw *config.RawConfig) {

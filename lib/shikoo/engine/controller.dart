@@ -440,7 +440,8 @@ final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
 
 typedef ShikooCarrying = ({String core, String server});
 
-/// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null if unknown.
+/// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no
+/// answer in two seconds.
 final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
   (ref) => () async {
     try {
@@ -641,8 +642,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final specs = ref.watch(shikooCoreSpecsProvider);
   final sources = ref.watch(_sourcesProvider);
   final carrying = ref.watch(_carryingProvider);
-  final tunnel =
-      !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun;
+  final tunnel = ref.watch(shikooTunnelProvider);
   List<ShikooServer> listOf(
     int? id,
     Map<String, String> types,
@@ -769,6 +769,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       },
       choices,
       specs: specs,
+      tunnel: tunnel,
     ),
     coreSwitch: ref.watch(_coreSwitchProvider),
   );
@@ -1415,9 +1416,14 @@ class ShikooController {
     show(passes ? ShikooSwitchStage.done : ShikooSwitchStage.failed);
   }
 
+  /// No answer reads as none: the server shows mihomo, a switch to its owner core fails, [ownerAside] stays off.
   Future<void> _checkCarrying() async {
     final carrying = await _ref.read(ownerCarryingProvider)();
-    if (_running) _ref.read(_carryingProvider.notifier).set(carrying);
+    if (_running) {
+      _ref
+          .read(_carryingProvider.notifier)
+          .set(carrying ?? (core: '', server: ''));
+    }
   }
 
   void _coreSwitching(ShikooCoreSwitch next, int move) {
@@ -1429,8 +1435,7 @@ class ShikooController {
     }
   }
 
-  bool get _tunnel =>
-      !_ref.read(shikooDesktopProvider) || _ref.read(shikooModeProvider).tun;
+  bool get _tunnel => _ref.read(shikooTunnelProvider);
 
   ShikooCore _coreFor(String name, [_Opened? other]) {
     final running = _serversOf(

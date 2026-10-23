@@ -4,6 +4,7 @@ import 'package:fl_clash/shikoo/engine/core_sing_box.dart';
 import 'package:fl_clash/shikoo/engine/core_wireguard.dart';
 import 'package:fl_clash/shikoo/engine/core_xray.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
@@ -375,5 +376,81 @@ void main() {
     });
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('shikoo.core.ssh'), 'naive');
+  });
+
+  test("in Windows' proxy mode neither the mark nor the row's carrier names an "
+      'owner core: mihomo carries those servers', () {
+    final official = _readyOnly({ShikooCore.wireguard, ShikooCore.openvpn});
+    const picks = {ShikooProtocol.wireguard: ShikooCore.wireguard};
+    final config = <String, dynamic>{
+      'proxies': [_wireguard],
+    };
+    final present = {ShikooProtocol.wireguard, ShikooProtocol.openvpn};
+
+    expect(
+      markCores(config, picks, specs: official, tunnel: false),
+      same(config),
+    );
+    expect(
+      (markCores(config, picks, specs: official)['proxies'] as List).single,
+      containsPair(shikooOwnerKey, 'wireguard'),
+    );
+    expect(
+      coreRows(
+        present,
+        picks,
+        specs: official,
+        tunnel: false,
+      ).map((row) => (row.chosen, row.defaultCore, row.carrier)),
+      [
+        (ShikooCore.wireguard, ShikooCore.mihomo, ShikooCore.mihomo),
+        (ShikooCore.openvpn, ShikooCore.openvpn, ShikooCore.mihomo),
+      ],
+      reason:
+          'the row keeps the pick and the default; only the carrier is mihomo',
+    );
+    expect(
+      coreRows(present, picks, specs: official).map((row) => row.carrier),
+      [ShikooCore.wireguard, ShikooCore.openvpn],
+    );
+  });
+
+  test('the specs the app reads follow the platform it runs on, and only '
+      'Windows in proxy mode has no tunnel', () async {
+    SharedPreferences.setMockInitialValues({});
+    ProviderContainer on({required bool desktop}) {
+      final container = ProviderContainer(
+        overrides: [
+          shikooDesktopProvider.overrideWithValue(desktop),
+          shikooReadyOnProvider.overrideWithValue(const {
+            ShikooCore.mihomo: {ShikooPlatform.android},
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    final android = on(desktop: false);
+    final windows = on(desktop: true);
+
+    expect(
+      android.read(shikooCoreSpecsProvider)[ShikooCore.mihomo]!.ready,
+      isTrue,
+    );
+    expect(
+      windows.read(shikooCoreSpecsProvider)[ShikooCore.mihomo]!.ready,
+      isFalse,
+    );
+    expect([android, windows].map((c) => c.read(shikooTunnelProvider)), [
+      true,
+      true,
+    ]);
+    await windows.read(shikooModeProvider.notifier).save(ShikooMode.proxy);
+    await android.read(shikooModeProvider.notifier).save(ShikooMode.proxy);
+    expect([android, windows].map((c) => c.read(shikooTunnelProvider)), [
+      true,
+      false,
+    ]);
   });
 }
