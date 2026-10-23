@@ -445,11 +445,23 @@ final shikooSelectedSourceProvider = Provider<Map<String, dynamic>?>((ref) {
   return ref.watch(_sourcesProvider)[id]?[selected];
 });
 
+final _serverSourceProvider = Provider(
+  (ref) => (
+    id: ref.watch(currentProfileIdProvider),
+    name: ref.watch(shikooStateProvider.select((s) => s.selected)),
+    source: ref.watch(shikooSelectedSourceProvider),
+  ),
+);
+
 typedef ShikooCarrying = ({String core, String server});
 
 /// Hard here: the desktop RPC restarts its own timer whenever the core answers anything else, up to three times.
 @visibleForTesting
 Duration ownerAnswerLimit = const Duration(seconds: 2);
+
+/// How often a running app asks Go whether its owner core still carries the server.
+@visibleForTesting
+Duration ownerWatchEvery = const Duration(seconds: 10);
 
 /// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no
 /// answer in two seconds.
@@ -1028,6 +1040,7 @@ class ShikooController {
     _ref.onDispose(() {
       _switched?.cancel();
       _coreSwitched?.cancel();
+      _ownerWatch?.cancel();
     });
     _ref.listen(shikooStateProvider.select(serviceInstead), (_, id) {
       if (id != null) scheduleMicrotask(() => selectService(id));
@@ -1073,16 +1086,28 @@ class ShikooController {
     _ref.listen(initProvider, (_, init) {
       if (init) scheduleMicrotask(_loadSources);
     });
+    // An update that changes the key or address of the server an owner core carries.
+    _ref.listen(_serverSourceProvider, (was, now) {
+      if (was != null &&
+          (was.id, was.name) == (now.id, now.name) &&
+          was.source != null &&
+          now.source != null &&
+          !const DeepCollectionEquality().equals(was.source, now.source)) {
+        scheduleMicrotask(() => unawaited(_rebuildOwnerTunnel()));
+      }
+    });
     _ref.listen(runTimeProvider.select((time) => time != null), (_, running) {
       scheduleMicrotask(
         running
             ? () {
                 _reconcile();
                 unawaited(_checkCarrying());
+                _watchOwner(true);
               }
             : () {
                 _nativeStart(null);
                 _endSwitch();
+                _watchOwner(false);
                 if (_forgetCarrying()) unawaited(_rebuildClients());
               },
       );
@@ -1124,6 +1149,14 @@ class ShikooController {
 
   Map<String, String> _appPickByService = const {};
   int _attempt = 0;
+
+  Future<void>? _rebuilding;
+  bool _rebuildAgain = false;
+  Future<void>? _iranApplying;
+  bool _iranAgain = false;
+  Future<void>? _iranSaved;
+  Timer? _ownerWatch;
+  DateTime? _ownerRebuiltAt;
 
   /// Bumped by every round and by a switch of service, whose round's answers go unread.
   int _roundNo = 0;
@@ -1475,15 +1508,65 @@ class ShikooController {
 
   /// While connected the core takes the new rules in place, with no reconnect.
   /// An owner core sets Iran's routes only when it builds the VPN, so there the switch reconnects, as [setMode] does.
-  Future<void> setIranDirect(bool on) async {
-    final saved = _ref.read(shikooIranDirectProvider.notifier).set(on);
-    await keepIranDirect(on);
-    if (_running) await _setup.applyProfile(silence: true);
-    await saved;
-    final up = _running || _ref.read(_intentProvider).connecting;
-    if (!up || _ref.read(shikooOwnerProvider) == null) return;
-    await disconnect();
-    await connect();
+  Future<void> setIranDirect(bool on) {
+    _iranSaved = _ref.read(shikooIranDirectProvider.notifier).set(on);
+    if (_iranApplying case final applying?) {
+      _iranAgain = true;
+      return applying;
+    }
+    return _iranApplying = () async {
+      do {
+        _iranAgain = false;
+        await keepIranDirect(_ref.read(shikooIranDirectProvider));
+        if (_running) await _setup.applyProfile(silence: true);
+        await _iranSaved;
+        await _rebuildOwnerTunnel();
+      } while (_iranAgain);
+    }().whenComplete(() => _iranApplying = null);
+  }
+
+  /// An owner core reads Iran's routes and its server only as it builds the VPN: one rebuild at a time, last ask last.
+  Future<void> _rebuildOwnerTunnel() {
+    if (_rebuilding case final rebuilding?) {
+      _rebuildAgain = true;
+      return rebuilding;
+    }
+    return _rebuilding = () async {
+      do {
+        _rebuildAgain = false;
+        final up = _running || _ref.read(_intentProvider).connecting;
+        if (up && _ref.read(shikooOwnerProvider) != null) {
+          await disconnect();
+          await connect();
+        }
+      } while (_rebuildAgain);
+    }().whenComplete(() => _rebuilding = null);
+  }
+
+  void _watchOwner(bool running) {
+    _ownerWatch?.cancel();
+    _ownerWatch = running
+        ? Timer.periodic(ownerWatchEvery, (_) => unawaited(_checkOwnerAlive()))
+        : null;
+  }
+
+  /// Go drops an engine whose device closed: build the tunnel again, or stop rather than flap within a minute.
+  Future<void> _checkOwnerAlive() async {
+    final carried = _ref.read(_carryingProvider)?.server ?? '';
+    if (!_running ||
+        carried.isEmpty ||
+        _rebuilding != null ||
+        _ref.read(_intentProvider).connecting) {
+      return;
+    }
+    final carrying = await _ref.read(ownerCarryingProvider)();
+    if (carrying == null || carrying.server.isNotEmpty || !_running) return;
+    final now = DateTime.now();
+    final again =
+        _ownerRebuiltAt != null &&
+        now.difference(_ownerRebuiltAt!) < const Duration(minutes: 1);
+    _ownerRebuiltAt = now;
+    await (again ? disconnect() : _rebuildOwnerTunnel());
   }
 
   void onVpnConsent(String result) {

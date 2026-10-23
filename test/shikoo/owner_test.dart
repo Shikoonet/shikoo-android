@@ -130,6 +130,8 @@ void main() {
         (options.core, options.server, options.iranDirect),
         ('wireguard', 'Germany 5', false),
       );
+      await owner.read(shikooIranDirectProvider.notifier).set(true);
+      expect(owner.read(sharedStateProvider).vpnOptions!.iranDirect, isTrue);
 
       final mihomo = await _container(_state(ShikooCore.mihomo));
       expect(

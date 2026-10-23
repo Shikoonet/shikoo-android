@@ -451,6 +451,104 @@ void main() {
     expect(home.setup.runs, isEmpty);
   });
 
+  test('rapid taps of the Iranian-sites switch rebuild an owner core one at a '
+      'time, and the last tap is the one it carries', () async {
+    final before = database;
+    database = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await database.close();
+      database = before;
+    });
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+    );
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+
+    await Future.wait([
+      for (var tap = 0; tap < 11; tap++)
+        home.controller.setIranDirect(tap.isOdd),
+    ]);
+
+    final runs = home.setup.runs;
+    expect(runs.length, lessThan(11 * 2));
+    expect([
+      for (var i = 0; i < runs.length; i++) runs[i] == i.isOdd,
+    ], everyElement(isTrue));
+    expect(home.container.read(shikooOwnerProvider)?.iranDirect, isFalse);
+  });
+
+  test('an update that changes the key of the server an owner core carries '
+      'rebuilds its tunnel; the same server unchanged, or on mihomo, does '
+      'not', () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+    );
+    // As the home screen does: Riverpod pauses what only an unwatched provider listens to.
+    home.container.listen(shikooControllerProvider, (_, _) {});
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+    Future<void> update(String key) async {
+      when(() => home.core.getConfig(any())).thenAnswer(
+        (_) async => {
+          ..._profile,
+          'proxies': [
+            for (final proxy in _profile['proxies']! as List)
+              if ((proxy as Map)['name'] == 'W')
+                {...proxy, 'public-key': key}
+              else
+                proxy,
+          ],
+        },
+      );
+      home.container.read(initProvider.notifier).value = false;
+      await pumpEventQueue();
+      home.container.read(initProvider.notifier).value = true;
+      await pumpEventQueue();
+    }
+
+    await update('new');
+    expect(home.setup.runs, [false, true]);
+    await update('new');
+    expect(home.setup.runs, [false, true]);
+
+    await _connectOn(home, 'A');
+    home.setup.runs.clear();
+    await update('newer');
+    expect(home.setup.runs, isEmpty);
+  });
+
+  test('an owner core that dies under a running app is built again, and one '
+      'that dies again within a minute is stopped instead', () async {
+    final every = ownerWatchEvery;
+    ownerWatchEvery = const Duration(milliseconds: 20);
+    addTearDown(() => ownerWatchEvery = every);
+    // Each death is one answer of Go's that the engine carries nothing; the next start carries again.
+    var deaths = 0;
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => deaths > 0 && deaths-- > 0
+          ? (core: '', server: '')
+          : (core: 'wireguard', server: 'W'),
+    );
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.setup.runs, isEmpty);
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.setup.runs, [false, true]);
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.setup.runs, [false, true, false]);
+  });
+
   test('an official engine that does not start leaves the server on mihomo: '
       'the switch fails, the server shows mihomo, and VpnOptions keep asking '
       'for the engine, which the next connect gets', () async {
