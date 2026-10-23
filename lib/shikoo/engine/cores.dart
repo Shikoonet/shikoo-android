@@ -24,7 +24,7 @@ typedef ShikooCoreSpec = ({
 typedef ShikooCoreOption = ({ShikooCore core, bool ready});
 
 /// [chosen] and [defaultCore] (what a protocol gets with no pick of the user's) are mihomo while not ready.
-/// [carrier] carries it in the current mode, as `markCores` marks; in Windows' proxy mode [chosen] keeps the pick.
+/// [carrier] and [defaultCore] follow the current mode, as `markCores` does; [chosen] keeps the pick in proxy mode.
 typedef ShikooCoreRow = ({
   ShikooProtocol protocol,
   ShikooCore chosen,
@@ -152,7 +152,12 @@ List<ShikooCoreRow> coreRows(
       (
         protocol: protocol,
         chosen: coreFor({'type': protocol.name}, choices, specs: specs),
-        defaultCore: coreFor({'type': protocol.name}, const {}, specs: specs),
+        defaultCore: coreFor(
+          {'type': protocol.name},
+          const {},
+          specs: specs,
+          tunnel: tunnel,
+        ),
         carrier: coreFor(
           {'type': protocol.name},
           choices,
