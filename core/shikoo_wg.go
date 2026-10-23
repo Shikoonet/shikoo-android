@@ -77,6 +77,7 @@ type wgOwner struct {
 	server string
 	dev    *device.Device
 	peer   *device.Peer
+	asked  atomic.Int64 // UnixNano of the engine's last handshake initiation: at start, then at each ping
 }
 
 var (
@@ -438,11 +439,16 @@ func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
 		return nil, err
 	}
 	dev.DisableSomeRoamingForBrokenMobileSemantics()
+	owner := &wgOwner{server: prepared.server, dev: dev, peer: dev.LookupPeer(prepared.peer)}
+	owner.asked.Store(time.Now().UnixNano())
 	if err := dev.Up(); err != nil {
 		dev.Close()
 		return nil, err
 	}
-	return &wgOwner{server: prepared.server, dev: dev, peer: dev.LookupPeer(prepared.peer)}, nil
+	if owner.peer != nil {
+		_ = owner.peer.SendHandshakeInitiation(false)
+	}
+	return owner, nil
 }
 
 func stopOwner() {
@@ -473,16 +479,24 @@ func ownerPing(params *TestDelayParams) *Delay {
 }
 
 // testDelay is the time a fresh handshake takes: the server's own answer, through the socket that carries the
-// tunnel. wireguard-go sends at most one initiation per 5 s, so a ping right after another waits on that one.
+// tunnel. wireguard-go sends at most one initiation per 5 s, so a ping right after another times that one.
 func (o *wgOwner) testDelay(params *TestDelayParams) *Delay {
 	delay := &Delay{Name: params.ProxyName, Url: params.TestUrl, Value: -1}
-	start := time.Now()
-	if o.peer == nil || o.peer.SendHandshakeInitiation(false) != nil {
+	if o.peer == nil {
 		return delay
 	}
+	start := time.Now()
+	asked := time.Unix(0, o.asked.Load())
+	if start.Sub(asked) >= device.RekeyTimeout {
+		asked = start
+		o.asked.Store(start.UnixNano())
+		if o.peer.SendHandshakeInitiation(false) != nil {
+			return delay
+		}
+	}
 	for deadline := start.Add(delayTestTimeout(params.Timeout)); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		if at := o.lastHandshake(); !at.Before(start) {
-			delay.Value = int32(max(at.Sub(start).Milliseconds(), 1))
+		if at := o.lastHandshake(); !at.Before(asked) {
+			delay.Value = int32(max(at.Sub(asked).Milliseconds(), 1))
 			return delay
 		}
 	}

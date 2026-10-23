@@ -423,12 +423,13 @@ func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 	if got := carried(); got != "wg" {
 		t.Errorf("Dart's question got %q, want the owner's server", got)
 	}
-	// At once: a handshake for it would wait out wireguard-go's 5 s between initiations, then time out as -1 too.
+	// At once: a handshake for it would answer late, or at once from the engine's own fresh handshake.
 	asked := time.Now()
 	if delay := ownerPing(&TestDelayParams{ProxyName: "other", Timeout: 3000}); delay.Value != -1 || time.Since(asked) > time.Second {
 		t.Errorf("the owner answered %d after %v for a server it does not hold", delay.Value, time.Since(asked))
 	}
 	server.Close()
+	ownerRunning.Load().asked.Store(time.Now().Add(-device.RekeyTimeout).UnixNano())
 	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
 		t.Errorf("a server that is gone answered %d", delay.Value)
 	}
@@ -438,6 +439,23 @@ func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 	}
 	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
 		t.Errorf("a stopped owner answered %d", delay.Value)
+	}
+}
+
+// The app's first check comes seconds after connect, inside wireguard-go's 5 s without a new initiation.
+func TestAPingRightAfterTheEnginesHandshakeTimesThatHandshake(t *testing.T) {
+	startTestOwner(t)
+	owner := ownerRunning.Load()
+	for deadline := time.Now().Add(3 * time.Second); owner.lastHandshake().IsZero(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the engine never shook hands")
+		}
+	}
+	took := owner.lastHandshake().Sub(time.Unix(0, owner.asked.Load()))
+	asked := time.Now()
+	delay := owner.testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 3000})
+	if delay.Value <= 0 || int64(delay.Value) != max(took.Milliseconds(), 1) || time.Since(asked) > time.Second {
+		t.Errorf("answered %d after %v, want the engine's own handshake (%v) at once", delay.Value, time.Since(asked), took)
 	}
 }
 
