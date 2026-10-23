@@ -1,6 +1,7 @@
 package com.follow.clash.service.models
 
 import com.follow.clash.common.AccessControlMode
+import com.follow.clash.core.OWNER_IRAN_DIRECT
 import java.net.Inet4Address
 import java.net.Inet6Address
 import org.junit.Assert.assertEquals
@@ -185,4 +186,10 @@ class AppRulesTest {
             optionsFor("wireguard", accessControl(true, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
         )
     }
+}
+
+class OwnerArgumentsTest {
+    // The json tag Go reads (PrepareOwnerParams, TestPrepareOwnerReadsTheKeysKotlinSends).
+    @Test
+    fun iranDirectGoesUnderTheKeyGoReads() = assertEquals("iran-direct", OWNER_IRAN_DIRECT)
 }

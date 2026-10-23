@@ -7,6 +7,9 @@ import java.net.URI
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
+// PrepareOwnerParams' json tag in core/shikoo_wg.go; a test on each side pins it.
+const val OWNER_IRAN_DIRECT = "iran-direct"
+
 object Core {
     private external fun startTun(
         fd: Int,
@@ -71,7 +74,7 @@ object Core {
     fun prepareOwner(core: String, server: String, iranDirect: Boolean): JSONObject =
         invokeAndWait(
             "shikooPrepareOwner",
-            JSONObject().put("core", core).put("server", server).put("iran-direct", iranDirect),
+            JSONObject().put("core", core).put("server", server).put(OWNER_IRAN_DIRECT, iranDirect),
         ).getJSONObject("result")
 
     fun startOwner(fd: Int): Boolean = invokeAndWait("shikooStartOwner", fd).optBoolean("result")
