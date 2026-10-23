@@ -461,7 +461,7 @@ Duration ownerAnswerLimit = const Duration(seconds: 2);
 
 /// How often a running app asks Go whether its owner core still carries the server.
 @visibleForTesting
-Duration ownerWatchEvery = const Duration(seconds: 10);
+Duration ownerWatchEvery = const Duration(seconds: 2);
 
 /// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no
 /// answer in two seconds.
@@ -1157,6 +1157,7 @@ class ShikooController {
   Future<void>? _iranSaved;
   Timer? _ownerWatch;
   DateTime? _ownerRebuiltAt;
+  bool _fallingBack = false;
 
   /// Bumped by every round and by a switch of service, whose round's answers go unread.
   int _roundNo = 0;
@@ -1553,7 +1554,7 @@ class ShikooController {
         : null;
   }
 
-  /// Go drops an engine whose device closed: build the tunnel again, or stop rather than flap within a minute.
+  /// Go drops an engine whose device closed: build the tunnel again, or within a minute hand it to mihomo.
   Future<void> _checkOwnerAlive() async {
     final carried = _ref.read(_carryingProvider)?.server ?? '';
     if (!_running ||
@@ -1569,7 +1570,18 @@ class ShikooController {
         _ownerRebuiltAt != null &&
         now.difference(_ownerRebuiltAt!) < const Duration(minutes: 1);
     _ownerRebuiltAt = now;
-    await (again ? disconnect() : _rebuildOwnerTunnel());
+    await (again ? _fallBackToMihomo() : _rebuildOwnerTunnel());
+  }
+
+  Future<void> _fallBackToMihomo() async {
+    _fallingBack = true;
+    _ref.read(shikooOwnerHeldOffProvider.notifier).set(true);
+    try {
+      await disconnect();
+      await connect();
+    } finally {
+      _fallingBack = false;
+    }
   }
 
   void onVpnConsent(String result) {
@@ -1586,6 +1598,9 @@ class ShikooController {
   }
 
   Future<void> disconnect() async {
+    if (!_fallingBack) {
+      _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
+    }
     _attempt++;
     _endSwitch();
     _ref.read(_landedProvider.notifier).set(null);

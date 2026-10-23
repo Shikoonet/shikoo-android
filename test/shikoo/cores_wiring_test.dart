@@ -467,16 +467,20 @@ void main() {
     home.setup.runs.clear();
 
     await Future.wait([
-      for (var tap = 0; tap < 11; tap++)
+      for (var tap = 0; tap < 12; tap++)
         home.controller.setIranDirect(tap.isOdd),
     ]);
 
     final runs = home.setup.runs;
-    expect(runs.length, lessThan(11 * 2));
+    expect(runs.length, lessThan(12 * 2));
     expect([
       for (var i = 0; i < runs.length; i++) runs[i] == i.isOdd,
     ], everyElement(isTrue));
-    expect(home.container.read(shikooOwnerProvider)?.iranDirect, isFalse);
+    expect(home.container.read(shikooOwnerProvider)?.iranDirect, isTrue);
+    expect([
+      for (final rule in await database.rulesDao.queryGlobalAddedRules().get())
+        rule.rawValue,
+    ], contains('RULE-SET,shikoo-ir-ip,DIRECT,no-resolve'));
   });
 
   test('an update that changes the key of the server an owner core carries '
@@ -531,25 +535,35 @@ void main() {
     expect(home.setup.runs, isEmpty);
   });
 
-  test('an owner core that dies under a running app is built again, and one '
-      'that dies again within a minute is stopped instead', () async {
+  test('an owner core that dies under a running app is built again; one that '
+      'dies again within a minute leaves the connection to mihomo, the pick '
+      'kept, until the next disconnect; a silent Go is no death', () async {
     final every = ownerWatchEvery;
     ownerWatchEvery = const Duration(milliseconds: 20);
     addTearDown(() => ownerWatchEvery = every);
     // Each death is one answer of Go's that the engine carries nothing; the next start carries again.
     var deaths = 0;
-    final home = await _home(
+    var silent = false;
+    late final _Home home;
+    home = await _home(
       ready: {ShikooCore.wireguard},
       choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
-      carrying: () => deaths > 0 && deaths-- > 0
-          ? (core: '', server: '')
-          : (core: 'wireguard', server: 'W'),
+      carrying: () {
+        if (silent) return null;
+        if (home.container.read(shikooOwnerHeldOffProvider) ||
+            deaths > 0 && deaths-- > 0) {
+          return (core: '', server: '');
+        }
+        return (core: 'wireguard', server: 'W');
+      },
     );
     await _connectOn(home, 'W');
     home.setup.runs.clear();
 
+    silent = true;
     await Future<void>.delayed(const Duration(milliseconds: 100));
     expect(home.setup.runs, isEmpty);
+    silent = false;
 
     deaths = 1;
     await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -557,8 +571,39 @@ void main() {
 
     deaths = 1;
     await Future<void>.delayed(const Duration(milliseconds: 100));
-    expect(home.setup.runs, [false, true, false]);
+    expect(home.setup.runs, [false, true, false, true]);
+    expect(home.container.read(shikooOwnerProvider), isNull);
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
+    expect(
+      home.container.read(shikooCoresProvider)[ShikooProtocol.wireguard],
+      ShikooCore.wireguard,
+    );
+
+    await home.controller.disconnect();
+    expect(home.container.read(shikooOwnerProvider)?.core, 'wireguard');
   });
+
+  test(
+    'the watch asks Go only while an owner core carries the server',
+    () async {
+      final every = ownerWatchEvery;
+      ownerWatchEvery = const Duration(milliseconds: 20);
+      addTearDown(() => ownerWatchEvery = every);
+      var asked = 0;
+      final home = await _home(
+        carrying: () {
+          asked++;
+          return (core: '', server: '');
+        },
+      );
+      await _connectOn(home, 'W');
+      final atConnect = asked;
+
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(asked, atConnect);
+    },
+  );
 
   test('an official engine that does not start leaves the server on mihomo: '
       'the switch fails, the server shows mihomo, and VpnOptions keep asking '

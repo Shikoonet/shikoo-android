@@ -6,7 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The owner core picked for the server in use, for VpnOptions (docs/multi-core.md §4). The pick, not the core the
 /// state shows: that turns to mihomo while the engine does not carry the server, and VpnOptions must not follow it.
+/// Set for the rest of a connection whose engine died twice in a minute: mihomo carries it (Sam, 2026-10-23).
+final shikooOwnerHeldOffProvider = NotifierProvider<ShikooCell<bool>, bool>(
+  () => ShikooCell(false),
+);
+
 final shikooOwnerProvider = Provider<TunnelOwner?>((ref) {
+  if (ref.watch(shikooOwnerHeldOffProvider)) return null;
   final (:server, :type) = ref.watch(
     shikooStateProvider.select(
       (state) => (server: state.selected, type: state.selectedServer?.type),
