@@ -485,6 +485,7 @@ void main() {
     final home = await _home(
       ready: {ShikooCore.wireguard},
       choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => (core: 'wireguard', server: 'W'),
     );
     // As the home screen does: Riverpod pauses what only an unwatched provider listens to.
     home.container.listen(shikooControllerProvider, (_, _) {});
@@ -513,6 +514,16 @@ void main() {
     expect(home.setup.runs, [false, true]);
     await update('new');
     expect(home.setup.runs, [false, true]);
+
+    // A second update while the first rebuild waits on its apply: one after the other.
+    home.setup.runs.clear();
+    home.setup.gate = Completer<void>();
+    await update('held');
+    await update('again');
+    home.setup.gate!.complete();
+    home.setup.gate = null;
+    await pumpEventQueue();
+    expect(home.setup.runs, [false, true, false, true]);
 
     await _connectOn(home, 'A');
     home.setup.runs.clear();

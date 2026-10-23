@@ -266,6 +266,34 @@ func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
 	}
 }
 
+// Shecan's answers of 2026-10-23: Shaparak's gateways, Sadad, Behpardakht, Irancell, Alibaba, Myket and Mofid.
+func TestThePaymentGatewaysAndKeyAppsLeaveTheTunnel(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var b netipx.IPSetBuilder
+		for _, route := range plan.Routes {
+			b.AddPrefix(netip.MustParsePrefix(route))
+		}
+		for _, route := range plan.Excluded {
+			b.RemovePrefix(netip.MustParsePrefix(route))
+		}
+		tunnel := must(b.IPSet())
+		for _, ip := range []string{"185.167.73.34", "91.240.182.20", "212.80.25.62", "185.132.124.159",
+			"185.203.160.10", "185.132.124.157", "92.42.50.130", "45.89.201.10", "185.120.222.22", "46.102.128.10"} {
+			if tunnel.Contains(netip.MustParseAddr(ip)) {
+				t.Errorf("sdk %d: %s rides the tunnel", sdk, ip)
+			}
+		}
+	}
+}
+
 func TestASitesBlockOutsideTheIranianSetStaysInTheTunnel(t *testing.T) {
 	var b netipx.IPSetBuilder
 	b.AddPrefix(netip.MustParsePrefix("2.144.0.0/14"))
