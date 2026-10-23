@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"sync/atomic"
+	"syscall"
 	"testing"
 
+	"github.com/metacubex/mihomo/adapter/outboundgroup"
+	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/tunnel"
@@ -244,5 +250,106 @@ func TestShikooCoresKeepAServerNamedByABareNumber(t *testing.T) {
 
 	if got := proxyTypes(cfg, "7"); got[0] != constant.Socks5 || fake.stopped != 0 {
 		t.Errorf("type %v, stopped %d: a core that keeps the name 7 as YAML read it must still carry the server", got, fake.stopped)
+	}
+}
+
+// appliedHome writes yaml as the config.yaml applyConfig reads, applies it once, and undoes it all after the test.
+func appliedHome(t *testing.T, yaml string) {
+	t.Helper()
+	home, previous := t.TempDir(), constant.Path.HomeDir()
+	constant.SetHomeDir(home)
+	withCurrentConfig(t, nil)
+	wasInit := isInit.Load()
+	isInit.Store(true)
+	t.Cleanup(func() {
+		constant.SetHomeDir(previous)
+		tunnel.UpdateProxies(nil, nil)
+		isInit.Store(wasInit)
+	})
+	if err := os.WriteFile(filepath.Join(home, "config.yaml"), []byte(yaml), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := applyConfig(&SetupParams{}); err != nil {
+		t.Fatalf("applyConfig = %v", err)
+	}
+}
+
+// hookSockets stands for the tunnel coming up: from now on every socket mihomo's dialer makes goes through the hook.
+func hookSockets(t *testing.T) *atomic.Int32 {
+	t.Helper()
+	var hooked atomic.Int32
+	previous := dialer.DefaultSocketHook
+	dialer.DefaultSocketHook = func(string, string, syscall.RawConn) error {
+		hooked.Add(1)
+		return nil
+	}
+	t.Cleanup(func() { dialer.DefaultSocketHook = previous })
+	return &hooked
+}
+
+func TestOnceTheTunnelIsUpACoreDialsItsServerSocketsAgainThroughTheHook(t *testing.T) {
+	server, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+	var opened int
+	registerShikooCore("sockets", func(proxies []map[string]any) ([]map[string]any, func(), error) {
+		conn, err := dialer.DialContext(context.Background(), "udp", server.LocalAddr().String())
+		if err != nil {
+			return nil, nil, err
+		}
+		opened++
+		var out []map[string]any
+		for i, proxy := range proxies {
+			out = append(out, map[string]any{
+				"name": proxy["name"], "type": "socks5", "server": "127.0.0.1", "port": 21000 + 10*opened + i,
+			})
+		}
+		return out, func() { _ = conn.Close() }, nil
+	})
+	t.Cleanup(func() {
+		delete(shikooCores, "sockets")
+		shikooCoresShutdown()
+	})
+	appliedHome(t, `
+proxies:
+  - {name: a, type: http, server: 1.1.1.1, port: 1, shikoo-core: sockets}
+  - {name: b, type: http, server: 1.1.1.2, port: 1}
+proxy-groups:
+  - {name: G, type: select, proxies: [a, b]}
+`)
+	patchSelectGroup(map[string]string{"G": "b"})
+	hooked := hookSockets(t)
+
+	shikooCoresAfterTun()
+
+	if opened != 2 || hooked.Load() == 0 {
+		t.Errorf("%d generations, %d sockets through the hook: the server socket must be dialed again with the hook on",
+			opened, hooked.Load())
+	}
+	selector := tunnel.Proxies()["G"].(interface{ Adapter() constant.ProxyAdapter }).Adapter().(*outboundgroup.Selector)
+	if now := selector.Now(); now != "b" {
+		t.Errorf("the group holds %q after the rebuild, want the pick b", now)
+	}
+}
+
+func TestWithNoCoreBehindMihomoTheTunnelRebuildsNothing(t *testing.T) {
+	appliedHome(t, `
+proxies:
+  - {name: b, type: http, server: 1.1.1.2, port: 1}
+`)
+	applied := 0
+	previous := setupConfig
+	setupConfig = func(params *SetupParams) error {
+		applied++
+		return previous(params)
+	}
+	t.Cleanup(func() { setupConfig = previous })
+
+	shikooCoresAfterTun()
+
+	if applied != 0 {
+		t.Errorf("applied %d times with only mihomo's own clients, which dial lazily", applied)
 	}
 }

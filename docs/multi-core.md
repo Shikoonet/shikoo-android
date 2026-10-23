@@ -164,6 +164,14 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `config.Parse` (`config/config.go:474-481`); a config that fails to parse stops the cores it started. After
   `hub.ApplyConfig(cfg)` (`:402`), one `shikooCoresCommit()` stops the previous generation, beside
   `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
+- Once Android's tunnel is up, `startTUN` runs `shikooCoresAfterTun` (`core/lib.go`, row 24): if a core behind mihomo
+  is running, the config is applied again, with the user's group picks read from the live selectors
+  (`liveSelections`). A core opens its server sockets at apply (sing-box's WireGuard and OpenVPN endpoints at once;
+  Xray's pre-tunnel sockets likely too), and `DefaultSocketHook` protects nothing until the tun handler exists, so a
+  socket opened before the VPN consent stayed unprotected and its packets looped into our own `tun0` (h4's verifier
+  on the emulator: `wg-tun0 pkts=9`). mihomo's own clients dial lazily and need none of this. For a core's builder
+  nothing changes but one rule: every socket goes through mihomo's dialer (`component/dialer`), so the new
+  generation's are protected.
 - An owner core in Go (ه۲) branches inside `handleStartTun` (`core/lib.go:219`): the fd goes to the engine instead of
   sing-tun, and the TunHandler's protect callback stays for mihomo's own sockets. ه۲ designs it.
 - `core/shikoo_owner.go` (new; built 2026-10-23): the core method `shikooOwner` answers `{"core": …, "server": …}`, the
@@ -350,6 +358,8 @@ What the packages report about their own branches, copied here before their veri
   running instance adds about 5 MB with 3 servers and 7.5 MB with 30.
 - MVS raised mihomo's dependencies (for example `x/net` 0.35→0.57, `x/crypto` 0.33→0.54, `miekg/dns` 1.1.63→1.1.72).
   The core tests pass; mihomo's protocols are not re-tested on real servers.
+- Its WireGuard and OpenVPN server names are resolved by DNS, not from mihomo's `hosts:` table (h4's verifier).
+- Trying each of 60 WireGuard servers with a separate `Start` raised the apply from 260 to 842 ms (h4's verifier).
 
 **Official WireGuard (h2):** its notes (`D:\dev\shikoo-spike\wgo-logs\for-doc.md`) did not exist on 2026-10-23, so
 nothing is copied yet.
