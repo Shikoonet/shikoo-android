@@ -404,10 +404,9 @@ void main() {
       ).map((row) => (row.chosen, row.defaultCore, row.carrier)),
       [
         (ShikooCore.wireguard, ShikooCore.mihomo, ShikooCore.mihomo),
-        (ShikooCore.openvpn, ShikooCore.openvpn, ShikooCore.mihomo),
+        (ShikooCore.openvpn, ShikooCore.mihomo, ShikooCore.mihomo),
       ],
-      reason:
-          'the row keeps the pick and the default; only the carrier is mihomo',
+      reason: 'the row keeps the pick; the default and the carrier are mihomo',
     );
     expect(
       coreRows(present, picks, specs: official).map((row) => row.carrier),
@@ -452,5 +451,25 @@ void main() {
       true,
       false,
     ]);
+  });
+
+  test('a protocol whose official core is ready on Windows defaults to it in '
+      "tunnel mode, and to mihomo in Windows' proxy mode", () {
+    final windows = readyHere(
+      ShikooPlatform.windows,
+      specs: _readyOnly({ShikooCore.openvpn}),
+      readyOn: const {
+        ShikooCore.openvpn: {ShikooPlatform.windows},
+      },
+    );
+    ShikooCore defaultIn({required bool tunnel}) => coreRows(
+      {ShikooProtocol.openvpn},
+      const {},
+      specs: windows,
+      tunnel: tunnel,
+    ).single.defaultCore;
+
+    expect(defaultIn(tunnel: true), ShikooCore.openvpn);
+    expect(defaultIn(tunnel: false), ShikooCore.mihomo);
   });
 }

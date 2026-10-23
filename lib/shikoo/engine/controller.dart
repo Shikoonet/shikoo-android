@@ -2361,20 +2361,27 @@ class ShikooController {
       Uri.parse(url),
     );
     final connected = server != 'DIRECT';
+    var aside = ownerAside(_ref.read, Uri.parse(url));
+    if (aside != null) {
+      // Go was asked at connect; an engine that stopped since must not keep the app's requests on its road.
+      await _checkCarrying();
+      aside = ownerAside(_ref.read, Uri.parse(url));
+    }
+    // The owner's tunnel holds the app on Windows: a plain request leaves by the server, and mihomo's client stays shut.
+    final byServer = aside == null ? server : null;
     if (via == ShikooRoute.server) {
       if (!connected) throw const ShikooNotConnected();
       onLeg?.call(ShikooLeg.server);
-      return _get(url, server);
+      return _get(url, byServer);
     }
     onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
-    final aside = ownerAside(_ref.read, Uri.parse(url));
     try {
       return await _get(url, aside);
     } catch (error) {
       final answered = error is DioException && error.response != null;
-      if (via != null || !connected || answered || aside != null) rethrow;
+      if (via != null || !connected || answered) rethrow;
       onLeg?.call(ShikooLeg.fallback);
-      return _get(url, server);
+      return _get(url, byServer);
     }
   }
 

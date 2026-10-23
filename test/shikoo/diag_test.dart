@@ -13,11 +13,14 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show ThemeMode;
+import 'package:riverpod/misc.dart' show Override;
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -259,6 +262,7 @@ Future<_Harness> _harness({
   Object? Function(MethodCall call)? native,
   Set<String>? machine,
   Future<List<String>> Function(ProviderContainer)? windows,
+  List<Override> overrides = const [],
 }) async {
   SharedPreferences.setMockInitialValues({
     'shikoo.account': jsonEncode({
@@ -334,6 +338,7 @@ Future<_Harness> _harness({
       shikooDeviceProvider.overrideWithValue(
         () async => (name: 'Test', kind: 'phone'),
       ),
+      ...overrides,
     ],
   );
   addTearDown(container.dispose);
@@ -360,6 +365,19 @@ Future<_Harness> _harness({
     sent,
     container.read(cell.notifier),
   );
+}
+
+/// The proxy of each connection the app opens, null for direct; every one is refused.
+class _Legs extends HttpOverrides {
+  final proxies = <String?>[];
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) =>
+      super.createHttpClient(context)
+        ..connectionFactory = (_, host, port) {
+          proxies.add(host == null ? null : '$host:$port');
+          return Future.error(const SocketException('refused'));
+        };
 }
 
 const _germany = '🇩🇪 Germany 5';
@@ -1503,4 +1521,42 @@ void main() {
       'frames 60 slow 2 build 9ms raster 45ms',
     );
   });
+
+  test(
+    "on Windows with an owner core carrying the server in use, the report's "
+    "internet check goes through mihomo's port, as the card's does",
+    () async {
+      final h = await _harness(
+        state: const ShikooState(
+          connection: ShikooConnection.on,
+          connectedFor: Duration.zero,
+          isTV: false,
+          selected: 'W',
+          servers: [
+            ShikooServer(
+              name: 'W',
+              type: 'WireGuard',
+              protocol: ShikooProtocol.wireguard,
+              core: ShikooCore.wireguard,
+            ),
+          ],
+        ),
+        overrides: [shikooDesktopProvider.overrideWithValue(true)],
+      );
+      await h.diag.attach(h.container);
+      h.container.read(runTimeProvider.notifier).value = 1;
+      final legs = _Legs();
+
+      await HttpOverrides.runWithHttpOverrides(
+        () =>
+            h.diag.report(trigger: 'test', about: _windowsAbout, images: false),
+        legs,
+      );
+
+      expect(legs.proxies, isNotEmpty);
+      expect(legs.proxies.toSet(), {
+        'localhost:${h.container.read(patchClashConfigProvider).mixedPort}',
+      });
+    },
+  );
 }
