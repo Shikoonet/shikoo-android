@@ -22,18 +22,37 @@ const _vless = {
   'port': 443,
 };
 
-const _filled = {'mtu': 1280, 'persistent-keepalive': 25, 'udp': true};
+const _filled = {
+  'mtu': 1280,
+  'persistent-keepalive': 25,
+  'udp': true,
+  'remote-dns-resolve': true,
+  'dns': ['1.1.1.1', '8.8.8.8'],
+};
 
 void main() {
   test('the config the core runs fills what the panel left out of a WireGuard '
       'server, keeps what it set, and leaves other servers alone', () async {
-    final panel = {'mtu': 1420, 'persistent-keepalive': 0, 'udp': false};
+    final panel = {
+      'mtu': 1420,
+      'persistent-keepalive': 0,
+      'udp': false,
+      'remote-dns-resolve': false,
+    };
+    final dnsOnly = {
+      'dns': ['9.9.9.9'],
+    };
     final made = await makeRealProfileTask(
       MakeRealProfileState(
         profilesPath: '/profiles',
         profileId: 1,
         rawConfig: {
-          'proxies': [_wireGuard('bare'), _wireGuard('set', panel), _vless],
+          'proxies': [
+            _wireGuard('bare'),
+            _wireGuard('set', panel),
+            _wireGuard('dns only', dnsOnly),
+            _vless,
+          ],
           'rules': ['MATCH,DIRECT'],
         },
         realPatchConfig: const PatchClashConfig(),
@@ -49,7 +68,13 @@ void main() {
 
     expect(proxies[0], {..._wireGuard('bare'), ..._filled});
     expect(proxies[1], _wireGuard('set', panel));
-    expect(proxies[2], _vless);
+    expect(proxies[2], {
+      ..._wireGuard('dns only', dnsOnly),
+      'mtu': 1280,
+      'persistent-keepalive': 25,
+      'udp': true,
+    });
+    expect(proxies[3], _vless);
   });
 
   test("another service's servers are pinged with the same fill", () {
