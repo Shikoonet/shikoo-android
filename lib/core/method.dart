@@ -37,6 +37,7 @@ enum CoreMethod {
   updateDns,
   testProxyDelay,
   checkSeal,
+  shikooOwner,
 }
 
 class CoreMethodCall {

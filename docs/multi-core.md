@@ -58,7 +58,11 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - A `ShikooCoresNotifier` in `lib/shikoo/engine/settings.dart`, beside `ShikooLookNotifier` (`:52-89`): one
   SharedPreferences key per row, `shikoo.core.<protocol>` = the core's name.
 - Device only: never sent to the server, and not backed up (`allowBackup="false"`, `SHIKOO_PATCHES.md` row 10).
-- No key means mihomo. A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
+- No key means the protocol's default, `shikooDefaultCores` in `cores.dart`: **OpenVPN defaults to the official core**
+  (Sam, 2026-10-23), every other protocol to mihomo. Changing a default is one line there; WireGuard's waits for the
+  phone test. A default this build does not have ready, or one a server cannot use, means mihomo until it is, with
+  nothing for the user to do. A pick of the user's, mihomo included, is stored and always wins over the default.
+- A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
 - Loaded in the shell before `runApp`, as the look is (`lib/shikoo/app/main.dart:62`), so the first config apply already
   sees it.
 
@@ -75,7 +79,7 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | Changing the core | re-apply the config (`applyProfile(silence: true)`, as `followSubscriptions` does, `account.dart:616-623`); the tunnel stays up and the old engine stops after mihomo holds the new config | disconnect, then connect, as `setMode` does (`controller.dart:1231-1239`) |
 | Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address |
 | Lifecycle | lives with the applied config, inside `applyConfig` (Go). It runs while disconnected too, so pings work. | started and stopped by `VpnService` on Android, and by the core in TUN mode on Windows |
-| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7) |
+| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7), the official OpenVPN default included |
 
 **Sam's behaviour decisions (2026-10-22, through the lead):**
 - A core this build lacks shows switched off with «به‌زودی». So the state carries every core that can carry a protocol,
@@ -101,11 +105,17 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 - `cores.dart` (new): the types, `protocolOf(mapping)`, `coreFor(mapping, choices)` and `markCores(rawConfig, choices)`.
 - One spec file per new core (new; base creates them as stubs): `core_xray.dart`, `core_sing_box.dart`,
   `core_wireguard.dart`, `core_openvpn.dart`. Each holds one record: `ready` (false until its package lands), its shape,
-  and `serves(protocol, mapping)`. A package edits only its own file.
+  and `serves(protocol, mapping)`. A package edits only its own file, but for one line: a ready core whose engine runs
+  on some platforms only adds `core: {platforms}` to `shikooReadyOn` in `cores.dart`, and `shikooCoreSpecsProvider`
+  shows it not ready elsewhere (`readyHere`).
 - `markCores` adds `shikoo-core: <name>` to each proxy mapping that goes to a behind-mihomo core. It runs in
   `lib/providers/actions/setup.dart` `getProfile`, after the script step and before `makeRealProfileTask`
   (`:350-355`). `task.dart` runs in an isolate without the providers, so it can't go there. A new upstream patch, like
   row 21.
+- `markCores` marks a server an owner core takes with `shikoo-owner: <core>` instead. Go does not remove it: the
+  Windows engine reads it from the applied `config.yaml`, and mihomo's parser ignores the key
+  (`TestMihomosParserIgnoresTheOwnerMark`). On Android the engine finds its server through `VpnOptions`; the mark
+  costs it nothing.
 - The controller stays the only door (`controller.dart:31`). Built in phase 2 (`1644b16a`):
   - `ShikooServer.protocol` from the profile's own mapping, and `ShikooServer.core`, the core really carrying it. For a
     core behind mihomo that is known from the running type: Go replaces a server it handed over, so one it left to
@@ -113,7 +123,8 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - Every service's mappings are read with `getConfig`, as `_mainGroupOf` does for other services, once FlClash's boot
     has finished (`initProvider`): profile files are readable only then.
   - `ShikooState.cores`: one row per protocol the customer's services hold (`other` excluded), each with `chosen` (the
-    pick, or mihomo while the pick is not ready) and `options`, every core that can carry it with `ready`.
+    pick, or mihomo while the pick is not ready), `defaultCore` (what the protocol gets with no pick, mihomo while its
+    default is not ready) and `options`, every core that can carry it with `ready`.
   - `ShikooState.coreSwitch`: `(protocol, to, stage)` while a core change moves the server in use.
   - `setCore(protocol, core)`: stores the pick, writes a timeline line for diagnostics, and re-applies the config.
     Connected, if the server in use changes core, it shows `moving`, then `done` only when, with the groups read again
@@ -122,6 +133,11 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - The reconnect rule, in `selectServer` and `setCore`: while connected, reconnect when the selected server's *tunnel
     key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and `<core>/<server>` for an owner core.
     `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
+  - `ownerAside(read, url)` (route «ج», Windows only): while an owner core carries the server in use, the app's own
+    "direct" requests take mihomo's local port, whose DIRECT rules leave by the physical card, since Windows cannot
+    keep the app out of that tunnel. It covers `_fetch`'s direct leg, which then has no server fallback (it would be the
+    same port), and the report's `runProbes`, where that port's own 502 counts as a failure, not an Iranian site's
+    answer. Null on Android, whose VPN leaves our package out, and whenever mihomo carries the server.
   - Not done: the diagnostics report keeps its keys. The door refuses a whole report over a key it does not know
     (`diag.dart`), so the choice goes into the timeline instead.
 
@@ -141,6 +157,12 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
 - An owner core in Go (ه۲) branches inside `handleStartTun` (`core/lib.go:219`): the fd goes to the engine instead of
   sing-tun, and the TunHandler's protect callback stays for mihomo's own sockets. ه۲ designs it.
+- `core/shikoo_owner.go` (new; built 2026-10-23): the core method `shikooOwner` answers `{"core": …, "server": …}`, the
+  core that owns the tunnel and the server it carries now, both empty when none does. Each owner engine registers from
+  its own `init()`: `registerShikooOwner(core string, carrying func() string)`, `carrying` returning the server it
+  carries now, `""` for none. The app asks once the tunnel is up (`ownerCarryingProvider`) and believes it for the
+  server in use only: an owner engine that never started leaves that server shown on mihomo, and a core switch to it
+  reads failed (Sam, 2026-10-23). Dart reaches it through `CoreMethod.shikooOwner` (`SHIKOO_PATCHES.md` row 51).
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
   requires.
 

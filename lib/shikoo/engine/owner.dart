@@ -1,26 +1,30 @@
-import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/providers/state.dart' show TunnelOwner;
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The owner core of the server in use, for VpnOptions (docs/multi-core.md §4); null while mihomo holds the tunnel.
+/// The owner core picked for the server in use, for VpnOptions (docs/multi-core.md §4). The pick, not the core the
+/// state shows: that turns to mihomo while the engine does not carry the server, and VpnOptions must not follow it.
 final shikooOwnerProvider = Provider<TunnelOwner?>((ref) {
-  final (:server, :core) = ref.watch(
+  final (:server, :type) = ref.watch(
     shikooStateProvider.select(
-      (state) => (server: state.selected, core: state.selectedServer?.core),
+      (state) => (server: state.selected, type: state.selectedServer?.type),
     ),
   );
-  final down = ref.watch(shikooOwnerDownProvider);
-  final picked = down != null && down.server == server ? down.core : core;
-  if (server == null ||
-      picked == null ||
-      !ownsTunnel(picked, ref.watch(shikooCoreSpecsProvider))) {
-    return null;
-  }
+  if (server == null || type == null) return null;
+  final specs = ref.watch(shikooCoreSpecsProvider);
+  final core = coreFor(
+    ref.watch(shikooSelectedSourceProvider) ?? {'type': type},
+    ref.watch(shikooCoresProvider),
+    specs: specs,
+    tunnel:
+        !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun,
+  );
+  if (!ownsTunnel(core, specs)) return null;
   return (
-    core: picked.name,
+    core: core.name,
     server: server,
     iranDirect: ref.watch(shikooIranDirectProvider),
   );
@@ -28,23 +32,3 @@ final shikooOwnerProvider = Provider<TunnelOwner?>((ref) {
 
 bool ownsTunnel(ShikooCore core, Map<ShikooCore, ShikooCoreSpec> specs) =>
     specs[core]!.shape == ShikooShape.ownsTunnel;
-
-typedef ShikooOwnerDown = ({String server, ShikooCore core});
-
-/// An owner engine that did not start this connection: mihomo carries the server, the pick stays (Sam, 2026-10-23).
-final shikooOwnerDownProvider =
-    NotifierProvider<ShikooOwnerDownNotifier, ShikooOwnerDown?>(
-      ShikooOwnerDownNotifier.new,
-    );
-
-class ShikooOwnerDownNotifier extends Notifier<ShikooOwnerDown?> {
-  @override
-  ShikooOwnerDown? build() => null;
-
-  void set(ShikooOwnerDown? down) => state = down;
-}
-
-final shikooOwnerQuery = '${String.fromCharCode(0)}shikoo-owner';
-
-Future<String?> ownerCarries(CoreController core) async =>
-    (await core.getDelay('', shikooOwnerQuery))?.name;

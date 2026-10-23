@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/klauspost/compress/zstd"
@@ -40,10 +41,6 @@ import (
 // for a plan before it builds the VPN, then hands the descriptor over (lib.go).
 
 const shikooPrepareOwnerMethod CoreMethod = "shikooPrepareOwner"
-
-// ownerQuery is the delay test through which Dart asks which server the owner carries: lib/core, where a method of
-// its own would go, is FlClash's. No panel can name a server with a NUL.
-const ownerQuery = "\x00shikoo-owner"
 
 // What the official Android app runs with when the server's mapping says nothing: its own MTU, and the
 // keepalive and DNS of the panel's /links config, the one that app imports.
@@ -86,7 +83,8 @@ type wgOwner struct {
 var (
 	ownerMu       sync.Mutex
 	ownerPrepared *wgPrepared
-	ownerRunning  *wgOwner
+	// Atomic, as the registry's carrying must answer at once and take no lock.
+	ownerRunning atomic.Pointer[wgOwner]
 )
 
 func init() {
@@ -106,10 +104,6 @@ func init() {
 	methodHandlers[asyncTestDelayMethod] = func(call *MethodCall, response MethodResponse) {
 		var params TestDelayParams
 		if call.decodeArguments(&params) == nil {
-			if params.ProxyName == ownerQuery {
-				response.success(&Delay{Name: ownerServer(), Value: -1})
-				return
-			}
 			if owner := ownerFor(params.ProxyName); owner != nil {
 				safeGo(response, func() { response.success(owner.testDelay(&params)) })
 				return
@@ -271,9 +265,12 @@ func wgPlan(
 	return plan, &wgPrepared{server: fmt.Sprint(mapping["name"]), uapi: uapi.String(), peer: first}, nil
 }
 
-// One binder parcel takes a VPN's routes to every app watching the network: 2067 Iranian ranges overflowed it (Android
-// 15), 8747 routes around them crashed YouTube (7.1). So the widest blocks within wgRouteBudget go; the rest ride the server.
-const wgRouteBudget = 500
+// One binder parcel takes a VPN's routes to every app watching the network: on the emulator 1500 excluded ranges failed it
+// on Android 15 and 8747 routes crashed YouTube on 7.1, while 7.1 took 946 routes in 0.4 s five times over (2026-10-23).
+const (
+	wgExcludedBudget = 500
+	wgRoutesBudget   = 1000
+)
 
 // Out first, each while the shipped Iranian set holds all of it: 36 key sites' blocks (via Shecan, 2026-10-23).
 var iranFirst = []netip.Prefix{
@@ -329,7 +326,7 @@ func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.
 			return nil, nil, err
 		}
 		if excludeRoute {
-			if len(routes.Prefixes())+len(out.Prefixes()) > wgRouteBudget {
+			if len(routes.Prefixes())+len(out.Prefixes()) > wgExcludedBudget {
 				break
 			}
 			excluded = prefixStrings(out)
@@ -342,7 +339,7 @@ func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.
 		if err != nil {
 			return nil, nil, err
 		}
-		if len(around.Prefixes()) > wgRouteBudget {
+		if len(around.Prefixes()) > wgRoutesBudget {
 			break
 		}
 		routesLeft = around
@@ -444,9 +441,7 @@ func startOwner(t tun.Device) error {
 	if proxy := tunnel.AllProxies()[prepared.server]; proxy != nil && proxy.Type() == constant.WireGuard {
 		_ = proxy.Close()
 	}
-	ownerMu.Lock()
-	ownerRunning = owner
-	ownerMu.Unlock()
+	ownerRunning.Store(owner)
 	return nil
 }
 
@@ -469,29 +464,23 @@ func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
 }
 
 func stopOwner() {
-	ownerMu.Lock()
-	owner := ownerRunning
-	ownerRunning = nil
-	ownerMu.Unlock()
+	owner := ownerRunning.Swap(nil)
 	if owner != nil {
 		owner.dev.Close()
 	}
 }
 
+// ownerServer is the registry's carrying (core/shikoo_owner.go), registered for Android in shikoo_wg_android.go.
 func ownerServer() string {
-	ownerMu.Lock()
-	defer ownerMu.Unlock()
-	if ownerRunning == nil {
-		return ""
+	if owner := ownerRunning.Load(); owner != nil {
+		return owner.server
 	}
-	return ownerRunning.server
+	return ""
 }
 
 func ownerFor(server string) *wgOwner {
-	ownerMu.Lock()
-	defer ownerMu.Unlock()
-	if ownerRunning != nil && ownerRunning.server == server {
-		return ownerRunning
+	if owner := ownerRunning.Load(); owner != nil && owner.server == server {
+		return owner
 	}
 	return nil
 }

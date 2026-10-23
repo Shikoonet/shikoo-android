@@ -166,15 +166,134 @@ void main() {
     );
     expect(marked['mixed-port'], 7890);
     expect(_reality.containsKey(shikooCoreKey), isFalse);
+    final owned = markCores(config, const {
+      ShikooProtocol.wireguard: ShikooCore.wireguard,
+    }, specs: _allReady);
+    expect(
+      [
+        for (final proxy in owned['proxies'] as List)
+          ((proxy as Map)[shikooOwnerKey], proxy[shikooCoreKey]),
+      ],
+      [
+        (null, null),
+        (null, null),
+        ('wireguard', null),
+        (null, null),
+        (null, null),
+      ],
+      reason: 'an owner core gets its own key: Go hands only shikoo-core over',
+    );
     expect(
       identical(
         markCores(config, const {
           ShikooProtocol.wireguard: ShikooCore.wireguard,
-        }, specs: _allReady),
+        }, specs: _noneReady),
         config,
       ),
       isTrue,
-      reason: 'an owner core is not marked: it takes the tunnel instead',
+    );
+  });
+
+  test('an owner core is trusted for the server in use only as far as the Go '
+      'core reports carrying it', () {
+    const wg = {ShikooProtocol.wireguard: ShikooCore.wireguard};
+    ShikooCore running(String? carried) => runningCore(
+      _wireguard,
+      'WireGuard',
+      wg,
+      specs: _allReady,
+      carried: carried,
+    );
+    expect(running(null), ShikooCore.wireguard, reason: 'not asked');
+    expect(running('wireguard'), ShikooCore.wireguard);
+    expect(running(''), ShikooCore.mihomo, reason: 'the engine did not start');
+    expect(running('openvpn'), ShikooCore.mihomo);
+  });
+
+  test('OpenVPN defaults to the official core once this build has it ready, '
+      "never over the user's own pick nor in Windows' proxy mode", () {
+    const ovpn = {'name': 'ovpn', 'type': 'openvpn'};
+    final official = _readyOnly({ShikooCore.openvpn});
+    expect(
+      coreFor(ovpn, const {}, specs: _noneReady),
+      ShikooCore.mihomo,
+      reason: 'the default is not ready yet',
+    );
+    expect(coreFor(ovpn, const {}, specs: official), ShikooCore.openvpn);
+    expect(
+      coreFor(ovpn, const {}, specs: official, tunnel: false),
+      ShikooCore.mihomo,
+      reason: 'proxy mode has no tunnel for it to own',
+    );
+    expect(
+      coreFor(ovpn, const {
+        ShikooProtocol.openvpn: ShikooCore.mihomo,
+      }, specs: official),
+      ShikooCore.mihomo,
+    );
+    expect(
+      coreFor(ovpn, const {
+        ShikooProtocol.openvpn: ShikooCore.singBox,
+      }, specs: _allReady),
+      ShikooCore.singBox,
+    );
+    expect(
+      runningCore(ovpn, 'OpenVPN', const {}, specs: official),
+      ShikooCore.openvpn,
+    );
+    expect(
+      [
+        _reality,
+        _wireguard,
+        _ssh,
+      ].map((server) => coreFor(server, const {}, specs: _allReady)),
+      everyElement(ShikooCore.mihomo),
+      reason: 'the other protocols still default to mihomo',
+    );
+    final ovpnConfig = <String, dynamic>{
+      'proxies': [ovpn],
+    };
+    expect(
+      (markCores(ovpnConfig, const {}, specs: official)['proxies'] as List)
+          .single,
+      {...ovpn, shikooOwnerKey: 'openvpn'},
+    );
+    expect(
+      identical(markCores(ovpnConfig, const {}, specs: _noneReady), ovpnConfig),
+      isTrue,
+    );
+
+    ({ShikooCore chosen, ShikooCore defaultCore}) row(
+      ShikooChoices choices,
+      Map<ShikooCore, ShikooCoreSpec> specs,
+    ) {
+      final row = coreRows(
+        {ShikooProtocol.openvpn},
+        choices,
+        specs: specs,
+      ).single;
+      return (chosen: row.chosen, defaultCore: row.defaultCore);
+    }
+
+    expect(row(const {}, _noneReady), (
+      chosen: ShikooCore.mihomo,
+      defaultCore: ShikooCore.mihomo,
+    ));
+    expect(row(const {}, official), (
+      chosen: ShikooCore.openvpn,
+      defaultCore: ShikooCore.openvpn,
+    ));
+    expect(row(const {ShikooProtocol.openvpn: ShikooCore.mihomo}, official), (
+      chosen: ShikooCore.mihomo,
+      defaultCore: ShikooCore.openvpn,
+    ));
+    expect(
+      coreRows(
+        {ShikooProtocol.vless},
+        const {},
+        specs: _allReady,
+      ).single.defaultCore,
+      ShikooCore.mihomo,
     );
   });
 
@@ -184,6 +303,34 @@ void main() {
     expect(wireguardSpec.shape, ShikooShape.ownsTunnel);
     expect(xraySpec.serves(ShikooProtocol.ssh, const {}), isFalse);
     expect(singBoxSpec.serves(ShikooProtocol.openvpn, const {}), isTrue);
+  });
+
+  test('a core ready on some platforms only is not ready elsewhere, its shape '
+      'and reach kept, so its servers stay on mihomo there', () {
+    const readyOn = {
+      ShikooCore.wireguard: {ShikooPlatform.android},
+    };
+    Map<ShikooCore, ShikooCoreSpec> on(
+      ShikooPlatform platform, [
+      Map<ShikooCore, ShikooCoreSpec>? specs,
+    ]) => readyHere(platform, specs: specs ?? _allReady, readyOn: readyOn);
+    final windows = on(ShikooPlatform.windows)[ShikooCore.wireguard]!;
+
+    expect(on(ShikooPlatform.android)[ShikooCore.wireguard]!.ready, isTrue);
+    expect(windows.ready, isFalse);
+    expect(windows.shape, ShikooShape.ownsTunnel);
+    expect(windows.serves, same(_allReady[ShikooCore.wireguard]!.serves));
+    expect(on(ShikooPlatform.windows)[ShikooCore.xray]!.ready, isTrue);
+    expect(
+      on(ShikooPlatform.android, _noneReady)[ShikooCore.wireguard]!.ready,
+      isFalse,
+    );
+    expect(
+      coreFor(_wireguard, {
+        ShikooProtocol.wireguard: ShikooCore.wireguard,
+      }, specs: on(ShikooPlatform.windows)),
+      ShikooCore.mihomo,
+    );
   });
 
   test('a core behind mihomo is ready only if the Go core registers it under '

@@ -195,12 +195,12 @@ func TestTheShippedIranianSetGivesARouteListAndroidTakes(t *testing.T) {
 	}
 	all := float64(addresses(iran.Prefixes()))
 	from13, _, _ := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk, noResolve)
-	if n := len(from13.Routes) + len(from13.Excluded); n > wgRouteBudget || n < wgRouteBudget/2 {
+	if n := len(from13.Routes) + len(from13.Excluded); n > wgExcludedBudget || n < wgExcludedBudget/2 {
 		t.Errorf("Android 13+: %d routes", n)
 	}
 	excluded := addresses(parsePrefixes(from13.Excluded))
 	below13, _, _ := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk-1, noResolve)
-	if n := len(below13.Routes); n > wgRouteBudget || n < wgRouteBudget/2 {
+	if n := len(below13.Routes); n > wgRoutesBudget || n <= wgExcludedBudget {
 		t.Errorf("below 13: %d routes", n)
 	}
 	around := addresses([]netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}) - addresses(parsePrefixes(below13.Routes))
@@ -243,7 +243,7 @@ func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if n := len(plan.Routes) + len(plan.Excluded); n > wgRouteBudget {
+		if n := len(plan.Routes) + len(plan.Excluded); n > budgetFor(sdk) {
 			t.Errorf("sdk %d: %d routes", sdk, n)
 		}
 		var b netipx.IPSetBuilder
@@ -288,7 +288,7 @@ func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if n := len(plan.Routes) + len(plan.Excluded); n > wgRouteBudget {
+		if n := len(plan.Routes) + len(plan.Excluded); n > budgetFor(sdk) {
 			t.Errorf("sdk %d: %d routes", sdk, n)
 		}
 		if sdk >= excludeRouteSdk && !slices.Contains(plan.Excluded, "2.176.0.0/12") {
@@ -298,6 +298,30 @@ func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 			return netip.MustParsePrefix(r).Contains(netip.MustParseAddr("2.176.0.1"))
 		}) {
 			t.Errorf("sdk %d: the /12 is still routed", sdk)
+		}
+	}
+}
+
+func budgetFor(sdk int) int {
+	if sdk >= excludeRouteSdk {
+		return wgExcludedBudget
+	}
+	return wgRoutesBudget
+}
+
+func TestTheRouteBudgetChangesAtAndroid13(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for sdk, budget := range map[int]int{32: wgRoutesBudget, 33: wgExcludedBudget} {
+		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := len(plan.Routes) + len(plan.Excluded)
+		if n > budget || n <= budget*3/4 {
+			t.Errorf("sdk %d: %d routes, want just under %d", sdk, n, budget)
 		}
 	}
 }
@@ -389,16 +413,9 @@ func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 		t.Fatalf("answer %s (%v), want a delay for wg", frames[0], err)
 	}
 
-	carried := func() string {
-		params, _ := json.Marshal(TestDelayParams{ProxyName: ownerQuery})
-		fake := &fakeConn{}
-		previous := swapConn(fake)
-		defer swapConn(previous)
-		methodHandlers[asyncTestDelayMethod](&MethodCall{ID: "2", Method: asyncTestDelayMethod, Arguments: params}, MethodResponse{ID: "2"})
-		var answer struct{ Result Delay }
-		_ = json.Unmarshal(fake.frames(t)[0], &answer)
-		return answer.Result.Name
-	}
+	registerShikooOwner("wireguard-test", ownerServer)
+	t.Cleanup(func() { delete(shikooOwners, "wireguard-test") })
+	carried := func() string { return shikooOwnerNow().Server }
 	if got := carried(); got != "wg" {
 		t.Errorf("Dart's question got %q, want the owner's server", got)
 	}
