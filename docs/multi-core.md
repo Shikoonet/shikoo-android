@@ -165,6 +165,10 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `carrying` returning the server it carries now, `""` for none, and `ping` answering a delay test of that server from
   the engine's own session (nil: mihomo answers, and the gate below makes that a failure). Neither assumes the engine
   runs in this process.
+  - **The contract of `carrying`:** it runs on every dial through a gated server and on each question from Dart, so
+    it returns at once: no I/O, and no lock held across I/O or across the engine's own start and stop (an atomic value
+    is enough). It may run while `applyConfig` holds `configMu`, so it never takes `configMu`. Its synchronisation is
+    the engine's. `ping` runs on a goroutine of its own and may take up to the delay test's timeout.
   - **One identity, one session:** `shikooCoresParse` puts `shikooOwnerGate` on every proxy marked `shikoo-owner`. While
     an owner carries that server, mihomo's own client of it refuses to dial or listen, so nothing on the device opens a
     second session with the same key or username: not FlClash's `checkIp`, not "update through the server" (which now

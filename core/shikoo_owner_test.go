@@ -5,10 +5,12 @@ import (
 	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -42,11 +44,28 @@ func TestShikooOwnerReportsTheServerAnOwnerEngineCarries(t *testing.T) {
 }
 
 func TestMihomosParserIgnoresTheOwnerMark(t *testing.T) {
-	cfg := parseShikooCores(t, "proxies:\n  - {name: W, type: http, server: 1.1.1.1, port: 1, shikoo-owner: wireguard}\n")
+	key := base64.StdEncoding.EncodeToString(wireGuardKey(t).Bytes())
+	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
+  - {name: H, type: http, server: 1.1.1.1, port: 1, shikoo-owner: wireguard}
+  - {name: W, type: wireguard, server: 1.1.1.1, port: 1, private-key: %s, public-key: %s, ip: 10.0.0.2, shikoo-owner: wireguard}
+  - {name: O, type: openvpn, server: 1.1.1.1, port: 1194, ca: %q, username: u, password: p, shikoo-owner: openvpn}
+`, key, key,
+		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("ca")})))
 
-	if got := proxyTypes(cfg, "W"); got[0] != constant.Http {
-		t.Errorf("type %v: the marked server must stay mihomo's own until the owner core takes the tunnel", got)
+	want := []constant.AdapterType{constant.Http, constant.WireGuard, constant.OpenVPN}
+	if got := proxyTypes(cfg, "H", "W", "O"); !slices.Equal(got, want) {
+		t.Errorf("types %v, want %v: a marked server stays mihomo's own until the owner core takes the tunnel", got, want)
 	}
+}
+
+func TestAnOwnerRegisteredTwicePanics(t *testing.T) {
+	fakeOwner(t, nil)
+	defer func() {
+		if recover() == nil {
+			t.Error("a second fake-owner was taken")
+		}
+	}()
+	registerShikooOwner("fake-owner", func() string { return "" }, nil)
 }
 
 // silentPeer is a WireGuard server that never answers: it records the source port of every packet it hears.
