@@ -404,9 +404,9 @@ void main() {
       ).map((row) => (row.chosen, row.defaultCore, row.carrier)),
       [
         (ShikooCore.wireguard, ShikooCore.mihomo, ShikooCore.mihomo),
-        (ShikooCore.openvpn, ShikooCore.mihomo, ShikooCore.mihomo),
+        (ShikooCore.mihomo, ShikooCore.mihomo, ShikooCore.mihomo),
       ],
-      reason: 'the row keeps the pick; the default and the carrier are mihomo',
+      reason: 'a pick is kept; with none, the row is the default of the mode',
     );
     expect(
       coreRows(present, picks, specs: official).map((row) => row.carrier),
@@ -471,5 +471,53 @@ void main() {
 
     expect(defaultIn(tunnel: true), ShikooCore.openvpn);
     expect(defaultIn(tunnel: false), ShikooCore.mihomo);
+  });
+
+  test('an OpenVPN row over platform, mode, the platform rule and the pick: '
+      'chosen keeps a pick, else it is the default of the current mode', () {
+    const androidOnly = {
+      ShikooCore.openvpn: {ShikooPlatform.android},
+    };
+    const none = <ShikooCore, Set<ShikooPlatform>>{};
+    final (m, o, s) = (
+      ShikooCore.mihomo,
+      ShikooCore.openvpn,
+      ShikooCore.singBox,
+    );
+    final (android, windows) = (ShikooPlatform.android, ShikooPlatform.windows);
+    for (final (platform, tunnel, readyOn, pick, want)
+        in <
+          (
+            ShikooPlatform,
+            bool,
+            Map<ShikooCore, Set<ShikooPlatform>>,
+            ShikooCore?,
+            (ShikooCore, ShikooCore, ShikooCore),
+          )
+        >[
+          (android, true, none, null, (o, o, o)),
+          (android, true, none, m, (m, o, m)),
+          (android, true, androidOnly, s, (s, o, s)),
+          (windows, true, none, null, (o, o, o)),
+          (windows, true, androidOnly, null, (m, m, m)),
+          (windows, true, androidOnly, s, (s, m, s)),
+          (windows, false, none, null, (m, m, m)),
+          (windows, false, none, o, (o, m, m)),
+          (windows, false, none, s, (s, m, s)),
+          (windows, false, androidOnly, m, (m, m, m)),
+        ]) {
+      final row = coreRows(
+        {ShikooProtocol.openvpn},
+        {ShikooProtocol.openvpn: ?pick},
+        specs: readyHere(platform, specs: _allReady, readyOn: readyOn),
+        tunnel: tunnel,
+      ).single;
+
+      expect(
+        (row.chosen, row.defaultCore, row.carrier),
+        want,
+        reason: '${platform.name}, tunnel $tunnel, $readyOn, pick $pick',
+      );
+    }
   });
 }
