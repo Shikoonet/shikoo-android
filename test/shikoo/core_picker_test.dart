@@ -5,6 +5,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/cores.dart' show viaLabel;
 import 'package:fl_clash/shikoo/ui/home.dart';
 import 'package:fl_clash/shikoo/ui/report.dart' show SwitchRow;
 import 'package:fl_clash/shikoo/ui/settings.dart';
@@ -323,6 +324,45 @@ void main() {
     registerFallbackValue(ShikooCore.mihomo);
     await loadShikooFonts();
   });
+
+  // Sam, 2026-10-22: with the official WireGuard picked, Proxy mode carries it on mihomo and says so.
+  for (final tunnel in [true, false]) {
+    test(
+      'the official WireGuard picked, «با میهومو» shows only where it does not '
+      'carry: in Proxy mode (tunnel $tunnel)',
+      () {
+        final wg = shikooCoreSpecs[_wireguard]!;
+        final specs = {
+          ...shikooCoreSpecs,
+          _wireguard: (ready: true, shape: wg.shape, serves: wg.serves),
+        };
+        const picks = {ShikooProtocol.wireguard: _wireguard};
+        final rows = coreRows(
+          {ShikooProtocol.wireguard},
+          picks,
+          specs: specs,
+          tunnel: tunnel,
+        );
+        final server = ShikooServer(
+          name: 'W',
+          type: 'WireGuard',
+          protocol: ShikooProtocol.wireguard,
+          core: coreFor(
+            const {'type': 'WireGuard'},
+            picks,
+            specs: specs,
+            tunnel: tunnel,
+          ),
+        );
+        expect(rows.single.chosen, _wireguard);
+        expect(rows.single.carrier, tunnel ? _wireguard : _mihomo);
+        expect(
+          viaLabel(_fa, server, rows),
+          tunnel ? isNull : _fa.viaCore(_fa.coreMihomo),
+        );
+      },
+    );
+  }
 
   group('phone', () {
     testWidgets('«اتصال» sits under «زبان» with its switch on, and «هسته‌ها» '
