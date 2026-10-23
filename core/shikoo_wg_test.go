@@ -323,9 +323,74 @@ func TestTheRouteBudgetChangesAtAndroid13(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Filled to the cap: a whole tier that did not fit left a quarter of it unused.
 		n := len(plan.Routes) + len(plan.Excluded)
-		if n > budget || n <= budget*3/4 {
-			t.Errorf("sdk %d: %d routes, want just under %d", sdk, n, budget)
+		if n > budget || n < budget-32 || sdk >= excludeRouteSdk && n != budget {
+			t.Errorf("sdk %d: %d routes, want the budget of %d filled", sdk, n, budget)
+		}
+	}
+}
+
+func TestAnIPv6AddressKeepsIranianIPv4OutOfTheTunnel(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+		without := iranianIPv4Out(t, wgMapping(t, nil), iran, sdk)
+		with := iranianIPv4Out(t, wgMapping(t, map[string]any{"ipv6": "fd00::2"}), iran, sdk)
+		if with < without*98/100 {
+			t.Errorf("sdk %d: with IPv6 %d of Iran's IPv4 addresses leave the tunnel, without %d", sdk, with, without)
+		}
+	}
+}
+
+func iranianIPv4Out(t *testing.T, mapping map[string]any, iran *netipx.IPSet, sdk int) uint64 {
+	t.Helper()
+	plan, _, err := wgPlan(mapping, iran, sdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b netipx.IPSetBuilder
+	if sdk >= excludeRouteSdk {
+		for _, e := range plan.Excluded {
+			b.AddPrefix(netip.MustParsePrefix(e))
+		}
+	} else {
+		b.AddPrefix(netip.MustParsePrefix("0.0.0.0/0"))
+		for _, r := range plan.Routes {
+			b.RemovePrefix(netip.MustParsePrefix(r))
+		}
+	}
+	return addresses(must(b.IPSet()).Prefixes())
+}
+
+func TestOnePeerTakesEveryFamilyWhateverAllowedIPsSays(t *testing.T) {
+	_, prepared, err := wgPlan(wgMapping(t, map[string]any{"allowed-ips": []any{"10.0.0.0/8"}}), nil, 35, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := uapiLines(prepared)
+	if !slices.Contains(lines, "allowed_ip=0.0.0.0/0") || slices.Contains(lines, "allowed_ip=10.0.0.0/8") {
+		t.Errorf("the peer's allowed IPs:\n%s", prepared.uapi)
+	}
+}
+
+// The literal Kotlin's Core.prepareOwner sends; VpnOptionsTest pins the same key on its side.
+func TestPrepareOwnerReadsTheKeysKotlinSends(t *testing.T) {
+	var params PrepareOwnerParams
+	if err := json.Unmarshal([]byte(`{"core":"wireguard","server":"Germany 5","iran-direct":true}`), &params); err != nil ||
+		params != (PrepareOwnerParams{Core: "wireguard", Server: "Germany 5", IranDirect: true}) {
+		t.Errorf("read %+v (%v)", params, err)
+	}
+}
+
+func TestAnEngineWhoseDeviceClosedCarriesNothing(t *testing.T) {
+	startTestOwner(t)
+	ownerRunning.Load().dev.Close()
+	for deadline := time.Now().Add(2 * time.Second); ownerServer() != ""; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("a dead engine still says it carries its server")
 		}
 	}
 }
@@ -402,21 +467,8 @@ func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 	server, _, _ := startTestOwner(t)
 	registerOwner("wireguard-test")
 	t.Cleanup(func() { delete(shikooOwners, "wireguard-test") })
-	params, _ := json.Marshal(TestDelayParams{ProxyName: "wg", Timeout: 3000})
-	fake := &fakeConn{}
-	previous := swapConn(fake)
-	defer swapConn(previous)
-	methodHandlers[asyncTestDelayMethod](&MethodCall{ID: "1", Method: asyncTestDelayMethod, Arguments: params}, MethodResponse{ID: "1"})
-	var frames [][]byte
-	for deadline := time.Now().Add(5 * time.Second); len(frames) == 0 && time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		frames = fake.frames(t)
-	}
-	if len(frames) != 1 {
-		t.Fatalf("%d answers", len(frames))
-	}
-	var answer struct{ Result Delay }
-	if err := json.Unmarshal(frames[0], &answer); err != nil || answer.Result.Value <= 0 || answer.Result.Name != "wg" {
-		t.Fatalf("answer %s (%v), want a delay for wg", frames[0], err)
+	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 3000}); delay.Value <= 0 || delay.Name != "wg" {
+		t.Fatalf("answer %+v, want a delay for wg", delay)
 	}
 
 	carried := func() string { return shikooOwnerNow().Server }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -259,7 +260,7 @@ const (
 	wgRoutesBudget   = 1000
 )
 
-// Out first, each while the shipped Iranian set holds all of it: 36 key sites' blocks (via Shecan, 2026-10-23).
+// Out first, each while the shipped Iranian set holds all of it: the blocks of 36 key sites, then 28 more (Shecan).
 var iranFirst = []netip.Prefix{
 	netip.MustParsePrefix("185.143.232.0/22"), netip.MustParsePrefix("176.56.144.0/20"),
 	netip.MustParsePrefix("185.192.8.0/22"), netip.MustParsePrefix("82.99.192.0/18"),
@@ -277,9 +278,17 @@ var iranFirst = []netip.Prefix{
 	netip.MustParsePrefix("185.12.100.0/22"), netip.MustParsePrefix("185.188.104.0/22"),
 	netip.MustParsePrefix("185.147.176.0/22"), netip.MustParsePrefix("185.166.104.0/22"),
 	netip.MustParsePrefix("81.12.0.0/17"), netip.MustParsePrefix("2.176.0.0/12"),
-	netip.MustParsePrefix("5.106.0.0/16"),
+	netip.MustParsePrefix("5.106.0.0/16"), netip.MustParsePrefix("185.203.160.0/22"),
+	netip.MustParsePrefix("92.42.48.0/21"), netip.MustParsePrefix("45.89.200.0/22"),
+	netip.MustParsePrefix("185.120.208.0/20"), netip.MustParsePrefix("178.216.248.0/21"),
+	netip.MustParsePrefix("46.102.128.0/20"), netip.MustParsePrefix("94.182.0.0/16"),
+	netip.MustParsePrefix("79.175.128.0/18"), netip.MustParsePrefix("185.60.136.0/22"),
+	netip.MustParsePrefix("37.156.144.0/22"), netip.MustParsePrefix("194.41.48.0/22"),
+	netip.MustParsePrefix("194.156.140.0/22"), netip.MustParsePrefix("95.128.194.0/24"),
+	netip.MustParsePrefix("85.15.0.0/18"),
 }
 
+// cutIran takes Iran's blocks out up to the route budget: the key sites, then IPv4, then IPv6, each family by size.
 func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.IPSet, excluded []string, err error) {
 	var inside netipx.IPSetBuilder
 	inside.AddSet(routes)
@@ -288,50 +297,60 @@ func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.
 	if err != nil {
 		return nil, nil, err
 	}
-	blocks := all.Prefixes()
-	size := func(p netip.Prefix) int { return p.Addr().BitLen() - p.Bits() }
-	slices.SortStableFunc(blocks, func(a, b netip.Prefix) int { return size(b) - size(a) })
-	tiers := [][]netip.Prefix{{}}
+	var order []netip.Prefix
 	for _, p := range iranFirst {
 		if all.ContainsPrefix(p) {
-			tiers[0] = append(tiers[0], p)
+			order = append(order, p)
 		}
 	}
-	for i, j := 0, 0; i < len(blocks); i = j {
-		for j = i; j < len(blocks) && size(blocks[j]) == size(blocks[i]); j++ {
+	blocks := all.Prefixes()
+	slices.SortStableFunc(blocks, func(a, b netip.Prefix) int {
+		if a.Addr().Is4() != b.Addr().Is4() {
+			return cmp.Compare(a.Addr().BitLen(), b.Addr().BitLen())
 		}
-		tiers = append(tiers, blocks[i:j])
-	}
-	routesLeft, excluded = routes, []string{}
-	var cut netipx.IPSetBuilder
-	for _, tier := range tiers {
-		for _, p := range tier {
-			cut.AddPrefix(p)
+		return a.Bits() - b.Bits()
+	})
+	order = append(order, blocks...)
+	cut := func(n int) (out, left *netipx.IPSet, fits bool, err error) {
+		var b netipx.IPSetBuilder
+		for _, p := range order[:n] {
+			b.AddPrefix(p)
 		}
-		out, err := cut.IPSet()
-		if err != nil {
-			return nil, nil, err
+		if out, err = b.IPSet(); err != nil {
+			return nil, nil, false, err
 		}
 		if excludeRoute {
-			if len(routes.Prefixes())+len(out.Prefixes()) > wgExcludedBudget {
-				break
-			}
-			excluded = prefixStrings(out)
-			continue
+			return out, routes, len(routes.Prefixes())+len(out.Prefixes()) <= wgExcludedBudget, nil
 		}
-		var left netipx.IPSetBuilder
-		left.AddSet(routes)
-		left.RemoveSet(out)
-		around, err := left.IPSet()
+		var around netipx.IPSetBuilder
+		around.AddSet(routes)
+		around.RemoveSet(out)
+		if left, err = around.IPSet(); err != nil {
+			return nil, nil, false, err
+		}
+		return out, left, len(left.Prefixes()) <= wgRoutesBudget, nil
+	}
+	lo, hi := 0, len(order)
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		_, _, fits, err := cut(mid)
 		if err != nil {
 			return nil, nil, err
 		}
-		if len(around.Prefixes()) > wgRoutesBudget {
-			break
+		if fits {
+			lo = mid
+		} else {
+			hi = mid - 1
 		}
-		routesLeft = around
 	}
-	return routesLeft, excluded, nil
+	out, left, _, err := cut(lo)
+	if err != nil {
+		return nil, nil, err
+	}
+	if excludeRoute {
+		return routes, prefixStrings(out), nil
+	}
+	return left, []string{}, nil
 }
 
 func prefixStrings(set *netipx.IPSet) []string {
@@ -425,7 +444,13 @@ func startOwner(t tun.Device) error {
 	}
 	ownerRunning.Store(owner)
 	shikooOwnerTakes(prepared.server)
+	go forgetWhenClosed(owner)
 	return nil
+}
+
+func forgetWhenClosed(owner *wgOwner) {
+	<-owner.dev.Wait()
+	ownerRunning.CompareAndSwap(owner, nil)
 }
 
 func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
