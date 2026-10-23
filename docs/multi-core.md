@@ -165,13 +165,18 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `hub.ApplyConfig(cfg)` (`:402`), one `shikooCoresCommit()` stops the previous generation, beside
   `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
 - Once Android's tunnel is up, `startTUN` runs `shikooCoresAfterTun` (`core/lib.go`, row 24): if a core behind mihomo
-  is running, the config is applied again, with the user's group picks read from the live selectors
-  (`liveSelections`). A core opens its server sockets at apply (sing-box's WireGuard and OpenVPN endpoints at once;
+  is running, the config Go last applied is applied again, from memory (`shikooLastConfig`), never from `config.yaml`,
+  which Dart writes in place and may be writing right then. The group picks are those of that apply (a url-test group
+  the user fixed among them), with every select group as it stands now (`liveSelections`). A core opens its server sockets at apply (sing-box's WireGuard and OpenVPN endpoints at once;
   Xray's pre-tunnel sockets likely too), and `DefaultSocketHook` protects nothing until the tun handler exists, so a
   socket opened before the VPN consent stayed unprotected and its packets looped into our own `tun0` (h4's verifier
   on the emulator: `wg-tun0 pkts=9`). mihomo's own clients dial lazily and need none of this. For a core's builder
   nothing changes but one rule: every socket goes through mihomo's dialer (`component/dialer`), so the new
   generation's are protected.
+  - Cost: for cores behind mihomo this apply and FlClash's own forced apply after a start (debounced 600 ms,
+    `setup.dart`) mean two interruptions in the first second. Neither is cheap to drop: FlClash's runs for every
+    profile and serves more than the cores, and on the consent path it did not rebuild the generation after the tunnel
+    (h4's verifier), so only this one is sure to.
 - An owner core in Go (ه۲) branches inside `handleStartTun` (`core/lib.go:219`): the fd goes to the engine instead of
   sing-tun, and the TunHandler's protect callback stays for mihomo's own sockets. ه۲ designs it.
 - `core/shikoo_owner.go` (new; built 2026-10-23): the core method `shikooOwner` answers `{"core": …, "server": …}`, the
@@ -203,8 +208,13 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     WireGuard keeps it alive with handshakes and keepalives. So `shikooOwnerTakes` closes that client, and a closed
     client stays dead until the next apply. When the owner lets go (disconnect, or the tunnel stopping by itself), the
     app forces one (`applyProfile(force: true)`; the config is unchanged), so pings while off reach that server again.
-  - **Known limit:** `testProxyDelay`, the ping of servers of a service not opened, builds its own client from the
-    mapping and has no gate. It reaches the carried server only if another service holds the same key or username.
+    Whether to force it is a flag set for the session (`_ownerRoad`) whenever the server in use is picked for an owner
+    core or Go says an owner carries one, and cleared only by that apply: Go's later "none" (an engine that died, or
+    one that took the server after the question) cannot undo a client already closed.
+  - **Known limits:** `testProxyDelay`, the ping of servers of a service not opened, builds its own client from the
+    mapping and has no gate; it reaches the carried server only if another service holds the same key or username. And
+    the gate knows a server by its name: two servers under different names with one key or username both pass it. The
+    panel sends no such pair today (h2's verifier).
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
   requires.
 
