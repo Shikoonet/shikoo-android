@@ -436,12 +436,19 @@ final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
 
 typedef ShikooCarrying = ({String core, String server});
 
+/// Hard here: the desktop RPC restarts its own timer whenever the core answers anything else, up to three times.
+@visibleForTesting
+Duration ownerAnswerLimit = const Duration(seconds: 2);
+
 /// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no
 /// answer in two seconds.
 final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
   (ref) => () async {
     try {
-      final data = await ref.read(coreHandlerProvider).shikooOwner();
+      final data = await ref
+          .read(coreHandlerProvider)
+          .shikooOwner()
+          .timeout(ownerAnswerLimit, onTimeout: () => null);
       return data == null
           ? null
           : (core: '${data['core'] ?? ''}', server: '${data['server'] ?? ''}');
@@ -1054,7 +1061,7 @@ class ShikooController {
             : () {
                 _nativeStart(null);
                 _endSwitch();
-                _ref.read(_carryingProvider.notifier).set(null);
+                if (_forgetCarrying()) unawaited(_rebuildClients());
               },
       );
     });
@@ -1461,11 +1468,21 @@ class ShikooController {
     _attempt++;
     _endSwitch();
     _ref.read(_landedProvider.notifier).set(null);
-    _ref.read(_carryingProvider.notifier).set(null);
+    final took = _forgetCarrying();
     _nativeStart(null);
     _set(const _Intent());
     await _setup.setRunning(false);
+    if (took) await _rebuildClients();
   }
+
+  bool _forgetCarrying() {
+    final took = _ref.read(_carryingProvider)?.server.isNotEmpty ?? false;
+    _ref.read(_carryingProvider.notifier).set(null);
+    return took;
+  }
+
+  Future<void> _rebuildClients() =>
+      _setup.applyProfile(force: true, silence: true);
 
   bool get _coreUp => _ref.read(coreStatusProvider) == CoreStatus.connected;
 
