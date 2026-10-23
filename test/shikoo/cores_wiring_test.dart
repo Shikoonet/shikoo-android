@@ -284,6 +284,7 @@ void main() {
     final state = home.container.read(shikooStateProvider);
     expect(state.cores.last.protocol, ShikooProtocol.wireguard);
     expect(state.cores.last.chosen, ShikooCore.wireguard);
+    expect(state.cores.last.carrier, ShikooCore.mihomo);
     expect(_server(home, 'W').core, ShikooCore.mihomo);
   });
 

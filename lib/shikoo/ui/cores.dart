@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
-import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/refresh_menu.dart';
@@ -201,9 +200,9 @@ class _CoreList extends ConsumerWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final specs = ref.watch(shikooCoreSpecsProvider);
-    final proxy = shikooDesktop && !ref.watch(shikooModeProvider).tun;
+    final tunnel = ref.watch(shikooTunnelProvider);
     bool tunnelOnly(ShikooCore core) =>
-        proxy && specs[core]?.shape == ShikooShape.ownsTunnel;
+        !tunnel && specs[core]?.shape == ShikooShape.ownsTunnel;
     final options = row.options.sortedBy<num>((o) => _order.indexOf(o.core));
     final protocol = protocolLabel(l, row.protocol);
     final items = [
@@ -263,7 +262,7 @@ class _CoreList extends ConsumerWidget {
                 vertical: Space.s2,
               ),
               child: Text(
-                tunnelOnly(row.chosen)
+                row.carrier != row.chosen
                     ? l.coreProxyFallback(
                         l.modeProxy,
                         protocol,

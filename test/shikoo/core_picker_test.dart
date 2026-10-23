@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
-import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
@@ -23,11 +22,6 @@ import '../helpers/no_shots.dart';
 
 class _Controller extends Mock implements ShikooController {}
 
-class _ProxyMode extends ShikooModeNotifier {
-  @override
-  ShikooMode build() => ShikooMode.proxy;
-}
-
 const _mihomo = ShikooCore.mihomo;
 const _xray = ShikooCore.xray;
 const _singBox = ShikooCore.singBox;
@@ -40,11 +34,13 @@ List<ShikooCoreRow> _rows({
   ShikooCore vless = _mihomo,
   ShikooCore wireguard = _mihomo,
   bool openvpnReady = false,
+  bool tunnel = true,
 }) => [
   (
     protocol: ShikooProtocol.vless,
     chosen: vless,
     defaultCore: _mihomo,
+    carrier: vless,
     options: const [
       (core: _mihomo, ready: true),
       (core: _xray, ready: true),
@@ -55,6 +51,7 @@ List<ShikooCoreRow> _rows({
     protocol: ShikooProtocol.wireguard,
     chosen: wireguard,
     defaultCore: _mihomo,
+    carrier: !tunnel && wireguard == _wireguard ? _mihomo : wireguard,
     options: const [
       (core: _mihomo, ready: true),
       (core: _xray, ready: true),
@@ -66,6 +63,7 @@ List<ShikooCoreRow> _rows({
     protocol: ShikooProtocol.openvpn,
     chosen: openvpnReady ? _openvpn : _mihomo,
     defaultCore: openvpnReady ? _openvpn : _mihomo,
+    carrier: openvpnReady && tunnel ? _openvpn : _mihomo,
     options: [
       (core: _mihomo, ready: true),
       (core: _singBox, ready: openvpnReady),
@@ -76,6 +74,7 @@ List<ShikooCoreRow> _rows({
     protocol: ShikooProtocol.ssh,
     chosen: _mihomo,
     defaultCore: _mihomo,
+    carrier: _mihomo,
     options: const [
       (core: _mihomo, ready: true),
       (core: _singBox, ready: true),
@@ -207,7 +206,7 @@ Future<_Rig> _pump(
         noShots,
         shikooControllerProvider.overrideWithValue(controller),
         shikooVersionProvider.overrideWithValue('1.0.38'),
-        if (proxy) shikooModeProvider.overrideWith(_ProxyMode.new),
+        if (proxy) shikooTunnelProvider.overrideWithValue(false),
         shikooStateProvider.overrideWith((ref) {
           void changed() => ref.invalidateSelf();
           holder.addListener(changed);
@@ -938,7 +937,9 @@ void main() {
         await tester.tapAt(Offset.zero);
         await tester.pumpAndSettle();
 
-        rig.holder.value = _settings(cores: _rows(wireguard: _wireguard));
+        rig.holder.value = _settings(
+          cores: _rows(wireguard: _wireguard, tunnel: false),
+        );
         await tester.pumpAndSettle();
         expect(find.text(_fa.coreWireguard), findsOneWidget, reason: 'kept');
         await tester.ensureVisible(find.text(_fa.protocolVless));
@@ -1008,7 +1009,7 @@ void main() {
         (tester) async {
           final rig = await _pump(
             tester,
-            _settings(cores: _rows(wireguard: _wireguard)),
+            _settings(cores: _rows(wireguard: _wireguard, tunnel: false)),
             proxy: true,
             brightness: b,
           );
