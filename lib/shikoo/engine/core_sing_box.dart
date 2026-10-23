@@ -26,8 +26,16 @@ const _keys = {
       'host-key-algorithms',
 };
 
-const _fingerprints =
-    'none chrome firefox safari ios android edge 360 qq random randomized';
+const _optKeys = {
+  'reality-opts': 'public-key short-id',
+  'ws-opts':
+      'path headers max-early-data early-data-header-name v2ray-http-upgrade',
+  'grpc-opts': 'grpc-service-name',
+};
+
+const _fingerprints = 'none chrome firefox safari ios android edge 360 qq';
+
+final _wireGuardKey = RegExp(r'^[A-Za-z0-9+/]{43}=$');
 
 bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) {
   final keys = '${_keys[protocol]} name type server port udp'.split(' ');
@@ -36,15 +44,45 @@ bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) {
       server['remote-dns-resolve'] == true) {
     return false;
   }
-  bool oneOf(String key, String values) =>
-      ' $values'.split(' ').contains(server[key] ?? '');
+  for (final MapEntry(:key, :value) in server.entries) {
+    final inner = (_optKeys[key] ?? '').split(' ');
+    if (value is Map && !value.keys.every(inner.contains)) {
+      return false;
+    }
+  }
+  bool oneOf(Object? value, String values) =>
+      ' $values'.split(' ').contains('${value ?? ''}');
+  bool wireGuardKey(Object? value) =>
+      value == null || _wireGuardKey.hasMatch('$value');
+  Map<dynamic, dynamic> opts(String key) =>
+      server[key] is Map ? server[key] as Map : const {};
+  final ws = opts('ws-opts');
+  final peers = server['peers'] is List && (server['peers'] as List).isNotEmpty
+      ? server['peers'] as List
+      : [server];
+  final mtu = int.tryParse('${server['mtu']}');
   return switch (protocol) {
     ShikooProtocol.vless =>
-      oneOf('encryption', 'none') &&
-          oneOf('network', 'tcp ws grpc') &&
-          oneOf('flow', 'xtls-rprx-vision') &&
-          oneOf('client-fingerprint', _fingerprints),
-    ShikooProtocol.openvpn => oneOf('dev', 'tun'),
+      oneOf(server['encryption'], 'none') &&
+          oneOf(server['network'], 'tcp ws grpc') &&
+          oneOf(server['flow'], 'xtls-rprx-vision') &&
+          oneOf(server['client-fingerprint'], _fingerprints) &&
+          !(ws['v2ray-http-upgrade'] == true &&
+              ('${ws['path']}'.contains('?') ||
+                  !oneOf(ws['max-early-data'], '0'))),
+    ShikooProtocol.wireguard =>
+      wireGuardKey(server['private-key']) &&
+          peers.every(
+            (peer) =>
+                peer is Map &&
+                wireGuardKey(peer['public-key']) &&
+                (oneOf(peer['pre-shared-key'], '') ||
+                    wireGuardKey(peer['pre-shared-key'])),
+          ),
+    ShikooProtocol.openvpn =>
+      oneOf(server['dev'], 'tun') &&
+          (server['mtu'] == null ||
+              mtu != null && (mtu == 0 || mtu >= 68 && mtu <= 65535)),
     _ => true,
   };
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -9,6 +10,8 @@ import (
 	"maps"
 	"net"
 	"net/netip"
+	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -37,6 +40,7 @@ import (
 	"github.com/sagernet/sing-box/protocol/ssh"
 	"github.com/sagernet/sing-box/protocol/vless"
 	"github.com/sagernet/sing-box/protocol/wireguard"
+	"github.com/sagernet/sing/common/bufio"
 	sjson "github.com/sagernet/sing/common/json"
 	M "github.com/sagernet/sing/common/metadata"
 )
@@ -57,8 +61,15 @@ var singBoxKeys = map[string]string{
 	"ssh": "username password private-key private-key-passphrase host-key host-key-algorithms",
 }
 
-// The uTLS fingerprints that mihomo and sing-box name alike.
-const singBoxFingerprints = "none chrome firefox safari ios android edge 360 qq random randomized"
+var singBoxOptKeys = map[string]string{
+	"reality-opts": "public-key short-id",
+	"ws-opts":      "path headers max-early-data early-data-header-name v2ray-http-upgrade",
+	"grpc-opts":    "grpc-service-name",
+}
+
+const singBoxFingerprints = "none chrome firefox safari ios android edge 360 qq"
+
+var singBoxWireGuardKey = regexp.MustCompile(`^[A-Za-z0-9+/]{43}=$`)
 
 func singBoxServes(proxy map[string]any) bool {
 	kind := strings.ToLower(fmt.Sprint(proxy["type"]))
@@ -66,9 +77,15 @@ func singBoxServes(proxy map[string]any) bool {
 	if !ok {
 		return false
 	}
-	for key := range proxy {
+	for key, value := range proxy {
 		if !slices.Contains(strings.Fields(keys+" name type server port udp"), key) {
 			return false
+		}
+		opts, _ := value.(map[string]any)
+		for inner := range opts {
+			if !slices.Contains(strings.Fields(singBoxOptKeys[key]), inner) {
+				return false
+			}
 		}
 	}
 	if proxy["remote-dns-resolve"] == true {
@@ -76,11 +93,29 @@ func singBoxServes(proxy map[string]any) bool {
 	}
 	switch kind {
 	case "vless":
+		ws, _ := proxy["ws-opts"].(map[string]any)
+		earlyUpgrade := ws["v2ray-http-upgrade"] == true &&
+			(strings.Contains(fmt.Sprint(ws["path"]), "?") || !singBoxOneOf(ws["max-early-data"], "0"))
 		return singBoxOneOf(proxy["encryption"], "none") && singBoxOneOf(proxy["network"], "tcp ws grpc") &&
 			singBoxOneOf(proxy["flow"], "xtls-rprx-vision") &&
-			singBoxOneOf(proxy["client-fingerprint"], singBoxFingerprints)
+			singBoxOneOf(proxy["client-fingerprint"], singBoxFingerprints) && !earlyUpgrade
+	case "wireguard":
+		peers, _ := proxy["peers"].([]any)
+		if len(peers) == 0 {
+			peers = []any{proxy}
+		}
+		key := func(value any) bool { return value == nil || singBoxWireGuardKey.MatchString(fmt.Sprint(value)) }
+		keys := key(proxy["private-key"])
+		for _, peer := range peers {
+			peer, ok := peer.(map[string]any)
+			keys = keys && ok && key(peer["public-key"]) &&
+				(singBoxOneOf(peer["pre-shared-key"], "") || key(peer["pre-shared-key"]))
+		}
+		return keys
 	case "openvpn":
-		return singBoxOneOf(proxy["dev"], "tun")
+		mtu, err := strconv.Atoi(fmt.Sprint(proxy["mtu"]))
+		return singBoxOneOf(proxy["dev"], "tun") &&
+			(proxy["mtu"] == nil || err == nil && (mtu == 0 || mtu >= 68 && mtu <= 65535))
 	}
 	return true
 }
@@ -111,23 +146,29 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 		}
 		if o.TLS {
 			tls := map[string]any{"enabled": true, "server_name": o.ServerName, "insecure": o.SkipCertVerify, "alpn": o.ALPN}
-			fingerprint := o.ClientFingerprint
 			if o.RealityOpts.PublicKey != "" {
 				tls["reality"] = map[string]any{"enabled": true, "public_key": o.RealityOpts.PublicKey,
 					"short_id": o.RealityOpts.ShortID}
-				if fingerprint == "" || fingerprint == "none" {
-					fingerprint = "chrome" // sing-box's REALITY refuses to start without uTLS
-				}
 			}
-			if fingerprint != "" && fingerprint != "none" {
-				tls["utls"] = map[string]any{"enabled": true, "fingerprint": fingerprint}
+			if o.ClientFingerprint != "" && o.ClientFingerprint != "none" {
+				tls["utls"] = map[string]any{"enabled": true, "fingerprint": o.ClientFingerprint}
 			}
 			out["tls"] = tls
 		}
 		switch ws := o.WSOpts; o.Network {
 		case "ws":
-			out["transport"] = map[string]any{"type": "ws", "path": ws.Path, "headers": ws.Headers,
-				"max_early_data": ws.MaxEarlyData, "early_data_header_name": ws.EarlyDataHeaderName}
+			// mihomo reads the early-data size from the path's ?ed= (transport/vmess/websocket.go).
+			path, early, header := ws.Path, ws.MaxEarlyData, ws.EarlyDataHeaderName
+			if u, err := url.Parse(path); err == nil && u.Query().Get("ed") != "" {
+				if ed, err := strconv.Atoi(u.Query().Get("ed")); err == nil {
+					query := u.Query()
+					query.Del("ed")
+					u.RawQuery = query.Encode()
+					path, early, header = u.String(), ed, "Sec-WebSocket-Protocol"
+				}
+			}
+			out["transport"] = map[string]any{"type": "ws", "path": path, "headers": ws.Headers,
+				"max_early_data": max(early, 0), "early_data_header_name": header}
 			if ws.V2rayHttpUpgrade {
 				out["transport"] = map[string]any{"type": "httpupgrade", "path": ws.Path, "host": ws.Headers["Host"],
 					"headers": ws.Headers}
@@ -141,24 +182,34 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 		if err = singBoxDecoder.Decode(proxy, &o); err != nil {
 			return
 		}
+		address, err := o.Prefixes()
+		if err != nil {
+			return nil, false, false, err
+		}
 		peers := o.Peers
 		if len(peers) == 0 {
-			peers = []mihomo.WireGuardPeerOption{o.WireGuardPeerOption}
+			// mihomo's single peer takes every local family, whatever allowed-ips says.
+			peer := o.WireGuardPeerOption
+			peer.AllowedIPs = nil
+			if slices.ContainsFunc(address, func(p netip.Prefix) bool { return p.Addr().Is4() }) {
+				peer.AllowedIPs = append(peer.AllowedIPs, "0.0.0.0/0")
+			}
+			if slices.ContainsFunc(address, func(p netip.Prefix) bool { return !p.Addr().Is4() }) {
+				peer.AllowedIPs = append(peer.AllowedIPs, "::/0")
+			}
+			peers = []mihomo.WireGuardPeerOption{peer}
 		}
 		var sbPeers []any
 		for _, peer := range peers {
-			allowed := peer.AllowedIPs
-			if len(allowed) == 0 {
-				allowed = []string{"0.0.0.0/0", "::/0"}
+			if len(peer.Reserved) == 0 {
+				peer.Reserved = o.Reserved
 			}
 			sbPeers = append(sbPeers, map[string]any{"address": peer.Server, "port": peer.Port,
-				"public_key": peer.PublicKey, "pre_shared_key": peer.PreSharedKey,
-				"allowed_ips": singBoxPrefixes(allowed...), "reserved": peer.Reserved,
-				"persistent_keepalive_interval": o.PersistentKeepalive})
+				"public_key": peer.PublicKey, "pre_shared_key": peer.PreSharedKey, "allowed_ips": peer.AllowedIPs,
+				"reserved": peer.Reserved, "persistent_keepalive_interval": o.PersistentKeepalive})
 		}
-		address := singBoxPrefixes(o.Ip, o.Ipv6)
 		out = map[string]any{"type": "wireguard", "address": address, "private_key": o.PrivateKey, "peers": sbPeers,
-			"mtu": o.MTU, "domain_resolver": "proxy-server"}
+			"mtu": o.MTU, "domain_resolver": "proxy-server", "detour": "mihomo-unconnected"}
 		return out, true, o.UDP, nil
 	case "openvpn":
 		var o mihomo.OpenVPNOption
@@ -182,15 +233,23 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 		case o.TLSCryptV2 != "":
 			tls["control_wrap"] = map[string]any{"type": "tls_crypt_v2", "key": o.TLSCryptV2}
 		}
-		fallback := o.DataCipherFallback
-		if fallback == "" {
-			fallback = o.Cipher
+		ciphers := []string{singBoxOpenVPNName(o.Cipher, "AES-128-GCM")}
+		if len(o.DataCiphers) > 0 {
+			ciphers = nil
+			for _, cipher := range o.DataCiphers {
+				ciphers = append(ciphers, singBoxOpenVPNName(cipher, "AES-128-GCM"))
+			}
 		}
 		out = map[string]any{"type": "openvpn-client", "server": o.Server, "server_port": o.Port, "network": network,
-			"tls": tls, "username": o.Username, "password": o.Password, "data_ciphers": o.DataCiphers,
-			"data_ciphers_fallback": fallback, "auth": o.Auth, "compression_lzo": o.CompLZO, "mtu": o.MTU,
+			"tls": tls, "username": o.Username, "password": o.Password, "data_ciphers": ciphers, "mtu": o.MTU,
+			"auth": singBoxOpenVPNName(o.Auth, "SHA256"), "data_ciphers_fallback": singBoxOpenVPNName(
+				cmp.Or(o.DataCipherFallback, o.Cipher), "AES-128-GCM"),
 			"ping_interval": strconv.Itoa(o.Ping) + "s", "ping_restart": strconv.Itoa(o.PingRestart) + "s",
 			"domain_resolver": "proxy-server"}
+		// mihomo frames compression only for yes and adaptive; sing-box frames "no" too.
+		if lzo := strings.ToLower(strings.TrimSpace(o.CompLZO)); lzo == "yes" || lzo == "adaptive" {
+			out["compression_lzo"] = "yes"
+		}
 		return out, true, true, nil
 	case "ssh":
 		var o mihomo.SshOption
@@ -214,16 +273,9 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 	return nil, false, false, fmt.Errorf("sing-box does not carry %v", proxy["type"])
 }
 
-func singBoxPrefixes(ips ...string) (prefixes []string) {
-	for _, ip := range ips {
-		if addr, err := netip.ParseAddr(ip); err == nil {
-			ip = netip.PrefixFrom(addr, addr.BitLen()).String()
-		}
-		if ip != "" {
-			prefixes = append(prefixes, ip)
-		}
-	}
-	return prefixes
+func singBoxOpenVPNName(name, empty string) string {
+	name = strings.ToUpper(strings.TrimSpace(name))
+	return cmp.Or(map[string]string{"": empty, "AES-CBC": "AES-128-CBC", "SHA-1": "SHA1"}[name], name)
 }
 
 type singBoxServer struct {
@@ -248,7 +300,7 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 		if !singBoxServes(proxy) {
 			continue
 		}
-		// A bad OpenVPN key panics in sing-openvpn's own goroutine and ends the app: mihomo's parser refuses it first.
+		// What mihomo's parser refuses fails on mihomo too, so it stays there.
 		parsed, err := madapter.ParseProxy(maps.Clone(proxy))
 		if err == nil {
 			parsed.Close()
@@ -258,7 +310,10 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 			log.Warnln("[SHIKOO] sing-box cannot carry %v; mihomo does: %v", proxy["name"], err)
 			continue
 		}
-		out["tag"], out["detour"] = "s"+strconv.Itoa(i), "mihomo"
+		out["tag"] = "s" + strconv.Itoa(i)
+		if out["detour"] == nil {
+			out["detour"] = "mihomo"
+		}
 		servers = append(servers, singBoxServer{i, out, isEndpoint, udp})
 	}
 	if len(servers) == 0 {
@@ -268,7 +323,7 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 	if err != nil {
 		// One server sing-box refuses would take every other to mihomo: each refused one stays there alone.
 		kept := slices.DeleteFunc(slices.Clone(servers), func(server singBoxServer) bool {
-			check, err := singBoxNew(singBoxConfig(port, password, []singBoxServer{server}), false)
+			check, err := singBoxNew(singBoxConfig(port, password, []singBoxServer{server}), true)
 			if err != nil {
 				log.Warnln("[SHIKOO] sing-box cannot carry %v; mihomo does: %v", proxies[server.index]["name"], err)
 				return true
@@ -293,7 +348,8 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 }
 
 func singBoxConfig(port int, password string, servers []singBoxServer) map[string]any {
-	outbounds := []any{map[string]any{"type": "mihomo", "tag": "mihomo"}, map[string]any{"type": "block", "tag": "block"}}
+	outbounds := []any{map[string]any{"type": "mihomo", "tag": "mihomo"}, map[string]any{"type": "block", "tag": "block"},
+		map[string]any{"type": "mihomo", "tag": "mihomo-unconnected"}}
 	var endpoints, users, rules []any
 	for _, server := range servers {
 		if server.isEndpoint {
@@ -377,6 +433,14 @@ func singBoxNew(config map[string]any, start bool) (instance *box.Box, err error
 type singBoxMihomo struct{ outbound.Adapter }
 
 func (d *singBoxMihomo) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
+	if d.Tag() == "mihomo-unconnected" {
+		// WireGuard as mihomo's own (row ۲۳): unconnected, and an IPv6 address skips the resolver that refuses it.
+		conn, err := dialer.ListenPacket(ctx, "udp", "", destination.AddrPort())
+		if err != nil {
+			return nil, err
+		}
+		return bufio.NewBindPacketConn(conn, destination.UDPAddr()), nil
+	}
 	return dialer.DialContext(ctx, network, destination.String())
 }
 

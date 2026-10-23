@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -78,7 +79,7 @@ func TestSingBoxCarriesEveryTypeItServesAndStopsWithItsGeneration(t *testing.T) 
 	_, clientKey := e2eSSHKey(t)
 	proxies := fmt.Sprintf(`
 proxies:
-  - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, flow: xtls-rprx-vision, servername: a.test, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+  - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, flow: xtls-rprx-vision, servername: a.test, client-fingerprint: chrome, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
   - {name: ws, type: vless, server: a.test, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, network: ws, ws-opts: {path: /p, headers: {Host: a.test}}, shikoo-core: singBox}
   - {name: grpc, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, network: grpc, grpc-opts: {grpc-service-name: g}, client-fingerprint: firefox, shikoo-core: singBox}
   - {name: xhttp, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, network: xhttp, shikoo-core: singBox}
@@ -209,7 +210,7 @@ func TestSingBoxNeverGetsAKeyThatWouldPanic(t *testing.T) {
 		proxy("crypt v2 garbage", "tls-crypt-v2: garbage") +
 		proxy("crypt v2 empty", fmt.Sprintf("tls-crypt-v2: %q", v2)) +
 		fmt.Sprintf("  - {name: long short-id, type: vless, server: 127.0.0.1, port: 1, "+
-			"uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, servername: a.test, "+
+			"uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, servername: a.test, client-fingerprint: chrome, "+
 			"reality-opts: {public-key: %s, short-id: 0123456789abcdef01}, shikoo-core: singBox}\n", realityPublic)
 	raw, err := config.UnmarshalRawConfig([]byte(yaml))
 	if err != nil {
@@ -238,7 +239,8 @@ func TestSingBoxLeavesAKeyOnlyMihomoReadsToMihomo(t *testing.T) {
 	_, realityPublic := x25519(t, base64.RawURLEncoding)
 	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
   - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
-     servername: a.test, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+     servername: a.test, client-fingerprint: chrome, reality-opts: {public-key: %s, short-id: 0123abcd},
+     shikoo-core: singBox}
   - {name: auth, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, tls-auth: %q,
      key-direction: "1", shikoo-core: singBox}
   - {name: crypt, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, tls-crypt: %q,
@@ -274,25 +276,145 @@ func TestSingBoxLeavesOnlyTheServerItRefusesToMihomo(t *testing.T) {
 	ca := e2ePKI(t, t.TempDir())
 	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
   - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
-     servername: a.test, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+     servername: a.test, client-fingerprint: chrome, reality-opts: {public-key: %s, short-id: 0123abcd},
+     shikoo-core: singBox}
   - {name: bare allowed-ips, type: wireguard, server: 127.0.0.1, port: 1, ip: 10.0.0.2, private-key: %q,
      public-key: %q, allowed-ips: ["0.0.0.0", "::"], udp: true, shikoo-core: singBox}
-  - {name: odd comp-lzo, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, comp-lzo: odd,
-     shikoo-core: singBox}
+  - {name: unknown cipher, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p,
+     data-ciphers: [NOPE], shikoo-core: singBox}
+  - {name: no fingerprint, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
+     servername: a.test, reality-opts: {public-key: %[1]s, short-id: 0123abcd}, shikoo-core: singBox}
 `, realityPublic, wgPrivate, wgPublic, ca))
 	t.Cleanup(e2eStop)
 
-	got := proxyTypes(cfg, "reality", "bare allowed-ips", "odd comp-lzo")
-	want := []C.AdapterType{C.Socks5, C.Socks5, C.OpenVPN}
+	got := proxyTypes(cfg, "reality", "bare allowed-ips", "unknown cipher", "no fingerprint")
+	want := []C.AdapterType{C.Socks5, C.Socks5, C.OpenVPN, C.Vless}
 	if !slices.Equal(got, want) {
-		t.Fatalf("types %v, want %v: mihomo takes the comp-lzo sing-box refuses, and only that server", got, want)
+		t.Fatalf("types %v, want %v: mihomo takes the servers sing-box refuses, and only those", got, want)
+	}
+}
+
+// sing-box takes a WireGuard key of 31 or 33 bytes and fails only when it starts; the key check keeps such a server on
+// mihomo, and with the check opened up, so does the one-by-one start that follows a failed one.
+func TestSingBoxLeavesAWireGuardKeyOfTheWrongLengthOnMihomo(t *testing.T) {
+	_, realityPublic := x25519(t, base64.RawURLEncoding)
+	wgPrivate, wgPublic := x25519(t, base64.StdEncoding)
+	short := base64.StdEncoding.EncodeToString(make([]byte, 31))
+	long := base64.StdEncoding.EncodeToString(make([]byte, 33))
+	proxies := fmt.Sprintf(`proxies:
+  - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
+     servername: a.test, client-fingerprint: chrome, reality-opts: {public-key: %s, short-id: 0123abcd},
+     shikoo-core: singBox}
+  - {name: private 31, type: wireguard, server: 127.0.0.1, port: 1, ip: 10.0.0.2, private-key: %q, public-key: %q,
+     udp: true, shikoo-core: singBox}
+  - {name: public 33, type: wireguard, server: 127.0.0.1, port: 1, ip: 10.0.0.2, private-key: %q, public-key: %q,
+     udp: true, shikoo-core: singBox}
+`, realityPublic, short, wgPublic, wgPrivate, long)
+	check := singBoxWireGuardKey
+	t.Cleanup(func() { singBoxWireGuardKey = check })
+	for _, keys := range []*regexp.Regexp{check, regexp.MustCompile("")} {
+		singBoxWireGuardKey = keys
+		cfg := parseShikooCores(t, proxies)
+		e2eStop()
+
+		got := proxyTypes(cfg, "reality", "private 31", "public 33")
+		want := []C.AdapterType{C.Socks5, C.WireGuard, C.WireGuard}
+		if !slices.Equal(got, want) {
+			t.Fatalf("key check %q: types %v, want %v", keys, got, want)
+		}
+	}
+}
+
+// mihomo refuses a config with a server its parser refuses; with sing-box in that server's place it would not.
+func TestSingBoxLeavesWhatMihomoRefusesOnMihomo(t *testing.T) {
+	_, realityPublic := x25519(t, base64.RawURLEncoding)
+	wgPrivate, wgPublic := x25519(t, base64.StdEncoding)
+	raw, err := config.UnmarshalRawConfig([]byte(fmt.Sprintf(`proxies:
+  - {name: reality, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
+     servername: a.test, client-fingerprint: chrome, reality-opts: {public-key: %[1]s, short-id: 0123abcd},
+     shikoo-core: singBox}
+  - {name: reality without tls, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11,
+     servername: a.test, client-fingerprint: chrome, reality-opts: {public-key: %[1]s, short-id: 0123abcd},
+     shikoo-core: singBox}
+  - {name: mtu 70000, type: wireguard, server: 127.0.0.1, port: 1, ip: 10.0.0.2, private-key: %[2]q, public-key: %[3]q,
+     mtu: 70000, shikoo-core: singBox}
+`, realityPublic, wgPrivate, wgPublic)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(e2eStop)
+
+	shikooCoresRewrite(raw)
+
+	types := map[string]any{}
+	for _, mapping := range raw.Proxy {
+		types[mapping["name"].(string)] = mapping["type"]
+	}
+	want := map[string]any{"reality": "socks5", "reality without tls": "vless", "mtu 70000": "wireguard"}
+	if !maps.Equal(types, want) {
+		t.Fatalf("types %v, want %v", types, want)
+	}
+}
+
+func TestSingBoxConvertsToWhatMihomoWouldUse(t *testing.T) {
+	vless := map[string]any{"name": "n", "type": "vless", "server": "a.test", "port": 443, "uuid": "u", "network": "ws"}
+	wg := map[string]any{"name": "n", "type": "wireguard", "server": "127.0.0.1", "port": 1, "private-key": "k",
+		"public-key": "p", "ip": "10.0.0.2", "allowed-ips": []any{"10.0.0.0/8"}}
+	ovpn := map[string]any{"name": "n", "type": "openvpn", "server": "127.0.0.1", "port": 1, "ca": "c"}
+	with := func(base map[string]any, changes map[string]any) map[string]any {
+		mapping := maps.Clone(base)
+		maps.Copy(mapping, changes)
+		return mapping
+	}
+	peer := `{"address":"127.0.0.1","allowed_ips":%s,"persistent_keepalive_interval":0,"port":1,"pre_shared_key":"",` +
+		`"public_key":"p","reserved":%s}`
+	for _, c := range []struct {
+		name    string
+		mapping map[string]any
+		fields  string
+		want    string
+	}{
+		{"ws ?ed", with(vless, map[string]any{"ws-opts": map[string]any{"path": "/p?ed=2048&x=1"}}), "transport",
+			`{"early_data_header_name":"Sec-WebSocket-Protocol","headers":null,"max_early_data":2048,"path":"/p?x=1","type":"ws"}`},
+		{"ws other query", with(vless, map[string]any{"ws-opts": map[string]any{"path": "/p?x=1"}}), "transport",
+			`{"early_data_header_name":"","headers":null,"max_early_data":0,"path":"/p?x=1","type":"ws"}`},
+		{"wg single, both families", with(wg, map[string]any{"ipv6": "fd00::2"}), "address peers detour",
+			`["10.0.0.2/32","fd00::2/128"] [` + fmt.Sprintf(peer, `["0.0.0.0/0","::/0"]`, "null") + `] "mihomo-unconnected"`},
+		{"wg single, IPv4", wg, "peers", `[` + fmt.Sprintf(peer, `["0.0.0.0/0"]`, "null") + `]`},
+		{"wg peers", with(wg, map[string]any{"reserved": []any{1, 2, 3}, "peers": []any{map[string]any{"server": "127.0.0.1",
+			"port": 1, "public-key": "p", "allowed-ips": []any{"10.0.0.0/8"}}}}), "peers",
+			`[` + fmt.Sprintf(peer, `["10.0.0.0/8"]`, `"AQID"`) + `]`},
+		{"ovpn plain", ovpn, "data_ciphers data_ciphers_fallback auth compression_lzo",
+			`["AES-128-GCM"] "AES-128-GCM" "SHA256" null`},
+		{"ovpn comp-lzo no", with(ovpn, map[string]any{"comp-lzo": "no"}), "compression_lzo", `null`},
+		{"ovpn cbc", with(ovpn, map[string]any{"cipher": "aes-256-cbc", "auth": "sha-1", "comp-lzo": "adaptive"}),
+			"data_ciphers data_ciphers_fallback auth compression_lzo", `["AES-256-CBC"] "AES-256-CBC" "SHA1" "yes"`},
+		{"ovpn data-ciphers", with(ovpn, map[string]any{"data-ciphers": []any{"aes-256-gcm", "chacha20-poly1305"},
+			"data-ciphers-fallback": "AES-CBC"}), "data_ciphers data_ciphers_fallback",
+			`["AES-256-GCM","CHACHA20-POLY1305"] "AES-128-CBC"`},
+	} {
+		out, _, _, err := singBoxConvert(c.mapping)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		var tree map[string]any
+		content, _ := json.Marshal(out)
+		json.Unmarshal(content, &tree)
+		var got []string
+		for _, field := range strings.Fields(c.fields) {
+			value, _ := json.Marshal(tree[field])
+			got = append(got, string(value))
+		}
+		if strings.Join(got, " ") != c.want {
+			t.Errorf("%s: %s is\n%s, want\n%s", c.name, c.fields, strings.Join(got, " "), c.want)
+		}
 	}
 }
 
 func TestSingBoxSocksIsLocalWithAFreshSecret(t *testing.T) {
 	_, public := x25519(t, base64.RawURLEncoding)
 	mapping := map[string]any{"name": "r", "type": "vless", "server": "127.0.0.1", "port": 1,
-		"uuid": "4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11", "tls": true, "servername": "a.test",
+		"uuid": "4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11", "tls": true, "servername": "a.test", "client-fingerprint": "chrome",
 		"reality-opts": map[string]any{"public-key": public, "short-id": "0123abcd"}}
 	var passwords []string
 	for range 2 {
@@ -350,7 +472,8 @@ func TestSingBoxServerNameGoesToMihomosProxyServerResolver(t *testing.T) {
 	_, public := x25519(t, base64.RawURLEncoding)
 	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
   - {name: r, type: vless, server: vless.shikoo.test, port: %d, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true,
-     servername: a.test, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+     servername: a.test, client-fingerprint: chrome, reality-opts: {public-key: %s, short-id: 0123abcd},
+     shikoo-core: singBox}
 `, listener.Addr().(*net.TCPAddr).Port, public))
 	t.Cleanup(e2eStop)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -472,7 +595,7 @@ listeners:
 		_, public := x25519(t, base64.RawURLEncoding)
 		cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
   - {name: dead, type: vless, server: 127.0.0.1, port: %d, uuid: %s, tls: true, servername: reality.test,
-     reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
+     client-fingerprint: chrome, reality-opts: {public-key: %s, short-id: 0123abcd}, shikoo-core: singBox}
 `, e2ePort(t), uuid, public))
 		t.Cleanup(e2eStop)
 		if cfg.Proxies["dead"].Type() != C.Socks5 {
@@ -527,6 +650,15 @@ listeners:
 		if n, _, err := packets.ReadFrom(buf); err != nil || string(buf[:n]) != "shikoo" {
 			t.Fatalf("UDP echo %q, %v", buf[:n], err)
 		}
+
+		// mihomo's single peer ignores allowed-ips, and sends to an IPv6 address while ipv6 is off, the app's default.
+		e2eThrough(t, fmt.Sprintf(`{name: w, type: wireguard, server: wg.shikoo.test, port: %d, ip: 10.66.0.2,
+  private-key: %q, public-key: %q, udp: true, allowed-ips: ["10.0.0.0/8"]}`, port, clientPrivate, serverPublic), host, echo)
+		disabled := resolver.DisableIPv6
+		resolver.DisableIPv6 = true
+		t.Cleanup(func() { resolver.DisableIPv6 = disabled })
+		e2eThrough(t, fmt.Sprintf(`{name: w, type: wireguard, server: "::1", port: %d, ip: 10.66.0.2,
+  private-key: %q, public-key: %q, udp: true}`, port, clientPrivate, serverPublic), host, echo)
 	})
 
 	t.Run("OpenVPN against OpenVPN 2.6, tls-auth and a password", func(t *testing.T) {
@@ -567,6 +699,8 @@ verb 3
 		e2eThrough(t, fmt.Sprintf(`{name: o, type: openvpn, server: 127.0.0.1, port: %d, proto: udp, ca: %q, username: shikoo,
   password: test-pass, tls-auth: %q, key-direction: "1", auth: SHA256}`, port, ca, taKey), host, echo)
 		sawHook(t, "udp")
+		e2eThrough(t, fmt.Sprintf(`{name: o, type: openvpn, server: 127.0.0.1, port: %d, proto: udp, ca: %q, username: shikoo,
+  password: test-pass, tls-auth: %q, key-direction: "1", comp-lzo: "no"}`, port, ca, taKey), host, echo)
 		e2eLog(t, dir, "Peer Connection Initiated")
 	})
 
@@ -835,7 +969,11 @@ func (f *fakeResolver) LookupIP(_ context.Context, host string) ([]netip.Addr, e
 	return nil, errors.New("fake: no answer")
 }
 func (f *fakeResolver) LookupIPv4(ctx context.Context, host string) ([]netip.Addr, error) {
-	return f.LookupIP(ctx, host)
+	ips, err := f.LookupIP(ctx, host)
+	if err == nil && !ips[0].Is4() {
+		return nil, resolver.ErrIPVersion // as mihomo's own resolver answers an IPv6 address
+	}
+	return ips, err
 }
 func (f *fakeResolver) LookupIPv6(context.Context, string) ([]netip.Addr, error) {
 	return nil, errors.New("fake")
