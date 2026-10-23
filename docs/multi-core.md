@@ -58,7 +58,11 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - A `ShikooCoresNotifier` in `lib/shikoo/engine/settings.dart`, beside `ShikooLookNotifier` (`:52-89`): one
   SharedPreferences key per row, `shikoo.core.<protocol>` = the core's name.
 - Device only: never sent to the server, and not backed up (`allowBackup="false"`, `SHIKOO_PATCHES.md` row 10).
-- No key means mihomo. A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
+- No key means the protocol's default, `shikooDefaultCores` in `cores.dart`: **OpenVPN defaults to the official core**
+  (Sam, 2026-10-23), every other protocol to mihomo. Changing a default is one line there; WireGuard's waits for the
+  phone test. A default this build does not have ready, or one a server cannot use, means mihomo until it is, with
+  nothing for the user to do. A pick of the user's, mihomo included, is stored and always wins over the default.
+- A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
 - Loaded in the shell before `runApp`, as the look is (`lib/shikoo/app/main.dart:62`), so the first config apply already
   sees it.
 
@@ -71,11 +75,11 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | Ping | mihomo's URL test through the replacement `socks5`, then the engine, then the server: end to end. Unopened services (`_probeOther`, `testProxyDelay`) stay on mihomo (shortcut). | Before connecting: mihomo's adapter for the same server, or a probe the engine registers. Connected: `trafficPassesProvider` (`controller.dart:711`) uses the app's own IP check, which goes direct once the app is outside the VPN, so it must use the engine's handshake state instead. |
 | Speed and total | mihomo's trackers count the `socks5` connections: nothing to do | A Go engine pushes into `statistic.DefaultManager.PushUploaded/PushDownloaded` (`tunnel/statistic/manager.go:70-86`), so `getTraffic` stays as it is. A C++ engine needs its own bridge. |
 | Its sockets out of the tunnel | it dials through mihomo's `component/dialer`, which brings Android's protect (`core/lib.go:148-160`), Windows' interface binding and real DNS instead of fake-ip. Xray takes a dialer through `internet.UseAlternativeSystemDialer`; its `RegisterDialerController` has `DefaultSocketHook`'s signature. | Android: by leaving our package out. Windows: by binding to the physical interface. |
-| "Update through the server" (`_fetch`, `ShikooRoute.server`) | unchanged: the request goes to mihomo's local port, then the selected server, through the core the user picked | **It no longer rides the tunnel the customer uses.** The request still goes to mihomo's local port, so at best it reaches the panel through mihomo's *own* client for the same server, not through the owner core; if ه۲ leaves that port down while the owner core holds the tunnel, the way fails and only "direct" works. "Direct" is unchanged: with our package out of the VPN, every request of the app goes direct anyway. |
+| "Update through the server" (`_fetch`, `ShikooRoute.server`) | unchanged: the request goes to mihomo's local port, then the selected server, through the core the user picked | **Android: it fails while the owner core carries the server:** the request goes to mihomo's local port, and mihomo's own client of that server is gated (§4, "one identity, one session"), since a second session with the same key or username would take the owner's. Only "direct" works then. **Windows:** a plain request, which the owner's tunnel carries by the server (`ownerAside`). "Direct" is unchanged: with our package out of the VPN, every request of the app goes direct anyway. |
 | Changing the core | re-apply the config (`applyProfile(silence: true)`, as `followSubscriptions` does, `account.dart:616-623`); the tunnel stays up and the old engine stops after mihomo holds the new config | disconnect, then connect, as `setMode` does (`controller.dart:1231-1239`) |
 | Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address |
 | Lifecycle | lives with the applied config, inside `applyConfig` (Go). It runs while disconnected too, so pings work. | started and stopped by `VpnService` on Android, and by the core in TUN mode on Windows |
-| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7) |
+| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7), the official OpenVPN default included |
 
 **Sam's behaviour decisions (2026-10-22, through the lead):**
 - A core this build lacks shows switched off with «به‌زودی». So the state carries every core that can carry a protocol,
@@ -101,19 +105,32 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 - `cores.dart` (new): the types, `protocolOf(mapping)`, `coreFor(mapping, choices)` and `markCores(rawConfig, choices)`.
 - One spec file per new core (new; base creates them as stubs): `core_xray.dart`, `core_sing_box.dart`,
   `core_wireguard.dart`, `core_openvpn.dart`. Each holds one record: `ready` (false until its package lands), its shape,
-  and `serves(protocol, mapping)`. A package edits only its own file.
+  and `serves(protocol, mapping)`. A package edits only its own file, but for one line: a ready core whose engine runs
+  on some platforms only adds `core: {platforms}` to `shikooReadyOn` in `cores.dart`, and `shikooCoreSpecsProvider`
+  shows it not ready elsewhere (`readyHere`).
 - `markCores` adds `shikoo-core: <name>` to each proxy mapping that goes to a behind-mihomo core. It runs in
   `lib/providers/actions/setup.dart` `getProfile`, after the script step and before `makeRealProfileTask`
   (`:350-355`). `task.dart` runs in an isolate without the providers, so it can't go there. A new upstream patch, like
   row 21.
+- `markCores` marks a server an owner core takes with `shikoo-owner: <core>` instead. Go does not remove it: the
+  Windows engine reads it from the applied `config.yaml`, and mihomo's parser ignores the key
+  (`TestMihomosParserIgnoresTheOwnerMark`). On Android the engine finds its server through `VpnOptions`; the mark
+  costs it nothing.
 - The controller stays the only door (`controller.dart:31`). Built in phase 2 (`1644b16a`):
   - `ShikooServer.protocol` from the profile's own mapping, and `ShikooServer.core`, the core really carrying it. For a
     core behind mihomo that is known from the running type: Go replaces a server it handed over, so one it left to
     mihomo keeps its own type.
   - Every service's mappings are read with `getConfig`, as `_mainGroupOf` does for other services, once FlClash's boot
     has finished (`initProvider`): profile files are readable only then.
-  - `ShikooState.cores`: one row per protocol the customer's services hold (`other` excluded), each with `chosen` (the
-    pick, or mihomo while the pick is not ready) and `options`, every core that can carry it with `ready`.
+  - `ShikooState.cores`: one row per protocol the customer's services hold (`other` excluded), each with:
+    - `defaultCore`: what the protocol gets with no pick in the current mode; mihomo while that core is not ready, or
+      for an owner core in Windows' proxy mode.
+    - `chosen`: the user's pick, kept even in proxy mode (mihomo while the pick is not ready); with no pick, the
+      `defaultCore` above.
+    - `carrier`: what carries it in the current mode, by the rule `markCores` marks with: mihomo for an owner core in
+      Windows' proxy mode.
+    - `options`: every core that can carry it, with `ready`.
+    `shikooTunnelProvider` is that mode, `shikooReadyOnProvider` the platform rule (`shikooReadyOn`).
   - `ShikooState.coreSwitch`: `(protocol, to, stage)` while a core change moves the server in use.
   - `setCore(protocol, core)`: stores the pick, writes a timeline line for diagnostics, and re-applies the config.
     Connected, if the server in use changes core, it shows `moving`, then `done` only when, with the groups read again
@@ -122,6 +139,14 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - The reconnect rule, in `selectServer` and `setCore`: while connected, reconnect when the selected server's *tunnel
     key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and `<core>/<server>` for an owner core.
     `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
+  - `ownerAside(read, url)` (route «ج», Windows only): while an owner core carries the server in use, the app's own
+    "direct" requests take mihomo's local port, whose DIRECT rules leave by the physical card, since Windows cannot
+    keep the app out of that tunnel. It covers `_fetch`'s direct leg and every internet check (`ownerProbes`), where
+    that port's own 502 or 407 counts as a failure, not a site's answer. The server leg, asked for or as the fallback,
+    is then a plain request: the owner's tunnel holds the app, so it leaves by the server in use, and mihomo's gated
+    client stays shut. So a freshly pasted link, which has no DIRECT rule yet, still arrives by the server. Before
+    these legs the app asks Go again (two seconds at most): an engine that stopped since connect leaves them to
+    mihomo. Null on Android, whose VPN leaves our package out, and whenever mihomo carries the server.
   - Not done: the diagnostics report keeps its keys. The door refuses a whole report over a key it does not know
     (`diag.dart`), so the choice goes into the timeline instead.
 
@@ -139,8 +164,47 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `config.Parse` (`config/config.go:474-481`); a config that fails to parse stops the cores it started. After
   `hub.ApplyConfig(cfg)` (`:402`), one `shikooCoresCommit()` stops the previous generation, beside
   `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
+- Once Android's tunnel is up, `startTUN` runs `shikooCoresAfterTun` (`core/lib.go`, row 24): if a core behind mihomo
+  is running, the config is applied again, with the user's group picks read from the live selectors
+  (`liveSelections`). A core opens its server sockets at apply (sing-box's WireGuard and OpenVPN endpoints at once;
+  Xray's pre-tunnel sockets likely too), and `DefaultSocketHook` protects nothing until the tun handler exists, so a
+  socket opened before the VPN consent stayed unprotected and its packets looped into our own `tun0` (h4's verifier
+  on the emulator: `wg-tun0 pkts=9`). mihomo's own clients dial lazily and need none of this. For a core's builder
+  nothing changes but one rule: every socket goes through mihomo's dialer (`component/dialer`), so the new
+  generation's are protected.
 - An owner core in Go (ه۲) branches inside `handleStartTun` (`core/lib.go:219`): the fd goes to the engine instead of
   sing-tun, and the TunHandler's protect callback stays for mihomo's own sockets. ه۲ designs it.
+- `core/shikoo_owner.go` (new; built 2026-10-23): the core method `shikooOwner` answers `{"core": …, "server": …}`, the
+  core that owns the tunnel and the server it carries now, both empty when none does. Each owner engine registers from
+  its own `init()`: `registerShikooOwner(core string, carrying func() string, ping func(*TestDelayParams) *Delay)`.
+  Neither callback assumes the engine runs in this process.
+  - `carrying` returns the server the engine carries now, `""` for none. It runs on every dial through a gated server
+    and on each question from Dart, so it returns at once: no I/O, and no lock held across I/O or across the engine's
+    own start and stop (an atomic value is enough). It may run while `applyConfig` holds `configMu`, so it never takes
+    `configMu`. Its synchronisation is the engine's.
+  - `ping` answers a delay test of that server from the engine's own session, on a goroutine of its own, within the
+    test's timeout. **It is required in practice:** with nil, mihomo answers, the gate below makes that a failure, so
+    the server in use shows dead and every `setCore` to the owner core ends `failed`.
+  - When `carrying` first returns a server, the engine calls `shikooOwnerTakes(server)` (below).
+  - The app asks after the tunnel is up and again before its own requests take an owner's road
+    (`ownerCarryingProvider`). Dart caps the wait at two seconds (`ownerAnswerLimit`), since the desktop RPC restarts
+    its own timer whenever the core answers anything else, up to about six seconds. No answer reads as none. The
+    answer counts for the server in use only: an owner engine that never started leaves that server shown on mihomo,
+    and a core switch to it reads failed (Sam, 2026-10-23). Dart reaches it through `CoreMethod.shikooOwner`
+    (`SHIKOO_PATCHES.md` row 51).
+  - **One identity, one session:** `shikooCoresParse` puts `shikooOwnerGate` on every proxy marked `shikoo-owner`. While
+    an owner carries that server, mihomo's own client of it refuses to dial or listen, so mihomo opens no new session
+    with the same key or username: not for FlClash's `checkIp`, not for "update through the server" through mihomo's
+    port (it fails on Android; Windows sends a plain request instead, see `ownerAside`), not for its own delay test.
+    Package ه۲ saw such a session cut the owner's own connection for about 40 s. Not carried (the engine never
+    started, or it is another server), the gate passes everything through, and `rebindWireGuard` reaches the client
+    behind it.
+  - A session the client opened before the owner took the server (a ping round while off) is not the gate's:
+    WireGuard keeps it alive with handshakes and keepalives. So `shikooOwnerTakes` closes that client, and a closed
+    client stays dead until the next apply. When the owner lets go (disconnect, or the tunnel stopping by itself), the
+    app forces one (`applyProfile(force: true)`; the config is unchanged), so pings while off reach that server again.
+  - **Known limit:** `testProxyDelay`, the ping of servers of a service not opened, builds its own client from the
+    mapping and has no gate. It reaches the carried server only if another service holds the same key or username.
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
   requires.
 
@@ -294,6 +358,8 @@ What the packages report about their own branches, copied here before their veri
   running instance adds about 5 MB with 3 servers and 7.5 MB with 30.
 - MVS raised mihomo's dependencies (for example `x/net` 0.35→0.57, `x/crypto` 0.33→0.54, `miekg/dns` 1.1.63→1.1.72).
   The core tests pass; mihomo's protocols are not re-tested on real servers.
+- Its WireGuard and OpenVPN server names are resolved by DNS, not from mihomo's `hosts:` table (h4's verifier).
+- Trying each of 60 WireGuard servers with a separate `Start` raised the apply from 260 to 842 ms (h4's verifier).
 
 **Official WireGuard (h2):** its notes (`D:\dev\shikoo-spike\wgo-logs\for-doc.md`) did not exist on 2026-10-23, so
 nothing is copied yet.

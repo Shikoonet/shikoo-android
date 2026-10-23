@@ -295,6 +295,7 @@ func startTUN(callback unsafe.Pointer, fd C.int, stackChar, addressChar, dnsChar
 		return false
 	}
 	safeGoDetached("rebindWireGuard", rebindWireGuard)
+	safeGoDetached("shikooCoresAfterTun", shikooCoresAfterTun)
 	if !isRunning.Load() {
 		handleStartListener()
 	} else {

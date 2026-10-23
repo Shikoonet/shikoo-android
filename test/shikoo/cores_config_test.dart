@@ -8,6 +8,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
+import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,8 +32,8 @@ void main() {
     );
   });
 
-  test('the config FlClash writes for the core marks the servers a ready core '
-      'behind mihomo carries, and no other', () async {
+  /// The yaml FlClash writes for the core, with xray picked for VLESS and the official engine for WireGuard.
+  Future<String> written({bool windowsProxyMode = false}) async {
     SharedPreferences.setMockInitialValues({});
     final core = _Core();
     when(() => core.getConfig(any())).thenAnswer(
@@ -45,12 +46,17 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
+        shikooDesktopProvider.overrideWithValue(windowsProxyMode),
         coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
         shikooCoreSpecsProvider.overrideWithValue({
           for (final MapEntry(key: core, value: spec)
               in shikooCoreSpecs.entries)
             core: (
-              ready: core == ShikooCore.mihomo || core == ShikooCore.xray,
+              ready: const {
+                ShikooCore.mihomo,
+                ShikooCore.xray,
+                ShikooCore.wireguard,
+              }.contains(core),
               shape: spec.shape,
               serves: spec.serves,
             ),
@@ -58,9 +64,12 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    await container
-        .read(shikooCoresProvider.notifier)
-        .set(ShikooProtocol.vless, ShikooCore.xray);
+    final picks = container.read(shikooCoresProvider.notifier);
+    await picks.set(ShikooProtocol.vless, ShikooCore.xray);
+    await picks.set(ShikooProtocol.wireguard, ShikooCore.wireguard);
+    if (windowsProxyMode) {
+      await container.read(shikooModeProvider.notifier).save(ShikooMode.proxy);
+    }
 
     final made = await container
         .read(setupActionProvider.notifier)
@@ -78,12 +87,27 @@ void main() {
           ),
           patchConfig: const PatchClashConfig(),
         );
+    return made.yaml;
+  }
 
-    expect(made.yaml, contains('$shikooCoreKey: "xray"'));
+  test('the config FlClash writes for the core marks the servers a ready core '
+      'behind mihomo carries, and those an owner core takes, apart', () async {
+    final yaml = await written();
+
+    expect(yaml, contains('$shikooCoreKey: "xray"'));
+    expect(yaml, contains('$shikooOwnerKey: "wireguard"'));
     expect(
-      shikooCoreKey.allMatches(made.yaml),
-      hasLength(1),
-      reason: 'WireGuard stays on mihomo',
+      [shikooCoreKey, shikooOwnerKey].map((key) => key.allMatches(yaml)),
+      everyElement(hasLength(1)),
+      reason: 'one server each',
     );
+  });
+
+  test("in Windows' proxy mode the owner core's server goes unmarked: mihomo "
+      'carries it', () async {
+    final yaml = await written(windowsProxyMode: true);
+
+    expect(yaml, isNot(contains(shikooOwnerKey)));
+    expect(yaml, contains('$shikooCoreKey: "xray"'));
   });
 }
