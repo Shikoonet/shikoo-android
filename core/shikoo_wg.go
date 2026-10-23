@@ -98,19 +98,6 @@ func init() {
 			response.success(plan)
 		})
 	}))
-	// The owner's server shares its key with mihomo's client for it: a handshake from that client would take the
-	// server's session for a while, so the owner answers pings of its server itself (handleTestDelay's twin).
-	mihomoDelay := methodHandlers[asyncTestDelayMethod]
-	methodHandlers[asyncTestDelayMethod] = func(call *MethodCall, response MethodResponse) {
-		var params TestDelayParams
-		if call.decodeArguments(&params) == nil {
-			if owner := ownerFor(params.ProxyName); owner != nil {
-				safeGo(response, func() { response.success(owner.testDelay(&params)) })
-				return
-			}
-		}
-		mihomoDelay(call, response)
-	}
 }
 
 func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
@@ -470,7 +457,11 @@ func stopOwner() {
 	}
 }
 
-// ownerServer is the registry's carrying (core/shikoo_owner.go), registered for Android in shikoo_wg_android.go.
+// registerOwner puts the engine in the registry (core/shikoo_owner.go); Android's init calls it in shikoo_wg_android.go.
+func registerOwner(core string) {
+	registerShikooOwner(core, ownerServer, ownerPing)
+}
+
 func ownerServer() string {
 	if owner := ownerRunning.Load(); owner != nil {
 		return owner.server
@@ -478,11 +469,12 @@ func ownerServer() string {
 	return ""
 }
 
-func ownerFor(server string) *wgOwner {
-	if owner := ownerRunning.Load(); owner != nil && owner.server == server {
-		return owner
+// ownerPing: the registry asks only for the server ownerServer named, but the engine may stop in between.
+func ownerPing(params *TestDelayParams) *Delay {
+	if owner := ownerRunning.Load(); owner != nil && owner.server == params.ProxyName {
+		return owner.testDelay(params)
 	}
-	return nil
+	return &Delay{Name: params.ProxyName, Url: params.TestUrl, Value: -1}
 }
 
 // testDelay is the time a fresh handshake takes: the server's own answer, through the socket that carries the

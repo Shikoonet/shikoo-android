@@ -396,6 +396,8 @@ func startTestOwner(t *testing.T) (*device.Device, *tuntest.ChannelTUN, *tuntest
 
 func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 	server, _, _ := startTestOwner(t)
+	registerOwner("wireguard-test")
+	t.Cleanup(func() { delete(shikooOwners, "wireguard-test") })
 	params, _ := json.Marshal(TestDelayParams{ProxyName: "wg", Timeout: 3000})
 	fake := &fakeConn{}
 	previous := swapConn(fake)
@@ -413,22 +415,23 @@ func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 		t.Fatalf("answer %s (%v), want a delay for wg", frames[0], err)
 	}
 
-	registerShikooOwner("wireguard-test", ownerServer)
-	t.Cleanup(func() { delete(shikooOwners, "wireguard-test") })
 	carried := func() string { return shikooOwnerNow().Server }
 	if got := carried(); got != "wg" {
 		t.Errorf("Dart's question got %q, want the owner's server", got)
 	}
-	server.Close()
-	if delay := ownerFor("wg").testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
-		t.Errorf("a server that is gone answered %d", delay.Value)
+	if delay := ownerPing(&TestDelayParams{ProxyName: "other", Timeout: 3000}); delay.Value != -1 {
+		t.Errorf("the owner answered %d for a server it does not hold", delay.Value)
 	}
-	if ownerFor("other") != nil {
-		t.Error("the owner claims a server it does not hold")
+	server.Close()
+	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
+		t.Errorf("a server that is gone answered %d", delay.Value)
 	}
 	stopOwner()
 	if got := carried(); got != "" {
 		t.Errorf("with no owner Dart's question got %q", got)
+	}
+	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
+		t.Errorf("a stopped owner answered %d", delay.Value)
 	}
 }
 
@@ -466,7 +469,7 @@ func TestStopTunStopsTheOwnerButKeepsTheNextPlan(t *testing.T) {
 	ownerPrepared = next
 	ownerMu.Unlock()
 	stopOwner()
-	if ownerFor("wg") != nil || ownerPrepared != next {
+	if ownerServer() != "" || ownerPrepared != next {
 		t.Error("the stop took the owner's place wrong")
 	}
 	ownerMu.Lock()

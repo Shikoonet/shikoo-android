@@ -1,7 +1,6 @@
 import 'package:fl_clash/providers/state.dart' show TunnelOwner;
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
-import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,8 +18,7 @@ final shikooOwnerProvider = Provider<TunnelOwner?>((ref) {
     ref.watch(shikooSelectedSourceProvider) ?? {'type': type},
     ref.watch(shikooCoresProvider),
     specs: specs,
-    tunnel:
-        !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun,
+    tunnel: ref.watch(shikooTunnelProvider),
   );
   if (!ownsTunnel(core, specs)) return null;
   return (
