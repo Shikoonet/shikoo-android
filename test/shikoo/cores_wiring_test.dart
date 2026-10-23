@@ -501,56 +501,68 @@ void main() {
     });
   }
 
-  for (final (label, desktop, report, aside) in <(String, bool, ShikooCarrying?, bool)>[
-    (
-      'on Windows, an owner engine that gives no answer counts as not '
-          'carrying: direct',
-      true,
-      null,
-      false,
-    ),
-    (
-      'on Windows, an owner core carrying the server in use sends them through '
-          "mihomo's port",
-      true,
-      (core: 'wireguard', server: 'W'),
-      true,
-    ),
-    (
-      'on Android the app is out of the VPN: direct',
-      false,
-      (core: 'wireguard', server: 'W'),
-      false,
-    ),
-    (
-      'on Windows, an owner engine that never started leaves mihomo the tunnel: '
-          'direct',
-      true,
-      (core: '', server: ''),
-      false,
-    ),
-  ]) {
-    test("connected, the app's own direct requests: $label", () async {
-      final home = await _home(
-        ready: {ShikooCore.wireguard},
-        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
-        carrying: () => report,
-        desktop: desktop,
-      );
-      await _connectOn(home, 'W');
-      final mihomo =
-          'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
-      globalState.container = home.container;
-      final legs = _Legs();
+  for (final (label, desktop, report, aside)
+      in <(String, bool, ShikooCarrying?, bool)>[
+        (
+          'on Windows, an owner engine that gives no answer counts as not '
+              'carrying: direct',
+          true,
+          null,
+          false,
+        ),
+        (
+          'on Windows, an owner core carrying the server in use: direct by '
+              "mihomo's port, the server by a plain request",
+          true,
+          (core: 'wireguard', server: 'W'),
+          true,
+        ),
+        (
+          'on Android the app is out of the VPN: direct',
+          false,
+          (core: 'wireguard', server: 'W'),
+          false,
+        ),
+        (
+          'on Windows, an owner engine that never started leaves mihomo the tunnel: '
+              'direct',
+          true,
+          (core: '', server: ''),
+          false,
+        ),
+      ]) {
+    for (final via in [null, ShikooRoute.server]) {
+      final route = via == null
+          ? 'direct, then by the server'
+          : 'by the server';
+      test("connected, the app's own requests $route: $label", () async {
+        final home = await _home(
+          ready: {ShikooCore.wireguard},
+          choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+          carrying: () => report,
+          desktop: desktop,
+        );
+        await _connectOn(home, 'W');
+        final mihomo =
+            'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
+        globalState.container = home.container;
+        final legs = _Legs();
 
-      await HttpOverrides.runWithHttpOverrides(() async {
-        try {
-          await home.controller.refreshService();
-        } catch (_) {}
-      }, legs);
+        await HttpOverrides.runWithHttpOverrides(() async {
+          try {
+            await home.controller.refreshService(via: via);
+          } catch (_) {}
+        }, legs);
 
-      expect(legs.proxies, aside ? [mihomo] : [null, mihomo]);
-    });
+        // Aside, a plain request rides the owner's tunnel, so it is the server leg: mihomo's client of W stays shut.
+        expect(legs.proxies, switch ((via, aside)) {
+          (null, true) => [mihomo, null],
+          (null, false) => [null, mihomo],
+          (_, true) => [null],
+          (_, false) => [mihomo],
+        });
+      });
+    }
   }
 
   for (final (label, desktop, aside) in [
