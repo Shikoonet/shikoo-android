@@ -24,7 +24,7 @@ typedef ShikooCoreSpec = ({
 typedef ShikooCoreOption = ({ShikooCore core, bool ready});
 
 /// [chosen] and [defaultCore] (what a protocol gets with no pick of the user's) are mihomo while not ready.
-/// [carrier] and [defaultCore] follow the current mode, as `markCores` does; [chosen] keeps the pick in proxy mode.
+/// [carrier] and [defaultCore] follow the current mode, as `markCores` does; [chosen] keeps a pick in proxy mode.
 typedef ShikooCoreRow = ({
   ShikooProtocol protocol,
   ShikooCore chosen,
@@ -148,31 +148,30 @@ List<ShikooCoreRow> coreRows(
   ShikooChoices choices, {
   Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
   bool tunnel = true,
-}) => [
-  for (final protocol in ShikooProtocol.values)
-    if (protocol != ShikooProtocol.other && present.contains(protocol))
-      (
-        protocol: protocol,
-        chosen: coreFor({'type': protocol.name}, choices, specs: specs),
-        defaultCore: coreFor(
-          {'type': protocol.name},
-          const {},
-          specs: specs,
-          tunnel: tunnel,
-        ),
-        carrier: coreFor(
-          {'type': protocol.name},
-          choices,
-          specs: specs,
-          tunnel: tunnel,
-        ),
-        options: [
-          for (final MapEntry(key: core, value: spec) in specs.entries)
-            if (spec.serves(protocol, const {}))
-              (core: core, ready: spec.ready),
-        ],
-      ),
-];
+}) {
+  ShikooCoreRow row(ShikooProtocol protocol) {
+    final server = {'type': protocol.name};
+    final defaultCore = coreFor(server, const {}, specs: specs, tunnel: tunnel);
+    return (
+      protocol: protocol,
+      chosen: choices.containsKey(protocol)
+          ? coreFor(server, choices, specs: specs)
+          : defaultCore,
+      defaultCore: defaultCore,
+      carrier: coreFor(server, choices, specs: specs, tunnel: tunnel),
+      options: [
+        for (final MapEntry(key: core, value: spec) in specs.entries)
+          if (spec.serves(protocol, const {})) (core: core, ready: spec.ready),
+      ],
+    );
+  }
+
+  return [
+    for (final protocol in ShikooProtocol.values)
+      if (protocol != ShikooProtocol.other && present.contains(protocol))
+        row(protocol),
+  ];
+}
 
 /// A change of server or core takes the tunnel down only when this changes: an owner core holds it per server.
 String tunnelKey(

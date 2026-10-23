@@ -65,6 +65,7 @@ class _Proxies extends ProxiesAction {
 class _Setup extends SetupAction {
   final runs = <bool>[];
   var applies = 0;
+  final forced = <bool>[];
   DateTime? tunnel;
   bool traffic = true;
 
@@ -87,6 +88,7 @@ class _Setup extends SetupAction {
     Future<void> Function()? preloadInvoke,
   }) async {
     applies++;
+    forced.add(force);
     await gate?.future;
     onApply?.call();
     return true;
@@ -732,5 +734,97 @@ void main() {
 
     expect(legs.proxies, [mihomo]);
     expect(_server(home, 'W').core, ShikooCore.mihomo);
+  });
+
+  for (final (label, report, rebuilt) in <(String, ShikooCarrying, bool)>[
+    (
+      "an owner engine carried the server: mihomo's client of it is built "
+          'again',
+      (core: 'wireguard', server: 'W'),
+      true,
+    ),
+    ('mihomo carried it: nothing to build', (core: '', server: ''), false),
+  ]) {
+    test('disconnecting after a session where $label', () async {
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+        carrying: () => report,
+      );
+      await _connectOn(home, 'W');
+      home.setup.forced.clear();
+
+      await home.controller.disconnect();
+      home.container.read(runTimeProvider.notifier).value = null;
+      await pumpEventQueue();
+
+      expect(home.setup.forced, rebuilt ? [true] : isEmpty);
+    });
+  }
+
+  test("the tunnel stopping by itself after an owner session builds mihomo's "
+      'client of the server again too', () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => (core: 'wireguard', server: 'W'),
+    );
+    await _connectOn(home, 'W');
+    home.setup.forced.clear();
+
+    home.container.read(runTimeProvider.notifier).value = null;
+    await pumpEventQueue();
+
+    expect(home.setup.forced, [true]);
+  });
+
+  test(
+    'on Android the app does not ask Go again before its own requests',
+    () async {
+      var asked = 0;
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+        carrying: () {
+          asked++;
+          return (core: 'wireguard', server: 'W');
+        },
+      );
+      await _connectOn(home, 'W');
+      final atConnect = asked;
+      globalState.container = home.container;
+
+      await HttpOverrides.runWithHttpOverrides(() async {
+        try {
+          await home.controller.refreshService();
+        } catch (_) {}
+      }, _Legs());
+
+      expect(atConnect, greaterThan(0));
+      expect(asked, atConnect);
+    },
+  );
+
+  test("Go's answer about the owner waits its limit at most, however long the "
+      'RPC stretches its own', () async {
+    final core = _Core();
+    when(
+      () => core.shikooOwner(),
+    ).thenAnswer((_) => Completer<Map<String, dynamic>?>().future);
+    final container = ProviderContainer(
+      overrides: [
+        coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final limit = ownerAnswerLimit;
+    ownerAnswerLimit = const Duration(milliseconds: 50);
+    addTearDown(() => ownerAnswerLimit = limit);
+
+    final answer = await container
+        .read(ownerCarryingProvider)()
+        .timeout(const Duration(seconds: 1));
+
+    expect(answer, isNull);
   });
 }

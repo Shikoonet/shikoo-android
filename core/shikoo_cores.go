@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/metacubex/mihomo/adapter"
+	"github.com/metacubex/mihomo/adapter/outboundgroup"
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/log"
+	"github.com/metacubex/mihomo/tunnel"
 )
 
 // shikooCoreStart is a core behind mihomo (docs/multi-core.md): marked proxies in, their replacements out in order.
@@ -98,6 +101,33 @@ func shikooCoresMatch(proxies, replacements []map[string]any) error {
 		}
 	}
 	return nil
+}
+
+// shikooCoresAfterTun: a socket a core opened at apply before Android's tunnel has no protect (multi-core.md §4).
+func shikooCoresAfterTun() {
+	configMu.Lock()
+	running := len(shikooCoresRunning) > 0
+	configMu.Unlock()
+	if !running {
+		return
+	}
+	if failed := handleSetupConfig(&SetupParams{TestURL: currentTestURL(), SelectedMap: liveSelections()}); failed != "" {
+		logError("rebuilding the cores once the tunnel is up: %s", failed)
+	}
+}
+
+func liveSelections() map[string]string {
+	selectMu.Lock()
+	defer selectMu.Unlock()
+	selected := map[string]string{}
+	for name, proxy := range tunnel.AllProxies() {
+		if outbound, ok := proxy.(*adapter.Proxy); ok {
+			if selector, ok := outbound.ProxyAdapter.(*outboundgroup.Selector); ok {
+				selected[name] = selector.Now()
+			}
+		}
+	}
+	return selected
 }
 
 func shikooCoresShutdown() {
