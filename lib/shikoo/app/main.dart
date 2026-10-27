@@ -9,6 +9,7 @@ import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/app/licenses.dart';
 import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
@@ -31,6 +32,7 @@ void main(List<String> args) {
         await restoreProxyAndExit();
       }
       hideLinksInLogs();
+      registerGoLicenses();
       FlutterError.onError = (details) {
         shikooDiag.error(details.exception, details.stack);
         Future.microtask(() {
