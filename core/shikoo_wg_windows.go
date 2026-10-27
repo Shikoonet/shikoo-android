@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"sync/atomic"
 	"time"
 
 	"github.com/metacubex/mihomo/adapter"
@@ -27,10 +28,11 @@ import (
 // the tunnel, so the engine's socket and mihomo's dialer (the door, DIRECT rules, pings) bind to the physical interface.
 
 type ownerTunnel struct {
-	key     string
-	network singtun.NetworkUpdateMonitor
-	monitor singtun.DefaultInterfaceMonitor
-	finder  *physicalFinder
+	key      string
+	network  singtun.NetworkUpdateMonitor
+	monitor  singtun.DefaultInterfaceMonitor
+	finder   *physicalFinder
+	stopping atomic.Bool
 }
 
 // Android registers in shikoo_wg_android.go: a name registered twice panics.
@@ -40,7 +42,31 @@ var (
 	ownerTun *ownerTunnel
 	// Sam (2026-10-23): an engine that would not start leaves its server on mihomo's tun until the next run.
 	ownerFailed string
+	ownerHeld   ownerHold
 )
+
+// ownerHold is Android's shikooOwnerHeldOffProvider for Windows, where Go picks the engine: one dying again within a
+// minute leaves its server on mihomo's tun through the reconnect the app then makes, until the stop after it.
+type ownerHold struct {
+	diedAt time.Time
+	key    string
+	stops  int
+}
+
+func (h *ownerHold) died(key string, at time.Time) {
+	if at.Sub(h.diedAt) < time.Minute {
+		h.key, h.stops = key, 0
+	}
+	h.diedAt = at
+}
+
+func (h *ownerHold) stopped() {
+	if h.key != "" {
+		if h.stops++; h.stops == 2 {
+			h.key = ""
+		}
+	}
+}
 
 // reCreateTun is listener.ReCreateTun, unless the server in use runs on the owner core.
 func reCreateTun(conf LC.Tun) {
@@ -55,7 +81,7 @@ func reCreateTun(conf LC.Tun) {
 		}
 	}
 	key := fmt.Sprint(conf.Device, mapping, iranDirect)
-	if mapping == nil || key == ownerFailed {
+	if mapping == nil || key == ownerFailed || key == ownerHeld.key {
 		closeOwnerTun()
 		listener.ReCreateTun(conf, tunnel.Tunnel)
 		return
@@ -83,7 +109,7 @@ func groupPick(name string) string {
 }
 
 func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) (err error) {
-	plan, prepared, err := wgPlan(mapping, iranRanges(iranDirect), 0, lookupEndpoint)
+	plan, prepared, err := wgPlan(mapping, iranRanges(iranDirect), windowsSdk, lookupEndpoint)
 	if err != nil {
 		return err
 	}
@@ -149,6 +175,16 @@ func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) 
 	if err = startOwner(newWinTun(wintun, device, plan.MTU), bind); err != nil {
 		return err
 	}
+	if engine := ownerRunning.Load(); engine != nil {
+		go func() {
+			<-engine.dev.Wait()
+			if !owner.stopping.Load() {
+				configMu.Lock()
+				ownerHeld.died(key, time.Now())
+				configMu.Unlock()
+			}
+		}()
+	}
 	owner.finder = &physicalFinder{owner.monitor}
 	if !dialer.DefaultInterfaceFinder.CompareAndSwap(nil, owner.finder) {
 		log.Warnln("[WG] another interface finder holds mihomo's dialer")
@@ -172,6 +208,7 @@ func newWintun(options singtun.Options) (wintun singtun.WinTun, err error) {
 func stopOwnerTun() {
 	closeOwnerTun()
 	ownerFailed = ""
+	ownerHeld.stopped()
 }
 
 func closeOwnerTun() {
@@ -182,6 +219,7 @@ func closeOwnerTun() {
 }
 
 func (o *ownerTunnel) close() {
+	o.stopping.Store(true)
 	if o.finder != nil {
 		dialer.DefaultInterfaceFinder.CompareAndSwap(o.finder, nil)
 	}

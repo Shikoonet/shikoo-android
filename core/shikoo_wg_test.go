@@ -248,7 +248,7 @@ func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
 		if err != nil {
 			t.Fatal(err)
@@ -278,7 +278,7 @@ func TestThePaymentGatewaysAndKeyAppsLeaveTheTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
 		if err != nil {
 			t.Fatal(err)
@@ -324,7 +324,7 @@ func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 		b.AddPrefix(netip.PrefixFrom(netip.AddrFrom4([4]byte{185, byte(i / 256), byte(i % 256), 0}), 24))
 	}
 	iran := must(b.IPSet())
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
 		if err != nil {
 			t.Fatal(err)
@@ -373,7 +373,7 @@ func TestAnIPv6AddressKeepsIranianIPv4OutOfTheTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		without := iranianIPv4Out(t, wgMapping(t, nil), iran, sdk)
 		with := iranianIPv4Out(t, wgMapping(t, map[string]any{"ipv6": "fd00::2"}), iran, sdk)
 		if with < without*98/100 {

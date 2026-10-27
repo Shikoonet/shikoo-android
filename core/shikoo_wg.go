@@ -52,8 +52,11 @@ const (
 
 var wgDNS = []string{"1.1.1.1", "8.8.8.8"}
 
-// excludeRoute is Android 13's; below it the Iranian ranges are cut out of the routes instead.
-const excludeRouteSdk = 33
+// excludeRoute is Android 13's; below it the Iranian ranges are cut out of the routes instead, and so on Windows.
+const (
+	excludeRouteSdk = 33
+	windowsSdk      = 0
+)
 
 type PrepareOwnerParams struct {
 	Core       string `json:"core"`
