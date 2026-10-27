@@ -8,6 +8,7 @@ import android.net.ProxyInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.follow.clash.common.GlobalState
@@ -33,6 +34,13 @@ class VpnService : SystemVpnService(), ManagedService {
     private var tunRunning = false
     @Volatile
     private var openVpn: OpenVpn? = null
+
+    @Volatile
+    private var startAbandoned = false
+
+    // An owner core's VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking.
+    private val ownerTunLock = Any()
+    private var ownerTun: ParcelFileDescriptor? = null
 
     override fun onDestroy() {
         try {
@@ -123,6 +131,7 @@ class VpnService : SystemVpnService(), ManagedService {
 
     // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
+        if (options.ownsTunnel) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
                 Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
@@ -134,7 +143,7 @@ class VpnService : SystemVpnService(), ManagedService {
             null
         }
         if (plan?.has(OPENVPN_PROFILE) == true) return startOpenVpn(options, plan)
-        val fd = with(Builder()) {
+        val tun = with(Builder()) {
             if (plan == null) {
                 addAddressAndRoutes(options)
                 addDnsServers(options)
@@ -145,6 +154,7 @@ class VpnService : SystemVpnService(), ManagedService {
             establishWith(options, owner = plan != null)
                 ?: error("VPN establishment was rejected by the system")
         }
+        val fd = if (plan == null) tun.detachFd().also { holdOwnerTun(null) } else lend(tun)
         val started = synchronized(tunLock) {
             tunRunning = true
             try {
@@ -248,7 +258,7 @@ class VpnService : SystemVpnService(), ManagedService {
     private fun JSONObject.cidrs(key: String): List<CIDR> =
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
-    private fun Builder.establishWith(options: VpnOptions, owner: Boolean): Int? {
+    private fun Builder.establishWith(options: VpnOptions, owner: Boolean): ParcelFileDescriptor? {
         configureAccessControl(options)
         setSession(getString(CommonR.string.app_name))
         setBlocking(false)
@@ -269,7 +279,30 @@ class VpnService : SystemVpnService(), ManagedService {
                 ),
             )
         }
-        return establish()?.detachFd()
+        return establish()
+    }
+
+    // Until the engine has its own VPN, everything waits in one nothing reads: a reconnect leaks nothing.
+    private fun holdBlocked(options: VpnOptions) {
+        val tun = runCatching {
+            with(Builder()) {
+                addAddress(BLOCK_ADDRESS, 32)
+                addRoute(NET_ANY, 0)
+                addRoute(NET_ANY6, 0)
+                establishWith(options, owner = true)
+            }
+        }.onFailure { GlobalState.log("Blocking VPN not built: $it") }.getOrNull()
+        tun?.let(::holdOwnerTun)
+    }
+
+    private fun holdOwnerTun(tun: ParcelFileDescriptor?) {
+        val previous = synchronized(ownerTunLock) { ownerTun.also { ownerTun = tun } }
+        previous?.close()
+    }
+
+    private fun lend(tun: ParcelFileDescriptor): Int {
+        holdOwnerTun(tun)
+        return tun.dup().detachFd()
     }
 
     // OpenVPN learns the tunnel's address and routes from the server, so its VPN is built only once connected.
@@ -278,12 +311,13 @@ class VpnService : SystemVpnService(), ManagedService {
             with(Builder()) {
                 addOwnerTunnel(Core.openvpnTunnel(spec))
                 establishWith(options, owner = true)
-            } ?: -1
+            }?.let(::lend) ?: -1
         }
         synchronized(tunLock) {
             stopTunLocked()
             openVpn = engine
         }
+        if (startAbandoned) engine.abandon()
         val failure = engine.start(
             plan.getString(OPENVPN_PROFILE),
             plan.optString("username"),
@@ -323,6 +357,7 @@ class VpnService : SystemVpnService(), ManagedService {
     }
 
     override fun abandonStart() {
+        startAbandoned = true
         openVpn?.abandon()
     }
 
@@ -339,6 +374,8 @@ class VpnService : SystemVpnService(), ManagedService {
             modules.stop()
         } finally {
             stopTun()
+            holdOwnerTun(null)
+            startAbandoned = false
         }
     }
 
@@ -363,6 +400,7 @@ class VpnService : SystemVpnService(), ManagedService {
         private const val DNS6 = "fdfe:dcba:9876::2"
         private const val NET_ANY = "0.0.0.0"
         private const val NET_ANY6 = "::"
+        private const val BLOCK_ADDRESS = "172.19.0.1"
         private const val LOCAL_HOST = "127.0.0.1"
         private const val MTU = 9000
     }

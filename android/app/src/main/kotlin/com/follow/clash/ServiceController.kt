@@ -65,6 +65,7 @@ object ServiceController {
     }
 
     suspend fun start(options: VpnOptions): Long = lock.withLock {
+        startAbandoned = false
         ServiceConfig.updateVpnOptions(options)
         val nextIntent = if (options.enable) {
             VpnService::class.intent
@@ -90,7 +91,10 @@ object ServiceController {
         }
 
         val currentBinding = binding ?: return@withLock 0L
-        val result = currentBinding.useService { service -> service.start() }
+        val result = currentBinding.useService { service ->
+            check(!startAbandoned) { "a stop came first" }
+            service.start()
+        }
         if (result.isFailure) {
             GlobalState.log("Unable to start background service: ${result.exceptionOrNull()}")
             currentBinding.stopIfConnected()
@@ -108,8 +112,13 @@ object ServiceController {
         runTimeMillis
     }
 
+    // Shikoo: a stop while the service is still binding for this start.
+    @Volatile
+    private var startAbandoned = false
+
     // Shikoo: outside [lock], which the start being abandoned holds.
     fun abandonStart() {
+        startAbandoned = true
         binding?.connected()?.abandonStart()
     }
 
