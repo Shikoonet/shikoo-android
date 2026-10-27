@@ -31,6 +31,7 @@ class VpnService : SystemVpnService(), ManagedService {
     private val binder = LocalBinder()
     private val tunLock = Any()
     private var tunRunning = false
+    private var openVpn: OpenVpn? = null
 
     override fun onDestroy() {
         try {
@@ -131,6 +132,7 @@ class VpnService : SystemVpnService(), ManagedService {
         } else {
             null
         }
+        if (plan?.has(OPENVPN_PROFILE) == true) return startOpenVpn(options, plan)
         val fd = with(Builder()) {
             if (plan == null) {
                 addAddressAndRoutes(options)
@@ -139,27 +141,7 @@ class VpnService : SystemVpnService(), ManagedService {
             } else {
                 addOwnerTunnel(plan)
             }
-            configureAccessControl(options)
-            setSession(getString(CommonR.string.app_name))
-            setBlocking(false)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                setMetered(false)
-            }
-            if (options.allowBypass) {
-                allowBypass()
-            }
-            // The proxy is mihomo's port, whose client of the owner's server shares its key.
-            if (plan == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
-                GlobalState.log("Enable VPN HTTP proxy")
-                setHttpProxy(
-                    ProxyInfo.buildDirectProxy(
-                        LOCAL_HOST,
-                        options.port,
-                        options.bypassDomain,
-                    ),
-                )
-            }
-            establish()?.detachFd()
+            establishWith(options, owner = plan != null)
                 ?: error("VPN establishment was rejected by the system")
         }
         val started = synchronized(tunLock) {
@@ -265,6 +247,55 @@ class VpnService : SystemVpnService(), ManagedService {
     private fun JSONObject.cidrs(key: String): List<CIDR> =
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
+    private fun Builder.establishWith(options: VpnOptions, owner: Boolean): Int? {
+        configureAccessControl(options)
+        setSession(getString(CommonR.string.app_name))
+        setBlocking(false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            setMetered(false)
+        }
+        if (options.allowBypass) {
+            allowBypass()
+        }
+        // The proxy is mihomo's port, whose client of the owner's server shares its key.
+        if (!owner && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
+            GlobalState.log("Enable VPN HTTP proxy")
+            setHttpProxy(
+                ProxyInfo.buildDirectProxy(
+                    LOCAL_HOST,
+                    options.port,
+                    options.bypassDomain,
+                ),
+            )
+        }
+        return establish()?.detachFd()
+    }
+
+    // OpenVPN learns the tunnel's address and routes from the server, so its VPN is built only once connected.
+    private fun startOpenVpn(options: VpnOptions, plan: JSONObject) {
+        val engine = OpenVpn(options.server.orEmpty(), ::protect) { spec ->
+            with(Builder()) {
+                addOwnerTunnel(Core.openvpnTunnel(spec))
+                establishWith(options, owner = true)
+            } ?: -1
+        }
+        synchronized(tunLock) {
+            stopTunLocked()
+            openVpn = engine
+        }
+        val failure = engine.start(
+            plan.getString(OPENVPN_PROFILE),
+            plan.optString("username"),
+            plan.optString("password"),
+        ) ?: return
+        synchronized(tunLock) {
+            if (openVpn === engine) stopTunLocked() else engine.stop()
+        }
+        if (!failure.refused) error("OpenVPN did not connect: ${failure.reason}")
+        GlobalState.log("OpenVPN refused the server, mihomo carries it: ${failure.reason}")
+        handleStart(options.copy(core = null))
+    }
+
     private fun Builder.configureAccessControl(options: VpnOptions) {
         val apps = options.appRules(packageName)
         apps.allowed.forEach { name -> addApplication(name, ::addAllowedApplication) }
@@ -311,6 +342,8 @@ class VpnService : SystemVpnService(), ManagedService {
     }
 
     private fun stopTunLocked() {
+        openVpn?.stop()
+        openVpn = null
         if (tunRunning) {
             Core.stopTun()
             tunRunning = false

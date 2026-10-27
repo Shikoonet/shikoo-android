@@ -79,6 +79,14 @@ object Core {
 
     fun startOwner(fd: Int): Boolean = invokeAndWait("shikooStartOwner", fd).optBoolean("result")
 
+    // The official OpenVPN engine (core/shikoo_ovpn.go): the VPN it builds once connected, and what it carries now.
+    fun openvpnTunnel(spec: String): JSONObject =
+        invokeAndWait("shikooOpenvpnTunnel", JSONObject(spec)).getJSONObject("result")
+
+    fun openvpnState(session: Int, server: String, up: Boolean) {
+        invokeAndWait("shikooOpenvpnState", JSONObject().put("session", session).put("server", server).put("up", up))
+    }
+
     private fun invokeAndWait(method: String, arguments: Any): JSONObject {
         val answered = CountDownLatch(1)
         var answer: String? = null
