@@ -6,9 +6,15 @@ project(ovpn3 C CXX)
 include(FetchContent)
 
 # The release's sources, checked against these hashes before anything builds.
+set(openvpn3_sha ae9849055aabf9ac70885097c14aa7abbe00e80fc7703944fb0f7f0c5bfe425f)
+# Patches apply in place, so another patch set gets fresh sources in a folder of its own.
+file(MD5 ${CMAKE_CURRENT_SOURCE_DIR}/openvpn3-mbedtls-hostname.patch hostname_patch)
+file(MD5 ${CMAKE_CURRENT_SOURCE_DIR}/openvpn3-mbedtls-cbc-padding.patch padding_patch)
+string(MD5 patched "${openvpn3_sha}${hostname_patch}${padding_patch}")
 FetchContent_Declare(openvpn3
         URL https://github.com/OpenVPN/openvpn3/archive/refs/tags/release/3.11.8.tar.gz
-        URL_HASH SHA256=ae9849055aabf9ac70885097c14aa7abbe00e80fc7703944fb0f7f0c5bfe425f
+        URL_HASH SHA256=${openvpn3_sha}
+        SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/openvpn3-${patched}
         # Upstream ee481a02, after 3.11.8: mbedTLS 3.6.3 and later refuse a handshake without it.
         PATCH_COMMAND patch -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/openvpn3-mbedtls-hostname.patch
         # Ours, not upstream: AES-CBC sends empty packets on mbedTLS 3.5 and later without it.
@@ -36,6 +42,7 @@ list(POP_FRONT asio_patch_command)
 FetchContent_Declare(asio
         URL https://github.com/chriskohlhoff/asio/archive/asio-1-24-0.tar.gz
         URL_HASH SHA256=cbcaaba0f66722787b1a7c33afe1befb3a012b5af3ad7da7ff0f6b8c9b7a8a5b
+        SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/asio-${patched}
         PATCH_COMMAND ${asio_patch_command})
 
 FetchContent_GetProperties(asio)
