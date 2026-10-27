@@ -397,6 +397,26 @@ func iranianIPv4Out(t *testing.T, mapping map[string]any, iran *netipx.IPSet, sd
 	return addresses(must(b.IPSet()).Prefixes())
 }
 
+func TestAFamilyWithoutAnAddressGetsNoRouteOrDNS(t *testing.T) {
+	plan, _, err := wgPlan(wgMapping(t, map[string]any{
+		"dns":   []any{"1.1.1.1", "2606:4700:4700::1111"},
+		"peers": []any{map[string]any{"server": "203.0.113.7", "port": 51820, "public-key": wgMapping(t, nil)["public-key"], "allowed-ips": []any{"0.0.0.0/0", "::/0"}}},
+	}), nil, 35, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(plan.Routes, []string{"0.0.0.0/0"}) || !slices.Equal(plan.DNS, []string{"1.1.1.1"}) {
+		t.Errorf("routes %v dns %v: IPv6 would leave beside an IPv4-only tunnel", plan.Routes, plan.DNS)
+	}
+	v6, _, err := wgPlan(wgMapping(t, map[string]any{"ip": "", "ipv6": "fd00::2"}), nil, 35, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(v6.Routes, []string{"::/0"}) || !slices.Equal(v6.DNS, []string{"2606:4700:4700::1111", "2001:4860:4860::8888"}) {
+		t.Errorf("IPv6-only: routes %v dns %v", v6.Routes, v6.DNS)
+	}
+}
+
 func TestOnePeerTakesEveryFamilyWhateverAllowedIPsSays(t *testing.T) {
 	_, prepared, err := wgPlan(wgMapping(t, map[string]any{"allowed-ips": []any{"10.0.0.0/8"}}), nil, 35, noResolve)
 	if err != nil {
@@ -569,6 +589,13 @@ func TestUpSendsNoInitiationBeforeTheEnginesOwn(t *testing.T) {
 	}
 }
 
+func TestTheMappingsKeepaliveComesBackAfterTheEnginesOwnHandshake(t *testing.T) {
+	startTestOwner(t, map[string]any{"persistent-keepalive": 25})
+	if state := must(ownerRunning.Load().dev.IpcGet()); !strings.Contains(state, "persistent_keepalive_interval=25") {
+		t.Errorf("the keepalive was not given back:\n%s", state)
+	}
+}
+
 func TestTheEngineShakesHandsAtStartWithoutAKeepalive(t *testing.T) {
 	startTestOwner(t, map[string]any{"persistent-keepalive": 0})
 	owner := ownerRunning.Load()
@@ -589,7 +616,8 @@ func TestAPingRightAfterWireGuardsOwnInitiationWaitsItOut(t *testing.T) {
 		}
 	}
 	owner.asked.Store(time.Now().Add(-device.RekeyTimeout).UnixNano())
-	if delay := owner.testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 8000}); delay.Value <= 0 {
+	// The timeout runs from the ask, not from before the wait.
+	if delay := owner.testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 2000}); delay.Value <= 0 {
 		t.Errorf("a healthy server answered %d", delay.Value)
 	}
 }
