@@ -674,6 +674,36 @@ void main() {
         expect(knocks, 1);
       },
     );
+
+    test('no address answers: the WARP bridge carries the call; a door that '
+        'answered keeps its answer', () async {
+      final dead = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final deadPort = dead.port;
+      await dead.close();
+      final api = _FakeAppApi();
+      await api.open();
+      addTearDown(api.close);
+      final asked = <String?>[];
+      final bridged = ShikooApi(['http://127.0.0.1:$deadPort'], null, () async {
+        asked.add('bridge');
+        return 'PROXY u:p@127.0.0.1:${Uri.parse(api.base).port}';
+      });
+      final code = await bridged.start(deviceName: 'x', kind: 'tv');
+      expect(code.code, isNotEmpty);
+      expect(api.names, ['x'], reason: 'the bridge carried it to the door');
+      expect(asked, ['bridge']);
+
+      api.startStatus = 500;
+      final answered = ShikooApi([api.base], null, () async {
+        asked.add('bridge');
+        return 'PROXY u:p@127.0.0.1:1';
+      });
+      await expectLater(
+        answered.start(deviceName: 'y', kind: 'tv'),
+        throwsA(isA<ShikooApiFailure>()),
+      );
+      expect(asked, ['bridge'], reason: 'the door itself answered');
+    });
   });
 
   group('after approval', () {

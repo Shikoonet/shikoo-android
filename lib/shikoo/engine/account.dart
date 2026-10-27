@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpHeaders, InternetAddress;
+import 'dart:io' show HttpClient, HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
@@ -17,6 +18,7 @@ import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:flutter/foundation.dart' hide mergeSort;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -329,7 +331,7 @@ class AppRelease {
 final _sha256 = RegExp(r'^[0-9a-f]{64}$');
 
 class ShikooApi {
-  ShikooApi(this.bases, [Dio? dio])
+  ShikooApi(this.bases, [Dio? dio, this.bridge])
     : _dio =
           dio ??
           Dio(
@@ -344,6 +346,9 @@ class ShikooApi {
   final List<String> bases;
   final Dio _dio;
 
+  /// The WARP bridge's `PROXY …` for HttpClient, tried once no address answered; null while it is off.
+  final Future<String?> Function()? bridge;
+
   /// The address that answered last goes first; the next is the backup for a blocked one.
   int _first = 0;
 
@@ -356,35 +361,52 @@ class ShikooApi {
   }) async {
     final name = path.split('/').where((part) => part.isNotEmpty).join('-');
     (DioException, String)? failed;
-    for (var i = 0; i < bases.length; i++) {
-      final at = (_first + i) % bases.length;
-      try {
-        final response = await _dio.request<Object?>(
-          '${bases[at]}/api/v1/app$path',
-          data: body,
-          options: Options(
-            method: method,
-            sendTimeout: sendTimeout,
-            headers: {
-              if (token != null)
-                HttpHeaders.authorizationHeader: 'Bearer $token',
-            },
-          ),
-        );
-        _first = at;
-        learnClock(response.headers.value(HttpHeaders.dateHeader));
-        if ((response.statusCode ?? 0) >= 400) {
-          shikooDiag.add('T', 'door $name http ${response.statusCode}');
+    Future<Response<Object?>?> each(Dio dio) async {
+      for (var i = 0; i < bases.length; i++) {
+        final at = (_first + i) % bases.length;
+        try {
+          final response = await dio.request<Object?>(
+            '${bases[at]}/api/v1/app$path',
+            data: body,
+            options: Options(
+              method: method,
+              sendTimeout: sendTimeout,
+              headers: {
+                if (token != null)
+                  HttpHeaders.authorizationHeader: 'Bearer $token',
+              },
+            ),
+          );
+          _first = at;
+          learnClock(response.headers.value(HttpHeaders.dateHeader));
+          if ((response.statusCode ?? 0) >= 400) {
+            shikooDiag.add('T', 'door $name http ${response.statusCode}');
+          }
+          return response;
+        } on DioException catch (error) {
+          failed = (error, bases[at]);
         }
-        return response;
-      } on DioException catch (error) {
-        failed = (error, bases[at]);
+      }
+      return null;
+    }
+
+    if (await each(_dio) case final response?) return response;
+    if (await bridge?.call() case final proxy?) {
+      final bridged = Dio(_dio.options)
+        ..httpClientAdapter = IOHttpClientAdapter(
+          createHttpClient: () => HttpClient()..findProxy = (_) => proxy,
+        );
+      try {
+        if (await each(bridged) case final response?) return response;
+      } finally {
+        bridged.close(force: true);
       }
     }
-    final clock = failed != null && await clockFailed(failed.$1, failed.$2);
+    final last = failed;
+    final clock = last != null && await clockFailed(last.$1, last.$2);
     shikooDiag.add(
       'T',
-      'door $name ${clock ? 'clock' : failureKind(failed?.$1)}',
+      'door $name ${clock ? 'clock' : failureKind(last?.$1)}',
     );
     throw ShikooApiFailure(clock: clock);
   }
@@ -555,7 +577,9 @@ class ShikooApi {
   );
 }
 
-final shikooApiProvider = Provider<ShikooApi>((_) => ShikooApi(shikooApiBases));
+final shikooApiProvider = Provider<ShikooApi>(
+  (ref) => ShikooApi(shikooApiBases, null, () => warpProxy(ref.read)),
+);
 
 Rule apiDirectRule(String base, int id) {
   final host = Uri.parse(base).host;

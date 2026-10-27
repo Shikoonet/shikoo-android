@@ -23,6 +23,7 @@ import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -2365,12 +2366,26 @@ class ShikooController {
     }
     onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
     try {
-      return await _get(url, aside);
+      try {
+        return await _get(url, aside);
+      } catch (error) {
+        final answered = error is DioException && error.response != null;
+        if (via != null || !connected || answered) rethrow;
+        onLeg?.call(ShikooLeg.fallback);
+        return await _get(url, byServer);
+      }
     } catch (error) {
-      final answered = error is DioException && error.response != null;
-      if (via != null || !connected || answered) rethrow;
-      onLeg?.call(ShikooLeg.fallback);
-      return _get(url, byServer);
+      // shortcut: the bridge has no leg of its own yet, so the screen keeps the last one until the design names it.
+      final bridge =
+          warpLegWanted(
+            on: _ref.read(shikooWarpProvider),
+            chosen: via != null,
+            error: error,
+          )
+          ? await warpProxy(_ref.read)
+          : null;
+      if (bridge == null) rethrow;
+      return _get(url, bridge);
     }
   }
 

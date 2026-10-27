@@ -317,7 +317,9 @@ class SetupAction extends _$SetupAction {
     required PatchClashConfig patchConfig,
   }) async {
     final profileId = setupState.profileId;
-    if (profileId == null) return (yaml: '', md5: '');
+    if (profileId == null) {
+      return warpOnlyProfile(on: ref.read(shikooWarpProvider));
+    }
     final defaultUA = globalState.packageInfo.ua;
     final networkSetting = ref.read(
       networkSettingProvider.select(
@@ -357,6 +359,7 @@ class SetupAction extends _$SetupAction {
       specs: ref.read(shikooCoreSpecsProvider),
       tunnel: ref.read(shikooTunnelProvider),
     );
+    rawConfig = markWarp(rawConfig, on: ref.read(shikooWarpProvider));
     final directory = await appPath.profilesPath;
     final res = makeRealProfileTask(
       MakeRealProfileState(

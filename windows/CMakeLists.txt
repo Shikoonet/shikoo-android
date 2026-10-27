@@ -133,6 +133,12 @@ install(FILES
   "${CORE_ARTIFACTS_DIR}/manifest.json"
   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
+# The WARP bridge (tools/warp-build.sh windows); a build without it has no bridge.
+if(EXISTS "${CORE_ARTIFACTS_DIR}/ShikooNetWarp.exe")
+  install(FILES "${CORE_ARTIFACTS_DIR}/ShikooNetWarp.exe"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")

@@ -20,6 +20,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
+import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -306,11 +307,18 @@ class _Ways extends HttpOverrides {
   final silent = <String>{};
   int? silentPort;
 
+  /// The WARP bridge's http port, as `endpoint.json` names it.
+  int? warpPort;
+
   @override
   HttpClient createHttpClient(SecurityContext? context) =>
       super.createHttpClient(context)
-        ..connectionFactory = (uri, proxy, _) {
-          final way = proxy == null ? 'direct' : 'server';
+        ..connectionFactory = (uri, proxy, port) {
+          final way = proxy == null
+              ? 'direct'
+              : port == warpPort
+              ? 'warp'
+              : 'server';
           taken.add(way);
           return failing.contains(way)
               ? Future.error(const SocketException('refused'))
@@ -3155,6 +3163,62 @@ void main() {
       _gone.add('/file/user111/a');
       await controller.refreshService();
       expect(way(), ShikooFailedWay.panel, reason: 'its own answer, while off');
+    });
+
+    group('with the WARP bridge on', () {
+      setUp(() async {
+        ways.warpPort = 4321;
+        final home = await appPath.homeDirPath;
+        File('$home/warp/endpoint.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{"http":"127.0.0.1:4321","auth":"u:p"}');
+        addTearDown(() => File('$home/warp/endpoint.json').deleteSync());
+        await container.read(shikooWarpProvider.notifier).set(true);
+      });
+
+      test('off: the bridge once the own way failed', () async {
+        ways.failing.add('direct');
+        await controller.refreshService();
+        expect(ways.taken, ['direct', 'warp']);
+        expect(state().refresh, ShikooRefresh.idle);
+      });
+
+      test('connected: the bridge after the own way and the server', () async {
+        container.read(runTimeProvider.notifier).value = 1;
+        ways.failing.addAll({'direct', 'server'});
+        await controller.refreshService(manual: false);
+        expect(ways.taken, ['direct', 'server', 'warp']);
+        expect(state().refresh, ShikooRefresh.idle);
+      });
+
+      test('never once a way got an answer, nor on a way the customer '
+          'chose', () async {
+        await controller.refreshService();
+        expect(ways.taken, ['direct']);
+
+        _gone.add('/file/user111/a');
+        await controller.refreshService();
+        expect(ways.taken, ['direct', 'direct']);
+        expect(way(), ShikooFailedWay.panel);
+        _gone.clear();
+
+        ways.failing.add('direct');
+        await controller.refreshService(via: ShikooRoute.direct);
+        expect(ways.taken, ['direct', 'direct', 'direct']);
+        expect(way(), ShikooFailedWay.directOff);
+      });
+
+      test('a bridge that fails too leaves the failure as it was; switched '
+          'off, no bridge', () async {
+        ways.failing.addAll({'direct', 'warp'});
+        await controller.refreshService();
+        expect(ways.taken, ['direct', 'warp']);
+        expect(way(), ShikooFailedWay.directOff);
+
+        await container.read(shikooWarpProvider.notifier).set(false);
+        await controller.refreshService();
+        expect(ways.taken, ['direct', 'warp', 'direct']);
+      });
     });
 
     test('a direct way that never answers falls back to the server', () async {
