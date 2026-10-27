@@ -68,8 +68,8 @@ patch_module() { # module version folder row
     echo "$3 patch $(basename "$patch"): applied to a copy of $2"
   done
 }
-patch_module github.com/sagernet/sing-box v1.14.3 sing-box ۵۴
-patch_module github.com/sagernet/sing-openvpn v0.1.1-0.20260929151220-7c3045dbddce sing-openvpn ۵۵
+patch_module github.com/sagernet/sing-box v1.14.3 sing-box ۵۷
+patch_module github.com/sagernet/sing-openvpn v0.1.1-0.20260929151220-7c3045dbddce sing-openvpn ۵۸
 
 # git keeps the core's embedded CA bundle empty (mihomo's CI fills it), and Android 7 has no root for the SSL.com
 # chain of 1.1.1.1, the panel's DNS. Mozilla roots only, never a CA added to this machine. Windows has no such folder,

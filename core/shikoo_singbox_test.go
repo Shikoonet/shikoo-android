@@ -123,7 +123,7 @@ proxies:
 }
 
 // Xray-core v26.9.8 and later refuse a REALITY ClientHello without X25519MLKEM768 ahead of X25519 (XTLS/REALITY
-// 8cdf7bf9); unpatched sing-box 1.14.3 strips it (row ۵۴ in SHIKOO_PATCHES.md).
+// 8cdf7bf9); unpatched sing-box 1.14.3 strips it (row ۵۷ in SHIKOO_PATCHES.md).
 func TestSingBoxRealityOffersMLKEMBeforeX25519(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

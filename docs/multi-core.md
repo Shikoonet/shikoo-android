@@ -163,7 +163,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `shikooCoresParse(raw)`, which rewrites and then calls `ParseRawConfig`, what `executor.ParseWithBytes` does through
   `config.Parse` (`config/config.go:474-481`); a config that fails to parse stops the cores it started. After
   `hub.ApplyConfig(cfg)` (`:402`), one `shikooCoresCommit()` stops the previous generation, beside
-  `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
+  `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 50 and 51).
 - Once Android's tunnel is up, `startTUN` runs `shikooCoresAfterTun` (`core/lib.go`, row 24): if a core behind mihomo
   is running, the config Go last applied is applied again, from memory (`shikooLastConfig`), never from `config.yaml`,
   which Dart writes in place and may be writing right then. The group picks are those of that apply (a url-test group
@@ -196,7 +196,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     its own timer whenever the core answers anything else, up to about six seconds. No answer reads as none. The
     answer counts for the server in use only: an owner engine that never started leaves that server shown on mihomo,
     and a core switch to it reads failed (Sam, 2026-10-23). Dart reaches it through `CoreMethod.shikooOwner`
-    (`SHIKOO_PATCHES.md` row 51).
+    (`SHIKOO_PATCHES.md` row 54).
   - **One identity, one session:** `shikooCoresParse` puts `shikooOwnerGate` on every proxy marked `shikoo-owner`. While
     an owner carries that server, mihomo's own client of it refuses to dial or listen, so mihomo opens no new session
     with the same key or username: not for FlClash's `checkIp`, not for "update through the server" through mihomo's
@@ -282,7 +282,7 @@ core packages add none).
    and WireGuard's ping exception by the profile's protocol (§4).
 4. The `setup.dart` line; the Go registry and the `loadConfig` and commit hooks.
 5. Go 1.27.3: the `go 1.27` line with `toolchain go1.27.3` and `godebug default=go1.21`, and the version in the WSL and Windows toolchain
-   scripts and both Shikoo workflows (`SHIKOO_PATCHES.md` row 49). The `godebug` line keeps the 24 runtime defaults of
+   scripts and both Shikoo workflows (`SHIKOO_PATCHES.md` row 52). The `godebug` line keeps the 24 runtime defaults of
    `go 1.21` that Go 1.27 still has, `tlsmlkem=0` included (package «س»'s advice); REALITY does not read that setting, since
    `metacubex/utls` v1.8.8 has the read commented out (`defaults.go:15,21`). `-checklinkname=0` is not in the base: no
    dependency here needs it. The first of h1 (Xray) and h4 (sing-box) to land adds it to `go_ldflags` in
