@@ -222,3 +222,19 @@ func TestAWindowsTunnelWithoutIPv6TakesIPv6InWithNoIPv6DNS(t *testing.T) {
 		t.Errorf("a tunnel with its own IPv6 got %v, routes %v", options.Inet6Address, options.Inet6RouteAddress)
 	}
 }
+
+func TestAWindowsTunnelWithoutIPv4TakesIPv4InWithNoIPv4DNS(t *testing.T) {
+	v6, _, err := wgPlan(wgMapping(t, map[string]any{"ip": nil, "ipv6": "fd00::2"}), nil, windowsSdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := wintunOptions("ShikooNet", v6)
+	if len(options.Inet4Address) != 1 || singtun.HasNextAddress(options.Inet4Address[0], 1) ||
+		!slices.Equal(options.Inet4RouteAddress, []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}) {
+		t.Errorf("IPv4 address %v, routes %v: IPv4 must come into the tunnel with no address sing-tun makes a DNS of",
+			options.Inet4Address, options.Inet4RouteAddress)
+	}
+	if slices.ContainsFunc(options.DNSServers, netip.Addr.Is4) {
+		t.Errorf("DNS %v: an IPv4 server the tunnel cannot reach", options.DNSServers)
+	}
+}

@@ -154,7 +154,7 @@ func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) 
 	return nil
 }
 
-// On-link routes as wireguard-windows adds them; IPv6 comes in to be dropped, as Windows lets a missing family out.
+// On-link routes as wireguard-windows adds them; a missing family comes in to be dropped, as Windows lets it out.
 func wintunOptions(device string, plan *ownerPlan) singtun.Options {
 	options := singtun.Options{
 		Name:         device,
@@ -176,6 +176,10 @@ func wintunOptions(device string, plan *ownerPlan) singtun.Options {
 		} else {
 			options.Inet6RouteAddress = append(options.Inet6RouteAddress, prefix)
 		}
+	}
+	if len(options.Inet4Address) == 0 {
+		options.Inet4Address = []netip.Prefix{netip.MustParsePrefix("172.19.0.1/32")}
+		options.Inet4RouteAddress = []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}
 	}
 	if len(options.Inet6Address) == 0 {
 		options.Inet6Address = []netip.Prefix{netip.MustParsePrefix("fdfe:dcba:9876::1/128")}
