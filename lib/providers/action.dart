@@ -14,6 +14,8 @@ import 'package:fl_clash/providers/actions/system_exit.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart'
     show markCores, shikooCoreSpecsProvider, shikooTunnelProvider;
+import 'package:fl_clash/shikoo/engine/owner.dart'
+    show shikooOwnerHeldOffProvider;
 import 'package:fl_clash/shikoo/engine/settings.dart' show shikooCoresProvider;
 import 'package:fl_clash/state.dart';
 import 'package:material_ui/material_ui.dart';

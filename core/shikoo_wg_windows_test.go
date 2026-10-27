@@ -4,8 +4,19 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/metacubex/mihomo/constant"
+	LC "github.com/metacubex/mihomo/listener/config"
+	"golang.zx2c4.com/wireguard/conn/bindtest"
+	"golang.zx2c4.com/wireguard/device"
+	"golang.zx2c4.com/wireguard/tun/tuntest"
 )
 
 func TestWindowsReportsWhatTheOfficialEngineCarries(t *testing.T) {
@@ -30,42 +41,141 @@ func TestWindowsReportsWhatTheOfficialEngineCarries(t *testing.T) {
 func TestTheCoreSaysWhatTheEngineCarriesWhileTheTunnelIsBeingBuilt(t *testing.T) {
 	ownerRunning.Store(&wgOwner{server: "wg"})
 	t.Cleanup(func() { ownerRunning.Store(nil) })
+	fake := &fakeConn{}
+	defer swapConn(swapConn(fake))
 	configMu.Lock()
 	defer configMu.Unlock()
-	start := time.Now()
-	frame := captureSingleFrame(t, func() {
+	answered := make(chan struct{})
+	go func() {
 		methodHandlers[shikooOwnerMethod](&MethodCall{ID: "1", Method: shikooOwnerMethod}, MethodResponse{ID: "1"})
-	})
-	if took := time.Since(start); took > 200*time.Millisecond {
-		t.Errorf("the answer took %v", took)
+		close(answered)
+	}()
+	select {
+	case <-answered:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("no answer within 200 ms while configMu is held")
 	}
 	var answer struct{ Result ShikooOwner }
-	if err := json.Unmarshal(frame, &answer); err != nil || answer.Result != (ShikooOwner{Core: "wireguard", Server: "wg"}) {
-		t.Errorf("answer %s (%v)", frame, err)
+	frames := fake.frames(t)
+	if len(frames) != 1 || json.Unmarshal(frames[0], &answer) != nil ||
+		answer.Result != (ShikooOwner{Core: "wireguard", Server: "wg"}) {
+		t.Errorf("answer %q", frames)
 	}
 }
 
-func TestASecondDeathWithinAMinuteLeavesTheServerToMihomoForOneConnection(t *testing.T) {
-	var hold ownerHold
-	at := time.Now()
-	hold.died("k", at)
-	if hold.key != "" {
-		t.Fatal("one death held the engine off")
+type tunWiring struct {
+	starts, carryingAtStart []string
+	mihomo                  []bool
+	fail                    bool
+}
+
+const wiredConfig = `proxies:
+  - {name: W, type: wireguard, server: 1.1.1.2, port: 1, shikoo-owner: wireguard}
+  - {name: A, type: vless, server: 1.1.1.3, port: 443}
+proxy-groups:
+  - {name: main, type: select, proxies: [W, A]}
+rules:
+`
+
+// wireTun stands in for wintun and mihomo's tun; the engine runs on an in-memory tun and bind, which open no socket.
+func wireTun(t *testing.T, pick *string) (*tunWiring, func(rules string)) {
+	t.Helper()
+	w := &tunWiring{}
+	home := constant.Path.HomeDir()
+	dir := t.TempDir()
+	constant.SetHomeDir(dir)
+	write := func(rules string) {
+		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(wiredConfig+rules), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
-	hold.died("k", at.Add(2*time.Minute))
-	if hold.key != "" {
-		t.Fatal("deaths two minutes apart held the engine off")
+	write("  - MATCH,main\n")
+	start, mihomo, picks := startOwnerTunnel, mihomoTun, pickOf
+	pickOf = func(string) string { return *pick }
+	mihomoTun = func(conf LC.Tun) { w.mihomo = append(w.mihomo, conf.Enable) }
+	startOwnerTunnel = func(_, key string, mapping map[string]any, _ bool) error {
+		w.carryingAtStart = append(w.carryingAtStart, windowsCarrying())
+		if w.fail {
+			return errors.New("no engine")
+		}
+		dev := device.NewDevice(tuntest.NewChannelTUN().TUN(), bindtest.NewChannelBinds()[0],
+			device.NewLogger(device.LogLevelSilent, ""))
+		ownerRunning.Store(&wgOwner{server: fmt.Sprint(mapping["name"]), dev: dev})
+		ownerTun = &ownerTunnel{key: key}
+		w.starts = append(w.starts, key)
+		return nil
 	}
-	hold.died("k", at.Add(2*time.Minute+30*time.Second))
-	if hold.key != "k" {
-		t.Fatal("a second death within a minute did not hold the engine off")
+	t.Cleanup(func() {
+		stopOwnerTun()
+		startOwnerTunnel, mihomoTun, pickOf = start, mihomo, picks
+		constant.SetHomeDir(home)
+	})
+	return w, write
+}
+
+func TestWindowsTunnelGoesToTheEngineOnlyForAMarkedPickInTunMode(t *testing.T) {
+	pick := "W"
+	w, _ := wireTun(t, &pick)
+	on := LC.Tun{Enable: true, Device: "ShikooNet"}
+
+	reCreateTun(LC.Tun{Device: "ShikooNet"})
+	if len(w.starts) != 0 || !slices.Equal(w.mihomo, []bool{false}) {
+		t.Fatalf("proxy mode: starts %v, mihomo's tun %v", w.starts, w.mihomo)
 	}
-	hold.stopped()
-	if hold.key != "k" {
-		t.Fatal("the app's own reconnect after the death lifted the hold")
+	reCreateTun(on)
+	reCreateTun(on)
+	if len(w.starts) != 1 || ownerServer() != "W" || !slices.Equal(w.mihomo, []bool{false, false}) {
+		t.Fatalf("starts %v, carrying %q, mihomo's tun %v: want one start, mihomo's tun closed first",
+			w.starts, ownerServer(), w.mihomo)
 	}
-	hold.stopped()
-	if hold.key != "" {
-		t.Fatal("the user's next disconnect did not lift the hold")
+	if w.carryingAtStart[0] != "" {
+		t.Errorf("a first start reported %q before the engine ran", w.carryingAtStart[0])
+	}
+	pick = "A"
+	reCreateTun(on)
+	if ownerServer() != "" || !w.mihomo[len(w.mihomo)-1] {
+		t.Errorf("an unmarked pick left the engine carrying %q, mihomo's tun %v", ownerServer(), w.mihomo)
+	}
+}
+
+func TestGoRebuildingTheEngineForANewKeyIsNoDeathToTheAppsWatch(t *testing.T) {
+	pick := "W"
+	w, write := wireTun(t, &pick)
+	on := LC.Tun{Enable: true, Device: "ShikooNet"}
+	reCreateTun(on)
+
+	write("  - RULE-SET,shikoo-ir-ip,DIRECT,no-resolve\n  - MATCH,main\n")
+	reCreateTun(on)
+	if len(w.starts) != 2 || w.starts[0] == w.starts[1] {
+		t.Fatalf("starts %v: the Iranian switch must rebuild the engine", w.starts)
+	}
+	if w.carryingAtStart[1] != "W" {
+		t.Errorf("between the old engine and the new one Go reported %q, which the watch reads as a death",
+			w.carryingAtStart[1])
+	}
+	if ownerBuilding.Load() != nil || windowsCarrying() != "W" {
+		t.Errorf("after the rebuild Go reports %q", windowsCarrying())
+	}
+}
+
+func TestAWindowsEngineThatWouldNotStartLeavesTheServerOnMihomosTunUntilTheNextRun(t *testing.T) {
+	pick := "W"
+	w, _ := wireTun(t, &pick)
+	on := LC.Tun{Enable: true, Device: "ShikooNet"}
+	w.fail = true
+
+	reCreateTun(on)
+	if windowsCarrying() != "" || !slices.Equal(w.mihomo, []bool{false, true}) {
+		t.Fatalf("carrying %q, mihomo's tun %v: want mihomo's tun back on", windowsCarrying(), w.mihomo)
+	}
+	reCreateTun(on)
+	if len(w.carryingAtStart) != 1 {
+		t.Errorf("%d starts: an apply in the same run tried the engine again", len(w.carryingAtStart))
+	}
+	stopOwnerTun()
+	w.fail = false
+	reCreateTun(on)
+	if len(w.starts) != 1 || ownerServer() != "W" {
+		t.Errorf("starts %v: the next run must ask for the engine again", w.starts)
 	}
 }

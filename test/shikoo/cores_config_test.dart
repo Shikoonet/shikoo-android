@@ -9,6 +9,7 @@ import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,7 +34,10 @@ void main() {
   });
 
   /// The yaml FlClash writes for the core, with xray picked for VLESS and the official engine for WireGuard.
-  Future<String> written({bool windowsProxyMode = false}) async {
+  Future<String> written({
+    bool windowsProxyMode = false,
+    bool heldOff = false,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final core = _Core();
     when(() => core.getConfig(any())).thenAnswer(
@@ -70,6 +74,7 @@ void main() {
     if (windowsProxyMode) {
       await container.read(shikooModeProvider.notifier).save(ShikooMode.proxy);
     }
+    container.read(shikooOwnerHeldOffProvider.notifier).set(heldOff);
 
     final made = await container
         .read(setupActionProvider.notifier)
@@ -106,6 +111,15 @@ void main() {
   test("in Windows' proxy mode the owner core's server goes unmarked: mihomo "
       'carries it', () async {
     final yaml = await written(windowsProxyMode: true);
+
+    expect(yaml, isNot(contains(shikooOwnerKey)));
+    expect(yaml, contains('$shikooCoreKey: "xray"'));
+  });
+
+  test("after an engine died twice the owner core's server goes unmarked, so "
+      'no apply until the disconnect (an Iranian-switch tap, a subscription '
+      'update) hands it back to the engine on Windows', () async {
+    final yaml = await written(heldOff: true);
 
     expect(yaml, isNot(contains(shikooOwnerKey)));
     expect(yaml, contains('$shikooCoreKey: "xray"'));

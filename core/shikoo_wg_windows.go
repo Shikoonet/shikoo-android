@@ -28,47 +28,37 @@ import (
 // the tunnel, so the engine's socket and mihomo's dialer (the door, DIRECT rules, pings) bind to the physical interface.
 
 type ownerTunnel struct {
-	key      string
-	network  singtun.NetworkUpdateMonitor
-	monitor  singtun.DefaultInterfaceMonitor
-	finder   *physicalFinder
-	stopping atomic.Bool
+	key     string
+	network singtun.NetworkUpdateMonitor
+	monitor singtun.DefaultInterfaceMonitor
+	finder  *physicalFinder
 }
 
 // Android registers in shikoo_wg_android.go: a name registered twice panics.
-func init() { registerOwner("wireguard") }
+func init() { registerShikooOwner("wireguard", windowsCarrying, ownerPing) }
 
 var (
 	ownerTun *ownerTunnel
 	// Sam (2026-10-23): an engine that would not start leaves its server on mihomo's tun until the next run.
 	ownerFailed string
-	ownerHeld   ownerHold
+	// Go's own rebuild for a new key is no death to the app's watch: the server, until the new engine runs or fails.
+	ownerBuilding atomic.Pointer[string]
+
+	startOwnerTunnel = startOwnerTun
+	mihomoTun        = func(conf LC.Tun) { listener.ReCreateTun(conf, tunnel.Tunnel) }
+	pickOf           = groupPick
 )
 
-// ownerHold is Android's shikooOwnerHeldOffProvider for Windows, where Go picks the engine: one dying again within a
-// minute leaves its server on mihomo's tun through the reconnect the app then makes, until the stop after it.
-type ownerHold struct {
-	diedAt time.Time
-	key    string
-	stops  int
-}
-
-func (h *ownerHold) died(key string, at time.Time) {
-	if at.Sub(h.diedAt) < time.Minute {
-		h.key, h.stops = key, 0
+func windowsCarrying() string {
+	if server := ownerServer(); server != "" {
+		return server
 	}
-	h.diedAt = at
-}
-
-func (h *ownerHold) stopped() {
-	if h.key != "" {
-		if h.stops++; h.stops == 2 {
-			h.key = ""
-		}
+	if building := ownerBuilding.Load(); building != nil {
+		return *building
 	}
+	return ""
 }
 
-// reCreateTun is listener.ReCreateTun, unless the server in use runs on the owner core.
 func reCreateTun(conf LC.Tun) {
 	var mapping map[string]any
 	var iranDirect bool
@@ -77,25 +67,30 @@ func reCreateTun(conf LC.Tun) {
 		if err != nil {
 			log.Warnln("[WG] config not read: %v", err)
 		} else {
-			mapping, iranDirect = ownerInUse(raw, groupPick)
+			mapping, iranDirect = ownerInUse(raw, pickOf)
 		}
 	}
 	key := fmt.Sprint(conf.Device, mapping, iranDirect)
-	if mapping == nil || key == ownerFailed || key == ownerHeld.key {
+	if mapping == nil || key == ownerFailed {
 		closeOwnerTun()
-		listener.ReCreateTun(conf, tunnel.Tunnel)
+		mihomoTun(conf)
 		return
 	}
 	if ownerTun != nil && ownerTun.key == key {
 		return
 	}
+	if ownerServer() != "" {
+		server := fmt.Sprint(mapping["name"])
+		ownerBuilding.Store(&server)
+		defer ownerBuilding.Store(nil)
+	}
 	// mihomo's tun leaves first: its DNS would answer the endpoint's name with a fake address.
-	listener.ReCreateTun(LC.Tun{}, tunnel.Tunnel)
+	mihomoTun(LC.Tun{})
 	closeOwnerTun()
-	if err := startOwnerTun(conf.Device, key, mapping, iranDirect); err != nil {
+	if err := startOwnerTunnel(conf.Device, key, mapping, iranDirect); err != nil {
 		log.Errorln("[WG] owner core did not start, mihomo carries the server: %v", err)
 		ownerFailed = key
-		listener.ReCreateTun(conf, tunnel.Tunnel)
+		mihomoTun(conf)
 	}
 }
 
@@ -175,16 +170,6 @@ func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) 
 	if err = startOwner(newWinTun(wintun, device, plan.MTU), bind); err != nil {
 		return err
 	}
-	if engine := ownerRunning.Load(); engine != nil {
-		go func() {
-			<-engine.dev.Wait()
-			if !owner.stopping.Load() {
-				configMu.Lock()
-				ownerHeld.died(key, time.Now())
-				configMu.Unlock()
-			}
-		}()
-	}
 	owner.finder = &physicalFinder{owner.monitor}
 	if !dialer.DefaultInterfaceFinder.CompareAndSwap(nil, owner.finder) {
 		log.Warnln("[WG] another interface finder holds mihomo's dialer")
@@ -208,7 +193,6 @@ func newWintun(options singtun.Options) (wintun singtun.WinTun, err error) {
 func stopOwnerTun() {
 	closeOwnerTun()
 	ownerFailed = ""
-	ownerHeld.stopped()
 }
 
 func closeOwnerTun() {
@@ -219,7 +203,6 @@ func closeOwnerTun() {
 }
 
 func (o *ownerTunnel) close() {
-	o.stopping.Store(true)
 	if o.finder != nil {
 		dialer.DefaultInterfaceFinder.CompareAndSwap(o.finder, nil)
 	}

@@ -355,7 +355,9 @@ class SetupAction extends _$SetupAction {
       rawConfig,
       ref.read(shikooCoresProvider),
       specs: ref.read(shikooCoreSpecsProvider),
-      tunnel: ref.read(shikooTunnelProvider),
+      tunnel:
+          ref.read(shikooTunnelProvider) &&
+          !ref.read(shikooOwnerHeldOffProvider),
     );
     final directory = await appPath.profilesPath;
     final res = makeRealProfileTask(
