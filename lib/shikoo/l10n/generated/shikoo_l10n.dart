@@ -692,6 +692,42 @@ abstract class ShikooL10n {
   /// **'Close'**
   String get close;
 
+  /// A row's chip in the top bar's list of services, for one that ended.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished'**
+  String get chipFinished;
+
+  /// No description provided for @renewPickTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Which service to renew?'**
+  String get renewPickTitle;
+
+  /// No description provided for @renewPickHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The ShikooNet bot opens that service\'s renewal page in Telegram.'**
+  String get renewPickHelp;
+
+  /// Under the title of the TV's list of services, for renew and support alike.
+  ///
+  /// In en, this message translates to:
+  /// **'Next comes a code to scan with your phone\'s camera.'**
+  String get pickHelpTv;
+
+  /// No description provided for @supportPickTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support for which service?'**
+  String get supportPickTitle;
+
+  /// No description provided for @supportPickHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'That service\'s support opens.'**
+  String get supportPickHelp;
+
   /// No description provided for @back.
   ///
   /// In en, this message translates to:

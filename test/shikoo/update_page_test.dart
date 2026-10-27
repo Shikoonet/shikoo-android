@@ -328,7 +328,11 @@ void main() {
     expect(_focused(), 'power');
     await _focus(tester, 'به‌روزرسانی');
     expect(await _press(tester, _up), 'دریافت');
-    expect(await _press(tester, _up), 'تنظیمات');
+    expect(
+      await _press(tester, _up),
+      'تمدید',
+      reason: 'tv-c: up from the card',
+    );
     await _focus(tester, 'دریافت');
     expect(await _press(tester, _down), 'پینگ');
     await _focus(tester, 'دریافت');

@@ -372,23 +372,37 @@ class _PressableState extends State<Pressable> {
   };
 }
 
-/// `.brand`: the letter mark and the word.
+/// `.brand`: the mark and the word, which [fit] drops short of Space.s2 to spare (`.strip.is-tight`).
 class Brand extends StatelessWidget {
-  const Brand({super.key});
+  const Brand({super.key, this.fit = false});
+
+  final bool fit;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BrandMark(size: t.s.mark),
-        const SizedBox(width: Space.s2),
-        Text(
-          ShikooL10n.of(context).appName,
-          style: t.text(t.s.title, weight: FontWeight.w800),
+    final name = ShikooL10n.of(context).appName;
+    final style = t.text(t.s.title, weight: FontWeight.w800);
+    final mark = BrandMark(size: t.s.mark);
+    Widget brand(bool word) => word
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              mark,
+              const SizedBox(width: Space.s2),
+              Text(name, style: style),
+            ],
+          )
+        : Semantics(label: name, child: mark);
+    if (!fit) return brand(true);
+    return LayoutBuilder(
+      builder: (context, box) => Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: brand(
+          t.s.mark + 2 * Space.s2 + textWidth(context, name, style) <=
+              box.maxWidth,
         ),
-      ],
+      ),
     );
   }
 }
@@ -892,17 +906,20 @@ String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
     };
 
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.status}) : disabled = false;
+  const StatusChip({super.key, required this.status, this.label})
+    : disabled = false;
 
   /// A finished service of the account; one the shop turned off reads «غیرفعال شد», not expired.
   StatusChip.linked(LinkedService service, {super.key})
     : status = service.status == 'exhausted'
           ? ShikooServiceStatus.exhausted
           : ShikooServiceStatus.expired,
-      disabled = service.disabled;
+      disabled = service.disabled,
+      label = null;
 
   final ShikooServiceStatus status;
   final bool disabled;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -919,7 +936,7 @@ class StatusChip extends StatelessWidget {
         shape: const StadiumBorder(),
       ),
       child: Text(
-        disabled ? l.finishedDisabled : statusLabel(l, status),
+        label ?? (disabled ? l.finishedDisabled : statusLabel(l, status)),
         style: t.text(
           t.s.caption,
           weight: FontWeight.w700,

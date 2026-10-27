@@ -28,7 +28,7 @@ done
 
 # sing-tun is a module the core downloads, not part of the submodule: core/go.mod replaces the version mihomo pins with
 # a patched copy made here, and go mod download checks that version against mihomo's go.sum.
-singtun=v0.4.27
+singtun=v0.4.28
 pinned=$(go -C "$core" list -m -f '{{.Version}}' github.com/metacubex/sing-tun)
 if [ "$pinned" != "$singtun" ]; then
   echo "mihomo pins sing-tun $pinned, but tools/core-patches/sing-tun and core/go.mod are for $singtun." >&2

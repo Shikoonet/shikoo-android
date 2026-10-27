@@ -17,7 +17,7 @@ import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart'
-    show coreName, flclashVersion;
+    show coreName, flclashVersion, mihomoVersion;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -944,7 +944,10 @@ void main() {
     const stamp = String.fromEnvironment('SHIKOO_CORE');
     final core = (_about['app']! as Map)['core']! as String;
     expect(core, 'FlClash $flclashVersion, ${coreName()}');
-    expect(core, endsWith(stamp.isEmpty ? 'mihomo' : 'mihomo $stamp'));
+    expect(
+      core,
+      endsWith(stamp.isEmpty ? 'mihomo\u00A0$mihomoVersion' : '\u00A0($stamp)'),
+    );
     expect(core.length, lessThanOrEqualTo(64));
   });
 

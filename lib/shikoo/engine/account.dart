@@ -193,6 +193,8 @@ class ShikooAccount {
   int? serviceOf(int? profileId) => _linked(profileId)?.id;
 
   bool renewsOn(int? profileId) => _linked(profileId)?.botRenews ?? true;
+
+  bool renews(Finished row) => row.linked?.renews ?? renewsOn(row.profileId);
 }
 
 final shikooAccountProvider =
@@ -1056,6 +1058,7 @@ class ShikooSignIn {
     }
     if (token != _token) return null;
     if (answer == null) {
+      _ref.read(shikooControllerProvider).forgetError();
       await notMine();
       return null;
     }

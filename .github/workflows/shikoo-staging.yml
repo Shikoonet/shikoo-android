@@ -58,10 +58,14 @@ jobs:
             exit 1
           fi
           sha=${RUN_SHA:-$(gh api "repos/$GH_REPO/commits/main" --jq .sha)}
-          gh run list --workflow shikoo-ci.yml --commit "$sha" --branch main --event push --status success \
-            --json databaseId --jq '.[0].databaseId' | grep -q . ||
-            { echo "::error::CI has not passed on $sha as a push to main"; exit 1; }
-          [ "$(gh api "repos/$GH_REPO/commits/$sha/pulls" --jq '[.[] | select(.merged_at)] | length')" -gt 0 ] ||
+          retry() { for pause in 0 15 15 15 15 15 15 15; do sleep "$pause"; "$@" && return; done; return 1; }
+          ci_passed() {
+            [ "$(gh run list --workflow shikoo-ci.yml --limit 1000 --json headSha,headBranch,event,conclusion --jq "any(.[];
+              .headSha == \"$sha\" and .headBranch == \"main\" and .event == \"push\" and .conclusion == \"success\")")" = true ]
+          }
+          merged_pr() { [ "$(gh api "repos/$GH_REPO/commits/$sha/pulls" --jq 'any(.[]; .merged_at)')" = true ]; }
+          retry ci_passed || { echo "::error::CI has not passed on $sha as a push to main"; exit 1; }
+          retry merged_pr ||
             { echo "::error::$sha came from no merged pull request; a direct push to main is not released"; exit 1; }
           echo "sha=$sha" >>"$GITHUB_OUTPUT"
           printf 'SHA=%s\nVN=%s\n' "$sha" "$VERSION_PREFIX.$GITHUB_RUN_NUMBER" >>"$GITHUB_ENV"
@@ -419,7 +423,7 @@ jobs:
     needs: [build, seal]
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

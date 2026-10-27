@@ -980,7 +980,8 @@ void main() {
       );
     });
 
-    test('a token that stopped working signs this device out', () async {
+    test('a token that stopped working signs this device out, taking the last '
+        'connect error along but not the tunnel', () async {
       final h = await _harness();
       h.api.services = [_service(1, 'user123')];
       await _signedIn(h);
@@ -989,6 +990,8 @@ void main() {
       expect(await h.signIn.sync(), isNull);
       expect(_urls(h.container), isEmpty);
       expect(h.container.read(shikooAccountProvider).who, isNull);
+      verify(h.controller.forgetError).called(1);
+      verifyNever(h.controller.disconnect);
     });
 
     test('with nothing fixed, as for an account that had no service at '

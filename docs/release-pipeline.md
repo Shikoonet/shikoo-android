@@ -177,8 +177,9 @@ assets do not count against that storage.
   `gh release create`, with its `force` input (`no` by default; `yes` makes every older install update before use). If the
   door step fails, or its token is missing, Promote stops there: no GitHub release, nothing published anywhere.
 - **`tools/publish_door.sh <api> <dir> <true|false>`:** for each APK in `<dir>/SHA256SUMS`, versionCode, versionName and
-  its one ABI from `aapt2 dump badging`; uploads it in 8 MiB chunks (`PUT /dl/upload/<file>?offset=N`), each retried up to
-  5 times on any error, so a lost answer resends the same bytes to the same offset. A request that stalls (under 1 KB/s for
+  its one ABI from `aapt2 dump badging`; uploads it in 2 MiB chunks (`PUT /dl/upload/<file>?offset=N`), small enough to
+  arrive within the 60 s Traefik v3 allows a request body by default. Each is retried up to 5 times on any error, so a
+  lost answer resends the same bytes to the same offset. A request that stalls (under 1 KB/s for
   60 s, or no connection in 30 s) counts as an error and is retried, so a stuck chunk does not hold the job until its
   timeout. A file always starts at offset 0, so a re-run uploads it whole again. Then `POST /dl/publish` with a body
   built by `jq`. The door hashes every file and refuses a mismatch (422) without changing the live release. The token

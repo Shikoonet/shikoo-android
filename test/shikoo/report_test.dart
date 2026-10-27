@@ -980,7 +980,7 @@ void main() {
       });
 
       testWidgets('$name: a failed manual refresh puts the report between '
-          'refresh and renew', (tester) async {
+          'refresh and the servers', (tester) async {
         final l = _l(locale);
         await _pump(
           tester,
@@ -992,7 +992,7 @@ void main() {
         );
         await _focus(tester, l.refresh);
         expect(await _press(tester, _down), l.reportSendToSupport);
-        expect(await _press(tester, _down), l.renew);
+        expect(await _press(tester, _down), 'آلمان ۳');
         expect(await _press(tester, _up), l.reportSendToSupport);
       });
 

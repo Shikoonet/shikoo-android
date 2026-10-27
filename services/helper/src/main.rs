@@ -1,3 +1,5 @@
+// `fix-proxy` runs from a logon Run entry, which shows a console program's window.
+#![cfg_attr(all(windows, not(test)), windows_subsystem = "windows")]
 #[cfg(not(any(
     all(feature = "windows-service", target_os = "windows"),
     target_os = "linux"

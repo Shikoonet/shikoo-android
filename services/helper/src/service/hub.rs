@@ -50,6 +50,7 @@ const PROTOCOL_VERSION_HEADER: &str = "x-flclash-helper-protocol";
 const PROTOCOL_VERSION: &str = "6";
 const EXPECTED_CORE_SHA256: &str = env!("CORE_SHA256");
 const LOG_CAPACITY: usize = 100;
+const BODY_LIMIT: u64 = 1024;
 const CORE_EXIT_TIMEOUT: Duration = Duration::from_millis(1500);
 const CORE_GRACEFUL_EXIT_TIMEOUT: Duration = Duration::from_millis(3000);
 const CORE_EXIT_POLL_INTERVAL: Duration = Duration::from_millis(20);
@@ -74,6 +75,13 @@ pub struct StopParams {
 struct PingParams {
     #[serde(rename = "coreSha256")]
     core_sha256: String,
+}
+
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GuardParams {
+    pid: u32,
 }
 
 #[derive(Serialize)]
@@ -634,6 +642,19 @@ async fn ping_request(ping_params: PingParams) -> Result<warp::reply::Response, 
         }))
 }
 
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+async fn guard_request(params: GuardParams) -> Result<warp::reply::Response, Infallible> {
+    let guarded = tokio::task::spawn_blocking(move || super::proxy_guard::guard(params.pid)).await;
+    Ok(match guarded {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        _ => error_response(
+            "invalidRequest",
+            "not this install's app",
+            StatusCode::FORBIDDEN,
+        ),
+    })
+}
+
 async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response, Infallible> {
     if rejection.find::<warp::reject::InvalidQuery>().is_some() {
         return Ok(warp::reply::with_header(
@@ -650,6 +671,9 @@ async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response,
     if rejection
         .find::<warp::filters::body::BodyDeserializeError>()
         .is_some()
+        || rejection.find::<warp::reject::LengthRequired>().is_some()
+        || rejection.find::<warp::reject::PayloadTooLarge>().is_some()
+        || rejection.find::<ChunkedBody>().is_some()
     {
         return Ok(error_response(
             "invalidRequest",
@@ -678,6 +702,27 @@ async fn handle_rejection(rejection: Rejection) -> Result<warp::reply::Response,
     ))
 }
 
+#[derive(Debug)]
+struct ChunkedBody;
+
+impl warp::reject::Reject for ChunkedBody {}
+
+/// The Helper runs as SYSTEM: a body gets read only when it says how long it is, and it is short.
+/// hyper 0.14 reads a chunked body to its end even beside a Content-Length, so chunked is refused.
+fn json_body<T: serde::de::DeserializeOwned + Send>(
+) -> impl Filter<Extract = (T,), Error = Rejection> + Clone {
+    warp::header::headers_cloned()
+        .and_then(|headers: warp::http::HeaderMap| async move {
+            if headers.contains_key(warp::http::header::TRANSFER_ENCODING) {
+                return Err(warp::reject::custom(ChunkedBody));
+            }
+            Ok(())
+        })
+        .untuple_one()
+        .and(warp::body::content_length_limit(BODY_LIMIT))
+        .and(warp::body::json())
+}
+
 pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallible> + Clone {
     // Matching the path before the method keeps an unknown path rejecting as
     // "not found" instead of the method mismatch another endpoint reports.
@@ -690,13 +735,13 @@ pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallibl
     let api_start = warp::path("start")
         .and(warp::path::end())
         .and(warp::post())
-        .and(warp::body::json())
+        .and(json_body())
         .and_then(start_request);
 
     let api_stop = warp::path("stop")
         .and(warp::path::end())
         .and(warp::post())
-        .and(warp::body::json())
+        .and(json_body())
         .and_then(stop_request);
 
     let api_logs = warp::path("logs")
@@ -704,11 +749,14 @@ pub(super) fn routes() -> impl Filter<Extract = (impl Reply,), Error = Infallibl
         .and(warp::get())
         .map(get_logs);
 
-    api_ping
-        .or(api_start)
-        .or(api_stop)
-        .or(api_logs)
-        .recover(handle_rejection)
+    let api = api_ping.or(api_start).or(api_stop).or(api_logs);
+    #[cfg(all(feature = "windows-service", target_os = "windows"))]
+    let api = api.or(warp::path("guard")
+        .and(warp::path::end())
+        .and(warp::post())
+        .and(json_body())
+        .and_then(guard_request));
+    api.recover(handle_rejection)
 }
 
 pub(super) fn ensure_core_sha256_configured() -> anyhow::Result<()> {
@@ -1273,6 +1321,72 @@ mod tests {
             core_path().unwrap().file_name().unwrap(),
             std::ffi::OsStr::new(env!("CORE_NAME"))
         );
+    }
+
+    #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
+    async fn bodies_over_a_kilobyte_or_chunked_are_refused_before_they_are_read() {
+        let _state = lock_process_state();
+        let session_id = "0123456789abcdef0123456789abcdef".to_string();
+        let start = StartParams {
+            address: ALLOWED_CORE_ADDRESS.to_string(),
+            session_id: session_id.clone(),
+        };
+        let stop = serde_json::to_string(&StopParams { session_id }).unwrap();
+        let mut bodies = vec![
+            ("/start", serde_json::to_string(&start).unwrap()),
+            ("/stop", stop.clone()),
+        ];
+        if cfg!(all(feature = "windows-service", target_os = "windows")) {
+            bodies.push(("/guard", r#"{"pid":0}"#.to_string()));
+        }
+        let sized =
+            |json: &str, length: usize| format!("{json}{}", " ".repeat(length - json.len()));
+        let post = |path: &str, body: String| {
+            warp::test::request()
+                .method("POST")
+                .path(path)
+                .header("content-type", "application/json")
+                .body(body)
+        };
+        for (path, json) in bodies {
+            let lying = post(path, sized(&json, 200_000))
+                .header("content-length", "10")
+                .header("transfer-encoding", "chunked");
+            for (request, kind) in [(post(path, sized(&json, 1025)), "1025"), (lying, "chunked")] {
+                let response = request.reply(&routes()).await;
+                assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{path} {kind}");
+                let reply: serde_json::Value = serde_json::from_slice(response.body()).unwrap();
+                assert_eq!(reply["code"], "invalidRequest", "{path} {kind}");
+            }
+        }
+        let response = post("/stop", sized(&stop, 1024)).reply(&routes()).await;
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[cfg(all(feature = "windows-service", target_os = "windows"))]
+    #[tokio::test]
+    async fn guard_takes_no_process_but_this_installs_app() {
+        for (body, status) in [
+            (
+                format!(r#"{{"pid":{}}}"#, std::process::id()),
+                StatusCode::FORBIDDEN,
+            ),
+            (r#"{"pid":0}"#.to_string(), StatusCode::FORBIDDEN),
+            (
+                r#"{"pid":4,"path":"other.exe"}"#.to_string(),
+                StatusCode::BAD_REQUEST,
+            ),
+        ] {
+            let response = warp::test::request()
+                .method("POST")
+                .path("/guard")
+                .header("content-type", "application/json")
+                .body(&body)
+                .reply(&routes())
+                .await;
+            assert_eq!(response.status(), status, "{body}");
+        }
     }
 
     #[cfg(not(target_os = "linux"))]

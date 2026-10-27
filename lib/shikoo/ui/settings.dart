@@ -1352,12 +1352,16 @@ class _Row extends StatelessWidget {
                     runSpacing: Space.s1,
                     children: [
                       texts,
-                      Text(
-                        value,
-                        style: t.text(
-                          s.body,
-                          color: t.c.textMuted,
-                          height: Leading.body,
+                      // Never wraps or clips: at 320 with font 1.45 the core shrinks a little.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value,
+                          style: t.text(
+                            s.body,
+                            color: t.c.textMuted,
+                            height: Leading.body,
+                          ),
                         ),
                       ),
                     ],
