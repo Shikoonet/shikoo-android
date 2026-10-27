@@ -61,6 +61,9 @@ bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) {
       ? server['peers'] as List
       : [server];
   final mtu = int.tryParse('${server['mtu']}');
+  final mtuFits =
+      server['mtu'] == null ||
+      mtu != null && (mtu == 0 || mtu >= 68 && mtu <= 65535);
   return switch (protocol) {
     ShikooProtocol.vless =>
       oneOf(server['encryption'], 'none') &&
@@ -78,11 +81,9 @@ bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) {
                 wireGuardKey(peer['public-key']) &&
                 (oneOf(peer['pre-shared-key'], '') ||
                     wireGuardKey(peer['pre-shared-key'])),
-          ),
-    ShikooProtocol.openvpn =>
-      oneOf(server['dev'], 'tun') &&
-          (server['mtu'] == null ||
-              mtu != null && (mtu == 0 || mtu >= 68 && mtu <= 65535)),
+          ) &&
+          mtuFits,
+    ShikooProtocol.openvpn => oneOf(server['dev'], 'tun') && mtuFits,
     _ => true,
   };
 }

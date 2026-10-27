@@ -111,13 +111,17 @@ func singBoxServes(proxy map[string]any) bool {
 			keys = keys && ok && key(peer["public-key"]) &&
 				(singBoxOneOf(peer["pre-shared-key"], "") || key(peer["pre-shared-key"]))
 		}
-		return keys
+		return keys && singBoxMTU(proxy["mtu"])
 	case "openvpn":
-		mtu, err := strconv.Atoi(fmt.Sprint(proxy["mtu"]))
-		return singBoxOneOf(proxy["dev"], "tun") &&
-			(proxy["mtu"] == nil || err == nil && (mtu == 0 || mtu >= 68 && mtu <= 65535))
+		return singBoxOneOf(proxy["dev"], "tun") && singBoxMTU(proxy["mtu"])
 	}
 	return true
+}
+
+// mihomo v1.19.33 checks a WireGuard MTU only when it first dials, after its parser has passed the server.
+func singBoxMTU(value any) bool {
+	mtu, err := strconv.Atoi(fmt.Sprint(value))
+	return value == nil || err == nil && (mtu == 0 || mtu >= 68 && mtu <= 65535)
 }
 
 // singBoxOneOf: absent, empty, or one of values.
