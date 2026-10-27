@@ -15,8 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/adapter"
+	"github.com/metacubex/mihomo/adapter/outbound"
 	"github.com/metacubex/mihomo/constant"
 	ovpn "github.com/metacubex/mihomo/transport/openvpn"
+	"github.com/metacubex/mihomo/tunnel"
 	"go4.org/netipx"
 )
 
@@ -149,7 +152,7 @@ func withShippedIranianSet(t *testing.T) {
 }
 
 func pushed() *ovpnTunnelSpec {
-	return &ovpnTunnelSpec{Addresses: []string{"10.8.0.2/24"}, Routes: []string{"0.0.0.0/0", "10.8.0.0/24"}}
+	return &ovpnTunnelSpec{Addresses: []string{"10.8.0.2/24"}}
 }
 
 func ipSet(values []string) *netipx.IPSet {
@@ -184,7 +187,7 @@ func TestOpenvpnsTunnelCutsIranOutOfTheRoutesBelowAndroid13(t *testing.T) {
 	}
 }
 
-func TestOpenvpnsTunnelTakesThePushedRoutesWhenIranGoesThroughIt(t *testing.T) {
+func TestOpenvpnsTunnelKeepsTheServersDNSAndMTUWhenIranGoesThroughIt(t *testing.T) {
 	withShippedIranianSet(t)
 	prepareOpenvpn(t, false)
 	spec := pushed()
@@ -197,10 +200,10 @@ func TestOpenvpnsTunnelTakesThePushedRoutesWhenIranGoesThroughIt(t *testing.T) {
 }
 
 // Android blocks a family the VPN has nothing of; a pushed IPv6 DNS server alone would have let IPv6 out beside it.
-func TestOpenvpnsTunnelLeavesAFamilyWithoutAnAddressToAndroidsBlock(t *testing.T) {
+// A family with an address goes all through the tunnel, with or without redirect-gateway from the server.
+func TestOpenvpnsTunnelTakesAllOfEachFamilyItHasAnAddressIn(t *testing.T) {
 	prepareOpenvpn(t, false)
 	spec := pushed()
-	spec.Routes = append(spec.Routes, "::/0", "2001:db8::/32")
 	spec.DNS = []string{"1.1.1.1", "2606:4700:4700::1111"}
 	plan := must(ovpnTunnel(spec, 33))
 	if !slices.Equal(plan.Routes, []string{"0.0.0.0/0"}) || !slices.Equal(plan.DNS, []string{"1.1.1.1"}) {
@@ -221,8 +224,8 @@ func TestOpenvpnsKeysAreThoseKotlinUses(t *testing.T) {
 		t.Errorf("read %+v (%v)", state, err)
 	}
 	var spec ovpnTunnelSpec
-	if err := json.Unmarshal([]byte(`{"addresses":["10.8.0.2/24"],"routes":["::/0"],"dns":["1.1.1.1"],"mtu":1500}`), &spec); err != nil ||
-		len(spec.Addresses) != 1 || len(spec.Routes) != 1 || len(spec.DNS) != 1 || spec.MTU != 1500 {
+	if err := json.Unmarshal([]byte(`{"addresses":["10.8.0.2/24"],"dns":["1.1.1.1"],"mtu":1500}`), &spec); err != nil ||
+		len(spec.Addresses) != 1 || len(spec.DNS) != 1 || spec.MTU != 1500 {
 		t.Errorf("read %+v (%v)", spec, err)
 	}
 	out, _ := json.Marshal(&ownerPlan{})
@@ -237,6 +240,30 @@ func TestOpenvpnsKeysAreThoseKotlinUses(t *testing.T) {
 		if !strings.Contains(kotlin, call) {
 			t.Errorf("Core.kt has no %s", call)
 		}
+	}
+}
+
+type ovpnCloseSpy struct {
+	constant.Proxy
+	closes *int
+}
+
+func (spy ovpnCloseSpy) Close() error {
+	*spy.closes++
+	return nil
+}
+
+// A session mihomo's client opened while off (a ping round) would otherwise outlive the gate and take the engine's.
+func TestTheEngineTakingAServerClosesMihomosClientOfItOnce(t *testing.T) {
+	registerTestOpenvpn(t)
+	closes := 0
+	proxies, providers := tunnel.Proxies(), tunnel.Providers()
+	tunnel.UpdateProxies(map[string]constant.Proxy{"ov": ovpnCloseSpy{adapter.NewProxy(outbound.NewDirect()), &closes}}, providers)
+	t.Cleanup(func() { tunnel.UpdateProxies(proxies, providers) })
+	ovpnState(&ovpnStateParams{Session: 1, Server: "ov"})
+	ovpnState(&ovpnStateParams{Session: 1, Server: "ov", Up: true})
+	if closes != 1 {
+		t.Errorf("mihomo's client of the server was closed %d times", closes)
 	}
 }
 
@@ -267,14 +294,14 @@ func TestTheServiceTellsTheRegistryWhatOpenvpnCarries(t *testing.T) {
 }
 
 // resetServer answers a client's hard reset as an OpenVPN server does, over UDP or TCP.
-func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor) string {
+func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode ovpn.Opcode) string {
 	t.Helper()
 	answer := func(packet []byte) []byte {
 		reset, _, _, err := ovpn.DecodeControlPacket(crypt, packet)
 		if err != nil || reset.Opcode != ovpn.PControlHardResetClientV2 {
 			return nil
 		}
-		reply := ovpn.ControlPacket{Opcode: ovpn.PControlHardResetServerV2, LocalSession: must(ovpn.NewSessionID()),
+		reply := ovpn.ControlPacket{Opcode: opcode, LocalSession: must(ovpn.NewSessionID()),
 			AckIDs: []uint32{reset.MessageID}, AckRemoteSession: reset.LocalSession}
 		return must(reply.Encode(crypt, 1, uint32(time.Now().Unix())))
 	}
@@ -351,7 +378,7 @@ func TestOpenvpnsPingIsTheServersAnswerToAReset(t *testing.T) {
 		{"udp tls-crypt", "udp", serverCrypt, map[string]any{"tls-crypt": cryptPEM}},
 		{"tcp tls-crypt", "tcp", serverCrypt, map[string]any{"tls-crypt": cryptPEM, "proto": "tcp"}},
 	} {
-		address := resetServer(t, c.network, c.server)
+		address := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2)
 		if value := pingOpenvpn(t, address, c.set, true); value <= 0 {
 			t.Errorf("%s: ping %d", c.name, value)
 		}
@@ -360,8 +387,12 @@ func TestOpenvpnsPingIsTheServersAnswerToAReset(t *testing.T) {
 		}
 	}
 	wrongPEM, _ := staticKey(t)
-	address := resetServer(t, "udp", serverCrypt)
+	address := resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV2)
 	if value := pingOpenvpn(t, address, map[string]any{"tls-crypt": wrongPEM}, true); value != -1 {
 		t.Errorf("a server that cannot read the reset answered in %d ms", value)
+	}
+	address = resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV1)
+	if value := pingOpenvpn(t, address, map[string]any{"tls-crypt": cryptPEM}, true); value != -1 {
+		t.Errorf("a key-method 1 answer, which the engine cannot use, counted as a ping of %d ms", value)
 	}
 }

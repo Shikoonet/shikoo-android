@@ -48,7 +48,6 @@ type ovpnSession struct {
 
 type ovpnTunnelSpec struct {
 	Addresses []string `json:"addresses"`
-	Routes    []string `json:"routes"`
 	DNS       []string `json:"dns"`
 	MTU       int      `json:"mtu"`
 }
@@ -164,24 +163,21 @@ func ovpnTunnel(spec *ovpnTunnelSpec, sdk int) (*ownerPlan, error) {
 	if session == nil {
 		return nil, errors.New("no server prepared")
 	}
-	// Android blocks a family the VPN has nothing of; a route or DNS server alone would open it outside the tunnel.
+	// All of a family the tunnel has an address in goes through it, whatever routes the server pushed (the lead,
+	// 2026-10-28); Android blocks a family it has nothing of, which a DNS server alone would open outside it.
 	carried := map[bool]bool{}
+	var b netipx.IPSetBuilder
 	for _, value := range spec.Addresses {
 		prefix, err := netip.ParsePrefix(value)
 		if err != nil {
 			return nil, err
 		}
 		carried[prefix.Addr().Is4()] = true
-	}
-	var b netipx.IPSetBuilder
-	for _, value := range spec.Routes {
-		prefix, err := netip.ParsePrefix(value)
-		if err != nil {
-			return nil, err
+		every := netip.IPv6Unspecified()
+		if prefix.Addr().Is4() {
+			every = netip.IPv4Unspecified()
 		}
-		if carried[prefix.Addr().Is4()] {
-			b.AddPrefix(prefix.Masked())
-		}
+		b.AddPrefix(netip.PrefixFrom(every, 0))
 	}
 	routes, err := b.IPSet()
 	if err != nil {

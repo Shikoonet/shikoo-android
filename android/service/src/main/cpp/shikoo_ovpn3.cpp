@@ -34,12 +34,11 @@ std::string list(const std::vector<std::string> &items) {
 struct Client : OpenVPNClient {
     jobject engine = nullptr;
     jmethodID protectId = nullptr, establishId = nullptr, eventId = nullptr;
-    std::vector<std::string> addresses, routes, dns;
+    std::vector<std::string> addresses, dns;
     int mtu = 0;
 
     bool tun_builder_new() override {
         addresses.clear();
-        routes.clear();
         dns.clear();
         mtu = 0;
         return true;
@@ -54,16 +53,13 @@ struct Client : OpenVPNClient {
         return true;
     }
 
-    bool tun_builder_add_route(const std::string &address, int prefix, int, bool) override {
-        routes.push_back(address + "/" + std::to_string(prefix));
-        return true;
-    }
+    // Every family with an address goes all through the tunnel (core/shikoo_ovpn.go), so pushed routes,
+    // net_gateway ones included, change nothing.
+    bool tun_builder_add_route(const std::string &, int, int, bool) override { return true; }
 
-    bool tun_builder_reroute_gw(bool ipv4, bool ipv6, unsigned int) override {
-        if (ipv4) routes.emplace_back("0.0.0.0/0");
-        if (ipv6) routes.emplace_back("::/0");
-        return true;
-    }
+    bool tun_builder_exclude_route(const std::string &, int, int, bool) override { return true; }
+
+    bool tun_builder_reroute_gw(bool, bool, unsigned int) override { return true; }
 
     bool tun_builder_set_dns_options(const openvpn::DnsOptions &options) override {
         for (const auto &server : options.servers)
@@ -89,8 +85,8 @@ struct Client : OpenVPNClient {
 
     int tun_builder_establish() override {
         JNIEnv *e = env();
-        std::string spec = "{\"addresses\":" + list(addresses) + ",\"routes\":" + list(routes) +
-                           ",\"dns\":" + list(dns) + ",\"mtu\":" + std::to_string(mtu) + "}";
+        std::string spec = "{\"addresses\":" + list(addresses) + ",\"dns\":" + list(dns) +
+                           ",\"mtu\":" + std::to_string(mtu) + "}";
         jstring s = e->NewStringUTF(spec.c_str());
         jint fd = e->CallIntMethod(engine, establishId, s);
         e->DeleteLocalRef(s);
