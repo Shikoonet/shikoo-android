@@ -25,6 +25,16 @@ for patch in "$root"/tools/core-patches/*.patch; do
   fi
 done
 
+# Lines of row ۷۰ no test reaches: a rebuilt patch that drops one still compiles and passes every test.
+require() {
+  if ! grep -qF "$2" "$core/$1"; then
+    echo "core/Clash.Meta/$1 lacks '$2': rebuild openvpn-pushed-keepalive.patch as row ۷۰ in SHIKOO_PATCHES.md says." >&2
+    exit 1
+  fi
+}
+require adapter/outbound/openvpn.go 'startPacketLoops(o.config.ShikooKeepalive(push))'
+require transport/openvpn/client.go 'writeDataPacket(ctx, openVPNPingPacket, true)'
+
 # sing-tun is a module the core downloads, not part of the submodule: core/go.mod replaces the version mihomo pins with
 # a patched copy made here, and go mod download checks that version against mihomo's go.sum.
 singtun=v0.4.27

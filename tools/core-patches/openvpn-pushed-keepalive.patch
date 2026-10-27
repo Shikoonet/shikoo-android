@@ -111,7 +111,7 @@ index 51690c3..0e6b9bd 100644
  func (c ClientConfig) DataCipherKeyLength() int {
  	return CipherKeyLength(c.Cipher)
 diff --git a/transport/openvpn/push.go b/transport/openvpn/push.go
-index df84904..f89a1b0 100644
+index df84904..2ee6821 100644
 --- a/transport/openvpn/push.go
 +++ b/transport/openvpn/push.go
 @@ -29,6 +29,11 @@ type PushReply struct {
@@ -132,7 +132,7 @@ index df84904..f89a1b0 100644
  			}
 +		case "ping", "ping-restart":
 +			if len(fields) >= 2 {
-+				seconds, err := strconv.Atoi(fields[1])
++				seconds, err := strconv.ParseInt(fields[1], 10, 64)
 +				if err != nil || seconds <= 0 {
 +					continue
 +				}
