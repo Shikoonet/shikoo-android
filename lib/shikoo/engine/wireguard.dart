@@ -23,10 +23,11 @@ bool _tunnelReachesDns(Map proxy) {
   if (proxy['udp'] != true || '${proxy['ip'] ?? ''}'.isEmpty) return false;
   final peers = proxy['peers'];
   if (peers is! List || peers.isEmpty) return true;
-  final nets = [
-    for (final peer in peers)
-      if (peer is Map) ...?(peer['allowed-ips'] as List?),
-  ];
+  final nets = [];
+  for (final peer in peers) {
+    if (peer is! Map || peer['allowed-ips'] is! List) return false;
+    nets.addAll(peer['allowed-ips'] as List);
+  }
   return _tunnelDns.every((ip) => nets.any((net) => _covers('$net', ip)));
 }
 

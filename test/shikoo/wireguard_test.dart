@@ -121,6 +121,7 @@ void main() {
     test("not when the peers' allowed-ips leave 1.1.1.1 or 8.8.8.8 out", () {
       expect(resolvesInside(peers(['104.16.0.0/12', '10.99.0.0/16'])), isFalse);
       expect(resolvesInside(peers(['1.1.1.1/32'])), isFalse);
+      expect(resolvesInside(peers(['1.1.1.1'])), isFalse);
       expect(
         resolvesInside(peers(['::/0', 'nonsense', '8.8.8.8/33'])),
         isFalse,
@@ -128,6 +129,16 @@ void main() {
       expect(resolvesInside(peers(['0.0.0.0/0'])), isTrue);
       expect(resolvesInside(peers(['0.0.0.0/1', '128.0.0.0/1'])), isTrue);
       expect(resolvesInside(peers(['1.1.1.1', '8.8.0.0/16'])), isTrue);
+    });
+
+    test('not, and no error, when allowed-ips is not a list', () {
+      final proxy = _wireGuard('wg', {
+        'peers': [
+          {'server': '203.0.113.7', 'port': 51820, 'allowed-ips': '0.0.0.0/0'},
+        ],
+      });
+      expect(() => wireGuardDefaults(proxy), returnsNormally);
+      expect(proxy.containsKey('remote-dns-resolve'), isFalse);
     });
   });
 }
