@@ -49,7 +49,7 @@ const (
 	wgKeepalive = 100
 )
 
-var wgDNS = []string{"1.1.1.1", "8.8.8.8"}
+var wgDNS = []string{"1.1.1.1", "8.8.8.8", "2606:4700:4700::1111", "2001:4860:4860::8888"}
 
 // excludeRoute is Android 13's; below it the Iranian ranges are cut out of the routes instead.
 const excludeRouteSdk = 33
@@ -189,6 +189,11 @@ func wgPlan(
 	}
 	var uapi strings.Builder
 	uapi.WriteString("private_key=" + private + "\nreplace_peers=true\n")
+	// Android blocks a family the VPN has nothing of; a route or DNS server alone would open it outside the tunnel.
+	carried := map[bool]bool{}
+	for _, address := range addresses {
+		carried[address.Addr().Is4()] = true
+	}
 	var allowed netipx.IPSetBuilder
 	var first device.NoisePublicKey
 	for i, peer := range peers {
@@ -221,7 +226,9 @@ func wgPlan(
 			if err != nil {
 				return nil, nil, err
 			}
-			allowed.AddPrefix(prefix.Masked())
+			if carried[prefix.Addr().Is4()] {
+				allowed.AddPrefix(prefix.Masked())
+			}
 			uapi.WriteString("allowed_ip=" + prefix.Masked().String() + "\n")
 		}
 	}
@@ -233,13 +240,15 @@ func wgPlan(
 	for _, address := range addresses {
 		plan.Addresses = append(plan.Addresses, address.String())
 	}
-	for _, server := range option.Dns {
-		if ip, err := netip.ParseAddr(server); err == nil {
-			plan.DNS = append(plan.DNS, ip.String())
+	for _, servers := range [][]string{option.Dns, wgDNS} {
+		for _, server := range servers {
+			if ip, err := netip.ParseAddr(server); err == nil && carried[ip.Unmap().Is4()] {
+				plan.DNS = append(plan.DNS, ip.String())
+			}
 		}
-	}
-	if len(plan.DNS) == 0 {
-		plan.DNS = wgDNS
+		if len(plan.DNS) > 0 {
+			break
+		}
 	}
 	routes, err := allowed.IPSet()
 	if err != nil {
@@ -548,7 +557,7 @@ func (o *wgOwner) testDelay(params *TestDelayParams) *Delay {
 			return delay
 		}
 	}
-	for deadline := start.Add(delayTestTimeout(params.Timeout)); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+	for deadline := time.Now().Add(delayTestTimeout(params.Timeout)); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
 		if at := o.lastHandshake(); !at.Before(asked) {
 			delay.Value = int32(max(at.Sub(asked).Milliseconds(), 1))
 			return delay
