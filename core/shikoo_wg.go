@@ -460,20 +460,8 @@ func forgetWhenClosed(owner *wgOwner) {
 }
 
 func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
-	logger := &device.Logger{
-		Verbosef: device.DiscardLogf,
-		Errorf:   func(format string, args ...any) { log.Warnln("[WG] "+format, args...) },
-	}
-	dev := device.NewDevice(countingTun{t}, wgconn.NewDefaultBind(), logger)
-	// Up would send a keepalive, and so an initiation, before the engine could time one of its own.
-	keepalive := "public_key=" + hex.EncodeToString(prepared.peer[:]) + "\nupdate_only=true\npersistent_keepalive_interval="
-	if err := dev.IpcSet(prepared.uapi + keepalive + "0\n"); err != nil {
-		dev.Close()
-		return nil, err
-	}
-	dev.DisableSomeRoamingForBrokenMobileSemantics()
-	if err := dev.Up(); err != nil {
-		dev.Close()
+	dev, err := upWithoutKeepalive(t, prepared)
+	if err != nil {
 		return nil, err
 	}
 	owner := &wgOwner{server: prepared.server, dev: dev, peer: dev.LookupPeer(prepared.peer)}
@@ -482,12 +470,36 @@ func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
 		_ = owner.peer.SendHandshakeInitiation(false)
 	}
 	if prepared.keepalive > 0 {
-		if err := dev.IpcSet(keepalive + strconv.Itoa(prepared.keepalive) + "\n"); err != nil {
+		if err := dev.IpcSet(keepaliveOf(prepared) + strconv.Itoa(prepared.keepalive) + "\n"); err != nil {
 			dev.Close()
 			return nil, err
 		}
 	}
 	return owner, nil
+}
+
+// Up would send a keepalive, and so an initiation, before the engine could time one of its own.
+func upWithoutKeepalive(t tun.Device, prepared *wgPrepared) (*device.Device, error) {
+	logger := &device.Logger{
+		Verbosef: device.DiscardLogf,
+		Errorf:   func(format string, args ...any) { log.Warnln("[WG] "+format, args...) },
+	}
+	dev := device.NewDevice(countingTun{t}, wgconn.NewDefaultBind(), logger)
+	held := "persistent_keepalive_interval=" + strconv.Itoa(prepared.keepalive) + "\n"
+	if err := dev.IpcSet(strings.Replace(prepared.uapi, held, "persistent_keepalive_interval=0\n", 1)); err != nil {
+		dev.Close()
+		return nil, err
+	}
+	dev.DisableSomeRoamingForBrokenMobileSemantics()
+	if err := dev.Up(); err != nil {
+		dev.Close()
+		return nil, err
+	}
+	return dev, nil
+}
+
+func keepaliveOf(prepared *wgPrepared) string {
+	return "public_key=" + hex.EncodeToString(prepared.peer[:]) + "\nupdate_only=true\npersistent_keepalive_interval="
 }
 
 func stopOwner() {
