@@ -152,6 +152,8 @@ internal class ServiceStateMachine(
 
     fun requestStop(): Deferred<Boolean> {
         val request = createRequest(running = false)
+        // Shikoo: an OpenVPN start waits for its server under the transition lock this stop needs.
+        host.abandonStart()
         val result = CompletableDeferred<Boolean>()
         host.scope.launch {
             result.complete(

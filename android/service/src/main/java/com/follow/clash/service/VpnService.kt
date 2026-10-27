@@ -31,6 +31,7 @@ class VpnService : SystemVpnService(), ManagedService {
     private val binder = LocalBinder()
     private val tunLock = Any()
     private var tunRunning = false
+    @Volatile
     private var openVpn: OpenVpn? = null
 
     override fun onDestroy() {
@@ -319,6 +320,10 @@ class VpnService : SystemVpnService(), ManagedService {
             stop()
             throw error
         }
+    }
+
+    override fun abandonStart() {
+        openVpn?.abandon()
     }
 
     override fun stop() {

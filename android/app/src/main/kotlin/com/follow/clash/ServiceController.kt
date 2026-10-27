@@ -29,6 +29,7 @@ import kotlin.coroutines.resume
 
 object ServiceController {
     private val lock = Mutex()
+    @Volatile
     private var binding: ManagedServiceBinding? = null
     @Volatile
     private var runTimeMillis = 0L
@@ -105,6 +106,11 @@ object ServiceController {
             runTimeMillis = System.currentTimeMillis()
         }
         runTimeMillis
+    }
+
+    // Shikoo: outside [lock], which the start being abandoned holds.
+    fun abandonStart() {
+        binding?.connected()?.abandonStart()
     }
 
     suspend fun stop() = lock.withLock {
@@ -196,6 +202,8 @@ private class ManagedServiceBinding(
             block(service)
         }
     }
+
+    fun connected(): ManagedService? = serviceState.value?.getOrNull()
 
     suspend fun stopIfConnected(): Result<Unit> = runCatching {
         val service = serviceState.value?.getOrNull() ?: return@runCatching

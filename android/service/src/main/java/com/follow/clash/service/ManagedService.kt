@@ -9,6 +9,9 @@ interface ManagedService {
     fun start()
 
     fun stop()
+
+    // Shikoo: a start still waiting on its tunnel gives up, so a newer stop is not held behind it.
+    fun abandonStart() {}
 }
 
 internal fun Service.notifyVpnStartRequested() {

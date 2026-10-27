@@ -29,6 +29,9 @@ internal class OpenVpn(
     private var stopping = false
 
     @Volatile
+    private var abandoned = false
+
+    @Volatile
     private var ended: String? = null
 
     // A refused login ends run() without an error of its own: the event said why.
@@ -48,11 +51,18 @@ internal class OpenVpn(
         }, "OpenVPN").apply { start() }
         if (!settled.await(seconds, TimeUnit.SECONDS)) return Failure(false, "no connection in $seconds s")
         if (connected) return null
+        if (abandoned) return Failure(false, "a stop came first")
         val reason = ended.orEmpty()
         return Failure(reason.startsWith(REFUSED), reason)
     }
 
     // halt() is lost until the session takes calls from another thread, so it is repeated.
+    /** Ends [start]'s wait at once, from any thread; [stop] then ends the session. */
+    fun abandon() {
+        abandoned = true
+        settled.countDown()
+    }
+
     fun stop() {
         stopping = true
         val running = thread ?: return

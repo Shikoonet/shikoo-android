@@ -7,6 +7,7 @@ import com.follow.clash.service.models.AccessControlProps
 import com.follow.clash.service.models.NotificationParams
 import com.follow.clash.service.models.VpnOptions
 import com.google.gson.Gson
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -93,6 +94,8 @@ private class FakeHost(override val scope: CoroutineScope) : ServiceStateHost {
     var tile: TileGateway? = null
     var app: AppGateway? = null
     var beforeStartService: (() -> Unit)? = null
+    var startWaitsUntilAbandoned: CompletableDeferred<Unit>? = null
+    var abandonCalls = 0
 
     override var runTimeMillis = 0L
     override val homeDirPath = "/data/user/0/com.follow.clash/files"
@@ -142,6 +145,10 @@ private class FakeHost(override val scope: CoroutineScope) : ServiceStateHost {
     override suspend fun startService(options: VpnOptions): Long {
         startCalls++
         beforeStartService?.invoke()
+        startWaitsUntilAbandoned?.let {
+            it.await()
+            return 0L
+        }
         runTimeMillis = startResult
         return startResult
     }
@@ -152,6 +159,11 @@ private class FakeHost(override val scope: CoroutineScope) : ServiceStateHost {
     }
 
     override suspend fun isVpnServiceActive(): Boolean = vpnServiceActive
+
+    override fun abandonStart() {
+        abandonCalls++
+        startWaitsUntilAbandoned?.complete(Unit)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -559,6 +571,27 @@ class ServiceStateMachineTest {
 
         assertEquals(listOf(false), host.crashlytics)
         assertEquals(listOf(NotificationParams("Work", "Disconnect", true)), host.notificationParams)
+    }
+
+    // An OpenVPN start waits for its server under the transition lock: the stop must not queue behind it.
+    @Test
+    fun `a stop ends a start still waiting for its tunnel instead of waiting behind it`() = runTest {
+        val host = FakeHost(backgroundScope)
+        val machine = ServiceStateMachine(host)
+        machine.syncSharedState(configuredState())
+        host.startWaitsUntilAbandoned = CompletableDeferred()
+
+        val started = machine.requestStart()
+        testScheduler.runCurrent()
+        assertEquals(RunState.STARTING, machine.runState.value)
+        val stopped = machine.requestStop()
+        testScheduler.runCurrent()
+
+        assertTrue(stopped.isCompleted)
+        assertFalse(started.await())
+        assertEquals(1, host.abandonCalls)
+        assertEquals(RunState.STOPPED, machine.runState.value)
+        assertFalse(machine.captureRequestToken().running)
     }
 
     @Test
