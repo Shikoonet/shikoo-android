@@ -558,6 +558,51 @@ func TestAPingRightAfterTheEnginesHandshakeTimesThatHandshake(t *testing.T) {
 	}
 }
 
+func TestUpSendsNoInitiationBeforeTheEnginesOwn(t *testing.T) {
+	private, public := wgKeyPair(t)
+	server, _, serverPublic, port := wgServer(t, public)
+	t.Cleanup(server.Close)
+	_, prepared, err := wgPlan(map[string]any{
+		"name": "wg", "type": "wireguard", "server": "127.0.0.1", "port": port, "ip": "10.13.13.2",
+		"private-key": b64(private), "public-key": b64(serverPublic), "persistent-keepalive": 25,
+	}, nil, 35, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev, err := upWithoutKeepalive(tuntest.NewChannelTUN().TUN(), wgconn.NewDefaultBind(), prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(dev.Close)
+	time.Sleep(300 * time.Millisecond)
+	if at := (&wgOwner{dev: dev}).lastHandshake(); !at.IsZero() {
+		t.Errorf("Up shook hands at %v, before the engine could stamp its own ask", at)
+	}
+}
+
+// Windows' adapter never sends EventUp, so only the engine's own Up brings the device up there.
+func TestUpOnWindowsWintunSendsNoInitiationBeforeTheEnginesOwn(t *testing.T) {
+	private, public := wgKeyPair(t)
+	server, _, serverPublic, port := wgServer(t, public)
+	t.Cleanup(server.Close)
+	_, prepared, err := wgPlan(map[string]any{
+		"name": "wg", "type": "wireguard", "server": "127.0.0.1", "port": port, "ip": "10.13.13.2",
+		"private-key": b64(private), "public-key": b64(serverPublic), "persistent-keepalive": 25,
+	}, nil, windowsSdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev, err := upWithoutKeepalive(newWinTun(newFakeWintun(), "ShikooNet", 1280), wgconn.NewDefaultBind(), prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(dev.Close)
+	time.Sleep(300 * time.Millisecond)
+	if at := (&wgOwner{dev: dev}).lastHandshake(); !at.IsZero() {
+		t.Errorf("Up shook hands at %v, before the engine could stamp its own ask", at)
+	}
+}
+
 func TestTheEngineShakesHandsAtStartWithoutAKeepalive(t *testing.T) {
 	startTestOwner(t, map[string]any{"persistent-keepalive": 0})
 	owner := ownerRunning.Load()
