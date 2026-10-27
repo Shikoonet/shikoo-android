@@ -1086,9 +1086,10 @@ class ShikooController {
     _ref.listen(initProvider, (_, init) {
       if (init) scheduleMicrotask(_loadSources);
     });
-    // An update that changes the key or address of the server an owner core carries.
+    // An update that changes the key or address of the server an owner core carries; Windows' Go rebuilds in place.
     _ref.listen(_serverSourceProvider, (was, now) {
-      if (was != null &&
+      if (!_ref.read(shikooDesktopProvider) &&
+          was != null &&
           (was.id, was.name) == (now.id, now.name) &&
           was.source != null &&
           now.source != null &&
@@ -1511,7 +1512,8 @@ class ShikooController {
   );
 
   /// While connected the core takes the new rules in place, with no reconnect.
-  /// An owner core sets Iran's routes only when it builds the VPN, so there the switch reconnects, as [setMode] does.
+  /// An owner core sets Iran's routes only when it builds the VPN, so on Android the switch reconnects, as [setMode]
+  /// does; Windows' Go rebuilds its engine for the new config in place (core/shikoo_wg_windows.go).
   Future<void> setIranDirect(bool on) {
     _iranSaved = _ref.read(shikooIranDirectProvider.notifier).set(on);
     if (_iranApplying case final applying?) {
@@ -1524,7 +1526,7 @@ class ShikooController {
         await keepIranDirect(_ref.read(shikooIranDirectProvider));
         if (_running) await _setup.applyProfile(silence: true);
         await _iranSaved;
-        await _rebuildOwnerTunnel();
+        if (!_ref.read(shikooDesktopProvider)) await _rebuildOwnerTunnel();
       } while (_iranAgain);
     }().whenComplete(() => _iranApplying = null);
   }

@@ -158,6 +158,20 @@ func TestGoRebuildingTheEngineForANewKeyIsNoDeathToTheAppsWatch(t *testing.T) {
 	}
 }
 
+func TestARebuildThatFailsStopsReportingTheServer(t *testing.T) {
+	pick := "W"
+	w, write := wireTun(t, &pick)
+	on := LC.Tun{Enable: true, Device: "ShikooNet"}
+	reCreateTun(on)
+	w.fail = true
+
+	write("  - RULE-SET,shikoo-ir-ip,DIRECT,no-resolve\n  - MATCH,main\n")
+	reCreateTun(on)
+	if got := windowsCarrying(); got != "" {
+		t.Errorf("after a failed rebuild Go still reports %q while mihomo carries the server", got)
+	}
+}
+
 func TestAWindowsEngineThatWouldNotStartLeavesTheServerOnMihomosTunUntilTheNextRun(t *testing.T) {
 	pick := "W"
 	w, _ := wireTun(t, &pick)
