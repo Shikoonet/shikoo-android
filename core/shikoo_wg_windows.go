@@ -135,7 +135,27 @@ func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) 
 		resolver.ResetConnection()
 	})
 
-	// On-link routes, as wireguard-windows adds them: the tunnel's own /32 has no next address for sing-tun's gateway.
+	options := wintunOptions(device, plan)
+	wintun, err := newWintun(options)
+	if err != nil {
+		return err
+	}
+	ownerMu.Lock()
+	ownerPrepared = prepared
+	ownerMu.Unlock()
+	if err = startOwner(newWinTun(wintun, device, plan.MTU), bind); err != nil {
+		return err
+	}
+	owner.finder = &physicalFinder{owner.monitor}
+	if !dialer.DefaultInterfaceFinder.CompareAndSwap(nil, owner.finder) {
+		log.Warnln("[WG] another interface finder holds mihomo's dialer")
+	}
+	ownerTun = owner
+	return nil
+}
+
+// On-link routes as wireguard-windows adds them; IPv6 comes in to be dropped, as Windows lets a missing family out.
+func wintunOptions(device string, plan *ownerPlan) singtun.Options {
 	options := singtun.Options{
 		Name:         device,
 		MTU:          uint32(plan.MTU),
@@ -157,25 +177,14 @@ func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) 
 			options.Inet6RouteAddress = append(options.Inet6RouteAddress, prefix)
 		}
 	}
+	if len(options.Inet6Address) == 0 {
+		options.Inet6Address = []netip.Prefix{netip.MustParsePrefix("fdfe:dcba:9876::1/128")}
+		options.Inet6RouteAddress = []netip.Prefix{netip.MustParsePrefix("::/0")}
+	}
 	for _, value := range plan.DNS {
 		options.DNSServers = append(options.DNSServers, netip.MustParseAddr(value))
 	}
-	wintun, err := newWintun(options)
-	if err != nil {
-		return err
-	}
-	ownerMu.Lock()
-	ownerPrepared = prepared
-	ownerMu.Unlock()
-	if err = startOwner(newWinTun(wintun, device, plan.MTU), bind); err != nil {
-		return err
-	}
-	owner.finder = &physicalFinder{owner.monitor}
-	if !dialer.DefaultInterfaceFinder.CompareAndSwap(nil, owner.finder) {
-		log.Warnln("[WG] another interface finder holds mihomo's dialer")
-	}
-	ownerTun = owner
-	return nil
+	return options
 }
 
 // mihomo's tunNew: an adapter of the same name still going away answers slowly that it already exists.

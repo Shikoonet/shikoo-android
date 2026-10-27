@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/metacubex/mihomo/constant"
 	LC "github.com/metacubex/mihomo/listener/config"
+	singtun "github.com/metacubex/sing-tun"
 	"golang.zx2c4.com/wireguard/conn/bindtest"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun/tuntest"
@@ -191,5 +193,32 @@ func TestAWindowsEngineThatWouldNotStartLeavesTheServerOnMihomosTunUntilTheNextR
 	reCreateTun(on)
 	if len(w.starts) != 1 || ownerServer() != "W" {
 		t.Errorf("starts %v: the next run must ask for the engine again", w.starts)
+	}
+}
+
+func TestAWindowsTunnelWithoutIPv6TakesIPv6InWithNoIPv6DNS(t *testing.T) {
+	v4, _, err := wgPlan(wgMapping(t, map[string]any{"dns": []string{"1.1.1.1", "2606:4700:4700::1111"}}),
+		nil, windowsSdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := wintunOptions("ShikooNet", v4)
+	if len(options.Inet6Address) != 1 || singtun.HasNextAddress(options.Inet6Address[0], 1) ||
+		!slices.Equal(options.Inet6RouteAddress, []netip.Prefix{netip.MustParsePrefix("::/0")}) {
+		t.Errorf("IPv6 address %v, routes %v: IPv6 must come into the tunnel with no address sing-tun makes a DNS of",
+			options.Inet6Address, options.Inet6RouteAddress)
+	}
+	if slices.ContainsFunc(options.DNSServers, netip.Addr.Is6) {
+		t.Errorf("DNS %v: an IPv6 server the tunnel cannot reach", options.DNSServers)
+	}
+
+	dual, _, err := wgPlan(wgMapping(t, map[string]any{"ipv6": "fd00::2"}), nil, windowsSdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	options = wintunOptions("ShikooNet", dual)
+	if !slices.Equal(options.Inet6Address, []netip.Prefix{netip.MustParsePrefix("fd00::2/128")}) ||
+		!slices.Contains(options.Inet6RouteAddress, netip.MustParsePrefix("::/0")) {
+		t.Errorf("a tunnel with its own IPv6 got %v, routes %v", options.Inet6Address, options.Inet6RouteAddress)
 	}
 }
