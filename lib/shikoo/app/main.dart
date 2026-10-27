@@ -9,6 +9,7 @@ import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/app/licenses.dart';
 import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
@@ -47,6 +48,7 @@ void main(List<String> args) {
       try {
         await shikooDiag.start(await appPath.homeDirPath);
         await loadShikooFonts();
+        if (Platform.isAndroid) addNativeLicenses();
         await RustLib.init();
         final version = await system.init();
         if (clockTooEarly(DateTime.now())) await _untilClockRight();
