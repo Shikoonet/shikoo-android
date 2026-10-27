@@ -1,6 +1,7 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/wireguard.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaml/yaml.dart';
 
@@ -91,5 +92,42 @@ void main() {
 
     expect(main.servers['wg'], {..._wireGuard('wg'), ..._filled});
     expect(main.servers['vless'], _vless);
+  });
+
+  group('names inside the tunnel only where its DNS lookups can pass', () {
+    bool resolvesInside(Map<String, dynamic> panel) {
+      final proxy = _wireGuard('wg', panel);
+      wireGuardDefaults(proxy);
+      return proxy['remote-dns-resolve'] == true;
+    }
+
+    Map<String, dynamic> peers(List<String> allowed) => {
+      'peers': [
+        {'server': '203.0.113.7', 'port': 51820, 'allowed-ips': allowed},
+      ],
+    };
+
+    test('not when the panel turned UDP off: the core sends no UDP then', () {
+      expect(resolvesInside({'udp': false}), isFalse);
+      expect(resolvesInside({'udp': true}), isTrue);
+    });
+
+    test('not without an IPv4 address: the lookups go to 1.1.1.1 and '
+        '8.8.8.8', () {
+      expect(resolvesInside({'ip': null, 'ipv6': 'fd00::7'}), isFalse);
+      expect(resolvesInside({'ipv6': 'fd00::8'}), isTrue);
+    });
+
+    test("not when the peers' allowed-ips leave 1.1.1.1 or 8.8.8.8 out", () {
+      expect(resolvesInside(peers(['104.16.0.0/12', '10.99.0.0/16'])), isFalse);
+      expect(resolvesInside(peers(['1.1.1.1/32'])), isFalse);
+      expect(
+        resolvesInside(peers(['::/0', 'nonsense', '8.8.8.8/33'])),
+        isFalse,
+      );
+      expect(resolvesInside(peers(['0.0.0.0/0'])), isTrue);
+      expect(resolvesInside(peers(['0.0.0.0/1', '128.0.0.0/1'])), isTrue);
+      expect(resolvesInside(peers(['1.1.1.1', '8.8.0.0/16'])), isTrue);
+    });
   });
 }
