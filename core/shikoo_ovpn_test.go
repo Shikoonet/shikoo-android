@@ -196,6 +196,23 @@ func TestOpenvpnsTunnelTakesThePushedRoutesWhenIranGoesThroughIt(t *testing.T) {
 	}
 }
 
+// Android blocks a family the VPN has nothing of; a pushed IPv6 DNS server alone would have let IPv6 out beside it.
+func TestOpenvpnsTunnelLeavesAFamilyWithoutAnAddressToAndroidsBlock(t *testing.T) {
+	prepareOpenvpn(t, false)
+	spec := pushed()
+	spec.Routes = append(spec.Routes, "::/0", "2001:db8::/32")
+	spec.DNS = []string{"1.1.1.1", "2606:4700:4700::1111"}
+	plan := must(ovpnTunnel(spec, 33))
+	if !slices.Equal(plan.Routes, []string{"0.0.0.0/0"}) || !slices.Equal(plan.DNS, []string{"1.1.1.1"}) {
+		t.Errorf("an IPv4-only tunnel: routes %v, dns %v", plan.Routes, plan.DNS)
+	}
+	spec.Addresses = append(spec.Addresses, "fd00:8::2/64")
+	plan = must(ovpnTunnel(spec, 33))
+	if !slices.Equal(plan.Routes, []string{"0.0.0.0/0", "::/0"}) || len(plan.DNS) != 2 {
+		t.Errorf("a dual-stack tunnel: routes %v, dns %v", plan.Routes, plan.DNS)
+	}
+}
+
 // The keys Kotlin's Core.openvpnState sends, and the plan's it reads (VpnService.addOwnerTunnel).
 func TestOpenvpnsKeysAreThoseKotlinUses(t *testing.T) {
 	var state ovpnStateParams

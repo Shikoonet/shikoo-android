@@ -65,12 +65,6 @@ struct Client : OpenVPNClient {
         return true;
     }
 
-    // A blocked family is routed into the VPN, where nothing answers it.
-    bool tun_builder_set_allow_family(int family, bool allow) override {
-        if (!allow) routes.emplace_back(family == AF_INET6 ? "::/0" : "0.0.0.0/0");
-        return true;
-    }
-
     bool tun_builder_set_dns_options(const openvpn::DnsOptions &options) override {
         for (const auto &server : options.servers)
             for (const auto &address : server.second.addresses) dns.push_back(address.address);

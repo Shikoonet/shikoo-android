@@ -164,21 +164,34 @@ func ovpnTunnel(spec *ovpnTunnelSpec, sdk int) (*ownerPlan, error) {
 	if session == nil {
 		return nil, errors.New("no server prepared")
 	}
+	// Android blocks a family the VPN has nothing of; a route or DNS server alone would open it outside the tunnel.
+	carried := map[bool]bool{}
+	for _, value := range spec.Addresses {
+		prefix, err := netip.ParsePrefix(value)
+		if err != nil {
+			return nil, err
+		}
+		carried[prefix.Addr().Is4()] = true
+	}
 	var b netipx.IPSetBuilder
 	for _, value := range spec.Routes {
 		prefix, err := netip.ParsePrefix(value)
 		if err != nil {
 			return nil, err
 		}
-		b.AddPrefix(prefix.Masked())
+		if carried[prefix.Addr().Is4()] {
+			b.AddPrefix(prefix.Masked())
+		}
 	}
 	routes, err := b.IPSet()
 	if err != nil {
 		return nil, err
 	}
-	plan := &ownerPlan{Addresses: spec.Addresses, DNS: spec.DNS, MTU: spec.MTU, Excluded: []string{}}
-	if plan.DNS == nil {
-		plan.DNS = []string{}
+	plan := &ownerPlan{Addresses: spec.Addresses, DNS: []string{}, MTU: spec.MTU, Excluded: []string{}}
+	for _, value := range spec.DNS {
+		if ip, err := netip.ParseAddr(value); err == nil && carried[ip.Unmap().Is4()] {
+			plan.DNS = append(plan.DNS, value)
+		}
 	}
 	if plan.MTU <= 0 {
 		plan.MTU = 1500
