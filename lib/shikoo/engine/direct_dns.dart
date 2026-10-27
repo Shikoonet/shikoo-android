@@ -10,8 +10,7 @@ const subscriptionDirectIds = shikooDirectIds + 500;
 const shikooRuleSets = {'shikoo-ir-site': 'domain', 'shikoo-ir-ip': 'ipcidr'};
 
 final iranDirectRules = [
-  Rule.parse('DOMAIN-SUFFIX,ir,DIRECT', id: iranDirectIds),
-  Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds + 1),
+  Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds),
 ];
 
 void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {

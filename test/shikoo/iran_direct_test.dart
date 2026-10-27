@@ -12,10 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' show join;
 import 'package:yaml/yaml.dart';
 
-const _iran = [
-  'DOMAIN-SUFFIX,ir,DIRECT',
-  'DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT',
-];
+const _iran = ['DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT'];
 const _sets = [
   'RULE-SET,shikoo-ir-site,DIRECT',
   'RULE-SET,shikoo-ir-ip,DIRECT,no-resolve',
@@ -110,14 +107,13 @@ void main() {
       expect((config['tun'] as YamlMap)['enable'], tun);
       final rules = config['rules'] as List;
       expect(
-        rules.take(9),
+        rules.take(8),
         unorderedEquals([..._iran, ..._door, _subscription, ..._sets]),
       );
-      expect(rules.skip(9), _panelRules);
+      expect(rules.skip(8), _panelRules);
       expect(config['rule-providers'], _ours);
       expect((config['dns'] as YamlMap)['nameserver-policy'], {
         'rule-set:shikoo-ir-site': 'system',
-        '+.ir': 'system',
         '+.xn--mgba3a4fra': 'system',
         'app.chopon.uk': 'system',
         'www.aparat.com': 'system',
