@@ -81,6 +81,9 @@ room for one more tunnel (WARP's is 1280). Not built.
 `tools/warp-build.sh android|windows|test|notices`, Aether at `d58f9d568083129ce2c767c85054021eb3ee6a38` (tag v2.4.0),
 Rust 1.95.0, without the `tor` feature (psiphon is a separate program aether would start; we ship none).
 
+- It builds in one fixed folder (`/tmp/shikoo-warp-<commit>` in WSL, `build/warp` in the repo on Windows), with the
+  machine's paths mapped away (`--remap-path-prefix`, `-ffile-prefix-map`): cargo hashes the absolute path of a path
+  dependency (quiche) into the binary, so the same commit built from two clones differed until then.
 - **API 24**, not the release's 29: Aether's `f425744` changed only the `--platform` flag, "the level PattNG builds
   aether, hev-socks5-tunnel and libv2ray for"; no code needs API 29, and the API 24 build links (NDK stubs) and runs on
   Android 7.1.1 (research).

@@ -13,9 +13,12 @@ rust=1.95.0
 cargo_ndk=4.1.2
 # API 24 (Android 7.0): the release builds for 29 only to match PattNG (Aether f425744), not for an API it uses.
 android_api=24
-src=$repo/build/warp-src/${aether_commit:0:12}
-# Short: the Visual Studio generator BoringSSL's CMake uses on Windows breaks past 260 characters.
-export CARGO_TARGET_DIR=$repo/build/warp-target
+# One fixed folder, whichever clone runs this: cargo hashes the absolute path of a path dependency (quiche) into the
+# binary. On Windows a short one in the repo: the Visual Studio generator BoringSSL's CMake uses breaks past 260 characters.
+work=/tmp/shikoo-warp-${aether_commit:0:12}
+[ "${1:-}" = windows ] && work=$repo/build/warp
+src=$work/src
+export CARGO_TARGET_DIR=$work/target
 
 if [ ! -d "$src/.git" ]; then
   git clone --quiet --filter=blob:none "$aether_url" "$src"
