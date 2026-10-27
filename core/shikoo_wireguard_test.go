@@ -28,17 +28,17 @@ type fakeProvider struct {
 
 func (f *fakeProvider) Proxies() []C.Proxy { return f.proxies }
 
-func TestCloseSessionsClosesTheSessionHoldersOfTheReplacedConfig(t *testing.T) {
+func TestCloseWireGuardAlsoClosesTheOpenVPNAndSSHOfTheReplacedConfig(t *testing.T) {
 	wg := &closeCounter{tp: C.WireGuard}
 	fromProvider := &closeCounter{tp: C.WireGuard}
 	openvpn := &closeCounter{tp: C.OpenVPN}
 	ssh := &closeCounter{tp: C.Ssh}
 	vless := &closeCounter{tp: C.Vless}
-	closeSessions(&config.Config{
+	closeWireGuard(&config.Config{
 		Proxies:   map[string]C.Proxy{"wg": wg, "openvpn": openvpn, "ssh": ssh, "vless": vless},
 		Providers: map[string]P.ProxyProvider{"sub": &fakeProvider{proxies: []C.Proxy{fromProvider}}},
 	})
-	closeSessions(nil)
+	closeWireGuard(nil)
 
 	if wg.closed != 1 || fromProvider.closed != 1 {
 		t.Fatalf("WireGuard closed %d and %d times, want once each", wg.closed, fromProvider.closed)

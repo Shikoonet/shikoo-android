@@ -14,9 +14,9 @@ func rebindWireGuard() {
 	}
 }
 
-// closeSessions ends what a replaced config's outbounds keep open with their server. WireGuard's key would fight its
-// replacement; an OpenVPN or SSH session lives on (its goroutines keep it from the finalizer) and holds a login.
-func closeSessions(cfg *config.Config) {
+// closeWireGuard ends what a replaced config's outbounds keep open with their server. WireGuard's key would fight its
+// replacement; an OpenVPN or SSH session would hold a login until the garbage collector reaches its outbound.
+func closeWireGuard(cfg *config.Config) {
 	if cfg == nil {
 		return
 	}
