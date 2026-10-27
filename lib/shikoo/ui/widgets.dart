@@ -1295,7 +1295,7 @@ class Ping extends StatelessWidget {
 }
 
 /// `.server`: flag, name, ping and tick; `.is-selected` adds the green start bar, [isNew]
-/// the `.chip-outline` "new" after the name.
+/// the `.chip-outline` "new" after the name, and [via] the `.via` «با میهومو».
 class ServerRow extends StatelessWidget {
   const ServerRow({
     super.key,
@@ -1304,6 +1304,7 @@ class ServerRow extends StatelessWidget {
     required this.onPressed,
     this.focusNode,
     this.isNew = false,
+    this.via,
   });
 
   final ShikooServer server;
@@ -1311,6 +1312,7 @@ class ServerRow extends StatelessWidget {
   final VoidCallback onPressed;
   final FocusNode? focusNode;
   final bool isNew;
+  final String? via;
 
   @override
   Widget build(BuildContext context) {
@@ -1370,6 +1372,29 @@ class ServerRow extends StatelessWidget {
                               style: t.text(
                                 t.s.caption,
                                 weight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (via case final via?) ...[
+                          const SizedBox(width: Space.s2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Space.s2,
+                            ),
+                            decoration: ShapeDecoration(
+                              shape: StadiumBorder(
+                                side: BorderSide(color: t.c.border),
+                              ),
+                            ),
+                            child: Text(
+                              via,
+                              maxLines: 1,
+                              style: t.text(
+                                t.s.caption,
+                                weight: FontWeight.w500,
+                                color: t.c.textMuted,
+                                height: Leading.body,
                               ),
                             ),
                           ),

@@ -128,8 +128,10 @@ void setAutoStart(WidgetRef ref, bool on) => ref
     .read(appSettingProvider.notifier)
     .update((s) => s.copyWith(autoLaunch: on));
 
-class ShikooUpdateNoticeNotifier extends Notifier<bool> {
-  static const _key = 'shikoo.updateNotice';
+class ShikooSwitchNotifier extends Notifier<bool> {
+  ShikooSwitchNotifier(this._key);
+
+  final String _key;
 
   @override
   bool build() => true;
@@ -143,10 +145,14 @@ class ShikooUpdateNoticeNotifier extends Notifier<bool> {
   }
 }
 
-final shikooUpdateNoticeProvider =
-    NotifierProvider<ShikooUpdateNoticeNotifier, bool>(
-      ShikooUpdateNoticeNotifier.new,
-    );
+final shikooUpdateNoticeProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.updateNotice'),
+);
+
+/// Iranian sites bypass the VPN. Turned with `ShikooController.setIranDirect`, which moves the core too.
+final shikooIranDirectProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.iranDirect'),
+);
 
 /// FlClash's l10n has no Persian, so the VPN notification, its toasts and the launcher shortcut
 /// take these. [locale] is null before ShikooApp's first frame.
@@ -183,4 +189,4 @@ const flclashVersion = '0.8.98';
 /// look for in every APK. The fork has no version of its own: its `constant.Version` is a stale
 /// "1.10.0" that no build sets, so a build without the stamp names no number at all.
 String coreName([String stamp = const String.fromEnvironment('SHIKOO_CORE')]) =>
-    stamp.isEmpty ? 'mihomo' : 'mihomo\u00A0$stamp';
+    stamp.isEmpty ? 'mihomo' : 'mihomo $stamp';

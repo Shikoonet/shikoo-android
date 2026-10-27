@@ -59,6 +59,9 @@ void main(List<String> args) {
             shikooStagingBuild ||
             globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
+        await writeRuleSets(await appPath.homeDirPath);
+        await container.read(shikooIranDirectProvider.notifier).load();
+        await keepIranDirect(container.read(shikooIranDirectProvider));
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooCoresProvider.notifier).load();

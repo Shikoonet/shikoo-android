@@ -7,6 +7,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
+import 'package:fl_clash/shikoo/ui/cores.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/jalali.dart';
@@ -1490,6 +1491,7 @@ class _ServerListState extends State<_ServerList> {
                                   server: byName[name]!,
                                   selected: name == state.selected,
                                   isNew: byName[name]!.fresh && !state.isTV,
+                                  via: viaLabel(l, byName[name]!, state.cores),
                                   focusNode: widget.focus.row(name),
                                   onPressed: () => unawaited(
                                     widget.controller.selectServer(
