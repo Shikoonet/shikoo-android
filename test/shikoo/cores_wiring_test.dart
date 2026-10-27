@@ -626,6 +626,44 @@ void main() {
     expect(home.container.read(shikooOwnerProvider)?.core, 'wireguard');
   });
 
+  test('the tunnel ending in the middle of the fallback to mihomo is the '
+      "fallback's own stop and keeps the hold", () async {
+    final every = ownerWatchEvery;
+    ownerWatchEvery = const Duration(milliseconds: 20);
+    addTearDown(() => ownerWatchEvery = every);
+    var deaths = 0;
+    late final _Home home;
+    home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () {
+        if (home.container.read(shikooOwnerHeldOffProvider) ||
+            deaths > 0 && deaths-- > 0) {
+          return (core: '', server: '');
+        }
+        return (core: 'wireguard', server: 'W');
+      },
+    );
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    home.setup.gate = Completer<void>();
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.setup.runs, [false, true, false]);
+    home.container.read(runTimeProvider.notifier).value = null;
+    await pumpEventQueue();
+    home.setup.gate!.complete();
+    await pumpEventQueue();
+
+    expect(home.setup.runs, [false, true, false, true]);
+    expect(home.container.read(shikooOwnerHeldOffProvider), isTrue);
+    expect(home.container.read(shikooOwnerProvider), isNull);
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
+  });
+
   test(
     'the watch asks Go only while an owner core carries the server',
     () async {
