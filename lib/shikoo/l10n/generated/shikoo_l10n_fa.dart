@@ -1685,47 +1685,47 @@ class ShikooL10nFa extends ShikooL10n {
       'هر نوع سرور با کدام هسته وصل شود. اگر مطمئن نیستی، دست نزن.';
 
   @override
-  String get protocolVless => 'ویلس';
+  String get protocolVless => 'VLESS';
 
   @override
-  String get protocolWireguard => 'وایرگارد';
+  String get protocolWireguard => 'WireGuard';
 
   @override
-  String get protocolOpenvpn => 'اوپن‌وی‌پی‌ان';
+  String get protocolOpenvpn => 'OpenVPN';
 
   @override
-  String get protocolSsh => 'اس‌اس‌اچ';
+  String get protocolSsh => 'SSH';
 
   @override
-  String get coreMihomo => 'میهومو';
+  String get coreMihomo => 'mihomo';
 
   @override
-  String get coreXray => 'اکس‌ری';
+  String get coreXray => 'Xray';
 
   @override
-  String get coreSingBox => 'سینگ‌باکس';
+  String get coreSingBox => 'sing-box';
 
   @override
-  String get coreWireguard => 'وایرگارد رسمی';
+  String get coreWireguard => 'WireGuard';
 
   @override
-  String get coreOpenvpn => 'اوپن‌وی‌پی‌ان رسمی';
+  String get coreOpenvpn => 'OpenVPN';
 
   @override
   String get coreDefault => 'پیش‌فرض';
 
   @override
-  String get coreWireguardHelp => 'موتور برنامهٔ رسمی وایرگارد';
+  String get coreWireguardHelp => 'موتور برنامهٔ رسمی ⁨WireGuard⁩';
 
   @override
-  String get coreOpenvpnHelp => 'موتور برنامهٔ رسمی اوپن‌وی‌پی‌ان';
+  String get coreOpenvpnHelp => 'موتور برنامهٔ رسمی ⁨OpenVPN⁩';
 
   @override
   String get coreSoon => 'به‌زودی';
 
   @override
   String get coreSingBoxVless =>
-      'بعضی سرورهای ویلس را بلد نیست؛ آن‌ها با میهومو وصل می‌شوند.';
+      'بعضی سرورهای ⁨VLESS⁩ را بلد نیست؛ آن‌ها با ⁨mihomo⁩ وصل می‌شوند.';
 
   @override
   String coreTunnelOnly(String mode) {
@@ -1744,7 +1744,7 @@ class ShikooL10nFa extends ShikooL10n {
     String tunnel,
     String core,
   ) {
-    return 'در حالت «$proxy»، سرورهای $protocol با میهومو وصل می‌شوند؛ در «$tunnel»، با $core.';
+    return 'در حالت «$proxy»، سرورهای $protocol با ⁨mihomo⁩ وصل می‌شوند؛ در «$tunnel»، با $core.';
   }
 
   @override

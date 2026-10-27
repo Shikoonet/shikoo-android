@@ -42,14 +42,20 @@ String? viaLabel(ShikooL10n l, ShikooServer server, List<ShikooCoreRow> rows) {
   final chosen =
       rows.firstWhereOrNull((row) => row.protocol == server.protocol)?.chosen ??
       ShikooCore.mihomo;
-  return server.core == chosen ? null : l.viaCore(coreLabel(l, server.core));
+  return server.core == chosen
+      ? null
+      : l.viaCore(bidiName(coreLabel(l, server.core)));
 }
 
 /// A core change's sentences, in the server switch's bar; a failure is only «وصل نشد».
 List<String> coreNews(ShikooL10n l, ShikooCoreSwitch shift) =>
     switch (shift.stage) {
-      ShikooSwitchStage.moving => [l.coreSwitching(coreLabel(l, shift.to))],
-      ShikooSwitchStage.done => [l.coreSwitched(coreLabel(l, shift.to))],
+      ShikooSwitchStage.moving => [
+        l.coreSwitching(bidiName(coreLabel(l, shift.to))),
+      ],
+      ShikooSwitchStage.done => [
+        l.coreSwitched(bidiName(coreLabel(l, shift.to))),
+      ],
       ShikooSwitchStage.failed => [l.powerFailed],
     };
 
@@ -110,7 +116,7 @@ Future<void> pickCore(
 
 String _title(BuildContext context, ShikooCoreRow row) {
   final l = ShikooL10n.of(context);
-  return l.corePickTitle(protocolLabel(l, row.protocol));
+  return l.corePickTitle(bidiName(protocolLabel(l, row.protocol)));
 }
 
 /// The sheet's and the dialog's title and lead; the menu has them as its head and foot.
@@ -127,7 +133,7 @@ List<Widget> _head(
       style: t.text(t.s.title, weight: FontWeight.w700),
     ),
     Text(
-      '${l.corePickForAll(protocolLabel(l, row.protocol))} ${l.corePickAgain}',
+      '${l.corePickForAll(bidiName(protocolLabel(l, row.protocol)))} ${l.corePickAgain}',
       style: t.text(
         big ? t.s.dialogText : t.s.bodySm,
         color: t.c.textMuted,
@@ -204,7 +210,7 @@ class _CoreList extends ConsumerWidget {
     bool tunnelOnly(ShikooCore core) =>
         !tunnel && specs[core]?.shape == ShikooShape.ownsTunnel;
     final options = row.options.sortedBy<num>((o) => _order.indexOf(o.core));
-    final protocol = protocolLabel(l, row.protocol);
+    final protocol = bidiName(protocolLabel(l, row.protocol));
     final items = [
       for (final (:core, :ready) in options)
         _CoreOption(
@@ -267,7 +273,7 @@ class _CoreList extends ConsumerWidget {
                         l.modeProxy,
                         protocol,
                         l.modeTunnel,
-                        coreLabel(l, row.chosen),
+                        bidiName(coreLabel(l, row.chosen)),
                       )
                     : options.any((o) => tunnelOnly(o.core))
                     ? '${l.coreProxyNow(l.modeProxy)} ${l.corePickForAll(protocol)}'
