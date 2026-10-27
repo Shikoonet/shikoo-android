@@ -586,8 +586,12 @@ Future<void> keepApiDirect() async {
 }
 
 /// Banks and payment gateways refuse a foreign address. One transaction a call: quick turns land in order.
+/// The whole id block goes first: an earlier build stored rows under ids this one no longer uses.
 Future<void> keepIranDirect(bool on) => database.transaction(() async {
-  if (!on) return database.rulesDao.delRules(iranDirectRules.map((r) => r.id));
+  await database.rulesDao.delRules([
+    for (var i = 0; i < 100; i++) iranDirectIds + i,
+  ]);
+  if (!on) return;
   for (final rule in iranDirectRules) {
     await database.rulesDao.putGlobalRule(rule);
   }
