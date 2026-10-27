@@ -2868,6 +2868,42 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Now connected with “{core}”.'**
   String coreSwitched(String core);
+
+  /// No description provided for @aboutLicenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Other software licenses'**
+  String get aboutLicenses;
+
+  /// No description provided for @aboutLicensesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The cores and libraries ShikooNet is built with'**
+  String get aboutLicensesHelp;
+
+  /// No description provided for @licensesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Licenses'**
+  String get licensesTitle;
+
+  /// The licences page's second group, under «هسته‌ها» (coresGroup): every other package, A to Z.
+  ///
+  /// In en, this message translates to:
+  /// **'Other software'**
+  String get licensesOthers;
+
+  /// TV only: the hint in the bar of one licence's text, whose card the remote scrolls.
+  ///
+  /// In en, this message translates to:
+  /// **'Up and down on the remote move the text'**
+  String get licenseScrollTv;
+
+  /// Under a package on the licences page: how many licence texts it has.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 license} other{{count} licenses}}'**
+  String licenseCount(int count);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {
