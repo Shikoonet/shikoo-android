@@ -677,6 +677,49 @@ void main() {
     expect(applies.last.$2, isFalse);
   });
 
+  test('the hold on mihomo ends with the connection however it ends, and a '
+      'death after the window is a first death again', () async {
+    final every = ownerWatchEvery;
+    final window = ownerDeathWindow;
+    ownerWatchEvery = const Duration(milliseconds: 20);
+    ownerDeathWindow = const Duration(milliseconds: 150);
+    addTearDown(() {
+      ownerWatchEvery = every;
+      ownerDeathWindow = window;
+    });
+    var deaths = 0;
+    late final _Home home;
+    home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () {
+        if (home.container.read(shikooOwnerHeldOffProvider) ||
+            deaths > 0 && deaths-- > 0) {
+          return (core: '', server: '');
+        }
+        return (core: 'wireguard', server: 'W');
+      },
+    );
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await Future<void>.delayed(ownerDeathWindow);
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.setup.runs, [false, true, false, true]);
+    expect(home.container.read(shikooOwnerProvider)?.core, 'wireguard');
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.container.read(shikooOwnerProvider), isNull);
+    // As the system's Disconnect, the notification or the tile end it.
+    home.container.read(runTimeProvider.notifier).value = null;
+    await pumpEventQueue();
+    expect(home.container.read(shikooOwnerProvider)?.core, 'wireguard');
+  });
+
   test(
     'the watch asks Go only while an owner core carries the server',
     () async {
