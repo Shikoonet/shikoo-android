@@ -293,6 +293,7 @@ class ShikooState {
     this.landed,
     this.busyPort,
     this.helperFailed = false,
+    this.iranDirect = true,
     this.cores = const [],
     this.coreSwitch,
   });
@@ -333,6 +334,9 @@ class ShikooState {
 
   final int? busyPort;
   final bool helperFailed;
+
+  /// Iranian sites bypass the VPN; turned with [ShikooController.setIranDirect].
+  final bool iranDirect;
 
   /// A row per protocol the customer's services have; [ShikooServer.core] is what each server really gets.
   final List<ShikooCoreRow> cores;
@@ -763,6 +767,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     landed: ref.watch(_landedProvider),
     busyPort: intent.busyPort,
     helperFailed: intent.helperFailed,
+    iranDirect: ref.watch(shikooIranDirectProvider),
     cores: coreRows(
       {
         for (final id in ids)
@@ -1371,6 +1376,14 @@ class ShikooController {
     }
     await disconnect();
     await connect();
+  }
+
+  /// While connected the core takes the new rules in place, with no reconnect.
+  Future<void> setIranDirect(bool on) async {
+    final saved = _ref.read(shikooIranDirectProvider.notifier).set(on);
+    await keepIranDirect(on);
+    if (_running) await _setup.applyProfile(silence: true);
+    await saved;
   }
 
   /// A core behind mihomo only needs the config again; a change of who owns the tunnel needs a reconnect.
