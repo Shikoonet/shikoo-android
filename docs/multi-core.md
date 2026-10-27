@@ -45,7 +45,10 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | wireguard | | ✓ | | |
 | openvpn | | | ✓ | |
 
-- mihomo OpenVPN: tls-auth is HMAC-SHA1 only in our core (`docs/extensibility.md:68-72`).
+- mihomo OpenVPN: tls-auth follows `auth` since the core moved to mihomo v1.19.32 (`docs/extensibility.md:68-69`;
+  package ه۵, 2026-10-27). Its per-server limits are others now (`.notes/mc-movpn-2026-10-27/for-doc.md`): a server
+  that relies on OpenVPN's defaults needs `auth` (else mihomo's SHA256) and `data-ciphers` (else AES-128-GCM only)
+  written out, and there is no `compress lz4` and no `dev tap`.
 - sing-box VLESS: v1.14.3 (latest stable, 2026-10-09) has no XHTTP (its transports are http, ws, quic, grpc and
   httpupgrade: `docs/configuration/shared/v2ray-transport.md`) and no `encryption` field (`outbound/vless.md`). **The
   plan's table marks it ✓ for XHTTP; that is wrong.** Package «س» found the same in 1.15-alpha.
