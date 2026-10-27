@@ -413,7 +413,7 @@ func applyLoaded(cfg *config.Config, selected map[string]string) {
 	previous := currentConfig
 	currentConfig = cfg
 	hub.ApplyConfig(cfg)
-	closeWireGuard(previous)
+	closeSessions(previous)
 	shikooCoresCommit()
 	shikooLastSelected = selected
 	patchSelectGroup(selected)

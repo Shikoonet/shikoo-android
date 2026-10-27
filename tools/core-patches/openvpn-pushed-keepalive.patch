@@ -1,0 +1,138 @@
+diff --git a/adapter/outbound/openvpn.go b/adapter/outbound/openvpn.go
+index 3c7b1e6..147db7f 100644
+--- a/adapter/outbound/openvpn.go
++++ b/adapter/outbound/openvpn.go
+@@ -357,7 +357,7 @@ func (o *OpenVPN) startLocked(handshakeCtx context.Context) (ipStack, resolver.R
+ 			IPv6: openVPNPrefixesHas6(push.Prefixes),
+ 		})
+ 	}
+-	o.startPacketLoops()
++	o.startPacketLoops(o.config.ShikooKeepalive(push))
+ 	return o.tunDevice, o.resolver, nil
+ }
+ 
+@@ -389,7 +389,7 @@ func (o *OpenVPN) openPacketIO(ctx context.Context) (ovpn.PacketIO, error) {
+ 	}
+ }
+ 
+-func (o *OpenVPN) startPacketLoops() {
++func (o *OpenVPN) startPacketLoops(pingInterval, pingRestart time.Duration) {
+ 	runCtx, runCancel := context.WithCancel(o.runCtx)
+ 	client := o.client
+ 	tunDevice := o.tunDevice
+@@ -451,15 +451,15 @@ func (o *OpenVPN) startPacketLoops() {
+ 		}
+ 	}()
+ 
+-	if o.config.PingInterval > 0 {
++	if pingInterval > 0 {
+ 		go func() {
+ 			defer stop()
+-			ticker := time.NewTicker(o.config.PingInterval)
++			ticker := time.NewTicker(pingInterval)
+ 			defer ticker.Stop()
+ 			for runCtx.Err() == nil {
+ 				select {
+ 				case <-ticker.C:
+-					if sinceSend := client.SinceSend(); sinceSend >= o.config.PingInterval {
++					if sinceSend := client.SinceSend(); sinceSend >= pingInterval {
+ 						if err := client.WritePing(runCtx); err != nil {
+ 							if !errors.Is(err, context.Canceled) && !errors.Is(err, net.ErrClosed) {
+ 								log.Warnln("[OpenVPN](%s) error writing ping packet: %v", o.name, err)
+@@ -475,15 +475,15 @@ func (o *OpenVPN) startPacketLoops() {
+ 		}()
+ 	}
+ 
+-	if o.config.PingRestart > 0 {
++	if pingRestart > 0 {
+ 		go func() {
+ 			defer stop()
+-			ticker := time.NewTicker(o.config.PingRestart)
++			ticker := time.NewTicker(pingRestart)
+ 			defer ticker.Stop()
+ 			for runCtx.Err() == nil {
+ 				select {
+ 				case <-ticker.C:
+-					if sinceReceive := client.SinceReceive(); sinceReceive >= o.config.PingRestart {
++					if sinceReceive := client.SinceReceive(); sinceReceive >= pingRestart {
+ 						log.Warnln(
+ 							"[OpenVPN](%s) ping-restart timeout: no packet received for %s",
+ 							o.name,
+diff --git a/transport/openvpn/client.go b/transport/openvpn/client.go
+index 053b0bf..4270827 100644
+--- a/transport/openvpn/client.go
++++ b/transport/openvpn/client.go
+@@ -1646,6 +1646,12 @@ func mergePushReply(prev, next *PushReply) *PushReply {
+ 	if next.Cipher == "" {
+ 		next.Cipher = prev.Cipher
+ 	}
++	if next.PingInterval == 0 {
++		next.PingInterval = prev.PingInterval
++	}
++	if next.PingRestart == 0 {
++		next.PingRestart = prev.PingRestart
++	}
+ 	if !next.Redirect {
+ 		next.Redirect = prev.Redirect
+ 	}
+diff --git a/transport/openvpn/config.go b/transport/openvpn/config.go
+index 51690c3..03008fe 100644
+--- a/transport/openvpn/config.go
++++ b/transport/openvpn/config.go
+@@ -82,6 +82,21 @@ type ClientConfig struct {
+ 	FallbackCipher string
+ }
+ 
++// ShikooKeepalive is the client's ping and ping-restart: the configured ones, else the server's pushed ones, as
++// OpenVPN's own client takes them. Without them a UDP session the server dropped is never noticed.
++func (c ClientConfig) ShikooKeepalive(push *PushReply) (ping, restart time.Duration) {
++	ping, restart = c.PingInterval, c.PingRestart
++	if push != nil {
++		if ping == 0 {
++			ping = push.PingInterval
++		}
++		if restart == 0 {
++			restart = push.PingRestart
++		}
++	}
++	return ping, restart
++}
++
+ // DataCipherKeyLength returns the key size for the negotiated data cipher.
+ func (c ClientConfig) DataCipherKeyLength() int {
+ 	return CipherKeyLength(c.Cipher)
+diff --git a/transport/openvpn/push.go b/transport/openvpn/push.go
+index df84904..a593651 100644
+--- a/transport/openvpn/push.go
++++ b/transport/openvpn/push.go
+@@ -29,6 +29,11 @@ type PushReply struct {
+ 	// option (legacy or fallback).
+ 	Cipher string
+ 
++	// PingInterval and PingRestart are the pushed "ping" and "ping-restart",
++	// zero when not pushed.
++	PingInterval time.Duration
++	PingRestart  time.Duration
++
+ 	// AuthToken is the most recently pushed auth-token / auth-token-user
+ 	// pair. Empty when the server does not rotate credentials.
+ 	AuthTokenUser string
+@@ -144,6 +149,18 @@ func parsePushReplyInner(message string) (*PushReply, error) {
+ 			if len(fields) >= 2 {
+ 				reply.Cipher = strings.TrimSpace(fields[1])
+ 			}
++		case "ping", "ping-restart":
++			if len(fields) >= 2 {
++				seconds, err := strconv.Atoi(fields[1])
++				if err != nil || seconds <= 0 {
++					continue
++				}
++				if fields[0] == "ping" {
++					reply.PingInterval = time.Duration(seconds) * time.Second
++				} else {
++					reply.PingRestart = time.Duration(seconds) * time.Second
++				}
++			}
+ 		case "auth-token":
+ 			if len(fields) >= 2 {
+ 				reply.AuthTokenPass = strings.TrimSpace(fields[1])

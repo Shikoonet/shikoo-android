@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/metacubex/mihomo/adapter/outbound"
+	ovpn "github.com/metacubex/mihomo/transport/openvpn"
 	tun "github.com/metacubex/sing-tun"
 )
 
@@ -9,3 +10,4 @@ import (
 var _ = outbound.ShikooUnconnectedBind
 var _ = tun.ShikooListenAgain
 var _ *bool = outbound.RealityOptions{}.SupportX25519MLKEM768
+var _ = ovpn.ClientConfig.ShikooKeepalive

@@ -163,7 +163,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   `shikooCoresParse(raw)`, which rewrites and then calls `ParseRawConfig`, what `executor.ParseWithBytes` does through
   `config.Parse` (`config/config.go:474-481`); a config that fails to parse stops the cores it started. After
   `hub.ApplyConfig(cfg)` (`:402`), one `shikooCoresCommit()` stops the previous generation, beside
-  `closeWireGuard(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
+  `closeSessions(previous)`. Built in phase 2 (`054f8d25`, `SHIKOO_PATCHES.md` rows 47 and 48).
 - Once Android's tunnel is up, `startTUN` runs `shikooCoresAfterTun` (`core/lib.go`, row 24): if a core behind mihomo
   is running, the config Go last applied is applied again, from memory (`shikooLastConfig`), never from `config.yaml`,
   which Dart writes in place and may be writing right then. The group picks are those of that apply (a url-test group

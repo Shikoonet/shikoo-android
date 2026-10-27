@@ -124,7 +124,7 @@ proxy-groups:
 rules:
   - MATCH,G
 `, peer.conn.LocalAddr().(*net.UDPAddr).Port, encode(wireGuardKey(t).Bytes()), encode(wireGuardKey(t).PublicKey().Bytes())))
-	t.Cleanup(func() { closeWireGuard(cfg) })
+	t.Cleanup(func() { closeSessions(cfg) })
 	return cfg
 }
 

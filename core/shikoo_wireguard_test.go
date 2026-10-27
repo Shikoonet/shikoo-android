@@ -28,20 +28,25 @@ type fakeProvider struct {
 
 func (f *fakeProvider) Proxies() []C.Proxy { return f.proxies }
 
-func TestCloseWireGuardClosesOnlyWireGuardOfTheReplacedConfig(t *testing.T) {
+func TestCloseSessionsClosesTheSessionHoldersOfTheReplacedConfig(t *testing.T) {
 	wg := &closeCounter{tp: C.WireGuard}
 	fromProvider := &closeCounter{tp: C.WireGuard}
+	openvpn := &closeCounter{tp: C.OpenVPN}
+	ssh := &closeCounter{tp: C.Ssh}
 	vless := &closeCounter{tp: C.Vless}
-	closeWireGuard(&config.Config{
-		Proxies:   map[string]C.Proxy{"wg": wg, "vless": vless},
+	closeSessions(&config.Config{
+		Proxies:   map[string]C.Proxy{"wg": wg, "openvpn": openvpn, "ssh": ssh, "vless": vless},
 		Providers: map[string]P.ProxyProvider{"sub": &fakeProvider{proxies: []C.Proxy{fromProvider}}},
 	})
-	closeWireGuard(nil)
+	closeSessions(nil)
 
 	if wg.closed != 1 || fromProvider.closed != 1 {
 		t.Fatalf("WireGuard closed %d and %d times, want once each", wg.closed, fromProvider.closed)
 	}
+	if openvpn.closed != 1 || ssh.closed != 1 {
+		t.Fatalf("OpenVPN closed %d and SSH %d times, want once each: each would keep its login", openvpn.closed, ssh.closed)
+	}
 	if vless.closed != 0 {
-		t.Fatalf("a VLESS outbound was closed %d times; only WireGuard shares a key with its replacement", vless.closed)
+		t.Fatalf("a VLESS outbound was closed %d times; it holds no session with its server", vless.closed)
 	}
 }
