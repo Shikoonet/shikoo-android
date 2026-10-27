@@ -47,6 +47,7 @@ List<LicenseEntry> _entries({bool openvpn = false}) => [
   const LicenseEntryWithLineBreaks(['abseil-cpp'], 'BSD License'),
   const LicenseEntryWithLineBreaks(['github.com/Microsoft/go-winio'], 'MIT'),
   const LicenseEntryWithLineBreaks(['accessibility'], 'BSD License'),
+  const LicenseEntryWithLineBreaks(['_fe_analyzer_shared'], 'BSD License'),
   if (openvpn) LicenseEntryWithLineBreaks(['OpenVPN 3'], _mplText),
 ];
 
@@ -205,12 +206,17 @@ void main() {
       _top(tester, cores.last),
       lessThan(_top(tester, _fa.licensesOthers)),
     );
+    // Isolated: in a Persian row, `_fe_analyzer_shared` showed as `fe_analyzer_shared_` on the TV.
     final others = [
-      'abseil-cpp',
-      'accessibility',
-      'github.com/ajg/form',
-      'github.com/Microsoft/go-winio',
-      'zlib',
+      for (final p in [
+        '_fe_analyzer_shared',
+        'abseil-cpp',
+        'accessibility',
+        'github.com/ajg/form',
+        'github.com/Microsoft/go-winio',
+        'zlib',
+      ])
+        bidiName(p),
     ];
     final otherTops = [for (final p in others) _top(tester, p)];
     expect(otherTops, [...otherTops]..sort(), reason: 'A to Z, any case');
@@ -224,7 +230,7 @@ void main() {
       reason: 'abseil-cpp has two',
     );
     expect(
-      find.text('golang.zx2c4.com/wireguard'),
+      find.text(bidiName('golang.zx2c4.com/wireguard')),
       findsNothing,
       reason: 'listed once, as a core',
     );

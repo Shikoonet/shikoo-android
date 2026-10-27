@@ -99,7 +99,9 @@ class _ShikooLicensesState extends ConsumerState<ShikooLicenses> {
                 ),
               _Group(
                 title: l.licensesOthers,
-                child: _Card(rows: [for (final p in others) row(p, p)]),
+                child: _Card(
+                  rows: [for (final p in others) row(p, bidiName(p))],
+                ),
               ),
             ],
           );
