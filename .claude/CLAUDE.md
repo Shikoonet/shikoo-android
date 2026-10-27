@@ -191,7 +191,7 @@
 
 - **ابزار ساخت:** `D:\dev\android-toolchain`
   - در هر شل اول این را بزن: `source /d/dev/android-toolchain/env.sh`
-  - شامل Go 1.26.4 (فقط ویندوز؛ هستهٔ اندروید در WSL و CI با Go 1.26.10 ساخته می‌شود)، JDK 17، Flutter 3.47.1، SDK 36، NDK r28c و امولاتور.
+  - شامل Go 1.26.4 (قدیمی؛ هسته با آن ساخته نمی‌شود)، JDK 17، Flutter 3.47.1، SDK 36، NDK r28c و امولاتور. هسته Go 1.27.3 می‌خواهد (`toolchain go1.27.3` در `core/go.mod`): در WSL و CI همان است، و ساخت ویندوز Go خودش را در `D:\dev\windows-toolchain\go` دارد.
   - بستهٔ تازهٔ SDK را **فقط** این‌طور نصب کن: `bash /d/dev/android-toolchain/sdk-add.sh "<package>"`
 - **آزمایش (دورریختنی، آخر کار پاک می‌شود):** `D:\dev\shikoo-spike`
   - پیش از پاک کردن، جابه‌جا کن: `mihomo\` و پوشهٔ عکس‌ها، که مهارت `driving-android-emulators` به آن‌ها نیاز دارد، و عکس‌های `happ-*`.
