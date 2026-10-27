@@ -1,0 +1,48 @@
+diff --git a/client.go b/client.go
+index 3e94bed..5e93fe1 100644
+--- a/client.go
++++ b/client.go
+@@ -66,6 +66,12 @@ func NewClient(options ClientOptions) (*Client, error) {
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if mode == ModeTLS {
++		// The first session reads the control-channel key; a bad one is a configuration error now.
++		if _, _, err = newTLSClientProtection(options); err != nil {
++			return nil, err
++		}
++	}
+ 	if options.Pull.RouteNoPull && !options.Pull.Enabled {
+ 		return nil, E.Extend(ErrOptionNotSupported, "route_nopull without pull")
+ 	}
+diff --git a/client_supervisor.go b/client_supervisor.go
+index 3532737..82567c7 100644
+--- a/client_supervisor.go
++++ b/client_supervisor.go
+@@ -380,13 +380,21 @@ func applyClientSessionErrorBackoff(err error, backoff time.Duration) time.Durat
+ 
+ func (c *Client) newClientSession(useActiveAuthToken bool, remote clientRemote) (clientSession, error) {
+ 	c.resetSessionConfiguration(remote)
+-	if c.mode == ModeStaticKey {
+-		return newStaticKeyClientSession(c, remote)
++	var session clientSession
++	var err error
++	switch {
++	case c.mode == ModeStaticKey:
++		session, err = newStaticKeyClientSession(c, remote)
++	case c.options.Mode == ModeTLS:
++		session, err = newTLSClient(c, useActiveAuthToken, remote)
++	default:
++		return nil, ErrUnsupportedMode
+ 	}
+-	if c.options.Mode == ModeTLS {
+-		return newTLSClient(c, useActiveAuthToken, remote)
++	if err != nil {
++		// A failed constructor returns a typed nil, which the caller would Close.
++		return nil, err
+ 	}
+-	return nil, ErrUnsupportedMode
++	return session, nil
+ }
+ 
+ func (c *Client) resetSessionConfiguration(remote clientRemote) {
