@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/fixed.dart';
 import 'package:fl_clash/common/request.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -488,7 +487,8 @@ void main() {
     test(
       'ignores a canceled stale check after a newer check succeeds',
       () async {
-        request.dio.httpClientAdapter = _DelayedCancelIpAdapter();
+        final adapter = _DelayedCancelIpAdapter();
+        request.dio.httpClientAdapter = adapter;
         final container = ProviderContainer(
           overrides: [
             initProvider.overrideWithBuild((_, _) => true),
@@ -496,15 +496,17 @@ void main() {
           ],
         );
         addTearDown(container.dispose);
+        final settled = Completer<void>();
+        container.listen(networkDetectionProvider, (_, state) {
+          if (!state.isLoading && !settled.isCompleted) settled.complete();
+        });
 
         final notifier = container.read(networkDetectionProvider.notifier);
         notifier.startCheck();
-        await Future.delayed(commonDuration + const Duration(milliseconds: 50));
+        await adapter.firstBatchSent.future;
 
         notifier.startCheck();
-        await Future.delayed(
-          commonDuration + const Duration(milliseconds: 120),
-        );
+        await settled.future;
 
         expect(container.read(networkDetectionProvider).ipInfo?.ip, '2.2.2.2');
         expect(container.read(networkDetectionProvider).isLoading, false);
@@ -521,6 +523,7 @@ void main() {
 class _DelayedCancelIpAdapter implements HttpClientAdapter {
   static const _sourceCount = 7;
 
+  final firstBatchSent = Completer<void>();
   int _requestCount = 0;
 
   @override
@@ -530,6 +533,7 @@ class _DelayedCancelIpAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) {
     _requestCount++;
+    if (_requestCount == _sourceCount) firstBatchSent.complete();
     final batch = ((_requestCount - 1) ~/ _sourceCount) + 1;
     if (batch == 1) {
       final completer = Completer<ResponseBody>();
