@@ -373,7 +373,11 @@ func loadConfig(path string) (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return shikooCoresParse(raw)
+	cfg, err := shikooCoresParse(raw)
+	if err == nil {
+		shikooLastConfig = buf
+	}
+	return cfg, err
 }
 
 func applyConfig(params *SetupParams) error {
@@ -400,15 +404,21 @@ func applyConfig(params *SetupParams) error {
 		cfg = fallback
 	}
 
+	applyLoaded(cfg, params.SelectedMap)
+	return err
+}
+
+// applyLoaded runs a parsed config; the caller holds configMu.
+func applyLoaded(cfg *config.Config, selected map[string]string) {
 	previous := currentConfig
 	currentConfig = cfg
 	hub.ApplyConfig(cfg)
 	closeWireGuard(previous)
 	shikooCoresCommit()
-	patchSelectGroup(params.SelectedMap)
+	shikooLastSelected = selected
+	patchSelectGroup(selected)
 	updateListeners(cfg)
 	reconcileGeoUpdater()
-	return err
 }
 
 func UnmarshalJson(data []byte, v any) error {

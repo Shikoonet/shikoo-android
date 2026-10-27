@@ -24,10 +24,12 @@ typedef ShikooCoreSpec = ({
 typedef ShikooCoreOption = ({ShikooCore core, bool ready});
 
 /// [chosen] and [defaultCore] (what a protocol gets with no pick of the user's) are mihomo while not ready.
+/// [carrier] and [defaultCore] follow the current mode, as `markCores` does; [chosen] keeps a pick in proxy mode.
 typedef ShikooCoreRow = ({
   ShikooProtocol protocol,
   ShikooCore chosen,
   ShikooCore defaultCore,
+  ShikooCore carrier,
   List<ShikooCoreOption> options,
 });
 
@@ -58,14 +60,26 @@ const shikooCoreSpecs = <ShikooCore, ShikooCoreSpec>{
 };
 
 /// A ready core whose engine runs on some platforms only; one missing here is ready on every platform.
-const shikooReadyOn = <ShikooCore, Set<ShikooPlatform>>{};
+const shikooReadyOn = <ShikooCore, Set<ShikooPlatform>>{
+  ShikooCore.wireguard: {ShikooPlatform.android},
+};
+
+final shikooReadyOnProvider = Provider<Map<ShikooCore, Set<ShikooPlatform>>>(
+  (_) => shikooReadyOn,
+);
 
 final shikooCoreSpecsProvider = Provider<Map<ShikooCore, ShikooCoreSpec>>(
   (ref) => readyHere(
     ref.watch(shikooDesktopProvider)
         ? ShikooPlatform.windows
         : ShikooPlatform.android,
+    readyOn: ref.watch(shikooReadyOnProvider),
   ),
+);
+
+final shikooTunnelProvider = Provider<bool>(
+  (ref) =>
+      !ref.watch(shikooDesktopProvider) || ref.watch(shikooModeProvider).tun,
 );
 
 Map<ShikooCore, ShikooCoreSpec> readyHere(
@@ -133,20 +147,31 @@ List<ShikooCoreRow> coreRows(
   Set<ShikooProtocol> present,
   ShikooChoices choices, {
   Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
-}) => [
-  for (final protocol in ShikooProtocol.values)
-    if (protocol != ShikooProtocol.other && present.contains(protocol))
-      (
-        protocol: protocol,
-        chosen: coreFor({'type': protocol.name}, choices, specs: specs),
-        defaultCore: coreFor({'type': protocol.name}, const {}, specs: specs),
-        options: [
-          for (final MapEntry(key: core, value: spec) in specs.entries)
-            if (spec.serves(protocol, const {}))
-              (core: core, ready: spec.ready),
-        ],
-      ),
-];
+  bool tunnel = true,
+}) {
+  ShikooCoreRow row(ShikooProtocol protocol) {
+    final server = {'type': protocol.name};
+    final defaultCore = coreFor(server, const {}, specs: specs, tunnel: tunnel);
+    return (
+      protocol: protocol,
+      chosen: choices.containsKey(protocol)
+          ? coreFor(server, choices, specs: specs)
+          : defaultCore,
+      defaultCore: defaultCore,
+      carrier: coreFor(server, choices, specs: specs, tunnel: tunnel),
+      options: [
+        for (final MapEntry(key: core, value: spec) in specs.entries)
+          if (spec.serves(protocol, const {})) (core: core, ready: spec.ready),
+      ],
+    );
+  }
+
+  return [
+    for (final protocol in ShikooProtocol.values)
+      if (protocol != ShikooProtocol.other && present.contains(protocol))
+        row(protocol),
+  ];
+}
 
 /// A change of server or core takes the tunnel down only when this changes: an owner core holds it per server.
 String tunnelKey(
@@ -161,6 +186,7 @@ Map<String, dynamic> markCores(
   Map<String, dynamic> config,
   ShikooChoices choices, {
   Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
+  bool tunnel = true,
 }) {
   final proxies = config['proxies'];
   if (proxies is! List) return config;
@@ -168,7 +194,7 @@ Map<String, dynamic> markCores(
   Object? mark(Object? proxy) {
     if (proxy is! Map) return proxy;
     final server = Map<String, dynamic>.from(proxy);
-    final core = coreFor(server, choices, specs: specs);
+    final core = coreFor(server, choices, specs: specs, tunnel: tunnel);
     final shape = specs[core]!.shape;
     if (shape == ShikooShape.mihomo) return proxy;
     marked = true;

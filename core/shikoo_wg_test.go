@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/netip"
 	"os"
 	"slices"
@@ -16,7 +17,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/adapter"
+	"github.com/metacubex/mihomo/adapter/outbound"
 	"github.com/metacubex/mihomo/config"
+	C "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"go4.org/netipx"
 	wgconn "golang.zx2c4.com/wireguard/conn"
@@ -200,12 +205,12 @@ func TestTheShippedIranianSetGivesARouteListAndroidTakes(t *testing.T) {
 	}
 	all := float64(addresses(iran.Prefixes()))
 	from13, _, _ := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk, noResolve)
-	if n := len(from13.Routes) + len(from13.Excluded); n > wgRouteBudget || n < wgRouteBudget/2 {
+	if n := len(from13.Routes) + len(from13.Excluded); n > wgExcludedBudget || n < wgExcludedBudget/2 {
 		t.Errorf("Android 13+: %d routes", n)
 	}
 	excluded := addresses(parsePrefixes(from13.Excluded))
 	below13, _, _ := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk-1, noResolve)
-	if n := len(below13.Routes); n > wgRouteBudget || n < wgRouteBudget/2 {
+	if n := len(below13.Routes); n > wgRoutesBudget || n <= wgExcludedBudget {
 		t.Errorf("below 13: %d routes", n)
 	}
 	around := addresses([]netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}) - addresses(parsePrefixes(below13.Routes))
@@ -226,6 +231,92 @@ func TestTheShippedIranianSetGivesARouteListAndroidTakes(t *testing.T) {
 	}
 }
 
+func TestTheSitesBlocksAreAllInTheShippedIranianSet(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range iranFirst {
+		if !iran.ContainsPrefix(p) {
+			t.Errorf("%s left the shipped Iranian set: its site would ride the server again", p)
+		}
+	}
+}
+
+func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := len(plan.Routes) + len(plan.Excluded); n > budgetFor(sdk) {
+			t.Errorf("sdk %d: %d routes", sdk, n)
+		}
+		var b netipx.IPSetBuilder
+		for _, route := range plan.Routes {
+			b.AddPrefix(netip.MustParsePrefix(route))
+		}
+		for _, route := range plan.Excluded {
+			b.RemovePrefix(netip.MustParsePrefix(route))
+		}
+		tunnel := must(b.IPSet())
+		for _, p := range iranFirst {
+			if tunnel.OverlapsPrefix(p) {
+				t.Errorf("sdk %d: %s still rides the tunnel", sdk, p)
+			}
+		}
+	}
+}
+
+// Shecan's answers of 2026-10-23: every Shaparak gateway that resolved, then Sadad, Behpardakht and key sites.
+func TestThePaymentGatewaysAndKeyAppsLeaveTheTunnel(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var b netipx.IPSetBuilder
+		for _, route := range plan.Routes {
+			b.AddPrefix(netip.MustParsePrefix(route))
+		}
+		for _, route := range plan.Excluded {
+			b.RemovePrefix(netip.MustParsePrefix(route))
+		}
+		tunnel := must(b.IPSet())
+		for _, ip := range []string{"185.167.73.34", "91.240.182.20", "212.80.25.62", "185.132.124.159", "185.79.62.3",
+			"91.232.66.12", "185.210.200.12", "185.203.160.31", "87.107.134.3", "78.157.33.101", "185.60.32.60",
+			"193.3.31.85", "185.25.172.22", "185.203.160.10", "185.132.124.157", "92.42.50.130", "45.89.201.10",
+			"185.120.222.22", "46.102.128.10", "195.225.232.37", "212.16.67.13", "91.207.138.45", "185.231.114.218",
+			"45.157.244.26", "185.78.23.170"} {
+			if tunnel.Contains(netip.MustParseAddr(ip)) {
+				t.Errorf("sdk %d: %s rides the tunnel", sdk, ip)
+			}
+		}
+	}
+}
+
+func TestASitesBlockOutsideTheIranianSetStaysInTheTunnel(t *testing.T) {
+	var b netipx.IPSetBuilder
+	b.AddPrefix(netip.MustParsePrefix("2.144.0.0/14"))
+	b.AddPrefix(netip.MustParsePrefix("185.143.232.0/23"))
+	iran := must(b.IPSet())
+	plan, _, err := wgPlan(wgMapping(t, nil), iran, excludeRouteSdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(plan.Excluded, []string{"2.144.0.0/14", "185.143.232.0/23"}) {
+		t.Errorf("excluded %v: only what the Iranian set holds may leave the tunnel", plan.Excluded)
+	}
+}
+
 func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 	var b netipx.IPSetBuilder
 	b.AddPrefix(netip.MustParsePrefix("2.176.0.0/12"))
@@ -238,7 +329,7 @@ func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if n := len(plan.Routes) + len(plan.Excluded); n > wgRouteBudget {
+		if n := len(plan.Routes) + len(plan.Excluded); n > budgetFor(sdk) {
 			t.Errorf("sdk %d: %d routes", sdk, n)
 		}
 		if sdk >= excludeRouteSdk && !slices.Contains(plan.Excluded, "2.176.0.0/12") {
@@ -248,6 +339,95 @@ func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 			return netip.MustParsePrefix(r).Contains(netip.MustParseAddr("2.176.0.1"))
 		}) {
 			t.Errorf("sdk %d: the /12 is still routed", sdk)
+		}
+	}
+}
+
+func budgetFor(sdk int) int {
+	if sdk >= excludeRouteSdk {
+		return wgExcludedBudget
+	}
+	return wgRoutesBudget
+}
+
+func TestTheRouteBudgetChangesAtAndroid13(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for sdk, budget := range map[int]int{32: wgRoutesBudget, 33: wgExcludedBudget} {
+		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Filled to the cap: a whole tier that did not fit left a quarter of it unused.
+		n := len(plan.Routes) + len(plan.Excluded)
+		if n > budget || n < budget-32 || sdk >= excludeRouteSdk && n != budget {
+			t.Errorf("sdk %d: %d routes, want the budget of %d filled", sdk, n, budget)
+		}
+	}
+}
+
+func TestAnIPv6AddressKeepsIranianIPv4OutOfTheTunnel(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+		without := iranianIPv4Out(t, wgMapping(t, nil), iran, sdk)
+		with := iranianIPv4Out(t, wgMapping(t, map[string]any{"ipv6": "fd00::2"}), iran, sdk)
+		if with < without*98/100 {
+			t.Errorf("sdk %d: with IPv6 %d of Iran's IPv4 addresses leave the tunnel, without %d", sdk, with, without)
+		}
+	}
+}
+
+func iranianIPv4Out(t *testing.T, mapping map[string]any, iran *netipx.IPSet, sdk int) uint64 {
+	t.Helper()
+	plan, _, err := wgPlan(mapping, iran, sdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b netipx.IPSetBuilder
+	if sdk >= excludeRouteSdk {
+		for _, e := range plan.Excluded {
+			b.AddPrefix(netip.MustParsePrefix(e))
+		}
+	} else {
+		b.AddPrefix(netip.MustParsePrefix("0.0.0.0/0"))
+		for _, r := range plan.Routes {
+			b.RemovePrefix(netip.MustParsePrefix(r))
+		}
+	}
+	return addresses(must(b.IPSet()).Prefixes())
+}
+
+func TestOnePeerTakesEveryFamilyWhateverAllowedIPsSays(t *testing.T) {
+	_, prepared, err := wgPlan(wgMapping(t, map[string]any{"allowed-ips": []any{"10.0.0.0/8"}}), nil, 35, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := uapiLines(prepared)
+	if !slices.Contains(lines, "allowed_ip=0.0.0.0/0") || slices.Contains(lines, "allowed_ip=10.0.0.0/8") {
+		t.Errorf("the peer's allowed IPs:\n%s", prepared.uapi)
+	}
+}
+
+// The literal Kotlin's Core.prepareOwner sends; VpnOptionsTest pins the same key on its side.
+func TestPrepareOwnerReadsTheKeysKotlinSends(t *testing.T) {
+	var params PrepareOwnerParams
+	if err := json.Unmarshal([]byte(`{"core":"wireguard","server":"Germany 5","iran-direct":true}`), &params); err != nil ||
+		params != (PrepareOwnerParams{Core: "wireguard", Server: "Germany 5", IranDirect: true}) {
+		t.Errorf("read %+v (%v)", params, err)
+	}
+}
+
+func TestAnEngineWhoseDeviceClosedCarriesNothing(t *testing.T) {
+	startTestOwner(t)
+	ownerRunning.Load().dev.Close()
+	for deadline := time.Now().Add(2 * time.Second); ownerServer() != ""; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("a dead engine still says it carries its server")
 		}
 	}
 }
@@ -297,22 +477,26 @@ func wgServer(t *testing.T, client []byte) (*device.Device, *tuntest.ChannelTUN,
 	return dev, channel, public, port
 }
 
-func startTestOwner(t *testing.T) (*device.Device, *tuntest.ChannelTUN, *tuntest.ChannelTUN) {
+func startTestOwner(t *testing.T, set ...map[string]any) (*device.Device, *tuntest.ChannelTUN, *tuntest.ChannelTUN) {
 	t.Helper()
 	clientTun := tuntest.NewChannelTUN()
-	server, serverTun := startTestOwnerOn(t, clientTun.TUN())
+	server, serverTun := startTestOwnerOn(t, clientTun.TUN(), set...)
 	return server, serverTun, clientTun
 }
 
-func startTestOwnerOn(t *testing.T, client tun.Device) (*device.Device, *tuntest.ChannelTUN) {
+func startTestOwnerOn(t *testing.T, client tun.Device, set ...map[string]any) (*device.Device, *tuntest.ChannelTUN) {
 	t.Helper()
 	private, public := wgKeyPair(t)
 	server, serverTun, serverPublic, port := wgServer(t, public)
 	t.Cleanup(server.Close)
-	_, prepared, err := wgPlan(map[string]any{
+	mapping := map[string]any{
 		"name": "wg", "type": "wireguard", "server": "127.0.0.1", "port": port, "ip": "10.13.13.2",
 		"private-key": b64(private), "public-key": b64(serverPublic),
-	}, nil, 35, noResolve)
+	}
+	for _, more := range set {
+		maps.Copy(mapping, more)
+	}
+	_, prepared, err := wgPlan(mapping, nil, 35, noResolve)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,29 +512,74 @@ func startTestOwnerOn(t *testing.T, client tun.Device) (*device.Device, *tuntest
 
 func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
 	server, _, _ := startTestOwner(t)
-	params, _ := json.Marshal(TestDelayParams{ProxyName: "wg", Timeout: 3000})
-	fake := &fakeConn{}
-	previous := swapConn(fake)
-	defer swapConn(previous)
-	methodHandlers[asyncTestDelayMethod](&MethodCall{ID: "1", Method: asyncTestDelayMethod, Arguments: params}, MethodResponse{ID: "1"})
-	var frames [][]byte
-	for deadline := time.Now().Add(5 * time.Second); len(frames) == 0 && time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		frames = fake.frames(t)
-	}
-	if len(frames) != 1 {
-		t.Fatalf("%d answers", len(frames))
-	}
-	var answer struct{ Result Delay }
-	if err := json.Unmarshal(frames[0], &answer); err != nil || answer.Result.Value <= 0 || answer.Result.Name != "wg" {
-		t.Fatalf("answer %s (%v), want a delay for wg", frames[0], err)
+	registerOwner("wireguard-test")
+	t.Cleanup(func() { delete(shikooOwners, "wireguard-test") })
+	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 3000}); delay.Value <= 0 || delay.Name != "wg" {
+		t.Fatalf("answer %+v, want a delay for wg", delay)
 	}
 
+	carried := func() string { return shikooOwnerNow().Server }
+	if got := carried(); got != "wg" {
+		t.Errorf("Dart's question got %q, want the owner's server", got)
+	}
+	// At once: a handshake for it would answer late, or at once from the engine's own fresh handshake.
+	asked := time.Now()
+	if delay := ownerPing(&TestDelayParams{ProxyName: "other", Timeout: 3000}); delay.Value != -1 || time.Since(asked) > time.Second {
+		t.Errorf("the owner answered %d after %v for a server it does not hold", delay.Value, time.Since(asked))
+	}
 	server.Close()
-	if delay := ownerFor("wg").testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
+	ownerRunning.Load().asked.Store(time.Now().Add(-device.RekeyTimeout).UnixNano())
+	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
 		t.Errorf("a server that is gone answered %d", delay.Value)
 	}
-	if ownerFor("other") != nil {
-		t.Error("the owner claims a server it does not hold")
+	stopOwner()
+	if got := carried(); got != "" {
+		t.Errorf("with no owner Dart's question got %q", got)
+	}
+	if delay := ownerPing(&TestDelayParams{ProxyName: "wg", Timeout: 300}); delay.Value != -1 {
+		t.Errorf("a stopped owner answered %d", delay.Value)
+	}
+}
+
+// The app's first check comes seconds after connect, inside wireguard-go's 5 s without a new initiation.
+func TestAPingRightAfterTheEnginesHandshakeTimesThatHandshake(t *testing.T) {
+	startTestOwner(t)
+	owner := ownerRunning.Load()
+	for deadline := time.Now().Add(3 * time.Second); owner.lastHandshake().IsZero(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the engine never shook hands")
+		}
+	}
+	took := owner.lastHandshake().Sub(time.Unix(0, owner.asked.Load()))
+	asked := time.Now()
+	delay := owner.testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 3000})
+	if delay.Value <= 0 || int64(delay.Value) != max(took.Milliseconds(), 1) || time.Since(asked) > time.Second {
+		t.Errorf("answered %d after %v, want the engine's own handshake (%v) at once", delay.Value, time.Since(asked), took)
+	}
+}
+
+func TestTheEngineShakesHandsAtStartWithoutAKeepalive(t *testing.T) {
+	startTestOwner(t, map[string]any{"persistent-keepalive": 0})
+	owner := ownerRunning.Load()
+	for deadline := time.Now().Add(3 * time.Second); owner.lastHandshake().IsZero(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("no handshake at start: the first ping would wait for one that never leaves")
+		}
+	}
+}
+
+// A rekey or a retry of wireguard-go's own, with the engine's last ask older than RekeyTimeout.
+func TestAPingRightAfterWireGuardsOwnInitiationWaitsItOut(t *testing.T) {
+	startTestOwner(t)
+	owner := ownerRunning.Load()
+	for deadline := time.Now().Add(3 * time.Second); owner.lastHandshake().IsZero(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the engine never shook hands")
+		}
+	}
+	owner.asked.Store(time.Now().Add(-device.RekeyTimeout).UnixNano())
+	if delay := owner.testDelay(&TestDelayParams{ProxyName: "wg", Timeout: 8000}); delay.Value <= 0 {
+		t.Errorf("a healthy server answered %d", delay.Value)
 	}
 }
 
@@ -388,7 +617,7 @@ func TestStopTunStopsTheOwnerButKeepsTheNextPlan(t *testing.T) {
 	ownerPrepared = next
 	ownerMu.Unlock()
 	stopOwner()
-	if ownerFor("wg") != nil || ownerPrepared != next {
+	if ownerServer() != "" || ownerPrepared != next {
 		t.Error("the stop took the owner's place wrong")
 	}
 	ownerMu.Lock()
@@ -396,6 +625,28 @@ func TestStopTunStopsTheOwnerButKeepsTheNextPlan(t *testing.T) {
 	ownerMu.Unlock()
 	if err := startOwner(tuntest.NewChannelTUN().TUN(), wgconn.NewDefaultBind()); err == nil {
 		t.Error("started with nothing prepared")
+	}
+}
+
+type closeSpy struct {
+	C.Proxy
+	carryingAtClose *[]string
+}
+
+func (spy closeSpy) Close() error {
+	*spy.carryingAtClose = append(*spy.carryingAtClose, ownerServer())
+	return nil
+}
+
+// Once carrying, so the gate already refuses that client when its earlier session is closed.
+func TestStartingTheOwnerClosesMihomosEarlierClientOfItsServer(t *testing.T) {
+	var closes []string
+	proxies, providers := tunnel.Proxies(), tunnel.Providers()
+	tunnel.UpdateProxies(map[string]C.Proxy{"wg": closeSpy{adapter.NewProxy(outbound.NewDirect()), &closes}}, providers)
+	t.Cleanup(func() { tunnel.UpdateProxies(proxies, providers) })
+	startTestOwner(t)
+	if !slices.Equal(closes, []string{"wg"}) {
+		t.Errorf("mihomo's client of the server was closed %d times, the engine carrying %q", len(closes), closes)
 	}
 }
 

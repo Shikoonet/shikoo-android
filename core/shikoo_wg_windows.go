@@ -33,8 +33,8 @@ type ownerTunnel struct {
 	finder  *physicalFinder
 }
 
-// Windows only: a name registers once per binary (core/shikoo_owner.go), and Android's build has its own.
-func init() { registerShikooOwner("wireguard", ownerServer) }
+// Android registers in shikoo_wg_android.go: a name registered twice panics.
+func init() { registerOwner("wireguard") }
 
 var (
 	ownerTun *ownerTunnel
@@ -83,7 +83,6 @@ func groupPick(name string) string {
 }
 
 func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) (err error) {
-	// Windows has no excluded routes: the routes go around Iran's widest blocks, as below Android 13.
 	plan, prepared, err := wgPlan(mapping, iranRanges(iranDirect), 0, lookupEndpoint)
 	if err != nil {
 		return err

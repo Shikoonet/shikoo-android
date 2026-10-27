@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -17,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/klauspost/compress/zstd"
@@ -28,7 +30,6 @@ import (
 	P "github.com/metacubex/mihomo/constant/provider"
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/rules/provider"
-	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	singtun "github.com/metacubex/sing-tun"
 	"go4.org/netipx"
@@ -69,21 +70,24 @@ type ownerPlan struct {
 }
 
 type wgPrepared struct {
-	server string
-	uapi   string
-	peer   device.NoisePublicKey
+	server    string
+	uapi      string
+	peer      device.NoisePublicKey
+	keepalive int
 }
 
 type wgOwner struct {
 	server string
 	dev    *device.Device
 	peer   *device.Peer
+	asked  atomic.Int64 // UnixNano of the engine's last handshake initiation: at start, then at each ping
 }
 
 var (
 	ownerMu       sync.Mutex
 	ownerPrepared *wgPrepared
-	ownerRunning  *wgOwner
+	// Atomic, as the registry's carrying must answer at once and take no lock.
+	ownerRunning atomic.Pointer[wgOwner]
 )
 
 func init() {
@@ -97,19 +101,6 @@ func init() {
 			response.success(plan)
 		})
 	}))
-	// The owner's server shares its key with mihomo's client for it: a handshake from that client would take the
-	// server's session for a while, so the owner answers pings of its server itself (handleTestDelay's twin).
-	mihomoDelay := methodHandlers[asyncTestDelayMethod]
-	methodHandlers[asyncTestDelayMethod] = func(call *MethodCall, response MethodResponse) {
-		var params TestDelayParams
-		if call.decodeArguments(&params) == nil {
-			if owner := ownerFor(params.ProxyName); owner != nil {
-				safeGo(response, func() { response.success(owner.testDelay(&params)) })
-				return
-			}
-		}
-		mihomoDelay(call, response)
-	}
 }
 
 func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
@@ -269,13 +260,50 @@ func wgPlan(
 		}
 	}
 	plan.Routes = prefixStrings(routes)
-	return plan, &wgPrepared{server: fmt.Sprint(mapping["name"]), uapi: uapi.String(), peer: first}, nil
+	return plan, &wgPrepared{server: fmt.Sprint(mapping["name"]), uapi: uapi.String(), peer: first, keepalive: keepalive}, nil
 }
 
-// One binder parcel takes a VPN's routes to every app watching the network: 2067 Iranian ranges overflowed it (Android
-// 15), 8747 routes around them crashed YouTube (7.1). So the widest blocks within wgRouteBudget go; the rest ride the server.
-const wgRouteBudget = 500
+// One binder parcel takes a VPN's routes to every app watching the network: on the emulator 1500 excluded ranges failed it
+// on Android 15 and 8747 routes crashed YouTube on 7.1, while 7.1 took 946 routes in 0.4 s five times over (2026-10-23).
+const (
+	wgExcludedBudget = 500
+	wgRoutesBudget   = 1000
+)
 
+// Out first, each while the shipped Iranian set holds all of it: key sites' and payment gateways' blocks (Shecan).
+var iranFirst = []netip.Prefix{
+	netip.MustParsePrefix("185.143.232.0/22"), netip.MustParsePrefix("176.56.144.0/20"),
+	netip.MustParsePrefix("185.192.8.0/22"), netip.MustParsePrefix("82.99.192.0/18"),
+	netip.MustParsePrefix("185.30.4.0/22"), netip.MustParsePrefix("193.8.139.0/24"),
+	netip.MustParsePrefix("5.160.152.0/21"), netip.MustParsePrefix("89.43.0.0/20"),
+	netip.MustParsePrefix("164.215.56.0/21"), netip.MustParsePrefix("212.1.192.0/21"),
+	netip.MustParsePrefix("217.218.0.0/15"), netip.MustParsePrefix("91.212.252.0/24"),
+	netip.MustParsePrefix("5.160.192.0/18"), netip.MustParsePrefix("178.21.40.0/21"),
+	netip.MustParsePrefix("185.167.72.0/22"), netip.MustParsePrefix("91.240.180.0/22"),
+	netip.MustParsePrefix("212.80.16.0/20"), netip.MustParsePrefix("185.132.124.0/24"),
+	netip.MustParsePrefix("185.79.60.0/22"), netip.MustParsePrefix("185.210.200.0/22"),
+	netip.MustParsePrefix("91.232.64.0/22"), netip.MustParsePrefix("130.185.72.0/21"),
+	netip.MustParsePrefix("78.38.0.0/15"), netip.MustParsePrefix("77.104.64.0/18"),
+	netip.MustParsePrefix("77.237.64.0/19"), netip.MustParsePrefix("94.232.168.0/21"),
+	netip.MustParsePrefix("185.12.100.0/22"), netip.MustParsePrefix("185.188.104.0/22"),
+	netip.MustParsePrefix("185.147.176.0/22"), netip.MustParsePrefix("185.166.104.0/22"),
+	netip.MustParsePrefix("81.12.0.0/17"), netip.MustParsePrefix("2.176.0.0/12"),
+	netip.MustParsePrefix("5.106.0.0/16"), netip.MustParsePrefix("185.203.160.0/22"),
+	netip.MustParsePrefix("92.42.48.0/21"), netip.MustParsePrefix("45.89.200.0/22"),
+	netip.MustParsePrefix("185.120.208.0/20"), netip.MustParsePrefix("178.216.248.0/21"),
+	netip.MustParsePrefix("46.102.128.0/20"), netip.MustParsePrefix("94.182.0.0/16"),
+	netip.MustParsePrefix("79.175.128.0/18"), netip.MustParsePrefix("185.60.136.0/22"),
+	netip.MustParsePrefix("37.156.144.0/22"), netip.MustParsePrefix("194.41.48.0/22"),
+	netip.MustParsePrefix("194.156.140.0/22"), netip.MustParsePrefix("95.128.194.0/24"),
+	netip.MustParsePrefix("85.15.0.0/18"), netip.MustParsePrefix("185.60.32.0/22"),
+	netip.MustParsePrefix("87.107.0.0/16"), netip.MustParsePrefix("78.157.32.0/19"),
+	netip.MustParsePrefix("193.3.31.0/24"), netip.MustParsePrefix("185.25.172.0/22"),
+	netip.MustParsePrefix("195.225.232.0/24"), netip.MustParsePrefix("212.16.64.0/21"),
+	netip.MustParsePrefix("91.207.138.0/23"), netip.MustParsePrefix("185.231.112.0/22"),
+	netip.MustParsePrefix("45.157.244.0/22"), netip.MustParsePrefix("185.78.20.0/22"),
+}
+
+// cutIran takes Iran's blocks out up to the route budget: the key sites, then IPv4, then IPv6, each family by size.
 func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.IPSet, excluded []string, err error) {
 	var inside netipx.IPSetBuilder
 	inside.AddSet(routes)
@@ -284,39 +312,60 @@ func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.
 	if err != nil {
 		return nil, nil, err
 	}
-	blocks := all.Prefixes()
-	size := func(p netip.Prefix) int { return p.Addr().BitLen() - p.Bits() }
-	slices.SortStableFunc(blocks, func(a, b netip.Prefix) int { return size(b) - size(a) })
-	routesLeft, excluded = routes, []string{}
-	var cut netipx.IPSetBuilder
-	for i, j := 0, 0; i < len(blocks); i = j {
-		for j = i; j < len(blocks) && size(blocks[j]) == size(blocks[i]); j++ {
-			cut.AddPrefix(blocks[j])
+	var order []netip.Prefix
+	for _, p := range iranFirst {
+		if all.ContainsPrefix(p) {
+			order = append(order, p)
 		}
-		out, err := cut.IPSet()
-		if err != nil {
-			return nil, nil, err
+	}
+	blocks := all.Prefixes()
+	slices.SortStableFunc(blocks, func(a, b netip.Prefix) int {
+		if a.Addr().Is4() != b.Addr().Is4() {
+			return cmp.Compare(a.Addr().BitLen(), b.Addr().BitLen())
+		}
+		return a.Bits() - b.Bits()
+	})
+	order = append(order, blocks...)
+	cut := func(n int) (out, left *netipx.IPSet, fits bool, err error) {
+		var b netipx.IPSetBuilder
+		for _, p := range order[:n] {
+			b.AddPrefix(p)
+		}
+		if out, err = b.IPSet(); err != nil {
+			return nil, nil, false, err
 		}
 		if excludeRoute {
-			if len(routes.Prefixes())+len(out.Prefixes()) > wgRouteBudget {
-				break
-			}
-			excluded = prefixStrings(out)
-			continue
+			return out, routes, len(routes.Prefixes())+len(out.Prefixes()) <= wgExcludedBudget, nil
 		}
-		var left netipx.IPSetBuilder
-		left.AddSet(routes)
-		left.RemoveSet(out)
-		around, err := left.IPSet()
+		var around netipx.IPSetBuilder
+		around.AddSet(routes)
+		around.RemoveSet(out)
+		if left, err = around.IPSet(); err != nil {
+			return nil, nil, false, err
+		}
+		return out, left, len(left.Prefixes()) <= wgRoutesBudget, nil
+	}
+	lo, hi := 0, len(order)
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		_, _, fits, err := cut(mid)
 		if err != nil {
 			return nil, nil, err
 		}
-		if len(around.Prefixes()) > wgRouteBudget {
-			break
+		if fits {
+			lo = mid
+		} else {
+			hi = mid - 1
 		}
-		routesLeft = around
 	}
-	return routesLeft, excluded, nil
+	out, left, _, err := cut(lo)
+	if err != nil {
+		return nil, nil, err
+	}
+	if excludeRoute {
+		return routes, prefixStrings(out), nil
+	}
+	return left, []string{}, nil
 }
 
 func prefixStrings(set *netipx.IPSet) []string {
@@ -407,15 +456,15 @@ func startOwner(t tun.Device, bind wgconn.Bind) error {
 	if err != nil {
 		return err
 	}
-	// A device a ping left in mihomo's client of this server would answer with the same key. The apply that
-	// follows every start builds that client again, idle.
-	if proxy := tunnel.AllProxies()[prepared.server]; proxy != nil && proxy.Type() == constant.WireGuard {
-		_ = proxy.Close()
-	}
-	ownerMu.Lock()
-	ownerRunning = owner
-	ownerMu.Unlock()
+	ownerRunning.Store(owner)
+	shikooOwnerTakes(prepared.server)
+	go forgetWhenClosed(owner)
 	return nil
+}
+
+func forgetWhenClosed(owner *wgOwner) {
+	<-owner.dev.Wait()
+	ownerRunning.CompareAndSwap(owner, nil)
 }
 
 func startWireGuard(t tun.Device, bind wgconn.Bind, prepared *wgPrepared) (*wgOwner, error) {
@@ -424,7 +473,9 @@ func startWireGuard(t tun.Device, bind wgconn.Bind, prepared *wgPrepared) (*wgOw
 		Errorf:   func(format string, args ...any) { log.Warnln("[WG] "+format, args...) },
 	}
 	dev := device.NewDevice(countingTun{t}, bind, logger)
-	if err := dev.IpcSet(prepared.uapi); err != nil {
+	// Up would send a keepalive, and so an initiation, before the engine could time one of its own.
+	keepalive := "public_key=" + hex.EncodeToString(prepared.peer[:]) + "\nupdate_only=true\npersistent_keepalive_interval="
+	if err := dev.IpcSet(prepared.uapi + keepalive + "0\n"); err != nil {
 		dev.Close()
 		return nil, err
 	}
@@ -433,48 +484,69 @@ func startWireGuard(t tun.Device, bind wgconn.Bind, prepared *wgPrepared) (*wgOw
 		dev.Close()
 		return nil, err
 	}
-	return &wgOwner{server: prepared.server, dev: dev, peer: dev.LookupPeer(prepared.peer)}, nil
+	owner := &wgOwner{server: prepared.server, dev: dev, peer: dev.LookupPeer(prepared.peer)}
+	owner.asked.Store(time.Now().UnixNano())
+	if owner.peer != nil {
+		_ = owner.peer.SendHandshakeInitiation(false)
+	}
+	if prepared.keepalive > 0 {
+		if err := dev.IpcSet(keepalive + strconv.Itoa(prepared.keepalive) + "\n"); err != nil {
+			dev.Close()
+			return nil, err
+		}
+	}
+	return owner, nil
 }
 
 func stopOwner() {
-	ownerMu.Lock()
-	owner := ownerRunning
-	ownerRunning = nil
-	ownerMu.Unlock()
+	owner := ownerRunning.Swap(nil)
 	if owner != nil {
 		owner.dev.Close()
 	}
 }
 
-func ownerServer() string {
-	ownerMu.Lock()
-	defer ownerMu.Unlock()
-	if ownerRunning == nil {
-		return ""
-	}
-	return ownerRunning.server
+// registerOwner puts the engine in the registry (core/shikoo_owner.go); Android's init calls it in shikoo_wg_android.go.
+func registerOwner(core string) {
+	registerShikooOwner(core, ownerServer, ownerPing)
 }
 
-func ownerFor(server string) *wgOwner {
-	ownerMu.Lock()
-	defer ownerMu.Unlock()
-	if ownerRunning != nil && ownerRunning.server == server {
-		return ownerRunning
+func ownerServer() string {
+	if owner := ownerRunning.Load(); owner != nil {
+		return owner.server
 	}
-	return nil
+	return ""
+}
+
+// ownerPing: the registry asks only for the server ownerServer named, but the engine may stop in between.
+func ownerPing(params *TestDelayParams) *Delay {
+	if owner := ownerRunning.Load(); owner != nil && owner.server == params.ProxyName {
+		return owner.testDelay(params)
+	}
+	return &Delay{Name: params.ProxyName, Url: params.TestUrl, Value: -1}
 }
 
 // testDelay is the time a fresh handshake takes: the server's own answer, through the socket that carries the
-// tunnel. wireguard-go sends at most one initiation per 5 s, so a ping right after another waits on that one.
+// tunnel. wireguard-go sends at most one initiation per 5 s, so a ping right after another times that one.
 func (o *wgOwner) testDelay(params *TestDelayParams) *Delay {
 	delay := &Delay{Name: params.ProxyName, Url: params.TestUrl, Value: -1}
-	start := time.Now()
-	if o.peer == nil || o.peer.SendHandshakeInitiation(false) != nil {
+	if o.peer == nil {
 		return delay
 	}
+	start := time.Now()
+	asked := time.Unix(0, o.asked.Load())
+	if start.Sub(asked) >= device.RekeyTimeout {
+		if sinceItsOwn := time.Since(o.lastHandshake()); sinceItsOwn < device.RekeyTimeout {
+			time.Sleep(device.RekeyTimeout - sinceItsOwn)
+		}
+		asked = time.Now()
+		o.asked.Store(asked.UnixNano())
+		if o.peer.SendHandshakeInitiation(false) != nil {
+			return delay
+		}
+	}
 	for deadline := start.Add(delayTestTimeout(params.Timeout)); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		if at := o.lastHandshake(); !at.Before(start) {
-			delay.Value = int32(max(at.Sub(start).Milliseconds(), 1))
+		if at := o.lastHandshake(); !at.Before(asked) {
+			delay.Value = int32(max(at.Sub(asked).Milliseconds(), 1))
 			return delay
 		}
 	}
@@ -525,9 +597,6 @@ func (c countingTun) Write(bufs [][]byte, offset int) (int, error) {
 	statistic.DefaultManager.PushDownloaded(false, total)
 	return n, err
 }
-
-// shikooOwnerKey is markCores' mark for the official engine; mihomo's parser drops it, and still carries the server.
-const shikooOwnerKey = "shikoo-owner"
 
 // ownerInUse: the live pick of the listed group (mainGroupOf), if marked; Iran's ranges stay out while DIRECT by rule.
 func ownerInUse(raw *config.RawConfig, now func(group string) string) (mapping map[string]any, iranDirect bool) {

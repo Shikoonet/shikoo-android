@@ -2,7 +2,7 @@ import 'package:fl_clash/shikoo/engine/cores.dart';
 
 /// Package h2 of docs/multi-core.md: the official WireGuard engine, owning the tunnel.
 const ShikooCoreSpec wireguardSpec = (
-  ready: false,
+  ready: true,
   shape: ShikooShape.ownsTunnel,
   serves: _serves,
 );
