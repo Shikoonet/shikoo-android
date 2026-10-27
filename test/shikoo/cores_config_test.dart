@@ -39,7 +39,13 @@ void main() {
     when(() => core.getConfig(any())).thenAnswer(
       (_) async => {
         'proxies': [
-          {'name': 'A', 'type': 'vless', 'server': '1.1.1.1', 'port': 443},
+          {
+            'name': 'A',
+            'type': 'vless',
+            'server': '1.1.1.1',
+            'port': 443,
+            'tls': true,
+          },
           {'name': 'W', 'type': 'wireguard', 'server': '1.1.1.2', 'port': 1},
         ],
       },
