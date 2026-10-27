@@ -13,9 +13,12 @@ import 'package:path/path.dart' show join;
 import 'package:yaml/yaml.dart';
 
 const _iran = [
+  'DOMAIN-SUFFIX,ir,DIRECT',
+  'DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT',
+];
+const _sets = [
   'RULE-SET,shikoo-ir-site,DIRECT',
   'RULE-SET,shikoo-ir-ip,DIRECT,no-resolve',
-  'DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT',
 ];
 const _door = [
   'DOMAIN,app.chopon.uk,DIRECT',
@@ -107,13 +110,14 @@ void main() {
       expect((config['tun'] as YamlMap)['enable'], tun);
       final rules = config['rules'] as List;
       expect(
-        rules.take(8),
-        unorderedEquals([..._iran, ..._door, _subscription]),
+        rules.take(9),
+        unorderedEquals([..._iran, ..._door, _subscription, ..._sets]),
       );
-      expect(rules.skip(8), _panelRules);
+      expect(rules.skip(9), _panelRules);
       expect(config['rule-providers'], _ours);
       expect((config['dns'] as YamlMap)['nameserver-policy'], {
         'rule-set:shikoo-ir-site': 'system',
+        '+.ir': 'system',
         '+.xn--mgba3a4fra': 'system',
         'app.chopon.uk': 'system',
         'www.aparat.com': 'system',
@@ -202,6 +206,38 @@ void main() {
     expect(again['dns'], on['dns']);
     expect(again['rule-providers'], on['rule-providers']);
   });
+
+  test('the stored rows need no rule set: an older build on this data, '
+      'which adds none, still loads its config', () async {
+    await keepIranDirect(true);
+    final block = [
+      for (final rule in await database.rulesDao.queryGlobalAddedRules().get())
+        if (rule.id >= iranDirectIds && rule.id < iranDirectIds + 100) rule,
+    ];
+    expect(block.map((rule) => rule.rawValue), _iran);
+    expect(block.map((rule) => rule.ruleProvider), everyElement(isNull));
+  });
+
+  test(
+    'rows an earlier build stored under the Iranian ids go, on or off',
+    () async {
+      for (final on in [true, false]) {
+        for (final (i, rule) in [
+          ..._sets,
+          'DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT',
+        ].indexed) {
+          await database.rulesDao.putGlobalRule(
+            Rule.parse(rule, id: iranDirectIds + i),
+          );
+        }
+        await keepIranDirect(on);
+        expect([
+          for (final MapEntry(:key, :value) in (await _stored()).entries)
+            if (key >= iranDirectIds && key < iranDirectIds + 100) value,
+        ], on ? _iran : isEmpty);
+      }
+    },
+  );
 
   test('quick turns land in the order they were made', () async {
     await Future.wait([false, true, false, true, false].map(keepIranDirect));

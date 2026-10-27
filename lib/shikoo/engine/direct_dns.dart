@@ -9,27 +9,38 @@ const subscriptionDirectIds = shikooDirectIds + 500;
 
 const shikooRuleSets = {'shikoo-ir-site': 'domain', 'shikoo-ir-ip': 'ipcidr'};
 
-/// `category-ir` holds all of `.ir`. `no-resolve`: resolving here would hold up every foreign site, so
-/// an IP counts only for a connection that came without a name.
 final iranDirectRules = [
-  Rule.parse('RULE-SET,shikoo-ir-site,DIRECT', id: iranDirectIds),
-  Rule.parse('RULE-SET,shikoo-ir-ip,DIRECT,no-resolve', id: iranDirectIds + 1),
-  Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds + 2),
+  Rule.parse('DOMAIN-SUFFIX,ir,DIRECT', id: iranDirectIds),
+  Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds + 1),
 ];
 
-void shikooRuleProviders(Map<dynamic, dynamic> config, Iterable<Rule> added) {
-  final used = {
-    for (final rule in added)
-      if (shikooRuleSets[rule.ruleProvider] case final behavior?)
-        rule.ruleProvider!: {
-          'type': 'file',
-          'behavior': behavior,
-          'format': 'mrs',
-          'path': './${rule.ruleProvider}.mrs',
-        },
+void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {
+  if (!added.any((rule) => rule.id == iranDirectIds)) return;
+  final theirs = config['rule-providers'] is Map
+      ? config['rule-providers'] as Map
+      : const {};
+  config['rule-providers'] = {
+    for (final MapEntry(key: name, value: behavior) in shikooRuleSets.entries)
+      name: {
+        'type': 'file',
+        'behavior': behavior,
+        'format': 'mrs',
+        'path': './$name.mrs',
+      },
+    ...theirs,
   };
-  if (used.isEmpty) return;
-  config['rule-providers'] = {...used, ...?(config['rule-providers'] as Map?)};
+  config['rules'] = [
+    'RULE-SET,shikoo-ir-site,DIRECT',
+    'RULE-SET,shikoo-ir-ip,DIRECT,no-resolve',
+    ...?(config['rules'] as List?),
+  ];
+  // As a DNS policy an ipcidr set, as theirs may be, fails the whole config: no servers at all.
+  if (!theirs.containsKey('shikoo-ir-site')) {
+    (config['dns']['nameserver-policy'] as Map).putIfAbsent(
+      'rule-set:shikoo-ir-site',
+      () => 'system',
+    );
+  }
 }
 
 final _tunDomain = RegExp(r'^\(\(IN-TYPE,TUN\),\(DOMAIN,([^()]+)\)\)$');
@@ -39,30 +50,20 @@ final _tunDomain = RegExp(r'^\(\(IN-TYPE,TUN\),\(DOMAIN,([^()]+)\)\)$');
 Map<String, dynamic> shikooDns(
   Map<String, dynamic> dns,
   Iterable<Rule> added,
-  Object? subscriptionSets,
 ) => {
   for (final MapEntry(:key, :value) in dns.entries)
     if (key != 'listen') key: value,
   'nameserver-policy': {
     for (final rule in added)
       if (rule.id >= shikooDirectIds && rule.id < shikooDirectIds + 1000)
-        ?_domain(rule, subscriptionSets): 'system',
+        ?_domain(rule): 'system',
     ...?(dns['nameserver-policy'] as Map?),
   },
 };
 
-String? _domain(
-  Rule rule,
-  Object? subscriptionSets,
-) => switch (rule.ruleAction) {
+String? _domain(Rule rule) => switch (rule.ruleAction) {
   RuleAction.DOMAIN => rule.content,
   RuleAction.DOMAIN_SUFFIX => '+.${rule.content}',
-  // An `ipcidr` set here, or a subscription's set of our name, fails the whole config: no servers.
-  RuleAction.RULE_SET
-      when shikooRuleSets[rule.ruleProvider] == 'domain' &&
-          !(subscriptionSets is Map &&
-              subscriptionSets.containsKey(rule.ruleProvider)) =>
-    'rule-set:${rule.ruleProvider}',
   RuleAction.AND => _tunDomain.firstMatch(rule.content ?? '')?[1],
   _ => null,
 };
