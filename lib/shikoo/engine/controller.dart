@@ -463,6 +463,9 @@ Duration ownerAnswerLimit = const Duration(seconds: 2);
 @visibleForTesting
 Duration ownerWatchEvery = const Duration(seconds: 2);
 
+@visibleForTesting
+Duration ownerDeathWindow = const Duration(minutes: 1);
+
 /// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no
 /// answer in two seconds.
 final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
@@ -1108,6 +1111,10 @@ class ShikooController {
                 _nativeStart(null);
                 _endSwitch();
                 _watchOwner(false);
+                // Any end of the connection lifts the hold: the system's Disconnect, the notification or the tile.
+                if (!_fallingBack) {
+                  _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
+                }
                 if (_endOwnerRoad()) unawaited(_rebuildClients());
               },
       );
@@ -1568,7 +1575,7 @@ class ShikooController {
     final now = DateTime.now();
     final again =
         _ownerRebuiltAt != null &&
-        now.difference(_ownerRebuiltAt!) < const Duration(minutes: 1);
+        now.difference(_ownerRebuiltAt!) < ownerDeathWindow;
     _ownerRebuiltAt = now;
     await (again ? _fallBackToMihomo() : _rebuildOwnerTunnel());
   }
