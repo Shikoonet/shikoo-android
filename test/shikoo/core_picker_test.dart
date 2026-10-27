@@ -358,7 +358,7 @@ void main() {
         expect(rows.single.carrier, tunnel ? _wireguard : _mihomo);
         expect(
           viaLabel(_fa, server, rows),
-          tunnel ? isNull : _fa.viaCore(_fa.coreMihomo),
+          tunnel ? isNull : _fa.viaCore(bidiName(_fa.coreMihomo)),
         );
       },
     );
@@ -415,14 +415,14 @@ void main() {
     testWidgets('«وایرگارد» opens the sheet: mihomo is the default, sing-box '
         'is greyed with «به‌زودی», and a tap picks and closes', (tester) async {
       final rig = await _pump(tester, _settings());
-      await tester.ensureVisible(find.text(_fa.protocolWireguard));
-      await tester.tap(find.text(_fa.protocolWireguard));
+      await tester.ensureVisible(find.text(_fa.protocolWireguard).first);
+      await tester.tap(find.text(_fa.protocolWireguard).first);
       await tester.pumpAndSettle();
-      final title = _fa.corePickTitle(_fa.protocolWireguard);
+      final title = _fa.corePickTitle(bidiName(_fa.protocolWireguard));
       expect(find.text(title), findsOneWidget);
       expect(
         find.text(
-          '${_fa.corePickForAll(_fa.protocolWireguard)} ${_fa.corePickAgain}',
+          '${_fa.corePickForAll(bidiName(_fa.protocolWireguard))} ${_fa.corePickAgain}',
         ),
         findsOneWidget,
       );
@@ -455,8 +455,8 @@ void main() {
       testWidgets('OpenVPN today: «پیش‌فرض» under mihomo, the official engine '
           'with «به‌زودی» (${b.name})', (tester) async {
         await _pump(tester, _settings(), brightness: b);
-        await tester.ensureVisible(find.text(_fa.protocolOpenvpn));
-        await tester.tap(find.text(_fa.protocolOpenvpn));
+        await tester.ensureVisible(find.text(_fa.protocolOpenvpn).first);
+        await tester.tap(find.text(_fa.protocolOpenvpn).first);
         await tester.pumpAndSettle();
         expect(_lineUnder(_fa.coreMihomo), _fa.coreDefault);
         expect(_lineUnder(_fa.coreOpenvpn), _fa.coreOpenvpnHelp);
@@ -469,8 +469,8 @@ void main() {
       tester,
     ) async {
       await _pump(tester, _settings(cores: _rows(openvpnReady: true)));
-      await tester.ensureVisible(find.text(_fa.protocolOpenvpn));
-      await tester.tap(find.text(_fa.protocolOpenvpn));
+      await tester.ensureVisible(find.text(_fa.protocolOpenvpn).first);
+      await tester.tap(find.text(_fa.protocolOpenvpn).first);
       await tester.pumpAndSettle();
       expect(_lineUnder(_fa.coreOpenvpn), _fa.coreDefault);
       expect(_lineUnder(_fa.coreMihomo), isNull);
@@ -480,12 +480,15 @@ void main() {
       tester,
     ) async {
       final rig = await _pump(tester, _settings());
-      await tester.ensureVisible(find.text(_fa.protocolVless));
-      await tester.tap(find.text(_fa.protocolVless));
+      await tester.ensureVisible(find.text(_fa.protocolVless).first);
+      await tester.tap(find.text(_fa.protocolVless).first);
       await tester.pumpAndSettle();
       await tester.tap(find.text(_fa.coreDefault));
       await tester.pumpAndSettle();
-      expect(find.text(_fa.corePickTitle(_fa.protocolVless)), findsNothing);
+      expect(
+        find.text(_fa.corePickTitle(bidiName(_fa.protocolVless))),
+        findsNothing,
+      );
       verifyNever(() => rig.controller.setCore(any(), any()));
     });
 
@@ -499,11 +502,11 @@ void main() {
         brightness: Brightness.dark,
       );
       expect(find.text(_en.coreWireguard), findsOneWidget);
-      await tester.ensureVisible(find.text(_en.protocolWireguard));
-      await tester.tap(find.text(_en.protocolWireguard));
+      await tester.ensureVisible(find.text(_en.protocolWireguard).first);
+      await tester.tap(find.text(_en.protocolWireguard).first);
       await tester.pumpAndSettle();
       expect(
-        find.text(_en.corePickTitle(_en.protocolWireguard)),
+        find.text(_en.corePickTitle(bidiName(_en.protocolWireguard))),
         findsOneWidget,
       );
       expect(find.text(_en.coreSoon), findsOneWidget);
@@ -518,8 +521,8 @@ void main() {
           _settings(cores: _rows(vless: _singBox)),
           brightness: b,
         );
-        await tester.ensureVisible(find.text(_fa.protocolVless));
-        await tester.tap(find.text(_fa.protocolVless));
+        await tester.ensureVisible(find.text(_fa.protocolVless).first);
+        await tester.tap(find.text(_fa.protocolVless).first);
         await tester.pumpAndSettle();
         expect(find.text(_fa.coreSingBoxVless), findsOneWidget);
         await _shot(tester, 'x-sheet-${b.name}');
@@ -529,8 +532,8 @@ void main() {
     testWidgets('large text ×1.45: the sheet and the rows fit', (tester) async {
       await _pump(tester, _settings(), textScale: 1.45);
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text(_fa.protocolWireguard));
-      await tester.tap(find.text(_fa.protocolWireguard));
+      await tester.ensureVisible(find.text(_fa.protocolWireguard).first);
+      await tester.tap(find.text(_fa.protocolWireguard).first);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await _shot(tester, 'a-sheet-145-light');
@@ -545,7 +548,7 @@ void main() {
           home: const ShikooHome(),
           brightness: b,
         );
-        final via = _fa.viaCore(_fa.coreMihomo);
+        final via = _fa.viaCore(bidiName(_fa.coreMihomo));
         expect(find.text(via), findsOneWidget);
         final row = find.ancestor(
           of: find.text(via),
@@ -593,9 +596,9 @@ void main() {
           from: 'فنلاند ۲',
           stage: ShikooSwitchStage.done,
         );
-        final core = _fa.coreSwitched(_fa.coreXray);
+        final core = _fa.coreSwitched(bidiName(_fa.coreXray));
         final server = _fa.switchingTo(serverName('آلمان ۲'));
-        final coreOnWay = _fa.coreSwitching(_fa.coreXray);
+        final coreOnWay = _fa.coreSwitching(bidiName(_fa.coreXray));
         final serverDone = _fa.switchedTo(serverName('آلمان ۲'));
         for (final (state, line) in [
           (_home(vless: _xray, coreSwitch: done), core),
@@ -641,8 +644,16 @@ void main() {
           coreSwitch: (protocol: ShikooProtocol.vless, to: _xray, stage: stage),
         );
         for (final (stage, line, shot) in [
-          (ShikooSwitchStage.moving, _fa.coreSwitching(xray), 'a-switch'),
-          (ShikooSwitchStage.done, _fa.coreSwitched(xray), 'a-switch-done'),
+          (
+            ShikooSwitchStage.moving,
+            _fa.coreSwitching(bidiName(xray)),
+            'a-switch',
+          ),
+          (
+            ShikooSwitchStage.done,
+            _fa.coreSwitched(bidiName(xray)),
+            'a-switch-done',
+          ),
           (ShikooSwitchStage.failed, _fa.powerFailed, 'a-switch-failed'),
         ]) {
           rig.holder.value = at(stage);
@@ -652,8 +663,8 @@ void main() {
           expect(find.byType(ShikooSettings), findsOneWidget);
           await _shot(tester, '$shot-${b.name}');
         }
-        expect(find.text(_fa.coreSwitching(xray)), findsNothing);
-        expect(find.text(_fa.coreSwitched(xray)), findsNothing);
+        expect(find.text(_fa.coreSwitching(bidiName(xray))), findsNothing);
+        expect(find.text(_fa.coreSwitched(bidiName(xray))), findsNothing);
 
         rig.holder.value = _home(vless: _xray);
         await tester.pumpAndSettle();
@@ -706,7 +717,7 @@ void main() {
 
       expect(await _press(tester, LogicalKeyboardKey.select), _fa.coreMihomo);
       expect(
-        find.text(_fa.corePickTitle(_fa.protocolWireguard)),
+        find.text(_fa.corePickTitle(bidiName(_fa.protocolWireguard))),
         findsOneWidget,
       );
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), _fa.coreXray);
@@ -732,14 +743,17 @@ void main() {
 
       await _press(tester, LogicalKeyboardKey.select);
       expect(
-        find.text(_fa.corePickTitle(_fa.protocolWireguard)),
+        find.text(_fa.corePickTitle(bidiName(_fa.protocolWireguard))),
         findsOneWidget,
       );
       expect(
         await _press(tester, LogicalKeyboardKey.escape),
         _fa.protocolWireguard,
       );
-      expect(find.text(_fa.corePickTitle(_fa.protocolWireguard)), findsNothing);
+      expect(
+        find.text(_fa.corePickTitle(bidiName(_fa.protocolWireguard))),
+        findsNothing,
+      );
       verifyNever(() => rig.controller.setCore(any(), any()));
     });
 
@@ -810,7 +824,7 @@ void main() {
         locale: 'en',
         brightness: Brightness.dark,
       );
-      expect(find.text(_en.viaCore(_en.coreMihomo)), findsOneWidget);
+      expect(find.text(_en.viaCore(bidiName(_en.coreMihomo))), findsOneWidget);
       await _shot(tester, 'x-tv-en-dark');
     });
 
@@ -831,7 +845,7 @@ void main() {
           home: const ShikooHome(),
           brightness: b,
         );
-        final news = find.text(_fa.coreSwitching(_fa.coreXray));
+        final news = find.text(_fa.coreSwitching(bidiName(_fa.coreXray)));
         expect(news, findsOneWidget);
         final t = ShikooTheme.of(tester.element(news));
         expect(tester.widget<Text>(news).style?.color, t.c.textMuted);
@@ -869,10 +883,14 @@ void main() {
         for (final (stage, line, shot) in [
           (
             ShikooSwitchStage.moving,
-            _fa.coreSwitching(_fa.coreXray),
+            _fa.coreSwitching(bidiName(_fa.coreXray)),
             'a-tv-set-switch',
           ),
-          (ShikooSwitchStage.done, _fa.coreSwitched(_fa.coreXray), null),
+          (
+            ShikooSwitchStage.done,
+            _fa.coreSwitched(bidiName(_fa.coreXray)),
+            null,
+          ),
           (ShikooSwitchStage.failed, _fa.powerFailed, 'a-tv-set-failed'),
         ]) {
           rig.holder.value = _settings(
@@ -914,11 +932,13 @@ void main() {
     ) async {
       final rig = await _pump(tester, _settings());
       // Flush with the top edge, as a scrolled page leaves it: the click's ring scrolls it first.
-      await tester.ensureVisible(find.text(_fa.protocolWireguard));
+      await tester.ensureVisible(find.text(_fa.protocolWireguard).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(_fa.protocolWireguard));
+      await tester.tap(find.text(_fa.protocolWireguard).first);
       await tester.pumpAndSettle();
-      final head = find.text(_fa.corePickTitle(_fa.protocolWireguard));
+      final head = find.text(
+        _fa.corePickTitle(bidiName(_fa.protocolWireguard)),
+      );
       expect(head, findsOneWidget);
       final row = tester.getRect(
         find
@@ -936,7 +956,7 @@ void main() {
       expect(menu.left, closeTo(row.left, 1), reason: 'end edges together');
       expect(
         find.text(
-          '${_fa.corePickForAll(_fa.protocolWireguard)} ${_fa.corePickAgain}',
+          '${_fa.corePickForAll(bidiName(_fa.protocolWireguard))} ${_fa.corePickAgain}',
         ),
         findsOneWidget,
       );
@@ -958,15 +978,15 @@ void main() {
           proxy: true,
           brightness: b,
         );
-        await tester.ensureVisible(find.text(_fa.protocolWireguard));
+        await tester.ensureVisible(find.text(_fa.protocolWireguard).first);
         await tester.pumpAndSettle();
-        await tester.tap(find.text(_fa.protocolWireguard));
+        await tester.tap(find.text(_fa.protocolWireguard).first);
         await tester.pumpAndSettle();
         expect(find.text(_fa.coreTunnelOnly(_fa.modeTunnel)), findsOneWidget);
         expect(
           find.text(
             '${_fa.coreProxyNow(_fa.modeProxy)} '
-            '${_fa.corePickForAll(_fa.protocolWireguard)}',
+            '${_fa.corePickForAll(bidiName(_fa.protocolWireguard))}',
           ),
           findsOneWidget,
         );
@@ -981,14 +1001,18 @@ void main() {
           cores: _rows(wireguard: _wireguard, tunnel: false),
         );
         await tester.pumpAndSettle();
-        expect(find.text(_fa.coreWireguard), findsOneWidget, reason: 'kept');
-        await tester.ensureVisible(find.text(_fa.protocolVless));
+        expect(
+          find.text(_fa.coreWireguard),
+          findsNWidgets(2),
+          reason: 'the row and its kept pick',
+        );
+        await tester.ensureVisible(find.text(_fa.protocolVless).first);
         await tester.pumpAndSettle();
-        await tester.tap(find.text(_fa.protocolVless));
+        await tester.tap(find.text(_fa.protocolVless).first);
         await tester.pumpAndSettle();
         expect(
           find.text(
-            '${_fa.corePickForAll(_fa.protocolVless)} ${_fa.corePickAgain}',
+            '${_fa.corePickForAll(bidiName(_fa.protocolVless))} ${_fa.corePickAgain}',
           ),
           findsOneWidget,
           reason: 'no engine of VLESS owns the tunnel',
@@ -1023,12 +1047,12 @@ void main() {
         alignment: 0.4,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(_fa.protocolWireguard));
+      await tester.tap(find.text(_fa.protocolWireguard).first);
       await tester.pumpAndSettle();
       final menu = tester.getRect(
         find
             .ancestor(
-              of: find.text(_fa.corePickTitle(_fa.protocolWireguard)),
+              of: find.text(_fa.corePickTitle(bidiName(_fa.protocolWireguard))),
               matching: find.byType(IntrinsicWidth),
             )
             .first,
@@ -1053,14 +1077,14 @@ void main() {
             proxy: true,
             brightness: b,
           );
-          await tester.ensureVisible(find.text(_fa.protocolWireguard));
+          await tester.ensureVisible(find.text(_fa.protocolWireguard).first);
           await tester.pumpAndSettle();
           expect(
             find.text(_fa.coreWireguard),
-            findsOneWidget,
+            findsNWidgets(2),
             reason: 'the row',
           );
-          await tester.tap(find.text(_fa.protocolWireguard));
+          await tester.tap(find.text(_fa.protocolWireguard).first);
           await tester.pumpAndSettle();
           final option = find
               .ancestor(
@@ -1086,9 +1110,9 @@ void main() {
             find.text(
               _fa.coreProxyFallback(
                 _fa.modeProxy,
-                _fa.protocolWireguard,
+                bidiName(_fa.protocolWireguard),
                 _fa.modeTunnel,
-                _fa.coreWireguard,
+                bidiName(_fa.coreWireguard),
               ),
             ),
             findsOneWidget,
@@ -1100,7 +1124,7 @@ void main() {
           await tester.tapAt(Offset.zero);
           await tester.pumpAndSettle();
           expect(
-            find.text(_fa.corePickTitle(_fa.protocolWireguard)),
+            find.text(_fa.corePickTitle(bidiName(_fa.protocolWireguard))),
             findsNothing,
           );
           verifyNever(() => rig.controller.setCore(any(), any()));
@@ -1112,9 +1136,87 @@ void main() {
     for (final b in Brightness.values) {
       testWidgets('«با میهومو» on the computer (${b.name})', (tester) async {
         await _pump(tester, _home(), home: const ShikooHome(), brightness: b);
-        expect(find.text(_fa.viaCore(_fa.coreMihomo)), findsOneWidget);
+        expect(
+          find.text(_fa.viaCore(bidiName(_fa.coreMihomo))),
+          findsOneWidget,
+        );
         await _shot(tester, 'x-win-${b.name}');
       }, variant: windows);
+    }
+  });
+
+  // Sam, 2026-10-27: cores and protocols by their trade names, isolated inside Persian sentences.
+  group('trade names', () {
+    for (final device in ['phone', 'tv', 'win']) {
+      for (final b in Brightness.values) {
+        testWidgets(
+          'the WireGuard list, «با mihomo» and the switch news stay '
+          'whole ($device, ${b.name})',
+          (tester) async {
+            final tv = device == 'tv';
+            final tag = '$device-${b.name}';
+            await _pump(tester, _settings(tv: tv), brightness: b);
+            if (tv) {
+              await _focusOn(tester, _fa.protocolWireguard);
+              await _press(tester, LogicalKeyboardKey.select);
+            } else {
+              await tester.ensureVisible(
+                find.text(_fa.protocolWireguard).first,
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.text(_fa.protocolWireguard).first);
+              await tester.pumpAndSettle();
+            }
+            expect(
+              find.text(_fa.corePickTitle(bidiName(_fa.protocolWireguard))),
+              findsOneWidget,
+            );
+            expect(find.text(_fa.coreWireguardHelp), findsOneWidget);
+            expect(tester.takeException(), isNull);
+            await _shot(tester, 't-list-$tag');
+
+            await _pump(
+              tester,
+              _home(tv: tv),
+              home: const ShikooHome(),
+              brightness: b,
+            );
+            expect(
+              find.text(_fa.viaCore(bidiName(_fa.coreMihomo))),
+              findsOneWidget,
+            );
+            expect(tester.takeException(), isNull);
+            await _shot(tester, 't-via-$tag');
+
+            final rig = await _pump(
+              tester,
+              _home(tv: tv, vless: _xray),
+              home: const ShikooHome(),
+              brightness: b,
+            );
+            rig.holder.value = _home(
+              tv: tv,
+              vless: _xray,
+              coreSwitch: (
+                protocol: ShikooProtocol.vless,
+                to: _xray,
+                stage: ShikooSwitchStage.done,
+              ),
+            );
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(
+              find.text(_fa.coreSwitched(bidiName(_fa.coreXray))),
+              findsOneWidget,
+            );
+            expect(tester.takeException(), isNull);
+            await _shot(tester, 't-news-$tag');
+          },
+          variant: device == 'win'
+              ? TargetPlatformVariant.only(TargetPlatform.windows)
+              : const DefaultTestVariant(),
+        );
+      }
     }
   });
 }
