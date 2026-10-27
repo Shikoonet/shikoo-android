@@ -585,7 +585,7 @@ Map<String, Object?> aboutSections({
     'app': {
       'version': version,
       'build': build,
-      'core': 'FlClash $flclashVersion',
+      'core': 'FlClash $flclashVersion, ${coreName()}',
       'abi': abi,
       'env': shikooApiBases.first == 'https://app.chopon.uk'
           ? 'production'

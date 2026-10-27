@@ -32,12 +32,6 @@ const _clock =
     'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
 const _dateSettings = 'تنظیمات تاریخ و ساعت';
 
-/// `flutter test --dart-define=SHIKOO_CORE=70f0570` checks the stamped row; a plain run, the fallback.
-const _stamp = String.fromEnvironment('SHIKOO_CORE');
-const _core = _stamp == ''
-    ? '\u2066mihomo\u2069'
-    : '\u2066mihomo\u00A0$_stamp\u2069';
-
 const _release = AppRelease(
   versionName: '1.0.58',
   versionCode: 2058,
@@ -200,23 +194,17 @@ void main() {
     await loadShikooFonts();
   });
 
-  testWidgets('the App section names the version and the core, with nothing '
-      'under the check yet', (tester) async {
+  testWidgets('the App section names the version, no core (it is in the '
+      'report), and nothing under the check yet', (tester) async {
     for (final isTV in [false, true]) {
       await _pump(tester, isTV: isTV);
       expect(find.text('۱.۰.۵۷'), findsOneWidget, reason: 'TV $isTV');
-      expect(find.text(_core), findsOneWidget);
-      expect(find.text('همراه خودِ برنامه به‌روز می‌شود.'), findsOneWidget);
       expect(_row(_check), findsOneWidget);
       expect(_row('درباره'), findsOneWidget);
       for (final line in [_checking, _latest, _failed]) {
         expect(find.text(line), findsNothing);
       }
-      expect(
-        _row('هسته'),
-        findsNothing,
-        reason: 'the version and the core are only text',
-      );
+      expect(find.text('هسته'), findsNothing);
     }
   });
 
@@ -234,6 +222,7 @@ void main() {
           await _focus(tester, _row(_check));
           await tester.sendKeyEvent(LogicalKeyboardKey.select);
         } else {
+          await tester.ensureVisible(find.text(_check));
           await tester.tap(find.text(_check));
         }
         await tester.pump();
@@ -274,6 +263,7 @@ void main() {
         await _focus(tester, _row(_check));
         await _press(tester, LogicalKeyboardKey.select);
       } else {
+        await tester.ensureVisible(find.text(_check));
         await tester.tap(find.text(_check));
         await tester.pumpAndSettle();
       }
@@ -329,10 +319,14 @@ void main() {
       });
       if (isTV) {
         // By keys, as on a TV: Up must not undo the Down that reached the row.
-        await _press(tester, LogicalKeyboardKey.arrowLeft);
+        expect(
+          await _press(tester, LogicalKeyboardKey.arrowDown),
+          'سایت‌های ایرانی بدون فیلترشکن',
+        );
         expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
         await _press(tester, LogicalKeyboardKey.select);
       } else {
+        await tester.ensureVisible(find.text(_check));
         await tester.tap(find.text(_check));
         await tester.pumpAndSettle();
       }
@@ -348,8 +342,8 @@ void main() {
       expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'درباره');
       expect(
         await _press(tester, LogicalKeyboardKey.arrowUp),
-        'فارسی',
-        reason: 'the chosen language, not the option nearest the card',
+        'سایت‌های ایرانی بدون فیلترشکن',
+        reason: 'version and core are only text',
       );
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'دریافت');
@@ -425,7 +419,10 @@ void main() {
   ) async {
     await _pump(tester, isTV: true);
     expect(_focused(), 'خودکار');
-    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'فارسی');
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowDown),
+      'سایت‌های ایرانی بدون فیلترشکن',
+    );
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
   });
@@ -550,15 +547,12 @@ void main() {
     }
   });
 
-  testWidgets('on a small phone with large text nothing overflows, and the '
-      'core\'s version goes under its label', (tester) async {
+  testWidgets('on a small phone with large text nothing overflows', (
+    tester,
+  ) async {
     const small = Size(720, 1600);
     await _pump(tester, size: small, scale: 1.45);
     expect(tester.takeException(), isNull);
-    expect(
-      tester.getRect(find.text(_core)).top,
-      greaterThan(tester.getRect(find.text('هسته')).bottom),
-    );
     when(_engine.checkNow).thenAnswer((_) async => UpdateError.network);
     await tester.ensureVisible(find.text(_check));
     await tester.tap(find.text(_check));

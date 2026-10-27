@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
+import 'package:fl_clash/shikoo/ui/cores.dart';
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/focus.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
@@ -33,8 +35,7 @@ void openSettings(BuildContext context) => unawaited(
   ),
 );
 
-/// Frames `tv-settings-pre-login` and `phone-settings-pasted`: on the TV two columns, so
-/// nothing scrolls.
+/// Frames `tv-settings-pre-login` and `phone-settings-pasted`: on the TV two columns.
 class ShikooSettings extends ConsumerWidget {
   const ShikooSettings({super.key});
 
@@ -116,6 +117,27 @@ class ShikooSettings extends ConsumerWidget {
           onSelect: (language) => unawaited(setLook.setLanguage(language)),
         ),
       ),
+      _Group(
+        title: l.connectionGroup,
+        child: SwitchRow(
+          label: l.iranDirect,
+          help: l.iranDirectHelp,
+          on: state.iranDirect,
+          onChanged: (on) =>
+              unawaited(ref.read(shikooControllerProvider).setIranDirect(on)),
+        ),
+      ),
+      if (state.cores.isNotEmpty)
+        _Group(
+          title: l.coresGroup,
+          note: l.coresNote,
+          child: _Card(
+            rows: [
+              for (final row in state.cores)
+                _CoreRow(key: ValueKey(row.protocol), row: row),
+            ],
+          ),
+        ),
       if (shikooDesktop)
         _Group(
           title: l.windowsGroup,
@@ -248,9 +270,15 @@ class ShikooSettings extends ConsumerWidget {
       ),
       _AppGroup(isTV: isTV),
     ];
+    final coreSwitch = state.coreSwitch;
     return SubPage(
       title: l.settings,
       isTV: isTV,
+      // The TV has no bar: a core switch's news holds the hint's place, moving nothing.
+      hint: isTV && coreSwitch != null
+          ? coreNews(l, coreSwitch).join(' ')
+          : null,
+      hintAlert: isTV && coreSwitch?.stage == ShikooSwitchStage.failed,
       child: _columns(groups, isTV: isTV),
     );
   }
@@ -373,8 +401,8 @@ class ShikooSettings extends ConsumerWidget {
 
 enum _Check { idle, checking, latest, failed, clock }
 
-/// Settings › App: the version, the core, a check that does not wait out the six hours, and
-/// About. A known update stands in for the check as Home's card (phone-cards-settings-app).
+/// Settings › App: the version, a check that does not wait out the six hours, and About. A
+/// known update stands in for the check as Home's card (phone-cards-settings-app).
 class _AppGroup extends ConsumerStatefulWidget {
   const _AppGroup({required this.isTV});
 
@@ -436,11 +464,6 @@ class _AppGroupState extends ConsumerState<_AppGroup> {
               _Row(
                 title: l.version,
                 value: _version(context, ref.watch(shikooVersionProvider)),
-              ),
-              _Row(
-                title: l.settingsCore,
-                subtitle: l.settingsCoreHelp,
-                value: '\u2066${coreName()}\u2069',
               ),
               if (update == null)
                 _Row(
@@ -562,6 +585,7 @@ class SubPage extends StatelessWidget {
     this.wide = false,
     this.barGap = true,
     this.hint,
+    this.hintAlert = false,
   });
 
   final String title;
@@ -575,6 +599,9 @@ class SubPage extends StatelessWidget {
   /// False for a page whose own head sits right under the bar, as `.logs-head`.
   final bool barGap;
   final String? hint;
+
+  /// The [hint] in red, as a failure under Home's server pill.
+  final bool hintAlert;
 
   @override
   Widget build(BuildContext context) {
@@ -617,9 +644,18 @@ class SubPage extends StatelessWidget {
                         children: isTV
                             ? [
                                 heading,
-                                Text(
-                                  hint ?? l.backHintTv,
-                                  style: t.text(s.bodySm, color: t.c.textMuted),
+                                Flexible(
+                                  child: Text(
+                                    hint ?? l.backHintTv,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: t.text(
+                                      s.bodySm,
+                                      color: hintAlert
+                                          ? t.c.danger
+                                          : t.c.textMuted,
+                                    ),
+                                  ),
                                 ),
                               ]
                             : [
@@ -663,7 +699,7 @@ class SubPage extends StatelessWidget {
   }
 }
 
-/// On a TV two columns, the groups in turn, so nothing scrolls.
+/// On a TV two columns, the groups in turn.
 Widget _columns(List<Widget> groups, {required bool isTV}) => isTV
     ? Padding(
         padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),
@@ -1220,6 +1256,7 @@ class _Row extends StatelessWidget {
     this.value,
     this.icon,
     this.forward = false,
+    this.down = false,
     this.danger = false,
     this.alert = false,
     this.busy = false,
@@ -1228,6 +1265,9 @@ class _Row extends StatelessWidget {
   });
 
   final String title;
+
+  /// `.value + .icon`: a small ⌄ after the value, for a row that opens a list of choices.
+  final bool down;
 
   /// The subtitle in red, as `.row small.danger`.
   final bool alert;
@@ -1332,6 +1372,12 @@ class _Row extends StatelessWidget {
                 children: [for (final key in keys) _Key(key)],
               ),
             ),
+          if (down)
+            SvgIcon(
+              ShikooIcon.chevronDown,
+              size: s.iconSm,
+              color: t.c.textMuted,
+            ),
           if (forward)
             Transform.flip(
               flipX: ltr,
@@ -1350,6 +1396,24 @@ class _Row extends StatelessWidget {
       shape: shape,
       onPressed: onPressed,
       builder: (context, focused) => row(focused),
+    );
+  }
+}
+
+/// Option «الف»: a kind of server and its core; its list opens from here, under it on a computer.
+class _CoreRow extends ConsumerWidget {
+  const _CoreRow({super.key, required this.row});
+
+  final ShikooCoreRow row;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = ShikooL10n.of(context);
+    return _Row(
+      title: protocolLabel(l, row.protocol),
+      value: coreLabel(l, row.chosen),
+      down: true,
+      onPressed: () => unawaited(pickCore(context, ref, row)),
     );
   }
 }
