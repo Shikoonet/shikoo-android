@@ -20,8 +20,8 @@ FetchContent_Declare(openvpn3
         # Ours, not upstream: AES-CBC sends empty packets on mbedTLS 3.5 and later without it.
         COMMAND patch -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/openvpn3-mbedtls-cbc-padding.patch)
 FetchContent_Declare(lz4
-        URL https://github.com/lz4/lz4/archive/v1.8.3.tar.gz
-        URL_HASH SHA256=33af5936ac06536805f9745e0b6d61da606a1f8b4cc5c04dd3cbaca3b9b4fc43)
+        URL https://github.com/lz4/lz4/archive/v1.10.0.tar.gz
+        URL_HASH SHA256=537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b)
 FetchContent_Declare(mbedtls
         URL https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.7/mbedtls-3.6.7.tar.bz2
         URL_HASH SHA256=a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6)
