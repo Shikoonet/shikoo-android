@@ -102,8 +102,8 @@ func init() {
 	}))
 }
 
-func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
-	if params.Core != "wireguard" {
+func handlePrepareOwner(params *PrepareOwnerParams) (any, error) {
+	if params.Core != "wireguard" && params.Core != "openvpn" {
 		return nil, fmt.Errorf("no owner core %q in this build", params.Core)
 	}
 	home := constant.Path.HomeDir()
@@ -124,6 +124,9 @@ func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
 	}
 	if mapping == nil {
 		return nil, fmt.Errorf("server %q is not in the config", params.Server)
+	}
+	if params.Core == "openvpn" {
+		return ovpnPrepare(mapping, params.IranDirect)
 	}
 	var iran *netipx.IPSet
 	if params.IranDirect {
