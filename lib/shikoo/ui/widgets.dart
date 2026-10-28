@@ -1295,7 +1295,7 @@ class Ping extends StatelessWidget {
 }
 
 /// `.server`: flag, name, ping and tick; `.is-selected` adds the green start bar, [isNew]
-/// the `.chip-outline` "new" after the name, and [via] the `.via` «با میهومو».
+/// the `.chip-outline` "new" after the name, and [via] the `.via` «با mihomo».
 class ServerRow extends StatelessWidget {
   const ServerRow({
     super.key,

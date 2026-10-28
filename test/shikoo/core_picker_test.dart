@@ -328,7 +328,7 @@ void main() {
   // Sam, 2026-10-22: with the official WireGuard picked, Proxy mode carries it on mihomo and says so.
   for (final tunnel in [true, false]) {
     test(
-      'the official WireGuard picked, «با میهومو» shows only where it does not '
+      'the official WireGuard picked, «با mihomo» shows only where it does not '
       'carry: in Proxy mode (tunnel $tunnel)',
       () {
         final wg = shikooCoreSpecs[_wireguard]!;
@@ -412,7 +412,7 @@ void main() {
       expect(find.text(_fa.connectionGroup), findsOneWidget);
     });
 
-    testWidgets('«وایرگارد» opens the sheet: mihomo is the default, sing-box '
+    testWidgets('«WireGuard» opens the sheet: mihomo is the default, sing-box '
         'is greyed with «به‌زودی», and a tap picks and closes', (tester) async {
       final rig = await _pump(tester, _settings());
       await tester.ensureVisible(find.text(_fa.protocolWireguard).first);
@@ -541,7 +541,7 @@ void main() {
     });
 
     for (final b in Brightness.values) {
-      testWidgets('«با میهومو» stands only beside a server the chosen core '
+      testWidgets('«با mihomo» stands only beside a server the chosen core '
           'does not know (${b.name})', (tester) async {
         final rig = await _pump(
           tester,
@@ -1131,7 +1131,7 @@ void main() {
     }
 
     for (final b in Brightness.values) {
-      testWidgets('«با میهومو» on the computer (${b.name})', (tester) async {
+      testWidgets('«با mihomo» on the computer (${b.name})', (tester) async {
         await _pump(tester, _home(), home: const ShikooHome(), brightness: b);
         expect(
           find.text(_fa.viaCore(bidiName(_fa.coreMihomo))),
@@ -1144,6 +1144,30 @@ void main() {
 
   // Sam, 2026-10-27: cores and protocols by their trade names, isolated inside Persian sentences.
   group('trade names', () {
+    test(
+      'every core and protocol is named in Latin letters in Persian too',
+      () {
+        expect(
+          {
+            _fa.coreMihomo: 'mihomo',
+            _fa.coreXray: 'Xray',
+            _fa.coreSingBox: 'sing-box',
+            _fa.protocolVless: 'VLESS',
+            _fa.protocolWireguard: 'WireGuard',
+            _fa.protocolOpenvpn: 'OpenVPN',
+            _fa.protocolSsh: 'SSH',
+          }.entries.where((e) => e.key != e.value).map((e) => e.key),
+          isEmpty,
+        );
+      },
+    );
+
+    test('«رسمی» follows the official engines\' names, each isolated so '
+        'it stays after the name', () {
+      expect(_fa.coreWireguard, '\u2068WireGuard\u2069 رسمی');
+      expect(_fa.coreOpenvpn, '\u2068OpenVPN\u2069 رسمی');
+    });
+
     for (final device in ['phone', 'tv', 'win']) {
       for (final b in Brightness.values) {
         testWidgets(
