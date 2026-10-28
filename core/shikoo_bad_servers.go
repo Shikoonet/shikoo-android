@@ -10,10 +10,8 @@ import (
 
 var errNameTaken = errors.New("a server by this name came first")
 
-// leaveOutBadServers drops each server the core cannot build, and a repeat of a name, from the config and its groups.
-// shortcut: a rule naming a dropped server still refuses the config, which then fails closed; panels name groups there.
-// shortcut: servers inside proxy-providers go unchecked, and a bad one empties its provider, so the group falls to
-// COMPATIBLE, which is DIRECT; check them here once a Shikoo subscription ships a proxy-provider.
+// shortcut: a rule naming a dropped server still refuses the config (it fails closed); panels name groups in rules.
+// shortcut: proxy-providers' servers go unchecked, a bad one sends its group DIRECT; check them once a sub ships one.
 func leaveOutBadServers(raw *config.RawConfig) {
 	kept, taken, bad := raw.Proxy[:0], map[string]bool{}, map[string]bool{}
 	for _, mapping := range raw.Proxy {

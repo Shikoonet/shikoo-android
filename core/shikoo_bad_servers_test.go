@@ -70,8 +70,8 @@ const refusedConfig = "proxies: []\nrules:\n  - MATCH,missing\n"
 // applyHome's folder stays behind: the core keeps cache.db in it open, and Windows will not delete an open file.
 func applyHome(t *testing.T) func(body string) {
 	t.Helper()
-	dir := filepath.Join(os.TempDir(), "shikoo-core-apply-test")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	dir, err := os.MkdirTemp("", "shikoo-core-apply-test-")
+	if err != nil {
 		t.Fatal(err)
 	}
 	home, previous := constant.Path.HomeDir(), currentConfig
