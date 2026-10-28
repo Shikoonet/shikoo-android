@@ -110,6 +110,8 @@ func launchWarp() (*warpProcess, error) {
 		dir: dir, upstream: up, stop: make(chan struct{}),
 		user: secret(), pass: secret(), upUser: secret(), upPass: secret(),
 	}
+	// shortcut: aether's socks UDP relay takes the first datagram from 127.0.0.1 as its client, so a local app that finds
+	// the relay port first can take over mihomo's UDP through the bridge. Upgrade if aether pins the ASSOCIATE client.
 	if run.socks, err = freePort(); err == nil {
 		run.http, err = freePort()
 	}

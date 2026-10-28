@@ -47,7 +47,7 @@ func warpStart(cmd *exec.Cmd) error {
 	return err
 }
 
-// warpKill: the bridge starts no program of its own here (no tor, no psiphon), so the process is the whole tree.
+// warpKill: the bridge starts no program of its own here (no tor, psiphon never asked for), so the process is the whole tree.
 func warpKill(cmd *exec.Cmd) {
 	cmd.Process.Kill()
 }

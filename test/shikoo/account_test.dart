@@ -684,9 +684,9 @@ void main() {
       await api.open();
       addTearDown(api.close);
       final asked = <String?>[];
-      final bridged = ShikooApi(['http://127.0.0.1:$deadPort'], null, () async {
+      final bridged = ShikooApi(['http://127.0.0.1:$deadPort'], null, (call) {
         asked.add('bridge');
-        return 'PROXY u:p@127.0.0.1:${Uri.parse(api.base).port}';
+        return call('PROXY u:p@127.0.0.1:${Uri.parse(api.base).port}');
       });
       final code = await bridged.start(deviceName: 'x', kind: 'tv');
       expect(code.code, isNotEmpty);
@@ -694,15 +694,18 @@ void main() {
       expect(asked, ['bridge']);
 
       api.startStatus = 500;
-      final answered = ShikooApi([api.base], null, () async {
+      final answered = ShikooApi([api.base], null, (call) {
         asked.add('bridge');
-        return 'PROXY u:p@127.0.0.1:1';
-      });
+        return call('PROXY u:p@127.0.0.1:1');
+      }, () async => asked.add('direct'));
       await expectLater(
         answered.start(deviceName: 'y', kind: 'tv'),
         throwsA(isA<ShikooApiFailure>()),
       );
-      expect(asked, ['bridge'], reason: 'the door itself answered');
+      expect(asked, [
+        'bridge',
+        'direct',
+      ], reason: 'the door itself answered: the bridge may go');
     });
   });
 

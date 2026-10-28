@@ -338,7 +338,7 @@ class AppRelease {
 final _sha256 = RegExp(r'^[0-9a-f]{64}$');
 
 class ShikooApi {
-  ShikooApi(this.bases, [Dio? dio, this.bridge])
+  ShikooApi(this.bases, [Dio? dio, this.bridge, this.answeredDirect])
     : _dio =
           dio ??
           Dio(
@@ -353,8 +353,13 @@ class ShikooApi {
   final List<String> bases;
   final Dio _dio;
 
-  /// The WARP bridge's `PROXY …` for HttpClient, tried once no address answered; null while it is off.
-  final Future<String?> Function()? bridge;
+  /// Runs a call with the WARP bridge's `PROXY …` for HttpClient, once no address answered; null while it is off.
+  final Future<Response<Object?>?> Function(
+    Future<Response<Object?>?> Function(String proxy) call,
+  )?
+  bridge;
+
+  final Future<void> Function()? answeredDirect;
 
   /// The address that answered last goes first; the next is the backup for a blocked one.
   int _first = 0;
@@ -397,27 +402,32 @@ class ShikooApi {
       return null;
     }
 
-    if (await each(_dio) case final response?) return response;
-    final proxy = await bridge?.call();
-    if (proxy != null) {
+    if (await each(_dio) case final response?) {
+      await answeredDirect?.call();
+      return response;
+    }
+    var tried = false;
+    final carried = await bridge?.call((proxy) async {
+      tried = true;
       final bridged =
           Dio(_dio.options.copyWith(connectTimeout: warpConnectTimeout))
             ..httpClientAdapter = IOHttpClientAdapter(
               createHttpClient: () => HttpClient()..findProxy = (_) => proxy,
             );
       try {
-        if (await each(bridged) case final response?) return response;
+        return await each(bridged);
       } finally {
         bridged.close(force: true);
       }
-    }
+    });
+    if (carried != null) return carried;
     final last = failed;
     final clock = last != null && await clockFailed(last.$1, last.$2);
     shikooDiag.add(
       'T',
       'door $name ${clock ? 'clock' : failureKind(last?.$1)}',
     );
-    throw ShikooApiFailure(clock: clock, bridge: proxy != null);
+    throw ShikooApiFailure(clock: clock, bridge: tried);
   }
 
   static Map<String, dynamic>? _json(Response<Object?> response) =>
@@ -590,7 +600,10 @@ final shikooApiProvider = Provider<ShikooApi>(
   (ref) => ShikooApi(
     shikooApiBases,
     null,
-    () => ref.read(shikooControllerProvider).bridgeProxy(),
+    (call) => ref
+        .read(shikooControllerProvider)
+        .throughBridge<Response<Object?>?>(call),
+    () => ref.read(shikooControllerProvider).leaveBridge(),
   ),
 );
 

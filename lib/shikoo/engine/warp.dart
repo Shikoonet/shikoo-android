@@ -205,7 +205,7 @@ Future<String?> warpProxy(ProviderReader read) async {
 
 const warpSource =
     'aether 2.4.0 (patterniha/Aether, commit d58f9d568083129ce2c767c85054021eb3ee6a38, AGPL-3.0-only), '
-    'built without tor or psiphon by tools/warp-build.sh, with the change in tools/warp/aether-proxy-auth.patch. '
+    'built without tor by tools/warp-build.sh, with the change in tools/warp/aether-proxy-auth.patch. '
     'Source: https://github.com/patterniha/Aether and https://github.com/Shikoonet/shikoo-android';
 
 void registerWarpLicenses() => LicenseRegistry.addLicense(() async* {
