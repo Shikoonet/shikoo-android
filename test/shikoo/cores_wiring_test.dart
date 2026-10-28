@@ -502,7 +502,7 @@ void main() {
     expect([
       for (final rule in await database.rulesDao.queryGlobalAddedRules().get())
         rule.rawValue,
-    ], contains('RULE-SET,shikoo-ir-ip,DIRECT,no-resolve'));
+    ], contains('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT'));
   });
 
   test('on Windows neither the Iranian switch nor a new key of the carried '
