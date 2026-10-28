@@ -832,6 +832,16 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
   },
 );
 
+final nativeStartFailedProvider = Provider<bool Function()>(
+  (_) =>
+      () => service?.startFailed ?? false,
+);
+
+final switchHoldProvider = Provider<Future<void> Function()>(
+  (_) =>
+      () async => service?.holdForSwitch(),
+);
+
 // ponytail: trusts the panel's rules to send FlClash's IP lookups to the selected server.
 // The app is outside an owner core's VPN, so there the server's own handshake answers (core/shikoo_wg.go).
 final trafficPassesProvider = Provider<Future<bool> Function()>(
@@ -864,11 +874,13 @@ Future<DateTime?> waitForTunnel(
   required Duration timeout,
   required bool Function() stillWanted,
   bool Function() paused = _never,
+  bool Function() failed = _never,
   Duration every = const Duration(seconds: 1),
 }) async {
   final waited = Stopwatch();
   while (stillWanted()) {
     if (await runTime() case final start?) return start;
+    if (failed()) return null;
     paused() ? waited.stop() : waited.start();
     if (waited.elapsed >= timeout) return null;
     await Future<void>.delayed(every);
@@ -1362,6 +1374,7 @@ class ShikooController {
             timeout: connectTimeout,
             stillWanted: () => attempt == _attempt,
             paused: () => !foreground,
+            failed: _ref.read(nativeStartFailedProvider),
           )
         : null;
     if (attempt != _attempt) return;
@@ -1432,6 +1445,12 @@ class ShikooController {
     if (!_running && !_ref.read(_intentProvider).connecting) {
       return _set(const _Intent());
     }
+    await _reconnect();
+  }
+
+  /// A switch of server or core: the VPN service keeps traffic blocked between the stop and the start.
+  Future<void> _reconnect() async {
+    await _ref.read(switchHoldProvider)();
     await disconnect();
     await connect();
   }
@@ -1458,10 +1477,7 @@ class ShikooController {
     await _setup.applyProfile(silence: true);
     if (name == null) return;
     final up = _running || _ref.read(_intentProvider).connecting;
-    if (up && _tunnelKeyOf(name) != before) {
-      await disconnect();
-      await connect();
-    }
+    if (up && _tunnelKeyOf(name) != before) await _reconnect();
     if (!told) return;
     final group = _group;
     final landed = _ref.read(shikooStateProvider).selectedServer?.core == to;
@@ -1546,10 +1562,7 @@ class ShikooController {
       do {
         _rebuildAgain = false;
         final up = _running || _ref.read(_intentProvider).connecting;
-        if (up && _ref.read(shikooOwnerProvider) != null) {
-          await disconnect();
-          await connect();
-        }
+        if (up && _ref.read(shikooOwnerProvider) != null) await _reconnect();
       } while (_rebuildAgain);
     }().whenComplete(() => _rebuilding = null);
   }
@@ -1584,8 +1597,7 @@ class ShikooController {
     _fallingBack = true;
     _ref.read(shikooOwnerHeldOffProvider.notifier).set(true);
     try {
-      await disconnect();
-      await connect();
+      await _reconnect();
     } finally {
       _fallingBack = false;
     }
@@ -1771,8 +1783,7 @@ class ShikooController {
         await _moveTo(other, name);
         await _ref.read(serviceAppliedProvider)();
       }
-      await disconnect();
-      return connect();
+      return _reconnect();
     }
     if (other != null) return _moveTo(other, name);
     await _choose(name, byApp: false);

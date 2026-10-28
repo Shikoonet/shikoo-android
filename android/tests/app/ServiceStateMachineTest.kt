@@ -573,6 +573,20 @@ class ServiceStateMachineTest {
         assertEquals(listOf(NotificationParams("Work", "Disconnect", true)), host.notificationParams)
     }
 
+    // getRunTime answers -1 then, so the app ends its wait for a tunnel at once (ServicePlugin).
+    @Test
+    fun `a start the service refuses is told as failed until the next request`() = runTest {
+        val host = FakeHost(backgroundScope)
+        val machine = ServiceStateMachine(host)
+        machine.syncSharedState(configuredState())
+        host.startResult = 0L
+
+        assertFalse(machine.requestStart().await())
+        assertTrue(machine.lastStartFailed)
+        machine.requestStop().await()
+        assertFalse(machine.lastStartFailed)
+    }
+
     // An OpenVPN start waits for its server under the transition lock: the stop must not queue behind it.
     @Test
     fun `a stop ends a start still waiting for its tunnel instead of waiting behind it`() = runTest {

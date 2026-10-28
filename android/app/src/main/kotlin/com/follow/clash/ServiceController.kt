@@ -116,6 +116,10 @@ object ServiceController {
     @Volatile
     private var startAbandoned = false
 
+    fun holdForSwitch() {
+        binding?.connected()?.holdForSwitch()
+    }
+
     // Shikoo: outside [lock], which the start being abandoned holds.
     fun abandonStart() {
         startAbandoned = true

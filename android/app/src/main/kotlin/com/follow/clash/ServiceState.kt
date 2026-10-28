@@ -25,6 +25,9 @@ object ServiceState {
 
     suspend fun refresh(): Long = machine.refresh()
 
+    val lastStartFailed: Boolean
+        get() = machine.lastStartFailed
+
     fun requestStart(): Deferred<Boolean> = machine.requestStart()
 
     fun requestStop(): Deferred<Boolean> = machine.requestStop()

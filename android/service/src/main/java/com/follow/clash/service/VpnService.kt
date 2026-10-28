@@ -7,8 +7,11 @@ import android.net.IpPrefix
 import android.net.ProxyInfo
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.follow.clash.common.GlobalState
@@ -41,6 +44,11 @@ class VpnService : SystemVpnService(), ManagedService {
     // An owner core's VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking.
     private val ownerTunLock = Any()
     private var ownerTun: ParcelFileDescriptor? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val releaseHeld = Runnable { holdOwnerTun(null) }
+
+    @Volatile
+    private var switchAskedAt = 0L
 
     override fun onDestroy() {
         try {
@@ -296,6 +304,7 @@ class VpnService : SystemVpnService(), ManagedService {
     }
 
     private fun holdOwnerTun(tun: ParcelFileDescriptor?) {
+        mainHandler.removeCallbacks(releaseHeld)
         val previous = synchronized(ownerTunLock) { ownerTun.also { ownerTun = tun } }
         previous?.close()
     }
@@ -356,25 +365,32 @@ class VpnService : SystemVpnService(), ManagedService {
         }
     }
 
+    override fun holdForSwitch() {
+        switchAskedAt = SystemClock.elapsedRealtime()
+    }
+
     override fun abandonStart() {
         startAbandoned = true
         openVpn?.abandon()
     }
 
     override fun stop() {
+        val switching = SystemClock.elapsedRealtime() - switchAskedAt < SWITCH_ASK_MILLIS
+        switchAskedAt = 0L
+        if (switching) ServiceConfig.vpnOptions?.let(::holdBlocked)
         try {
-            cleanup()
+            cleanup(keepHeld = switching)
         } finally {
             stopSelf()
         }
     }
 
-    private fun cleanup() {
+    private fun cleanup(keepHeld: Boolean = false) {
         try {
             modules.stop()
         } finally {
             stopTun()
-            holdOwnerTun(null)
+            if (keepHeld) mainHandler.postDelayed(releaseHeld, SWITCH_HOLD_MILLIS) else holdOwnerTun(null)
             startAbandoned = false
         }
     }
@@ -401,6 +417,8 @@ class VpnService : SystemVpnService(), ManagedService {
         private const val NET_ANY = "0.0.0.0"
         private const val NET_ANY6 = "::"
         private const val BLOCK_ADDRESS = "172.19.0.1"
+        private const val SWITCH_ASK_MILLIS = 3_000L
+        private const val SWITCH_HOLD_MILLIS = 5_000L
         private const val LOCAL_HOST = "127.0.0.1"
         private const val MTU = 9000
     }

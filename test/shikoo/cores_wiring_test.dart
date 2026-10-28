@@ -64,6 +64,9 @@ class _Proxies extends ProxiesAction {
 
 class _Setup extends SetupAction {
   final runs = <bool>[];
+
+  /// Each switch announced to the VPN service before its stop, as the index into [runs] it came at.
+  final holds = <int>[];
   var applies = 0;
   final forced = <bool>[];
   DateTime? tunnel;
@@ -161,6 +164,9 @@ Future<_Home> _home({
       setupActionProvider.overrideWith(() => setup),
       coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
       nativeRunTimeProvider.overrideWithValue(() async => setup.tunnel),
+      switchHoldProvider.overrideWithValue(
+        () async => setup.holds.add(setup.runs.length),
+      ),
       trafficPassesProvider.overrideWithValue(() async => setup.traffic),
       shikooDiagProvider.overrideWithValue(_Timeline()),
       shikooCoreSpecsProvider.overrideWithValue(_ready(ready)),
@@ -400,7 +406,14 @@ void main() {
     await home.controller.selectServer('W');
     expect(home.proxies.picked.last, 'W');
     expect(home.setup.runs, [false, true]);
+    expect(home.setup.holds, [
+      0,
+    ], reason: 'the VPN stays, blocking, from the stop to the start');
     expect(home.container.read(shikooStateProvider).selected, 'W');
+
+    await home.controller.disconnect();
+    expect(home.setup.runs, [false, true, false]);
+    expect(home.setup.holds, [0], reason: "the user's own stop frees it");
   });
 
   test(

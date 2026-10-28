@@ -74,6 +74,11 @@ class Service {
     return await methodChannel.invokeMethod<bool>('stop') ?? false;
   }
 
+  /// Shikoo: the next stop is a switch, so the VPN stays, blocking, until the start after it.
+  Future<void> holdForSwitch() async {
+    await methodChannel.invokeMethod<bool>('holdForSwitch');
+  }
+
   Future<String> init() async {
     return await methodChannel.invokeMethod<String>('init') ?? '';
   }
@@ -90,9 +95,13 @@ class Service {
     return await methodChannel.invokeMethod<bool>('shutdown') ?? true;
   }
 
+  /// Shikoo: the native side's -1, a start that failed, read by [getRunTime].
+  bool startFailed = false;
+
   Future<DateTime?> getRunTime() async {
     final ms = await methodChannel.invokeMethod<int>('getRunTime') ?? 0;
-    if (ms == 0) {
+    startFailed = ms < 0;
+    if (ms <= 0) {
       return null;
     }
     return DateTime.fromMillisecondsSinceEpoch(ms);
