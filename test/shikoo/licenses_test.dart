@@ -159,6 +159,7 @@ double _top(WidgetTester tester, String text) =>
     tester.getTopLeft(find.text(text).first).dy;
 
 Future<void> _openList(WidgetTester tester, ShikooL10n l) async {
+  await tester.ensureVisible(find.text(l.aboutLicenses));
   await tester.tap(find.text(l.aboutLicenses));
   await tester.pumpAndSettle();
 }
