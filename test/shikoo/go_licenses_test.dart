@@ -27,6 +27,10 @@ void main() {
         textOf('github.com/sagernet/sing-box'),
         contains('GNU General Public License'),
       );
+      expect(
+        textOf('github.com/metacubex/chacha'),
+        allOf(contains('MIT License'), isNot(contains('ships no licence'))),
+      );
       for (final module in [
         'golang.zx2c4.com/wireguard',
         'github.com/sagernet/wireguard-go',
