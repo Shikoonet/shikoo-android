@@ -4,7 +4,7 @@
 > - **پل وارپ** وقتی سرورهای شیکو از ایران بسته‌اند، راه رسیدن به آن‌هاست: گوشی ← وارپ کلادفلر ← سرور شیکو. ورود و به‌روزرسانی اشتراک هم وقتی راه‌های دیگر جواب ندهند، از همین پل می‌روند. اینترنت رایگان، سایفون و تور نه.
 > - برنامهٔ پل (aether، ساخت خودمان، بی تور) جدا از هسته اجرا می‌شود و با بسته شدن اپ یا خاموش شدن پل، با هر چه راه انداخته بسته می‌شود.
 > - هر درِ محلی پل رمز تصادفی دارد، تا اپ دیگری روی همان گوشی نتواند از آن بیرون بزند. گواهی دروازهٔ وارپ هم سنجیده می‌شود.
-> - فعلاً یک کلید درونی است و پیش‌فرض خاموش؛ صفحه‌اش منتظر انتخاب سام است.
+> - با کلید روشن، کار خودکار و سرور به سرور است (شکل «ج»، پیش‌فرض خاموش): هر سرور اول مستقیم امتحان می‌شود، و فقط سرورهایی که مستقیم جواب ندادند از پل می‌روند. اپ برای هر نوع شبکه یادش می‌ماند. با کلید خاموش هیچ‌چیز از پل نمی‌رود و برنامهٔ پل راه نمی‌افتد.
 
 Package «ر۲», 2026-10-27, branch `mc/warp-bridge` from `mc/base` `78ceb30b`. Sam's decision (2026-10-27): aether (patterniha/Aether
 v2.4.0, AGPL-3.0-only) only as a bridge to Shikoo's own servers and to the app's own requests. The name «Aether» stays out
@@ -49,25 +49,45 @@ the core's environment reaches it.
     our tunnel. Not a mihomo listener: those skip the password for loopback clients unless `skip-auth-prefixes` is
     emptied, and their connections would count twice in the app's traffic.
 
-## 3. Wiring
+## 3. Wiring: server by server (Sam, 2026-10-28: design «ج», off by default)
 
-- **Dart marks the config** (`lib/shikoo/engine/warp.dart` `markWarp`, called in `getProfile` after `markCores`): while
-  the bridge is on, every server gets `dialer-proxy: shikoo-warp` (a chain keeps its own first hop, which gets it), and
-  a socks5 proxy `shikoo-warp` (port 1, `shikoo-core: warp`) joins the list. Go fills in the port and password; a build
-  without the bridge leaves port 1, refused, so nothing goes around it. A server marked for a core behind mihomo (Xray,
-  sing-box) stays with mihomo while the bridge is on: those engines dial their server themselves and would go around it.
-  With no service yet, `getProfile` returns the bridge alone (`warpOnlyProfile`), so the first sign-in can use it.
+- **The switch** (`shikooWarpProvider`, SharedPreferences `shikoo.warp`): off by default. Off, nothing at all goes
+  through the bridge and the bridge's program never starts. A test build turns it on with `--dart-define=SHIKOO_WARP=true`;
+  `controller.setBridge(on)` is what a screen calls.
+- **On, each server first answers or not direct.** After a ping round (`pingAll`), the servers that gave no answer go on
+  trial (`_tryBridge`): only they get `dialer-proxy: shikoo-warp`, the config is applied again, and they are pinged through
+  the bridge until `warpConnectTimeout`, a second apart. Those that answer stay on the bridge; the others go back to
+  direct. A remembered server that goes silent through the bridge goes back to direct too, and is tried again only after
+  its next silent round.
+- **Remembered per network** (`shikooWarpMemoryProvider`, SharedPreferences `shikoo.warp.via`: network → server names).
+  The next round on that network pings those servers through the bridge at once. A network is its kind from
+  `connectivity_plus` (`wifi`, `mobile`, `ethernet`, `other`): the Wi-Fi name needs a location permission the app does not
+  hold, so two Wi-Fi networks share one memory (a `shortcut:` in `warp.dart`). The kind is read at each round, and only
+  while the switch is on.
+- **Dart marks the config** (`markWarp(config, route)`, called in `getProfile` after `markCores`; `route` is
+  `shikooWarpRouteProvider`: the network's remembered servers, those on trial, and whether the app's own requests need
+  it). Only the servers on the route get `dialer-proxy` (a chain keeps its own first hop), and a socks5 proxy
+  `shikoo-warp` (port 1, `shikoo-core: warp`) joins the list only when something needs it. Go fills in the port and
+  password; a build without the bridge leaves port 1, refused, so nothing goes around it. A server on the route that was
+  marked for a core behind mihomo (Xray, sing-box) goes back to mihomo: those engines dial their server themselves. A
+  `direct`-type proxy never goes through it (WARP's free internet).
 - **The app's own requests** take the bridge last, through aether's http proxy (`PROXY user:pass@127.0.0.1:port`, read
-  from `<core home>/warp/endpoint.json`, written 0600 by Go while the bridge runs):
-  - updates (`_fetch`): after the existing ways (direct, then the server while connected) failed without an answer,
-    only on the automatic way (`via == null`) and only while the switch is on (`warpLegWanted`). The panel's own answer,
-    or a way the customer chose, never goes on to the bridge.
+  from `<core home>/warp/endpoint.json`, written 0600 by Go while the bridge runs). `controller.bridgeProxy()` starts the
+  bridge for them when no server needed it (the route's `app`); with no service yet `getProfile` returns the bridge alone
+  (`warpOnlyProfile`), so the first sign-in can use it. A first call waits for the bridge's own start (`connectTimeout`
+  and the update's limit become `warpConnectTimeout`).
+  - updates (`_fetch`): after the existing ways (direct, then the server while connected) failed without an answer, only
+    on the automatic way (`via == null`) and only while the switch is on (`warpLegWanted`).
   - the door (`ShikooApi._call`): after every address failed without an answer.
   - Not the app's update downloads (`ShikooApi.download`).
-- **The switch** (`shikooWarpProvider`, SharedPreferences `shikoo.warp`): off by default and with no screen; a test build
-  turns it on with `--dart-define=SHIKOO_WARP=true`. When it turns on is Sam's choice of design; `warpLegWanted` and
-  `markWarp(on:)` take it as one boolean.
-- **No leg of its own** on the card yet: while the bridge carries an update the card keeps showing the leg before it.
+- **State for the screens** (`lib/shikoo/engine/controller.dart`):
+  - `ShikooState.bridge`: `on`, `via` (the shown service's servers on the bridge now), `trying` (servers that did not
+    answer direct are being tried through it), `failed` (the last round got no answer, not even through it).
+  - `ShikooServer.viaBridge`; `ShikooService.bridgeLeg` (an update on the bridge now, after `leg` failed);
+    `RefreshFailed.bridge` and `ShikooApiFailure.bridge` (it was tried and failed too).
+  - `controller.setBridge(on)`: with «no server answered» showing, turning it on connects at once; the sign-in page asks
+    for its code again itself.
+  - `warpConnectTimeout` (`warp.dart`), 60 s until it is measured on a real server.
 
 ## 4. Owner cores (official WireGuard, official OpenVPN): not in this round
 

@@ -93,9 +93,13 @@ class ShikooServer {
     this.fresh = false,
     this.protocol = ShikooProtocol.other,
     this.core = ShikooCore.mihomo,
+    this.viaBridge = false,
   });
 
   final String name;
+
+  /// It answered only through the bridge on this network, so it leaves through it now.
+  final bool viaBridge;
 
   /// The engine's protocol name, kept as data so a new protocol needs no screen change.
   final String type;
@@ -130,11 +134,15 @@ class ShikooService {
     this.usageKnown = true,
     this.refresh = ShikooRefresh.idle,
     this.leg,
+    this.bridgeLeg = false,
     this.pasted = false,
     this.revoked = false,
     this.number = 1,
     this.account,
   });
+
+  /// The update is on the bridge now, after [leg] failed.
+  final bool bridgeLeg;
 
   final int id;
   final String name;
@@ -237,10 +245,14 @@ class RefreshFailed extends ShikooNotice {
     this.clock = false,
     this.way = ShikooFailedWay.directOff,
     this.server,
+    this.bridge = false,
   });
 
   final bool clock;
   final ShikooFailedWay way;
+
+  /// The bridge was tried after [way], and failed too.
+  final bool bridge;
 
   final String? server;
 }
@@ -270,6 +282,17 @@ class ShikooNotConnected implements Exception {
   const ShikooNotConnected();
 }
 
+/// [on] the customer's switch; [via] the servers leaving through the bridge now; [trying] servers that did not answer
+/// direct are being tried through it; [failed] the last round got no answer, not even through it.
+typedef ShikooBridge = ({bool on, Set<String> via, bool trying, bool failed});
+
+const ShikooBridge noBridge = (
+  on: false,
+  via: {},
+  trying: false,
+  failed: false,
+);
+
 @immutable
 class ShikooState {
   const ShikooState({
@@ -297,7 +320,10 @@ class ShikooState {
     this.iranDirect = true,
     this.cores = const [],
     this.coreSwitch,
+    this.bridge = noBridge,
   });
+
+  final ShikooBridge bridge;
 
   final ShikooConnection connection;
   final Duration connectedFor;
@@ -438,6 +464,9 @@ final _sourcesProvider = _cell<Map<int, Map<String, Map<String, dynamic>>>>(
 );
 
 final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
+final _warpTryingProvider = _cell(false);
+final _warpFailedProvider = _cell(false);
+final _bridgeLegsProvider = _cell<Set<int>>(const {});
 
 typedef ShikooCarrying = ({String core, String server});
 
@@ -617,6 +646,8 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final extras = ref.watch(_extrasProvider);
   final refreshing = ref.watch(_othersRefreshProvider);
   final legs = ref.watch(_legsProvider);
+  final bridgeLegs = ref.watch(_bridgeLegsProvider);
+  final route = ref.watch(shikooWarpRouteProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
   final unnamed = [
@@ -628,6 +659,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     extras: extras[profile.id],
     refresh: refreshing[profile.id] ?? ShikooRefresh.idle,
     leg: legs[profile.id],
+    bridgeLeg: bridgeLegs.contains(profile.id),
     pasted: pasted.contains(profile.id),
     revoked: revoked.contains(profile.id),
     number: unnamed.indexOf(profile.id) + 1,
@@ -688,6 +720,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
           fresh: fresh.contains(name),
           protocol: protocolOf(sources[name] ?? {'type': types[name]}),
           core: coreOf(name),
+          viaBridge: loaded && route.via.contains(name),
         ),
     ];
   }
@@ -780,6 +813,15 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       tunnel: tunnel,
     ),
     coreSwitch: ref.watch(_coreSwitchProvider),
+    bridge: (
+      on: ref.watch(shikooWarpProvider),
+      via: {
+        for (final server in servers)
+          if (server.viaBridge) server.name,
+      },
+      trying: ref.watch(_warpTryingProvider),
+      failed: ref.watch(_warpFailedProvider),
+    ),
   );
 });
 
@@ -852,6 +894,7 @@ ShikooService _serviceFrom(
   _Extras? extras,
   ShikooRefresh refresh = ShikooRefresh.idle,
   ShikooLeg? leg,
+  bool bridgeLeg = false,
   bool pasted = false,
   bool revoked = false,
   int number = 1,
@@ -872,6 +915,7 @@ ShikooService _serviceFrom(
     usageKnown: info != null,
     refresh: refresh,
     leg: leg,
+    bridgeLeg: bridgeLeg,
     pasted: pasted,
     revoked: revoked,
     number: number < 1 ? 1 : number,
@@ -957,7 +1001,11 @@ String? ownerAside(ProviderReader read, Uri url) {
   return proxy == 'DIRECT' ? null : proxy;
 }
 
-Future<Response<Uint8List>> _get(String url, String? proxy) async {
+Future<Response<Uint8List>> _get(
+  String url,
+  String? proxy, {
+  Duration? timeout,
+}) async {
   final dio = Dio()
     ..httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () => HttpClient()
@@ -967,7 +1015,7 @@ Future<Response<Uint8List>> _get(String url, String? proxy) async {
   try {
     return await dio
         .get<Uint8List>(url, options: Options(responseType: ResponseType.bytes))
-        .timeout(subscriptionTimeout);
+        .timeout(timeout ?? subscriptionTimeout);
   } catch (error) {
     commonPrint.log(
       'subscription ${proxy == null ? 'direct' : 'server'} error ${compactError(error)}',
@@ -1864,37 +1912,153 @@ class ShikooController {
       round.set((pending: names.toSet(), total: names.length, ended: false));
     }
     final url = _testUrl(group);
-    try {
-      await pingServers(names, (name) => _probeFor(no, url, name), (name, ms) {
-        if (no != _roundNo) return;
-        if (!list) {
-          if (ms <= 0) return;
-          final first =
-              _validSelection() == null && _ref.read(_intentProvider).waiting;
-          if (!first && !_leaveMultiplied(name)) return;
-          _heard.add(name);
-          _setPing(service, name, ms);
-          if (first) _reconcile();
-          return;
-        }
-        final kept = _names(_group).contains(name);
+    final answered = <String>{};
+    void onResult(String name, int ms) {
+      if (no != _roundNo) return;
+      if (ms > 0) answered.add(name);
+      if (!list) {
+        if (ms <= 0) return;
+        final first =
+            _validSelection() == null && _ref.read(_intentProvider).waiting;
+        if (!first && !_leaveMultiplied(name)) return;
         _heard.add(name);
-        if (kept) _setPing(service, name, ms);
-        final now = _ref.read(_roundProvider);
-        round.set((
-          pending: {...now.pending}..remove(name),
-          total: now.total,
-          ended: false,
-        ));
-        if (!kept || ms <= 0) return;
-        if (_ref.read(_intentProvider).error == ShikooError.noServer) {
-          _set(const _Intent());
-        }
-        _reconcile();
-      });
-    } finally {
-      if (no == _roundNo) _endRound(list);
+        _setPing(service, name, ms);
+        if (first) _reconcile();
+        return;
+      }
+      final kept = _names(_group).contains(name);
+      _heard.add(name);
+      if (kept) _setPing(service, name, ms);
+      final now = _ref.read(_roundProvider);
+      round.set((
+        pending: {...now.pending}..remove(name),
+        total: now.total,
+        ended: false,
+      ));
+      if (!kept || ms <= 0) return;
+      if (_ref.read(_intentProvider).error == ShikooError.noServer) {
+        _set(const _Intent());
+      }
+      _reconcile();
     }
+
+    var bridged = false;
+    try {
+      await _followNetwork();
+      Future<int?> probe(String name) => _probeFor(no, url, name);
+      await pingServers(names, probe, onResult);
+      if (no == _roundNo) {
+        bridged = await _tryBridge(
+          no,
+          names.where((name) => !answered.contains(name)),
+          probe,
+          onResult,
+        );
+      }
+    } finally {
+      if (_ref.mounted && no == _roundNo) {
+        _ref
+            .read(_warpFailedProvider.notifier)
+            .set(bridged && answered.isEmpty);
+        _endRound(list);
+      }
+    }
+  }
+
+  Future<void> _followNetwork() async {
+    if (!_ref.read(shikooWarpProvider)) return;
+    final network = await _ref.read(warpNetworkReaderProvider)();
+    if (network == _ref.read(warpNetworkProvider)) return;
+    final before = _ref.read(shikooWarpRouteProvider);
+    _ref.read(warpNetworkProvider.notifier).set(network);
+    _ref.read(warpAppProvider.notifier).set(false);
+    if (!sameRoute(before, _ref.read(shikooWarpRouteProvider))) {
+      await _setup.applyProfile(silence: true);
+    }
+  }
+
+  /// Silent servers are pinged through the bridge until [warpConnectTimeout]; those that answer stay on it on this
+  /// network. A server already on it that went silent goes back to direct. True when it tried any.
+  Future<bool> _tryBridge(
+    int no,
+    Iterable<String> silent,
+    Future<int?> Function(String name) probe,
+    void Function(String name, int ms) onResult,
+  ) async {
+    final on = _ref.read(shikooWarpProvider);
+    final route = _ref.read(shikooWarpRouteProvider);
+    final memory = _ref.read(shikooWarpMemoryProvider.notifier);
+    final network = _ref.read(warpNetworkProvider);
+    final remembered =
+        _ref.read(shikooWarpMemoryProvider)[network] ?? const <String>{};
+    final lost = on ? remembered.intersection({...silent}) : const <String>{};
+    final candidates = bridgeCandidates(on: on, silent: silent, via: route.via);
+    if (lost.isNotEmpty) await memory.set(network, remembered.difference(lost));
+    if (candidates.isEmpty) {
+      if (lost.isNotEmpty) await _setup.applyProfile(silence: true);
+      return false;
+    }
+    final trial = _ref.read(warpTrialProvider.notifier);
+    _ref.read(_warpTryingProvider.notifier).set(true);
+    trial.set(candidates);
+    try {
+      await _setup.applyProfile(silence: true);
+      final left = {...candidates};
+      final until = DateTime.now().add(warpConnectTimeout);
+      while (_ref.mounted &&
+          left.isNotEmpty &&
+          no == _roundNo &&
+          DateTime.now().isBefore(until)) {
+        await pingServers([...left], probe, (name, ms) {
+          if (ms <= 0) return;
+          left.remove(name);
+          onResult(name, ms);
+        });
+        // A bridge still starting refuses at once: passes a breath apart, not a busy loop.
+        if (left.isNotEmpty) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+        }
+      }
+      if (!_ref.mounted) return true;
+      final current = _ref.read(shikooWarpMemoryProvider)[network] ?? const {};
+      await memory.set(network, {...current, ...candidates.difference(left)});
+      trial.set(const {});
+      if (left.isNotEmpty) await _setup.applyProfile(silence: true);
+    } finally {
+      if (_ref.mounted) {
+        trial.set(const {});
+        _ref.read(_warpTryingProvider.notifier).set(false);
+      }
+    }
+    return true;
+  }
+
+  Future<void> setBridge(bool on) async {
+    final before = _ref.read(shikooWarpRouteProvider);
+    await _ref.read(shikooWarpProvider.notifier).set(on);
+    if (!on) _ref.read(warpAppProvider.notifier).set(false);
+    _ref.read(_warpFailedProvider.notifier).set(false);
+    if (!sameRoute(before, _ref.read(shikooWarpRouteProvider))) {
+      await _setup.applyProfile(silence: true);
+    }
+    if (on && _ref.read(_intentProvider).error == ShikooError.noServer) {
+      await connect();
+    }
+  }
+
+  /// `PROXY …` for the app's own request, starting the bridge for it when no server needed it; null while off.
+  Future<String?> bridgeProxy() async {
+    if (!_ref.read(shikooWarpProvider)) return null;
+    if (!_ref.read(warpAppProvider)) {
+      _ref.read(warpAppProvider.notifier).set(true);
+      await _setup.applyProfile(silence: true);
+    }
+    // Go writes endpoint.json as it starts the bridge.
+    for (var i = 0; i < 20; i++) {
+      if (await warpProxy(_ref.read) case final proxy?) return proxy;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    return null;
   }
 
   void _endRound(bool list) {
@@ -2262,6 +2426,7 @@ class ShikooController {
         refresh: true,
         via: via,
         onLeg: (leg) => _leg(id, leg),
+        onBridge: (on) => _bridgeLeg(id, on),
       );
       mark(ShikooRefresh.idle);
     } catch (error) {
@@ -2269,12 +2434,20 @@ class ShikooController {
       _failed(id, error);
     } finally {
       _leg(id, null);
+      _bridgeLeg(id, false);
     }
   }
 
   void _leg(int id, ShikooLeg? leg) {
     final legs = {..._ref.read(_legsProvider)}..remove(id);
     _ref.read(_legsProvider.notifier).set({...legs, id: ?leg});
+  }
+
+  void _bridgeLeg(int id, bool on) {
+    final legs = {..._ref.read(_bridgeLegsProvider)};
+    _ref
+        .read(_bridgeLegsProvider.notifier)
+        .set(on ? (legs..add(id)) : (legs..remove(id)));
   }
 
   /// One update at a time; a press during an automatic one makes its failure visible.
@@ -2295,6 +2468,7 @@ class ShikooController {
     final before = _names(_group);
     final had = _validSelection();
     ShikooLeg? last;
+    var bridged = false;
     try {
       final fresh = await _download(
         profile.url,
@@ -2304,6 +2478,10 @@ class ShikooController {
         onLeg: (leg) {
           last = leg;
           if (leg != null) _leg(profile.id, leg);
+        },
+        onBridge: (on) {
+          bridged = on;
+          _bridgeLeg(profile.id, on);
         },
       );
       if (fresh == null) {
@@ -2323,12 +2501,14 @@ class ShikooController {
             clock: clock,
             way: failedWay(last, error),
             server: _validSelection(),
+            bridge: bridged,
           ),
         );
       }
       return;
     } finally {
       _leg(profile.id, null);
+      _bridgeLeg(profile.id, false);
     }
     status.set(ShikooRefresh.idle);
     _notice(null);
@@ -2357,8 +2537,9 @@ class ShikooController {
   Future<Response<Uint8List>> _fetch(
     String url,
     ShikooRoute? via,
-    void Function(ShikooLeg? leg)? onLeg,
-  ) async {
+    void Function(ShikooLeg? leg)? onLeg, [
+    void Function(bool on)? onBridge,
+  ]) async {
     final server = FlClashHttpOverrides.findProxyForReader(
       _ref.read,
       Uri.parse(url),
@@ -2388,17 +2569,17 @@ class ShikooController {
         return await _get(url, byServer);
       }
     } catch (error) {
-      // shortcut: the bridge has no leg of its own yet, so the screen keeps the last one until the design names it.
       final bridge =
           warpLegWanted(
             on: _ref.read(shikooWarpProvider),
             chosen: via != null,
             error: error,
           )
-          ? await warpProxy(_ref.read)
+          ? await bridgeProxy()
           : null;
       if (bridge == null) rethrow;
-      return _get(url, bridge);
+      onBridge?.call(true);
+      return _get(url, bridge, timeout: warpConnectTimeout);
     }
   }
 
@@ -2411,8 +2592,9 @@ class ShikooController {
     bool refresh = false,
     ShikooRoute? via,
     void Function(ShikooLeg? leg)? onLeg,
+    void Function(bool on)? onBridge,
   }) async {
-    final response = await _fetch(url, via, onLeg);
+    final response = await _fetch(url, via, onLeg, onBridge);
     // What fails from here on came with an answer: no way is to blame.
     onLeg?.call(null);
     final header = response.headers.value;

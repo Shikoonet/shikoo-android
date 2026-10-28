@@ -87,30 +87,34 @@ void main() {
           'dialer-proxy': 'B',
         },
         {'name': 'D', 'type': 'Direct'},
+        {'name': 'E', 'type': 'vless', 'shikoo-core': 'xray'},
       ],
       'mode': 'rule',
     };
 
-    test('off, the config is the same object, untouched', () {
-      expect(markWarp(config, on: false), same(config));
+    test('nothing needs the bridge: the config is the same object, without '
+        'the bridge', () {
+      expect(markWarp(config, noWarp), same(config));
     });
 
-    test('on, every server leaves through the bridge, a chain from its first '
-        'hop, and a core behind mihomo gives its server back; a direct one '
-        'stays direct, never free WARP', () {
-      final marked = markWarp(config, on: true);
+    test('only the servers on the route leave through it, a chain from its '
+        'first hop; a core behind mihomo gives such a server back; a direct '
+        'one stays direct, never free WARP', () {
+      final marked = markWarp(config, (via: {'A', 'C', 'D'}, app: false));
       final proxies = (marked['proxies'] as List).cast<Map>();
       expect(marked['mode'], 'rule');
       expect(proxies.map((p) => p['dialer-proxy']), [
         warpProxyName,
-        warpProxyName,
+        null,
         'B',
         null,
         null,
+        null,
       ]);
-      expect(proxies[3], {'name': 'D', 'type': 'Direct'});
       expect(proxies[0].containsKey('shikoo-core'), isFalse);
-      expect(proxies[1]['shikoo-owner'], 'wireguard');
+      expect(proxies[1], config['proxies'][1], reason: 'not on the route');
+      expect(proxies[3], {'name': 'D', 'type': 'Direct'});
+      expect(proxies[4]['shikoo-core'], 'xray', reason: 'not on the route');
       expect(proxies.last, {
         'name': warpProxyName,
         'type': 'socks5',
@@ -125,18 +129,68 @@ void main() {
       );
     });
 
-    test('a config without servers still gets the bridge', () {
-      expect(markWarp({}, on: true)['proxies'], hasLength(1));
+    test('the app alone needs it: the bridge joins, every server stays '
+        'direct', () {
+      final marked = markWarp(config, (via: const {}, app: true));
+      final proxies = (marked['proxies'] as List).cast<Map>();
+      expect(proxies.take(5), config['proxies']);
+      expect(proxies.last['name'], warpProxyName);
+      expect(markWarp({}, (via: const {}, app: true))['proxies'], hasLength(1));
     });
   });
 
-  test('with no service the core gets the bridge alone, or nothing', () {
-    expect(warpOnlyProfile(on: false), (yaml: '', md5: ''));
-    final only = warpOnlyProfile(on: true);
+  group('the route', () {
+    test('off, nothing at all, whatever is remembered or tried', () {
+      expect(
+        warpRoute(on: false, remembered: {'A'}, trial: {'B'}, app: true),
+        noWarp,
+      );
+    });
+
+    test('on, what this network remembers and what is on trial', () {
+      final route = warpRoute(
+        on: true,
+        remembered: {'A'},
+        trial: {'B'},
+        app: true,
+      );
+      expect(route.via, {'A', 'B'});
+      expect(route.app, isTrue);
+      expect(sameRoute(route, (via: {'B', 'A'}, app: true)), isTrue);
+      expect(sameRoute(route, (via: {'A'}, app: true)), isFalse);
+      expect(sameRoute(route, (via: {'A', 'B'}, app: false)), isFalse);
+    });
+
+    test('the silent servers not already on the bridge, and only while on', () {
+      expect(bridgeCandidates(on: true, silent: ['A', 'B'], via: {'B'}), {'A'});
+      expect(bridgeCandidates(on: false, silent: ['A'], via: {}), isEmpty);
+    });
+  });
+
+  test('with no service the core gets the bridge alone, only for the app', () {
+    expect(warpOnlyProfile(noWarp), (yaml: '', md5: ''));
+    expect(warpOnlyProfile((via: {'A'}, app: false)), (yaml: '', md5: ''));
+    final only = warpOnlyProfile((via: const {}, app: true));
     expect(json.decode(only.yaml), {
-      'proxies': [markWarp({}, on: true)['proxies'][0]],
+      'proxies': [markWarp({}, (via: const {}, app: true))['proxies'][0]],
     });
     expect(only.md5, only.yaml.toMd5());
+  });
+
+  test('each network keeps its own servers, on this device', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final memory = container.read(shikooWarpMemoryProvider.notifier);
+    await memory.set('mobile', {'A'});
+    await memory.set('wifi', {'B'});
+    await memory.set('wifi', {});
+    final again = ProviderContainer();
+    addTearDown(again.dispose);
+    await again.read(shikooWarpMemoryProvider.notifier).load();
+    expect(again.read(shikooWarpMemoryProvider), {
+      'mobile': {'A'},
+    });
   });
 
   group('warpLegWanted', () {
@@ -196,7 +250,10 @@ void main() {
   });
 
   group('the config FlClash writes for the core', () {
-    Future<String> written({required bool bridge, int? profileId = 1}) async {
+    Future<String> written({
+      required WarpRoute route,
+      int? profileId = 1,
+    }) async {
       SharedPreferences.setMockInitialValues({});
       final core = _Core();
       when(() => core.getConfig(any())).thenAnswer(
@@ -224,7 +281,9 @@ void main() {
       await container
           .read(shikooCoresProvider.notifier)
           .set(ShikooProtocol.vless, ShikooCore.xray);
-      await container.read(shikooWarpProvider.notifier).set(bridge);
+      await container.read(shikooWarpProvider.notifier).set(true);
+      container.read(warpTrialProvider.notifier).set(route.via);
+      container.read(warpAppProvider.notifier).set(route.app);
       final made = await container
           .read(setupActionProvider.notifier)
           .getProfile(
@@ -234,27 +293,33 @@ void main() {
       return made.yaml;
     }
 
-    test('sends the servers through the bridge only while it is on', () async {
-      final on = await written(bridge: true);
-      expect(on, contains('dialer-proxy: "$warpProxyName"'));
-      expect(on, contains('$shikooCoreKey: "warp"'));
-      expect(
-        shikooCoreKey.allMatches(on),
-        hasLength(1),
-        reason: 'xray gives its server back',
-      );
+    test(
+      'sends a server through the bridge only while it is on the route',
+      () async {
+        final on = await written(route: (via: {'A'}, app: false));
+        expect(on, contains('dialer-proxy: "$warpProxyName"'));
+        expect(on, contains('$shikooCoreKey: "warp"'));
+        expect(
+          shikooCoreKey.allMatches(on),
+          hasLength(1),
+          reason: 'xray gives its server back',
+        );
 
-      final off = await written(bridge: false);
-      expect(off, isNot(contains(warpProxyName)));
-      expect(off, contains('$shikooCoreKey: "xray"'));
-    });
+        final off = await written(route: noWarp);
+        expect(off, isNot(contains(warpProxyName)));
+        expect(off, contains('$shikooCoreKey: "xray"'));
+      },
+    );
 
-    test('with no service yet, the bridge alone while it is on', () async {
-      expect(await written(bridge: false, profileId: null), isEmpty);
-      expect(
-        await written(bridge: true, profileId: null),
-        contains('"$shikooCoreKey":"warp"'),
-      );
-    });
+    test(
+      'with no service yet, the bridge alone when the app needs it',
+      () async {
+        expect(await written(route: noWarp, profileId: null), isEmpty);
+        expect(
+          await written(route: (via: const {}, app: true), profileId: null),
+          contains('"$shikooCoreKey":"warp"'),
+        );
+      },
+    );
   });
 }
