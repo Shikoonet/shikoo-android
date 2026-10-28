@@ -48,6 +48,7 @@ class _ShikooLicensesState extends ConsumerState<ShikooLicenses> {
     return SubPage(
       title: l.licensesTitle,
       isTV: isTV,
+      scrolls: !isTV,
       child: FutureBuilder(
         future: _byPackage,
         builder: (context, snapshot) {
@@ -87,7 +88,7 @@ class _ShikooLicensesState extends ConsumerState<ShikooLicenses> {
           final others =
               byPackage.keys.where((p) => !_corePackages.contains(p)).toList()
                 ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-          // shortcut: every row is built at once (some 350 on Android); a lazy list if a box stutters here.
+          // shortcut: every row is built at once (some 460 on Android); a lazy list if a box stutters here.
           final column = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: Space.s6,
@@ -107,7 +108,14 @@ class _ShikooLicensesState extends ConsumerState<ShikooLicenses> {
           );
           return isTV
               ? Center(
-                  child: SizedBox(width: t.s.pane, child: column),
+                  child: SizedBox(
+                    width: t.s.pane + 2 * Space.s2,
+                    child: TvScrollColumn(
+                      child: Center(
+                        child: SizedBox(width: t.s.pane, child: column),
+                      ),
+                    ),
+                  ),
                 )
               : column;
         },
@@ -202,6 +210,16 @@ class _TvLicenseText extends StatefulWidget {
 
 class _TvLicenseTextState extends State<_TvLicenseText> {
   final _scroll = ScrollController();
+  bool _scrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      final scrolled = _scroll.offset > 0;
+      if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+    });
+  }
 
   @override
   void dispose() {
@@ -261,10 +279,22 @@ class _TvLicenseTextState extends State<_TvLicenseText> {
                 thickness: ShikooSizes.scrollThumb,
                 radius: const Radius.circular(ShikooSizes.scrollThumb),
                 thumbColor: t.c.outline,
-                child: SingleChildScrollView(
-                  controller: _scroll,
-                  padding: const EdgeInsets.all(Space.s4),
-                  child: widget.child,
+                child: ShaderMask(
+                  blendMode: BlendMode.dstIn,
+                  shaderCallback: (rect) => LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      _scrolled ? Colors.transparent : Colors.black,
+                      Colors.black,
+                    ],
+                    stops: [0, ShikooSizes.fade / rect.height],
+                  ).createShader(rect),
+                  child: SingleChildScrollView(
+                    controller: _scroll,
+                    padding: const EdgeInsets.all(Space.s4),
+                    child: widget.child,
+                  ),
                 ),
               ),
             ),

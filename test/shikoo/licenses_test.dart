@@ -273,6 +273,14 @@ void main() {
     await _pump(tester, tv: true);
     expect(_focused(), _fa.aboutLicenses);
     expect(await _press(tester, LogicalKeyboardKey.select), 'mihomo');
+    final list = tester.getRect(find.byType(TvScrollColumn));
+    final cards = tester.getRect(find.byType(Pressable).first);
+    expect(
+      list.left,
+      greaterThan(ShikooSizes.tv.safeX),
+      reason: 'the thumb beside the column, inside the safe margin',
+    );
+    expect(cards.left - list.left, lessThan(Space.s6));
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'Xray');
     await _press(tester, LogicalKeyboardKey.select);
     expect(find.text(_fa.licenseScrollTv), findsOneWidget);
@@ -332,6 +340,14 @@ void main() {
               }
               expect(tester.takeException(), isNull);
               await _shot(tester, 'text-$tag');
+              if (tv) {
+                await tester.binding.handlePopRoute();
+                await tester.pumpAndSettle();
+                for (var i = 0; i < 6; i++) {
+                  await _press(tester, LogicalKeyboardKey.arrowDown);
+                }
+                await _shot(tester, 'list-scrolled-$tag');
+              }
             },
             variant: device == 'win'
                 ? TargetPlatformVariant.only(TargetPlatform.windows)
