@@ -634,7 +634,7 @@
   "coreProxyNow": "{mode} mode is on.",
   "@coreProxyNow": {"description": "Windows: the first sentence under a core list in which Proxy mode greys a core. {mode} is modeProxy.", "placeholders": {"mode": {"type": "String"}}},
   "coreProxyFallback": "In {proxy} mode, {protocol} servers connect via mihomo; in {tunnel}, via {core}.",
-  "@coreProxyFallback": {"description": "Windows in Proxy mode, under a core list whose chosen core owns the tunnel: where its servers go now and in Tunnel mode. {proxy} is modeProxy, {tunnel} modeTunnel.", "placeholders": {"proxy": {"type": "String"}, "protocol": {"type": "String", "example": "WireGuard"}, "tunnel": {"type": "String"}, "core": {"type": "String", "example": "WireGuard (official)"}}},
+  "@coreProxyFallback": {"description": "Windows in Proxy mode, under a core list whose chosen core owns the tunnel: where its servers go now and in Tunnel mode. {proxy} is modeProxy, {tunnel} modeTunnel.", "placeholders": {"proxy": {"type": "String"}, "protocol": {"type": "String", "example": "WireGuard"}, "tunnel": {"type": "String"}, "core": {"type": "String", "example": "Official WireGuard"}}},
   "corePickTitle": "Connect {protocol} with",
   "@corePickTitle": {"placeholders": {"protocol": {"type": "String", "example": "WireGuard"}}},
   "corePickForAll": "Your choice applies to every {protocol} server.",
