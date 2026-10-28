@@ -1087,13 +1087,16 @@ class _PowerZone extends StatelessWidget {
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
     final offerWarp = offersWarp(state);
-    // Its two lines wrap to three on the TV too, where the message's room is two.
+    // WARP's first try and its failure: two lines wrapping to three on the TV too, where the room is two.
     final tall =
         offerWarp ||
         (state.isTV &&
-            state.lastError == ShikooError.noServer &&
-            state.bridge.failed &&
-            !checked);
+            (state.lastError == ShikooError.noServer &&
+                    state.bridge.failed &&
+                    !checked ||
+                state.lastError == null &&
+                    state.connection == ShikooConnection.connecting &&
+                    state.bridge.trying));
     final text = Text(
       message ?? '',
       // A phone's message may wrap a line: WARP's failure and first try are two lines, the second one long.

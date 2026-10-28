@@ -344,6 +344,26 @@ void main() {
     verify(() => rig.controller.setBridge(true)).called(1);
   });
 
+  testWidgets('the TV keeps all of the first try\'s lines and of the failure '
+      'through WARP, whose first line wraps there', (tester) async {
+    await _pump(
+      tester,
+      _home(tv: true, connection: ShikooConnection.connecting, trying: true),
+    );
+    final first = _fa.warpFirst(bidiName(_faNames[3]));
+    final paragraph = tester.renderObject<RenderParagraph>(find.text(first));
+    expect(paragraph.didExceedMaxLines, isFalse, reason: first);
+    // Fresh: a failure that follows a try starts the internet check, whose card takes the hint's place.
+    await _pump(tester, _home(tv: true, none: true, failed: true));
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text(_fa.warpFailBothTv))
+          .didExceedMaxLines,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('an update on WARP says so, and one that failed through it too '
       'says neither way answered', (tester) async {
     final rig = await _pump(
