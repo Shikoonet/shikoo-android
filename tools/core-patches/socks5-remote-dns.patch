@@ -1,0 +1,64 @@
+diff --git a/adapter/outbound/socks5.go b/adapter/outbound/socks5.go
+index 7f3f111..19f31b9 100644
+--- a/adapter/outbound/socks5.go
++++ b/adapter/outbound/socks5.go
+@@ -11,7 +11,9 @@ import (
+ 
+ 	N "github.com/metacubex/mihomo/common/net"
+ 	"github.com/metacubex/mihomo/component/ca"
++	"github.com/metacubex/mihomo/component/resolver"
+ 	C "github.com/metacubex/mihomo/constant"
++	"github.com/metacubex/mihomo/dns"
+ 	"github.com/metacubex/mihomo/transport/socks5"
+ 
+ 	"github.com/metacubex/tls"
+@@ -25,6 +27,7 @@ type Socks5 struct {
+ 	tls            bool
+ 	skipCertVerify bool
+ 	tlsConfig      *tls.Config
++	resolver       resolver.Resolver
+ }
+ 
+ type Socks5Option struct {
+@@ -41,6 +44,9 @@ type Socks5Option struct {
+ 	Fingerprint    string `proxy:"fingerprint,omitempty"`
+ 	Certificate    string `proxy:"certificate,omitempty"`
+ 	PrivateKey     string `proxy:"private-key,omitempty"`
++
++	RemoteDnsResolve bool     `proxy:"remote-dns-resolve,omitempty"`
++	Dns              []string `proxy:"dns,omitempty"`
+ }
+ 
+ // StreamConnContext implements C.ProxyAdapter
+@@ -210,9 +216,31 @@ func NewSocks5(option Socks5Option) (*Socks5, error) {
+ 		tlsConfig:      tlsConfig,
+ 	}
+ 	outbound.dialer = option.NewDialer(outbound.DialOptions())
++	if option.RemoteDnsResolve && len(option.Dns) > 0 {
++		nss, err := dns.ParseNameServer(option.Dns)
++		if err != nil {
++			return nil, err
++		}
++		for i := range nss {
++			nss[i].ProxyAdapter = outbound
++		}
++		outbound.resolver = dns.NewResolver(dns.Config{Main: nss})
++	}
+ 	return outbound, nil
+ }
+ 
++func (ss *Socks5) ResolveUDP(ctx context.Context, metadata *C.Metadata) error {
++	if ss.resolver == nil || metadata.Host == "" {
++		return ss.Base.ResolveUDP(ctx, metadata)
++	}
++	ip, err := resolveIPWithResolver(ctx, metadata.Host, ss.prefer, ss.resolver)
++	if err != nil {
++		return fmt.Errorf("can't resolve ip: %w", err)
++	}
++	metadata.DstIP = ip
++	return nil
++}
++
+ type socksPacketConn struct {
+ 	net.PacketConn
+ 	rAddr   net.Addr

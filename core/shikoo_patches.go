@@ -9,3 +9,4 @@ import (
 var _ = outbound.ShikooUnconnectedBind
 var _ = tun.ShikooListenAgain
 var _ *bool = outbound.RealityOptions{}.SupportX25519MLKEM768
+var _ = outbound.Socks5Option{}.RemoteDnsResolve

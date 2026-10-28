@@ -87,10 +87,22 @@ func shikooCoresRewrite(raw *config.RawConfig) {
 			continue
 		}
 		for j, i := range at {
+			shikooRemoteDNS(proxies[j], replacements[j])
 			raw.Proxy[i] = replacements[j]
 		}
 		shikooCoresStarting = append(shikooCoresStarting, stop)
 	}
+}
+
+func shikooRemoteDNS(server, replacement map[string]any) {
+	if replacement["type"] != "socks5" || server["remote-dns-resolve"] == false {
+		return
+	}
+	dns, _ := server["dns"].([]any)
+	if server["remote-dns-resolve"] != true || len(dns) == 0 {
+		dns = []any{"1.1.1.1", "8.8.8.8"}
+	}
+	replacement["remote-dns-resolve"], replacement["dns"] = true, dns
 }
 
 // shikooCoresMatch: a replacement under another name leaves the groups naming a proxy that is gone, and the config fails.
