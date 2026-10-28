@@ -1150,18 +1150,17 @@ void main() {
     test(
       'every core and protocol is named in Latin letters in Persian too',
       () {
-        expect(
-          {
-            _fa.coreMihomo: 'mihomo',
-            _fa.coreXray: 'Xray',
-            _fa.coreSingBox: 'sing-box',
-            _fa.protocolVless: 'VLESS',
-            _fa.protocolWireguard: 'WireGuard',
-            _fa.protocolOpenvpn: 'OpenVPN',
-            _fa.protocolSsh: 'SSH',
-          }.entries.where((e) => e.key != e.value).map((e) => e.key),
-          isEmpty,
-        );
+        for (final (name, latin) in [
+          (_fa.coreMihomo, 'mihomo'),
+          (_fa.coreXray, 'Xray'),
+          (_fa.coreSingBox, 'sing-box'),
+          (_fa.protocolVless, 'VLESS'),
+          (_fa.protocolWireguard, 'WireGuard'),
+          (_fa.protocolOpenvpn, 'OpenVPN'),
+          (_fa.protocolSsh, 'SSH'),
+        ]) {
+          expect(name, latin);
+        }
       },
     );
 

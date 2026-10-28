@@ -185,6 +185,7 @@ Future<int> _topAlpha(WidgetTester tester) async {
         )
         .first,
   );
+  expect(mask.blendMode, BlendMode.dstIn);
   const rect = Rect.fromLTWH(0, 0, 4, 400);
   final recorder = ui.PictureRecorder();
   Canvas(recorder).drawRect(rect, Paint()..shader = mask.shaderCallback(rect));
