@@ -138,6 +138,15 @@ void main() {
       expect(proxies.last['name'], warpProxyName);
       expect(markWarp({}, (via: const {}, app: true))['proxies'], hasLength(1));
     });
+
+    test('a server whose core owns the tunnel dials it itself: it keeps its '
+        'way, and alone it needs no bridge', () {
+      expect(markWarp(config, (via: {'B'}, app: false)), same(config));
+      final marked = markWarp(config, (via: {'A', 'B'}, app: false));
+      final proxies = (marked['proxies'] as List).cast<Map>();
+      expect(proxies[0]['dialer-proxy'], warpProxyName);
+      expect(proxies[1], config['proxies'][1]);
+    });
   });
 
   group('the route', () {

@@ -149,16 +149,20 @@ const _serverless = {
 };
 
 /// A core behind mihomo gives a server on [route] back to mihomo: those engines dial it themselves, around the bridge.
+/// One whose core owns the tunnel keeps its own way: that engine dials it outside mihomo.
 Map<String, dynamic> markWarp(Map<String, dynamic> config, WarpRoute route) {
-  if (route.via.isEmpty && !route.app) return config;
-  final proxies = config['proxies'];
+  final proxies = config['proxies'] is List ? config['proxies'] as List : [];
+  bool bridged(Object? proxy) =>
+      proxy is Map &&
+      route.via.contains(proxy['name']) &&
+      !proxy.containsKey('shikoo-owner') &&
+      !_serverless.contains('${proxy['type']}'.toLowerCase());
+  if (!route.app && !proxies.any(bridged)) return config;
   return {
     ...config,
     'proxies': [
-      for (final proxy in proxies is List ? proxies : const [])
-        if (proxy is Map &&
-            route.via.contains(proxy['name']) &&
-            !_serverless.contains('${proxy['type']}'.toLowerCase()))
+      for (final proxy in proxies)
+        if (proxy is Map && bridged(proxy))
           {
             for (final MapEntry(:key, :value) in proxy.entries)
               if (key != 'shikoo-core') key: value,
