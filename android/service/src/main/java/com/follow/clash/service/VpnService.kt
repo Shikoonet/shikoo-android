@@ -268,8 +268,8 @@ class VpnService : SystemVpnService(), ManagedService {
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
     private fun Builder.establishWith(options: VpnOptions, owner: Boolean): ParcelFileDescriptor? {
-        // shortcut: owner -> mihomo leaks 0.4-0.8 s, as a changed app set or bypass makes Android build a new network;
-        // upgrade on a customer report or before official WireGuard is a default: SHIKOO_PATCHES row 62 has the patch.
+        // shortcut: owner -> mihomo leaks 0.4-0.8 s: a changed app set or bypass is a new network (patch: SHIKOO_PATCHES 62);
+        // upgrade before subscriptions ship OpenVPN servers or official WireGuard becomes a default, or on a customer report.
         configureAccessControl(options)
         setSession(getString(CommonR.string.app_name))
         setBlocking(false)
