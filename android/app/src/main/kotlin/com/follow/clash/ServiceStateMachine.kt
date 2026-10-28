@@ -53,6 +53,11 @@ internal class ServiceStateMachine(
     @Volatile
     private var pendingVpnPreparation: (() -> Unit)? = null
 
+    // Shikoo: the service refused the latest request's start; any newer request clears it.
+    @Volatile
+    var lastStartFailed = false
+        private set
+
     val runState = mutableRunState.asStateFlow()
 
     private val runTimeMillis: Long
@@ -152,6 +157,8 @@ internal class ServiceStateMachine(
 
     fun requestStop(): Deferred<Boolean> {
         val request = createRequest(running = false)
+        // Shikoo: an OpenVPN start waits for its server under the transition lock this stop needs.
+        host.abandonStart()
         val result = CompletableDeferred<Boolean>()
         host.scope.launch {
             result.complete(
@@ -260,6 +267,7 @@ internal class ServiceStateMachine(
             val startedAtMillis = host.startService(options)
             if (startedAtMillis == 0L) {
                 mutableRunState.value = RunState.STOPPED
+                lastStartFailed = isCurrent(request)
                 fail(request)
                 return@transition false
             }
@@ -322,7 +330,10 @@ internal class ServiceStateMachine(
         abandon()
     }
 
-    private fun createRequest(running: Boolean): RunRequest = arbiter.request(running)
+    private fun createRequest(running: Boolean): RunRequest {
+        lastStartFailed = false
+        return arbiter.request(running)
+    }
 
     private fun isRunningRequested(): Boolean = arbiter.isRunningRequested
 

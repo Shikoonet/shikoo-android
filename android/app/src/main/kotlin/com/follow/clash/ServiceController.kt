@@ -29,6 +29,7 @@ import kotlin.coroutines.resume
 
 object ServiceController {
     private val lock = Mutex()
+    @Volatile
     private var binding: ManagedServiceBinding? = null
     @Volatile
     private var runTimeMillis = 0L
@@ -64,6 +65,7 @@ object ServiceController {
     }
 
     suspend fun start(options: VpnOptions): Long = lock.withLock {
+        startAbandoned = false
         ServiceConfig.updateVpnOptions(options)
         val nextIntent = if (options.enable) {
             VpnService::class.intent
@@ -89,7 +91,10 @@ object ServiceController {
         }
 
         val currentBinding = binding ?: return@withLock 0L
-        val result = currentBinding.useService { service -> service.start() }
+        val result = currentBinding.useService { service ->
+            check(!startAbandoned) { "a stop came first" }
+            service.start()
+        }
         if (result.isFailure) {
             GlobalState.log("Unable to start background service: ${result.exceptionOrNull()}")
             currentBinding.stopIfConnected()
@@ -105,6 +110,20 @@ object ServiceController {
             runTimeMillis = System.currentTimeMillis()
         }
         runTimeMillis
+    }
+
+    // Shikoo: a stop while the service is still binding for this start.
+    @Volatile
+    private var startAbandoned = false
+
+    fun holdForSwitch() {
+        binding?.connected()?.holdForSwitch()
+    }
+
+    // Shikoo: outside [lock], which the start being abandoned holds.
+    fun abandonStart() {
+        startAbandoned = true
+        binding?.connected()?.abandonStart()
     }
 
     suspend fun stop() = lock.withLock {
@@ -196,6 +215,8 @@ private class ManagedServiceBinding(
             block(service)
         }
     }
+
+    fun connected(): ManagedService? = serviceState.value?.getOrNull()
 
     suspend fun stopIfConnected(): Result<Unit> = runCatching {
         val service = serviceState.value?.getOrNull() ?: return@runCatching

@@ -43,6 +43,9 @@ internal interface ServiceStateHost {
 
     suspend fun stopService()
 
+    // Shikoo: never waits, so a stop can call it ahead of the start it overtakes.
+    fun abandonStart()
+
     suspend fun isVpnServiceActive(): Boolean
 }
 
@@ -128,6 +131,8 @@ internal object AndroidServiceStateHost : ServiceStateHost {
         ServiceController.start(options)
 
     override suspend fun stopService() = ServiceController.stop()
+
+    override fun abandonStart() = ServiceController.abandonStart()
 
     override suspend fun isVpnServiceActive(): Boolean = ServiceController.isVpnServiceActive()
 }

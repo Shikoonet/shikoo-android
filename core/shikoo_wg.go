@@ -106,8 +106,8 @@ func init() {
 	}))
 }
 
-func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
-	if params.Core != "wireguard" {
+func handlePrepareOwner(params *PrepareOwnerParams) (any, error) {
+	if params.Core != "wireguard" && params.Core != "openvpn" {
 		return nil, fmt.Errorf("no owner core %q in this build", params.Core)
 	}
 	raw, err := appliedRawConfig()
@@ -123,6 +123,9 @@ func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
 	}
 	if mapping == nil {
 		return nil, fmt.Errorf("server %q is not in the config", params.Server)
+	}
+	if params.Core == "openvpn" {
+		return ovpnPrepare(mapping, params.IranDirect)
 	}
 	plan, prepared, err := wgPlan(mapping, iranRanges(params.IranDirect), int(sdkVersion.Load()), lookupEndpoint)
 	if err != nil {

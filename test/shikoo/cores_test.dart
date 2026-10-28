@@ -334,6 +334,66 @@ void main() {
     );
   });
 
+  test('the shipped official OpenVPN core is ready on Android only: OpenVPN '
+      'defaults to it there, and to mihomo on Windows in either mode', () {
+    const ovpn = {'name': 'ovpn', 'type': 'openvpn'};
+    final android = readyHere(ShikooPlatform.android);
+    final windows = readyHere(ShikooPlatform.windows);
+    ShikooCoreRow row(Map<ShikooCore, ShikooCoreSpec> specs, bool tunnel) =>
+        coreRows(
+          {ShikooProtocol.openvpn},
+          const {},
+          specs: specs,
+          tunnel: tunnel,
+        ).single;
+
+    expect(coreFor(ovpn, const {}, specs: android), ShikooCore.openvpn);
+    expect(row(android, true).defaultCore, ShikooCore.openvpn);
+    for (final tunnel in [true, false]) {
+      expect(
+        coreFor(ovpn, const {}, specs: windows, tunnel: tunnel),
+        ShikooCore.mihomo,
+      );
+      expect(row(windows, tunnel).defaultCore, ShikooCore.mihomo);
+    }
+    expect(
+      row(windows, true).options,
+      contains((core: ShikooCore.openvpn, ready: false)),
+    );
+    for (final server in [
+      {...ovpn, 'dialer-proxy': 'آلمان ۲'},
+      {
+        ...ovpn,
+        'peer-info': {'IV_X': '1'},
+      },
+    ]) {
+      expect(
+        coreFor(server, const {}, specs: android),
+        ShikooCore.mihomo,
+        reason: 'core/shikoo_ovpn.go refuses ${server.keys.last}',
+      );
+    }
+  });
+
+  test('an owner core ready on Android is one the Go core registers in its '
+      'Android build, under the same name', () {
+    final registered = {
+      for (final file in Directory('core').listSync().whereType<File>())
+        if (file.path.endsWith('_android.go'))
+          for (final match in RegExp(
+            r'register(?:Shikoo)?Owner\("([^"]+)"',
+          ).allMatches(file.readAsStringSync()))
+            match[1]!,
+    };
+    for (final MapEntry(key: core, value: spec) in readyHere(
+      ShikooPlatform.android,
+    ).entries) {
+      if (spec.ready && spec.shape == ShikooShape.ownsTunnel) {
+        expect(registered, contains(core.name));
+      }
+    }
+  });
+
   test('a core behind mihomo is ready only if the Go core registers it under '
       'the same name, and Go registers no other', () {
     final registered = {

@@ -49,6 +49,7 @@ void main(List<String> args) {
       try {
         await shikooDiag.start(await appPath.homeDirPath);
         await loadShikooFonts();
+        if (Platform.isAndroid) addNativeLicenses();
         await RustLib.init();
         final version = await system.init();
         if (clockTooEarly(DateTime.now())) await _untilClockRight();

@@ -7,7 +7,11 @@ import android.net.IpPrefix
 import android.net.ProxyInfo
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.follow.clash.common.GlobalState
@@ -31,6 +35,21 @@ class VpnService : SystemVpnService(), ManagedService {
     private val binder = LocalBinder()
     private val tunLock = Any()
     private var tunRunning = false
+    @Volatile
+    private var openVpn: OpenVpn? = null
+
+    @Volatile
+    private var startAbandoned = false
+
+    // An owner core's VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking.
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val heldTun = HeldTun<ParcelFileDescriptor>(
+        { task, millis -> mainHandler.postDelayed(task, millis) },
+        mainHandler::removeCallbacks,
+    )
+
+    @Volatile
+    private var switchAskedAt = 0L
 
     override fun onDestroy() {
         try {
@@ -121,6 +140,7 @@ class VpnService : SystemVpnService(), ManagedService {
 
     // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
+        if (options.ownsTunnel && !heldTun.take()) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
                 Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
@@ -131,7 +151,8 @@ class VpnService : SystemVpnService(), ManagedService {
         } else {
             null
         }
-        val fd = with(Builder()) {
+        if (plan?.has(OPENVPN_PROFILE) == true) return startOpenVpn(options, plan)
+        val tun = with(Builder()) {
             if (plan == null) {
                 addAddressAndRoutes(options)
                 addDnsServers(options)
@@ -139,29 +160,10 @@ class VpnService : SystemVpnService(), ManagedService {
             } else {
                 addOwnerTunnel(plan)
             }
-            configureAccessControl(options)
-            setSession(getString(CommonR.string.app_name))
-            setBlocking(false)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                setMetered(false)
-            }
-            if (options.allowBypass) {
-                allowBypass()
-            }
-            // The proxy is mihomo's port, whose client of the owner's server shares its key.
-            if (plan == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
-                GlobalState.log("Enable VPN HTTP proxy")
-                setHttpProxy(
-                    ProxyInfo.buildDirectProxy(
-                        LOCAL_HOST,
-                        options.port,
-                        options.bypassDomain,
-                    ),
-                )
-            }
-            establish()?.detachFd()
+            establishWith(options, owner = plan != null)
                 ?: error("VPN establishment was rejected by the system")
         }
+        val fd = if (plan == null) tun.detachFd().also { heldTun.hold(null) } else lend(tun)
         val started = synchronized(tunLock) {
             tunRunning = true
             try {
@@ -265,6 +267,75 @@ class VpnService : SystemVpnService(), ManagedService {
     private fun JSONObject.cidrs(key: String): List<CIDR> =
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
+    private fun Builder.establishWith(options: VpnOptions, owner: Boolean): ParcelFileDescriptor? {
+        // shortcut: owner -> mihomo leaks 0.4-0.8 s: a changed app set or bypass is a new network (patch: SHIKOO_PATCHES 66);
+        // upgrade before subscriptions ship OpenVPN servers or official WireGuard becomes a default, or on a customer report.
+        configureAccessControl(options)
+        setSession(getString(CommonR.string.app_name))
+        setBlocking(false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            setMetered(false)
+        }
+        if (options.allowBypass && !owner) {
+            allowBypass()
+        }
+        // The proxy is mihomo's port, whose client of the owner's server shares its key.
+        if (!owner && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
+            GlobalState.log("Enable VPN HTTP proxy")
+            setHttpProxy(
+                ProxyInfo.buildDirectProxy(
+                    LOCAL_HOST,
+                    options.port,
+                    options.bypassDomain,
+                ),
+            )
+        }
+        return establish()
+    }
+
+    private fun holdBlocked(options: VpnOptions) {
+        val tun = runCatching {
+            with(Builder()) {
+                addAddress(BLOCK_ADDRESS, 32)
+                addRoute(NET_ANY, 0)
+                addRoute(NET_ANY6, 0)
+                establishWith(options, owner = true)
+            }
+        }.onFailure { GlobalState.log("Blocking VPN not built: $it") }.getOrNull()
+        tun?.let(heldTun::hold)
+    }
+
+    private fun lend(tun: ParcelFileDescriptor): Int {
+        heldTun.hold(tun)
+        return tun.dup().detachFd()
+    }
+
+    // OpenVPN learns the tunnel's address and routes from the server, so its VPN is built only once connected.
+    private fun startOpenVpn(options: VpnOptions, plan: JSONObject) {
+        val engine = OpenVpn(options.server.orEmpty(), ::protect) { spec ->
+            with(Builder()) {
+                addOwnerTunnel(Core.openvpnTunnel(spec))
+                establishWith(options, owner = true)
+            }?.let(::lend) ?: -1
+        }
+        synchronized(tunLock) {
+            stopTunLocked()
+            openVpn = engine
+        }
+        if (startAbandoned) engine.abandon()
+        val failure = engine.start(
+            plan.getString(OPENVPN_PROFILE),
+            plan.optString("username"),
+            plan.optString("password"),
+        ) ?: return
+        synchronized(tunLock) {
+            if (openVpn === engine) stopTunLocked() else engine.stop()
+        }
+        if (!failure.refused) error("OpenVPN did not connect: ${failure.reason}")
+        GlobalState.log("OpenVPN refused the server, mihomo carries it: ${failure.reason}")
+        handleStart(options.copy(core = null))
+    }
+
     private fun Builder.configureAccessControl(options: VpnOptions) {
         val apps = options.appRules(packageName)
         apps.allowed.forEach { name -> addApplication(name, ::addAllowedApplication) }
@@ -290,19 +361,33 @@ class VpnService : SystemVpnService(), ManagedService {
         }
     }
 
+    override fun holdForSwitch() {
+        switchAskedAt = SystemClock.elapsedRealtime()
+    }
+
+    override fun abandonStart() {
+        startAbandoned = true
+        openVpn?.abandon()
+    }
+
     override fun stop() {
+        val switching = SystemClock.elapsedRealtime() - switchAskedAt < SWITCH_ASK_MILLIS
+        switchAskedAt = 0L
+        if (switching && !heldTun.holds()) ServiceConfig.vpnOptions?.let(::holdBlocked)
         try {
-            cleanup()
+            cleanup(keepHeld = switching)
         } finally {
             stopSelf()
         }
     }
 
-    private fun cleanup() {
+    private fun cleanup(keepHeld: Boolean = false) {
         try {
             modules.stop()
         } finally {
             stopTun()
+            if (keepHeld) heldTun.releaseIn(SWITCH_HOLD_MILLIS) else heldTun.hold(null)
+            startAbandoned = false
         }
     }
 
@@ -311,6 +396,8 @@ class VpnService : SystemVpnService(), ManagedService {
     }
 
     private fun stopTunLocked() {
+        openVpn?.stop()
+        openVpn = null
         if (tunRunning) {
             Core.stopTun()
             tunRunning = false
@@ -325,6 +412,9 @@ class VpnService : SystemVpnService(), ManagedService {
         private const val DNS6 = "fdfe:dcba:9876::2"
         private const val NET_ANY = "0.0.0.0"
         private const val NET_ANY6 = "::"
+        private const val BLOCK_ADDRESS = "172.19.0.1"
+        private const val SWITCH_ASK_MILLIS = 3_000L
+        private const val SWITCH_HOLD_MILLIS = 5_000L
         private const val LOCAL_HOST = "127.0.0.1"
         private const val MTU = 9000
     }
