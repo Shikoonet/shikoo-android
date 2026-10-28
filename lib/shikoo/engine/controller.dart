@@ -1176,6 +1176,8 @@ class ShikooController {
       if (init) scheduleMicrotask(_loadSources);
     });
     // An update that changes the key or address of the server an owner core carries; Windows' Go rebuilds in place.
+    // shortcut: an all-bad update rebuilds too, onto mihomo: up to about 1 s leak till setRunning(false);
+    // upgrade on row 66's trigger: skip the rebuild once the last apply failed (SHIKOO_PATCHES 70).
     _ref.listen(_serverSourceProvider, (was, now) {
       if (!_ref.read(shikooDesktopProvider) &&
           was != null &&
