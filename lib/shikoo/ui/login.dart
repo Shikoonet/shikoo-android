@@ -338,7 +338,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               (false, false) => l.codeFailedHelpTouch,
             },
     );
-    // A computer keeps the buttons at the bottom: WARP's two lines would push them out of a small window.
+    // A computer keeps the buttons at the bottom, and WARP's two lines would push them out of a small
+    // window: the message takes the brand's place above them, where it is seen without scrolling.
     final failedAbove = shikooDesktop && warp;
     final (Widget middle, List<Widget> actions) = switch (phase) {
       null || LoginPhase.starting => (
@@ -355,14 +356,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.startFailed => (
-        failedAbove
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: Space.s6,
-                children: [const _BrandBlock(), failedBox],
-              )
-            : const _BrandBlock(),
+        failedAbove ? failedBox : const _BrandBlock(),
         [
           if (!failedAbove) failedBox,
           if (clock)
