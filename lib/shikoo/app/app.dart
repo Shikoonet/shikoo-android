@@ -20,6 +20,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
@@ -43,6 +44,7 @@ const _delegates = <LocalizationsDelegate<dynamic>>[
 /// FlClash's hooks, filled before it starts: its service texts in the app's language, and its messages logged, never drawn.
 void fillFlClashHooks() {
   serviceTexts = shikooServiceTexts;
+  tunnelOwner = (ref) => ref.watch(shikooOwnerProvider);
   StatusManager.showMessages = false;
   if (Platform.isWindows) {
     ProxyPlatform.instance = ShikooSystemProxy(

@@ -76,7 +76,7 @@ func TestXrayOutboundConvertsWhatThePanelSends(t *testing.T) {
 		}, map[string]string{"network": "grpc", "grpc.serviceName": "svc"}},
 		{"wireguard", map[string]any{
 			"name": "wg", "type": "wireguard", "server": "1.2.3.4", "port": 51820, "ip": "10.0.0.2", "ipv6": "fd00::2",
-			"private-key": wgKey(t), "public-key": wgKey(t), "pre-shared-key": wgKey(t),
+			"private-key": wgTestKey(t), "public-key": wgTestKey(t), "pre-shared-key": wgTestKey(t),
 			"reserved": []any{1, 2, 3}, "mtu": 1380, "udp": true,
 		}, map[string]string{
 			"wireguard.address": `["10.0.0.2","fd00::2"]`, "wireguard.mtu": "1380", "wireguard.reserved": "[1,2,3]",
@@ -123,7 +123,7 @@ func TestXrayServesWhatDartSays(t *testing.T) {
 func TestXrayFailureLeavesTheApplyStanding(t *testing.T) {
 	wg := map[string]any{
 		"name": "wg", "type": "wireguard", "server": "1.2.3.4", "port": 51820, "ip": "10.0.0.2",
-		"private-key": wgKey(t), "public-key": wgKey(t), "udp": true,
+		"private-key": wgTestKey(t), "public-key": wgTestKey(t), "udp": true,
 	}
 	cfg := parseShikooCores(t, fmt.Sprintf(`
 proxies:
@@ -542,7 +542,7 @@ func wgPair(t *testing.T) wgKeys {
 	return wgKeys{base64.StdEncoding.EncodeToString(key.Bytes()), base64.StdEncoding.EncodeToString(key.PublicKey().Bytes())}
 }
 
-func wgKey(t *testing.T) string { return wgPair(t).public }
+func wgTestKey(t *testing.T) string { return wgPair(t).public }
 
 // WireGuard's own stack routes no loopback address through the tunnel.
 func outsideIP(t *testing.T) string {

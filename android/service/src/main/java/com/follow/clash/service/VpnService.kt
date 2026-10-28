@@ -3,22 +3,25 @@ package com.follow.clash.service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
+import android.net.IpPrefix
 import android.net.ProxyInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.content.getSystemService
-import com.follow.clash.common.AccessControlMode
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.R as CommonR
 import com.follow.clash.core.Core
 import com.follow.clash.service.models.CIDR
 import com.follow.clash.service.models.VpnOptions
+import com.follow.clash.service.models.appRules
 import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
+import com.follow.clash.service.models.ownsTunnel
 import com.follow.clash.service.models.toCIDR
 import com.follow.clash.service.modules.ServiceModules
+import org.json.JSONObject
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import android.net.VpnService as SystemVpnService
@@ -116,11 +119,26 @@ class VpnService : SystemVpnService(), ManagedService {
         notifyVpnRevoked()
     }
 
+    // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
+        val plan = if (options.ownsTunnel) {
+            runCatching {
+                Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
+            }.getOrElse { error ->
+                GlobalState.log("Owner core has no plan, mihomo carries the server: $error")
+                return handleStart(options.copy(core = null))
+            }
+        } else {
+            null
+        }
         val fd = with(Builder()) {
-            addAddressAndRoutes(options)
-            addDnsServers(options)
-            setMtu(MTU)
+            if (plan == null) {
+                addAddressAndRoutes(options)
+                addDnsServers(options)
+                setMtu(MTU)
+            } else {
+                addOwnerTunnel(plan)
+            }
             configureAccessControl(options)
             setSession(getString(CommonR.string.app_name))
             setBlocking(false)
@@ -130,7 +148,8 @@ class VpnService : SystemVpnService(), ManagedService {
             if (options.allowBypass) {
                 allowBypass()
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
+            // The proxy is mihomo's port, whose client of the owner's server shares its key.
+            if (plan == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
                 GlobalState.log("Enable VPN HTTP proxy")
                 setHttpProxy(
                     ProxyInfo.buildDirectProxy(
@@ -143,7 +162,7 @@ class VpnService : SystemVpnService(), ManagedService {
             establish()?.detachFd()
                 ?: error("VPN establishment was rejected by the system")
         }
-        synchronized(tunLock) {
+        val started = synchronized(tunLock) {
             tunRunning = true
             try {
                 // A Core that fails to take the descriptor leaves the system
@@ -152,21 +171,29 @@ class VpnService : SystemVpnService(), ManagedService {
                 // then hangs until it times out. Tear the VPN down instead of
                 // reporting a start that only looks successful.
                 check(
-                    Core.startTun(
-                        fd = fd,
-                        protect = this::protect,
-                        resolveUid = this::resolveUid,
-                        resolvePackage = this::resolvePackage,
-                        stack = options.stack,
-                        address = options.tunAddress,
-                        dns = options.tunDns,
-                    ),
+                    if (plan != null) {
+                        Core.startOwner(fd)
+                    } else {
+                        Core.startTun(
+                            fd = fd,
+                            protect = this::protect,
+                            resolveUid = this::resolveUid,
+                            resolvePackage = this::resolvePackage,
+                            stack = options.stack,
+                            address = options.tunAddress,
+                            dns = options.tunDns,
+                        )
+                    },
                 ) { "Core rejected the tun file descriptor" }
+                true
             } catch (error: Exception) {
                 stopTunLocked()
-                throw error
+                if (plan == null) throw error
+                GlobalState.log("Owner core did not start, mihomo carries the server: $error")
+                false
             }
         }
+        if (!started) handleStart(options.copy(core = null))
     }
 
     private fun Builder.addAddressAndRoutes(options: VpnOptions) {
@@ -224,22 +251,24 @@ class VpnService : SystemVpnService(), ManagedService {
         }
     }
 
-    private fun Builder.configureAccessControl(options: VpnOptions) {
-        val accessControl = options.accessControlProps
-        if (!accessControl.enable) return
-        when (accessControl.mode) {
-            AccessControlMode.ACCEPT_SELECTED -> {
-                (accessControl.acceptList + packageName).forEach { name ->
-                    addApplication(name, ::addAllowedApplication)
-                }
-            }
-
-            AccessControlMode.REJECT_SELECTED -> {
-                (accessControl.rejectList - packageName).forEach { name ->
-                    addApplication(name, ::addDisallowedApplication)
-                }
-            }
+    // The owner core's plan (core/shikoo_wg.go): the server's own address, DNS and MTU, and Iran's ranges kept out.
+    private fun Builder.addOwnerTunnel(plan: JSONObject) {
+        plan.cidrs("addresses").forEach { addAddress(it.address, it.prefixLength) }
+        plan.cidrs("routes").forEach { addRoute(it.address, it.prefixLength) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            plan.cidrs("excluded").forEach { excludeRoute(IpPrefix(it.address, it.prefixLength)) }
         }
+        plan.getJSONArray("dns").let { dns -> repeat(dns.length()) { addDnsServer(dns.getString(it)) } }
+        setMtu(plan.getInt("mtu"))
+    }
+
+    private fun JSONObject.cidrs(key: String): List<CIDR> =
+        getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
+
+    private fun Builder.configureAccessControl(options: VpnOptions) {
+        val apps = options.appRules(packageName)
+        apps.allowed.forEach { name -> addApplication(name, ::addAllowedApplication) }
+        apps.disallowed.forEach { name -> addApplication(name, ::addDisallowedApplication) }
     }
 
     // A selected package that was uninstalled since must not veto the whole tunnel.
