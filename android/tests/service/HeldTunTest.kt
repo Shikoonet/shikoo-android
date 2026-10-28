@@ -49,4 +49,16 @@ class HeldTunTest {
         held.hold(Tun())
         assertTrue(blocking.closed)
     }
+
+    @Test
+    fun `a start that takes the VPN while its countdown already runs keeps it`() {
+        val tun = Tun()
+        held.hold(tun)
+        held.releaseIn(5_000)
+        val running = pending.single()
+        assertTrue(held.take())
+        running.run()
+        assertFalse(tun.closed)
+        assertTrue(held.holds())
+    }
 }
