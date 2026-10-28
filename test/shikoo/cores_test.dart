@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
 import 'package:fl_clash/shikoo/engine/core_sing_box.dart';
 import 'package:fl_clash/shikoo/engine/core_wireguard.dart';
 import 'package:fl_clash/shikoo/engine/core_xray.dart';
@@ -579,5 +580,15 @@ void main() {
         reason: '${platform.name}, tunnel $tunnel, $readyOn, pick $pick',
       );
     }
+  });
+
+  test('a failed official OpenVPN start names the seconds its engine '
+      'waits', () {
+    expect(
+      File(
+        'android/service/src/main/java/com/follow/clash/service/OpenVpn.kt',
+      ).readAsStringSync(),
+      contains('CONNECT_SECONDS = ${openvpnConnectLimit.inSeconds}L'),
+    );
   });
 }

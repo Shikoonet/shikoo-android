@@ -7,6 +7,9 @@ const ShikooCoreSpec openvpnSpec = (
   serves: _serves,
 );
 
+/// How long the official engine waits for its server before the start fails: OpenVpn.kt's CONNECT_SECONDS.
+const openvpnConnectLimit = Duration(seconds: 20);
+
 /// A dialer chain and extra peer info are mihomo's alone (core/shikoo_ovpn.go refuses them).
 bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) =>
     protocol == ShikooProtocol.openvpn &&

@@ -5,6 +5,8 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -1173,7 +1175,10 @@ class _PowerZone extends StatelessWidget {
             : (shikooDesktop ? l.errorConnectDesktop : l.errorConnectTouch))(
           // A break may come after «·», never before it: no line opens with «· premium».
           serverName(selected?.name ?? '').replaceAll(' ·\u00a0', '\u00a0· '),
-          connectTimeout.inSeconds,
+          (selected?.core == ShikooCore.openvpn
+                  ? openvpnConnectLimit
+                  : connectTimeout)
+              .inSeconds,
         ),
       ShikooError.noServer when checked => null,
       ShikooError.noServer =>
