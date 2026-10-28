@@ -847,7 +847,12 @@ class ShikooSignIn {
           .then(
             (device) => _api.start(deviceName: device.name, kind: device.kind),
           )
-          .timeout(startLimit);
+          // The bridge's first connection to WARP takes 20-30 s on its own.
+          .timeout(
+            _ref.read(shikooWarpProvider)
+                ? startLimit + warpConnectTimeout
+                : startLimit,
+          );
       _live = code;
       if (attempt != _attempt) return null;
       _login(
