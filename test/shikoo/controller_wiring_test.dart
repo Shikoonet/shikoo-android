@@ -1696,6 +1696,65 @@ void main() {
     expect(container.read(profilesProvider), hasLength(1));
   });
 
+  test('a paste whose panel cuts its first reply short reads the second '
+      'whole', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    var calls = 0;
+    final panel = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(panel.close);
+    panel.listen((socket) {
+      var answered = false;
+      socket.listen((_) async {
+        if (answered) return;
+        answered = true;
+        final body = 'proxies:\n  - {name: nl, type: http, server: 1.1.1.1}\n';
+        final length = body.length + (++calls == 1 ? 100 : 0);
+        socket.add(
+          ('HTTP/1.1 200 OK\r\ncontent-type: text/yaml\r\ncontent-disposition: '
+                  'attachment; filename="user111"\r\ncontent-length: $length'
+                  '\r\n\r\n$body')
+              .codeUnits,
+        );
+        await socket.flush();
+        await socket.close();
+      });
+    });
+    final pasted = await controller.pasteService(
+      'http://10.0.2.2:${panel.port}/file/user111/a',
+      debug: true,
+    );
+    expect(pasted.error, isNull);
+    expect(pasted.added, isTrue);
+    expect(calls, 2);
+  });
+
+  test('a paste whose panel never answers waits out one timeout, not '
+      'two', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+    final before = subscriptionTimeout;
+    subscriptionTimeout = const Duration(milliseconds: 300);
+    addTearDown(() => subscriptionTimeout = before);
+    final held = <Socket>[];
+    final quiet = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    quiet.listen(held.add);
+    addTearDown(() async {
+      for (final socket in held) {
+        socket.destroy();
+      }
+      await quiet.close();
+    });
+    final pasted = await controller.pasteService(
+      'http://10.0.2.2:${quiet.port}/file/user111/a',
+      debug: true,
+    );
+    expect(pasted.error, ShikooPasteError.offline);
+    expect(held, hasLength(1));
+  });
+
   test(
     'a paste marks its profile pasted; one the account adds is not',
     () async {

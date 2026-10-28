@@ -1080,6 +1080,19 @@ Future<Response<Uint8List>> _get(
   }
 }
 
+/// dart:io now and then fails a reply whose server closed right after it, though every byte came (`unknown`, no
+/// answer): one more try. Not after a timeout or a refused connection, so a phone with no internet waits once.
+Future<Response<Uint8List>> _getAgain(String url, String? proxy) async {
+  try {
+    return await _get(url, proxy);
+  } on DioException catch (error) {
+    if (error.type == DioExceptionType.unknown && error.response == null) {
+      return _get(url, proxy);
+    }
+    rethrow;
+  }
+}
+
 @visibleForTesting
 Duration subscriptionTimeout = const Duration(seconds: 30);
 
@@ -2745,7 +2758,7 @@ class ShikooController {
     onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
     try {
       try {
-        final response = await _get(url, aside);
+        final response = await _getAgain(url, aside);
         await leaveBridge();
         return response;
       } catch (error) {
