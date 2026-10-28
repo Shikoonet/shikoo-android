@@ -15,6 +15,16 @@ import (
 	xcore "github.com/xtls/xray-core/core"
 )
 
+// freeUDPPort: a WireGuard inbound listens on UDP, whose port a TCP probe does not keep free.
+func freeUDPPort(t *testing.T) int {
+	conn, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	return conn.LocalAddr().(*net.UDPAddr).Port
+}
+
 func TestShikooCoresSendNamesAsUDPThroughTheServer(t *testing.T) {
 	ip := outsideIP(t)
 	var queries atomic.Int32
@@ -51,11 +61,9 @@ func TestShikooCoresSendNamesAsUDPThroughTheServer(t *testing.T) {
 	}()
 
 	serverWG, singBoxWG, xrayWG := wgPair(t), wgPair(t), wgPair(t)
-	var ports [2]int
-	for i := range ports {
-		if ports[i], err = freeLoopbackPort(); err != nil {
-			t.Fatal(err)
-		}
+	ports := [2]int{freeUDPPort(t)}
+	if ports[1], err = freeLoopbackPort(); err != nil {
+		t.Fatal(err)
 	}
 	allow := []any{map[string]any{"action": "allow"}}
 	server, err := json.Marshal(map[string]any{

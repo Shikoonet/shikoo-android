@@ -217,10 +217,8 @@ func TestXrayRunTimeCase(t *testing.T) {
 		t.Skip("parent")
 	}
 	server, client := wgPair(t), wgPair(t)
-	ports := [2]int{}
-	for i := range ports {
-		ports[i], _ = freeLoopbackPort()
-	}
+	ports := [2]int{0, freeUDPPort(t)}
+	ports[0], _ = freeLoopbackPort()
 	_, err := runXray(map[string]any{
 		"inbounds": []any{
 			map[string]any{"listen": "127.0.0.1", "port": ports[0], "protocol": "vless", "settings": map[string]any{
@@ -347,8 +345,8 @@ func TestXrayCarriesRealityXHTTPAndWireGuardEndToEnd(t *testing.T) {
 	t.Cleanup(camouflage.Close)
 	realityKey, _ := ecdh.X25519().GenerateKey(rand.Reader)
 	serverWG, clientWG := wgPair(t), wgPair(t)
-	ports := [4]int{}
-	for i := range ports {
+	ports := [4]int{3: freeUDPPort(t)}
+	for i := range 3 {
 		if ports[i], err = freeLoopbackPort(); err != nil {
 			t.Fatal(err)
 		}
