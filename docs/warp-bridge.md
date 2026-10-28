@@ -130,13 +130,18 @@ Rust 1.95.0, without the `tor` feature (psiphon is a separate program aether wou
   libclang from PyPI's `libclang` 18.1.1 wheel (PyPI's hash), both fetched by the script.
 - `notices` writes `assets/data/warp-LICENSE.txt` (aether's AGPL-3.0) and `assets/data/warp-NOTICES.txt` (the crates
   it links on every target), which `registerWarpLicenses` adds to Flutter's license list with the source address.
-- CI (`apk`) and staging build all three ABIs before the APKs, so one `actions/cache` entry serves both, keyed on this
-  script, its patch and the NDK: the script pins the rest, and aether is Rust, so the Go version is not in the key.
+- CI (`apk`) and staging build the same three ABIs before the APKs, under one `actions/cache` key: this script, its
+  patch and the NDK (the script pins the rest; aether is Rust, so the Go version is not in it). Staging runs on main,
+  so it saves main's entry, which pull requests restore; a pull request's own entry stays with it, so one that changes
+  the key builds the bridge twice: in its `apk` job, and in staging after the merge.
   A miss installs the pins first, Rust with `rustfmt`: boring-sys names `err.h`'s anonymous enum from rustfmt's output,
-  and without it armeabi-v7a does not compile. Cold, the step took 21.6 min on 4 cores of the WSL machine (6.5 min per
-  ABI). `tools/check_apk_clean.sh` fails an APK without the bridge for one of its ABIs. Staging's `windows` job does
-  the same for `ShikooNetWarp.exe` (key `warp-windows-`, the script and patch; MSVC and CMake are the image's; cold,
-  14 min with 4 jobs on this PC), and fails an installer whose bundle lacks it.
+  and without it armeabi-v7a does not compile. Measured in WSL (2026-10-28) from a new clone, with empty Rust and cargo
+  homes, an empty `/tmp`, the SDK's CMake installed by the step and 4 cores, but the machine's own NDK: 21.6 min
+  (6.5 min per ABI), and the same three sha256 as the earlier builds. `tools/check_apk_clean.sh` fails an APK without
+  the bridge for one of its ABIs. Staging's `windows` job does the same for `ShikooNetWarp.exe` (key `warp-windows-`,
+  the script and patch; MSVC and CMake are the image's; 14 min with 4 jobs on this PC, and not byte for byte the same
+  twice, since it holds the build folder's path, which `--remap-path-prefix` does not map there, and the link time),
+  and fails an installer whose bundle lacks it.
 
 ## 6. Proven, and not
 

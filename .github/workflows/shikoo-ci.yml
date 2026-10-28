@@ -107,7 +107,7 @@ jobs:
   apk:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Free disk space, which one cold Android build overruns on a hosted runner (run 37618279233)
         run: |
