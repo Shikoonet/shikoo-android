@@ -155,6 +155,27 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
+      - name: The WARP bridge, gitignored, from the cache (docs/warp-bridge.md, section 5)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: warp
+        with:
+          path: android/app/src/main/jniLibs/*/libshikoowarp.so
+          key: warp-ndk${{ env.NDK_VERSION }}-${{ hashFiles('tools/warp-build.sh', 'tools/warp/**') }}
+
+      - name: The WARP bridge, with the Rust, cargo-ndk and SDK CMake its script pins
+        if: steps.warp.outputs.cache-hit != 'true'
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          pin() { grep -oP "$1\K[0-9.]+" tools/warp-build.sh | head -1; }
+          rustup toolchain install "$(pin '^rust=')" --profile minimal --component rustfmt \
+            --target aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          cargo install cargo-ndk --locked --version "$(pin '^cargo_ndk=')"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "cmake;$(pin 'cmake/')"
+          bash tools/warp-build.sh android
+          rm -rf /tmp/shikoo-warp-*
+
       - run: flutter pub get
 
       - run: |

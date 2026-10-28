@@ -130,6 +130,11 @@ Rust 1.95.0, without the `tor` feature (psiphon is a separate program aether wou
   libclang from PyPI's `libclang` 18.1.1 wheel (PyPI's hash), both fetched by the script.
 - `notices` writes `assets/data/warp-LICENSE.txt` (aether's AGPL-3.0) and `assets/data/warp-NOTICES.txt` (the crates
   it links on every target), which `registerWarpLicenses` adds to Flutter's license list with the source address.
+- CI (`apk`) and staging build all three ABIs before the APKs, so one `actions/cache` entry serves both, keyed on this
+  script, its patch and the NDK: the script pins the rest, and aether is Rust, so the Go version is not in the key.
+  A miss installs the pins first, Rust with `rustfmt`: boring-sys names `err.h`'s anonymous enum from rustfmt's output,
+  and without it armeabi-v7a does not compile. Cold, the step took 21.6 min on 4 cores of the WSL machine (6.5 min per
+  ABI). `tools/check_apk_clean.sh` fails an APK without the bridge for one of its ABIs.
 
 ## 6. Proven, and not
 

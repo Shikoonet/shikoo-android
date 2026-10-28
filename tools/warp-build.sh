@@ -40,6 +40,8 @@ fi
 case "${1:-}" in
 android)
   [ "$(cargo ndk --version | awk '{print $2}')" = "$cargo_ndk" ] || { echo "cargo-ndk $cargo_ndk needed"; exit 1; }
+  # boring-sys names err.h's anonymous enum from rustfmt's output; unformatted, armeabi-v7a gets the wrong name
+  rustup component list --toolchain "$rust" --installed | grep -q '^rustfmt' || { echo "rustfmt for Rust $rust needed"; exit 1; }
   export ANDROID_NDK_ROOT=$ANDROID_NDK_HOME
   export CFLAGS="-ffile-prefix-map=$CARGO_TARGET_DIR=/target" CXXFLAGS="-ffile-prefix-map=$CARGO_TARGET_DIR=/target"
   for pair in arm64-v8a:aarch64-linux-android armeabi-v7a:armv7-linux-androideabi x86_64:x86_64-linux-android; do
