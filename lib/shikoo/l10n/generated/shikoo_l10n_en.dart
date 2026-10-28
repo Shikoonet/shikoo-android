@@ -1784,10 +1784,10 @@ class ShikooL10nEn extends ShikooL10n {
   String get coreSingBox => 'sing-box';
 
   @override
-  String get coreWireguard => 'WireGuard (official)';
+  String get coreWireguard => 'Official WireGuard';
 
   @override
-  String get coreOpenvpn => 'OpenVPN (official)';
+  String get coreOpenvpn => 'Official OpenVPN';
 
   @override
   String get coreDefault => 'Default';

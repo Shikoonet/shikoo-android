@@ -2804,16 +2804,16 @@ abstract class ShikooL10n {
   /// **'sing-box'**
   String get coreSingBox;
 
-  /// The official WireGuard engine, beside mihomo's own WireGuard. Persian writes every core's name in Persian letters.
+  /// The official WireGuard engine, beside mihomo's own WireGuard. Persian keeps the name in Latin letters, with «رسمی» after it.
   ///
   /// In en, this message translates to:
-  /// **'WireGuard (official)'**
+  /// **'Official WireGuard'**
   String get coreWireguard;
 
   /// No description provided for @coreOpenvpn.
   ///
   /// In en, this message translates to:
-  /// **'OpenVPN (official)'**
+  /// **'Official OpenVPN'**
   String get coreOpenvpn;
 
   /// No description provided for @coreDefault.
