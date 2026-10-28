@@ -210,6 +210,32 @@ void main() {
     expect(wrong, isEmpty);
   }, variant: _windows);
 
+  testWidgets('in the 880 × 508 page (an 880 × 540 window) the code that did '
+      'not come, with WARP offered, fits unscrolled: the buttons close up', (
+    tester,
+  ) async {
+    for (final language in ['fa', 'en']) {
+      await _pump(
+        tester,
+        const Size(880, 508),
+        login: const ShikooLogin(LoginPhase.startFailed),
+        language: language,
+      );
+      final l = lookupShikooL10n(Locale(language));
+      expect(find.widgetWithText(ShikooButton, l.warpTry), findsOne);
+      for (final scroll in tester.stateList<ScrollableState>(
+        find.byType(Scrollable),
+      )) {
+        expect(
+          scroll.position.maxScrollExtent,
+          moreOrLessEquals(0),
+          reason: language,
+        );
+      }
+      expect(_overlaps(tester), isEmpty, reason: language);
+    }
+  }, variant: _windows);
+
   testWidgets('from 440 to 600 high at 100 to 150% text, a start error lays '
       'out without an error, and its language switch can be scrolled wholly '
       'into view', (tester) async {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
@@ -1103,6 +1104,7 @@ class FillPage extends StatelessWidget {
       // A window far taller than a phone would split them into two islands: they stay one group.
       return _StuckButtons(
         packed: packed,
+        gaps: bottom.length - 1,
         trailing: packed ? padding.bottom : Space.s4 + padding.bottom,
         body: EdgeScroll(
           divider: true,
@@ -1131,7 +1133,7 @@ class FillPage extends StatelessWidget {
             padding.right,
             0,
           ),
-          child: PaneColumn(child: actions),
+          child: PaneColumn(child: _Gaps(children: bottom)),
         ),
       );
     }
@@ -1174,12 +1176,16 @@ class _StuckButtons extends StatelessWidget {
     required this.foot,
     required this.trailing,
     this.packed = false,
+    this.gaps = 0,
   });
 
   final Widget body;
   final Widget foot;
   final double trailing;
   final bool packed;
+
+  /// How many of [foot]'s gaps are [_Gaps]' own, which may close up to fit the page.
+  final int gaps;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -1191,6 +1197,7 @@ class _StuckButtons extends StatelessWidget {
           least: MediaQuery.textScalerOf(context).scale(ShikooSizes.touch),
           trailing: trailing,
           packed: packed,
+          gaps: gaps,
         ),
         children: [body, foot],
       ),
@@ -1198,7 +1205,13 @@ class _StuckButtons extends StatelessWidget {
   );
 }
 
-typedef _Look = ({double page, double least, double trailing, bool packed});
+typedef _Look = ({
+  double page,
+  double least,
+  double trailing,
+  bool packed,
+  int gaps,
+});
 
 class _Stuck extends MultiChildRenderObjectWidget {
   const _Stuck({required this.look, required super.children});
@@ -1240,7 +1253,20 @@ class _RenderStuck extends RenderBox
     final foot = childAfter(body)!;
     final width = constraints.maxWidth;
     foot.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
-    final (:page, :least, :trailing, :packed) = _look;
+    final (:page, :least, :trailing, :packed, :gaps) = _look;
+    body.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    final short = body.size.height + foot.size.height - page;
+    if (short > 0 && gaps > 0) {
+      foot.layout(
+        BoxConstraints.tightFor(width: width).copyWith(
+          maxHeight: math.max(
+            foot.size.height - short,
+            foot.size.height - gaps * (Space.s4 - Space.s2),
+          ),
+        ),
+        parentUsesSize: true,
+      );
+    }
     final room = page - foot.size.height;
     // Loose first: the body's own height while it fits, and the same scroll extent it ends with.
     body.layout(
@@ -1267,6 +1293,55 @@ class _RenderStuck extends RenderBox
     size = constraints.constrain(
       Size(width, pinned ? page : under + foot.size.height + trailing),
     );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+/// [FillPage]'s buttons on a computer, [Space.s4] apart; short of room under [_RenderStuck], the gaps
+/// give way evenly down to [Space.s2] before the page above them scrolls.
+class _Gaps extends MultiChildRenderObjectWidget {
+  const _Gaps({required super.children});
+
+  @override
+  _RenderGaps createRenderObject(BuildContext context) => _RenderGaps();
+}
+
+class _RenderGaps extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MultiChildLayoutParentData) {
+      child.parentData = MultiChildLayoutParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    final children = getChildrenAsList();
+    for (final child in children) {
+      child.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    }
+    final tall = children.map((child) => child.size.height).sum;
+    final gaps = children.length - 1;
+    final each = gaps == 0
+        ? 0.0
+        : ((constraints.maxHeight - tall) / gaps).clamp(Space.s2, Space.s4);
+    var y = 0.0;
+    for (final child in children) {
+      (child.parentData! as MultiChildLayoutParentData).offset = Offset(0, y);
+      y += child.size.height + each;
+    }
+    size = constraints.constrain(Size(width, y - each));
   }
 
   @override

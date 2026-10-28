@@ -89,9 +89,15 @@ typedef _Rig = ({_Controller controller, ValueNotifier<ShikooState> holder});
 
 final _screen = GlobalKey();
 
+/// A computer's page: the first window less the title bar drawn above it, 880 × 508.
 Size _view({required bool tv}) => tv
     ? ShikooSizes.tvCanvas
-    : (shikooDesktop ? ShikooSizes.windowStart : const Size(412, 915));
+    : (shikooDesktop
+          ? Size(
+              ShikooSizes.windowStart.width,
+              ShikooSizes.windowStart.height - ShikooSizes.titleBar,
+            )
+          : const Size(412, 915));
 
 void _frame(WidgetTester tester, {required bool tv}) {
   tester.view

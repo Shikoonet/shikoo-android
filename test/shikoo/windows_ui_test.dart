@@ -1694,6 +1694,42 @@ void main() {
       expect(ring.overlaps(address), isFalse, reason: '$ring on $address');
     }, variant: _windows);
 
+    testWidgets('in the 880 × 508 page (an 880 × 540 window) WARP off fits '
+        'unscrolled: the button gives way, and «روشن کردن WARP» and its line '
+        'show whole', (tester) async {
+      const window = Size(880, 508);
+      for (final language in ['fa', 'en']) {
+        await _pumpHome(
+          tester,
+          window,
+          connection: ShikooConnection.error,
+          error: ShikooError.noServer,
+          locale: Locale(language),
+        );
+        await tester.pump();
+        final l = lookupShikooL10n(Locale(language));
+        final column = Scrollable.of(
+          tester.element(find.byType(PowerButton)),
+        ).position;
+        expect(column.maxScrollExtent, moreOrLessEquals(0), reason: language);
+        for (final part in [l.warpTurnOn, l.warpNote]) {
+          expect(
+            window.height - tester.getRect(find.text(part)).bottom,
+            greaterThanOrEqualTo(Space.s4),
+            reason: '$language: $part',
+          );
+        }
+        expect(
+          tester.getRect(find.byType(PowerButton)).height,
+          inInclusiveRange(
+            ShikooSizes.powerRingLeast,
+            ShikooSizes.desktop.powerRing - 1,
+          ),
+          reason: language,
+        );
+      }
+    }, variant: _windows);
+
     testWidgets('picking a server with a long name moves nothing in the '
         'button column: its message room counts the longest name listed', (
       tester,
@@ -1908,9 +1944,10 @@ void main() {
       }
     }, variant: _windows);
 
-    testWidgets("a name long enough to take three lines makes Sam's window "
-        'scroll as R3 asks: the same scroll with or without the message, and '
-        'the message shown Space.s4 clear of the bottom', (tester) async {
+    testWidgets("a name long enough to take three lines in Sam's window: the "
+        'button gives way where R3 had the page scroll, the same with or '
+        'without the message, and the message shown Space.s4 clear of the '
+        'bottom', (tester) async {
       const long = 'NETHERLANDS 12 GAMING REALITY PRO';
       // More letters, fewer lines: a count of letters would pick it and keep two.
       const listed = ['ترکیه ۴ · استانبول ویژهٔ گیمینگ و استریم'];
@@ -1935,7 +1972,11 @@ void main() {
         tester.element(find.byType(PowerButton)),
       ).position;
       final rest = column.maxScrollExtent;
-      expect(rest, greaterThan(0), reason: 'three lines leave no room: R3');
+      expect(rest, moreOrLessEquals(0));
+      expect(
+        tester.getRect(find.byType(PowerButton)).height,
+        lessThan(ShikooSizes.desktop.powerRing),
+      );
       cell.set(
         _state(
           ShikooConnection.error,

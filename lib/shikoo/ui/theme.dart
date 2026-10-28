@@ -336,6 +336,9 @@ class ShikooSizes {
 
   static const touch = 48.0;
 
+  /// A computer's short window: the button gives way down to this before its column scrolls.
+  static const powerRingLeast = 120.0;
+
   static const tvCanvas = Size(960, 540);
 
   static const windowStart = Size(880, 540);

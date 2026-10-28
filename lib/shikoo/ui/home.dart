@@ -1288,13 +1288,18 @@ class _WarpOfferState extends State<_WarpOffer> {
 }
 
 /// A computer's wide button column, centred in the least height asked: short of room, its gaps
-/// give way evenly down to Space.s2. The last child is placed as if [keep] tall.
+/// give way evenly down to Space.s2, then the button to [ShikooSizes.powerRingLeast]; the last as if [keep] tall.
 class _Squeeze extends MultiChildRenderObjectWidget {
-  const _Squeeze({
+  _Squeeze({
     required this.gap,
     required this.keep,
-    required super.children,
-  });
+    required List<Widget> children,
+  }) : super(
+         children: [
+           FittedBox(fit: BoxFit.scaleDown, child: children.first),
+           ...children.skip(1),
+         ],
+       );
 
   final double gap;
   final double keep;
@@ -1337,11 +1342,27 @@ class _RenderSqueeze extends RenderBox
     for (final child in children) {
       child.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
     }
-    final heights = <double>[for (final child in children) child.size.height];
-    final placed =
-        heights.sum - heights.last + (keep > 0 ? keep : heights.last);
     final gaps = children.length - 1;
     final room = constraints.minHeight;
+    double tall() =>
+        children.map((child) => child.size.height).sum -
+        children.last.size.height +
+        (keep > 0 ? keep : children.last.size.height);
+    final over = tall() + gaps * Space.s2 - room;
+    if (over > 0) {
+      final button = children.first;
+      button.layout(
+        BoxConstraints(
+          maxWidth: width,
+          maxHeight: math.max(
+            ShikooSizes.powerRingLeast,
+            button.size.height - over,
+          ),
+        ),
+        parentUsesSize: true,
+      );
+    }
+    final placed = tall();
     final each = gaps == 0
         ? 0.0
         : clampDouble((room - placed) / gaps, Space.s2, gap);
