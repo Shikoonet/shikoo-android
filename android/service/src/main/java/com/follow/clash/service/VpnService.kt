@@ -268,7 +268,7 @@ class VpnService : SystemVpnService(), ManagedService {
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
     private fun Builder.establishWith(options: VpnOptions, owner: Boolean): ParcelFileDescriptor? {
-        // shortcut: owner <-> mihomo, either way, leaks up to 1.6 s: a changed app set is a new network (SHIKOO_PATCHES 66);
+        // shortcut: owner <-> mihomo leaks up to 1.6 s either way, owner -> owner 0.2-0.6 s on Android 7 (SHIKOO_PATCHES 66);
         // upgrade before subscriptions ship OpenVPN servers or official WireGuard becomes a default, or on a customer report.
         configureAccessControl(options)
         setSession(getString(CommonR.string.app_name))
