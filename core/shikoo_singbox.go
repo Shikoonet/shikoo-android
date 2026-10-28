@@ -305,14 +305,13 @@ type singBoxServer struct {
 
 // startSingBox runs one sing-box for the servers it can carry, each a SOCKS user on one loopback port.
 func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	ports, release, err := loopbackPorts(1)
 	if err != nil {
 		return nil, nil, err
 	}
-	// shortcut: the port is free when picked; a program that takes it before sing-box binds fails this start, and
-	// mihomo carries these servers until the next config apply.
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
+	defer forgetPorts(ports...)
+	defer release()
+	port := ports[0]
 	password := rand.Text()
 	var servers []singBoxServer
 	for i, proxy := range proxies {
@@ -338,6 +337,7 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 	if len(servers) == 0 {
 		return proxies, func() {}, nil
 	}
+	release()
 	instance, err := singBoxNew(singBoxConfig(port, password, servers), true)
 	if err != nil {
 		// One server sing-box refuses would take every other to mihomo: each refused one stays there alone.

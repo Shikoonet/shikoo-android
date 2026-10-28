@@ -58,6 +58,12 @@ var xrayRun = runXray
 
 // startXray leaves a server Xray cannot carry to mihomo by handing its own mapping back.
 func startXray(proxies []map[string]any) ([]map[string]any, func(), error) {
+	ports, release, err := loopbackPorts(len(proxies))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer forgetPorts(ports...)
+	defer release()
 	replacements := make([]map[string]any, len(proxies))
 	var servers []xrayServer
 	for i, proxy := range proxies {
@@ -67,10 +73,7 @@ func startXray(proxies []map[string]any) ([]map[string]any, func(), error) {
 			log.Warnln("[SHIKOO] xray cannot carry %v, mihomo does: %v", proxy["name"], err)
 			continue
 		}
-		port, err := freeLoopbackPort()
-		if err != nil {
-			return nil, nil, err
-		}
+		port := ports[i]
 		password := rand.Text()
 		in, to := fmt.Sprint("in", i), fmt.Sprint("out", i)
 		out["tag"] = to
@@ -92,6 +95,9 @@ func startXray(proxies []map[string]any) ([]map[string]any, func(), error) {
 	if len(servers) == 0 {
 		return replacements, func() {}, nil
 	}
+	// shortcut: another process can take a port before Xray binds it, and then mihomo carries these servers until the
+	// next apply; upgrade by handing Xray its listener if that is ever seen.
+	release()
 	stop, err := xrayRun(xrayConfig(servers))
 	if err != nil {
 		// A server Xray refuses only while the core starts would take the others with it: find it alone.
@@ -475,17 +481,6 @@ func xrayXHTTP(x outbound.XHTTPOptions) error {
 func isIP(s string) bool {
 	_, err := netip.ParseAddr(s)
 	return err == nil
-}
-
-// shortcut: another process can take the port before Xray binds it, and then mihomo carries every server of this
-// apply; upgrade to reading Xray's own listener if that is ever seen.
-func freeLoopbackPort() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = listener.Close() }()
-	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 // xrayDialer sends Xray's sockets through mihomo's dialer: Android's protect, Windows' interface binding and

@@ -41,6 +41,8 @@ type warpProcess struct {
 	socks, http    string
 	user, pass     string
 	upstream       net.Listener
+	ports          []int
+	release        func()
 	upUser, upPass string
 	refs           int
 	stop           chan struct{}
@@ -122,13 +124,12 @@ func launchWarp() (_ *warpProcess, err error) {
 	}
 	// shortcut: aether's socks UDP relay takes the first datagram from 127.0.0.1 as its client, so a local app that finds
 	// the relay port first can take over mihomo's UDP through the bridge. Upgrade if aether pins the ASSOCIATE client.
-	if run.socks, err = freePort(); err == nil {
-		run.http, err = freePort()
-	}
-	if err != nil {
+	if run.ports, run.release, err = loopbackPorts(2); err != nil {
 		up.Close()
 		return nil, err
 	}
+	run.socks = net.JoinHostPort("127.0.0.1", strconv.Itoa(run.ports[0]))
+	run.http = net.JoinHostPort("127.0.0.1", strconv.Itoa(run.ports[1]))
 	go serveWarpUpstream(up, auth.NewAuthenticator([]auth.AuthUser{{User: run.upUser, Pass: run.upPass}}))
 	go run.supervise()
 	return run, nil
@@ -205,6 +206,7 @@ func (w *warpProcess) runOnce() error {
 		return nil
 	default:
 	}
+	w.release()
 	err = warpStart(cmd)
 	if err == nil {
 		w.cmd = cmd
@@ -235,6 +237,8 @@ func (w *warpProcess) runOnce() error {
 func (w *warpProcess) close() {
 	close(w.stop)
 	w.upstream.Close()
+	w.release()
+	forgetPorts(w.ports...)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	os.Remove(filepath.Join(w.dir, warpEndpoint))
@@ -312,17 +316,6 @@ func secret() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)
-}
-
-// shortcut: another program can take the port between this check and aether's bind (milliseconds); a squatter would
-// get mihomo's encrypted streams and the password, not plain traffic. Upgrade if aether learns to take a listener.
-func freePort() (string, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return "", err
-	}
-	defer l.Close()
-	return l.Addr().String(), nil
 }
 
 func portOf(address string) int {

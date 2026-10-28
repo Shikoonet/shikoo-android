@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -418,5 +419,25 @@ proxy-groups:
 
 	if _, ok := tunnel.Proxies()["G"]; !ok || *generations != 2 {
 		t.Errorf("group G kept: %v, %d generations: the rebuild must run the config Go last applied", ok, *generations)
+	}
+}
+
+func TestLoopbackPortsAreNeverTheSameTwice(t *testing.T) {
+	held, release, err := loopbackPorts(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	t.Cleanup(func() { forgetPorts(held...) })
+	for range 2000 {
+		ports, release, err := loopbackPorts(4)
+		if err != nil {
+			t.Fatal(err)
+		}
+		release()
+		forgetPorts(ports...)
+		if len(slices.Compact(slices.Sorted(slices.Values(ports)))) != 4 || slices.Contains(ports, held[0]) {
+			t.Fatalf("ports %v: one twice, or the still-taken %d", ports, held[0])
+		}
 	}
 }

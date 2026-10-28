@@ -554,3 +554,13 @@ func outsideIP(t *testing.T) string {
 	t.Skip("no address outside loopback")
 	return ""
 }
+
+// freeLoopbackPort: a port for a test's own server, which binds it right away.
+func freeLoopbackPort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = listener.Close() }()
+	return listener.Addr().(*net.TCPAddr).Port, nil
+}

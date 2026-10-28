@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"maps"
+	"net"
 	"slices"
+	"sync"
 
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outboundgroup"
@@ -168,4 +170,45 @@ func shikooCoresCommit() {
 		stop()
 	}
 	shikooCoresRunning, shikooCoresStarting = shikooCoresStarting, nil
+}
+
+var (
+	portsMu    sync.Mutex
+	portsTaken = map[int]bool{}
+)
+
+// loopbackPorts holds n loopback ports' listeners open together, so none repeats (Xray's SO_REUSEPORT would share one
+// in silence), and keeps them from later calls until forgetPorts; release closes them right before the core binds.
+func loopbackPorts(n int) (ports []int, release func(), err error) {
+	portsMu.Lock()
+	defer portsMu.Unlock()
+	var held []net.Listener
+	release = func() {
+		for _, listener := range held {
+			_ = listener.Close()
+		}
+	}
+	for len(ports) < n {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			release()
+			return nil, nil, err
+		}
+		held = append(held, listener)
+		if port := listener.Addr().(*net.TCPAddr).Port; !portsTaken[port] {
+			ports = append(ports, port)
+		}
+	}
+	for _, port := range ports {
+		portsTaken[port] = true
+	}
+	return ports, release, nil
+}
+
+func forgetPorts(ports ...int) {
+	portsMu.Lock()
+	defer portsMu.Unlock()
+	for _, port := range ports {
+		delete(portsTaken, port)
+	}
 }
