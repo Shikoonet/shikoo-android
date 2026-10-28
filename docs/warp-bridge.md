@@ -81,7 +81,8 @@ the core's environment reaches it.
   bridge alone (`warpOnlyProfile`), so the first sign-in can use it. A first call waits for the bridge's own start
   (`connectTimeout` and the update's limit become `warpConnectTimeout`). The bridge stays up for the app, so a sign-in
   polling every 3 s does not start it each time, until an own request answers direct again (`controller.leaveBridge()`,
-  called by `_fetch` and `ShikooApi`'s `answeredDirect`), a network change, or the switch going off.
+  called by `_fetch` and `ShikooApi`'s `answeredDirect`), a network change, or the switch going off. A request still on
+  the bridge then keeps it, and the last one to end takes it down.
   - updates (`_fetch`): after the existing ways (direct, then the server while connected) failed without an answer, only
     on the automatic way (`via == null`) and only while the switch is on (`warpLegWanted`).
   - the door (`ShikooApi._call`): after every address failed without an answer.

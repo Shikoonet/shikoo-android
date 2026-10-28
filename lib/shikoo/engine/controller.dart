@@ -2065,6 +2065,7 @@ class ShikooController {
   }
 
   int _doorCalls = 0;
+  bool _leaveWhenDone = false;
 
   /// Runs the app's own [request] with the bridge's `PROXY …`, up for the app until [leaveBridge]; null while off.
   Future<T?> throughBridge<T>(Future<T> Function(String proxy) request) async {
@@ -2087,12 +2088,15 @@ class ShikooController {
     } finally {
       if (--_doorCalls == 0 && _ref.mounted) {
         _ref.read(_warpDoorProvider.notifier).set(false);
+        if (_leaveWhenDone) await leaveBridge();
       }
     }
   }
 
+  /// A request still on the bridge keeps it; the last one to end takes it down.
   Future<void> leaveBridge() async {
-    if (!_ref.read(warpAppProvider)) return;
+    _leaveWhenDone = _doorCalls > 0;
+    if (_leaveWhenDone || !_ref.read(warpAppProvider)) return;
     final before = _ref.read(shikooWarpRouteProvider);
     _ref.read(warpAppProvider.notifier).set(false);
     if (!sameRoute(before, _ref.read(shikooWarpRouteProvider))) {
