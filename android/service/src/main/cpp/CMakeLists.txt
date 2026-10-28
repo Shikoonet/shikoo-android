@@ -59,6 +59,8 @@ set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(mbedtls)
+# 3.6 never calls getrandom() on Android (its check needs __GLIBC__), so it reads /dev/random, which blocks on kernels before 5.6 while entropy is low.
+target_compile_definitions(mbedcrypto PRIVATE MBEDTLS_PLATFORM_DEV_RANDOM="/dev/urandom")
 
 add_library(ovpn3 SHARED
         shikoo_ovpn3.cpp
