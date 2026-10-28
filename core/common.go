@@ -406,7 +406,10 @@ func applyConfig(params *SetupParams) error {
 	hub.ApplyConfig(cfg)
 	closeWireGuard(previous)
 	patchSelectGroup(params.SelectedMap)
-	updateListeners(cfg)
+	// The fallback has no TUN and no ports: the ones already up stay, now meeting its MATCH,REJECT.
+	if err == nil {
+		updateListeners(cfg)
+	}
 	reconcileGeoUpdater()
 	return err
 }

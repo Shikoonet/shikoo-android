@@ -2,12 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/listener"
 	"github.com/metacubex/mihomo/tunnel"
 )
 
@@ -60,21 +64,32 @@ func TestABadServerLeavesTheRestOfTheSubscription(t *testing.T) {
 	}
 }
 
-func TestAFailedApplyRejectsInsteadOfGoingDirect(t *testing.T) {
-	home := constant.Path.HomeDir()
-	dir := t.TempDir()
+// A rule naming a server that does not exist: no single server to leave out, the whole config is refused.
+const refusedConfig = "proxies: []\nrules:\n  - MATCH,missing\n"
+
+// applyHome's folder stays behind: the core keeps cache.db in it open, and Windows will not delete an open file.
+func applyHome(t *testing.T) func(body string) {
+	t.Helper()
+	dir := filepath.Join(os.TempDir(), "shikoo-core-apply-test")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	home, previous := constant.Path.HomeDir(), currentConfig
 	constant.SetHomeDir(dir)
-	previous := currentConfig
 	t.Cleanup(func() {
 		constant.SetHomeDir(home)
 		tunnel.UpdateRules(nil, nil, nil)
 		currentConfig = previous
 	})
-	// A rule naming a server that does not exist: no single server to leave out, the whole config is refused.
-	broken := "proxies: []\nrules:\n  - MATCH,missing\n"
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(broken), 0o600); err != nil {
-		t.Fatal(err)
+	return func(body string) {
+		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
+}
+
+func TestAFailedApplyRejectsInsteadOfGoingDirect(t *testing.T) {
+	applyHome(t)(refusedConfig)
 
 	if err := applyConfig(&SetupParams{}); err == nil {
 		t.Fatal("a config the core cannot parse applied without an error, so the app would not stop")
@@ -83,5 +98,40 @@ func TestAFailedApplyRejectsInsteadOfGoingDirect(t *testing.T) {
 	rules := tunnel.Rules()
 	if len(rules) == 0 || rules[len(rules)-1].Adapter() != "REJECT" {
 		t.Fatalf("the fallback's rules are %v: with no rule, everything leaves direct while the app shows connected", rules)
+	}
+}
+
+func TestAFailedApplyKeepsTheListenersOfTheConfigBefore(t *testing.T) {
+	write := applyHome(t)
+	free, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := strconv.Itoa(free.Addr().(*net.TCPAddr).Port)
+	_ = free.Close()
+	isRunning.Store(true)
+	t.Cleanup(func() {
+		isRunning.Store(false)
+		listener.ReCreateMixed(0, tunnel.Tunnel)
+	})
+	listening := func() bool {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, time.Second)
+		if err == nil {
+			_ = conn.Close()
+		}
+		return err == nil
+	}
+
+	write("mixed-port: " + port + "\nproxies: []\nrules:\n  - MATCH,DIRECT\n")
+	if err := applyConfig(&SetupParams{}); err != nil || !listening() {
+		t.Fatalf("a good config: apply %v, mixed port listening %v", err, listening())
+	}
+	write("mixed-port: " + port + "\n" + refusedConfig)
+	if err := applyConfig(&SetupParams{}); err == nil {
+		t.Fatal("a refused config applied without an error")
+	}
+
+	if !listening() {
+		t.Fatal("the refused apply closed the listeners: on a desktop that takes TUN down too, and traffic leaves direct")
 	}
 }
