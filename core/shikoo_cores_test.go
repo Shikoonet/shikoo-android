@@ -187,6 +187,28 @@ func TestShikooCoresStopAGenerationWhoseConfigFails(t *testing.T) {
 	}
 }
 
+func TestBadServersLeaveTheCoresServersAlone(t *testing.T) {
+	useFakeShikooCore(t)
+	cfg := parseShikooCores(t, `
+proxies:
+  - {name: core-only, type: futureproto, server: 1.1.1.1, port: 1, shikoo-core: fake}
+  - {name: unread, type: futureproto, server: 1.1.1.2, port: 1}
+  - {name: owner, type: wireguard, server: 127.0.0.1, port: 51820, ip: 10.0.0.2, private-key: WJhIawYqQgyJEwcrssTSFp3CW9Q8a6HivseOgQ2643U=, public-key: abNRbP0RHPmECwfieunkaXCFZA8QT7RgCpu733m1UGA=, shikoo-owner: wireguard}
+  - {name: bridged, type: http, server: 1.1.1.3, port: 1, dialer-proxy: shikoo-warp}
+  - {name: shikoo-warp, type: socks5, server: 127.0.0.1, port: 1, shikoo-core: fake}
+proxy-groups:
+  - {name: PROXY, type: select, proxies: [core-only, unread, owner, bridged]}
+`)
+	for _, name := range []string{"core-only", "owner", "bridged", "shikoo-warp"} {
+		if _, ok := cfg.Proxies[name]; !ok {
+			t.Errorf("%s was left out", name)
+		}
+	}
+	if _, ok := cfg.Proxies["unread"]; ok {
+		t.Error("a server no core takes and mihomo cannot read was kept")
+	}
+}
+
 func TestLoadConfigGoesThroughTheShikooCores(t *testing.T) {
 	fake := useFakeShikooCore(t)
 	path := filepath.Join(t.TempDir(), "config.yaml")

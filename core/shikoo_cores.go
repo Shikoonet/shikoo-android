@@ -39,6 +39,8 @@ func registerShikooCore(name string, start shikooCoreStart) {
 // shikooCoresParse leaves the proxies of a core this build lacks, or of one that fails, to mihomo.
 func shikooCoresParse(raw *config.RawConfig) (*config.Config, error) {
 	shikooCoresRewrite(raw)
+	// After the rewrite: a server a core took is its loopback SOCKS by now, so only what mihomo carries is checked.
+	leaveOutBadServers(raw)
 	cfg, err := config.ParseRawConfig(raw)
 	if err != nil {
 		for _, stop := range shikooCoresStarting {
@@ -137,7 +139,7 @@ func shikooCoresAfterTun() {
 		logError("rebuilding the cores once the tunnel is up: %v", err)
 		return
 	}
-	applyLoaded(cfg, liveSelections())
+	applyLoaded(cfg, liveSelections(), true)
 }
 
 func liveSelections() map[string]string {

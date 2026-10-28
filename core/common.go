@@ -397,19 +397,19 @@ func applyConfig(params *SetupParams) error {
 			"config apply failed, falling back to the built-in default - no proxies will be available: %v",
 			err,
 		)
-		fallback, fallbackErr := config.ParseRawConfig(config.DefaultRawConfig())
+		fallback, fallbackErr := failClosedConfig()
 		if fallbackErr != nil {
 			return err
 		}
 		cfg = fallback
 	}
 
-	applyLoaded(cfg, params.SelectedMap)
+	applyLoaded(cfg, params.SelectedMap, err == nil)
 	return err
 }
 
 // applyLoaded runs a parsed config; the caller holds configMu.
-func applyLoaded(cfg *config.Config, selected map[string]string) {
+func applyLoaded(cfg *config.Config, selected map[string]string, listen bool) {
 	previous := currentConfig
 	currentConfig = cfg
 	hub.ApplyConfig(cfg)
@@ -417,7 +417,10 @@ func applyLoaded(cfg *config.Config, selected map[string]string) {
 	shikooCoresCommit()
 	shikooLastSelected = selected
 	patchSelectGroup(selected)
-	updateListeners(cfg)
+	// The fallback has no TUN and no ports: the ones already up stay, now meeting its MATCH,REJECT.
+	if listen {
+		updateListeners(cfg)
+	}
 	reconcileGeoUpdater()
 }
 
