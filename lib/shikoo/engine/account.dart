@@ -243,9 +243,16 @@ final shikooDeviceProvider =
     );
 
 class ShikooApiFailure implements Exception {
-  const ShikooApiFailure({this.clock = false, this.status});
+  const ShikooApiFailure({
+    this.clock = false,
+    this.status,
+    this.bridge = false,
+  });
 
   final bool clock;
+
+  /// The bridge was tried after the door's addresses, and failed too.
+  final bool bridge;
 
   /// The door answered, and refused; null when it was not reached.
   final int? status;
@@ -391,11 +398,13 @@ class ShikooApi {
     }
 
     if (await each(_dio) case final response?) return response;
-    if (await bridge?.call() case final proxy?) {
-      final bridged = Dio(_dio.options)
-        ..httpClientAdapter = IOHttpClientAdapter(
-          createHttpClient: () => HttpClient()..findProxy = (_) => proxy,
-        );
+    final proxy = await bridge?.call();
+    if (proxy != null) {
+      final bridged =
+          Dio(_dio.options.copyWith(connectTimeout: warpConnectTimeout))
+            ..httpClientAdapter = IOHttpClientAdapter(
+              createHttpClient: () => HttpClient()..findProxy = (_) => proxy,
+            );
       try {
         if (await each(bridged) case final response?) return response;
       } finally {
@@ -408,7 +417,7 @@ class ShikooApi {
       'T',
       'door $name ${clock ? 'clock' : failureKind(last?.$1)}',
     );
-    throw ShikooApiFailure(clock: clock);
+    throw ShikooApiFailure(clock: clock, bridge: proxy != null);
   }
 
   static Map<String, dynamic>? _json(Response<Object?> response) =>
@@ -578,7 +587,11 @@ class ShikooApi {
 }
 
 final shikooApiProvider = Provider<ShikooApi>(
-  (ref) => ShikooApi(shikooApiBases, null, () => warpProxy(ref.read)),
+  (ref) => ShikooApi(
+    shikooApiBases,
+    null,
+    () => ref.read(shikooControllerProvider).bridgeProxy(),
+  ),
 );
 
 Rule apiDirectRule(String base, int id) {

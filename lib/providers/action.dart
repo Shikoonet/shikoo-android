@@ -16,7 +16,7 @@ import 'package:fl_clash/shikoo/engine/cores.dart'
     show markCores, shikooCoreSpecsProvider, shikooTunnelProvider;
 import 'package:fl_clash/shikoo/engine/settings.dart' show shikooCoresProvider;
 import 'package:fl_clash/shikoo/engine/warp.dart'
-    show markWarp, shikooWarpProvider, warpOnlyProfile;
+    show markWarp, shikooWarpRouteProvider, warpOnlyProfile;
 import 'package:fl_clash/state.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

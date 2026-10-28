@@ -318,7 +318,7 @@ class SetupAction extends _$SetupAction {
   }) async {
     final profileId = setupState.profileId;
     if (profileId == null) {
-      return warpOnlyProfile(on: ref.read(shikooWarpProvider));
+      return warpOnlyProfile(ref.read(shikooWarpRouteProvider));
     }
     final defaultUA = globalState.packageInfo.ua;
     final networkSetting = ref.read(
@@ -359,7 +359,7 @@ class SetupAction extends _$SetupAction {
       specs: ref.read(shikooCoreSpecsProvider),
       tunnel: ref.read(shikooTunnelProvider),
     );
-    rawConfig = markWarp(rawConfig, on: ref.read(shikooWarpProvider));
+    rawConfig = markWarp(rawConfig, ref.read(shikooWarpRouteProvider));
     final directory = await appPath.profilesPath;
     final res = makeRealProfileTask(
       MakeRealProfileState(
