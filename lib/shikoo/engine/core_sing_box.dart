@@ -91,7 +91,8 @@ bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) {
                 (oneOf(peer['pre-shared-key'], '') ||
                     wireGuardKey(peer['pre-shared-key'])),
           ) &&
-          mtuFits,
+          mtuFits &&
+          (oneOf(server['ipv6'], '') || mtu == null || mtu == 0 || mtu >= 1280),
     ShikooProtocol.openvpn => oneOf(server['dev'], 'tun') && mtuFits,
     _ => true,
   };

@@ -112,7 +112,8 @@ func singBoxServes(proxy map[string]any) bool {
 			keys = keys && ok && key(peer["public-key"]) &&
 				(singBoxOneOf(peer["pre-shared-key"], "") || key(peer["pre-shared-key"]))
 		}
-		return keys && singBoxMTU(proxy["mtu"])
+		mtu, _ := strconv.Atoi(fmt.Sprint(proxy["mtu"]))
+		return keys && singBoxMTU(proxy["mtu"]) && (singBoxOneOf(proxy["ipv6"], "") || mtu == 0 || mtu >= 1280)
 	case "openvpn":
 		return singBoxOneOf(proxy["dev"], "tun") && singBoxMTU(proxy["mtu"])
 	}
