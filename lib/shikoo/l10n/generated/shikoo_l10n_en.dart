@@ -1853,4 +1853,35 @@ class ShikooL10nEn extends ShikooL10n {
   String coreSwitched(String core) {
     return 'Now connected with “$core”.';
   }
+
+  @override
+  String get aboutLicenses => 'Other software licenses';
+
+  @override
+  String get aboutLicensesHelp =>
+      'The cores and libraries ShikooNet is built with';
+
+  @override
+  String get licensesTitle => 'Licenses';
+
+  @override
+  String get licensesOthers => 'Other software';
+
+  @override
+  String get licenseScrollTv => 'Up and down on the remote move the text';
+
+  @override
+  String licenseCount(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString licenses',
+      one: '1 license',
+    );
+    return '$_temp0';
+  }
 }

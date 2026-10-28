@@ -653,5 +653,14 @@
   "coreSwitching": "Reconnecting with “{core}”…",
   "@coreSwitching": {"description": "While connected, after another core was picked for the kind of server in use: the same bar or slot as switchingTo. Ends as coreSwitched, or as powerFailed.", "placeholders": {"core": {"type": "String", "example": "Xray"}}},
   "coreSwitched": "Now connected with “{core}”.",
-  "@coreSwitched": {"placeholders": {"core": {"type": "String", "example": "Xray"}}}
+  "@coreSwitched": {"placeholders": {"core": {"type": "String", "example": "Xray"}}},
+  "aboutLicenses": "Other software licenses",
+  "aboutLicensesHelp": "The cores and libraries ShikooNet is built with",
+  "licensesTitle": "Licenses",
+  "licensesOthers": "Other software",
+  "@licensesOthers": {"description": "The licences page's second group, under «هسته‌ها» (coresGroup): every other package, A to Z."},
+  "licenseScrollTv": "Up and down on the remote move the text",
+  "@licenseScrollTv": {"description": "TV only: the hint in the bar of one licence's text, whose card the remote scrolls."},
+  "licenseCount": "{count, plural, =1{1 license} other{{count} licenses}}",
+  "@licenseCount": {"description": "Under a package on the licences page: how many licence texts it has.", "placeholders": {"count": {"type": "int", "format": "decimalPattern"}}}
 }

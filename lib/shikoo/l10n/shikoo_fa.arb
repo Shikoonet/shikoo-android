@@ -466,5 +466,11 @@
   "corePickAgain": "اگر وصلی، چند ثانیه قطع و دوباره وصل می‌شوی.",
   "viaCore": "با {core}",
   "coreSwitching": "در حال وصل شدن با «{core}»…",
-  "coreSwitched": "حالا با «{core}» وصلی."
+  "coreSwitched": "حالا با «{core}» وصلی.",
+  "aboutLicenses": "مجوز نرم‌افزارهای دیگر",
+  "aboutLicensesHelp": "هسته‌ها و کتابخانه‌هایی که شیکونت با آن‌ها ساخته شده",
+  "licensesTitle": "مجوزها",
+  "licensesOthers": "نرم‌افزارهای دیگر",
+  "licenseScrollTv": "بالا و پایینِ ریموت متن را می‌برد",
+  "licenseCount": "{count} مجوز"
 }

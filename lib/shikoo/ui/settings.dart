@@ -21,9 +21,15 @@ import 'package:fl_clash/shikoo/ui/report.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/foundation.dart'
+    show LicenseEntry, LicenseParagraph, LicenseRegistry, clampDouble;
+import 'package:flutter/services.dart'
+    show KeyDownEvent, KeyEvent, KeyRepeatEvent, LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+part 'licenses.dart';
 
 void openSettings(BuildContext context) => unawaited(
   Navigator.push(
@@ -532,30 +538,55 @@ class ShikooAbout extends ConsumerWidget {
       child: Center(
         child: SizedBox(
           width: isTV ? t.s.pane : double.infinity,
-          child: _Card(
-            rows: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Space.s6,
-                  vertical: Space.s4,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: Space.s3,
-                  children: [
-                    Text(
-                      '${l.appName} ${_version(context, ref.watch(shikooVersionProvider))}',
-                      style: t.text(t.s.title, weight: FontWeight.w700),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: Space.s3,
+            children: [
+              _Card(
+                rows: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.s6,
+                      vertical: Space.s4,
                     ),
-                    Text(l.aboutFree, style: body),
-                    Text(l.aboutBasedOn, style: body),
-                    Text(l.aboutSource, style: body),
-                    Text(
-                      l.aboutLicense,
-                      style: body.copyWith(color: t.c.textMuted),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: Space.s3,
+                      children: [
+                        Text(
+                          '${l.appName} ${_version(context, ref.watch(shikooVersionProvider))}',
+                          style: t.text(t.s.title, weight: FontWeight.w700),
+                        ),
+                        Text(l.aboutFree, style: body),
+                        Text(l.aboutBasedOn, style: body),
+                        Text(l.aboutSource, style: body),
+                        Text(
+                          l.aboutLicense,
+                          style: body.copyWith(color: t.c.textMuted),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
+              _Card(
+                rows: [
+                  _Row(
+                    title: l.aboutLicenses,
+                    subtitle: l.aboutLicensesHelp,
+                    forward: true,
+                    autofocus: isTV,
+                    onPressed: () => unawaited(
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ShikooLicenses(),
+                          settings: const RouteSettings(name: 'licenses'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1261,10 +1292,12 @@ class _Row extends StatelessWidget {
     this.alert = false,
     this.busy = false,
     this.keys = const [],
+    this.autofocus = false,
     this.onPressed,
   });
 
   final String title;
+  final bool autofocus;
 
   /// `.value + .icon`: a small ⌄ after the value, for a row that opens a list of choices.
   final bool down;
@@ -1398,6 +1431,7 @@ class _Row extends StatelessWidget {
     if (onPressed == null) return row(false);
     return Pressable(
       shape: shape,
+      autofocus: autofocus,
       onPressed: onPressed,
       builder: (context, focused) => row(focused),
     );

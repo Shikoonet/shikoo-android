@@ -1794,4 +1794,29 @@ class ShikooL10nFa extends ShikooL10n {
   String coreSwitched(String core) {
     return 'حالا با «$core» وصلی.';
   }
+
+  @override
+  String get aboutLicenses => 'مجوز نرم‌افزارهای دیگر';
+
+  @override
+  String get aboutLicensesHelp =>
+      'هسته‌ها و کتابخانه‌هایی که شیکونت با آن‌ها ساخته شده';
+
+  @override
+  String get licensesTitle => 'مجوزها';
+
+  @override
+  String get licensesOthers => 'نرم‌افزارهای دیگر';
+
+  @override
+  String get licenseScrollTv => 'بالا و پایینِ ریموت متن را می‌برد';
+
+  @override
+  String licenseCount(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString مجوز';
+  }
 }
