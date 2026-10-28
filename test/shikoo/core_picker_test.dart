@@ -377,7 +377,7 @@ void main() {
         lessThan(_top(tester, _fa.coresGroup)),
       );
       expect(_top(tester, _fa.coresGroup), lessThan(_top(tester, _fa.account)));
-      final toggle = tester.widget<SwitchRow>(find.byType(SwitchRow));
+      final toggle = tester.widget<SwitchRow>(find.byType(SwitchRow).first);
       expect(toggle.on, isTrue);
       expect(toggle.help, _fa.iranDirectHelp);
       for (final kind in [
@@ -397,7 +397,10 @@ void main() {
       verify(() => rig.controller.setIranDirect(false)).called(1);
       rig.holder.value = _settings(iranDirect: false);
       await tester.pumpAndSettle();
-      expect(tester.widget<SwitchRow>(find.byType(SwitchRow)).on, isFalse);
+      expect(
+        tester.widget<SwitchRow>(find.byType(SwitchRow).first).on,
+        isFalse,
+      );
     });
 
     testWidgets('only the kinds the services have get a row; none, no group', (

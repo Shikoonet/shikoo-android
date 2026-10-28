@@ -94,6 +94,9 @@ Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
   return _focused();
 }
 
+/// Settings › Connection's second switch (warp_ui_test.dart).
+final _warp = lookupShikooL10n(const Locale('fa')).warpSwitch;
+
 void main() {
   // The TV page fits one screen with Vazirmatn's widths, not the test font's.
   setUpAll(() async {
@@ -196,6 +199,7 @@ void main() {
       await _press(tester, LogicalKeyboardKey.arrowDown),
       'سایت‌های ایرانی بدون فیلترشکن',
     );
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
     expect(
       await _press(tester, LogicalKeyboardKey.arrowDown),
       'بررسی به‌روزرسانی',
@@ -224,6 +228,7 @@ void main() {
     const up = LogicalKeyboardKey.arrowUp;
     expect(_focused(), 'خودکار');
     expect(await _press(tester, down), 'سایت‌های ایرانی بدون فیلترشکن');
+    expect(await _press(tester, down), _warp);
     expect(await _press(tester, down), 'بررسی به‌روزرسانی');
     expect(await _press(tester, down), 'درباره');
     expect(await _press(tester, down), 'درباره', reason: 'the column ends');

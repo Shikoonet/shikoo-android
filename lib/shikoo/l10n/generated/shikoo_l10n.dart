@@ -2868,6 +2868,138 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Now connected with “{core}”.'**
   String coreSwitched(String core);
+
+  /// Beside a server, and the server under the power button, that leaves through WARP.
+  ///
+  /// In en, this message translates to:
+  /// **'via WARP'**
+  String get warpVia;
+
+  /// Settings › Connection: the WARP switch, off by default.
+  ///
+  /// In en, this message translates to:
+  /// **'WARP when servers are blocked'**
+  String get warpSwitch;
+
+  /// No description provided for @warpSwitchHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Servers that don’t answer directly connect through Cloudflare’s network. On these connections Cloudflare sees your IP address.'**
+  String get warpSwitchHelp;
+
+  /// Connecting, a server that did not answer directly is tried through WARP.
+  ///
+  /// In en, this message translates to:
+  /// **'“{server}” didn’t answer directly; connecting via WARP.\nThe first time can take half a minute.'**
+  String warpFirst(String server);
+
+  /// No description provided for @warpAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting via WARP…'**
+  String get warpAgain;
+
+  /// No description provided for @warpFailBothTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP.\nCheck this phone’s internet. If it works, ask Support.'**
+  String get warpFailBothTouch;
+
+  /// No description provided for @warpOffTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'The servers didn’t answer from this phone’s internet, and WARP is off.'**
+  String get warpOffTouch;
+
+  /// No description provided for @warpFailBothTv.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP.\nCheck this TV’s internet. If it works, ask Support.'**
+  String get warpFailBothTv;
+
+  /// No description provided for @warpOffTv.
+  ///
+  /// In en, this message translates to:
+  /// **'The servers didn’t answer from this TV’s internet, and WARP is off.'**
+  String get warpOffTv;
+
+  /// No description provided for @warpFailBothDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP.\nCheck this computer’s internet. If it works, ask Support.'**
+  String get warpFailBothDesktop;
+
+  /// No description provided for @warpOffDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'The servers didn’t answer from this computer’s internet, and WARP is off.'**
+  String get warpOffDesktop;
+
+  /// No description provided for @warpTurnOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn WARP on'**
+  String get warpTurnOn;
+
+  /// Under every button that turns WARP on.
+  ///
+  /// In en, this message translates to:
+  /// **'This way, Cloudflare sees your IP address.'**
+  String get warpNote;
+
+  /// No description provided for @warpLoginWaitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer directly.'**
+  String get warpLoginWaitTitle;
+
+  /// No description provided for @warpLoginWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting the sign-in code via WARP; the first time can take half a minute.'**
+  String get warpLoginWait;
+
+  /// Under «کد ورود نرسید.» (codeFailedTitle) while WARP is off.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer from this phone’s internet. It may be blocked; try via WARP.'**
+  String get warpLoginFailTouch;
+
+  /// No description provided for @warpLoginFailTv.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer from this TV’s internet. It may be blocked; try via WARP.'**
+  String get warpLoginFailTv;
+
+  /// No description provided for @warpLoginFailDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer from this computer’s internet. It may be blocked; try via WARP.'**
+  String get warpLoginFailDesktop;
+
+  /// No description provided for @warpTry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try via WARP'**
+  String get warpTry;
+
+  /// No description provided for @aboutWarp.
+  ///
+  /// In en, this message translates to:
+  /// **'If you turn WARP on, servers that don’t answer directly connect through Cloudflare’s network; signing in and subscription updates also go that way when they can’t go directly. Cloudflare sees your IP address only on these connections.'**
+  String get aboutWarp;
+
+  /// No description provided for @updatingWarp.
+  ///
+  /// In en, this message translates to:
+  /// **'No direct answer; trying WARP…'**
+  String get updatingWarp;
+
+  /// Under updateFailedTitle (Couldn’t update.) once WARP was tried too.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP. Connect with these servers, then try through the server; if it still fails, ask Support.'**
+  String get updateFailedWarp;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

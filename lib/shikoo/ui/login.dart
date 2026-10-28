@@ -167,6 +167,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _telegram() async => _open(await _signIn.start());
 
+  /// «امتحان از راه WARP»: the switch on, then the code asked for again.
+  Future<void> _tryWarp() async {
+    await ref.read(shikooControllerProvider).setBridge(true);
+    _isTV ? await _signIn.start() : await _telegram();
+  }
+
   Future<void> _otherAccount() async {
     await _signIn.notMine();
     if (!_isTV) await _telegram();
@@ -267,6 +273,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final account = login?.account;
     final clock = login?.clock ?? false;
     final starting = phase == LoginPhase.starting;
+    final offerWarp = !ref.watch(
+      shikooStateProvider.select((s) => s.bridge.on),
+    );
     Widget telegram(String label, VoidCallback onPressed) => ShikooButton(
       label: starting ? l.codeFetching : label,
       icon: ShikooIcon.plane,
@@ -315,6 +324,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         MediaQuery.sizeOf(context).width >= ShikooSizes.twoColumns) {
       return _split(chosen(start: true), choose(), _checklist(login!));
     }
+    final warp = offerWarp && !clock;
+    final failedBox = MessageBox(
+      icon: ShikooIcon.alert,
+      danger: true,
+      strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
+      rest: clock
+          ? l.clockWrongHelp
+          : switch ((shikooDesktop, warp)) {
+              (true, true) => l.warpLoginFailDesktop,
+              (false, true) => l.warpLoginFailTouch,
+              (true, false) => l.codeFailedHelpDesktop,
+              (false, false) => l.codeFailedHelpTouch,
+            },
+    );
+    // A computer keeps the buttons at the bottom: WARP's two lines would push them out of a small window.
+    final failedAbove = shikooDesktop && warp;
     final (Widget middle, List<Widget> actions) = switch (phase) {
       null || LoginPhase.starting => (
         const _BrandBlock(),
@@ -330,22 +355,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.startFailed => (
-        const _BrandBlock(),
+        failedAbove
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: Space.s6,
+                children: [const _BrandBlock(), failedBox],
+              )
+            : const _BrandBlock(),
         [
-          MessageBox(
-            icon: ShikooIcon.alert,
-            danger: true,
-            strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
-            rest: clock
-                ? l.clockWrongHelp
-                : (shikooDesktop
-                      ? l.codeFailedHelpDesktop
-                      : l.codeFailedHelpTouch),
-          ),
+          if (!failedAbove) failedBox,
           if (clock)
             const DateSettingsButton()
-          else
+          else ...[
+            if (warp) ...[
+              outline(l.warpTry, () => unawaited(_tryWarp())),
+              Text(
+                l.warpNote,
+                textAlign: TextAlign.center,
+                style: t.text(t.s.bodySm, color: t.c.textMuted),
+              ),
+            ],
             LinkButton(label: l.reportSendToSupport, onPressed: _report),
+          ],
           telegram(l.loginTelegram, signIn),
           _paste(enabled: true, dateButton: !clock),
           elsewhere,
@@ -693,6 +725,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final phase = login?.phase;
     final expired = phase == LoginPhase.expired;
     final failed = phase == LoginPhase.startFailed;
+    final offerWarp = !ref.watch(
+      shikooStateProvider.select((s) => s.bridge.on),
+    );
     final fine = t.text(s.bodySm, color: t.c.textMuted, height: Leading.body);
     Widget newCode(String label, FocusNode node) => ShikooButton(
       label: label,
@@ -720,14 +755,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     Text(
                       failed
-                          ? (login!.clock ? clockText(l) : l.codeFailedLeadTv)
+                          ? (login!.clock
+                                ? clockText(l)
+                                : (offerWarp
+                                      ? '${l.codeFailedTitle} ${l.warpLoginFailTv}'
+                                      : l.codeFailedLeadTv))
                           : (expired ? l.codeExpiredLead : l.tvLoginLead),
                       style: t.text(s.title),
                     ),
                     if (failed && login!.clock) ...[
                       newCode(l.retry, _retryNode),
                       const DateSettingsButton(),
-                    ] else if (failed)
+                    ] else if (failed) ...[
                       Wrap(
                         spacing: Space.s2,
                         runSpacing: Space.s2,
@@ -739,8 +778,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             onPressed: _report,
                           ),
                         ],
-                      )
-                    else ...[
+                      ),
+                      if (offerWarp) ...[
+                        ShikooButton(
+                          label: l.warpTry,
+                          onPressed: () => unawaited(_tryWarp()),
+                        ),
+                        Text(l.warpNote, style: fine),
+                      ],
+                    ] else ...[
                       if (!expired) Text(l.tvLoginVpnHint, style: fine),
                       _CodeBox(
                         login: login,

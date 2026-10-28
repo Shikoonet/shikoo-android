@@ -204,10 +204,14 @@ void main() {
     final centres = <String, Offset>{};
     for (final MapEntry(:key, :value) in states.entries) {
       await _pumpTvHome(tester, value);
+      expect(tester.takeException(), isNull, reason: key);
       centres[key] = tester.getCenter(find.byType(PowerButton));
     }
+    // c-tv-off: with WARP off, «روشن کردن WARP» under the message lifts the button.
+    final offer = centres.remove('all-failed')!;
     expect(centres.values.toSet(), hasLength(1), reason: '$centres');
     expect(centres.values.first.dy, closeTo(274, 0.5));
+    expect(offer.dy, lessThan(274));
   });
 
   testWidgets('the remote follows the order the TV mockup sets', (

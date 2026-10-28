@@ -113,10 +113,12 @@ ShikooState _state(
   String? server,
   String? selected,
   List<String> listed = const [],
+  ShikooBridge bridge = noBridge,
 }) => ShikooState(
   connection: connection,
   lastError: error,
   notice: notice,
+  bridge: bridge,
   busyPort: busyPort,
   helperFailed: helperFailed,
   connectedFor: connectedFor,
@@ -195,6 +197,7 @@ Future<void> _pumpHome(
   ShikooNotice? notice,
   Locale locale = const Locale('fa'),
   List<Override> overrides = const [],
+  ShikooBridge bridge = noBridge,
 }) async {
   _window(tester, window);
   await tester.pumpWidget(
@@ -210,6 +213,7 @@ Future<void> _pumpHome(
             busyPort: busyPort,
             helperFailed: helperFailed,
             notice: notice,
+            bridge: bridge,
           ),
         ),
         ...overrides,
@@ -1638,7 +1642,7 @@ void main() {
         (l.vpnRefusedDesktop, ShikooError.vpnRefused, null, false),
         (l.busyPortDesktop, null, 7890, false),
         (l.helperFailedDesktop, null, null, true),
-        (l.noServerAnsweredHelpDesktop, ShikooError.noServer, null, false),
+        (l.warpNote, ShikooError.noServer, null, false),
       ];
       for (final window in const [Size(864, 492), Size(880, 508)]) {
         for (final (text, error, port, helper) in cases) {
@@ -3211,29 +3215,27 @@ void main() {
     }
   }, variant: _windows);
 
-  testWidgets(
-    'in the 880 × 508 page (an 880 × 540 window) the message under the '
-    'mode switch '
-    'keeps clear of the bottom, the column centred',
-    (tester) async {
-      const window = Size(880, 508);
-      await _pumpHome(
-        tester,
-        window,
-        connection: ShikooConnection.error,
-        error: ShikooError.noServer,
-      );
-      final l = lookupShikooL10n(const Locale('fa'));
-      final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));
-      final above =
-          tester.getRect(find.byType(PowerButton)).top -
-          ShikooSizes.desktop.appbar;
-      final below = window.height - message.bottom;
-      expect(below, greaterThanOrEqualTo(Space.s4));
-      expect(above, closeTo(below - Space.s4, 1));
-    },
-    variant: _windows,
-  );
+  testWidgets('in the 880 × 508 page (an 880 × 540 window) the message under the '
+      'mode switch '
+      'keeps clear of the bottom, the column centred', (tester) async {
+    const window = Size(880, 508);
+    await _pumpHome(
+      tester,
+      window,
+      connection: ShikooConnection.error,
+      error: ShikooError.noServer,
+      // WARP off adds «روشن کردن WARP» under the message, which this window scrolls to (the test above).
+      bridge: (on: true, via: const {}, trying: false, failed: false),
+    );
+    final l = lookupShikooL10n(const Locale('fa'));
+    final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));
+    final above =
+        tester.getRect(find.byType(PowerButton)).top -
+        ShikooSizes.desktop.appbar;
+    final below = window.height - message.bottom;
+    expect(below, greaterThanOrEqualTo(Space.s4));
+    expect(above, closeTo(below - Space.s4, 1));
+  }, variant: _windows);
 
   testWidgets('a window wider than 960 keeps the 960 page, top bars too, '
       'centred', (tester) async {

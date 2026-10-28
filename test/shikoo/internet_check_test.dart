@@ -38,9 +38,11 @@ ShikooState _failed({
   required bool tv,
   bool silent = false,
   ShikooError error = ShikooError.connectTimeout,
+  ShikooBridge bridge = noBridge,
 }) => ShikooState(
   connection: ShikooConnection.error,
   lastError: error,
+  bridge: bridge,
   connectedFor: Duration.zero,
   isTV: tv,
   service: ShikooService(
@@ -248,12 +250,16 @@ void main() {
       'the button no longer says to check the internet',
       (tester) async {
         final l = lookupShikooL10n(const Locale('fa'));
-        final hint = tv
-            ? l.noServerAnsweredHelpTv
-            : l.noServerAnsweredHelpTouch;
+        // WARP on and tried too: its failure says to check the internet, as the plain one did.
+        final hint = tv ? l.warpFailBothTv : l.warpFailBothTouch;
         final container = await _home(
           tester,
-          state: _failed(tv: tv, silent: true, error: ShikooError.noServer),
+          state: _failed(
+            tv: tv,
+            silent: true,
+            error: ShikooError.noServer,
+            bridge: (on: true, via: const {}, trying: false, failed: true),
+          ),
           probe: () async => _ok,
           size: tv ? const Size(960, 540) : const Size(412, 915),
         );
