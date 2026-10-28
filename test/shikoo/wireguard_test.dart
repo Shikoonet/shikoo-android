@@ -1,6 +1,9 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/core_sing_box.dart';
+import 'package:fl_clash/shikoo/engine/core_xray.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/wireguard.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaml/yaml.dart';
@@ -140,5 +143,42 @@ void main() {
       expect(() => wireGuardDefaults(proxy), returnsNormally);
       expect(proxy.containsKey('remote-dns-resolve'), isFalse);
     });
+  });
+
+  // markCores (setup.dart) reads the panel's mapping; the core reads it after this fill (task.dart).
+  test('the fill moves no server off the core it was marked for', () {
+    const key = 'AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=';
+    final keys = {'private-key': key, 'public-key': key};
+    final panel = [
+      _wireGuard('bare', keys),
+      _wireGuard('udp', {...keys, 'udp': true}),
+      _wireGuard('mtu', {...keys, 'mtu': 1420}),
+      _wireGuard('udp off', {...keys, 'udp': false}),
+      _wireGuard('peers', {
+        'private-key': key,
+        'peers': [
+          {
+            'server': '203.0.113.7',
+            'port': 51820,
+            'public-key': key,
+            'allowed-ips': ['0.0.0.0/0'],
+          },
+        ],
+      }),
+    ];
+    for (final server in panel) {
+      final filled = Map<String, dynamic>.of(server);
+      wireGuardDefaults(filled);
+      for (final (name, spec) in [
+        ('Xray', xraySpec),
+        ('sing-box', singBoxSpec),
+      ]) {
+        expect(
+          spec.serves(ShikooProtocol.wireguard, filled),
+          spec.serves(ShikooProtocol.wireguard, server),
+          reason: '$name, ${server['name']}',
+        );
+      }
+    }
   });
 }

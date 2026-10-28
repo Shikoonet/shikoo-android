@@ -32,6 +32,7 @@ import (
 	"github.com/sagernet/sing-box/adapter/outbound"
 	"github.com/sagernet/sing-box/adapter/service"
 	sbdns "github.com/sagernet/sing-box/dns"
+	"github.com/sagernet/sing-box/dns/transport"
 	sblog "github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/protocol/block"
@@ -88,7 +89,7 @@ func singBoxServes(proxy map[string]any) bool {
 			}
 		}
 	}
-	if proxy["remote-dns-resolve"] == true {
+	if proxy["remote-dns-resolve"] == true && (kind != "wireguard" || singBoxTunnelDNS(proxy) == "") {
 		return false
 	}
 	switch kind {
@@ -116,6 +117,18 @@ func singBoxServes(proxy map[string]any) bool {
 		return singBoxOneOf(proxy["dev"], "tun") && singBoxMTU(proxy["mtu"])
 	}
 	return true
+}
+
+// shortcut: a server resolving inside its tunnel asks only its first dns, on port 53, through itself; a list if a panel needs one.
+func singBoxTunnelDNS(proxy map[string]any) string {
+	dns, _ := proxy["dns"].([]any)
+	if proxy["remote-dns-resolve"] != true || len(dns) == 0 {
+		return ""
+	}
+	if address, err := netip.ParseAddr(fmt.Sprint(dns[0])); err == nil {
+		return address.String()
+	}
+	return ""
 }
 
 // mihomo v1.19.33 checks a WireGuard MTU only when it first dials, after its parser has passed the server.
@@ -286,6 +299,7 @@ type singBoxServer struct {
 	index           int
 	out             map[string]any
 	isEndpoint, udp bool
+	dns             string
 }
 
 // startSingBox runs one sing-box for the servers it can carry, each a SOCKS user on one loopback port.
@@ -318,7 +332,7 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 		if out["detour"] == nil {
 			out["detour"] = "mihomo"
 		}
-		servers = append(servers, singBoxServer{i, out, isEndpoint, udp})
+		servers = append(servers, singBoxServer{i, out, isEndpoint, udp, singBoxTunnelDNS(proxy)})
 	}
 	if len(servers) == 0 {
 		return proxies, func() {}, nil
@@ -354,7 +368,9 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 func singBoxConfig(port int, password string, servers []singBoxServer) map[string]any {
 	outbounds := []any{map[string]any{"type": "mihomo", "tag": "mihomo"}, map[string]any{"type": "block", "tag": "block"},
 		map[string]any{"type": "mihomo", "tag": "mihomo-unconnected"}}
-	var endpoints, users, rules []any
+	dnsServers := []any{map[string]any{"type": "mihomo", "tag": "resolver"},
+		map[string]any{"type": "mihomo-proxy-server", "tag": "proxy-server"}}
+	var endpoints, users, rules, dnsRules []any
 	for _, server := range servers {
 		if server.isEndpoint {
 			endpoints = append(endpoints, server.out)
@@ -363,13 +379,16 @@ func singBoxConfig(port int, password string, servers []singBoxServer) map[strin
 		}
 		users = append(users, map[string]any{"username": server.out["tag"], "password": password})
 		rules = append(rules, map[string]any{"auth_user": server.out["tag"], "outbound": server.out["tag"]})
+		if server.dns != "" {
+			tag := "dns-" + fmt.Sprint(server.out["tag"])
+			dnsServers = append(dnsServers, map[string]any{"type": "udp", "tag": tag, "server": server.dns,
+				"detour": server.out["tag"]})
+			dnsRules = append(dnsRules, map[string]any{"auth_user": server.out["tag"], "server": tag})
+		}
 	}
 	return map[string]any{
 		"log": map[string]any{"level": "warn"},
-		"dns": map[string]any{"final": "resolver", "servers": []any{
-			map[string]any{"type": "mihomo", "tag": "resolver"},
-			map[string]any{"type": "mihomo-proxy-server", "tag": "proxy-server"},
-		}},
+		"dns": map[string]any{"final": "resolver", "servers": dnsServers, "rules": dnsRules},
 		"inbounds": []any{map[string]any{"type": "socks", "tag": "in", "listen": "127.0.0.1", "listen_port": port,
 			"users": users}},
 		"outbounds": outbounds,
@@ -403,6 +422,7 @@ func singBoxNew(config map[string]any, start bool) (instance *box.Box, err error
 	wireguard.RegisterEndpoint(endpoints)
 	openvpn.RegisterEndpoint(endpoints)
 	transports := sbdns.NewTransportRegistry()
+	transport.RegisterUDP(transports)
 	for kind, use := range map[string]*resolver.Resolver{
 		"mihomo":              &resolver.DefaultResolver,
 		"mihomo-proxy-server": &resolver.ProxyServerHostResolver,

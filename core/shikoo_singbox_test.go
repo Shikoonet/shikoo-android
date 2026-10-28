@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -40,6 +41,7 @@ import (
 	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	mDNS "github.com/miekg/dns"
+	xcore "github.com/xtls/xray-core/core"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -84,6 +86,7 @@ proxies:
   - {name: grpc, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, network: grpc, grpc-opts: {grpc-service-name: g}, client-fingerprint: firefox, shikoo-core: singBox}
   - {name: xhttp, type: vless, server: 127.0.0.1, port: 1, uuid: 4b2a7d3e-1f4c-4c4e-9f53-2b8f0c1d9e11, tls: true, network: xhttp, shikoo-core: singBox}
   - {name: wg, type: wireguard, server: 127.0.0.1, port: 1, ip: 10.0.0.2, private-key: %q, public-key: %q, udp: true, shikoo-core: singBox}
+  - {name: wg dns, type: wireguard, server: 127.0.0.1, port: 1, ip: 10.0.0.2, private-key: %[2]q, public-key: %[3]q, udp: true, remote-dns-resolve: true, dns: [1.1.1.1, 8.8.8.8], shikoo-core: singBox}
   - {name: ovpn, type: openvpn, server: 127.0.0.1, port: 1, ca: %q, username: u, password: p, shikoo-core: singBox}
   - {name: ssh, type: ssh, server: 127.0.0.1, port: 1, username: u, private-key: %q, shikoo-core: singBox}
 `, realityPublic, wgPrivate, wgPublic, ca, clientKey)
@@ -92,8 +95,8 @@ proxies:
 	cfg := parseShikooCores(t, proxies)
 	shikooCoresCommit()
 
-	got := proxyTypes(cfg, "reality", "ws", "grpc", "xhttp", "wg", "ovpn", "ssh")
-	want := []C.AdapterType{C.Socks5, C.Socks5, C.Socks5, C.Vless, C.Socks5, C.Socks5, C.Socks5}
+	got := proxyTypes(cfg, "reality", "ws", "grpc", "xhttp", "wg", "wg dns", "ovpn", "ssh")
+	want := []C.AdapterType{C.Socks5, C.Socks5, C.Socks5, C.Vless, C.Socks5, C.Socks5, C.Socks5, C.Socks5}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("types %v, want %v: XHTTP stays on mihomo, every other server goes to sing-box", got, want)
@@ -263,7 +266,7 @@ func TestSingBoxNewTurnsAPanicIntoAnError(t *testing.T) {
 			"utls":    map[string]any{"enabled": true, "fingerprint": "chrome"},
 			"reality": map[string]any{"enabled": true, "public_key": public, "short_id": "0123456789abcdef01"}}}
 
-	instance, err := singBoxNew(singBoxConfig(1, "x", []singBoxServer{{0, out, false, false}}), false)
+	instance, err := singBoxNew(singBoxConfig(1, "x", []singBoxServer{{0, out, false, false, ""}}), false)
 
 	if err == nil || instance != nil {
 		t.Fatalf("a short_id over 8 bytes gave %v, %v; want sing-box's panic as an error", instance, err)
@@ -1061,5 +1064,96 @@ func e2eLog(t *testing.T, dir, want string) {
 		if strings.Contains(line, want) {
 			t.Log(line)
 		}
+	}
+}
+
+// The lookup reaches the only server that knows probe.test through the tunnel: Xray's WireGuard server redirects UDP 53
+// to it, and mihomo, whose resolver sing-box would otherwise ask, has none in this test.
+func TestSingBoxResolvesAWireGuardServersNamesThroughIt(t *testing.T) {
+	ip := outsideIP(t)
+	var queries, hits atomic.Int32
+	dnsConn, err := net.ListenPacket("udp", net.JoinHostPort(ip, "0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dnsServer := &mDNS.Server{PacketConn: dnsConn, Handler: mDNS.HandlerFunc(func(w mDNS.ResponseWriter, r *mDNS.Msg) {
+		queries.Add(1)
+		answer := new(mDNS.Msg)
+		answer.SetReply(r)
+		if q := r.Question[0]; q.Name == "probe.test." && q.Qtype == mDNS.TypeA {
+			answer.Answer = []mDNS.RR{&mDNS.A{Hdr: mDNS.RR_Header{Name: q.Name, Rrtype: mDNS.TypeA, Class: mDNS.ClassINET,
+				Ttl: 60}, A: net.ParseIP(ip)}}
+		}
+		_ = w.WriteMsg(answer)
+	})}
+	go func() { _ = dnsServer.ActivateAndServe() }()
+	t.Cleanup(func() { _ = dnsServer.Shutdown() })
+	target := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	})}
+	listener, err := net.Listen("tcp", net.JoinHostPort(ip, "0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = target.Serve(listener) }()
+	t.Cleanup(func() { _ = target.Close() })
+
+	serverWG, clientWG := wgPair(t), wgPair(t)
+	port, err := freeLoopbackPort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	allow := map[string]any{"finalRules": []any{map[string]any{"action": "allow"}}}
+	server, err := json.Marshal(map[string]any{
+		"log": map[string]any{"loglevel": "warning"},
+		"inbounds": []any{map[string]any{"listen": "127.0.0.1", "port": port, "protocol": "wireguard", "settings": map[string]any{
+			"secretKey": serverWG.private, "mtu": 1420,
+			"peers": []any{map[string]any{"publicKey": clientWG.public, "allowedIPs": []string{"10.9.0.2/32"}}},
+		}}},
+		"outbounds": []any{
+			map[string]any{"tag": "direct", "protocol": "freedom", "settings": allow},
+			map[string]any{"tag": "dns", "protocol": "freedom", "settings": map[string]any{
+				"redirect": dnsConn.LocalAddr().String(), "finalRules": allow["finalRules"]}},
+		},
+		"routing": map[string]any{"rules": []any{map[string]any{"network": "udp", "port": "53", "outboundTag": "dns"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instance, err := xcore.StartInstance("json", server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = instance.Close() })
+
+	previous := resolver.DefaultResolver
+	resolver.DefaultResolver = nil
+	t.Cleanup(func() { resolver.DefaultResolver = previous })
+	cfg := parseShikooCores(t, fmt.Sprintf(`
+proxies:
+  - {name: wg dns, type: wireguard, server: 127.0.0.1, port: %d, ip: 10.9.0.2, private-key: %q, public-key: %q, udp: true, remote-dns-resolve: true, dns: [1.1.1.1, 8.8.8.8], shikoo-core: singBox}
+`, port, clientWG.private, serverWG.public))
+	shikooCoresCommit()
+	t.Cleanup(func() {
+		for _, stop := range shikooCoresRunning {
+			stop()
+		}
+		shikooCoresRunning = nil
+	})
+
+	proxy := cfg.Proxies["wg dns"]
+	if proxy.Type() != C.Socks5 {
+		t.Fatalf("wg dns is %v, want the SOCKS in front of sing-box", proxy.Type())
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, targetPort, _ := net.SplitHostPort(listener.Addr().String())
+	delay, err := proxy.URLTest(ctx, "http://probe.test:"+targetPort+"/generate_204", anyDelayTestStatus)
+	if err != nil || delay == 0 || hits.Load() == 0 {
+		t.Fatalf("probe.test through sing-box: delay %d, err %v, target hits %d", delay, err, hits.Load())
+	}
+	if queries.Load() == 0 {
+		t.Fatal("the name was resolved without the DNS server behind the WireGuard server")
 	}
 }

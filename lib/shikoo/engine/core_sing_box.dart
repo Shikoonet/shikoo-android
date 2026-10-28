@@ -1,3 +1,5 @@
+import 'dart:io' show InternetAddress;
+
 import 'package:fl_clash/shikoo/engine/cores.dart';
 
 /// Package h4 of docs/multi-core.md: sing-box behind mihomo.
@@ -37,11 +39,18 @@ const _fingerprints = 'none chrome firefox safari ios android edge 360 qq';
 
 final _wireGuardKey = RegExp(r'^[A-Za-z0-9+/]{43}=$');
 
+/// `singBoxTunnelDNS`: the first of the server's dns is an address, which sing-box asks through the server.
+bool _tunnelDns(Map<String, dynamic> server) =>
+    server['dns'] is List &&
+    (server['dns'] as List).isNotEmpty &&
+    InternetAddress.tryParse('${(server['dns'] as List).first}') != null;
+
 bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) {
   final keys = '${_keys[protocol]} name type server port udp'.split(' ');
   if (!_keys.containsKey(protocol) ||
       !server.keys.every(keys.contains) ||
-      server['remote-dns-resolve'] == true) {
+      server['remote-dns-resolve'] == true &&
+          (protocol != ShikooProtocol.wireguard || !_tunnelDns(server))) {
     return false;
   }
   for (final MapEntry(:key, :value) in server.entries) {

@@ -356,7 +356,8 @@ What the packages report about their own branches, copied here before their veri
   tunnel's fake-ip.
 - Servers left on mihomo (`singBoxServes`, the Dart `serves`, kept equal by `core/testdata/sing_box_serves.json`): any
   key outside the type's list; VLESS networks other than tcp, ws and grpc (XHTTP and h2 included); VLESS
-  `encryption`; a flow other than `xtls-rprx-vision`; an unknown fingerprint; `remote-dns-resolve: true`; OpenVPN with
+  `encryption`; a flow other than `xtls-rprx-vision`; an unknown fingerprint; `remote-dns-resolve: true` on OpenVPN, and on WireGuard unless its first `dns` is an address (since 2026-10-28
+  sing-box asks that one through the server, by a `udp` DNS server whose `detour` is the endpoint); OpenVPN with
   `dev tap`.
 - **Open risk, REALITY:** sing-box 1.14.3, 1.15.0-alpha.12 and `testing` strip X25519MLKEM768 from a REALITY
   ClientHello, and Xray-core v26.9.8 and later reject such a ClientHello, so sing-box cannot reach current Xray REALITY
