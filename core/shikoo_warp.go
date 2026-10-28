@@ -97,9 +97,19 @@ func startWarp(proxies []map[string]any) ([]map[string]any, func(), error) {
 	}, nil
 }
 
-func launchWarp() (*warpProcess, error) {
+func launchWarp() (_ *warpProcess, err error) {
 	dir := filepath.Join(C.Path.HomeDir(), "warp")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
+	// A killed app leaves its last endpoint behind.
+	os.Remove(filepath.Join(dir, warpEndpoint))
+	defer func() {
+		if err != nil {
+			writeWarpFile(dir, map[string]string{"error": err.Error()})
+		}
+	}()
+	if _, err := os.Stat(warpCommand().Path); err != nil {
 		return nil, err
 	}
 	up, err := net.Listen("tcp", "127.0.0.1:0")
@@ -115,9 +125,6 @@ func launchWarp() (*warpProcess, error) {
 	if run.socks, err = freePort(); err == nil {
 		run.http, err = freePort()
 	}
-	if err == nil {
-		err = writeWarpEndpoint(run)
-	}
 	if err != nil {
 		up.Close()
 		return nil, err
@@ -127,12 +134,12 @@ func launchWarp() (*warpProcess, error) {
 	return run, nil
 }
 
-func writeWarpEndpoint(run *warpProcess) error {
-	data, err := json.Marshal(map[string]string{"http": run.http, "auth": run.user + ":" + run.pass})
+func writeWarpFile(dir string, fields map[string]string) error {
+	data, err := json.Marshal(fields)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(run.dir, warpEndpoint), data, 0o600)
+	return os.WriteFile(filepath.Join(dir, warpEndpoint), data, 0o600)
 }
 
 func (w *warpProcess) env() []string {
@@ -201,6 +208,9 @@ func (w *warpProcess) runOnce() error {
 	err = warpStart(cmd)
 	if err == nil {
 		w.cmd = cmd
+		if err := writeWarpFile(w.dir, map[string]string{"http": w.http, "auth": w.user + ":" + w.pass}); err != nil {
+			log.Warnln("[SHIKOO] warp endpoint: %v", err)
+		}
 	}
 	w.mu.Unlock()
 	write.Close()
@@ -216,6 +226,7 @@ func (w *warpProcess) runOnce() error {
 		}
 	}()
 	err = cmd.Wait()
+	os.Remove(filepath.Join(w.dir, warpEndpoint))
 	// Whatever it started dies with it, and lets go of the log pipe.
 	warpKill(cmd)
 	return err
@@ -224,9 +235,9 @@ func (w *warpProcess) runOnce() error {
 func (w *warpProcess) close() {
 	close(w.stop)
 	w.upstream.Close()
-	os.Remove(filepath.Join(w.dir, warpEndpoint))
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	os.Remove(filepath.Join(w.dir, warpEndpoint))
 	if w.cmd != nil {
 		warpKill(w.cmd)
 	}

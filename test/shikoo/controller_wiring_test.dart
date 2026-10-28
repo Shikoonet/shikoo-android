@@ -3384,6 +3384,38 @@ void main() {
       expect(sameRoute(applied.last, noWarp), isTrue);
     });
 
+    test('a bridge whose program is not running yet: the request waits for it '
+        'up to warpConnectTimeout, the door shown all along', () async {
+      warpConnectTimeout = const Duration(seconds: 10);
+      final endpoint = File('${await appPath.homeDirPath}/warp/endpoint.json');
+      if (endpoint.existsSync()) endpoint.deleteSync();
+      addTearDown(() {
+        if (endpoint.existsSync()) endpoint.deleteSync();
+      });
+      await controller.setBridge(true);
+      final carried = controller.throughBridge((proxy) async => proxy);
+      await Future<void>.delayed(const Duration(milliseconds: 5500));
+      expect(state().bridge.door, isTrue);
+      endpoint
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"http":"127.0.0.1:4321","auth":"u:p"}');
+      expect(await carried, 'PROXY u:p@127.0.0.1:4321');
+      expect(state().bridge.door, isFalse);
+    });
+
+    test('a bridge missing from the build fails at once', () async {
+      warpConnectTimeout = const Duration(seconds: 20);
+      final endpoint = File('${await appPath.homeDirPath}/warp/endpoint.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"error":"stat libshikoowarp.so: missing"}');
+      addTearDown(endpoint.deleteSync);
+      await controller.setBridge(true);
+      final clock = Stopwatch()..start();
+      expect(await controller.throughBridge((proxy) async => proxy), isNull);
+      expect(clock.elapsed, lessThan(const Duration(seconds: 5)));
+      expect(state().bridge.door, isFalse);
+    });
+
     test('a direct answer meanwhile leaves the bridge under a request still '
         'on it, and takes it down once that request ends', () async {
       final home = await appPath.homeDirPath;

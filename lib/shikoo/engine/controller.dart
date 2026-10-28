@@ -2073,16 +2073,27 @@ class ShikooController {
     _doorCalls++;
     _ref.read(_warpDoorProvider.notifier).set(true);
     try {
-      if (!_ref.read(warpAppProvider)) {
+      final starting = !_ref.read(warpAppProvider);
+      if (starting) {
         _ref.read(warpAppProvider.notifier).set(true);
         await _setup.applyProfile(silence: true);
       }
-      // Go writes endpoint.json as it starts the bridge.
-      for (var i = 0; i < 20 && _ref.mounted; i++) {
-        if (await warpProxy(_ref.read) case final proxy?) {
-          return await request(proxy);
+      // A bridge that died is started again by Go's supervisor; its endpoint comes back with it.
+      final until = DateTime.now().add(warpConnectTimeout);
+      while (_ref.mounted &&
+          _ref.read(shikooWarpProvider) &&
+          DateTime.now().isBefore(until)) {
+        switch (await warpProxy(_ref.read)) {
+          case (proxy: final proxy?, error: _):
+            return await request(proxy);
+          case (proxy: null, error: final error?):
+            if (starting) {
+              shikooDiag.add('T', 'warp bridge cannot start: $error');
+            }
+            return null;
+          default:
+            await Future<void>.delayed(const Duration(milliseconds: 250));
         }
-        await Future<void>.delayed(const Duration(milliseconds: 250));
       }
       return null;
     } finally {
