@@ -212,7 +212,8 @@ void main() {
     expect(wrong, isEmpty);
   }, variant: _windows);
 
-  testWidgets('in the 880 × 508 page (an 880 × 540 window) the WARP sign-in '
+  testWidgets('in the 880 × 508 page (an 880 × 540 window) and the 864 × 492 '
+      'one Sam uses the WARP sign-in '
       'frames fit unscrolled: the code that did not come, its buttons closed '
       'up, and the code asked through WARP, its line where the brand was', (
     tester,
@@ -224,7 +225,10 @@ void main() {
       failed: false,
       door: true,
     );
-    for (final language in ['fa', 'en']) {
+    for (final (page, language) in [
+      for (final page in const [Size(880, 508), Size(864, 492)])
+        for (final language in ['fa', 'en']) (page, language),
+    ]) {
       final l = lookupShikooL10n(Locale(language));
       for (final (login, bridge, shown) in [
         (const ShikooLogin(LoginPhase.startFailed), noBridge, l.warpTry),
@@ -232,12 +236,12 @@ void main() {
       ]) {
         await _pump(
           tester,
-          const Size(880, 508),
+          page,
           login: login,
           language: language,
           bridge: bridge,
         );
-        final why = '$language ${login.phase.name}';
+        final why = '$page $language ${login.phase.name}';
         expect(
           find.textContaining(shown, findRichText: true),
           findsOne,

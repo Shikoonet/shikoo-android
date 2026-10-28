@@ -1694,11 +1694,13 @@ void main() {
       expect(ring.overlaps(address), isFalse, reason: '$ring on $address');
     }, variant: _windows);
 
-    testWidgets('in the 880 × 508 page (an 880 × 540 window) WARP off fits '
-        'unscrolled: the button gives way, and «روشن کردن WARP» and its line '
-        'show whole', (tester) async {
-      const window = Size(880, 508);
-      for (final language in ['fa', 'en']) {
+    testWidgets('in the 880 × 508 page (an 880 × 540 window) and the 864 × 492 '
+        'one WARP off fits unscrolled: the button gives way, its text keeps its '
+        'size, and «روشن کردن WARP» and its line show whole', (tester) async {
+      for (final (window, language) in [
+        for (final window in const [Size(880, 508), Size(864, 492)])
+          for (final language in ['fa', 'en']) (window, language),
+      ]) {
         await _pumpHome(
           tester,
           window,
@@ -1727,7 +1729,9 @@ void main() {
           ),
           reason: language,
         );
-        expect(find.text(l.subRetryDesktop), findsOne, reason: language);
+        if (window.height == 508) {
+          expect(find.text(l.subRetryDesktop), findsOne, reason: language);
+        }
         final texts = find.descendant(
           of: find.byType(PowerButton),
           matching: find.byType(RichText),

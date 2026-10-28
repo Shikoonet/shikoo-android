@@ -1119,7 +1119,7 @@ class FillPage extends StatelessWidget {
       // A window far taller than a phone would split them into two islands: they stay one group.
       return _StuckButtons(
         packed: packed,
-        gaps: bottom.length - 1,
+        give: (bottom.length - 1) * (Space.s4 - Space.s2) + Space.s3,
         trailing: packed ? padding.bottom : Space.s4 + padding.bottom,
         body: EdgeScroll(
           divider: true,
@@ -1142,13 +1142,10 @@ class FillPage extends StatelessWidget {
           ),
         ),
         foot: Padding(
-          padding: EdgeInsets.fromLTRB(
-            padding.left,
-            Space.s3,
-            padding.right,
-            0,
+          padding: EdgeInsets.fromLTRB(padding.left, 0, padding.right, 0),
+          child: PaneColumn(
+            child: _Gaps(lead: Space.s3, children: bottom),
           ),
-          child: PaneColumn(child: _Gaps(children: bottom)),
         ),
       );
     }
@@ -1191,7 +1188,7 @@ class _StuckButtons extends StatelessWidget {
     required this.foot,
     required this.trailing,
     this.packed = false,
-    this.gaps = 0,
+    this.give = 0,
   });
 
   final Widget body;
@@ -1199,8 +1196,7 @@ class _StuckButtons extends StatelessWidget {
   final double trailing;
   final bool packed;
 
-  /// How many of [foot]'s gaps are [_Gaps]' own, which may close up to fit the page.
-  final int gaps;
+  final double give;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -1212,7 +1208,7 @@ class _StuckButtons extends StatelessWidget {
           least: MediaQuery.textScalerOf(context).scale(ShikooSizes.touch),
           trailing: trailing,
           packed: packed,
-          gaps: gaps,
+          give: give,
         ),
         children: [body, foot],
       ),
@@ -1225,7 +1221,7 @@ typedef _Look = ({
   double least,
   double trailing,
   bool packed,
-  int gaps,
+  double give,
 });
 
 class _Stuck extends MultiChildRenderObjectWidget {
@@ -1268,15 +1264,15 @@ class _RenderStuck extends RenderBox
     final foot = childAfter(body)!;
     final width = constraints.maxWidth;
     foot.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
-    final (:page, :least, :trailing, :packed, :gaps) = _look;
+    final (:page, :least, :trailing, :packed, :give) = _look;
     body.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
     final short = body.size.height + foot.size.height - page;
-    if (short > 0 && gaps > 0) {
+    if (short > 0 && give > 0) {
       foot.layout(
         BoxConstraints.tightFor(width: width).copyWith(
           maxHeight: math.max(
             foot.size.height - short,
-            foot.size.height - gaps * (Space.s4 - Space.s2),
+            foot.size.height - give,
           ),
         ),
         parentUsesSize: true,
@@ -1320,18 +1316,34 @@ class _RenderStuck extends RenderBox
 }
 
 /// [FillPage]'s buttons on a computer, [Space.s4] apart; short of room under [_RenderStuck], the gaps
-/// give way evenly down to [Space.s2] before the page above them scrolls.
+/// give way evenly down to [Space.s2], then the [lead] above them, before the page above them scrolls.
 class _Gaps extends MultiChildRenderObjectWidget {
-  const _Gaps({required super.children});
+  const _Gaps({required this.lead, required super.children});
+
+  final double lead;
 
   @override
-  _RenderGaps createRenderObject(BuildContext context) => _RenderGaps();
+  _RenderGaps createRenderObject(BuildContext context) => _RenderGaps(lead);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderGaps renderObject) =>
+      renderObject.lead = lead;
 }
 
 class _RenderGaps extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  _RenderGaps(this._lead);
+
+  double _lead;
+
+  set lead(double lead) {
+    if (lead == _lead) return;
+    _lead = lead;
+    markNeedsLayout();
+  }
+
   @override
   void setupParentData(RenderBox child) {
     if (child.parentData is! MultiChildLayoutParentData) {
@@ -1346,12 +1358,17 @@ class _RenderGaps extends RenderBox
     for (final child in children) {
       child.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
     }
-    final tall = children.map((child) => child.size.height).sum;
     final gaps = children.length - 1;
-    final each = gaps == 0
-        ? 0.0
-        : ((constraints.maxHeight - tall) / gaps).clamp(Space.s2, Space.s4);
-    var y = 0.0;
+    final over = math.max(
+      0.0,
+      children.map((child) => child.size.height).sum +
+          _lead +
+          gaps * Space.s4 -
+          constraints.maxHeight,
+    );
+    final closed = math.min(over, gaps * (Space.s4 - Space.s2));
+    final each = gaps == 0 ? 0.0 : Space.s4 - closed / gaps;
+    var y = math.max(0.0, _lead - (over - closed));
     for (final child in children) {
       (child.parentData! as MultiChildLayoutParentData).offset = Offset(0, y);
       y += child.size.height + each;
