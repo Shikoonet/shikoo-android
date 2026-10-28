@@ -401,6 +401,9 @@ void main() {
       lessThan(tester.getTopLeft(find.text('خروج')).dy),
     );
 
+    // Connection's two switches push the account card below a phone's first screen.
+    await tester.ensureVisible(paste);
+    await tester.pumpAndSettle();
     await tester.tap(paste);
     await tester.pump();
     final refusal = find.textContaining(

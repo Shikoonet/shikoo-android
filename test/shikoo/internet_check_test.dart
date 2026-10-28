@@ -38,9 +38,11 @@ ShikooState _failed({
   required bool tv,
   bool silent = false,
   ShikooError error = ShikooError.connectTimeout,
+  ShikooBridge bridge = noBridge,
 }) => ShikooState(
   connection: ShikooConnection.error,
   lastError: error,
+  bridge: bridge,
   connectedFor: Duration.zero,
   isTV: tv,
   service: ShikooService(
@@ -253,7 +255,18 @@ void main() {
             : l.noServerAnsweredHelpTouch;
         final container = await _home(
           tester,
-          state: _failed(tv: tv, silent: true, error: ShikooError.noServer),
+          state: _failed(
+            tv: tv,
+            silent: true,
+            error: ShikooError.noServer,
+            bridge: (
+              on: true,
+              via: const {},
+              trying: false,
+              failed: false,
+              door: false,
+            ),
+          ),
           probe: () async => _ok,
           size: tv ? const Size(960, 540) : const Size(412, 915),
         );
@@ -261,6 +274,53 @@ void main() {
         await _show(container, tester);
         expect(find.text(l.probeNoServer), findsOneWidget);
         expect(find.text(hint), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '${tv ? 'TV' : 'phone'}: the WARP lines stay under a card that says the '
+      'internet works, and give way to one that says the device is offline',
+      (tester) async {
+        final l = lookupShikooL10n(const Locale('fa'));
+        final failed = tv ? l.warpFailBothTv : l.warpFailBothTouch;
+        final off = tv ? l.warpOffTv : l.warpOffTouch;
+        for (final (probe, card, shows) in [
+          (_ok, l.probeNoServer, true),
+          (_offline, l.probeOffline, false),
+        ]) {
+          for (final (on, line) in [(true, failed), (false, off)]) {
+            final container = await _home(
+              tester,
+              state: _failed(
+                tv: tv,
+                silent: true,
+                error: ShikooError.noServer,
+                bridge: (
+                  on: on,
+                  via: const {},
+                  trying: false,
+                  failed: on,
+                  door: false,
+                ),
+              ),
+              probe: () async => probe,
+              size: tv ? const Size(960, 540) : const Size(412, 915),
+            );
+            await _show(container, tester);
+            final why = '$card, WARP on: $on';
+            expect(find.text(card), findsOneWidget, reason: why);
+            expect(
+              find.text(line),
+              shows ? findsOneWidget : findsNothing,
+              reason: why,
+            );
+            expect(
+              find.widgetWithText(ShikooButton, l.warpTurnOn),
+              shows && !on ? findsOneWidget : findsNothing,
+              reason: why,
+            );
+          }
+        }
       },
     );
   }

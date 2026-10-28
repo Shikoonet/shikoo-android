@@ -1819,4 +1819,85 @@ class ShikooL10nFa extends ShikooL10n {
 
     return '$countString مجوز';
   }
+
+  @override
+  String get warpVia => 'از راه ⁨WARP⁩';
+
+  @override
+  String get warpSwitch => '⁨WARP⁩، وقتی سرورها بسته‌اند';
+
+  @override
+  String get warpSwitchHelp =>
+      'سرورهایی که مستقیم جواب ندهند، از راه شبکهٔ ⁨Cloudflare⁩ وصل می‌شوند. در این اتصال‌ها ⁨Cloudflare⁩ آی‌پی تو را می‌بیند.';
+
+  @override
+  String warpFirst(String server) {
+    return '‏«$server» مستقیم جواب نداد؛ از راه ⁨WARP⁩ وصل می‌شوی.\nبار اول ممکن است نیم دقیقه طول بکشد.';
+  }
+
+  @override
+  String get warpAgain => 'از راه ⁨WARP⁩ وصل می‌شوی…';
+
+  @override
+  String get warpFailBothTouch =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩.\nاینترنت این گوشی را بررسی کن. اگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get warpOffTouch =>
+      'سرورها از اینترنت این گوشی جواب ندادند، و ⁨WARP⁩ خاموش است.';
+
+  @override
+  String get warpFailBothTv =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩.\nاینترنت این تلویزیون را بررسی کن. اگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get warpOffTv =>
+      'سرورها از اینترنت این تلویزیون جواب ندادند، و ⁨WARP⁩ خاموش است.';
+
+  @override
+  String get warpFailBothDesktop =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩.\nاینترنت این کامپیوتر را بررسی کن. اگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get warpOffDesktop =>
+      'سرورها از اینترنت این کامپیوتر جواب ندادند، و ⁨WARP⁩ خاموش است.';
+
+  @override
+  String get warpTurnOn => 'روشن کردن ⁨WARP⁩';
+
+  @override
+  String get warpNote => 'با این کار، ⁨Cloudflare⁩ آی‌پی تو را می‌بیند.';
+
+  @override
+  String get warpLoginWaitTitle => 'سرور شیکونت مستقیم جواب نداد.';
+
+  @override
+  String get warpLoginWait =>
+      'کد ورود را از راه ⁨WARP⁩ می‌گیریم؛ بار اول ممکن است نیم دقیقه طول بکشد.';
+
+  @override
+  String get warpLoginFailTouch =>
+      'سرور شیکونت از اینترنت این گوشی جواب نداد. شاید بسته است؛ از راه ⁨WARP⁩ امتحان کن.';
+
+  @override
+  String get warpLoginFailTv =>
+      'سرور شیکونت از اینترنت این تلویزیون جواب نداد. شاید بسته است؛ از راه ⁨WARP⁩ امتحان کن.';
+
+  @override
+  String get warpLoginFailDesktop =>
+      'سرور شیکونت از اینترنت این کامپیوتر جواب نداد. شاید بسته است؛ از راه ⁨WARP⁩ امتحان کن.';
+
+  @override
+  String get warpTry => 'امتحان از راه ⁨WARP⁩';
+
+  @override
+  String get aboutWarp =>
+      'اگر ⁨WARP⁩ را روشن کنی، سرورهایی که مستقیم جواب ندهند از راه شبکهٔ ⁨Cloudflare⁩ وصل می‌شوند؛ ورود و به‌روزرسانی اشتراک هم اگر مستقیم نشوند، از همین راه می‌روند. ⁨Cloudflare⁩ فقط در همین اتصال‌ها آی‌پی تو را می‌بیند.';
+
+  @override
+  String get updatingWarp => 'مستقیم نشد؛ از راه ⁨WARP⁩…';
+
+  @override
+  String get updateFailedWarp =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩. با همین سرورها وصل شو، بعد از راه سرور امتحان کن؛ اگر باز نشد، از «پشتیبانی» بپرس.';
 }

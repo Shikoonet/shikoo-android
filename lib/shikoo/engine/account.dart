@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File, HttpHeaders, InternetAddress;
+import 'dart:io' show File, HttpClient, HttpHeaders, InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:fl_clash/common/print.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/database/database.dart';
@@ -19,6 +20,7 @@ import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/ping.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:flutter/foundation.dart' hide mergeSort;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -247,9 +249,16 @@ final shikooDeviceProvider =
     );
 
 class ShikooApiFailure implements Exception {
-  const ShikooApiFailure({this.clock = false, this.status});
+  const ShikooApiFailure({
+    this.clock = false,
+    this.status,
+    this.bridge = false,
+  });
 
   final bool clock;
+
+  /// The bridge was tried after the door's addresses, and failed too.
+  final bool bridge;
 
   /// The door answered, and refused; null when it was not reached.
   final int? status;
@@ -335,7 +344,7 @@ class AppRelease {
 final _sha256 = RegExp(r'^[0-9a-f]{64}$');
 
 class ShikooApi {
-  ShikooApi(this.bases, [Dio? dio])
+  ShikooApi(this.bases, [Dio? dio, this.bridge, this.answeredDirect])
     : _dio =
           dio ??
           Dio(
@@ -350,6 +359,14 @@ class ShikooApi {
   final List<String> bases;
   final Dio _dio;
 
+  /// Runs a call with the WARP bridge's `PROXY …` for HttpClient, once no address answered; null while it is off.
+  final Future<Response<Object?>?> Function(
+    Future<Response<Object?>?> Function(String proxy) call,
+  )?
+  bridge;
+
+  final Future<void> Function()? answeredDirect;
+
   /// The address that answered last goes first; the next is the backup for a blocked one.
   int _first = 0;
 
@@ -362,37 +379,61 @@ class ShikooApi {
   }) async {
     final name = path.split('/').where((part) => part.isNotEmpty).join('-');
     (DioException, String)? failed;
-    for (var i = 0; i < bases.length; i++) {
-      final at = (_first + i) % bases.length;
-      try {
-        final response = await _dio.request<Object?>(
-          '${bases[at]}/api/v1/app$path',
-          data: body,
-          options: Options(
-            method: method,
-            sendTimeout: sendTimeout,
-            headers: {
-              if (token != null)
-                HttpHeaders.authorizationHeader: 'Bearer $token',
-            },
-          ),
-        );
-        _first = at;
-        learnClock(response.headers.value(HttpHeaders.dateHeader));
-        if ((response.statusCode ?? 0) >= 400) {
-          shikooDiag.add('T', 'door $name http ${response.statusCode}');
+    Future<Response<Object?>?> each(Dio dio) async {
+      for (var i = 0; i < bases.length; i++) {
+        final at = (_first + i) % bases.length;
+        try {
+          final response = await dio.request<Object?>(
+            '${bases[at]}/api/v1/app$path',
+            data: body,
+            options: Options(
+              method: method,
+              sendTimeout: sendTimeout,
+              headers: {
+                if (token != null)
+                  HttpHeaders.authorizationHeader: 'Bearer $token',
+              },
+            ),
+          );
+          _first = at;
+          learnClock(response.headers.value(HttpHeaders.dateHeader));
+          if ((response.statusCode ?? 0) >= 400) {
+            shikooDiag.add('T', 'door $name http ${response.statusCode}');
+          }
+          return response;
+        } on DioException catch (error) {
+          failed = (error, bases[at]);
         }
-        return response;
-      } on DioException catch (error) {
-        failed = (error, bases[at]);
       }
+      return null;
     }
-    final clock = failed != null && await clockFailed(failed.$1, failed.$2);
+
+    if (await each(_dio) case final response?) {
+      await answeredDirect?.call();
+      return response;
+    }
+    var tried = false;
+    final carried = await bridge?.call((proxy) async {
+      tried = true;
+      final bridged =
+          Dio(_dio.options.copyWith(connectTimeout: warpConnectTimeout))
+            ..httpClientAdapter = IOHttpClientAdapter(
+              createHttpClient: () => HttpClient()..findProxy = (_) => proxy,
+            );
+      try {
+        return await each(bridged);
+      } finally {
+        bridged.close(force: true);
+      }
+    });
+    if (carried != null) return carried;
+    final last = failed;
+    final clock = last != null && await clockFailed(last.$1, last.$2);
     shikooDiag.add(
       'T',
-      'door $name ${clock ? 'clock' : failureKind(failed?.$1)}',
+      'door $name ${clock ? 'clock' : failureKind(last?.$1)}',
     );
-    throw ShikooApiFailure(clock: clock);
+    throw ShikooApiFailure(clock: clock, bridge: tried);
   }
 
   static Map<String, dynamic>? _json(Response<Object?> response) =>
@@ -561,7 +602,16 @@ class ShikooApi {
   );
 }
 
-final shikooApiProvider = Provider<ShikooApi>((_) => ShikooApi(shikooApiBases));
+final shikooApiProvider = Provider<ShikooApi>(
+  (ref) => ShikooApi(
+    shikooApiBases,
+    null,
+    (call) => ref
+        .read(shikooControllerProvider)
+        .throughBridge<Response<Object?>?>(call),
+    () => ref.read(shikooControllerProvider).leaveBridge(),
+  ),
+);
 
 Rule apiDirectRule(String base, int id) {
   final host = Uri.parse(base).host;
@@ -833,7 +883,12 @@ class ShikooSignIn {
           .then(
             (device) => _api.start(deviceName: device.name, kind: device.kind),
           )
-          .timeout(startLimit);
+          // The bridge's first connection to WARP takes 20-30 s on its own.
+          .timeout(
+            _ref.read(shikooWarpProvider)
+                ? startLimit + warpConnectTimeout
+                : startLimit,
+          );
       _live = code;
       if (attempt != _attempt) return null;
       _login(

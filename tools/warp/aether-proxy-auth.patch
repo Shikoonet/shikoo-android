@@ -1,0 +1,239 @@
+diff --git a/aether/src/socks.rs b/aether/src/socks.rs
+index 46cbf5f..ba4f1f3 100644
+--- a/aether/src/socks.rs
++++ b/aether/src/socks.rs
+@@ -473,6 +473,28 @@ async fn read_request(sock: &mut TcpStream) -> Result<(u8, Target, u16)> {
+ }
+ 
+ async fn handshake(sock: &mut TcpStream) -> Result<()> {
++    handshake_with(sock, proxy_auth()).await
++}
++
++type Credentials = (Vec<u8>, Vec<u8>);
++
++/// AETHER_PROXY_AUTH=user:pass makes every listener ask its clients for that password, socks5 by
++/// RFC 1929 and the http proxy by Basic: on Android every app can reach 127.0.0.1.
++fn proxy_auth() -> Option<&'static Credentials> {
++    static AUTH: std::sync::OnceLock<Option<Credentials>> = std::sync::OnceLock::new();
++    AUTH.get_or_init(|| {
++        let value = std::env::var("AETHER_PROXY_AUTH").ok()?;
++        let (user, password) = value.split_once(':')?;
++        Some((user.as_bytes().to_vec(), password.as_bytes().to_vec()))
++    })
++    .as_ref()
++}
++
++fn same(a: &[u8], b: &[u8]) -> bool {
++    a.len() == b.len() && a.iter().zip(b).fold(0, |d, (x, y)| d | (x ^ y)) == 0
++}
++
++async fn handshake_with(sock: &mut TcpStream, auth: Option<&Credentials>) -> Result<()> {
+     let mut prefix = [0u8; 2];
+     sock.read_exact(&mut prefix).await?;
+     if prefix[0] != VER {
+@@ -481,10 +503,188 @@ async fn handshake(sock: &mut TcpStream) -> Result<()> {
+     let nmethods = prefix[1] as usize;
+     let mut methods = vec![0u8; nmethods];
+     sock.read_exact(&mut methods).await?;
+-    sock.write_all(&[VER, 0x00]).await?;
++    let Some((user, password)) = auth else {
++        sock.write_all(&[VER, 0x00]).await?;
++        return Ok(());
++    };
++    if !methods.contains(&0x02) {
++        sock.write_all(&[VER, 0xff]).await?;
++        return Err(AetherError::Other("the client offered no password".into()));
++    }
++    sock.write_all(&[VER, 0x02]).await?;
++    let mut head = [0u8; 2];
++    sock.read_exact(&mut head).await?;
++    let mut name = vec![0u8; head[1] as usize];
++    sock.read_exact(&mut name).await?;
++    let mut length = [0u8; 1];
++    sock.read_exact(&mut length).await?;
++    let mut given = vec![0u8; length[0] as usize];
++    sock.read_exact(&mut given).await?;
++    let ok = head[0] == 0x01 && same(&name, user) & same(&given, password);
++    sock.write_all(&[0x01, if ok { 0x00 } else { 0x01 }]).await?;
++    if ok {
++        Ok(())
++    } else {
++        Err(AetherError::Other("wrong socks5 password".into()))
++    }
++}
++
++async fn http_gate(sock: &mut TcpStream, head: &str, request: &HttpRequestLine) -> Result<()> {
++    http_gate_with(sock, head, request, proxy_auth()).await
++}
++
++/// With a password the http proxy carries CONNECT alone: a plain request would take the
++/// Proxy-Authorization header on to the site.
++async fn http_gate_with(
++    sock: &mut TcpStream,
++    head: &str,
++    request: &HttpRequestLine,
++    auth: Option<&Credentials>,
++) -> Result<()> {
++    use base64::Engine;
++    let Some((user, password)) = auth else {
++        return Ok(());
++    };
++    let wanted =
++        base64::engine::general_purpose::STANDARD.encode([&user[..], b":", password].concat());
++    let given = head.lines().skip(1).find_map(|line| {
++        let (name, value) = line.split_once(':')?;
++        name.trim()
++            .eq_ignore_ascii_case("proxy-authorization")
++            .then(|| value.trim().to_string())
++    });
++    let ok = given
++        .as_deref()
++        .and_then(|value| value.strip_prefix("Basic "))
++        .is_some_and(|value| same(value.trim().as_bytes(), wanted.as_bytes()));
++    if !ok {
++        let _ = sock
++            .write_all(
++                b"HTTP/1.1 407 Proxy Authentication Required\r\n\
++                  Proxy-Authenticate: Basic realm=\"proxy\"\r\nConnection: close\r\n\r\n",
++            )
++            .await;
++        return Err(AetherError::Other(
++            "an http proxy client without the password".into(),
++        ));
++    }
++    if request.rewritten.is_some() {
++        let _ = sock
++            .write_all(b"HTTP/1.1 405 Method Not Allowed\r\nConnection: close\r\n\r\n")
++            .await;
++        return Err(AetherError::Other(
++            "with a password only CONNECT is carried".into(),
++        ));
++    }
+     Ok(())
+ }
+ 
++#[cfg(test)]
++mod auth_tests {
++    use super::*;
++
++    async fn pair() -> (TcpStream, TcpStream) {
++        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
++        let address = listener.local_addr().unwrap();
++        let (dialed, accepted) = tokio::join!(TcpStream::connect(address), listener.accept());
++        (dialed.unwrap(), accepted.unwrap().0)
++    }
++
++    async fn greet(client: &[u8], auth: Option<&Credentials>) -> (Result<()>, Vec<u8>) {
++        let (mut dialed, mut accepted) = pair().await;
++        dialed.write_all(client).await.unwrap();
++        let result = tokio::time::timeout(
++            Duration::from_secs(5),
++            handshake_with(&mut accepted, auth),
++        )
++        .await
++        .unwrap_or_else(|_| Err(AetherError::Other("the handshake waited".into())));
++        drop(accepted);
++        let mut answer = Vec::new();
++        dialed.read_to_end(&mut answer).await.unwrap();
++        (result, answer)
++    }
++
++    async fn ask(head: &str, auth: Option<&Credentials>) -> (Result<()>, String) {
++        let (mut dialed, mut accepted) = pair().await;
++        let request = parse_request_line(head.lines().next().unwrap()).unwrap();
++        let result = http_gate_with(&mut accepted, head, &request, auth).await;
++        drop(accepted);
++        dialed.shutdown().await.unwrap();
++        let mut answer = Vec::new();
++        dialed.read_to_end(&mut answer).await.unwrap();
++        (result, String::from_utf8(answer).unwrap())
++    }
++
++    fn secret() -> Credentials {
++        (b"u".to_vec(), b"secret".to_vec())
++    }
++
++    #[tokio::test]
++    async fn without_a_password_every_client_is_served_as_before() {
++        let (result, answer) = greet(&[VER, 1, 0x00], None).await;
++        assert!(result.is_ok());
++        assert_eq!(answer, [VER, 0x00]);
++        let (result, answer) = ask("GET http://a.example/ HTTP/1.1\r\n\r\n", None).await;
++        assert!(result.is_ok());
++        assert_eq!(answer, "");
++    }
++
++    #[tokio::test]
++    async fn a_socks_client_offering_no_password_is_refused() {
++        let (result, answer) = greet(&[VER, 1, 0x00], Some(&secret())).await;
++        assert!(result.is_err());
++        assert_eq!(answer, [VER, 0xff]);
++    }
++
++    #[tokio::test]
++    async fn the_right_socks_password_is_let_in() {
++        let mut client = vec![VER, 2, 0x00, 0x02, 0x01, 1, b'u', 6];
++        client.extend_from_slice(b"secret");
++        let (result, answer) = greet(&client, Some(&secret())).await;
++        assert!(result.is_ok());
++        assert_eq!(answer, [VER, 0x02, 0x01, 0x00]);
++    }
++
++    #[tokio::test]
++    async fn a_wrong_socks_password_or_name_is_refused() {
++        for (name, password) in [
++            (&b"u"[..], &b"secrex"[..]),
++            (b"v", b"secret"),
++            (b"u", b"secre"),
++        ] {
++            let mut client = vec![VER, 1, 0x02, 0x01, name.len() as u8];
++            client.extend_from_slice(name);
++            client.push(password.len() as u8);
++            client.extend_from_slice(password);
++            let (result, answer) = greet(&client, Some(&secret())).await;
++            assert!(result.is_err());
++            assert_eq!(answer, [VER, 0x02, 0x01, 0x01]);
++        }
++    }
++
++    #[tokio::test]
++    async fn the_http_proxy_wants_the_password_and_carries_connect_alone() {
++        let good = "Proxy-Authorization: Basic dTpzZWNyZXQ=\r\n";
++        let connect = format!("CONNECT a.example:443 HTTP/1.1\r\n{good}\r\n");
++        let (result, answer) = ask(&connect, Some(&secret())).await;
++        assert!(result.is_ok());
++        assert_eq!(answer, "");
++        for head in [
++            "CONNECT a.example:443 HTTP/1.1\r\n\r\n",
++            "CONNECT a.example:443 HTTP/1.1\r\nProxy-Authorization: Basic dTpzZWNyZXg=\r\n\r\n",
++        ] {
++            let (result, answer) = ask(head, Some(&secret())).await;
++            assert!(result.is_err());
++            assert!(answer.starts_with("HTTP/1.1 407"), "{answer}");
++        }
++        let plain = format!("GET http://a.example/ HTTP/1.1\r\n{good}\r\n");
++        let (result, answer) = ask(&plain, Some(&secret())).await;
++        assert!(result.is_err());
++        assert!(answer.starts_with("HTTP/1.1 405"), "{answer}");
++    }
++}
++
+ async fn read_target(sock: &mut TcpStream, atyp: u8) -> Result<(Target, u16)> {
+     let target = match atyp {
+         ATYP_V4 => {
+@@ -2619,6 +2819,7 @@ where
+             )));
+         }
+     };
++    http_gate(&mut sock, &text, &request).await?;
+ 
+     let target = match request.authority.parse::<IpAddr>() {
+         Ok(ip) => Target::Ip(ip),
+@@ -2811,6 +3012,7 @@ async fn handle_http_client(mut sock: TcpStream, stack: StackHandle) -> Result<(
+             )));
+         }
+     };
++    http_gate(&mut sock, &text, &request).await?;
+ 
+     let target = match request.authority.parse::<IpAddr>() {
+         Ok(ip) => Target::Ip(ip),

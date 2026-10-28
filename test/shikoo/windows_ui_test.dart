@@ -113,10 +113,12 @@ ShikooState _state(
   String? server,
   String? selected,
   List<String> listed = const [],
+  ShikooBridge bridge = noBridge,
 }) => ShikooState(
   connection: connection,
   lastError: error,
   notice: notice,
+  bridge: bridge,
   busyPort: busyPort,
   helperFailed: helperFailed,
   connectedFor: connectedFor,
@@ -195,6 +197,7 @@ Future<void> _pumpHome(
   ShikooNotice? notice,
   Locale locale = const Locale('fa'),
   List<Override> overrides = const [],
+  ShikooBridge bridge = noBridge,
 }) async {
   _window(tester, window);
   await tester.pumpWidget(
@@ -210,6 +213,7 @@ Future<void> _pumpHome(
             busyPort: busyPort,
             helperFailed: helperFailed,
             notice: notice,
+            bridge: bridge,
           ),
         ),
         ...overrides,
@@ -1638,7 +1642,7 @@ void main() {
         (l.vpnRefusedDesktop, ShikooError.vpnRefused, null, false),
         (l.busyPortDesktop, null, 7890, false),
         (l.helperFailedDesktop, null, null, true),
-        (l.noServerAnsweredHelpDesktop, ShikooError.noServer, null, false),
+        (l.warpNote, ShikooError.noServer, null, false),
       ];
       for (final window in const [Size(864, 492), Size(880, 508)]) {
         for (final (text, error, port, helper) in cases) {
@@ -1688,6 +1692,65 @@ void main() {
       final ring = tester.getRect(copy).inflate(reach);
       final address = tester.getRect(find.text(localProxyAddress));
       expect(ring.overlaps(address), isFalse, reason: '$ring on $address');
+    }, variant: _windows);
+
+    testWidgets('in the 880 × 508 page (an 880 × 540 window) and the 864 × 492 '
+        'one WARP off fits unscrolled: the button gives way, its text keeps its '
+        'size, and «روشن کردن WARP» and its line show whole', (tester) async {
+      for (final (window, language) in [
+        for (final window in const [Size(880, 508), Size(864, 492)])
+          for (final language in ['fa', 'en']) (window, language),
+      ]) {
+        await _pumpHome(
+          tester,
+          window,
+          connection: ShikooConnection.error,
+          error: ShikooError.noServer,
+          locale: Locale(language),
+        );
+        await tester.pump();
+        final l = lookupShikooL10n(Locale(language));
+        final column = Scrollable.of(
+          tester.element(find.byType(PowerButton)),
+        ).position;
+        expect(column.maxScrollExtent, moreOrLessEquals(0), reason: language);
+        for (final part in [l.warpTurnOn, l.warpNote]) {
+          expect(
+            window.height - tester.getRect(find.text(part)).bottom,
+            greaterThanOrEqualTo(Space.s4),
+            reason: '$language: $part',
+          );
+        }
+        expect(
+          tester.getRect(find.byType(PowerButton)).height,
+          inInclusiveRange(
+            ShikooSizes.powerRingLeast,
+            ShikooSizes.desktop.powerRing - 1,
+          ),
+          reason: language,
+        );
+        if (window.height == 508) {
+          expect(find.text(l.subRetryDesktop), findsOne, reason: language);
+        }
+        final texts = find.descendant(
+          of: find.byType(PowerButton),
+          matching: find.byType(RichText),
+        );
+        for (final text in texts.evaluate()) {
+          final paragraph = text.renderObject! as RenderParagraph;
+          final shown =
+              tester.getRect(find.byWidget(text.widget)).height /
+              paragraph.size.height;
+          final size =
+              paragraph.textScaler.scale(paragraph.text.style!.fontSize!) *
+              shown;
+          expect(
+            size,
+            greaterThanOrEqualTo(12),
+            reason: '$language: ${paragraph.text.toPlainText()}',
+          );
+        }
+      }
     }, variant: _windows);
 
     testWidgets('picking a server with a long name moves nothing in the '
@@ -1904,9 +1967,10 @@ void main() {
       }
     }, variant: _windows);
 
-    testWidgets("a name long enough to take three lines makes Sam's window "
-        'scroll as R3 asks: the same scroll with or without the message, and '
-        'the message shown Space.s4 clear of the bottom', (tester) async {
+    testWidgets("a name long enough to take three lines in Sam's window: the "
+        'button gives way where R3 had the page scroll, the same with or '
+        'without the message, and the message shown Space.s4 clear of the '
+        'bottom', (tester) async {
       const long = 'NETHERLANDS 12 GAMING REALITY PRO';
       // More letters, fewer lines: a count of letters would pick it and keep two.
       const listed = ['ترکیه ۴ · استانبول ویژهٔ گیمینگ و استریم'];
@@ -1931,7 +1995,11 @@ void main() {
         tester.element(find.byType(PowerButton)),
       ).position;
       final rest = column.maxScrollExtent;
-      expect(rest, greaterThan(0), reason: 'three lines leave no room: R3');
+      expect(rest, moreOrLessEquals(0));
+      expect(
+        tester.getRect(find.byType(PowerButton)).height,
+        lessThan(ShikooSizes.desktop.powerRing),
+      );
       cell.set(
         _state(
           ShikooConnection.error,
@@ -3211,29 +3279,33 @@ void main() {
     }
   }, variant: _windows);
 
-  testWidgets(
-    'in the 880 × 508 page (an 880 × 540 window) the message under the '
-    'mode switch '
-    'keeps clear of the bottom, the column centred',
-    (tester) async {
-      const window = Size(880, 508);
-      await _pumpHome(
-        tester,
-        window,
-        connection: ShikooConnection.error,
-        error: ShikooError.noServer,
-      );
-      final l = lookupShikooL10n(const Locale('fa'));
-      final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));
-      final above =
-          tester.getRect(find.byType(PowerButton)).top -
-          ShikooSizes.desktop.appbar;
-      final below = window.height - message.bottom;
-      expect(below, greaterThanOrEqualTo(Space.s4));
-      expect(above, closeTo(below - Space.s4, 1));
-    },
-    variant: _windows,
-  );
+  testWidgets('in the 880 × 508 page (an 880 × 540 window) the message under the '
+      'mode switch '
+      'keeps clear of the bottom, the column centred', (tester) async {
+    const window = Size(880, 508);
+    await _pumpHome(
+      tester,
+      window,
+      connection: ShikooConnection.error,
+      error: ShikooError.noServer,
+      // WARP off adds «روشن کردن WARP» under the message, which this window scrolls to (the test above).
+      bridge: (
+        on: true,
+        via: const {},
+        trying: false,
+        failed: false,
+        door: false,
+      ),
+    );
+    final l = lookupShikooL10n(const Locale('fa'));
+    final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));
+    final above =
+        tester.getRect(find.byType(PowerButton)).top -
+        ShikooSizes.desktop.appbar;
+    final below = window.height - message.bottom;
+    expect(below, greaterThanOrEqualTo(Space.s4));
+    expect(above, closeTo(below - Space.s4, 1));
+  }, variant: _windows);
 
   testWidgets('a window wider than 960 keeps the 960 page, top bars too, '
       'centred', (tester) async {

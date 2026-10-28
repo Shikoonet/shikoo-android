@@ -125,12 +125,26 @@ class ShikooSettings extends ConsumerWidget {
       ),
       _Group(
         title: l.connectionGroup,
-        child: SwitchRow(
-          label: l.iranDirect,
-          help: l.iranDirectHelp,
-          on: state.iranDirect,
-          onChanged: (on) =>
-              unawaited(ref.read(shikooControllerProvider).setIranDirect(on)),
+        child: _Card(
+          rows: [
+            SwitchRow(
+              label: l.iranDirect,
+              help: l.iranDirectHelp,
+              on: state.iranDirect,
+              inCard: true,
+              onChanged: (on) => unawaited(
+                ref.read(shikooControllerProvider).setIranDirect(on),
+              ),
+            ),
+            SwitchRow(
+              label: l.warpSwitch,
+              help: l.warpSwitchHelp,
+              on: state.bridge.on,
+              inCard: true,
+              onChanged: (on) =>
+                  unawaited(ref.read(shikooControllerProvider).setBridge(on)),
+            ),
+          ],
         ),
       ),
       if (state.cores.isNotEmpty)
@@ -559,6 +573,7 @@ class ShikooAbout extends ConsumerWidget {
                         ),
                         Text(l.aboutFree, style: body),
                         Text(l.aboutBasedOn, style: body),
+                        Text(l.aboutWarp, style: body),
                         Text(l.aboutSource, style: body),
                         Text(
                           l.aboutLicense,

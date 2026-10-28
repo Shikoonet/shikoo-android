@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
@@ -82,6 +83,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _supportNode = FocusNode();
   final _newCodeNode = FocusNode();
   final _retryNode = FocusNode();
+  final _warpNode = FocusNode();
   final _resultNode = FocusNode();
   final _chooseNode = FocusNode();
   final _notMineNode = FocusNode();
@@ -117,6 +119,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _supportNode.dispose();
     _newCodeNode.dispose();
     _retryNode.dispose();
+    _warpNode.dispose();
     _resultNode.dispose();
     _chooseNode.dispose();
     _notMineNode.dispose();
@@ -128,6 +131,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   FocusNode _first(LoginPhase? phase) => switch (phase) {
     null || LoginPhase.starting || LoginPhase.waiting => _supportNode,
     LoginPhase.expired => _newCodeNode,
+    LoginPhase.startFailed
+        when !(widget.login?.clock ?? false) &&
+            !ref.read(shikooStateProvider).bridge.on =>
+      _warpNode,
     LoginPhase.startFailed => _retryNode,
     LoginPhase.choosing => _chooseNode,
     _ => _resultNode,
@@ -166,6 +173,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _telegram() async => _open(await _signIn.start());
+
+  /// «امتحان از راه WARP»: the switch on, then the code asked for again.
+  Future<void> _tryWarp() async {
+    await ref.read(shikooControllerProvider).setBridge(true);
+    _isTV ? await _signIn.start() : await _telegram();
+  }
 
   Future<void> _otherAccount() async {
     await _signIn.notMine();
@@ -267,6 +280,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final account = login?.account;
     final clock = login?.clock ?? false;
     final starting = phase == LoginPhase.starting;
+    final offerWarp = !ref.watch(
+      shikooStateProvider.select((s) => s.bridge.on),
+    );
+    final viaWarp =
+        starting && ref.watch(shikooStateProvider.select((s) => s.bridge.door));
     Widget telegram(String label, VoidCallback onPressed) => ShikooButton(
       label: starting ? l.codeFetching : label,
       icon: ShikooIcon.plane,
@@ -315,10 +333,33 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         MediaQuery.sizeOf(context).width >= ShikooSizes.twoColumns) {
       return _split(chosen(start: true), choose(), _checklist(login!));
     }
+    final warp = offerWarp && !clock;
+    final failedBox = MessageBox(
+      icon: ShikooIcon.alert,
+      danger: true,
+      strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
+      rest: clock
+          ? l.clockWrongHelp
+          : switch ((shikooDesktop, warp)) {
+              (true, true) => l.warpLoginFailDesktop,
+              (false, true) => l.warpLoginFailTouch,
+              (true, false) => l.codeFailedHelpDesktop,
+              (false, false) => l.codeFailedHelpTouch,
+            },
+    );
+    // A computer keeps the buttons at the bottom, and WARP's two lines would push them out of a small
+    // window: the message takes the brand's place above them, where it is seen without scrolling.
+    final failedAbove = shikooDesktop && warp;
+    final waitBox = MessageBox(
+      icon: ShikooIcon.spin,
+      strong: l.warpLoginWaitTitle,
+      rest: l.warpLoginWait,
+    );
     final (Widget middle, List<Widget> actions) = switch (phase) {
       null || LoginPhase.starting => (
-        const _BrandBlock(),
+        shikooDesktop && viaWarp ? waitBox : const _BrandBlock(),
         [
+          if (viaWarp && !shikooDesktop) waitBox,
           telegram(l.loginTelegram, signIn),
           Text(
             shikooDesktop ? l.loginTelegramNoteDesktop : l.loginTelegramNote,
@@ -330,22 +371,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ],
       ),
       LoginPhase.startFailed => (
-        const _BrandBlock(),
+        failedAbove ? failedBox : const _BrandBlock(),
         [
-          MessageBox(
-            icon: ShikooIcon.alert,
-            danger: true,
-            strong: clock ? l.clockWrongTitle : l.codeFailedTitle,
-            rest: clock
-                ? l.clockWrongHelp
-                : (shikooDesktop
-                      ? l.codeFailedHelpDesktop
-                      : l.codeFailedHelpTouch),
-          ),
+          if (!failedAbove) failedBox,
           if (clock)
             const DateSettingsButton()
-          else
+          else ...[
+            if (warp)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                // A computer's foot is short of room: the line keeps close under its button.
+                spacing: shikooDesktop ? Space.s2 : Space.s4,
+                children: [
+                  outline(l.warpTry, () => unawaited(_tryWarp())),
+                  Text(
+                    l.warpNote,
+                    textAlign: TextAlign.center,
+                    style: t.text(t.s.bodySm, color: t.c.textMuted),
+                  ),
+                ],
+              ),
             LinkButton(label: l.reportSendToSupport, onPressed: _report),
+          ],
           telegram(l.loginTelegram, signIn),
           _paste(enabled: true, dateButton: !clock),
           elsewhere,
@@ -693,6 +740,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final phase = login?.phase;
     final expired = phase == LoginPhase.expired;
     final failed = phase == LoginPhase.startFailed;
+    final offerWarp = !ref.watch(
+      shikooStateProvider.select((s) => s.bridge.on),
+    );
+    final viaWarp =
+        phase == LoginPhase.starting &&
+        ref.watch(shikooStateProvider.select((s) => s.bridge.door));
     final fine = t.text(s.bodySm, color: t.c.textMuted, height: Leading.body);
     Widget newCode(String label, FocusNode node) => ShikooButton(
       label: label,
@@ -720,14 +773,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     Text(
                       failed
-                          ? (login!.clock ? clockText(l) : l.codeFailedLeadTv)
-                          : (expired ? l.codeExpiredLead : l.tvLoginLead),
+                          ? (login!.clock
+                                ? clockText(l)
+                                : (offerWarp
+                                      ? '${l.codeFailedTitle} ${l.warpLoginFailTv}'
+                                      : l.codeFailedLeadTv))
+                          : (expired
+                                ? l.codeExpiredLead
+                                : (viaWarp
+                                      ? '${l.warpLoginWaitTitle} ${l.warpLoginWait}'
+                                      : l.tvLoginLead)),
                       style: t.text(s.title),
                     ),
                     if (failed && login!.clock) ...[
                       newCode(l.retry, _retryNode),
                       const DateSettingsButton(),
-                    ] else if (failed)
+                    ] else if (failed) ...[
                       Wrap(
                         spacing: Space.s2,
                         runSpacing: Space.s2,
@@ -739,8 +800,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             onPressed: _report,
                           ),
                         ],
-                      )
-                    else ...[
+                      ),
+                      if (offerWarp) ...[
+                        ShikooButton(
+                          label: l.warpTry,
+                          focusNode: _warpNode,
+                          onPressed: () => unawaited(_tryWarp()),
+                        ),
+                        Text(l.warpNote, style: fine),
+                      ],
+                    ] else ...[
                       if (!expired) Text(l.tvLoginVpnHint, style: fine),
                       _CodeBox(
                         login: login,
@@ -1050,6 +1119,7 @@ class FillPage extends StatelessWidget {
       // A window far taller than a phone would split them into two islands: they stay one group.
       return _StuckButtons(
         packed: packed,
+        give: (bottom.length - 1) * (Space.s4 - Space.s2) + Space.s3,
         trailing: packed ? padding.bottom : Space.s4 + padding.bottom,
         body: EdgeScroll(
           divider: true,
@@ -1072,13 +1142,10 @@ class FillPage extends StatelessWidget {
           ),
         ),
         foot: Padding(
-          padding: EdgeInsets.fromLTRB(
-            padding.left,
-            Space.s3,
-            padding.right,
-            0,
+          padding: EdgeInsets.fromLTRB(padding.left, 0, padding.right, 0),
+          child: PaneColumn(
+            child: _Gaps(lead: Space.s3, children: bottom),
           ),
-          child: PaneColumn(child: actions),
         ),
       );
     }
@@ -1121,12 +1188,15 @@ class _StuckButtons extends StatelessWidget {
     required this.foot,
     required this.trailing,
     this.packed = false,
+    this.give = 0,
   });
 
   final Widget body;
   final Widget foot;
   final double trailing;
   final bool packed;
+
+  final double give;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -1138,6 +1208,7 @@ class _StuckButtons extends StatelessWidget {
           least: MediaQuery.textScalerOf(context).scale(ShikooSizes.touch),
           trailing: trailing,
           packed: packed,
+          give: give,
         ),
         children: [body, foot],
       ),
@@ -1145,7 +1216,13 @@ class _StuckButtons extends StatelessWidget {
   );
 }
 
-typedef _Look = ({double page, double least, double trailing, bool packed});
+typedef _Look = ({
+  double page,
+  double least,
+  double trailing,
+  bool packed,
+  double give,
+});
 
 class _Stuck extends MultiChildRenderObjectWidget {
   const _Stuck({required this.look, required super.children});
@@ -1187,7 +1264,20 @@ class _RenderStuck extends RenderBox
     final foot = childAfter(body)!;
     final width = constraints.maxWidth;
     foot.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
-    final (:page, :least, :trailing, :packed) = _look;
+    final (:page, :least, :trailing, :packed, :give) = _look;
+    body.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    final short = body.size.height + foot.size.height - page;
+    if (short > 0 && give > 0) {
+      foot.layout(
+        BoxConstraints.tightFor(width: width).copyWith(
+          maxHeight: math.max(
+            foot.size.height - short,
+            foot.size.height - give,
+          ),
+        ),
+        parentUsesSize: true,
+      );
+    }
     final room = page - foot.size.height;
     // Loose first: the body's own height while it fits, and the same scroll extent it ends with.
     body.layout(
@@ -1214,6 +1304,76 @@ class _RenderStuck extends RenderBox
     size = constraints.constrain(
       Size(width, pinned ? page : under + foot.size.height + trailing),
     );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+/// [FillPage]'s buttons on a computer, [Space.s4] apart; short of room under [_RenderStuck], the gaps
+/// give way evenly down to [Space.s2], then the [lead] above them, before the page above them scrolls.
+class _Gaps extends MultiChildRenderObjectWidget {
+  const _Gaps({required this.lead, required super.children});
+
+  final double lead;
+
+  @override
+  _RenderGaps createRenderObject(BuildContext context) => _RenderGaps(lead);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderGaps renderObject) =>
+      renderObject.lead = lead;
+}
+
+class _RenderGaps extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  _RenderGaps(this._lead);
+
+  double _lead;
+
+  set lead(double lead) {
+    if (lead == _lead) return;
+    _lead = lead;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MultiChildLayoutParentData) {
+      child.parentData = MultiChildLayoutParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    final children = getChildrenAsList();
+    for (final child in children) {
+      child.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    }
+    final gaps = children.length - 1;
+    final over = math.max(
+      0.0,
+      children.map((child) => child.size.height).sum +
+          _lead +
+          gaps * Space.s4 -
+          constraints.maxHeight,
+    );
+    final closed = math.min(over, gaps * (Space.s4 - Space.s2));
+    final each = gaps == 0 ? 0.0 : Space.s4 - closed / gaps;
+    var y = math.max(0.0, _lead - (over - closed));
+    for (final child in children) {
+      (child.parentData! as MultiChildLayoutParentData).offset = Offset(0, y);
+      y += child.size.height + each;
+    }
+    size = constraints.constrain(Size(width, y - each));
   }
 
   @override

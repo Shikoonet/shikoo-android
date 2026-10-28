@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/state.dart';
@@ -67,6 +68,9 @@ void main(List<String> args) {
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooCoresProvider.notifier).load();
+        await container.read(shikooWarpProvider.notifier).load();
+        await container.read(shikooWarpMemoryProvider.notifier).load();
+        registerWarpLicenses();
         await container.read(shikooSignInProvider).load();
         HttpOverrides.global = FlClashHttpOverrides(container);
         request.attach(container.read);

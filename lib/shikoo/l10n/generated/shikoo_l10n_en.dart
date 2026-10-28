@@ -1884,4 +1884,85 @@ class ShikooL10nEn extends ShikooL10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get warpVia => 'via WARP';
+
+  @override
+  String get warpSwitch => 'WARP when servers are blocked';
+
+  @override
+  String get warpSwitchHelp =>
+      'Servers that don’t answer directly connect through Cloudflare’s network. On these connections Cloudflare sees your IP address.';
+
+  @override
+  String warpFirst(String server) {
+    return '“$server” didn’t answer directly; connecting via WARP.\nThe first time can take half a minute.';
+  }
+
+  @override
+  String get warpAgain => 'Connecting via WARP…';
+
+  @override
+  String get warpFailBothTouch =>
+      'No answer directly or via WARP.\nCheck this phone’s internet. If it works, ask Support.';
+
+  @override
+  String get warpOffTouch =>
+      'The servers didn’t answer from this phone’s internet, and WARP is off.';
+
+  @override
+  String get warpFailBothTv =>
+      'No answer directly or via WARP.\nCheck this TV’s internet. If it works, ask Support.';
+
+  @override
+  String get warpOffTv =>
+      'The servers didn’t answer from this TV’s internet, and WARP is off.';
+
+  @override
+  String get warpFailBothDesktop =>
+      'No answer directly or via WARP.\nCheck this computer’s internet. If it works, ask Support.';
+
+  @override
+  String get warpOffDesktop =>
+      'The servers didn’t answer from this computer’s internet, and WARP is off.';
+
+  @override
+  String get warpTurnOn => 'Turn WARP on';
+
+  @override
+  String get warpNote => 'This way, Cloudflare sees your IP address.';
+
+  @override
+  String get warpLoginWaitTitle => 'ShikooNet’s server didn’t answer directly.';
+
+  @override
+  String get warpLoginWait =>
+      'Getting the sign-in code via WARP; the first time can take half a minute.';
+
+  @override
+  String get warpLoginFailTouch =>
+      'ShikooNet’s server didn’t answer from this phone’s internet. It may be blocked; try via WARP.';
+
+  @override
+  String get warpLoginFailTv =>
+      'ShikooNet’s server didn’t answer from this TV’s internet. It may be blocked; try via WARP.';
+
+  @override
+  String get warpLoginFailDesktop =>
+      'ShikooNet’s server didn’t answer from this computer’s internet. It may be blocked; try via WARP.';
+
+  @override
+  String get warpTry => 'Try via WARP';
+
+  @override
+  String get aboutWarp =>
+      'If you turn WARP on, servers that don’t answer directly connect through Cloudflare’s network; signing in and subscription updates also go that way when they can’t go directly. Cloudflare sees your IP address only on these connections.';
+
+  @override
+  String get updatingWarp => 'No direct answer; trying WARP…';
+
+  @override
+  String get updateFailedWarp =>
+      'No answer directly or via WARP. Connect with these servers, then try through the server; if it still fails, ask Support.';
 }

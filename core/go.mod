@@ -20,6 +20,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/klauspost/compress v1.20.0
 	github.com/metacubex/mihomo v0.0.0-00010101000000-000000000000
+	github.com/metacubex/sing v0.5.8
 	github.com/metacubex/sing-tun v0.4.28
 	github.com/miekg/dns v1.1.73
 	github.com/sagernet/sing v0.9.7-0.20260929150544-0ad23b637bd4
@@ -27,6 +28,7 @@ require (
 	github.com/xtls/xray-core v1.260327.1-0.20261021115930-1b1647cd9ddf
 	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb
 	golang.org/x/crypto v0.58.0
+	golang.org/x/sys v0.49.0
 	golang.zx2c4.com/wireguard v0.0.0-20261006164505-2631ce99a06f
 )
 
@@ -126,7 +128,6 @@ require (
 	github.com/metacubex/randv2 v0.2.0 // indirect
 	github.com/metacubex/restls-client-go v0.1.9 // indirect
 	github.com/metacubex/sevenzip v1.6.4 // indirect
-	github.com/metacubex/sing v0.5.8 // indirect
 	github.com/metacubex/sing-mux v0.3.12 // indirect
 	github.com/metacubex/sing-quic v0.0.0-20260904234848-1c242664697a // indirect
 	github.com/metacubex/sing-shadowsocks v0.2.13 // indirect
@@ -213,7 +214,6 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect

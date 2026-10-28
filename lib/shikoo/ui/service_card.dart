@@ -804,6 +804,7 @@ class _Head extends StatelessWidget {
     final sub = switch (refresh) {
       _ when pinging != null => l.pingProgress(pinging.done, pinging.total),
       _ when service.revoked => l.updateFailed,
+      ShikooRefresh.running when service.bridgeLeg => l.updatingWarp,
       ShikooRefresh.running => switch (service.leg) {
         ShikooLeg.server => l.updatingViaServer,
         ShikooLeg.fallback => l.updatingFallback,
@@ -1015,6 +1016,7 @@ class _Message extends StatelessWidget {
     };
     final (strong, rest) = switch (notice) {
       RefreshFailed(clock: true) => (l.clockWrongTitle, l.clockWrongHelp),
+      RefreshFailed(bridge: true) => (l.updateFailedTitle, l.updateFailedWarp),
       RefreshFailed(:final way) => (
         l.updateFailedTitle,
         switch (way) {
@@ -1450,7 +1452,13 @@ class _ServerListState extends State<_ServerList> {
                                   server: byName[name]!,
                                   selected: name == state.selected,
                                   isNew: byName[name]!.fresh && !state.isTV,
-                                  via: viaLabel(l, byName[name]!, state.cores),
+                                  via: byName[name]!.viaBridge
+                                      ? l.warpVia
+                                      : viaLabel(l, byName[name]!, state.cores),
+                                  trying:
+                                      state.bridge.trying &&
+                                      byName[name]!.viaBridge &&
+                                      (byName[name]!.ping ?? -1) < 0,
                                   focusNode: widget.focus.row(name),
                                   onPressed: () => unawaited(
                                     widget.controller.selectServer(

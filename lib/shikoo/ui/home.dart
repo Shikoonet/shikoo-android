@@ -362,6 +362,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final update = ref.watch(shikooUpdateOfferProvider);
     final crashed = ref.watch(shikooCrashProvider) != null;
     final check = ref.watch(shikooProbeProvider);
+    // Only a card that says the device itself is offline goes before WARP's line and offer.
+    final offline =
+        check?.value != null &&
+        readProbes(check!.value, state.servers) == ProbeReading.offline;
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final now = shikooNow();
@@ -433,6 +437,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       },
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
       checked: check != null,
+      offline: offline,
     );
     _LinklessCard linkless(LinkedService linked) => _LinklessCard(
       service: linked,
@@ -627,6 +632,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                     settings: _settings,
                     actions: top,
                     power: _PowerKeys(
+                      down: offersWarp(state, offline: offline),
                       targets: [
                         _crashSend,
                         _check,
@@ -707,12 +713,23 @@ FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
   return nearest;
 }
 
+bool offersWarp(ShikooState state, {required bool offline}) =>
+    !offline &&
+    restingFor(state) == null &&
+    state.lastError == ShikooError.noServer &&
+    !state.bridge.on;
+
 /// Toward the card: the crash card, the internet check, then the selected or first server.
 class _PowerKeys extends StatelessWidget {
-  const _PowerKeys({required this.targets, required this.child});
+  const _PowerKeys({
+    required this.targets,
+    required this.child,
+    this.down = false,
+  });
 
   final List<FocusNode> targets;
   final Widget child;
+  final bool down;
 
   @override
   Widget build(BuildContext context) {
@@ -726,7 +743,7 @@ class _PowerKeys extends StatelessWidget {
             final target = targets.firstWhereOrNull(_onScreen);
             if (intent.direction == towardCard && target != null) {
               target.requestFocus();
-            } else if (intent.direction != TraversalDirection.down) {
+            } else if (intent.direction != TraversalDirection.down || down) {
               primaryFocus?.focusInDirection(intent.direction);
             }
             return null;
@@ -1074,6 +1091,7 @@ class _PowerZone extends StatelessWidget {
     this.restingLabel,
     this.restingMessage,
     this.checked = false,
+    this.offline = false,
   });
 
   final ShikooState state;
@@ -1088,6 +1106,7 @@ class _PowerZone extends StatelessWidget {
 
   /// The internet check has its card; «check this phone's internet» would contradict it.
   final bool checked;
+  final bool offline;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -1097,8 +1116,49 @@ class _PowerZone extends StatelessWidget {
   ShikooSwitch? get _shift => state.isTV ? state.switching : null;
   ShikooCoreSwitch? get _coreShift => state.isTV ? state.coreSwitch : null;
 
+  /// c-*: WARP's own line, which a computer shows in the pills' place under the button (c-win-first).
+  String? warpLine(ShikooL10n l) {
+    if (state.service == null ||
+        restingFor(state) != null ||
+        state.busyPort != null ||
+        state.helperFailed) {
+      return null;
+    }
+    String here(String tv, String desktop, String touch) =>
+        state.isTV ? tv : (shikooDesktop ? desktop : touch);
+    final selected = state.selectedServer;
+    if (state.lastError == ShikooError.noServer) {
+      return switch (state.bridge) {
+        _ when offline => null,
+        (on: false, via: _, trying: _, failed: _, door: _) => here(
+          l.warpOffTv,
+          l.warpOffDesktop,
+          l.warpOffTouch,
+        ),
+        (on: true, via: _, trying: _, failed: true, door: _) => here(
+          l.warpFailBothTv,
+          l.warpFailBothDesktop,
+          l.warpFailBothTouch,
+        ),
+        _ => null,
+      };
+    }
+    if (state.lastError != null ||
+        state.connection != ShikooConnection.connecting) {
+      return null;
+    }
+    final tried = (selected?.viaBridge ?? false)
+        ? selected!.name
+        : state.bridge.via.firstOrNull;
+    if (state.bridge.trying && tried != null) {
+      return l.warpFirst(serverName(tried));
+    }
+    return (selected?.viaBridge ?? false) ? l.warpAgain : null;
+  }
+
   String? message(ShikooL10n l) {
     if (state.service == null) return null;
+    if (warpLine(l) case final warp?) return warp;
     final resting = restingFor(state);
     final selected = state.selectedServer;
     final silent = _silent;
@@ -1234,12 +1294,20 @@ class _PowerZone extends StatelessWidget {
         ? _room(context, l, width)
         : (centred ? twoLines(context, t.text(t.s.bodySm)) : null);
     final slot = room == null ? null : math.max(room, t.s.speedPill);
-    final under = slot != null && state.connection == ShikooConnection.on;
+    final warp = warpLine(l);
+    final under =
+        slot != null &&
+        (state.connection == ShikooConnection.on ||
+            shikooDesktop && warp != null);
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
+    final offerWarp = offersWarp(state, offline: offline);
+    // WARP's first try and its failure: two lines wrapping to three on the TV too, where the room is two.
+    final tall = offerWarp || (state.isTV && (warp?.contains('\n') ?? false));
     final text = Text(
       message ?? '',
-      maxLines: shikooDesktop ? null : 2,
+      // A phone's message may wrap a line: WARP's failure and first try are two lines, the second one long.
+      maxLines: shikooDesktop ? null : (centred && !tall ? 2 : 3),
       overflow: shikooDesktop ? null : TextOverflow.ellipsis,
       textAlign: TextAlign.center,
       style: t.text(
@@ -1257,12 +1325,16 @@ class _PowerZone extends StatelessWidget {
             child: ConstrainedBox(
               constraints: BoxConstraints.tightFor(width: width).copyWith(
                 minHeight: slot ?? 0,
-                maxHeight: shikooDesktop ? double.infinity : slot,
+                maxHeight: shikooDesktop || tall ? double.infinity : slot,
               ),
               child: under ? Center(child: text) : text,
             ),
           )
         : null;
+    final offer = _WarpOffer(
+      isTV: state.isTV,
+      onPressed: () => unawaited(controller.setBridge(true)),
+    );
     final items = [
       PowerButton(
         connection: state.connection,
@@ -1295,7 +1367,17 @@ class _PowerZone extends StatelessWidget {
       else if (state.connection == ShikooConnection.on)
         const SpeedPills(),
       if (resting == null) ...[
-        NowPill(pick: state.pick, server: selected),
+        NowPill(
+          pick: state.pick,
+          server: selected,
+          via: (selected?.viaBridge ?? false) ? l.warpVia : null,
+          trying:
+              state.bridge.trying &&
+              (selected?.viaBridge ?? false) &&
+              (selected?.ping ?? -1) < 0,
+        ),
+        // c-off-win: the offer keeps with its message, above the mode switch.
+        if (shikooDesktop && offerWarp) offer,
         if (shikooDesktop) ...[
           ModeSwitch(
             connecting: state.connection == ShikooConnection.connecting,
@@ -1304,26 +1386,91 @@ class _PowerZone extends StatelessWidget {
         ],
       ],
       if (!under && say != null) say,
+      if (offerWarp && !shikooDesktop) offer,
     ];
     if (squeeze) {
-      return _Squeeze(gap: gap, keep: under ? 0 : slot!, children: items);
+      return _Squeeze(
+        gap: gap,
+        keep: under || offerWarp ? 0 : slot!,
+        children: items,
+      );
     }
-    return Column(
+    final column = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Balances the message's room, below or under the button, so the TV's button never moves.
-        if (slot != null && state.isTV) SizedBox(height: gap + slot),
+        if (slot != null && state.isTV && !tall) SizedBox(height: gap + slot),
         for (final (i, item) in items.indexed) ...[
           if (i > 0) SizedBox(height: gap),
           item,
         ],
       ],
     );
+    // c-tv-off, a-tv-fail: the button moves up for WARP's lines; large text shrinks the column, never cuts it.
+    return state.isTV && tall
+        ? FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(width: width, child: column),
+          )
+        : column;
+  }
+}
+
+/// «روشن کردن WARP» and what Cloudflare sees; c-tv-off: on the TV the remote moves to it as it comes.
+class _WarpOffer extends StatefulWidget {
+  const _WarpOffer({required this.isTV, required this.onPressed});
+
+  final bool isTV;
+  final VoidCallback onPressed;
+
+  @override
+  State<_WarpOffer> createState() => _WarpOfferState();
+}
+
+class _WarpOfferState extends State<_WarpOffer> {
+  final _node = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isTV) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _node.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      spacing: Space.s2,
+      children: [
+        ShikooButton(
+          label: l.warpTurnOn,
+          focusNode: _node,
+          onPressed: widget.onPressed,
+        ),
+        Text(
+          l.warpNote,
+          textAlign: TextAlign.center,
+          style: t.text(t.s.bodySm, color: t.c.textMuted),
+        ),
+      ],
+    );
   }
 }
 
 /// A computer's wide button column, centred in the least height asked: short of room, its gaps
-/// give way evenly down to Space.s2. The last child is placed as if [keep] tall.
+/// give way evenly down to Space.s2, then the button to [ShikooSizes.powerRingLeast]; the last as if [keep] tall.
 class _Squeeze extends MultiChildRenderObjectWidget {
   const _Squeeze({
     required this.gap,
@@ -1372,11 +1519,27 @@ class _RenderSqueeze extends RenderBox
     for (final child in children) {
       child.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
     }
-    final heights = <double>[for (final child in children) child.size.height];
-    final placed =
-        heights.sum - heights.last + (keep > 0 ? keep : heights.last);
     final gaps = children.length - 1;
     final room = constraints.minHeight;
+    double tall() =>
+        children.map((child) => child.size.height).sum -
+        children.last.size.height +
+        (keep > 0 ? keep : children.last.size.height);
+    final over = tall() + gaps * Space.s2 - room;
+    if (over > 0) {
+      final button = children.first;
+      button.layout(
+        BoxConstraints(
+          maxWidth: width,
+          maxHeight: math.max(
+            ShikooSizes.powerRingLeast,
+            button.size.height - over,
+          ),
+        ),
+        parentUsesSize: true,
+      );
+    }
+    final placed = tall();
     final each = gaps == 0
         ? 0.0
         : clampDouble((room - placed) / gaps, Space.s2, gap);
