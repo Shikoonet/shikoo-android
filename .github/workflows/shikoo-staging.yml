@@ -318,6 +318,21 @@ jobs:
           rustup default "$(rustup show active-toolchain | cut -d' ' -f1)"
           rustc --version
 
+      - name: The WARP bridge, gitignored, from the cache (docs/warp-bridge.md, section 5)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: warp
+        with:
+          path: libclash/windows/ShikooNetWarp.exe
+          key: warp-windows-${{ hashFiles('tools/warp-build.sh', 'tools/warp/**') }}
+
+      - name: The WARP bridge, with the Rust its script pins
+        if: steps.warp.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$(sed -n 's/^rust=\([0-9.]*\).*/\1/p' tools/warp-build.sh)" --profile minimal --component rustfmt
+          bash tools/warp-build.sh windows
+          rm -rf build/warp*
+
       - name: Inno Setup 6.7.3, as tools/windows-toolchain.ps1 installs it
         shell: pwsh
         run: |
@@ -343,6 +358,7 @@ jobs:
               --flutter-build-args "build-name=$VN,build-number=$GITHUB_RUN_NUMBER" \
               --build-dart-define APP_ENV=stable --build-dart-define SHIKOO_CORE="$CORE" "${@:2}"
             mv "dist/$1" out/
+            [ -f "$rel/ShikooNetWarp.exe" ] || { echo "::error::$1 has no WARP bridge: $rel/ShikooNetWarp.exe is missing"; exit 1; }
             staging=$(grep -caF "$API" "$rel/data/app.so" || true)
             product=$(pwsh -NoProfile -Command "(Get-Item 'out/$1', '$rel/ShikooNet.exe').VersionInfo.ProductName.Trim() -join ' / '" | tr -d '\r')
             port=$(grep -oaE 'http://127\.0\.0\.1:4789[0-9]' "$rel/data/app.so" | sort -u | paste -sd' ' || true)

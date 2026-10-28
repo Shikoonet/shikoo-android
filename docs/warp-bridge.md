@@ -134,7 +134,9 @@ Rust 1.95.0, without the `tor` feature (psiphon is a separate program aether wou
   script, its patch and the NDK: the script pins the rest, and aether is Rust, so the Go version is not in the key.
   A miss installs the pins first, Rust with `rustfmt`: boring-sys names `err.h`'s anonymous enum from rustfmt's output,
   and without it armeabi-v7a does not compile. Cold, the step took 21.6 min on 4 cores of the WSL machine (6.5 min per
-  ABI). `tools/check_apk_clean.sh` fails an APK without the bridge for one of its ABIs.
+  ABI). `tools/check_apk_clean.sh` fails an APK without the bridge for one of its ABIs. Staging's `windows` job does
+  the same for `ShikooNetWarp.exe` (key `warp-windows-`, the script and patch; MSVC and CMake are the image's; cold,
+  14 min with 4 jobs on this PC), and fails an installer whose bundle lacks it.
 
 ## 6. Proven, and not
 
