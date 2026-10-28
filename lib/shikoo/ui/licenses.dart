@@ -109,7 +109,7 @@ class _ShikooLicensesState extends ConsumerState<ShikooLicenses> {
           return isTV
               ? Center(
                   child: SizedBox(
-                    width: t.s.pane + 2 * Space.s2,
+                    width: t.s.pane + 2 * Space.s8,
                     child: TvScrollColumn(
                       child: Center(
                         child: SizedBox(width: t.s.pane, child: column),

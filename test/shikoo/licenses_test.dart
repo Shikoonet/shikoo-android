@@ -280,7 +280,11 @@ void main() {
       greaterThan(ShikooSizes.tv.safeX),
       reason: 'the thumb beside the column, inside the safe margin',
     );
-    expect(cards.left - list.left, lessThan(Space.s6));
+    expect(
+      cards.left - list.left,
+      Space.s8,
+      reason: 'room for the raised card\'s shadow, which the fade layer clips',
+    );
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'Xray');
     await _press(tester, LogicalKeyboardKey.select);
     expect(find.text(_fa.licenseScrollTv), findsOneWidget);
