@@ -212,9 +212,8 @@ void main() {
     expect(title(), ShikooColors.dark.text);
   });
 
-  testWidgets('About names the licence, both upstreams and the source', (
-    tester,
-  ) async {
+  testWidgets('About names the licence, FlClash, the other free software '
+      'and the source', (tester) async {
     await _pumpSettings(tester, _Controller());
     expect(
       await _press(tester, LogicalKeyboardKey.arrowDown),
@@ -229,7 +228,7 @@ void main() {
     await _press(tester, LogicalKeyboardKey.select);
     expect(find.textContaining('GPL-3.0'), findsOneWidget);
     expect(find.textContaining('FlClash'), findsOneWidget);
-    expect(find.textContaining('mihomo'), findsOneWidget);
+    expect(find.textContaining('چند نرم‌افزار آزاد دیگر'), findsOneWidget);
     expect(
       find.text('کد منبعِ همین نسخه را می‌توانی از «پشتیبانی» بگیری.'),
       findsOneWidget,

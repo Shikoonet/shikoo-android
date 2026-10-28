@@ -845,7 +845,7 @@ abstract class ShikooL10n {
   /// No description provided for @aboutSummary.
   ///
   /// In en, this message translates to:
-  /// **'Free software under GPL-3.0, built on FlClash and mihomo'**
+  /// **'Free software under GPL-3.0, built on FlClash and other free software'**
   String get aboutSummary;
 
   /// No description provided for @aboutFree.
@@ -857,7 +857,7 @@ abstract class ShikooL10n {
   /// No description provided for @aboutBasedOn.
   ///
   /// In en, this message translates to:
-  /// **'It is built on two free programs: FlClash by chen08209 and the mihomo core by MetaCubeX. Thanks to their makers.'**
+  /// **'It is built on FlClash by chen08209 and other free software. Thanks to their makers.'**
   String get aboutBasedOn;
 
   /// No description provided for @aboutSource.

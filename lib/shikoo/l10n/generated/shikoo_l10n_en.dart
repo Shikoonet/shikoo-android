@@ -527,7 +527,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get aboutSummary =>
-      'Free software under GPL-3.0, built on FlClash and mihomo';
+      'Free software under GPL-3.0, built on FlClash and other free software';
 
   @override
   String get aboutFree =>
@@ -535,7 +535,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get aboutBasedOn =>
-      'It is built on two free programs: FlClash by chen08209 and the mihomo core by MetaCubeX. Thanks to their makers.';
+      'It is built on FlClash by chen08209 and other free software. Thanks to their makers.';
 
   @override
   String get aboutSource =>

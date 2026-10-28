@@ -488,7 +488,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutSummary =>
-      'نرم‌افزار آزاد با مجوز ⁨GPL-3.0⁩، بر پایهٔ ⁨FlClash⁩ و ⁨mihomo⁩';
+      'نرم‌افزار آزاد با مجوز ⁨GPL-3.0⁩، بر پایهٔ ⁨FlClash⁩ و چند نرم‌افزار آزاد دیگر';
 
   @override
   String get aboutFree =>
@@ -496,7 +496,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutBasedOn =>
-      'شیکونت بر پایهٔ دو نرم‌افزار آزاد است: ⁨FlClash⁩ از ⁨chen08209⁩ و هستهٔ ⁨mihomo⁩ از ⁨MetaCubeX⁩. سپاس از سازندگانشان.';
+      'شیکونت بر پایهٔ ⁨FlClash⁩ از ⁨chen08209⁩ و چند نرم‌افزار آزاد دیگر است. سپاس از سازندگانشان.';
 
   @override
   String get aboutSource =>
