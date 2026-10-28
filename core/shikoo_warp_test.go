@@ -244,6 +244,45 @@ func TestABridgeThatEndsStartsAgainOnTheSamePortAndPassword(t *testing.T) {
 	}
 }
 
+func TestABridgeThatEndedTakesItsEndpointAwayUntilItRunsAgain(t *testing.T) {
+	dir := useFakeWarp(t, "end")
+	warpRestart = time.Hour
+	_, stop, err := startWarp([]map[string]any{{"name": "shikoo-warp"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	warpRuns(t, dir, 1)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, warpEndpoint)); errors.Is(err, os.ErrNotExist) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the endpoint still names a bridge that is not running")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestABridgeMissingFromTheBuildFailsOnceAndReplacesAStaleEndpointWithItsError(t *testing.T) {
+	dir := useFakeWarp(t, "run")
+	warpCommand = func() *exec.Cmd { return exec.Command(filepath.Join(t.TempDir(), "shikoowarp")) }
+	os.MkdirAll(dir, 0o700)
+	os.WriteFile(filepath.Join(dir, warpEndpoint), []byte(`{"http":"127.0.0.1:43249","auth":"u:p"}`), 0o600)
+	if _, _, err := startWarp([]map[string]any{{"name": "shikoo-warp"}}); err == nil {
+		t.Fatal("a bridge without its program started")
+	}
+	var endpoint map[string]string
+	data, _ := os.ReadFile(filepath.Join(dir, warpEndpoint))
+	if json.Unmarshal(data, &endpoint) != nil || endpoint["http"] != "" || !strings.Contains(endpoint["error"], "shikoowarp") {
+		t.Fatalf("endpoint after a failed start: %s", data)
+	}
+	if warpNow != nil {
+		t.Fatal("a failed start keeps trying")
+	}
+}
+
 func TestTheMarkedProxyReachesTheBridgeAndTheConfigParses(t *testing.T) {
 	useFakeWarp(t, "run")
 	raw, err := config.UnmarshalRawConfig([]byte(`

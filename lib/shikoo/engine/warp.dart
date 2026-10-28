@@ -190,16 +190,23 @@ bool warpLegWanted({
   required Object error,
 }) => on && !chosen && !(error is DioException && error.response != null);
 
-Future<String?> warpProxy(ProviderReader read) async {
-  if (!read(shikooWarpProvider)) return null;
+/// [proxy] while the bridge's program runs; [error] when it could not start, its program missing from the build for one.
+Future<({String? proxy, String? error})> warpProxy(ProviderReader read) async {
+  if (!read(shikooWarpProvider)) return (proxy: null, error: null);
   try {
     final home = await appPath.homeDirPath;
     final endpoint = json.decode(
       await File(join(home, 'warp', 'endpoint.json')).readAsString(),
     );
-    return 'PROXY ${endpoint['auth']}@${endpoint['http']}';
+    if (endpoint['error'] case final String error) {
+      return (proxy: null, error: error);
+    }
+    return (
+      proxy: 'PROXY ${endpoint['auth']}@${endpoint['http']}',
+      error: null,
+    );
   } on Object {
-    return null;
+    return (proxy: null, error: null);
   }
 }
 

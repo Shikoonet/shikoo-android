@@ -233,11 +233,19 @@ void main() {
       endpoint
         ..createSync(recursive: true)
         ..writeAsStringSync('{"http":"127.0.0.1:4321","auth":"u:p"}');
-      expect(await warpProxy(container.read), isNull, reason: 'switched off');
+      expect(await warpProxy(container.read), (proxy: null, error: null));
       await container.read(shikooWarpProvider.notifier).set(true);
-      expect(await warpProxy(container.read), 'PROXY u:p@127.0.0.1:4321');
+      expect(await warpProxy(container.read), (
+        proxy: 'PROXY u:p@127.0.0.1:4321',
+        error: null,
+      ));
+      endpoint.writeAsStringSync('{"error":"stat libshikoowarp.so: missing"}');
+      expect(await warpProxy(container.read), (
+        proxy: null,
+        error: 'stat libshikoowarp.so: missing',
+      ));
       endpoint.deleteSync();
-      expect(await warpProxy(container.read), isNull, reason: 'not running');
+      expect(await warpProxy(container.read), (proxy: null, error: null));
     });
 
     test('the switch is kept on this device', () async {

@@ -3387,6 +3387,60 @@ void main() {
       await controller.leaveBridge();
       expect(sameRoute(applied.last, noWarp), isTrue);
     });
+
+    test('a bridge whose program is not running yet: the request waits for it '
+        'up to warpConnectTimeout, the door shown all along', () async {
+      warpConnectTimeout = const Duration(seconds: 10);
+      final endpoint = File('${await appPath.homeDirPath}/warp/endpoint.json');
+      if (endpoint.existsSync()) endpoint.deleteSync();
+      addTearDown(() {
+        if (endpoint.existsSync()) endpoint.deleteSync();
+      });
+      await controller.setBridge(true);
+      final carried = controller.throughBridge((proxy) async => proxy);
+      await Future<void>.delayed(const Duration(milliseconds: 5500));
+      expect(state().bridge.door, isTrue);
+      endpoint
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"http":"127.0.0.1:4321","auth":"u:p"}');
+      expect(await carried, 'PROXY u:p@127.0.0.1:4321');
+      expect(state().bridge.door, isFalse);
+    });
+
+    test('a bridge missing from the build fails at once', () async {
+      warpConnectTimeout = const Duration(seconds: 20);
+      final endpoint = File('${await appPath.homeDirPath}/warp/endpoint.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"error":"stat libshikoowarp.so: missing"}');
+      addTearDown(endpoint.deleteSync);
+      await controller.setBridge(true);
+      final clock = Stopwatch()..start();
+      expect(await controller.throughBridge((proxy) async => proxy), isNull);
+      expect(clock.elapsed, lessThan(const Duration(seconds: 5)));
+      expect(state().bridge.door, isFalse);
+    });
+
+    test('a direct answer meanwhile leaves the bridge under a request still '
+        'on it, and takes it down once that request ends', () async {
+      final home = await appPath.homeDirPath;
+      File('$home/warp/endpoint.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"http":"127.0.0.1:4321","auth":"u:p"}');
+      addTearDown(() => File('$home/warp/endpoint.json').deleteSync());
+      await controller.setBridge(true);
+      final gate = Completer<String>();
+      final onBridge = controller.throughBridge((_) => gate.future);
+      await pumpEventQueue();
+      expect(state().bridge.door, isTrue);
+
+      await controller.leaveBridge();
+      expect(container.read(shikooWarpRouteProvider).app, isTrue);
+
+      gate.complete('done');
+      expect(await onBridge, 'done');
+      expect(container.read(shikooWarpRouteProvider).app, isFalse);
+      expect(sameRoute(applied.last, noWarp), isTrue);
+    });
   });
 
   group('an update leaves without the server, or through it', () {

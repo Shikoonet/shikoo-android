@@ -76,12 +76,17 @@ the core's environment reaches it.
   marked for a core behind mihomo (Xray, sing-box) goes back to mihomo: those engines dial their server themselves. A
   `direct`-type proxy never goes through it (WARP's free internet).
 - **The app's own requests** take the bridge last, through aether's http proxy (`PROXY user:pass@127.0.0.1:port`, read
-  from `<core home>/warp/endpoint.json`, written 0600 by Go while the bridge runs). `controller.throughBridge(request)`
-  starts the bridge for them when no server needed it (the route's `app`); with no service yet `getProfile` returns the
-  bridge alone (`warpOnlyProfile`), so the first sign-in can use it. A first call waits for the bridge's own start
-  (`connectTimeout` and the update's limit become `warpConnectTimeout`). The bridge stays up for the app, so a sign-in
+  from `<core home>/warp/endpoint.json`, written 0600 by Go only while the bridge's program runs; one a killed app left
+  behind goes at the next launch). `controller.throughBridge(request)` starts the bridge for them when no server needed
+  it (the route's `app`); with no service yet `getProfile` returns the bridge alone (`warpOnlyProfile`), so the first
+  sign-in can use it. A call waits up to `warpConnectTimeout` for the program, also while Go's supervisor starts a dead
+  one again (`connectTimeout` and the update's limit become `warpConnectTimeout` too). A build without the program
+  fails at once: Go writes `{"error": …}` there instead, with no retry loop (only the next config apply tries again),
+  and the app notes one line
+  (`warp bridge cannot start`) in its diagnostics. The bridge stays up for the app, so a sign-in
   polling every 3 s does not start it each time, until an own request answers direct again (`controller.leaveBridge()`,
-  called by `_fetch` and `ShikooApi`'s `answeredDirect`), a network change, or the switch going off.
+  called by `_fetch` and `ShikooApi`'s `answeredDirect`), a network change, or the switch going off. A request still on
+  the bridge then keeps it, and the last one to end takes it down.
   - updates (`_fetch`): after the existing ways (direct, then the server while connected) failed without an answer, only
     on the automatic way (`via == null`) and only while the switch is on (`warpLegWanted`).
   - the door (`ShikooApi._call`): after every address failed without an answer.

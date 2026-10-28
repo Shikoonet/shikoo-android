@@ -2078,6 +2078,7 @@ class ShikooController {
   }
 
   int _doorCalls = 0;
+  bool _leaveWhenDone = false;
 
   /// Runs the app's own [request] with the bridge's `PROXY …`, up for the app until [leaveBridge]; null while off.
   Future<T?> throughBridge<T>(Future<T> Function(String proxy) request) async {
@@ -2085,27 +2086,41 @@ class ShikooController {
     _doorCalls++;
     _ref.read(_warpDoorProvider.notifier).set(true);
     try {
-      if (!_ref.read(warpAppProvider)) {
+      final starting = !_ref.read(warpAppProvider);
+      if (starting) {
         _ref.read(warpAppProvider.notifier).set(true);
         await _setup.applyProfile(silence: true);
       }
-      // Go writes endpoint.json as it starts the bridge.
-      for (var i = 0; i < 20 && _ref.mounted; i++) {
-        if (await warpProxy(_ref.read) case final proxy?) {
-          return await request(proxy);
+      // A bridge that died is started again by Go's supervisor; its endpoint comes back with it.
+      final until = DateTime.now().add(warpConnectTimeout);
+      while (_ref.mounted &&
+          _ref.read(shikooWarpProvider) &&
+          DateTime.now().isBefore(until)) {
+        switch (await warpProxy(_ref.read)) {
+          case (proxy: final proxy?, error: _):
+            return await request(proxy);
+          case (proxy: null, error: final error?):
+            if (starting) {
+              shikooDiag.add('T', 'warp bridge cannot start: $error');
+            }
+            return null;
+          default:
+            await Future<void>.delayed(const Duration(milliseconds: 250));
         }
-        await Future<void>.delayed(const Duration(milliseconds: 250));
       }
       return null;
     } finally {
       if (--_doorCalls == 0 && _ref.mounted) {
         _ref.read(_warpDoorProvider.notifier).set(false);
+        if (_leaveWhenDone) await leaveBridge();
       }
     }
   }
 
+  /// A request still on the bridge keeps it; the last one to end takes it down.
   Future<void> leaveBridge() async {
-    if (!_ref.read(warpAppProvider)) return;
+    _leaveWhenDone = _doorCalls > 0;
+    if (_leaveWhenDone || !_ref.read(warpAppProvider)) return;
     final before = _ref.read(shikooWarpRouteProvider);
     _ref.read(warpAppProvider.notifier).set(false);
     if (!sameRoute(before, _ref.read(shikooWarpRouteProvider))) {
