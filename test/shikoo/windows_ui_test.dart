@@ -3266,7 +3266,13 @@ void main() {
       connection: ShikooConnection.error,
       error: ShikooError.noServer,
       // WARP off adds «روشن کردن WARP» under the message, which this window scrolls to (the test above).
-      bridge: (on: true, via: const {}, trying: false, failed: false),
+      bridge: (
+        on: true,
+        via: const {},
+        trying: false,
+        failed: false,
+        door: false,
+      ),
     );
     final l = lookupShikooL10n(const Locale('fa'));
     final message = tester.getRect(find.text(l.noServerAnsweredHelpDesktop));

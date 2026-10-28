@@ -950,12 +950,12 @@ class _PowerZone extends StatelessWidget {
     if (state.lastError == ShikooError.noServer) {
       return switch (state.bridge) {
         _ when offline => null,
-        (on: false, via: _, trying: _, failed: _) => here(
+        (on: false, via: _, trying: _, failed: _, door: _) => here(
           l.warpOffTv,
           l.warpOffDesktop,
           l.warpOffTouch,
         ),
-        (on: true, via: _, trying: _, failed: true) => here(
+        (on: true, via: _, trying: _, failed: true, door: _) => here(
           l.warpFailBothTv,
           l.warpFailBothDesktop,
           l.warpFailBothTouch,

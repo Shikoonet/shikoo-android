@@ -46,6 +46,7 @@ Future<void> _pump(
   UpdateOffer? offer,
   String language = 'fa',
   double text = 1,
+  ShikooBridge bridge = noBridge,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -68,6 +69,7 @@ Future<void> _pump(
           connectedFor: Duration.zero,
           isTV: tv,
           servers: const [],
+          bridge: bridge,
         ),
       ),
       shikooSignInProvider.overrideWithValue(signIn),
@@ -210,29 +212,48 @@ void main() {
     expect(wrong, isEmpty);
   }, variant: _windows);
 
-  testWidgets('in the 880 × 508 page (an 880 × 540 window) the code that did '
-      'not come, with WARP offered, fits unscrolled: the buttons close up', (
+  testWidgets('in the 880 × 508 page (an 880 × 540 window) the WARP sign-in '
+      'frames fit unscrolled: the code that did not come, its buttons closed '
+      'up, and the code asked through WARP, its line where the brand was', (
     tester,
   ) async {
+    const door = (
+      on: true,
+      via: <String>{},
+      trying: false,
+      failed: false,
+      door: true,
+    );
     for (final language in ['fa', 'en']) {
-      await _pump(
-        tester,
-        const Size(880, 508),
-        login: const ShikooLogin(LoginPhase.startFailed),
-        language: language,
-      );
       final l = lookupShikooL10n(Locale(language));
-      expect(find.widgetWithText(ShikooButton, l.warpTry), findsOne);
-      for (final scroll in tester.stateList<ScrollableState>(
-        find.byType(Scrollable),
-      )) {
-        expect(
-          scroll.position.maxScrollExtent,
-          moreOrLessEquals(0),
-          reason: language,
+      for (final (login, bridge, shown) in [
+        (const ShikooLogin(LoginPhase.startFailed), noBridge, l.warpTry),
+        (const ShikooLogin(LoginPhase.starting), door, l.warpLoginWait),
+      ]) {
+        await _pump(
+          tester,
+          const Size(880, 508),
+          login: login,
+          language: language,
+          bridge: bridge,
         );
+        final why = '$language ${login.phase.name}';
+        expect(
+          find.textContaining(shown, findRichText: true),
+          findsOne,
+          reason: why,
+        );
+        for (final scroll in tester.stateList<ScrollableState>(
+          find.byType(Scrollable),
+        )) {
+          expect(
+            scroll.position.maxScrollExtent,
+            moreOrLessEquals(0),
+            reason: why,
+          );
+        }
+        expect(_overlaps(tester), isEmpty, reason: why);
       }
-      expect(_overlaps(tester), isEmpty, reason: language);
     }
   }, variant: _windows);
 

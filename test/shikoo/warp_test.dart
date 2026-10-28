@@ -47,6 +47,7 @@ void main() {
       buildNumber: '1',
     );
   });
+  tearDownAll(() => files.deleteSync(recursive: true));
 
   test(
     "the bridge's license and where its source is travel with the app",

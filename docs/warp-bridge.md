@@ -52,13 +52,17 @@ the core's environment reaches it.
 ## 3. Wiring: server by server (Sam, 2026-10-28: design «ج», off by default)
 
 - **The switch** (`shikooWarpProvider`, SharedPreferences `shikoo.warp`): off by default. Off, nothing at all goes
-  through the bridge and the bridge's program never starts. A test build turns it on with `--dart-define=SHIKOO_WARP=true`;
+  through the bridge and the bridge's program never starts. A test build turns it on with `--dart-define=SHIKOO_WARP=true`,
+  or live with `shikoo-debug://warp?on=true` (`false` turns it off);
   `controller.setBridge(on)` is what a screen calls.
 - **On, each server first answers or not direct.** After a ping round (`pingAll`), the servers that gave no answer go on
   trial (`_tryBridge`): only they get `dialer-proxy: shikoo-warp`, the config is applied again, and they are pinged through
   the bridge until `warpConnectTimeout`, a second apart. Those that answer stay on the bridge; the others go back to
-  direct. A remembered server that goes silent through the bridge goes back to direct too, and is tried again only after
-  its next silent round.
+  direct. A switch turned off during the trial ends it, and nothing from it is remembered.
+- **Direct first for the remembered servers too.** Each round also pings them from their own definition in the
+  profile (`getDelayOf`, no `dialer-proxy`). One that answers there leaves the memory and goes back to direct, with its
+  direct time shown. One that goes silent through the bridge goes back to direct too, and is tried again only after its
+  next silent round.
 - **Remembered per network** (`shikooWarpMemoryProvider`, SharedPreferences `shikoo.warp.via`: network → server names).
   The next round on that network pings those servers through the bridge at once. A network is its kind from
   `connectivity_plus` (`wifi`, `mobile`, `ethernet`, `other`): the Wi-Fi name needs a location permission the app does not
@@ -72,17 +76,20 @@ the core's environment reaches it.
   marked for a core behind mihomo (Xray, sing-box) goes back to mihomo: those engines dial their server themselves. A
   `direct`-type proxy never goes through it (WARP's free internet).
 - **The app's own requests** take the bridge last, through aether's http proxy (`PROXY user:pass@127.0.0.1:port`, read
-  from `<core home>/warp/endpoint.json`, written 0600 by Go while the bridge runs). `controller.bridgeProxy()` starts the
-  bridge for them when no server needed it (the route's `app`); with no service yet `getProfile` returns the bridge alone
-  (`warpOnlyProfile`), so the first sign-in can use it. A first call waits for the bridge's own start (`connectTimeout`
-  and the update's limit become `warpConnectTimeout`).
+  from `<core home>/warp/endpoint.json`, written 0600 by Go while the bridge runs). `controller.throughBridge(request)`
+  starts the bridge for them when no server needed it (the route's `app`); with no service yet `getProfile` returns the
+  bridge alone (`warpOnlyProfile`), so the first sign-in can use it. A first call waits for the bridge's own start
+  (`connectTimeout` and the update's limit become `warpConnectTimeout`). The bridge stays up for the app, so a sign-in
+  polling every 3 s does not start it each time, until an own request answers direct again (`controller.leaveBridge()`,
+  called by `_fetch` and `ShikooApi`'s `answeredDirect`), a network change, or the switch going off.
   - updates (`_fetch`): after the existing ways (direct, then the server while connected) failed without an answer, only
     on the automatic way (`via == null`) and only while the switch is on (`warpLegWanted`).
   - the door (`ShikooApi._call`): after every address failed without an answer.
   - Not the app's update downloads (`ShikooApi.download`).
 - **State for the screens** (`lib/shikoo/engine/controller.dart`):
   - `ShikooState.bridge`: `on`, `via` (the shown service's servers on the bridge now), `trying` (servers that did not
-    answer direct are being tried through it), `failed` (the last round got no answer, not even through it).
+    answer direct are being tried through it), `failed` (the last round got no answer, not even through it), `door`
+    (an own request, to the door or for a subscription, is going through the bridge now; false once it ends).
   - `ShikooServer.viaBridge`; `ShikooService.bridgeLeg` (an update on the bridge now, after `leg` failed);
     `RefreshFailed.bridge` and `ShikooApiFailure.bridge` (it was tried and failed too).
   - `controller.setBridge(on)`: with «no server answered» showing, turning it on connects at once; the sign-in page asks

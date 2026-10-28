@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# The WARP bridge binary: patterniha/Aether (AGPL-3.0-only) at a fixed commit, without tor or psiphon, plus
+# The WARP bridge binary: patterniha/Aether (AGPL-3.0-only) at a fixed commit, without tor, plus
 # tools/warp/aether-proxy-auth.patch. Prints each output's sha256.
+# shortcut: Aether has no cargo feature for psiphon, so its launcher (src/psiphon.rs) is built in; it stays idle since
+# the core passes no AETHER_PSIPHON* and no psiphon binary ships. Patch the module out if the binary must hold none of it.
 #   bash tools/warp-build.sh android   # WSL, after ~/android-toolchain/env.sh: android/app/src/main/jniLibs/<abi>/libshikoowarp.so
 #   bash tools/warp-build.sh windows   # Git Bash, after both env.sh files, with VS's CMake on PATH: libclash/windows/ShikooNetWarp.exe
 #   bash tools/warp-build.sh test      # the patch's own tests, on this machine

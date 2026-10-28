@@ -3104,6 +3104,8 @@ void main() {
     ShikooServer server(String name) =>
         state().servers.firstWhere((s) => s.name == name);
 
+    setUpAll(() => registerFallbackValue(<String, dynamic>{}));
+
     setUp(() async {
       network = 'mobile';
       overBridge = {netherlands};
@@ -3238,6 +3240,97 @@ void main() {
       expect(server(netherlands).viaBridge, isFalse);
     });
 
+    test('turned off during a trial, a server that then answers direct is '
+        'not remembered', () async {
+      var on = true;
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        final bridged = container
+            .read(shikooWarpRouteProvider)
+            .via
+            .contains(name);
+        if (bridged && on) {
+          on = false;
+          unawaited(controller.setBridge(false));
+        }
+        final answers = name == germany || (!bridged && !on);
+        return Delay(name: name, url: '', value: answers ? 90 : -1);
+      });
+      await controller.setBridge(true);
+      await controller.pingAll();
+      expect(container.read(shikooWarpProvider), isFalse);
+      expect(container.read(shikooWarpMemoryProvider), isEmpty);
+    });
+
+    test('turned off during a trial, the trial stops at once', () async {
+      warpConnectTimeout = const Duration(seconds: 3);
+      var on = true;
+      var afterOff = 0;
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        if (!on) afterOff++;
+        if (on && container.read(shikooWarpRouteProvider).via.contains(name)) {
+          on = false;
+          unawaited(controller.setBridge(false));
+        }
+        return Delay(name: name, url: '', value: name == germany ? 90 : -1);
+      });
+      await controller.setBridge(true);
+      await controller.pingAll();
+      expect(afterOff, lessThan(3), reason: 'not pass after pass until 3 s');
+    });
+
+    test('a remembered server is asked direct too, from its own definition; '
+        'once it answers there it leaves the bridge', () async {
+      final direct = {germany};
+      when(() => core.getConfig(any())).thenAnswer(
+        (_) async => {
+          'proxies': [
+            {'name': germany, 'type': 'vless'},
+            {'name': netherlands, 'type': 'vless'},
+          ],
+          'proxy-groups': [
+            {
+              'name': 'PROXY',
+              'type': 'select',
+              'proxies': [germany, netherlands],
+            },
+          ],
+        },
+      );
+      when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
+        final name = (call.positionalArguments[1] as Map)['name'] as String;
+        return Delay(
+          name: name,
+          url: '',
+          value: direct.contains(name) ? 80 : -1,
+        );
+      });
+      await controller.setBridge(true);
+      await controller.pingAll();
+      expect(state().bridge.via, {netherlands});
+
+      direct.add(netherlands);
+      applied.clear();
+      await controller.pingAll();
+      expect(state().bridge.via, isEmpty);
+      expect(container.read(shikooWarpMemoryProvider), isEmpty);
+      expect(applied.map((r) => r.via), [<String>{}]);
+      expect(server(netherlands).ping, 80);
+      expect(server(netherlands).viaBridge, isFalse);
+    });
+
+    test('the app closing as a trial starts leaves no error behind', () async {
+      await controller.setBridge(true);
+      setup.onApply = () {
+        if (container.read(shikooWarpRouteProvider).via.isNotEmpty) {
+          container.dispose();
+        }
+      };
+      await controller.pingAll();
+      await pumpEventQueue();
+    });
+
     test(
       'turned on under «no server answered», it connects through the bridge',
       () async {
@@ -3278,11 +3371,21 @@ void main() {
         ..createSync(recursive: true)
         ..writeAsStringSync('{"http":"127.0.0.1:4321","auth":"u:p"}');
       addTearDown(() => File('$home/warp/endpoint.json').deleteSync());
-      expect(await controller.bridgeProxy(), isNull, reason: 'off');
+      Future<String> carry(String proxy) async {
+        expect(state().bridge.door, isTrue);
+        return proxy;
+      }
+
+      expect(await controller.throughBridge(carry), isNull, reason: 'off');
       await controller.setBridge(true);
-      expect(await controller.bridgeProxy(), 'PROXY u:p@127.0.0.1:4321');
+      expect(state().bridge.door, isFalse);
+      expect(await controller.throughBridge(carry), 'PROXY u:p@127.0.0.1:4321');
+      expect(state().bridge.door, isFalse, reason: 'the request is over');
       expect(applied, hasLength(1));
       expect(sameRoute(applied.single, (via: {}, app: true)), isTrue);
+
+      await controller.leaveBridge();
+      expect(sameRoute(applied.last, noWarp), isTrue);
     });
   });
 
@@ -3383,6 +3486,23 @@ void main() {
         await controller.refreshService();
         expect(ways.taken, ['direct', 'warp']);
         expect(state().refresh, ShikooRefresh.idle);
+      });
+
+      test('the bridge started for the app goes down once its own way '
+          'answers again', () async {
+        final applied = <WarpRoute>[];
+        setup.onApply = () =>
+            applied.add(container.read(shikooWarpRouteProvider));
+        ways.failing.add('direct');
+        await controller.refreshService();
+        expect(container.read(shikooWarpRouteProvider).app, isTrue);
+
+        ways.failing.clear();
+        await controller.refreshService();
+        expect(ways.taken, ['direct', 'warp', 'direct']);
+        expect(container.read(shikooWarpRouteProvider).app, isFalse);
+        expect(applied.first.app, isTrue);
+        expect(applied.last.app, isFalse, reason: 'the core lost the bridge');
       });
 
       test('connected: the bridge after the own way and the server', () async {

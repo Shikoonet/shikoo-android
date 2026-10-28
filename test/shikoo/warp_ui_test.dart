@@ -73,17 +73,18 @@ ShikooState _home({
     lastError: none ? ShikooError.noServer : null,
     refresh: refresh,
     notice: notice,
-    bridge: (on: on, via: via, trying: trying, failed: failed),
+    bridge: (on: on, via: via, trying: trying, failed: failed, door: false),
   );
 }
 
-ShikooState _settings({bool tv = false, bool on = false}) => ShikooState(
-  connection: ShikooConnection.off,
-  connectedFor: Duration.zero,
-  isTV: tv,
-  servers: const [],
-  bridge: (on: on, via: const {}, trying: false, failed: false),
-);
+ShikooState _settings({bool tv = false, bool on = false, bool door = false}) =>
+    ShikooState(
+      connection: ShikooConnection.off,
+      connectedFor: Duration.zero,
+      isTV: tv,
+      servers: const [],
+      bridge: (on: on, via: const {}, trying: false, failed: false, door: door),
+    );
 
 typedef _Rig = ({_Controller controller, ValueNotifier<ShikooState> holder});
 
@@ -180,11 +181,13 @@ Future<_Rig> _pump(
 
 typedef _LoginRig = ({_Controller controller, _SignIn signIn});
 
-/// The sign-in page, its code refused: [on] is WARP's switch.
+/// The sign-in page, its code refused unless [login]: [on] is WARP's switch, [door] the code asked through it.
 Future<_LoginRig> _pumpLogin(
   WidgetTester tester, {
   required bool tv,
   bool on = false,
+  bool door = false,
+  ShikooLogin login = const ShikooLogin(LoginPhase.startFailed),
   String locale = 'fa',
   Brightness brightness = Brightness.light,
 }) async {
@@ -197,18 +200,19 @@ Future<_LoginRig> _pumpLogin(
   final container = ProviderContainer(
     overrides: [
       noShots,
-      shikooStateProvider.overrideWithValue(_settings(tv: tv, on: on)),
+      shikooStateProvider.overrideWithValue(
+        _settings(tv: tv, on: on, door: door),
+      ),
       shikooSignInProvider.overrideWithValue(signIn),
       shikooControllerProvider.overrideWithValue(controller),
     ],
   );
   addTearDown(container.dispose);
-  container
-      .read(shikooLoginProvider.notifier)
-      .set(const ShikooLogin(LoginPhase.startFailed));
+  container.read(shikooLoginProvider.notifier).set(login);
   await container.read(shikooLookProvider.notifier).setLanguage(locale);
   await tester.pumpWidget(
     UncontrolledProviderScope(
+      key: UniqueKey(),
       container: container,
       child: _app(
         const ShikooRoot(),
@@ -499,6 +503,26 @@ void main() {
     });
   }
 
+  for (final tv in [false, true]) {
+    testWidgets('sign-in, the code asked through WARP (tv: $tv): it says so '
+        'while the request is on its way, and not otherwise', (tester) async {
+      for (final door in [true, false]) {
+        await _pumpLogin(
+          tester,
+          tv: tv,
+          on: true,
+          door: door,
+          login: const ShikooLogin(LoginPhase.starting),
+        );
+        expect(
+          find.textContaining(_fa.warpLoginWait, findRichText: true),
+          door ? findsOneWidget : findsNothing,
+          reason: 'door: $door',
+        );
+      }
+    });
+  }
+
   testWidgets('sign-in with WARP already on offers no WARP button', (
     tester,
   ) async {
@@ -587,6 +611,17 @@ void main() {
               await _pumpLogin(tester, tv: tv, locale: locale, brightness: b);
               expect(tester.takeException(), isNull);
               await _shot(tester, 'l-login-fail-$tag');
+              await _pumpLogin(
+                tester,
+                tv: tv,
+                on: true,
+                door: true,
+                login: const ShikooLogin(LoginPhase.starting),
+                locale: locale,
+                brightness: b,
+              );
+              expect(tester.takeException(), isNull);
+              await _shot(tester, 'l-login-wait-$tag');
             },
             variant: device == 'win'
                 ? TargetPlatformVariant.only(TargetPlatform.windows)

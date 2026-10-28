@@ -283,6 +283,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final offerWarp = !ref.watch(
       shikooStateProvider.select((s) => s.bridge.on),
     );
+    final viaWarp =
+        starting && ref.watch(shikooStateProvider.select((s) => s.bridge.door));
     Widget telegram(String label, VoidCallback onPressed) => ShikooButton(
       label: starting ? l.codeFetching : label,
       icon: ShikooIcon.plane,
@@ -348,10 +350,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // A computer keeps the buttons at the bottom, and WARP's two lines would push them out of a small
     // window: the message takes the brand's place above them, where it is seen without scrolling.
     final failedAbove = shikooDesktop && warp;
+    final waitBox = MessageBox(
+      icon: ShikooIcon.spin,
+      strong: l.warpLoginWaitTitle,
+      rest: l.warpLoginWait,
+    );
     final (Widget middle, List<Widget> actions) = switch (phase) {
       null || LoginPhase.starting => (
-        const _BrandBlock(),
+        shikooDesktop && viaWarp ? waitBox : const _BrandBlock(),
         [
+          if (viaWarp && !shikooDesktop) waitBox,
           telegram(l.loginTelegram, signIn),
           Text(
             shikooDesktop ? l.loginTelegramNoteDesktop : l.loginTelegramNote,
@@ -735,6 +743,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final offerWarp = !ref.watch(
       shikooStateProvider.select((s) => s.bridge.on),
     );
+    final viaWarp =
+        phase == LoginPhase.starting &&
+        ref.watch(shikooStateProvider.select((s) => s.bridge.door));
     final fine = t.text(s.bodySm, color: t.c.textMuted, height: Leading.body);
     Widget newCode(String label, FocusNode node) => ShikooButton(
       label: label,
@@ -767,7 +778,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 : (offerWarp
                                       ? '${l.codeFailedTitle} ${l.warpLoginFailTv}'
                                       : l.codeFailedLeadTv))
-                          : (expired ? l.codeExpiredLead : l.tvLoginLead),
+                          : (expired
+                                ? l.codeExpiredLead
+                                : (viaWarp
+                                      ? '${l.warpLoginWaitTitle} ${l.warpLoginWait}'
+                                      : l.tvLoginLead)),
                       style: t.text(s.title),
                     ),
                     if (failed && login!.clock) ...[

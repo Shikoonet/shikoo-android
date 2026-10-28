@@ -191,7 +191,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (state == AppLifecycleState.paused) controller.onBackground();
   }
 
-  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `lang?code=en` and `crash`.
+  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>`, `lang?code=en`, `warp?on=true` and `crash`.
   /// The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;
@@ -208,6 +208,10 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
           ref
               .read(shikooLookProvider.notifier)
               .setLanguage(query['code'] ?? shikooDefaultLanguage),
+        );
+      case 'warp':
+        unawaited(
+          ref.read(shikooControllerProvider).setBridge(query['on'] == 'true'),
         );
       case 'crash':
         unawaited(coreController.crash());
