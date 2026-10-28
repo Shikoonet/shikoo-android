@@ -89,7 +89,10 @@ the core's environment reaches it.
   the bridge then keeps it, and the last one to end takes it down.
   - updates (`_fetch`): after the existing ways (direct, then the server while connected) failed without an answer, only
     on the automatic way (`via == null`) and only while the switch is on (`warpLegWanted`).
-  - the door (`ShikooApi._call`): after every address failed without an answer.
+  - the door (`ShikooApi._call`): after every address failed without an answer. Its `connectTimeout` there becomes
+    `warpConnectTimeout`, and that covers the bridge reaching WARP: for https through a proxy, `HttpClient.openUrl`
+    finishes only after the CONNECT answer and the TLS handshake, and Dio times that call with `connectTimeout`. The
+    sign-in's own `startLimit` (30 s) grows by `warpConnectTimeout` while the switch is on.
   - Not the app's update downloads (`ShikooApi.download`).
 - **State for the screens** (`lib/shikoo/engine/controller.dart`):
   - `ShikooState.bridge`: `on`, `via` (the shown service's servers on the bridge now), `trying` (servers that did not

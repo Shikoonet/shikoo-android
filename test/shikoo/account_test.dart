@@ -14,6 +14,7 @@ import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
+import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -50,6 +51,7 @@ class _FakeAppApi {
   Duration life = const Duration(minutes: 10);
   int startStatus = 200;
   bool startHangs = false;
+  Duration startDelay = Duration.zero;
   int servicesStatus = 200;
   int rateLimitedPolls = 0;
   int polls = 0;
@@ -98,6 +100,7 @@ class _FakeAppApi {
     switch ('${request.method} ${request.uri.path}') {
       case 'POST /api/v1/app/login/start':
         if (startHangs) return;
+        await Future<void>.delayed(startDelay);
         final name = json?['device_name'];
         if (startStatus != 200) return reply(startStatus, {'ok': false});
         if (name is! String ||
@@ -482,6 +485,19 @@ void main() {
         expect(failed?.clock, isFalse);
       },
     );
+
+    test('with the WARP bridge on, the limit also covers the bridge coming '
+        'up', () async {
+      final h = await _harness();
+      final before = warpConnectTimeout;
+      warpConnectTimeout = const Duration(seconds: 2);
+      addTearDown(() => warpConnectTimeout = before);
+      h.api.startDelay = const Duration(milliseconds: 500);
+      h.signIn.startLimit = const Duration(milliseconds: 100);
+      await h.container.read(shikooWarpProvider.notifier).set(true);
+      await h.signIn.start();
+      expect(h.container.read(shikooLoginProvider)?.phase, LoginPhase.waiting);
+    });
 
     test('a start whose certificate is not valid yet blames the clock', () async {
       final h = await _harness(
