@@ -1151,6 +1151,10 @@ class _PowerZone extends StatelessWidget {
             ),
           )
         : null;
+    final offer = _WarpOffer(
+      isTV: state.isTV,
+      onPressed: () => unawaited(controller.setBridge(true)),
+    );
     final items = [
       PowerButton(
         connection: state.connection,
@@ -1192,6 +1196,8 @@ class _PowerZone extends StatelessWidget {
               (selected?.viaBridge ?? false) &&
               (selected?.ping ?? -1) < 0,
         ),
+        // c-off-win: the offer keeps with its message, above the mode switch.
+        if (shikooDesktop && offerWarp) offer,
         if (shikooDesktop) ...[
           ModeSwitch(
             connecting: state.connection == ShikooConnection.connecting,
@@ -1200,11 +1206,7 @@ class _PowerZone extends StatelessWidget {
         ],
       ],
       if (!under && say != null) say,
-      if (offerWarp)
-        _WarpOffer(
-          isTV: state.isTV,
-          onPressed: () => unawaited(controller.setBridge(true)),
-        ),
+      if (offerWarp && !shikooDesktop) offer,
     ];
     if (squeeze) {
       return _Squeeze(
@@ -1290,16 +1292,11 @@ class _WarpOfferState extends State<_WarpOffer> {
 /// A computer's wide button column, centred in the least height asked: short of room, its gaps
 /// give way evenly down to Space.s2, then the button to [ShikooSizes.powerRingLeast]; the last as if [keep] tall.
 class _Squeeze extends MultiChildRenderObjectWidget {
-  _Squeeze({
+  const _Squeeze({
     required this.gap,
     required this.keep,
-    required List<Widget> children,
-  }) : super(
-         children: [
-           FittedBox(fit: BoxFit.scaleDown, child: children.first),
-           ...children.skip(1),
-         ],
-       );
+    required super.children,
+  });
 
   final double gap;
   final double keep;

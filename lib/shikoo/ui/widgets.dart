@@ -1037,9 +1037,9 @@ class _PowerButtonState extends State<PowerButton>
       _ => null,
     };
     final fg = on ? c.onPositive : c.text;
-    Widget face(bool focused) => Container(
-      width: s.power,
-      height: s.power,
+    Widget face(bool focused, double size) => Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: !enabled ? c.surfaceSunken : (on ? c.positive : c.surface),
@@ -1051,97 +1051,128 @@ class _PowerButtonState extends State<PowerButton>
         label: label,
         child: MediaQuery.withClampedTextScaling(
           maxScaleFactor: ShikooSizes.roundTextScaleMax,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (!on) ...[
-                SvgIcon(
-                  error ? ShikooIcon.alert : ShikooIcon.power,
-                  size: conn == ShikooConnection.off && enabled
-                      ? ShikooSizes.powerIcon
-                      : ShikooSizes.powerIconOn,
-                  stroke: ShikooSizes.iconStrokeStrong,
-                  color: !enabled
-                      ? c.iconDisabled
-                      : (error ? c.danger : c.textMuted),
-                ),
-                const SizedBox(height: Space.s1),
-              ],
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: t.text(
-                  s.body,
-                  weight: FontWeight.w700,
-                  color: !enabled ? c.textMuted : (error ? c.danger : fg),
-                ),
-              ),
-              if (on) ...[
-                const SizedBox(height: Space.s1),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: size * 0.08),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (!on) ...[
+                  SvgIcon(
+                    error ? ShikooIcon.alert : ShikooIcon.power,
+                    size: conn == ShikooConnection.off && enabled
+                        ? ShikooSizes.powerIcon
+                        : ShikooSizes.powerIconOn,
+                    stroke: ShikooSizes.iconStrokeStrong,
+                    color: !enabled
+                        ? c.iconDisabled
+                        : (error ? c.danger : c.textMuted),
+                  ),
+                  const SizedBox(height: Space.s1),
+                ],
                 Text(
-                  clockOf(
-                    Localizations.localeOf(context).languageCode,
-                    widget.connectedFor,
-                  ),
-                  textDirection: TextDirection.ltr,
+                  label,
+                  textAlign: TextAlign.center,
                   style: t.text(
-                    s.display,
+                    s.body,
                     weight: FontWeight.w700,
-                    color: fg,
-                    tabular: true,
+                    color: !enabled ? c.textMuted : (error ? c.danger : fg),
                   ),
                 ),
+                if (on) ...[
+                  const SizedBox(height: Space.s1),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      clockOf(
+                        Localizations.localeOf(context).languageCode,
+                        widget.connectedFor,
+                      ),
+                      textDirection: TextDirection.ltr,
+                      style: t.text(
+                        s.display,
+                        weight: FontWeight.w700,
+                        color: fg,
+                        tabular: true,
+                      ),
+                    ),
+                  ),
+                ],
+                // A ring given way keeps its text's size: a hint that would reach its edge is left out.
+                if (sub != null)
+                  Flexible(
+                    child: LayoutBuilder(
+                      builder: (context, room) {
+                        final style = t.text(s.caption, color: c.textMuted);
+                        final hint = TextPainter(
+                          text: TextSpan(text: sub, style: style),
+                          textDirection: Directionality.of(context),
+                          textScaler: MediaQuery.textScalerOf(context),
+                          maxLines: 1,
+                        )..layout();
+                        final fits = Space.s1 + hint.height <= room.maxHeight;
+                        hint.dispose();
+                        return fits
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: Space.s1),
+                                child: Text(sub, maxLines: 1, style: style),
+                              )
+                            : const SizedBox.shrink();
+                      },
+                    ),
+                  ),
               ],
-              if (sub != null) ...[
-                const SizedBox(height: Space.s1),
-                Text(sub, style: t.text(s.caption, color: c.textMuted)),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
-    return SizedBox.square(
-      dimension: s.powerRing,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: halo,
-                border: conn == ShikooConnection.off
-                    ? Border.all(color: c.border)
-                    : null,
-              ),
-            ),
-          ),
-          if (enabled)
-            Pressable(
-              // A window starts with nothing chosen: Enter must not connect where no ring shows.
-              autofocus: !shikooDesktop,
-              focusNode: widget.focusNode,
-              shape: const CircleBorder(),
-              onPressed: onPressed,
-              solid: true,
-              builder: (context, focused) => face(focused),
-            )
-          else
-            face(false),
-          if (_arc)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: RotationTransition(
-                  turns: _spin,
-                  child: CustomPaint(
-                    painter: _ArcPainter(track: c.border, head: c.primary),
+    return LayoutBuilder(
+      builder: (context, box) {
+        final ring = math.min(s.powerRing, box.maxHeight);
+        return SizedBox.square(
+          dimension: ring,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: halo,
+                    border: conn == ShikooConnection.off
+                        ? Border.all(color: c.border)
+                        : null,
                   ),
                 ),
               ),
-            ),
-        ],
-      ),
+              if (enabled)
+                Pressable(
+                  // A window starts with nothing chosen: Enter must not connect where no ring shows.
+                  autofocus: !shikooDesktop,
+                  focusNode: widget.focusNode,
+                  shape: const CircleBorder(),
+                  onPressed: onPressed,
+                  solid: true,
+                  builder: (context, focused) =>
+                      face(focused, s.power * ring / s.powerRing),
+                )
+              else
+                face(false, s.power * ring / s.powerRing),
+              if (_arc)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: RotationTransition(
+                      turns: _spin,
+                      child: CustomPaint(
+                        painter: _ArcPainter(track: c.border, head: c.primary),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

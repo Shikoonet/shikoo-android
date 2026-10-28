@@ -1727,6 +1727,25 @@ void main() {
           ),
           reason: language,
         );
+        expect(find.text(l.subRetryDesktop), findsOne, reason: language);
+        final texts = find.descendant(
+          of: find.byType(PowerButton),
+          matching: find.byType(RichText),
+        );
+        for (final text in texts.evaluate()) {
+          final paragraph = text.renderObject! as RenderParagraph;
+          final shown =
+              tester.getRect(find.byWidget(text.widget)).height /
+              paragraph.size.height;
+          final size =
+              paragraph.textScaler.scale(paragraph.text.style!.fontSize!) *
+              shown;
+          expect(
+            size,
+            greaterThanOrEqualTo(12),
+            reason: '$language: ${paragraph.text.toPlainText()}',
+          );
+        }
       }
     }, variant: _windows);
 
