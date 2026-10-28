@@ -359,6 +359,16 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     verify(() => rig.controller.setBridge(true)).called(1);
+    rig.holder.value = _home(tv: true, none: true);
+    await tester.pumpAndSettle();
+    expect(_rings(tester), ['power'], reason: 'WARP on, the offer gone');
+    rig.holder.value = _home(
+      tv: true,
+      connection: ShikooConnection.connecting,
+      trying: true,
+    );
+    await tester.pumpAndSettle();
+    expect(_rings(tester), ['power'], reason: 'WARP tried');
   });
 
   testWidgets('a focused button built again under another parent keeps its '
