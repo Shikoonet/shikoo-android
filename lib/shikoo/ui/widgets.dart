@@ -1421,7 +1421,7 @@ class ServerRow extends StatelessWidget {
   }
 }
 
-/// `.via`: how a server really connects, «با میهومو» or «از راه WARP».
+/// `.via`: how a server really connects, «با mihomo» or «از راه WARP».
 class ViaChip extends StatelessWidget {
   const ViaChip(this.label, {super.key});
 
