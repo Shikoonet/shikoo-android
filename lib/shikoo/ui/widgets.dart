@@ -267,6 +267,11 @@ class _PressableState extends State<Pressable> {
   void initState() {
     super.initState();
     widget.focusNode?.addListener(_changed);
+    // A node already focused, its button rebuilt under a new parent, brings no focus change and so no
+    // highlight callback: the ring would be lost while the remote is still on it.
+    _highlight =
+        (widget.focusNode?.hasPrimaryFocus ?? false) &&
+        FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
   }
 
   @override

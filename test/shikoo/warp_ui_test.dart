@@ -240,6 +240,22 @@ String? _focused() => (FocusManager.instance.primaryFocus?.context as Element?)
     ?.findAncestorWidgetOfExactType<ShikooButton>()
     ?.label;
 
+/// What draws a focus ring now: a button's label, or `power`.
+List<String> _rings(WidgetTester tester) {
+  final ring = ShikooTheme.of(tester.element(find.byType(Scaffold).first)).c;
+  return [
+    for (final e in find.byType(DecoratedBox).evaluate())
+      if ((e.widget as DecoratedBox).decoration
+          case ShapeDecoration(shape: OutlinedBorder(:final side))
+          when side.color == ring.focusRing &&
+              side.width == ShikooSizes.focusRingWidth)
+        e.findAncestorWidgetOfExactType<ShikooButton>()?.label ??
+            (e.findAncestorWidgetOfExactType<PowerButton>() != null
+                ? 'power'
+                : '?'),
+  ];
+}
+
 Finder _chip(String server, String label) => find.descendant(
   of: find.ancestor(of: find.text(server), matching: find.byType(Row)).first,
   matching: find.text(label),
@@ -327,21 +343,60 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the TV: the remote reaches «روشن کردن WARP» under the message '
-      'and turns WARP on', (tester) async {
-    final rig = await _pump(tester, _home(tv: true, on: false, none: true));
+  testWidgets('the TV: as «روشن کردن WARP» comes the remote moves to it, from '
+      'the power button too, with its ring, and turns WARP on', (tester) async {
+    final rig = await _pump(
+      tester,
+      _home(tv: true, on: false, connection: ShikooConnection.connecting),
+    );
+    expect(_rings(tester), ['power'], reason: 'connecting, on the button');
+    rig.holder.value = _home(tv: true, on: false, none: true);
+    await tester.pumpAndSettle();
     expect(find.text(_fa.warpOffTv), findsOneWidget);
     expect(tester.takeException(), isNull);
-    final steps = <String?>[];
-    for (var i = 0; i < 4 && _focused() != _fa.warpTurnOn; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pumpAndSettle();
-      steps.add(_focused());
-    }
-    expect(_focused(), _fa.warpTurnOn, reason: '$steps');
+    expect(_focused(), _fa.warpTurnOn, reason: 'c-tv-off: the remote on it');
+    expect(_rings(tester), [_fa.warpTurnOn]);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     verify(() => rig.controller.setBridge(true)).called(1);
+  });
+
+  testWidgets('a focused button built again under another parent keeps its '
+      'ring: no focus change comes to draw it again', (tester) async {
+    _frame(tester, tv: true);
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    final wrap = ValueNotifier(false);
+    addTearDown(wrap.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: shikooThemeData(Brightness.light, tv: true),
+        home: Scaffold(
+          body: ValueListenableBuilder(
+            valueListenable: wrap,
+            builder: (_, wrapped, _) {
+              final button = Center(
+                child: ShikooButton(
+                  label: 'x',
+                  focusNode: node,
+                  onPressed: () {},
+                ),
+              );
+              return wrapped ? FittedBox(child: button) : button;
+            },
+          ),
+        ),
+      ),
+    );
+    node.requestFocus();
+    await tester.pumpAndSettle();
+    expect(_rings(tester), ['x']);
+    wrap.value = true;
+    await tester.pumpAndSettle();
+    expect(node.hasPrimaryFocus, isTrue);
+    expect(_rings(tester), [
+      'x',
+    ], reason: 'tv-b02: the remote kept, its ring lost');
   });
 
   testWidgets('the TV keeps all of the first try\'s lines and of the failure '
@@ -415,6 +470,16 @@ void main() {
         () => rig.controller.setBridge(true),
         () => rig.signIn.start(),
       ]);
+    });
+  }
+
+  for (final on in [false, true]) {
+    testWidgets('the TV sign-in that failed, WARP on: $on, starts the remote '
+        'on ${on ? '«دوباره»' : '«امتحان از راه WARP»'}', (tester) async {
+      await _pumpLogin(tester, tv: true, on: on);
+      final first = on ? _fa.retry : _fa.warpTry;
+      expect(_focused(), first);
+      expect(_rings(tester), [first]);
     });
   }
 

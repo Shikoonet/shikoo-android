@@ -82,6 +82,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _supportNode = FocusNode();
   final _newCodeNode = FocusNode();
   final _retryNode = FocusNode();
+  final _warpNode = FocusNode();
   final _resultNode = FocusNode();
   final _chooseNode = FocusNode();
   final _notMineNode = FocusNode();
@@ -117,6 +118,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _supportNode.dispose();
     _newCodeNode.dispose();
     _retryNode.dispose();
+    _warpNode.dispose();
     _resultNode.dispose();
     _chooseNode.dispose();
     _notMineNode.dispose();
@@ -128,6 +130,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   FocusNode _first(LoginPhase? phase) => switch (phase) {
     null || LoginPhase.starting || LoginPhase.waiting => _supportNode,
     LoginPhase.expired => _newCodeNode,
+    LoginPhase.startFailed
+        when !(widget.login?.clock ?? false) &&
+            !ref.read(shikooStateProvider).bridge.on =>
+      _warpNode,
     LoginPhase.startFailed => _retryNode,
     LoginPhase.choosing => _chooseNode,
     _ => _resultNode,
@@ -362,14 +368,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           if (clock)
             const DateSettingsButton()
           else ...[
-            if (warp) ...[
-              outline(l.warpTry, () => unawaited(_tryWarp())),
-              Text(
-                l.warpNote,
-                textAlign: TextAlign.center,
-                style: t.text(t.s.bodySm, color: t.c.textMuted),
+            if (warp)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                // A computer's foot is short of room: the line keeps close under its button.
+                spacing: shikooDesktop ? Space.s2 : Space.s4,
+                children: [
+                  outline(l.warpTry, () => unawaited(_tryWarp())),
+                  Text(
+                    l.warpNote,
+                    textAlign: TextAlign.center,
+                    style: t.text(t.s.bodySm, color: t.c.textMuted),
+                  ),
+                ],
               ),
-            ],
             LinkButton(label: l.reportSendToSupport, onPressed: _report),
           ],
           telegram(l.loginTelegram, signIn),
@@ -776,6 +788,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       if (offerWarp) ...[
                         ShikooButton(
                           label: l.warpTry,
+                          focusNode: _warpNode,
                           onPressed: () => unawaited(_tryWarp()),
                         ),
                         Text(l.warpNote, style: fine),

@@ -300,6 +300,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final update = ref.watch(shikooUpdateOfferProvider);
     final crashed = ref.watch(shikooCrashProvider) != null;
     final check = ref.watch(shikooProbeProvider);
+    // Only a card that says the device itself is offline goes before WARP's line and offer.
+    final offline =
+        check?.value != null &&
+        readProbes(check!.value, state.servers) == ProbeReading.offline;
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final now = shikooNow();
@@ -365,6 +369,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       },
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
       checked: check != null,
+      offline: offline,
     );
     _LinklessCard linkless(LinkedService linked) => _LinklessCard(
       service: linked,
@@ -472,7 +477,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                     noService: current == null && unlinked.isEmpty,
                     settings: _settings,
                     power: _PowerKeys(
-                      down: offersWarp(state),
+                      down: offersWarp(state, offline: offline),
                       targets: [
                         _crashSend,
                         _check,
@@ -553,7 +558,8 @@ FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
   return nearest;
 }
 
-bool offersWarp(ShikooState state) =>
+bool offersWarp(ShikooState state, {required bool offline}) =>
+    !offline &&
     restingFor(state) == null &&
     state.lastError == ShikooError.noServer &&
     !state.bridge.on;
@@ -905,6 +911,7 @@ class _PowerZone extends StatelessWidget {
     this.restingLabel,
     this.restingMessage,
     this.checked = false,
+    this.offline = false,
   });
 
   final ShikooState state;
@@ -919,6 +926,7 @@ class _PowerZone extends StatelessWidget {
 
   /// The internet check has its card; «check this phone's internet» would contradict it.
   final bool checked;
+  final bool offline;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -928,19 +936,54 @@ class _PowerZone extends StatelessWidget {
   ShikooSwitch? get _shift => state.isTV ? state.switching : null;
   ShikooCoreSwitch? get _coreShift => state.isTV ? state.coreSwitch : null;
 
+  /// c-*: WARP's own line, which a computer shows in the pills' place under the button (c-win-first).
+  String? warpLine(ShikooL10n l) {
+    if (state.service == null ||
+        restingFor(state) != null ||
+        state.busyPort != null ||
+        state.helperFailed) {
+      return null;
+    }
+    String here(String tv, String desktop, String touch) =>
+        state.isTV ? tv : (shikooDesktop ? desktop : touch);
+    final selected = state.selectedServer;
+    if (state.lastError == ShikooError.noServer) {
+      return switch (state.bridge) {
+        _ when offline => null,
+        (on: false, via: _, trying: _, failed: _) => here(
+          l.warpOffTv,
+          l.warpOffDesktop,
+          l.warpOffTouch,
+        ),
+        (on: true, via: _, trying: _, failed: true) => here(
+          l.warpFailBothTv,
+          l.warpFailBothDesktop,
+          l.warpFailBothTouch,
+        ),
+        _ => null,
+      };
+    }
+    if (state.lastError != null ||
+        state.connection != ShikooConnection.connecting) {
+      return null;
+    }
+    final tried = (selected?.viaBridge ?? false)
+        ? selected!.name
+        : state.bridge.via.firstOrNull;
+    if (state.bridge.trying && tried != null) {
+      return l.warpFirst(serverName(tried));
+    }
+    return (selected?.viaBridge ?? false) ? l.warpAgain : null;
+  }
+
   String? message(ShikooL10n l) {
     if (state.service == null) return null;
+    if (warpLine(l) case final warp?) return warp;
     final resting = restingFor(state);
     final selected = state.selectedServer;
     final silent = _silent;
     final shift = _shift;
     final coreShift = _coreShift;
-    String here(String tv, String desktop, String touch) =>
-        state.isTV ? tv : (shikooDesktop ? desktop : touch);
-    final connecting = state.connection == ShikooConnection.connecting;
-    final tried = (selected?.viaBridge ?? false)
-        ? selected!.name
-        : state.bridge.via.firstOrNull;
     return switch (state.lastError) {
       _ when resting == ShikooServiceStatus.revoked => null,
       _ when resting != null => renews ? l.renewToConnect : null,
@@ -952,22 +995,13 @@ class _PowerZone extends StatelessWidget {
           serverName(selected?.name ?? '').replaceAll(' ·\u00a0', '\u00a0· '),
           connectTimeout.inSeconds,
         ),
-      ShikooError.noServer when !state.bridge.on => here(
-        l.warpOffTv,
-        l.warpOffDesktop,
-        l.warpOffTouch,
-      ),
       ShikooError.noServer when checked => null,
-      ShikooError.noServer when state.bridge.failed => here(
-        l.warpFailBothTv,
-        l.warpFailBothDesktop,
-        l.warpFailBothTouch,
-      ),
-      ShikooError.noServer => here(
-        l.noServerAnsweredHelpTv,
-        l.noServerAnsweredHelpDesktop,
-        l.noServerAnsweredHelpTouch,
-      ),
+      ShikooError.noServer =>
+        state.isTV
+            ? l.noServerAnsweredHelpTv
+            : (shikooDesktop
+                  ? l.noServerAnsweredHelpDesktop
+                  : l.noServerAnsweredHelpTouch),
       ShikooError.vpnRefused =>
         shikooDesktop ? l.vpnRefusedDesktop : l.vpnRefused,
       ShikooError.vpnMissing =>
@@ -977,9 +1011,6 @@ class _PowerZone extends StatelessWidget {
       ShikooError.coreStart => l.coreStartDesktop,
       null when state.busyPort != null => l.busyPortDesktop,
       null when state.helperFailed => l.helperFailedDesktop,
-      null when connecting && state.bridge.trying && tried != null =>
-        l.warpFirst(serverName(tried)),
-      null when connecting && (selected?.viaBridge ?? false) => l.warpAgain,
       null when state.waiting => l.connectsToFirst,
       null when shift?.stage == ShikooSwitchStage.failed => l.switchFailedTv(
         serverName(shift!.to),
@@ -1083,20 +1114,16 @@ class _PowerZone extends StatelessWidget {
         ? _room(context, l, width)
         : (centred ? twoLines(context, t.text(t.s.bodySm)) : null);
     final slot = room == null ? null : math.max(room, t.s.speedPill);
-    final under = slot != null && state.connection == ShikooConnection.on;
+    final warp = warpLine(l);
+    final under =
+        slot != null &&
+        (state.connection == ShikooConnection.on ||
+            shikooDesktop && warp != null);
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
-    final offerWarp = offersWarp(state);
+    final offerWarp = offersWarp(state, offline: offline);
     // WARP's first try and its failure: two lines wrapping to three on the TV too, where the room is two.
-    final tall =
-        offerWarp ||
-        (state.isTV &&
-            (state.lastError == ShikooError.noServer &&
-                    state.bridge.failed &&
-                    !checked ||
-                state.lastError == null &&
-                    state.connection == ShikooConnection.connecting &&
-                    state.bridge.trying));
+    final tall = offerWarp || (state.isTV && (warp?.contains('\n') ?? false));
     final text = Text(
       message ?? '',
       // A phone's message may wrap a line: WARP's failure and first try are two lines, the second one long.
@@ -1174,20 +1201,9 @@ class _PowerZone extends StatelessWidget {
       ],
       if (!under && say != null) say,
       if (offerWarp)
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: Space.s2,
-          children: [
-            ShikooButton(
-              label: l.warpTurnOn,
-              onPressed: () => unawaited(controller.setBridge(true)),
-            ),
-            Text(
-              l.warpNote,
-              textAlign: TextAlign.center,
-              style: t.text(t.s.bodySm, color: t.c.textMuted),
-            ),
-          ],
+        _WarpOffer(
+          isTV: state.isTV,
+          onPressed: () => unawaited(controller.setBridge(true)),
         ),
     ];
     if (squeeze) {
@@ -1215,6 +1231,59 @@ class _PowerZone extends StatelessWidget {
             child: SizedBox(width: width, child: column),
           )
         : column;
+  }
+}
+
+/// «روشن کردن WARP» and what Cloudflare sees; c-tv-off: on the TV the remote moves to it as it comes.
+class _WarpOffer extends StatefulWidget {
+  const _WarpOffer({required this.isTV, required this.onPressed});
+
+  final bool isTV;
+  final VoidCallback onPressed;
+
+  @override
+  State<_WarpOffer> createState() => _WarpOfferState();
+}
+
+class _WarpOfferState extends State<_WarpOffer> {
+  final _node = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isTV) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _node.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      spacing: Space.s2,
+      children: [
+        ShikooButton(
+          label: l.warpTurnOn,
+          focusNode: _node,
+          onPressed: widget.onPressed,
+        ),
+        Text(
+          l.warpNote,
+          textAlign: TextAlign.center,
+          style: t.text(t.s.bodySm, color: t.c.textMuted),
+        ),
+      ],
+    );
   }
 }
 
