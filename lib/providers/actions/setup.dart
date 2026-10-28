@@ -275,7 +275,13 @@ class SetupAction extends _$SetupAction {
       silence: silence,
       preloadInvoke: preloadInvoke,
     );
-    return result != _SetupTaskResult.failed;
+    final applied = result != _SetupTaskResult.failed;
+    // A refused apply leaves the core rejecting everything, or holding the
+    // empty config: such an app must not show as connected.
+    if (!applied && _startTime != null) {
+      await globalState.safeRun(() => setRunning(false));
+    }
+    return applied;
   }
 
   Future<_SetupTaskResult> _runSetup({
@@ -517,6 +523,10 @@ class SetupAction extends _$SetupAction {
       silence: true,
       tag: !silence ? LoadingTag.proxies : null,
     );
+    if (setupFailed || profileFailed) {
+      // The core no longer holds lastConfigMd5's config: the same one applies.
+      globalState.lastConfigMd5 = null;
+    }
     if (handoffFailure != null) {
       Error.throwWithStackTrace(handoffFailure!.$1, handoffFailure!.$2);
     }
