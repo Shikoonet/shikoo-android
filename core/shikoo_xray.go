@@ -95,8 +95,6 @@ func startXray(proxies []map[string]any) ([]map[string]any, func(), error) {
 	if len(servers) == 0 {
 		return replacements, func() {}, nil
 	}
-	// shortcut: another process can take a port before Xray binds it, and then mihomo carries these servers until the
-	// next apply; upgrade by handing Xray its listener if that is ever seen.
 	release()
 	stop, err := xrayRun(xrayConfig(servers))
 	if err != nil {

@@ -179,6 +179,8 @@ var (
 
 // loopbackPorts holds n loopback ports' listeners open together, so none repeats (Xray's SO_REUSEPORT would share one
 // in silence), and keeps them from later calls until forgetPorts; release closes them right before the core binds.
+// shortcut: another program can take a port between release and the bind of Xray, sing-box, or the WARP bridge at
+// each of its starts; upgrade by handing the core its listener if that is ever seen.
 func loopbackPorts(n int) (ports []int, release func(), err error) {
 	portsMu.Lock()
 	defer portsMu.Unlock()
