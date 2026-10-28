@@ -70,7 +70,6 @@ object Core {
         suspended: Boolean,
     )
 
-    // Shikoo's owner cores (core/shikoo_wg.go) are reached through invokeMethod, so this JNI bridge stays FlClash's.
     fun prepareOwner(core: String, server: String, iranDirect: Boolean): JSONObject =
         invokeAndWait(
             "shikooPrepareOwner",
@@ -79,7 +78,6 @@ object Core {
 
     fun startOwner(fd: Int): Boolean = invokeAndWait("shikooStartOwner", fd).optBoolean("result")
 
-    // The official OpenVPN engine (core/shikoo_ovpn.go): the VPN it builds once connected, and what it carries now.
     fun openvpnTunnel(spec: String): JSONObject =
         invokeAndWait("shikooOpenvpnTunnel", JSONObject(spec)).getJSONObject("result")
 

@@ -62,7 +62,6 @@ typedef ShikooSwitch = ({String to, String from, ShikooSwitchStage stage});
 
 typedef ShikooLanded = ({int id, bool arrived});
 
-/// A core change while connected that moves the server in use, told as a server switch is.
 typedef ShikooCoreSwitch = ({
   ShikooProtocol protocol,
   ShikooCore to,
@@ -100,7 +99,6 @@ class ShikooServer {
 
   final String name;
 
-  /// It answered only through the bridge on this network, so it leaves through it now.
   final bool viaBridge;
 
   /// The engine's protocol name, kept as data so a new protocol needs no screen change.
@@ -143,7 +141,6 @@ class ShikooService {
     this.account,
   });
 
-  /// The update is on the bridge now, after [leg] failed.
   final bool bridgeLeg;
 
   final int id;
@@ -252,7 +249,6 @@ class RefreshFailed extends ShikooNotice {
   final bool clock;
   final ShikooFailedWay way;
 
-  /// The bridge was tried after [way], and failed too.
   final bool bridge;
 
   final String? server;
@@ -283,9 +279,8 @@ class ShikooNotConnected implements Exception {
   const ShikooNotConnected();
 }
 
-/// [on] the customer's switch; [via] the servers leaving through the bridge now; [trying] servers that did not answer
-/// direct are being tried through it; [failed] the last round got no answer, not even through it.
-/// [door] the app's own request, to the door or for a subscription, is going through it now.
+/// [via] servers leaving through the bridge now; [trying] those silent direct, tried through it; [failed] the last
+/// round got no answer even there; [door] the app's own request, to the door or for a subscription, is on it now.
 typedef ShikooBridge = ({
   bool on,
   Set<String> via,
@@ -371,10 +366,8 @@ class ShikooState {
   final int? busyPort;
   final bool helperFailed;
 
-  /// Iranian sites bypass the VPN; turned with [ShikooController.setIranDirect].
   final bool iranDirect;
 
-  /// A row per protocol the customer's services have; [ShikooServer.core] is what each server really gets.
   final List<ShikooCoreRow> cores;
 
   final ShikooCoreSwitch? coreSwitch;
@@ -503,8 +496,7 @@ Duration ownerWatchEvery = const Duration(seconds: 2);
 @visibleForTesting
 Duration ownerDeathWindow = const Duration(minutes: 1);
 
-/// The Go core's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no
-/// answer in two seconds.
+/// Go's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no answer.
 final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
   (ref) => () async {
     try {
@@ -1538,9 +1530,8 @@ class ShikooController {
     await connect();
   }
 
-  /// A core behind mihomo only needs the config again; a change of who owns the tunnel needs a reconnect.
-  /// Connected, moving the server in use is told as a server switch. It is done only once the core really carrying
-  /// the server is the pick: a pick whose engine would not start leaves it on mihomo, failed, the pick kept (Sam, 2026-10-23).
+  /// A core behind mihomo only needs the config again; a new tunnel owner, a reconnect. Connected, a move shows as a
+  /// server switch, done only once the core carrying the server is the pick: a failed engine leaves it on mihomo.
   Future<void> setCore(ShikooProtocol protocol, ShikooCore core) async {
     final name = _validSelection();
     final was = _ref.read(shikooStateProvider).selectedServer?.core;
@@ -1616,8 +1607,7 @@ class ShikooController {
     specs: _ref.read(shikooCoreSpecsProvider),
   );
 
-  /// Connected, the core takes the new rules in place; an owner core reads them only as it builds the VPN, so on Android it
-  /// reconnects, while Windows' Go rebuilds its engine for the new config in place (core/shikoo_wg_windows.go).
+  /// Connected, mihomo takes the new rules in place, and so does Windows' Go engine (core/shikoo_wg_windows.go).
   Future<void> setIranDirect(bool on) {
     _iranSaved = _ref.read(shikooIranDirectProvider.notifier).set(on);
     if (_iranApplying case final applying?) {
@@ -2296,7 +2286,6 @@ class ShikooController {
     }
   }
 
-  /// A request still on the bridge keeps it; the last one to end takes it down.
   Future<void> leaveBridge() async {
     _leaveWhenDone = _doorCalls > 0;
     if (_leaveWhenDone || !_ref.read(warpAppProvider)) return;

@@ -366,7 +366,6 @@ class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
   }
 }
 
-/// The card, the settings check and the report alike: through mihomo's port wherever [ownerAside] says so.
 Future<ProbeChecks> ownerProbes(ProviderReader read) =>
     runProbes(proxy: ownerAside(read, Uri.parse(internationalProbe)));
 

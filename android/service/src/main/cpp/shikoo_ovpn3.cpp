@@ -53,8 +53,7 @@ struct Client : OpenVPNClient {
         return true;
     }
 
-    // Every family with an address goes all through the tunnel (core/shikoo_ovpn.go), so pushed routes,
-    // net_gateway ones included, change nothing.
+    // Every family with an address goes all through the tunnel (core/shikoo_ovpn.go): pushed routes change nothing.
     bool tun_builder_add_route(const std::string &, int, int, bool) override { return true; }
 
     bool tun_builder_exclude_route(const std::string &, int, int, bool) override { return true; }
@@ -72,7 +71,6 @@ struct Client : OpenVPNClient {
         return true;
     }
 
-    // Pushed settings an Android VPN has no place for.
     bool tun_builder_add_proxy_bypass(const std::string &) override { return true; }
 
     bool tun_builder_set_proxy_auto_config_url(const std::string &) override { return true; }
@@ -187,7 +185,6 @@ Java_com_follow_clash_service_OpenVpn_run(JNIEnv *e, jobject self, jstring profi
     return e->NewStringUTF(error.c_str());
 }
 
-// A no-op until the session takes foreign calls, so OpenVpn.kt repeats it until run() returns.
 extern "C" JNIEXPORT void JNICALL Java_com_follow_clash_service_OpenVpn_halt(JNIEnv *, jobject) {
     std::lock_guard<std::mutex> lock(runningMu);
     if (running) running->stop();

@@ -14,7 +14,6 @@ import (
 	"github.com/metacubex/mihomo/tunnel"
 )
 
-// shikooCoreStart is a core behind mihomo (docs/multi-core.md): marked proxies in, their replacements out in order.
 type shikooCoreStart func(proxies []map[string]any) (replacements []map[string]any, stop func(), err error)
 
 // shikooCoreKey is what lib/shikoo/engine/cores.dart writes on a marked proxy.
@@ -177,10 +176,8 @@ var (
 	portsTaken = map[int]bool{}
 )
 
-// loopbackPorts holds n loopback ports' listeners open together, so none repeats (Xray's SO_REUSEPORT would share one
-// in silence), and keeps them from later calls until forgetPorts; release closes them right before the core binds.
-// shortcut: another program can take a port between release and the bind of Xray, sing-box, or the WARP bridge at
-// each of its starts; upgrade by handing the core its listener if that is ever seen.
+// loopbackPorts holds n listeners open together till release, so no port repeats (Xray's SO_REUSEPORT shares one).
+// shortcut: a port can be taken before each Xray, sing-box or WARP bind; hand the core its listener if ever seen.
 func loopbackPorts(n int) (ports []int, release func(), err error) {
 	portsMu.Lock()
 	defer portsMu.Unlock()

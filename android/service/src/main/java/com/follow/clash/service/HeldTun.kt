@@ -24,7 +24,6 @@ internal class HeldTun<T : Closeable>(
         post(release, millis)
     }
 
-    /** A start keeps one held however long its engine takes: the engine's own VPN or the start's failure ends it. */
     fun take(): Boolean {
         cancel(release)
         return synchronized(this) { taken = true; held != null }

@@ -16,7 +16,6 @@ internal class OpenVpn(
     private val protector: (Int) -> Boolean,
     private val build: (String) -> Int,
 ) {
-    /** [refused]: the engine never ran this profile, so mihomo may carry the server instead (Sam, 2026-10-23). */
     data class Failure(val refused: Boolean, val reason: String)
 
     private val session = sessions.incrementAndGet()
@@ -56,13 +55,12 @@ internal class OpenVpn(
         return Failure(reason.startsWith(REFUSED), reason)
     }
 
-    // halt() is lost until the session takes calls from another thread, so it is repeated.
-    /** Ends [start]'s wait at once, from any thread; [stop] then ends the session. */
     fun abandon() {
         abandoned = true
         settled.countDown()
     }
 
+    // halt() is lost until the session takes calls from another thread, so it is repeated.
     fun stop() {
         stopping = true
         val running = thread ?: return

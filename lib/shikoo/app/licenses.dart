@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 /// The Go core's modules and their licences, in the NOTICES form; written by `tools/shikoo-go-licenses.py`.
 const _notices = 'assets/data/shikoo-go-licenses.txt';
 
-/// Beside the Dart packages' licences, which Flutter registers by itself.
 void registerGoLicenses() => LicenseRegistry.addLicense(goLicenses);
 
 Stream<LicenseEntry> goLicenses() async* {
@@ -18,8 +17,6 @@ Stream<LicenseEntry> goLicenses() async* {
   }
 }
 
-/// What libovpn3.so is built from (android/service/src/main/cpp/CMakeLists.txt); MPL-2.0, Apache-2.0 and
-/// BSD-2-Clause each ask for their text beside the binary. Android only: no other build ships the library.
 const _nativeLicenses = <(String, String)>[
   ('OpenVPN 3', 'assets/data/LICENSE-openvpn3.txt'),
   ('Mbed TLS', 'assets/data/LICENSE-mbedtls.txt'),

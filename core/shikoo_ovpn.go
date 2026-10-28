@@ -28,8 +28,7 @@ const (
 	shikooOpenvpnStateMethod  CoreMethod = "shikooOpenvpnState"
 )
 
-// Keys of the mapping the official engine cannot honour, so the app leaves such a server to mihomo
-// (core_openvpn.dart's serves).
+// Keys the official engine cannot honour, so the app leaves such a server to mihomo (core_openvpn.dart's serves).
 var ovpnRefusedKeys = []string{"dialer-proxy", "peer-info"}
 
 type ovpnPlan struct {
@@ -228,8 +227,7 @@ func ovpnCarrying() string {
 	return ""
 }
 
-// ovpnPing: the server's answer to a session reset, while the engine's own session is up. The reset opens no
-// session, so it takes nothing from the engine's.
+// ovpnPing: the server's answer to a session reset while the engine's own session is up, from which it takes nothing.
 func ovpnPing(params *TestDelayParams) *Delay {
 	delay := &Delay{Name: params.ProxyName, Url: params.TestUrl, Value: -1}
 	now := ovpnNow.Load()

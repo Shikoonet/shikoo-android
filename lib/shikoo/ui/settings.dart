@@ -421,8 +421,7 @@ class ShikooSettings extends ConsumerWidget {
 
 enum _Check { idle, checking, latest, failed, clock }
 
-/// Settings › App: the version, a check that does not wait out the six hours, and About. A
-/// known update stands in for the check as Home's card (phone-cards-settings-app).
+/// Settings › App: version, a check past six hours, About; a known update is Home's card (phone-cards-settings-app).
 class _AppGroup extends ConsumerStatefulWidget {
   const _AppGroup({required this.isTV});
 
@@ -646,7 +645,6 @@ class SubPage extends StatelessWidget {
   final bool barGap;
   final String? hint;
 
-  /// The [hint] in red, as a failure under Home's server pill.
   final bool hintAlert;
 
   @override
@@ -745,7 +743,6 @@ class SubPage extends StatelessWidget {
   }
 }
 
-/// On a TV two columns, the groups in turn.
 Widget _columns(List<Widget> groups, {required bool isTV}) => isTV
     ? Padding(
         padding: const EdgeInsets.symmetric(horizontal: ShikooSizes.ring),

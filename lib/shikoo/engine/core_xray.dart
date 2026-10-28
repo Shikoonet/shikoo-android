@@ -11,8 +11,7 @@ const ShikooCoreSpec xraySpec = (
   serves: _serves,
 );
 
-/// `xrayKeys` and the refusals of core/shikoo_xray.go, Xray's own among them;
-/// core/testdata/xray_serves.json holds both to them.
+/// `xrayKeys` and core/shikoo_xray.go's refusals, Xray's own among them; core/testdata/xray_serves.json holds both.
 const _keys = {
   ShikooProtocol.vless:
       'uuid flow tls alpn servername client-fingerprint reality-opts network '
@@ -61,8 +60,7 @@ bool _vless(Map<String, dynamic> server) {
       (tls || encrypted || host is! String || _private(host));
 }
 
-/// Xray's run-time bounds and its own XHTTP build checks
-/// (infra/conf/transport_method.go).
+/// Xray's run-time bounds and its own XHTTP build checks (infra/conf/transport_method.go).
 bool _xhttp(Map x) {
   final mode = x['mode'] ?? '';
   final reuse = x['reuse-settings'] as Map? ?? const {};
@@ -107,8 +105,7 @@ final _encryptionShape = RegExp(
   r'((?:\.\d{1,5}-\d{1,5}-\d{1,5})*)((?:\.[\w-]{20,})+)$',
 );
 
-/// The shape Xray slices VLESS encryption by (infra/conf/vless.go), and its
-/// padding check (`ParsePadding`, proxy/vless/encryption/common.go).
+/// How Xray slices VLESS encryption (infra/conf/vless.go), and its `ParsePadding` (proxy/vless/encryption/common.go).
 bool _encryption(Object? value) {
   if (value == null || value == '' || value == 'none') return true;
   final match = _encryptionShape.firstMatch('$value');

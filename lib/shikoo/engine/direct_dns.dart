@@ -29,7 +29,6 @@ void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {
     ...theirs,
   };
   config['rules'] = [
-    // `no-resolve`: resolving here would hold every foreign site up for DNS; an IP counts only for a nameless connection.
     'RULE-SET,shikoo-ir-site,DIRECT',
     'RULE-SET,shikoo-ir-ip,DIRECT,no-resolve',
     ...?(config['rules'] as List?),

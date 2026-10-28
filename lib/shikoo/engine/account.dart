@@ -257,7 +257,6 @@ class ShikooApiFailure implements Exception {
 
   final bool clock;
 
-  /// The bridge was tried after the door's addresses, and failed too.
   final bool bridge;
 
   /// The door answered, and refused; null when it was not reached.
@@ -637,8 +636,7 @@ Future<void> keepApiDirect() async {
   }
 }
 
-/// Banks and payment gateways refuse a foreign address. One transaction a call: quick turns land in order.
-/// The whole id block goes first: an earlier build stored rows under ids this one no longer uses.
+/// One transaction a call, so quick turns land in order; the whole id block goes, as earlier builds used other ids.
 Future<void> keepIranDirect(bool on) => database.transaction(() async {
   await database.rulesDao.delRules([
     for (var i = 0; i < 100; i++) iranDirectIds + i,
@@ -649,8 +647,7 @@ Future<void> keepIranDirect(bool on) => database.transaction(() async {
   }
 });
 
-/// Left alone when unchanged: a tunnel still up from the last run may be reading them.
-/// A failed write only sends Iranian sites through the server; the app still starts.
+/// Unchanged files stay for a tunnel still up from the last run; a failed write only sends Iranian sites by the server.
 Future<void> writeRuleSets(String home) async {
   try {
     for (final name in shikooRuleSets.keys) {

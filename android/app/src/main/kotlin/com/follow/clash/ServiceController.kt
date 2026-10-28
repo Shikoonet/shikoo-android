@@ -112,7 +112,6 @@ object ServiceController {
         runTimeMillis
     }
 
-    // Shikoo: a stop while the service is still binding for this start.
     @Volatile
     private var startAbandoned = false
 
