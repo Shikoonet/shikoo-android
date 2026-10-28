@@ -63,6 +63,7 @@ func handleStopListener() bool {
 	defer configMu.Unlock()
 	isRunning.Store(false)
 	listener.StopListener()
+	stopOwnerTun()
 	resolver.ResetConnection()
 	return true
 }
@@ -86,6 +87,7 @@ func handleShutdown() bool {
 	configMu.Lock()
 	isRunning.Store(false)
 	listener.StopListener()
+	stopOwnerTun()
 	updater.StopGeoUpdater()
 	executor.Shutdown()
 	shikooCoresShutdown()

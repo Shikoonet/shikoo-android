@@ -156,7 +156,7 @@ func updateListeners(cfg *config.Config) {
 	listener.ReCreateVmess(general.VmessConfig, tunnel.Tunnel)
 	listener.ReCreateTuic(general.TuicServer, tunnel.Tunnel)
 	if !features.Android {
-		listener.ReCreateTun(general.Tun, tunnel.Tunnel)
+		reCreateTun(general.Tun)
 	}
 }
 

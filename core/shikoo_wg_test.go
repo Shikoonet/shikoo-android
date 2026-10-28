@@ -6,22 +6,27 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"maps"
 	"net/netip"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outbound"
+	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"go4.org/netipx"
 	wgconn "golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
+	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/tun/tuntest"
 )
 
@@ -243,7 +248,7 @@ func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
 		if err != nil {
 			t.Fatal(err)
@@ -273,7 +278,7 @@ func TestThePaymentGatewaysAndKeyAppsLeaveTheTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
 		if err != nil {
 			t.Fatal(err)
@@ -319,7 +324,7 @@ func TestTheWidestIranianBlocksGoFirstWithinTheRouteBudget(t *testing.T) {
 		b.AddPrefix(netip.PrefixFrom(netip.AddrFrom4([4]byte{185, byte(i / 256), byte(i % 256), 0}), 24))
 	}
 	iran := must(b.IPSet())
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
 		if err != nil {
 			t.Fatal(err)
@@ -368,7 +373,7 @@ func TestAnIPv6AddressKeepsIranianIPv4OutOfTheTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1} {
+	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
 		without := iranianIPv4Out(t, wgMapping(t, nil), iran, sdk)
 		with := iranianIPv4Out(t, wgMapping(t, map[string]any{"ipv6": "fd00::2"}), iran, sdk)
 		if with < without*98/100 {
@@ -494,6 +499,13 @@ func wgServer(t *testing.T, client []byte) (*device.Device, *tuntest.ChannelTUN,
 
 func startTestOwner(t *testing.T, set ...map[string]any) (*device.Device, *tuntest.ChannelTUN, *tuntest.ChannelTUN) {
 	t.Helper()
+	clientTun := tuntest.NewChannelTUN()
+	server, serverTun := startTestOwnerOn(t, clientTun.TUN(), set...)
+	return server, serverTun, clientTun
+}
+
+func startTestOwnerOn(t *testing.T, client tun.Device, set ...map[string]any) (*device.Device, *tuntest.ChannelTUN) {
+	t.Helper()
 	private, public := wgKeyPair(t)
 	server, serverTun, serverPublic, port := wgServer(t, public)
 	t.Cleanup(server.Close)
@@ -511,12 +523,11 @@ func startTestOwner(t *testing.T, set ...map[string]any) (*device.Device, *tunte
 	ownerMu.Lock()
 	ownerPrepared = prepared
 	ownerMu.Unlock()
-	clientTun := tuntest.NewChannelTUN()
-	if err := startOwner(clientTun.TUN()); err != nil {
+	if err := startOwner(client, wgconn.NewDefaultBind()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(stopOwner)
-	return server, serverTun, clientTun
+	return server, serverTun
 }
 
 func TestTheOwnerAnswersItsServersPingWithAHandshake(t *testing.T) {
@@ -578,7 +589,30 @@ func TestUpSendsNoInitiationBeforeTheEnginesOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dev, err := upWithoutKeepalive(tuntest.NewChannelTUN().TUN(), prepared)
+	dev, err := upWithoutKeepalive(tuntest.NewChannelTUN().TUN(), wgconn.NewDefaultBind(), prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(dev.Close)
+	time.Sleep(300 * time.Millisecond)
+	if at := (&wgOwner{dev: dev}).lastHandshake(); !at.IsZero() {
+		t.Errorf("Up shook hands at %v, before the engine could stamp its own ask", at)
+	}
+}
+
+// Windows' adapter never sends EventUp, so only the engine's own Up brings the device up there.
+func TestUpOnWindowsWintunSendsNoInitiationBeforeTheEnginesOwn(t *testing.T) {
+	private, public := wgKeyPair(t)
+	server, _, serverPublic, port := wgServer(t, public)
+	t.Cleanup(server.Close)
+	_, prepared, err := wgPlan(map[string]any{
+		"name": "wg", "type": "wireguard", "server": "127.0.0.1", "port": port, "ip": "10.13.13.2",
+		"private-key": b64(private), "public-key": b64(serverPublic), "persistent-keepalive": 25,
+	}, nil, windowsSdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev, err := upWithoutKeepalive(newWinTun(newFakeWintun(), "ShikooNet", 1280), wgconn.NewDefaultBind(), prepared)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -662,7 +696,7 @@ func TestStopTunStopsTheOwnerButKeepsTheNextPlan(t *testing.T) {
 	ownerMu.Lock()
 	ownerPrepared = nil
 	ownerMu.Unlock()
-	if err := startOwner(tuntest.NewChannelTUN().TUN()); err == nil {
+	if err := startOwner(tuntest.NewChannelTUN().TUN(), wgconn.NewDefaultBind()); err == nil {
 		t.Error("started with nothing prepared")
 	}
 }
@@ -686,5 +720,99 @@ func TestStartingTheOwnerClosesMihomosEarlierClientOfItsServer(t *testing.T) {
 	startTestOwner(t)
 	if !slices.Equal(closes, []string{"wg"}) {
 		t.Errorf("mihomo's client of the server was closed %d times, the engine carrying %q", len(closes), closes)
+	}
+}
+
+// fakeWintun is sing-tun's WinTun over channels, as tuntest.ChannelTUN is wireguard-go's tun.
+type fakeWintun struct {
+	outbound, inbound chan []byte
+	closed            chan struct{}
+	once              sync.Once
+}
+
+func newFakeWintun() *fakeWintun {
+	return &fakeWintun{outbound: make(chan []byte), inbound: make(chan []byte, 8), closed: make(chan struct{})}
+}
+
+func (f *fakeWintun) ReadPacket() ([]byte, func(), error) {
+	select {
+	case packet := <-f.outbound:
+		return packet, func() {}, nil
+	case <-f.closed:
+		return nil, nil, os.ErrClosed
+	}
+}
+
+func (f *fakeWintun) Read([]byte) (int, error) {
+	return 0, errors.New("the engine reads whole packets")
+}
+
+func (f *fakeWintun) Write(packet []byte) (int, error) {
+	f.inbound <- slices.Clone(packet)
+	return len(packet), nil
+}
+
+func (f *fakeWintun) Close() error {
+	f.once.Do(func() { close(f.closed) })
+	return nil
+}
+
+func TestTheOwnerCarriesPacketsOnWindowsWintun(t *testing.T) {
+	wintun := newFakeWintun()
+	_, serverTun := startTestOwnerOn(t, newWinTun(wintun, "ShikooNet", 1280))
+	out := tuntest.Ping(netip.MustParseAddr("10.13.13.1"), netip.MustParseAddr("10.13.13.2"))
+	wintun.outbound <- out
+	select {
+	case got := <-serverTun.Inbound:
+		if string(got) != string(out) {
+			t.Fatal("the server got another packet")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no packet reached the server")
+	}
+	back := tuntest.Ping(netip.MustParseAddr("10.13.13.2"), netip.MustParseAddr("10.13.13.1"))
+	serverTun.Outbound <- back
+	select {
+	case got := <-wintun.inbound:
+		if string(got) != string(back) {
+			t.Fatal("the system got another packet")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no packet came back")
+	}
+	if got := ownerServer(); got != "wg" {
+		t.Errorf("the engine reports %q, want wg", got)
+	}
+	stopOwner()
+	select {
+	case <-wintun.closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the stop left the adapter open")
+	}
+	if got := ownerServer(); got != "" {
+		t.Errorf("a stopped engine reports %q", got)
+	}
+}
+
+func TestTheServerInUseRunsOnTheOwnerOnlyWhenMarked(t *testing.T) {
+	marked := wgMapping(t, map[string]any{"name": "wg-a", shikooOwnerKey: "wireguard"})
+	raw := &config.RawConfig{
+		Proxy:      []map[string]any{marked, wgMapping(t, map[string]any{"name": "wg-b"})},
+		ProxyGroup: []map[string]any{{"name": "info", "hidden": true}, {"name": "main"}, {"name": "other"}},
+		Rule:       []string{"DOMAIN,door.example,DIRECT", "MATCH,main"},
+	}
+	picks := map[string]string{"info": "wg-b", "main": "wg-a", "other": "wg-b"}
+	now := func(group string) string { return picks[group] }
+
+	if mapping, iran := ownerInUse(raw, now); mapping["name"] != "wg-a" || iran {
+		t.Fatalf("got %v, Iran %v; want wg-a without Iran's ranges", mapping["name"], iran)
+	}
+	raw.Rule = append([]string{"RULE-SET, shikoo-ir-ip, DIRECT, no-resolve"}, raw.Rule...)
+	if _, iran := ownerInUse(raw, now); !iran {
+		t.Error("the Iranian switch's rule did not keep Iran's ranges out")
+	}
+	picks["main"], picks["other"] = "wg-b", "wg-a"
+	if mapping, _ := ownerInUse(raw, now); mapping != nil {
+		t.Errorf("the owner took %v, a pick outside the listed group", mapping["name"])
 	}
 }

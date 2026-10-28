@@ -189,7 +189,10 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - `carrying` returns the server the engine carries now, `""` for none. It runs on every dial through a gated server
     and on each question from Dart, so it returns at once: no I/O, and no lock held across I/O or across the engine's
     own start and stop (an atomic value is enough). It may run while `applyConfig` holds `configMu`, so it never takes
-    `configMu`. Its synchronisation is the engine's.
+    `configMu`. Its synchronisation is the engine's. An engine that rebuilds itself for a new key inside one run
+    (Windows, `reCreateTun`: an Iranian-switch apply, a new mapping) keeps naming that server from closing the old
+    engine until the new one runs, and `""` once it fails: the app's 2 s watch counts only a real death, and on
+    Windows the app leaves both rebuilds to Go. A first start names nothing until the engine runs.
   - `ping` answers a delay test of that server from the engine's own session, on a goroutine of its own, within the
     test's timeout. **It is required in practice:** with nil, mihomo answers, the gate below makes that a failure, so
     the server in use shows dead and every `setCore` to the owner core ends `failed`.

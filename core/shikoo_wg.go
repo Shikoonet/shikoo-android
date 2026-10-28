@@ -31,6 +31,7 @@ import (
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/rules/provider"
 	"github.com/metacubex/mihomo/tunnel/statistic"
+	singtun "github.com/metacubex/sing-tun"
 	"go4.org/netipx"
 	wgconn "golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
@@ -51,8 +52,11 @@ const (
 
 var wgDNS = []string{"1.1.1.1", "8.8.8.8", "2606:4700:4700::1111", "2001:4860:4860::8888"}
 
-// excludeRoute is Android 13's; below it the Iranian ranges are cut out of the routes instead.
-const excludeRouteSdk = 33
+// excludeRoute is Android 13's; below it the Iranian ranges are cut out of the routes instead, and so on Windows.
+const (
+	excludeRouteSdk = 33
+	windowsSdk      = 0
+)
 
 type PrepareOwnerParams struct {
 	Core       string `json:"core"`
@@ -106,12 +110,7 @@ func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
 	if params.Core != "wireguard" {
 		return nil, fmt.Errorf("no owner core %q in this build", params.Core)
 	}
-	home := constant.Path.HomeDir()
-	buf, err := os.ReadFile(filepath.Join(home, "config.yaml"))
-	if err != nil {
-		return nil, err
-	}
-	raw, err := config.UnmarshalRawConfig(buf)
+	raw, err := appliedRawConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -125,14 +124,7 @@ func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
 	if mapping == nil {
 		return nil, fmt.Errorf("server %q is not in the config", params.Server)
 	}
-	var iran *netipx.IPSet
-	if params.IranDirect {
-		// A missing set only sends Iranian sites through the server, as it does for mihomo's rule.
-		if iran, err = readIPSet(filepath.Join(home, "shikoo-ir-ip.mrs")); err != nil {
-			log.Warnln("[WG] Iranian ranges not read: %v", err)
-		}
-	}
-	plan, prepared, err := wgPlan(mapping, iran, int(sdkVersion.Load()), lookupEndpoint)
+	plan, prepared, err := wgPlan(mapping, iranRanges(params.IranDirect), int(sdkVersion.Load()), lookupEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +132,26 @@ func handlePrepareOwner(params *PrepareOwnerParams) (*ownerPlan, error) {
 	ownerPrepared = prepared
 	ownerMu.Unlock()
 	return plan, nil
+}
+
+func appliedRawConfig() (*config.RawConfig, error) {
+	buf, err := os.ReadFile(filepath.Join(constant.Path.HomeDir(), "config.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	return config.UnmarshalRawConfig(buf)
+}
+
+func iranRanges(on bool) *netipx.IPSet {
+	if !on {
+		return nil
+	}
+	iran, err := readIPSet(filepath.Join(constant.Path.HomeDir(), "shikoo-ir-ip.mrs"))
+	if err != nil {
+		// A missing set only sends Iranian sites through the server, as it does for mihomo's rule.
+		log.Warnln("[WG] Iranian ranges not read: %v", err)
+	}
+	return iran
 }
 
 // wgPlan reads a mapping the way mihomo's WireGuard outbound does (adapter/outbound/wireguard.go).
@@ -442,9 +454,8 @@ func readIPSet(path string) (*netipx.IPSet, error) {
 	return set.ToIPSet(), nil
 }
 
-// startOwner runs the prepared server on [t], and closes [t] when it cannot. The caller holds tunLock and has
-// stopped the last tunnel, which keeps what was prepared for this one.
-func startOwner(t tun.Device) error {
+// startOwner runs the prepared server, and closes [t] when it cannot; the caller has stopped the last tunnel.
+func startOwner(t tun.Device, bind wgconn.Bind) error {
 	ownerMu.Lock()
 	prepared := ownerPrepared
 	ownerPrepared = nil
@@ -453,7 +464,7 @@ func startOwner(t tun.Device) error {
 		_ = t.Close()
 		return errors.New("no server prepared")
 	}
-	owner, err := startWireGuard(t, prepared)
+	owner, err := startWireGuard(t, bind, prepared)
 	if err != nil {
 		return err
 	}
@@ -468,8 +479,8 @@ func forgetWhenClosed(owner *wgOwner) {
 	ownerRunning.CompareAndSwap(owner, nil)
 }
 
-func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
-	dev, err := upWithoutKeepalive(t, prepared)
+func startWireGuard(t tun.Device, bind wgconn.Bind, prepared *wgPrepared) (*wgOwner, error) {
+	dev, err := upWithoutKeepalive(t, bind, prepared)
 	if err != nil {
 		return nil, err
 	}
@@ -488,12 +499,12 @@ func startWireGuard(t tun.Device, prepared *wgPrepared) (*wgOwner, error) {
 }
 
 // Up would send a keepalive, and so an initiation, before the engine could time one of its own.
-func upWithoutKeepalive(t tun.Device, prepared *wgPrepared) (*device.Device, error) {
+func upWithoutKeepalive(t tun.Device, bind wgconn.Bind, prepared *wgPrepared) (*device.Device, error) {
 	logger := &device.Logger{
 		Verbosef: device.DiscardLogf,
 		Errorf:   func(format string, args ...any) { log.Warnln("[WG] "+format, args...) },
 	}
-	dev := device.NewDevice(countingTun{t}, wgconn.NewDefaultBind(), logger)
+	dev := device.NewDevice(countingTun{t}, bind, logger)
 	held := "persistent_keepalive_interval=" + strconv.Itoa(prepared.keepalive) + "\n"
 	if err := dev.IpcSet(strings.Replace(prepared.uapi, held, "persistent_keepalive_interval=0\n", 1)); err != nil {
 		dev.Close()
@@ -609,4 +620,74 @@ func (c countingTun) Write(bufs [][]byte, offset int) (int, error) {
 	}
 	statistic.DefaultManager.PushDownloaded(false, total)
 	return n, err
+}
+
+// ownerInUse: the live pick of the listed group (mainGroupOf), if marked; Iran's ranges stay out while DIRECT by rule.
+func ownerInUse(raw *config.RawConfig, now func(group string) string) (mapping map[string]any, iranDirect bool) {
+	for _, group := range raw.ProxyGroup {
+		if hidden, _ := group["hidden"].(bool); hidden {
+			continue
+		}
+		server := now(fmt.Sprint(group["name"]))
+		for _, proxy := range raw.Proxy {
+			if proxy["name"] == server && proxy[shikooOwnerKey] == "wireguard" {
+				mapping = proxy
+			}
+		}
+		break
+	}
+	if mapping == nil {
+		return nil, false
+	}
+	return mapping, slices.ContainsFunc(raw.Rule, func(rule string) bool {
+		fields := strings.Split(strings.ReplaceAll(rule, " ", ""), ",")
+		return len(fields) >= 3 && fields[0] == "RULE-SET" && fields[1] == "shikoo-ir-ip" && fields[2] == "DIRECT"
+	})
+}
+
+type winTun struct {
+	t      singtun.WinTun
+	name   string
+	mtu    int
+	events chan tun.Event
+	closed sync.Once
+}
+
+func newWinTun(t singtun.WinTun, name string, mtu int) *winTun {
+	return &winTun{t: t, name: name, mtu: mtu, events: make(chan tun.Event)}
+}
+
+func (w *winTun) File() *os.File { return nil }
+
+func (w *winTun) Read(bufs [][]byte, sizes []int, offset int) (int, error) {
+	packet, release, err := w.t.ReadPacket()
+	if err != nil {
+		return 0, err
+	}
+	sizes[0] = copy(bufs[0][offset:], packet)
+	release()
+	return 1, nil
+}
+
+func (w *winTun) Write(bufs [][]byte, offset int) (int, error) {
+	for i, buf := range bufs {
+		if _, err := w.t.Write(buf[offset:]); err != nil {
+			return i, err
+		}
+	}
+	return len(bufs), nil
+}
+
+func (w *winTun) MTU() (int, error) { return w.mtu, nil }
+
+func (w *winTun) Name() (string, error) { return w.name, nil }
+
+func (w *winTun) Events() <-chan tun.Event { return w.events }
+
+func (w *winTun) BatchSize() int { return 1 }
+
+func (w *winTun) Close() error {
+	err := w.t.Close()
+	w.closed.Do(func() { close(w.events) })
+	return err
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/metacubex/mihomo/dns"
 	"github.com/metacubex/mihomo/listener/sing_tun"
 	"github.com/metacubex/mihomo/log"
+	wgconn "golang.zx2c4.com/wireguard/conn"
 	wgtun "golang.zx2c4.com/wireguard/tun"
 )
 
@@ -251,7 +252,7 @@ func handleStartOwner(fd int) bool {
 	stopTunLocked()
 	device, _, err := wgtun.CreateUnmonitoredTUNFromFD(fd)
 	if err == nil {
-		err = startOwner(device)
+		err = startOwner(device, wgconn.NewDefaultBind())
 	} else {
 		_ = syscall.Close(fd)
 	}

@@ -505,6 +505,48 @@ void main() {
     ], contains('RULE-SET,shikoo-ir-ip,DIRECT,no-resolve'));
   });
 
+  test('on Windows neither the Iranian switch nor a new key of the carried '
+      'server reconnects: Go rebuilds the engine in place', () async {
+    final before = database;
+    database = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await database.close();
+      database = before;
+    });
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => (core: 'wireguard', server: 'W'),
+      desktop: true,
+    );
+    home.container.listen(shikooControllerProvider, (_, _) {});
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+    final applies = home.setup.applies;
+
+    await home.controller.setIranDirect(false);
+    expect(home.setup.runs, isEmpty);
+    expect(home.setup.applies, greaterThan(applies));
+
+    when(() => home.core.getConfig(any())).thenAnswer(
+      (_) async => {
+        ..._profile,
+        'proxies': [
+          for (final proxy in _profile['proxies']! as List)
+            if ((proxy as Map)['name'] == 'W')
+              {...proxy, 'public-key': 'new'}
+            else
+              proxy,
+        ],
+      },
+    );
+    home.container.read(initProvider.notifier).value = false;
+    await pumpEventQueue();
+    home.container.read(initProvider.notifier).value = true;
+    await pumpEventQueue();
+    expect(home.setup.runs, isEmpty);
+  });
+
   test('an update that changes the key of the server an owner core carries '
       'rebuilds its tunnel; the same server unchanged, or on mihomo, does '
       'not', () async {
@@ -603,6 +645,58 @@ void main() {
 
     await home.controller.disconnect();
     expect(home.container.read(shikooOwnerProvider)?.core, 'wireguard');
+  });
+
+  test('after the fallback every apply builds the config held off, so an '
+      'Iranian-switch tap neither reconnects nor marks the engine; the '
+      "user's disconnect builds it with the engine again", () async {
+    final before = database;
+    database = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await database.close();
+      database = before;
+    });
+    final every = ownerWatchEvery;
+    ownerWatchEvery = const Duration(milliseconds: 20);
+    addTearDown(() => ownerWatchEvery = every);
+    var deaths = 0;
+    late final _Home home;
+    home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () {
+        if (home.container.read(shikooOwnerHeldOffProvider) ||
+            deaths > 0 && deaths-- > 0) {
+          return (core: '', server: '');
+        }
+        return (core: 'wireguard', server: 'W');
+      },
+    );
+    // What each apply's markCores sees, after how many starts and stops.
+    final applies = <(int, bool)>[];
+    home.setup.onApply = () => applies.add((
+      home.setup.runs.length,
+      home.container.read(shikooOwnerHeldOffProvider),
+    ));
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.setup.runs, [false, true, false, true]);
+    expect(applies, contains((3, true)), reason: 'between its stop and start');
+    applies.clear();
+
+    await home.controller.setIranDirect(false);
+    expect(home.setup.runs, [false, true, false, true]);
+    expect(applies, isNotEmpty);
+    expect(applies.every((apply) => apply.$2), isTrue);
+
+    applies.clear();
+    await home.controller.disconnect();
+    expect(applies.last.$2, isFalse);
   });
 
   test('the hold on mihomo ends with the connection however it ends, and a '
