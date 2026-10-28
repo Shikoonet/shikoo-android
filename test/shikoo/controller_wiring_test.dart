@@ -18,6 +18,7 @@ import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
@@ -3621,6 +3622,113 @@ void main() {
       expect(applied, [noWarp]);
       expect(state().bridge.via, isEmpty);
       expect(server(netherlands).viaBridge, isFalse);
+    });
+
+    test('a silent server whose core owns the tunnel never goes through the '
+        'bridge; given back to mihomo, it does', () async {
+      const france = 'فرانسه ۴';
+      final made = _home([
+        warpNetworkReaderProvider.overrideWithValue(() async => 'mobile'),
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      final owner = made.container;
+      owner.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: _version, type: 'Vless'),
+            Proxy(name: germany, type: 'Vless'),
+            Proxy(name: france, type: 'OpenVPN'),
+          ],
+        ),
+      ];
+      final routes = <WarpRoute>[];
+      made.setup.onApply = () =>
+          routes.add(owner.read(shikooWarpRouteProvider));
+      when(() => made.core.asyncTestDelay(any(), any())).thenAnswer((
+        call,
+      ) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: name == germany ? 90 : -1);
+      });
+      final controller = owner.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.setBridge(true);
+      await controller.pingAll();
+      expect(routes.expand((route) => route.via), isNot(contains(france)));
+      expect(owner.read(shikooWarpMemoryProvider), isEmpty);
+      expect(
+        owner
+            .read(shikooStateProvider)
+            .servers
+            .firstWhere((s) => s.name == france)
+            .viaBridge,
+        isFalse,
+      );
+
+      await owner
+          .read(shikooCoresProvider.notifier)
+          .set(ShikooProtocol.openvpn, ShikooCore.mihomo);
+      await controller.pingAll();
+      expect(routes.expand((route) => route.via), contains(france));
+    });
+
+    test('a server remembered on the bridge whose core now owns the tunnel '
+        'leaves it, its label too', () async {
+      final made = _home([
+        warpNetworkReaderProvider.overrideWithValue(() async => 'mobile'),
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      final owner = made.container;
+      owner.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: _version, type: 'Vless'),
+            Proxy(name: germany, type: 'Vless'),
+            Proxy(name: netherlands, type: 'WireGuard'),
+          ],
+        ),
+      ];
+      when(() => made.core.asyncTestDelay(any(), any())).thenAnswer((
+        call,
+      ) async {
+        final name = call.positionalArguments[1] as String;
+        final bridged = owner.read(shikooWarpRouteProvider).via.contains(name);
+        return Delay(
+          name: name,
+          url: '',
+          value: name == germany || bridged ? 90 : -1,
+        );
+      });
+      await owner
+          .read(shikooCoresProvider.notifier)
+          .set(ShikooProtocol.wireguard, ShikooCore.mihomo);
+      final controller = owner.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.setBridge(true);
+      await controller.pingAll();
+      expect(owner.read(shikooWarpMemoryProvider), {
+        'mobile': {netherlands},
+      });
+
+      await owner
+          .read(shikooCoresProvider.notifier)
+          .set(ShikooProtocol.wireguard, ShikooCore.wireguard);
+      ShikooServer wg() => owner
+          .read(shikooStateProvider)
+          .servers
+          .firstWhere((s) => s.name == netherlands);
+      expect(wg().viaBridge, isFalse, reason: 'before any round');
+      await controller.pingAll();
+      expect(owner.read(shikooWarpMemoryProvider), isEmpty);
+      expect(wg().viaBridge, isFalse);
     });
 
     test('turned off during a trial, a server that then answers direct is '

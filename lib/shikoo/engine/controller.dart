@@ -750,7 +750,18 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
           fresh: fresh.contains(name),
           protocol: protocolOf(sources[name] ?? {'type': types[name]}),
           core: coreOf(name),
-          viaBridge: loaded && route.via.contains(name),
+          viaBridge:
+              loaded &&
+              route.via.contains(name) &&
+              !ownsTunnel(
+                coreFor(
+                  sources[name] ?? {'type': types[name]},
+                  choices,
+                  specs: specs,
+                  tunnel: tunnel,
+                ),
+                specs,
+              ),
         ),
     ];
   }
@@ -2146,8 +2157,20 @@ class ShikooController {
     final network = _ref.read(warpNetworkProvider);
     final remembered =
         _ref.read(shikooWarpMemoryProvider)[network] ?? const <String>{};
-    final lost = on ? remembered.intersection({...silent}) : const <String>{};
-    final candidates = bridgeCandidates(on: on, silent: silent, via: route.via);
+    final specs = _ref.read(shikooCoreSpecsProvider);
+    // A core that owns the tunnel dials its server itself, around the bridge.
+    bool owned(String name) => ownsTunnel(_coreFor(name), specs);
+    final lost = on
+        ? {
+            ...remembered.intersection({...silent}),
+            ...remembered.where(owned),
+          }
+        : const <String>{};
+    final candidates = bridgeCandidates(
+      on: on,
+      silent: silent.whereNot(owned),
+      via: route.via,
+    );
     final direct = <String, int>{};
     final service = _current;
     if (on && remembered.isNotEmpty && service != null) {

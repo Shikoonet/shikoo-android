@@ -75,6 +75,10 @@ the core's environment reaches it.
   password; a build without the bridge leaves port 1, refused, so nothing goes around it. A server on the route that was
   marked for a core behind mihomo (Xray, sing-box) goes back to mihomo: those engines dial their server themselves. A
   `direct`-type proxy never goes through it (WARP's free internet).
+- **A server whose chosen core owns the tunnel** (official WireGuard or OpenVPN, `shikoo-owner`) stays out of it all:
+  no trial, no memory, no `dialer-proxy`, no «via WARP» label. Its engine dials the server itself, outside mihomo, so
+  the bridge could not carry it (the official OpenVPN core also gives no ping before it connects). Given back to
+  mihomo, the server is tried as any other.
 - **The app's own requests** take the bridge last, through aether's http proxy (`PROXY user:pass@127.0.0.1:port`, read
   from `<core home>/warp/endpoint.json`, written 0600 by Go only while the bridge's program runs; one a killed app left
   behind goes at the next launch). `controller.throughBridge(request)` starts the bridge for them when no server needed
