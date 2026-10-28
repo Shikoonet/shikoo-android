@@ -1709,7 +1709,7 @@ void main() {
       socket.listen((_) async {
         if (answered) return;
         answered = true;
-        final body = 'proxies:\n  - {name: nl, type: http, server: 1.1.1.1}\n';
+        const body = 'proxies:\n  - {name: nl, type: http, server: 1.1.1.1}\n';
         final length = body.length + (++calls == 1 ? 100 : 0);
         socket.add(
           ('HTTP/1.1 200 OK\r\ncontent-type: text/yaml\r\ncontent-disposition: '
