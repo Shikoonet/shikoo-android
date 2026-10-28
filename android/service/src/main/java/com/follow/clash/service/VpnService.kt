@@ -139,7 +139,7 @@ class VpnService : SystemVpnService(), ManagedService {
 
     // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
-        if (options.ownsTunnel) holdBlocked(options)
+        if (options.ownsTunnel && !holdsTun()) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
                 Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
@@ -273,7 +273,8 @@ class VpnService : SystemVpnService(), ManagedService {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             setMetered(false)
         }
-        if (options.allowBypass) {
+        // A bypassable VPN lets traffic out by the mobile network while Android swaps an owner core's VPN.
+        if (options.allowBypass && !owner) {
             allowBypass()
         }
         // The proxy is mihomo's port, whose client of the owner's server shares its key.
@@ -302,6 +303,9 @@ class VpnService : SystemVpnService(), ManagedService {
         }.onFailure { GlobalState.log("Blocking VPN not built: $it") }.getOrNull()
         tun?.let(::holdOwnerTun)
     }
+
+    // Every swap of the VPN's interface lets traffic out for a moment, so one already held is kept.
+    private fun holdsTun() = synchronized(ownerTunLock) { ownerTun != null }
 
     private fun holdOwnerTun(tun: ParcelFileDescriptor?) {
         mainHandler.removeCallbacks(releaseHeld)
@@ -377,7 +381,7 @@ class VpnService : SystemVpnService(), ManagedService {
     override fun stop() {
         val switching = SystemClock.elapsedRealtime() - switchAskedAt < SWITCH_ASK_MILLIS
         switchAskedAt = 0L
-        if (switching) ServiceConfig.vpnOptions?.let(::holdBlocked)
+        if (switching && !holdsTun()) ServiceConfig.vpnOptions?.let(::holdBlocked)
         try {
             cleanup(keepHeld = switching)
         } finally {
