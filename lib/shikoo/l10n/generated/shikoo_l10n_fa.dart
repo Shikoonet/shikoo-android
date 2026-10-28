@@ -468,7 +468,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutSummary =>
-      'نرم‌افزار آزاد با مجوز GPL-3.0، بر پایهٔ FlClash و mihomo';
+      'نرم‌افزار آزاد با مجوز ⁨GPL-3.0⁩، بر پایهٔ ⁨FlClash⁩ و ⁨mihomo⁩';
 
   @override
   String get aboutFree =>
@@ -476,7 +476,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutBasedOn =>
-      'شیکونت بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.';
+      'شیکونت بر پایهٔ دو نرم‌افزار آزاد است: ⁨FlClash⁩ از ⁨chen08209⁩ و هستهٔ ⁨mihomo⁩ از ⁨MetaCubeX⁩. سپاس از سازندگانشان.';
 
   @override
   String get aboutSource =>
@@ -1706,10 +1706,10 @@ class ShikooL10nFa extends ShikooL10n {
   String get coreSingBox => 'sing-box';
 
   @override
-  String get coreWireguard => 'WireGuard';
+  String get coreWireguard => '⁨WireGuard⁩ رسمی';
 
   @override
-  String get coreOpenvpn => 'OpenVPN';
+  String get coreOpenvpn => '⁨OpenVPN⁩ رسمی';
 
   @override
   String get coreDefault => 'پیش‌فرض';

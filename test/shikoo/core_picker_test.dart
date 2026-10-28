@@ -492,26 +492,27 @@ void main() {
       verifyNever(() => rig.controller.setCore(any(), any()));
     });
 
-    testWidgets('English, dark: the official engine picked, the row says so', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        _settings(cores: _rows(wireguard: _wireguard)),
-        locale: 'en',
-        brightness: Brightness.dark,
-      );
-      expect(find.text(_en.coreWireguard), findsOneWidget);
-      await tester.ensureVisible(find.text(_en.protocolWireguard).first);
-      await tester.tap(find.text(_en.protocolWireguard).first);
-      await tester.pumpAndSettle();
-      expect(
-        find.text(_en.corePickTitle(bidiName(_en.protocolWireguard))),
-        findsOneWidget,
-      );
-      expect(find.text(_en.coreSoon), findsOneWidget);
-      await _shot(tester, 'a-sheet-en-dark');
-    });
+    for (final b in Brightness.values) {
+      testWidgets('English: the official engine picked, the row says so '
+          '(${b.name})', (tester) async {
+        await _pump(
+          tester,
+          _settings(cores: _rows(wireguard: _wireguard)),
+          locale: 'en',
+          brightness: b,
+        );
+        expect(find.text(_en.coreWireguard), findsOneWidget);
+        await tester.ensureVisible(find.text(_en.protocolWireguard).first);
+        await tester.tap(find.text(_en.protocolWireguard).first);
+        await tester.pumpAndSettle();
+        expect(
+          find.text(_en.corePickTitle(bidiName(_en.protocolWireguard))),
+          findsOneWidget,
+        );
+        expect(find.text(_en.coreSoon), findsOneWidget);
+        await _shot(tester, 'a-sheet-en-${b.name}');
+      });
+    }
 
     for (final b in Brightness.values) {
       testWidgets('sing-box picked for VLESS says some servers stay on '
@@ -1001,11 +1002,7 @@ void main() {
           cores: _rows(wireguard: _wireguard, tunnel: false),
         );
         await tester.pumpAndSettle();
-        expect(
-          find.text(_fa.coreWireguard),
-          findsNWidgets(2),
-          reason: 'the row and its kept pick',
-        );
+        expect(find.text(_fa.coreWireguard), findsOneWidget, reason: 'kept');
         await tester.ensureVisible(find.text(_fa.protocolVless).first);
         await tester.pumpAndSettle();
         await tester.tap(find.text(_fa.protocolVless).first);
@@ -1081,7 +1078,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(
             find.text(_fa.coreWireguard),
-            findsNWidgets(2),
+            findsOneWidget,
             reason: 'the row',
           );
           await tester.tap(find.text(_fa.protocolWireguard).first);
