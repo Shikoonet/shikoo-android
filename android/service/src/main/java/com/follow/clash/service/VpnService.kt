@@ -42,10 +42,11 @@ class VpnService : SystemVpnService(), ManagedService {
     private var startAbandoned = false
 
     // An owner core's VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking.
-    private val ownerTunLock = Any()
-    private var ownerTun: ParcelFileDescriptor? = null
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val releaseHeld = Runnable { holdOwnerTun(null) }
+    private val heldTun = HeldTun<ParcelFileDescriptor>(
+        { task, millis -> mainHandler.postDelayed(task, millis) },
+        mainHandler::removeCallbacks,
+    )
 
     @Volatile
     private var switchAskedAt = 0L
@@ -139,7 +140,7 @@ class VpnService : SystemVpnService(), ManagedService {
 
     // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
-        if (options.ownsTunnel && !holdsTun()) holdBlocked(options)
+        if (options.ownsTunnel && !heldTun.take()) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
                 Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
@@ -162,7 +163,7 @@ class VpnService : SystemVpnService(), ManagedService {
             establishWith(options, owner = plan != null)
                 ?: error("VPN establishment was rejected by the system")
         }
-        val fd = if (plan == null) tun.detachFd().also { holdOwnerTun(null) } else lend(tun)
+        val fd = if (plan == null) tun.detachFd().also { heldTun.hold(null) } else lend(tun)
         val started = synchronized(tunLock) {
             tunRunning = true
             try {
@@ -301,20 +302,11 @@ class VpnService : SystemVpnService(), ManagedService {
                 establishWith(options, owner = true)
             }
         }.onFailure { GlobalState.log("Blocking VPN not built: $it") }.getOrNull()
-        tun?.let(::holdOwnerTun)
-    }
-
-    // Every swap of the VPN's interface lets traffic out for a moment, so one already held is kept.
-    private fun holdsTun() = synchronized(ownerTunLock) { ownerTun != null }
-
-    private fun holdOwnerTun(tun: ParcelFileDescriptor?) {
-        mainHandler.removeCallbacks(releaseHeld)
-        val previous = synchronized(ownerTunLock) { ownerTun.also { ownerTun = tun } }
-        previous?.close()
+        tun?.let(heldTun::hold)
     }
 
     private fun lend(tun: ParcelFileDescriptor): Int {
-        holdOwnerTun(tun)
+        heldTun.hold(tun)
         return tun.dup().detachFd()
     }
 
@@ -381,7 +373,7 @@ class VpnService : SystemVpnService(), ManagedService {
     override fun stop() {
         val switching = SystemClock.elapsedRealtime() - switchAskedAt < SWITCH_ASK_MILLIS
         switchAskedAt = 0L
-        if (switching && !holdsTun()) ServiceConfig.vpnOptions?.let(::holdBlocked)
+        if (switching && !heldTun.holds()) ServiceConfig.vpnOptions?.let(::holdBlocked)
         try {
             cleanup(keepHeld = switching)
         } finally {
@@ -394,7 +386,7 @@ class VpnService : SystemVpnService(), ManagedService {
             modules.stop()
         } finally {
             stopTun()
-            if (keepHeld) mainHandler.postDelayed(releaseHeld, SWITCH_HOLD_MILLIS) else holdOwnerTun(null)
+            if (keepHeld) heldTun.releaseIn(SWITCH_HOLD_MILLIS) else heldTun.hold(null)
             startAbandoned = false
         }
     }
