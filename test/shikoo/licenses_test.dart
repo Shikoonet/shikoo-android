@@ -174,6 +174,26 @@ ScrollPosition _textScroll(WidgetTester tester) => tester
     )
     .position;
 
+/// The alpha the text card's mask leaves on its first row: next to none faded, 255 not.
+Future<int> _topAlpha(WidgetTester tester) async {
+  final mask = tester.widget<ShaderMask>(
+    find
+        .descendant(
+          of: find.byType(RawScrollbar),
+          matching: find.byType(ShaderMask),
+        )
+        .first,
+  );
+  const rect = Rect.fromLTWH(0, 0, 4, 400);
+  final recorder = ui.PictureRecorder();
+  Canvas(recorder).drawRect(rect, Paint()..shader = mask.shaderCallback(rect));
+  final bytes = await tester.runAsync(() async {
+    final image = await recorder.endRecording().toImage(4, 400);
+    return image.toByteData();
+  });
+  return bytes!.getUint8(3);
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -290,9 +310,19 @@ void main() {
     expect(find.text(_fa.licenseScrollTv), findsOneWidget);
     expect(_focused(), _mpl, reason: 'the card holds the remote');
     expect(_textScroll(tester).pixels, 0);
+    expect(await _topAlpha(tester), 255, reason: 'at its head, no fade');
     await _press(tester, LogicalKeyboardKey.arrowDown);
     final down = _textScroll(tester).pixels;
-    expect(down, greaterThan(0));
+    expect(
+      down,
+      closeTo(_textScroll(tester).viewportDimension * 3 / 4, 1),
+      reason: 'three quarters of the card a press',
+    );
+    expect(
+      await _topAlpha(tester),
+      lessThan(16),
+      reason: 'scrolled, the top fades',
+    );
     await _press(tester, LogicalKeyboardKey.arrowDown);
     expect(_textScroll(tester).pixels, greaterThan(down));
     await _press(tester, LogicalKeyboardKey.arrowUp);
