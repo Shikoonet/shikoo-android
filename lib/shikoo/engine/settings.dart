@@ -118,7 +118,7 @@ class ShikooCoresNotifier extends Notifier<ShikooChoices> {
     );
   }
 
-  /// A core whose start took the app down would do it on every start, the pick being stored: it goes back to default.
+  /// A core that crashed as it started loses its picks. shortcut: every protocol's, until one fails for one only.
   Future<void> forgetCrashed(String home) async {
     final file = File('$home/$shikooCoreStartingFile');
     final ShikooCore? core;
@@ -133,8 +133,6 @@ class ShikooCoresNotifier extends Notifier<ShikooChoices> {
       );
       return;
     }
-    // shortcut: every pick of that core goes back, not only the protocol that crashed; name it in the file if a core
-    // turns out bad for one protocol only.
     final picked = [
       for (final MapEntry(key: protocol, value: chosen) in state.entries)
         if (chosen == core) protocol,
