@@ -780,8 +780,7 @@ bool offersWarp(ShikooState state, {required bool offline}) =>
     state.lastError == ShikooError.noServer &&
     !state.bridge.on;
 
-/// Toward the card: the crash card, the internet check, then the selected or first server. Away,
-/// and down but to WARP's offer, nothing (tv-ping.html), not Settings up the far corner.
+/// Toward the card: the crash card, the internet check, then the selected or first server.
 class _PowerKeys extends StatelessWidget {
   const _PowerKeys({
     required this.targets,
