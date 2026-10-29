@@ -523,7 +523,7 @@ func TestXrayReachesOfficialXrayInDocker(t *testing.T) {
 		return string(out)
 	}
 	t.Cleanup(func() {
-		_ = exec.Command(docker, "rm", "-f", name).Run()
+		_ = exec.Command(docker, "rm", "-f", "-v", name).Run()
 		_ = run.Wait()
 	})
 	for deadline := time.Now().Add(30 * time.Second); !strings.Contains(logs(), " started"); time.Sleep(200 * time.Millisecond) {
