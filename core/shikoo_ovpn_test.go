@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"io"
 	"net"
 	"net/netip"
@@ -306,7 +307,10 @@ type tlsCryptV2Server struct {
 }
 
 func (s tlsCryptV2Server) Unwrap(packet []byte) ([]byte, uint32, uint32, []byte, error) {
-	return s.TLSCrypt.Unwrap(bytes.TrimSuffix(packet, s.wrapped))
+	if !bytes.HasSuffix(packet, s.wrapped) {
+		return nil, 0, 0, nil, errors.New("no wrapped client key")
+	}
+	return s.TLSCrypt.Unwrap(packet[:len(packet)-len(s.wrapped)])
 }
 
 // resetServer answers a client's hard reset as an OpenVPN server does, over UDP or TCP, after losing the first drop
@@ -325,8 +329,12 @@ func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode
 		packets = append(packets, slices.Clone(packet))
 		lost := len(packets) <= drop
 		mu.Unlock()
+		want := ovpn.PControlHardResetClientV2
+		if _, v2 := crypt.(tlsCryptV2Server); v2 {
+			want = ovpn.PControlHardResetClientV3
+		}
 		reset, _, _, err := ovpn.DecodeControlPacket(crypt, packet)
-		if lost || err != nil || reset.Opcode != ovpn.PControlHardResetClientV2 && reset.Opcode != ovpn.PControlHardResetClientV3 {
+		if lost || err != nil || reset.Opcode != want {
 			return nil
 		}
 		reply := ovpn.ControlPacket{Opcode: opcode, LocalSession: must(ovpn.NewSessionID()),
