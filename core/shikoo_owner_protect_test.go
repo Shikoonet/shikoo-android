@@ -58,6 +58,11 @@ func (b *peekBind) PeekLookAtSocketFd6() (int, error) { return 0, errors.New("no
 func (b *peekBind) Close() error                      { b.closed = true; return b.Bind.Close() }
 
 func TestTheOfficialWireGuardEngineProtectsItsOwnSocketOrDoesNotOpen(t *testing.T) {
+	unprotected := &peekBind{Bind: wgconn.NewDefaultBind()}
+	if _, _, err := (protectedBind{unprotected}).Open(0); !errors.Is(err, errOwnerUnprotected) || !unprotected.closed {
+		t.Fatalf("no protect at all: open %v, closed %v, want %v and the bind shut", err, unprotected.closed, errOwnerUnprotected)
+	}
+
 	refused := &peekBind{Bind: wgconn.NewDefaultBind()}
 	protectRecorder(t, false)
 	if _, _, err := (protectedBind{refused}).Open(0); err == nil || !refused.closed {
