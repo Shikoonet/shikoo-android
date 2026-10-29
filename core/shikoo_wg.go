@@ -291,21 +291,21 @@ var iranFirstList string
 
 type keySite struct {
 	addr  netip.Addr
-	money bool
+	first bool
 }
 
 var iranFirst = func() (out []keySite) {
 	for _, line := range strings.Split(iranFirstList, "\n") {
 		if fields := strings.Fields(line); len(fields) > 1 {
 			if ip, err := netip.ParseAddr(fields[0]); err == nil {
-				out = append(out, keySite{ip, fields[1] == "bank" || fields[1] == "pay"})
+				out = append(out, keySite{ip, fields[1] == "bank" || fields[1] == "pay" || fields[1] == "key"})
 			}
 		}
 	}
 	return out
 }()
 
-// cutIran fills the route budget with Iran's blocks: /16s and wider (cheap below 13), key sites' (money first), by size.
+// cutIran fills the route budget: Iran's /16s and wider (cheap below 13), key sites (bank, pay, key first), by size.
 func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.IPSet, excluded []string, err error) {
 	var inside netipx.IPSetBuilder
 	inside.AddSet(routes)
@@ -327,7 +327,7 @@ func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.
 				sites = append(sites, blocks[i])
 			}
 			weight[blocks[i]]++
-			if site.money {
+			if site.first {
 				weight[blocks[i]] += 1 << 16
 			}
 		}
