@@ -196,6 +196,11 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - `ping` answers a delay test of that server from the engine's own session, on a goroutine of its own, within the
     test's timeout. **It is required in practice:** with nil, mihomo answers, the gate below makes that a failure, so
     the server in use shows dead and every `setCore` to the owner core ends `failed`.
+  - A server marked for the engine that it does not carry is pinged by mihomo's own client of it, unless the engine
+    puts a function in `shikooOwnerIdlePings[core]`: then that answers, from the mapping the gate keeps
+    (`shikooOwnerGate.mapping`). OpenVPN's (`ovpnIdlePing`, 2026-10-29) is the same hard reset as its `ping`, so the
+    list sorts its servers by a real answer before connecting and sends no username or password, where mihomo's
+    client opened a whole session with them to ping. WireGuard has none.
   - When `carrying` first returns a server, the engine calls `shikooOwnerTakes(server)` (below).
   - The app asks after the tunnel is up and again before its own requests take an owner's road
     (`ownerCarryingProvider`). Dart caps the wait at two seconds (`ownerAnswerLimit`), since the desktop RPC restarts

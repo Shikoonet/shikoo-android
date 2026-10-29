@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -293,10 +295,20 @@ func TestTheServiceTellsTheRegistryWhatOpenvpnCarries(t *testing.T) {
 	}
 }
 
-// resetServer answers a client's hard reset as an OpenVPN server does, over UDP or TCP.
-func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode ovpn.Opcode) string {
+// resetServer answers a client's hard reset as an OpenVPN server does, over UDP or TCP; heard gives every packet it got.
+func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode ovpn.Opcode) (address string, heard func() [][]byte) {
 	t.Helper()
+	var mu sync.Mutex
+	var packets [][]byte
+	heard = func() [][]byte {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(packets)
+	}
 	answer := func(packet []byte) []byte {
+		mu.Lock()
+		packets = append(packets, slices.Clone(packet))
+		mu.Unlock()
 		reset, _, _, err := ovpn.DecodeControlPacket(crypt, packet)
 		if err != nil || reset.Opcode != ovpn.PControlHardResetClientV2 {
 			return nil
@@ -320,7 +332,7 @@ func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode
 				}
 			}
 		}()
-		return conn.LocalAddr().String()
+		return conn.LocalAddr().String(), heard
 	}
 	listener := must(net.Listen("tcp", "127.0.0.1:0"))
 	t.Cleanup(func() { listener.Close() })
@@ -347,7 +359,7 @@ func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode
 			}()
 		}
 	}()
-	return listener.Addr().String()
+	return listener.Addr().String(), heard
 }
 
 func pingOpenvpn(t *testing.T, address string, set map[string]any, up bool) int32 {
@@ -361,24 +373,41 @@ func pingOpenvpn(t *testing.T, address string, set map[string]any, up bool) int3
 	return ovpnPing(&TestDelayParams{ProxyName: "ov", Timeout: 1500}).Value
 }
 
-func TestOpenvpnsPingIsTheServersAnswerToAReset(t *testing.T) {
-	registerTestOpenvpn(t)
+func idlePingOpenvpn(address string, set map[string]any) int32 {
+	host, port, _ := net.SplitHostPort(address)
+	set["server"], set["port"] = host, port
+	return ovpnIdlePing(ovpnMapping(set), &TestDelayParams{ProxyName: "ov", Timeout: 1500}).Value
+}
+
+type resetCase struct {
+	name    string
+	network string
+	server  ovpn.ControlCryptor
+	set     map[string]any
+}
+
+// resetCases are a server's control channel each way the profile can protect it; wrong is a key of neither server's.
+func resetCases(t *testing.T) (cases []resetCase, wrong string) {
+	t.Helper()
 	authPEM, authKey := staticKey(t)
 	cryptPEM, cryptKey := staticKey(t)
+	wrong, _ = staticKey(t)
 	serverAuth := must(ovpn.NewTLSAuth(authKey, "0", "SHA256"))
 	serverCrypt := must(ovpn.NewTLSCrypt(cryptKey, false))
-	for _, c := range []struct {
-		name    string
-		network string
-		server  ovpn.ControlCryptor
-		set     map[string]any
-	}{
+	return []resetCase{
 		{"udp", "udp", nil, map[string]any{}},
 		{"udp tls-auth", "udp", serverAuth, map[string]any{"tls-auth": authPEM, "key-direction": "1"}},
+		{"tcp tls-auth", "tcp", serverAuth, map[string]any{"tls-auth": authPEM, "key-direction": "1", "proto": "tcp"}},
 		{"udp tls-crypt", "udp", serverCrypt, map[string]any{"tls-crypt": cryptPEM}},
 		{"tcp tls-crypt", "tcp", serverCrypt, map[string]any{"tls-crypt": cryptPEM, "proto": "tcp"}},
-	} {
-		address := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2)
+	}, wrong
+}
+
+func TestOpenvpnsPingIsTheServersAnswerToAReset(t *testing.T) {
+	registerTestOpenvpn(t)
+	cases, wrongPEM := resetCases(t)
+	for _, c := range cases {
+		address, _ := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2)
 		if value := pingOpenvpn(t, address, c.set, true); value <= 0 {
 			t.Errorf("%s: ping %d", c.name, value)
 		}
@@ -386,13 +415,59 @@ func TestOpenvpnsPingIsTheServersAnswerToAReset(t *testing.T) {
 			t.Errorf("%s: ping %d while the engine's session is down", c.name, value)
 		}
 	}
-	wrongPEM, _ := staticKey(t)
-	address := resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV2)
+	serverCrypt := cases[3].server
+	address, _ := resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV2)
 	if value := pingOpenvpn(t, address, map[string]any{"tls-crypt": wrongPEM}, true); value != -1 {
 		t.Errorf("a server that cannot read the reset answered in %d ms", value)
 	}
-	address = resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV1)
-	if value := pingOpenvpn(t, address, map[string]any{"tls-crypt": cryptPEM}, true); value != -1 {
+	address, _ = resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV1)
+	if value := pingOpenvpn(t, address, map[string]any{"tls-crypt": cases[3].set["tls-crypt"]}, true); value != -1 {
 		t.Errorf("a key-method 1 answer, which the engine cannot use, counted as a ping of %d ms", value)
+	}
+}
+
+func TestAServerTheEngineDoesNotCarryAnswersAResetWithNoAccountSent(t *testing.T) {
+	cases, wrongPEM := resetCases(t)
+	for _, c := range cases {
+		address, heard := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2)
+		if value := idlePingOpenvpn(address, c.set); value <= 0 {
+			t.Errorf("%s: ping %d", c.name, value)
+		}
+		// The account goes only inside TLS, which starts with the client's second packet.
+		packets := heard()
+		if len(packets) != 1 || bytes.Contains(packets[0], []byte("shikoo")) || bytes.Contains(packets[0], []byte("secret")) {
+			t.Errorf("%s: the server heard %d packets, want the reset alone, with no username or password", c.name, len(packets))
+		}
+	}
+	tlsAuth := cases[1]
+	address, _ := resetServer(t, "udp", tlsAuth.server, ovpn.PControlHardResetServerV2)
+	if value := idlePingOpenvpn(address, map[string]any{"tls-auth": wrongPEM, "key-direction": "1"}); value != -1 {
+		t.Errorf("a server that drops a reset signed with another key answered in %d ms", value)
+	}
+}
+
+func TestAnOpenvpnServerThatIsDownIsSilentWithinTheTimeout(t *testing.T) {
+	closed := must(net.ListenPacket("udp", "127.0.0.1:0"))
+	closedAddress := closed.LocalAddr().String()
+	closed.Close()
+	silent := must(net.ListenPacket("udp", "127.0.0.1:0"))
+	t.Cleanup(func() { silent.Close() })
+	tcpSilent := must(net.Listen("tcp", "127.0.0.1:0"))
+	t.Cleanup(func() { tcpSilent.Close() })
+	for name, c := range map[string]struct {
+		address string
+		set     map[string]any
+	}{
+		"nothing listening": {closedAddress, map[string]any{}},
+		"udp, no answer":    {silent.LocalAddr().String(), map[string]any{}},
+		"tcp, no answer":    {tcpSilent.Addr().String(), map[string]any{"proto": "tcp"}},
+	} {
+		start := time.Now()
+		if value := idlePingOpenvpn(c.address, c.set); value != -1 {
+			t.Errorf("%s: ping %d", name, value)
+		}
+		if took := time.Since(start); took > 2*time.Second {
+			t.Errorf("%s: answered after %v, past the 1.5 s timeout", name, took)
+		}
 	}
 }
