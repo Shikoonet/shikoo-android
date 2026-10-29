@@ -1610,7 +1610,6 @@ class ShikooController {
     );
   }
 
-  /// OpenVPN's reset (core/shikoo_ovpn.go) answers before any whole test, so it counts once the round has ended.
   bool _handshake(String name) => _coreFor(name) == ShikooCore.openvpn;
 
   String _tunnelKeyOf(String name, [_Opened? other]) => tunnelKey(
