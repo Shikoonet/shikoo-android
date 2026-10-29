@@ -1309,6 +1309,7 @@ class _Notice extends StatelessWidget {
 
 /// `.list-head` and `.servers`. While the remote or a finger is on a row the order stays, so
 /// the row under it never jumps; leaving the list lets the new order in.
+/// Off the TV the first touch, drag, wheel or key holds it until the card folds or the app hides.
 class _ServerList extends StatefulWidget {
   const _ServerList({
     required this.state,
@@ -1326,20 +1327,49 @@ class _ServerList extends StatefulWidget {
   State<_ServerList> createState() => _ServerListState();
 }
 
-class _ServerListState extends State<_ServerList> {
+class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
   List<String>? _held;
+  List<String> _shown = const [];
+  ScrollPosition? _page;
   final _search = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _search.addListener(() => setState(() {}));
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _page?.removeListener(_scrolled);
+    _page = Scrollable.maybeOf(context)?.position;
+    _page?.addListener(_scrolled);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden && !widget.state.isTV) {
+      setState(() => _held = null);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _page?.removeListener(_scrolled);
     _search.dispose();
     super.dispose();
+  }
+
+  /// A drag, a fling or a wheel: the app's own scrolls leave the direction idle.
+  void _scrolled() {
+    if (_page!.userScrollDirection != ScrollDirection.idle) _touch();
+  }
+
+  void _touch() {
+    if (!widget.state.isTV && _held == null) setState(() => _held = _shown);
   }
 
   @override
@@ -1350,7 +1380,16 @@ class _ServerListState extends State<_ServerList> {
     final byName = {for (final server in state.servers) server.name: server};
     final order = [...byName.keys];
     final kept = _held == null ? order : keepOrder(_held!, order);
-    void hold(bool on) => setState(() => _held = on ? kept : null);
+    if (!state.isTV && _held != null && order.isNotEmpty) _held = kept;
+    _shown = kept;
+    void hold(bool on) {
+      if (state.isTV) {
+        setState(() => _held = on ? kept : null);
+      } else if (on) {
+        _touch();
+      }
+    }
+
     final shown = [
       for (final name in kept)
         if (serverMatches(byName[name]!.label, _search.text)) name,
@@ -1386,7 +1425,9 @@ class _ServerListState extends State<_ServerList> {
       skipTraversal: true,
       includeSemantics: false,
       onFocusChange: (inside) {
-        if (inside) Scrollable.ensureVisible(context);
+        if (!inside) return;
+        _touch();
+        Scrollable.ensureVisible(context);
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
