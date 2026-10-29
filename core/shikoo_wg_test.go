@@ -231,73 +231,113 @@ func TestTheShippedIranianSetGivesARouteListAndroidTakes(t *testing.T) {
 	}
 }
 
-func TestTheSitesBlocksAreAllInTheShippedIranianSet(t *testing.T) {
+func shippedTunnel(t *testing.T, sdk int) *netipx.IPSet {
+	t.Helper()
 	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range iranFirst {
-		if !iran.ContainsPrefix(p) {
-			t.Errorf("%s left the shipped Iranian set: its site would ride the server again", p)
+	plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(plan.Routes) + len(plan.Excluded); n > budgetFor(sdk) {
+		t.Errorf("sdk %d: %d routes", sdk, n)
+	}
+	var b netipx.IPSetBuilder
+	for _, route := range plan.Routes {
+		b.AddPrefix(netip.MustParsePrefix(route))
+	}
+	for _, route := range plan.Excluded {
+		b.RemovePrefix(netip.MustParsePrefix(route))
+	}
+	return must(b.IPSet())
+}
+
+func TestTheKeySitesListHasEveryLineAsAnAddress(t *testing.T) {
+	lines := 0
+	for _, line := range strings.Split(iranFirstList, "\n") {
+		if line != "" && !strings.HasPrefix(line, "#") {
+			lines++
 		}
+	}
+	if lines < 300 || len(iranFirst) != lines {
+		t.Errorf("%d addresses read from %d lines", len(iranFirst), lines)
 	}
 }
 
-func TestTheSitesBlocksGoOutFirstWithinTheRouteBudget(t *testing.T) {
-	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
-		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if n := len(plan.Routes) + len(plan.Excluded); n > budgetFor(sdk) {
-			t.Errorf("sdk %d: %d routes", sdk, n)
-		}
-		var b netipx.IPSetBuilder
-		for _, route := range plan.Routes {
-			b.AddPrefix(netip.MustParsePrefix(route))
-		}
-		for _, route := range plan.Excluded {
-			b.RemovePrefix(netip.MustParsePrefix(route))
-		}
-		tunnel := must(b.IPSet())
-		for _, p := range iranFirst {
-			if tunnel.OverlapsPrefix(p) {
-				t.Errorf("sdk %d: %s still rides the tunnel", sdk, p)
+// From tools/shikoo-iran-first.py's run of 2026-10-29: ArvanCloud (irna.ir), Derak, and three banks the
+// size-first order left in the tunnel.
+func TestArvanDerakAndBanksLeaveTheTunnel(t *testing.T) {
+	for _, sdk := range []int{36, 25, windowsSdk} {
+		tunnel := shippedTunnel(t, sdk)
+		for _, ip := range []string{"185.143.233.133", "185.143.234.133", "5.145.118.1", "185.232.176.100",
+			"185.132.212.88", "45.91.153.43"} {
+			if tunnel.Contains(netip.MustParseAddr(ip)) {
+				t.Errorf("sdk %d: %s rides the tunnel", sdk, ip)
 			}
 		}
 	}
 }
 
-// Shecan's answers of 2026-10-23: every Shaparak gateway that resolved, then Sadad, Behpardakht and key sites.
-func TestThePaymentGatewaysAndKeyAppsLeaveTheTunnel(t *testing.T) {
+func TestEveryKeySiteLeavesTheTunnelFromAndroid13(t *testing.T) {
 	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, sdk := range []int{excludeRouteSdk, excludeRouteSdk - 1, windowsSdk} {
-		plan, _, err := wgPlan(wgMapping(t, nil), iran, sdk, noResolve)
-		if err != nil {
-			t.Fatal(err)
+	tunnel := shippedTunnel(t, excludeRouteSdk)
+	for _, site := range iranFirst {
+		if iran.Contains(site.addr) && tunnel.Contains(site.addr) {
+			t.Errorf("%s rides the tunnel", site.addr)
 		}
-		var b netipx.IPSetBuilder
-		for _, route := range plan.Routes {
-			b.AddPrefix(netip.MustParsePrefix(route))
+	}
+}
+
+// Shaparak rejects payments from a foreign address.
+func TestEveryBankAndGatewayLeavesTheTunnel(t *testing.T) {
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sdk := range []int{36, 25, windowsSdk} {
+		tunnel := shippedTunnel(t, sdk)
+		for _, site := range iranFirst {
+			if site.money && iran.Contains(site.addr) && tunnel.Contains(site.addr) {
+				t.Errorf("sdk %d: %s rides the tunnel", sdk, site.addr)
+			}
 		}
-		for _, route := range plan.Excluded {
-			b.RemovePrefix(netip.MustParsePrefix(route))
+	}
+}
+
+func TestNoForeignSiteLeavesTheTunnel(t *testing.T) {
+	buf, err := os.ReadFile("testdata/shikoo_foreign_sites.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	iran, err := readIPSet("../assets/data/shikoo-ir-ip.mrs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foreign []netip.Addr
+	for _, line := range strings.Split(string(buf), "\n") {
+		if fields := strings.Fields(line); len(fields) > 0 && !strings.HasPrefix(line, "#") {
+			foreign = append(foreign, netip.MustParseAddr(fields[0]))
 		}
-		tunnel := must(b.IPSet())
-		for _, ip := range []string{"185.167.73.34", "91.240.182.20", "212.80.25.62", "185.132.124.159", "185.79.62.3",
-			"91.232.66.12", "185.210.200.12", "185.203.160.31", "87.107.134.3", "78.157.33.101", "185.60.32.60",
-			"193.3.31.85", "185.25.172.22", "185.203.160.10", "185.132.124.157", "92.42.50.130", "45.89.201.10",
-			"185.120.222.22", "46.102.128.10", "195.225.232.37", "212.16.67.13", "91.207.138.45", "185.231.114.218",
-			"45.157.244.26", "185.78.23.170"} {
-			if tunnel.Contains(netip.MustParseAddr(ip)) {
-				t.Errorf("sdk %d: %s rides the tunnel", sdk, ip)
+	}
+	// A key site hosted abroad (Cloudflare, Hetzner) stays in the tunnel too.
+	for _, site := range iranFirst {
+		if !iran.Contains(site.addr) {
+			foreign = append(foreign, site.addr)
+		}
+	}
+	if len(foreign) < 500 {
+		t.Fatalf("only %d foreign addresses", len(foreign))
+	}
+	for _, sdk := range []int{36, 25, windowsSdk} {
+		tunnel := shippedTunnel(t, sdk)
+		for _, ip := range foreign {
+			if !tunnel.Contains(ip) {
+				t.Errorf("sdk %d: %s leaves the tunnel", sdk, ip)
 			}
 		}
 	}
