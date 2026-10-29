@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -872,6 +873,20 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get openBotTv => 'ربات شیکونت';
+
+  @override
+  String get outsourcedTitle => 'اعتبار و حجم این حساب این‌جا دیده نمی‌شود.';
+
+  @override
+  String get outsourcedHelp =>
+      'اعتبارش از اولین اتصال شمرده می‌شود. برای حساب تازه، به ربات شیکونت برو.';
+
+  @override
+  String get outsourcedSummary => 'اعتبار از اولین اتصال';
+
+  @override
+  String get outsourcedEnded =>
+      'اعتبارش تمام شد. برای حساب تازه، به ربات شیکونت برو.';
 
   @override
   String get summaryExpiredNoDate =>

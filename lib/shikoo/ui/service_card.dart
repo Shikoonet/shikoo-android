@@ -309,6 +309,11 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset,
                     child: _Usage(service: service),
                   ),
+                if (service.outsourced)
+                  Padding(
+                    padding: inset,
+                    child: _Guide(isTV: state.isTV, bot: widget.bot),
+                  ),
                 if (service.announce != null && !revoked)
                   Padding(
                     padding: inset,
@@ -641,6 +646,8 @@ class _StatusRow extends StatelessWidget {
       children: [
         if (service.usageKnown)
           StatusChip(status: service.statusAt(shikooNow()))
+        else if (service.outsourced)
+          _protocolChip(context)
         else
           const SizedBox.shrink(),
         if (text != null)
@@ -924,13 +931,16 @@ class _Summary extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    if (!service.usageKnown && !service.revoked) return const SizedBox.shrink();
+    if (!service.usageKnown && !service.revoked && !service.outsourced) {
+      return const SizedBox.shrink();
+    }
     String whole(String text) => text.replaceAll(' ', '\u00A0');
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');
     final total = service.totalBytes;
     final used = service.usedBytes;
     final expire = service.expire;
     final List<InlineSpan> text = switch (service.ended) {
+      _ when service.outsourced => [TextSpan(text: l.outsourcedSummary)],
       ShikooServiceStatus.revoked => [TextSpan(text: l.revokedHelp)],
       ShikooServiceStatus.expired || ShikooServiceStatus.exhausted
           when !renews =>
@@ -961,7 +971,9 @@ class _Summary extends StatelessWidget {
       spacing: Space.s2,
       children: [
         if (service.usageKnown)
-          StatusChip(status: service.statusAt(shikooNow())),
+          StatusChip(status: service.statusAt(shikooNow()))
+        else if (service.outsourced)
+          _protocolChip(context),
         Expanded(
           child: Text.rich(
             TextSpan(children: text),
@@ -1252,6 +1264,65 @@ class MeterBar extends StatelessWidget {
           ),
           child: const SizedBox.expand(),
         ),
+      ),
+    );
+  }
+}
+
+// shortcut: the shop's shelf holds only OpenVPN; name it from the servers once it holds another protocol.
+Widget _protocolChip(BuildContext context) =>
+    StatusChip.neutral(ShikooL10n.of(context).protocolOpenvpn);
+
+/// `.guide` (ovpn-shelf-card, design ب): an outsourced account's days and data are not the app's to
+/// tell, and the bot sells a new one; on the TV the button shows the bot's QR, between update and servers.
+class _Guide extends StatelessWidget {
+  const _Guide({required this.isTV, required this.bot});
+
+  final bool isTV;
+  final String? bot;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    return Container(
+      margin: const EdgeInsets.only(top: Space.s3),
+      padding: const EdgeInsets.all(Space.s3),
+      decoration: ShapeDecoration(
+        color: t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s3,
+        children: [
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${l.outsourcedTitle}\n',
+                  style: TextStyle(
+                    color: t.c.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextSpan(text: l.outsourcedHelp),
+              ],
+            ),
+            style: t.text(
+              t.s.bodySm,
+              color: t.c.textMuted,
+              height: Leading.body,
+            ),
+          ),
+          ShikooButton(
+            label: isTV ? l.openBotTv : l.openBotTouch,
+            icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
+            onPressed: () => openBot(context, isTV: isTV, bot: bot),
+          ),
+        ],
       ),
     );
   }

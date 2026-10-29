@@ -34,7 +34,9 @@ String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   final ended = row.ended;
   if (row.linked?.disabled ?? false) return l.finishedDisabled;
   if (row.exhausted) return l.finishedData;
-  if (ended == null) return l.finishedNoDate;
+  if (ended == null || (row.linked?.outsourced ?? false)) {
+    return l.finishedNoDate;
+  }
   final days = DateUtils.dateOnly(
     now,
   ).difference(DateUtils.dateOnly(ended)).inDays;
@@ -415,7 +417,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       state,
       linkless: first == null
           ? null
-          : (first.finished && !first.renews ? _topSupport : _linkless),
+          : (first.finished && !first.renews && !first.outsourced
+                ? _topSupport
+                : _linkless),
       renews: renews,
     );
     _onOpened(state);
@@ -1718,7 +1722,9 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
     final _LinklessCard(:service, :bot, :isTV) = widget;
     final finished = service.finished;
     final renews = service.renews;
-    final supportOnly = finished && !renews;
+    // A closed shelf account is never renewed: the bot sells a new one.
+    final ended = finished && service.outsourced;
+    final supportOnly = finished && !renews && !ended;
     final failed = service.loadFailed && !finished;
     return Container(
       padding: const EdgeInsets.all(Space.s4),
@@ -1737,7 +1743,12 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ServiceName(service.title),
-              if (finished)
+              if (ended)
+                StatusChip(
+                  status: ShikooServiceStatus.expired,
+                  label: l.chipFinished,
+                )
+              else if (finished)
                 StatusChip.linked(service)
               else
                 Container(
@@ -1763,6 +1774,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           const SizedBox(height: Space.s2),
           Text(
             switch ((service.status, finished, isTV)) {
+              _ when ended => l.outsourcedEnded,
               _ when supportOnly && !service.disabled => l.summaryNotRenewable,
               _ when supportOnly => l.summaryRemoved,
               ('exhausted', _, false) => l.summaryExhausted,
@@ -1817,13 +1829,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                               id: service.id,
                               name: service.title,
                             )
-                          : openLink(
-                              context,
-                              isTV: isTV,
-                              link: ShikooLinks.openBot(bot),
-                              title: l.openBotTitleTv,
-                              help: l.openBotHelpTv,
-                            ),
+                          : openBot(context, isTV: isTV, bot: bot),
                     ),
                   ),
                 // The phone asks again by itself when it comes back from Telegram.
