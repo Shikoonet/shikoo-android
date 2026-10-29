@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net"
 	"net/netip"
@@ -298,6 +299,16 @@ func TestTheServiceTellsTheRegistryWhatOpenvpnCarries(t *testing.T) {
 	}
 }
 
+// tlsCryptV2Server reads a V3 reset as a tls-crypt-v2 server does once it has unwrapped the client's key.
+type tlsCryptV2Server struct {
+	*ovpn.TLSCrypt
+	wrapped []byte
+}
+
+func (s tlsCryptV2Server) Unwrap(packet []byte) ([]byte, uint32, uint32, []byte, error) {
+	return s.TLSCrypt.Unwrap(bytes.TrimSuffix(packet, s.wrapped))
+}
+
 // resetServer answers a client's hard reset as an OpenVPN server does, over UDP or TCP, after losing the first drop
 // packets; heard gives every packet it got.
 func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode ovpn.Opcode, drop int) (address string, heard func() [][]byte) {
@@ -315,7 +326,7 @@ func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode
 		lost := len(packets) <= drop
 		mu.Unlock()
 		reset, _, _, err := ovpn.DecodeControlPacket(crypt, packet)
-		if lost || err != nil || reset.Opcode != ovpn.PControlHardResetClientV2 {
+		if lost || err != nil || reset.Opcode != ovpn.PControlHardResetClientV2 && reset.Opcode != ovpn.PControlHardResetClientV3 {
 			return nil
 		}
 		reply := ovpn.ControlPacket{Opcode: opcode, LocalSession: must(ovpn.NewSessionID()),
@@ -401,12 +412,18 @@ func resetCases(t *testing.T) (cases []resetCase, wrong string) {
 	wrong, _ = staticKey(t)
 	serverAuth := must(ovpn.NewTLSAuth(authKey, "0", "SHA256"))
 	serverCrypt := must(ovpn.NewTLSCrypt(cryptKey, false))
+	_, v2Key := staticKey(t)
+	wrapped := make([]byte, 96)
+	_, _ = rand.Read(wrapped)
+	v2PEM := pem.EncodeToMemory(&pem.Block{Type: "OpenVPN tls-crypt-v2 client key", Bytes: append(slices.Clone(v2Key), wrapped...)})
+	serverV2 := tlsCryptV2Server{must(ovpn.NewTLSCrypt(v2Key, false)), wrapped}
 	return []resetCase{
 		{"udp", "udp", nil, map[string]any{}},
 		{"udp tls-auth", "udp", serverAuth, map[string]any{"tls-auth": authPEM, "key-direction": "1"}},
 		{"tcp tls-auth", "tcp", serverAuth, map[string]any{"tls-auth": authPEM, "key-direction": "1", "proto": "tcp"}},
 		{"udp tls-crypt", "udp", serverCrypt, map[string]any{"tls-crypt": cryptPEM}},
 		{"tcp tls-crypt", "tcp", serverCrypt, map[string]any{"tls-crypt": cryptPEM, "proto": "tcp"}},
+		{"udp tls-crypt-v2", "udp", serverV2, map[string]any{"tls-crypt-v2": string(v2PEM)}},
 	}, wrong
 }
 
