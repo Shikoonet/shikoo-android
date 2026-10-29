@@ -266,8 +266,7 @@ func TestTheKeySitesListHasEveryLineAsAnAddress(t *testing.T) {
 	}
 }
 
-// From tools/shikoo-iran-first.py's run of 2026-10-29: ArvanCloud (irna.ir), Derak, and three banks the
-// size-first order left in the tunnel.
+// ArvanCloud (irna.ir), Derak, and three banks the size-first order left in the tunnel (2026-10-29).
 func TestArvanDerakAndBanksLeaveTheTunnel(t *testing.T) {
 	for _, sdk := range []int{36, 25, windowsSdk} {
 		tunnel := shippedTunnel(t, sdk)
