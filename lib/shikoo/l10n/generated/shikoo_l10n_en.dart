@@ -1257,6 +1257,11 @@ class ShikooL10nEn extends ShikooL10n {
   String get reportCrashAsk => 'Send us a report about it?';
 
   @override
+  String reportCrashCore(String core) {
+    return 'The “$core” core did not work on this device and went back to “Default”.';
+  }
+
+  @override
   String get reportCrashYes => 'Send';
 
   @override

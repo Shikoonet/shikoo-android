@@ -312,6 +312,7 @@
   "reportChatTelegram": "گفتگو در تلگرام",
   "reportCrashTitle": "برنامه دفعهٔ قبل ناگهان بسته شد.",
   "reportCrashAsk": "گزارشش را برای ما بفرستیم؟",
+  "reportCrashCore": "هستهٔ «{core}» روی این دستگاه کار نکرد و به «پیش‌فرض» برگشت.",
   "reportCrashYes": "بفرست",
   "reportCrashNo": "نه",
   "reportTitle": "گزارش برای پشتیبانی",

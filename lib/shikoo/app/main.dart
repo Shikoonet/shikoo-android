@@ -68,6 +68,9 @@ void main(List<String> args) {
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooCoresProvider.notifier).load();
+        await container
+            .read(shikooCoresProvider.notifier)
+            .forgetCrashed(await appPath.homeDirPath);
         await container.read(shikooWarpProvider.notifier).load();
         await container.read(shikooWarpMemoryProvider.notifier).load();
         registerWarpLicenses();

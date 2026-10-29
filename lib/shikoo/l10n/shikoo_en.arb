@@ -435,6 +435,8 @@
   "reportCrashTitle": "The app closed suddenly last time.",
   "@reportCrashTitle": {"description": "Card at the head of the Home cards, once per crash or ANR found on the next start. Above the update card if both show. Never sends by itself."},
   "reportCrashAsk": "Send us a report about it?",
+  "reportCrashCore": "The “{core}” core did not work on this device and went back to “Default”.",
+  "@reportCrashCore": {"description": "Between reportCrashTitle and reportCrashAsk, when the core picked in Settings › Cores took the app down as it started: its picks went back to Default. Shows the card even with no crash found.", "placeholders": {"core": {"type": "String", "example": "Xray"}}},
   "reportCrashYes": "Send",
   "@reportCrashYes": {"description": "Opens the preview."},
   "reportCrashNo": "No",

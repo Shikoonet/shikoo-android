@@ -1,5 +1,8 @@
+import 'dart:io' show File;
+
 import 'package:fl_clash/providers/config.dart' show appSettingProvider;
 import 'package:fl_clash/providers/state.dart' show ServiceTexts;
+import 'package:fl_clash/shikoo/engine/controller.dart' show ShikooCell;
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/state.dart';
@@ -112,11 +115,35 @@ class ShikooCoresNotifier extends Notifier<ShikooChoices> {
       core.name,
     );
   }
+
+  /// A core whose start took the app down would do it on every start, the pick being stored: it goes back to default.
+  Future<void> forgetCrashed(String home) async {
+    final file = File('$home/$shikooCoreStartingFile');
+    if (!file.existsSync()) return;
+    final core = ShikooCore.values.asNameMap()[file.readAsStringSync()];
+    file.deleteSync();
+    final picked = [
+      for (final MapEntry(key: protocol, value: chosen) in state.entries)
+        if (chosen == core) protocol,
+    ];
+    if (picked.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    for (final protocol in picked) {
+      await prefs.remove(_key(protocol));
+    }
+    state = {...state}..removeWhere((protocol, _) => picked.contains(protocol));
+    ref.read(shikooCoreRevertedProvider.notifier).set(core);
+  }
 }
 
 final shikooCoresProvider =
     NotifierProvider<ShikooCoresNotifier, ShikooChoices>(
       ShikooCoresNotifier.new,
+    );
+
+final shikooCoreRevertedProvider =
+    NotifierProvider<ShikooCell<ShikooCore?>, ShikooCore?>(
+      () => ShikooCell(null),
     );
 
 /// FlClash's `autoLaunch`, which its WindowManager writes to Windows' Run key.

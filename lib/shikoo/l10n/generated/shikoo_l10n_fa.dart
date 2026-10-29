@@ -1203,6 +1203,11 @@ class ShikooL10nFa extends ShikooL10n {
   String get reportCrashAsk => 'گزارشش را برای ما بفرستیم؟';
 
   @override
+  String reportCrashCore(String core) {
+    return 'هستهٔ «$core» روی این دستگاه کار نکرد و به «پیش‌فرض» برگشت.';
+  }
+
+  @override
   String get reportCrashYes => 'بفرست';
 
   @override
