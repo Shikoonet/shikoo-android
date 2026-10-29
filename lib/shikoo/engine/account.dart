@@ -1204,7 +1204,7 @@ class ShikooSignIn {
               ? row.expiresAt ?? was?.expiresAt ?? shikooNow()
               : row.expiresAt,
           loadFailed: loadFailed,
-          renewable: row.renewable,
+          renewable: row.outsourced ? false : row.renewable,
           outsourced: row.outsourced,
         ),
       );

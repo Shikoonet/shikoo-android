@@ -1918,6 +1918,20 @@ class _FinishedServicesState extends State<_FinishedServices> {
         isTV &&
         _head.hasFocus &&
         FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+    (String, ShikooIcon?, VoidCallback)? actionOf(Finished row) =>
+        switch (row) {
+          _ when widget.account.renews(row) => (
+            l.renew,
+            isTV ? ShikooIcon.qr : null,
+            () => _renew(row),
+          ),
+          _ when row.linked?.outsourced ?? false => (
+            isTV ? l.openBotTv : l.openBotTouch,
+            isTV ? ShikooIcon.qr : ShikooIcon.plane,
+            () => openBot(context, isTV: isTV, bot: widget.account.bot),
+          ),
+          _ => null,
+        };
     Widget line(Finished row, bool focused) => Container(
       padding: EdgeInsets.symmetric(
         vertical: Space.s3,
@@ -1949,22 +1963,23 @@ class _FinishedServicesState extends State<_FinishedServices> {
               ],
             ),
           ),
-          if (widget.account.renews(row))
+          if (actionOf(row) case (final label, final icon, final act))
             isTV
                 ? ExcludeFocus(
                     child: IgnorePointer(
                       child: ShikooButton(
-                        label: l.renew,
-                        icon: ShikooIcon.qr,
+                        label: label,
+                        icon: icon,
                         small: true,
                         onPressed: () {},
                       ),
                     ),
                   )
                 : ShikooButton(
-                    label: l.renew,
+                    label: label,
+                    icon: icon,
                     small: true,
-                    onPressed: () => _renew(row),
+                    onPressed: act,
                   ),
         ],
       ),
@@ -2034,9 +2049,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
                   child: Pressable(
                     focusNode: i == 0 ? _first : null,
                     shape: shape,
-                    onPressed: widget.account.renews(row)
-                        ? () => _renew(row)
-                        : null,
+                    onPressed: actionOf(row)?.$3,
                     builder: (context, focused) => line(row, focused),
                   ),
                 )

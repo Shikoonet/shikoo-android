@@ -60,6 +60,29 @@ const _usualLinked = LinkedService(
   profileId: 1,
 );
 
+ShikooState _besideUsual({bool isTV = false}) => ShikooState(
+  connection: ShikooConnection.off,
+  connectedFor: Duration.zero,
+  isTV: isTV,
+  service: _usual(),
+  servers: _servers,
+);
+
+ShikooAccount _closedBeside(int daysAgo) => ShikooAccount(
+  bot: _bot,
+  services: [
+    _usualLinked,
+    LinkedService(
+      id: 42,
+      title: 'user1001',
+      status: 'expired',
+      renewable: false,
+      outsourced: true,
+      expiresAt: shikooNow().subtract(Duration(days: daysAgo)),
+    ),
+  ],
+);
+
 ShikooState _alone({bool isTV = false}) => ShikooState(
   connection: ShikooConnection.off,
   connectedFor: Duration.zero,
@@ -190,39 +213,48 @@ void main() {
   });
 
   testWidgets('closed beside a usual service, it is a row of «سرویس‌های '
-      'تمام‌شده» with no day, gone 30 days after the app saw it close', (
-    tester,
-  ) async {
-    final state = ShikooState(
-      connection: ShikooConnection.off,
-      connectedFor: Duration.zero,
-      isTV: false,
-      service: _usual(),
-      servers: _servers,
-    );
-    ShikooAccount closed(int daysAgo) => ShikooAccount(
-      bot: _bot,
-      services: [
-        _usualLinked,
-        LinkedService(
-          id: 42,
-          title: 'user1001',
-          status: 'expired',
-          renewable: false,
-          outsourced: true,
-          expiresAt: shikooNow().subtract(Duration(days: daysAgo)),
-        ),
-      ],
-    );
-    await _pump(tester, state, closed(2));
+      'تمام‌شده» with no day and the bot, gone 30 days after the app saw it '
+      'close', (tester) async {
+    final state = _besideUsual();
+    await _pump(tester, state, _closedBeside(2));
     final head = find.text('سرویس‌های تمام‌شده (۱)');
     await tester.ensureVisible(head);
     await tester.tap(head);
     await tester.pumpAndSettle();
     expect(find.text('اعتبارش تمام شد'), findsOneWidget);
     expect(find.textContaining('روز پیش'), findsNothing);
-    await _pump(tester, state, closed(31));
+    final bot = _button('باز کردن ربات');
+    expect(bot, findsOneWidget);
+    expect(tester.widget<ShikooButton>(bot).icon, ShikooIcon.plane);
+    await _pump(tester, state, _closedBeside(31));
     expect(find.textContaining('سرویس‌های تمام‌شده'), findsNothing);
+  });
+
+  testWidgets("on the TV that row is the remote's stop, and OK shows the "
+      "bot's QR", (tester) async {
+    await _pump(tester, _besideUsual(isTV: true), _closedBeside(2));
+    final head = find.ancestor(
+      of: find.text('سرویس‌های تمام‌شده (۱)'),
+      matching: find.byType(Pressable),
+    );
+    Focus.of(
+      tester.element(
+        find.descendant(of: head, matching: find.byType(GestureDetector)),
+      ),
+    ).requestFocus();
+    await tester.pumpAndSettle();
+    await _press(tester, LogicalKeyboardKey.select);
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<Pressable>(),
+      isNotNull,
+    );
+    expect(find.text('اعتبارش تمام شد'), findsOneWidget);
+    await _press(tester, LogicalKeyboardKey.select);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      'https://t.me/$_bot',
+    );
   });
 
   testWidgets('closed: it ended, and the bot sells a new one', (tester) async {

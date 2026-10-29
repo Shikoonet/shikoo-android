@@ -1711,6 +1711,19 @@ void main() {
       expect(end(), first);
     });
 
+    test('one is never renewed, even if the door says it is', () async {
+      final h = await _harness();
+      h.api.services = [
+        {...shelf(42, status: 'disabled'), 'renewable': true},
+      ];
+      await _signedIn(h);
+      final [linked] = h.container.read(shikooAccountProvider).services;
+      expect(
+        (linked.finished, linked.renews, linked.botRenews),
+        (true, false, false),
+      );
+    });
+
     test('a link at another host is not taken for the door\'s', () async {
       final h = await _harness();
       h.api.services = [

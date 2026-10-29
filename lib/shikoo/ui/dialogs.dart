@@ -142,7 +142,6 @@ void openLink(
   );
 }
 
-/// «تمدید» of one service: the bot's page for [id], or its list with [name]'s username to find.
 void openBot(BuildContext context, {required bool isTV, required String? bot}) {
   final l = ShikooL10n.of(context);
   openLink(
@@ -154,6 +153,7 @@ void openBot(BuildContext context, {required bool isTV, required String? bot}) {
   );
 }
 
+/// «تمدید» of one service: the bot's page for [id], or its list with [name]'s username to find.
 void openRenew(
   BuildContext context, {
   required bool isTV,
