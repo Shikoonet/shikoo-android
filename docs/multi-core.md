@@ -144,7 +144,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
   - `ownerAside(read, url)` (route «ج»): while an owner core carries the server in use, the app's own "direct"
     requests take mihomo's local port, whose DIRECT rules leave beside the tunnel, since that tunnel holds the app
-    (Windows cannot leave it out; Android keeps it in every VPN, SHIKOO_PATCHES 71). On Android the subscription's
+    (Windows cannot leave it out; Android keeps it in every VPN, SHIKOO_PATCHES 72). On Android the subscription's
     direct leg takes mihomo's `shikoo-direct` inbound instead, as the mixed port sends a subscription host by the
     server. It covers `_fetch`'s direct leg and every internet check (`ownerProbes`), where
     that port's own 502 or 407 counts as a failure, not a site's answer. The server leg, asked for or as the fallback,
@@ -231,7 +231,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 - Owner (ه۲ builds it, ه۳ reuses it): `VpnOptions` (Kotlin `service/models/VpnOptions.kt:15-26`, Dart
   `lib/models/core.dart:44`, filled at `lib/providers/state/system.dart:214-228`) gains the core and the tunnel's
   address, DNS, MTU and routes. `handleStart` (`VpnService.kt:119-170`) uses them instead of `IPV4_ADDRESS`, `DNS` and
-  `MTU` (`:292-300`), keeps FlClash's app rules (SHIKOO_PATCHES 71), and hands the fd to the engine instead of `Core.startTun`. A C++
+  `MTU` (`:292-300`), keeps FlClash's app rules (SHIKOO_PATCHES 72), and hands the fd to the engine instead of `Core.startTun`. A C++
   engine (OpenVPN 3) configures the builder through its own Kotlin class and its `tun_builder` callbacks (ه۳).
 - A separate-process core, only if «س» says sing-box must be one: `lib<name>.so` run as a program
   (`useLegacyPackaging = true`, `android/app/build.gradle.kts:56`), started and stopped by the service, never by
