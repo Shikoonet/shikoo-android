@@ -123,6 +123,14 @@ void main() {
       expect(pick(const {'OV ۱': 120, 'VLESS ضریب مصرف 4 x': 60}), 'OV ۱');
     });
 
+    test('only usage multipliers answered: the whole test before a faster '
+        'reset there too', () {
+      expect(
+        pick(const {'OV ضریب مصرف 2 x': 4, 'VLESS ضریب مصرف 4 x': 150}),
+        'VLESS ضریب مصرف 4 x',
+      );
+    });
+
     test('connect pressed: a reset answers first, yet is taken only once the '
         'round has ended with no whole test', () {
       String? connecting(Map<String, int> pings, {required bool pinging}) =>

@@ -655,6 +655,19 @@ void main() {
       expect(s.proxies.picked, ['فرانسه ۴']);
     });
 
+    test('a VLESS on Xray, behind mihomo, is a whole test: it still wins over '
+        'the reset', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+      });
+      await s.container
+          .read(shikooCoresProvider.notifier)
+          .set(ShikooProtocol.vless, ShikooCore.xray);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [germany]);
+    });
+
     test(
       'connect: every other server silent, the round ends on the OpenVPN',
       () async {
