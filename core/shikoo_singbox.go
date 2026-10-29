@@ -222,12 +222,24 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 			if len(peer.Reserved) == 0 {
 				peer.Reserved = o.Reserved
 			}
-			sbPeers = append(sbPeers, map[string]any{"address": peer.Server, "port": peer.Port,
+			// sing-box handshakes every address of a name, again at each rekey; mihomo's adapter resolves it once, as here.
+			server := peer.Server
+			if _, err := netip.ParseAddr(server); err != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), resolver.DefaultDNSTimeout)
+				ip, err := resolver.ResolveIPWithResolver(resolver.WithInitiator(ctx, resolver.InitiatorProxy), server,
+					resolver.ProxyServerHostResolver)
+				cancel()
+				if err != nil {
+					return nil, false, false, err
+				}
+				server = ip.String()
+			}
+			sbPeers = append(sbPeers, map[string]any{"address": server, "port": peer.Port,
 				"public_key": peer.PublicKey, "pre_shared_key": peer.PreSharedKey, "allowed_ips": peer.AllowedIPs,
 				"reserved": peer.Reserved, "persistent_keepalive_interval": o.PersistentKeepalive})
 		}
 		out = map[string]any{"type": "wireguard", "address": address, "private_key": o.PrivateKey, "peers": sbPeers,
-			"mtu": o.MTU, "domain_resolver": "proxy-server", "detour": "mihomo-unconnected"}
+			"mtu": o.MTU, "detour": "mihomo-unconnected"}
 		return out, true, o.UDP, nil
 	case "openvpn":
 		var o mihomo.OpenVPNOption

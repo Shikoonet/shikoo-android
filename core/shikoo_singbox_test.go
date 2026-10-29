@@ -38,6 +38,7 @@ import (
 	madapter "github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/resolver"
+	"github.com/metacubex/mihomo/component/trie"
 	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	mDNS "github.com/miekg/dns"
@@ -946,34 +947,48 @@ func e2eNames(t *testing.T, at *resolver.Resolver, answers map[string]string) *[
 
 type fakeResolver struct {
 	answers map[string]string
+	mu      sync.Mutex
 	asked   []string
 }
 
+func (f *fakeResolver) ask(name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.asked = append(f.asked, name)
+}
+
 func (f *fakeResolver) ExchangeContext(_ context.Context, m *mDNS.Msg) (*mDNS.Msg, error) {
-	f.asked = append(f.asked, m.Question[0].Name)
+	f.ask(m.Question[0].Name)
 	reply := new(mDNS.Msg)
 	reply.SetReply(m)
-	if ip, ok := f.answers[m.Question[0].Name]; ok && m.Question[0].Qtype == mDNS.TypeA {
-		rr, _ := mDNS.NewRR(m.Question[0].Name + " 60 IN A " + ip)
-		reply.Answer = append(reply.Answer, rr)
+	q := m.Question[0]
+	for _, ip := range strings.Fields(f.answers[q.Name]) {
+		if kind := map[bool]uint16{true: mDNS.TypeA, false: mDNS.TypeAAAA}[strings.Contains(ip, ".")]; kind == q.Qtype {
+			rr, _ := mDNS.NewRR(q.Name + " 60 IN " + mDNS.TypeToString[kind] + " " + ip)
+			reply.Answer = append(reply.Answer, rr)
+		}
 	}
 	return reply, nil
 }
 
-// LookupIP answers a literal as itself and a name from answers, as mihomo's dialer asks it for a server.
+// LookupIP answers a literal as itself and a name from answers (space-separated), as mihomo's dialer asks it.
 func (f *fakeResolver) LookupIP(_ context.Context, host string) ([]netip.Addr, error) {
 	if ip, err := netip.ParseAddr(host); err == nil {
 		return []netip.Addr{ip}, nil
 	}
-	f.asked = append(f.asked, host+".")
-	if ip, ok := f.answers[host+"."]; ok {
-		return []netip.Addr{netip.MustParseAddr(ip)}, nil
+	f.ask(host + ".")
+	var ips []netip.Addr
+	for _, ip := range strings.Fields(f.answers[host+"."]) {
+		ips = append(ips, netip.MustParseAddr(ip))
 	}
-	return nil, errors.New("fake: no answer")
+	if len(ips) == 0 {
+		return nil, errors.New("fake: no answer")
+	}
+	return ips, nil
 }
 func (f *fakeResolver) LookupIPv4(ctx context.Context, host string) ([]netip.Addr, error) {
 	ips, err := f.LookupIP(ctx, host)
-	if err == nil && !ips[0].Is4() {
+	if ips = slices.DeleteFunc(ips, func(ip netip.Addr) bool { return !ip.Is4() }); err == nil && len(ips) == 0 {
 		return nil, resolver.ErrIPVersion // as mihomo's own resolver answers an IPv6 address
 	}
 	return ips, err
@@ -1155,5 +1170,192 @@ proxies:
 	}
 	if queries.Load() == 0 {
 		t.Fatal("the name was resolved without the DNS server behind the WireGuard server")
+	}
+}
+
+// A relay's name with an IPv4 address forwarding to the server and an IPv6 one on the relay, whose own server takes the
+// same keys: mihomo dials the IPv4 one, and sing-box handshook both and kept the nearer's answer, leaving from the relay.
+func TestSingBoxDialsTheAddressMihomoWouldForAWireGuardServersName(t *testing.T) {
+	relay, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = relay.Close() })
+	if probe, err := net.ListenPacket("udp", "[::1]:0"); err != nil {
+		t.Skip("no IPv6 loopback")
+	} else {
+		_ = probe.Close()
+	}
+	port, far := relay.LocalAddr().(*net.UDPAddr).Port, freeUDPPort(t)
+	serverWG, clientWG := wgPair(t), wgPair(t)
+	wgServers(t, serverWG, clientWG, map[string]string{"relay": fmt.Sprintf("[::1]:%d", port),
+		"server": fmt.Sprintf("127.0.0.1:%d", far)})
+	go udpRelay(relay, fmt.Sprintf("127.0.0.1:%d", far), 100*time.Millisecond)
+	e2eNames(t, &resolver.ProxyServerHostResolver, map[string]string{"wg.shikoo.test.": "127.0.0.1 ::1"})
+	if exit := wgExit(singBoxWG(t, port, clientWG, serverWG)); exit != "server" {
+		t.Fatalf("the tunnel left from %q, want the server mihomo dials", exit)
+	}
+}
+
+// The profile's hosts pin the name to one server and DNS answers another with the same keys: sing-box asked DNS.
+func TestSingBoxWireGuardServersNameFollowsMihomosHosts(t *testing.T) {
+	port := freeUDPPort(t)
+	serverWG, clientWG := wgPair(t), wgPair(t)
+	wgServers(t, serverWG, clientWG, map[string]string{"pinned": fmt.Sprintf("127.0.0.1:%d", port),
+		"dns": fmt.Sprintf("127.0.0.2:%d", port)})
+	e2eNames(t, &resolver.ProxyServerHostResolver, map[string]string{"wg.shikoo.test.": "127.0.0.2"})
+	pinned := trie.New[resolver.HostValue]()
+	value, _ := resolver.NewHostValueByIPs([]netip.Addr{netip.MustParseAddr("127.0.0.1")})
+	_ = pinned.Insert("wg.shikoo.test", value)
+	previous := resolver.DefaultHosts
+	resolver.DefaultHosts = resolver.NewHosts(pinned)
+	t.Cleanup(func() { resolver.DefaultHosts = previous })
+	if exit := wgExit(singBoxWG(t, port, clientWG, serverWG)); exit != "pinned" {
+		t.Fatalf("the tunnel left from %q, want the server mihomo's hosts name", exit)
+	}
+}
+
+// Two IPv4 addresses for a name: sing-box handshook both at each attempt and rekey, so the exit could move mid-session.
+func TestSingBoxWireGuardKeepsOneAddressOfAName(t *testing.T) {
+	var hits [2]atomic.Int32
+	port := 0
+	for i, ip := range []string{"127.0.0.1", "127.0.0.2"} {
+		conn, err := net.ListenPacket("udp", net.JoinHostPort(ip, strconv.Itoa(port)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = conn.Close() })
+		port = conn.LocalAddr().(*net.UDPAddr).Port
+		go func() {
+			for buf := make([]byte, 2048); ; hits[i].Add(1) {
+				if _, _, err := conn.ReadFrom(buf); err != nil {
+					return
+				}
+			}
+		}()
+	}
+	e2eNames(t, &resolver.ProxyServerHostResolver, map[string]string{"wg.shikoo.test.": "127.0.0.1 127.0.0.2"})
+	client, server := wgPair(t), wgPair(t)
+	out, _, _, err := singBoxConvert(map[string]any{"name": "wg", "type": "wireguard", "server": "wg.shikoo.test",
+		"port": port, "ip": "10.9.0.2", "private-key": client.private, "public-key": server.public})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if address := out["peers"].([]any)[0].(map[string]any)["address"]; !isIP(fmt.Sprint(address)) {
+		t.Fatalf("sing-box gets %v, a name it resolves again at each rekey", address)
+	}
+	proxy := singBoxWG(t, port, client, server)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	go func() {
+		if conn, err := proxy.DialContext(ctx, e2eTarget("203.0.113.7", 80)); err == nil {
+			_ = conn.Close()
+		}
+	}()
+	for ctx.Err() == nil && max(hits[0].Load(), hits[1].Load()) < 2 {
+		time.Sleep(100 * time.Millisecond)
+	}
+	if a, b := hits[0].Load(), hits[1].Load(); min(a, b) != 0 || max(a, b) < 2 {
+		t.Fatalf("handshakes to 127.0.0.1: %d, to 127.0.0.2: %d; want one address, again at the retry", a, b)
+	}
+}
+
+// singBoxWG hands one WireGuard server by name to sing-box; the tunnel's resolver knows no name.
+func singBoxWG(t *testing.T, port int, client, server wgKeys) C.Proxy {
+	t.Helper()
+	e2eNames(t, &resolver.DefaultResolver, nil)
+	cfg := parseShikooCores(t, fmt.Sprintf(`
+proxies:
+  - {name: wg, type: wireguard, server: wg.shikoo.test, port: %d, ip: 10.9.0.2, private-key: %q, public-key: %q, udp: true, shikoo-core: singBox}
+`, port, client.private, server.public))
+	t.Cleanup(e2eStop)
+	if cfg.Proxies["wg"].Type() != C.Socks5 {
+		t.Fatalf("wg is %v, want the SOCKS in front of sing-box", cfg.Proxies["wg"].Type())
+	}
+	return cfg.Proxies["wg"]
+}
+
+// wgServers starts a WireGuard server per address, same keys, each answering every connection with its own name.
+func wgServers(t *testing.T, server, client wgKeys, at map[string]string) {
+	t.Helper()
+	allow := []any{map[string]any{"action": "allow"}}
+	var inbounds, outbounds, rules []any
+	for name, address := range at {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = listener.Close() })
+		go func() {
+			for conn, err := listener.Accept(); err == nil; conn, err = listener.Accept() {
+				_, _ = conn.Write([]byte(name))
+				_ = conn.Close()
+			}
+		}()
+		ip, port, _ := net.SplitHostPort(address)
+		number, _ := strconv.Atoi(port)
+		inbounds = append(inbounds, map[string]any{"tag": name, "listen": ip, "port": number, "protocol": "wireguard",
+			"settings": map[string]any{"secretKey": server.private, "mtu": 1420,
+				"peers": []any{map[string]any{"publicKey": client.public, "allowedIPs": []string{"10.9.0.2/32"}}}}})
+		outbounds = append(outbounds, map[string]any{"tag": name, "protocol": "freedom",
+			"settings": map[string]any{"redirect": listener.Addr().String(), "finalRules": allow}})
+		rules = append(rules, map[string]any{"inboundTag": []string{name}, "outboundTag": name})
+	}
+	config, err := json.Marshal(map[string]any{"log": map[string]any{"loglevel": "warning"}, "inbounds": inbounds,
+		"outbounds": outbounds, "routing": map[string]any{"rules": rules}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instance, err := xcore.StartInstance("json", config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = instance.Close() })
+}
+
+// wgExit is the name of the server the tunnel leaves from, "" if none answers.
+func wgExit(proxy C.Proxy) string {
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		conn, err := proxy.DialContext(ctx, e2eTarget("203.0.113.7", 80))
+		cancel()
+		if err == nil {
+			_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+			answer, _ := io.ReadAll(conn)
+			_ = conn.Close()
+			if len(answer) > 0 {
+				return string(answer)
+			}
+		}
+	}
+	return ""
+}
+
+// udpRelay forwards one client's datagrams to `to` and back, each after delay: a relay in front of a farther server.
+func udpRelay(relay net.PacketConn, to string, delay time.Duration) {
+	upstream, err := net.Dial("udp", to)
+	if err != nil {
+		return
+	}
+	defer upstream.Close()
+	var client atomic.Pointer[net.Addr]
+	go func() {
+		for buf := make([]byte, 65535); ; {
+			n, err := upstream.Read(buf)
+			if err != nil {
+				return
+			}
+			packet := slices.Clone(buf[:n])
+			time.AfterFunc(delay, func() { _, _ = relay.WriteTo(packet, *client.Load()) })
+		}
+	}()
+	for buf := make([]byte, 65535); ; {
+		n, from, err := relay.ReadFrom(buf)
+		if err != nil {
+			return
+		}
+		client.Store(&from)
+		packet := slices.Clone(buf[:n])
+		time.AfterFunc(delay, func() { _, _ = upstream.Write(packet) })
 	}
 }
