@@ -159,7 +159,6 @@ private fun accessControl(enable: Boolean, mode: AccessControlMode) = AccessCont
 class AppRulesTest {
     private val self = "com.shikoonet.app"
 
-    // Android swaps a VPN in place only for the same apps: mihomo's and an owner core's must not differ.
     @Test
     fun `mihomo and an owner core both keep this app in their VPN, as FlClash does`() {
         for (core in listOf(null, "", "wireguard", "openvpn")) {
