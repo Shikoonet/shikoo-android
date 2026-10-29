@@ -43,7 +43,7 @@ var xrayDecoder = structure.NewDecoder(structure.Option{TagName: "proxy", Weakly
 // A server with a key the conversion does not read stays with mihomo; core/testdata/xray_serves.json holds Dart to this.
 var xrayKeys = map[any]string{
 	"vless": "uuid flow tls alpn servername client-fingerprint reality-opts network ws-opts grpc-opts xhttp-opts " +
-		"encryption packet-encoding xudp packet-addr skip-cert-verify smux",
+		"encryption packet-encoding xudp packet-addr skip-cert-verify smux tcp-opts",
 	"wireguard": "ip ipv6 private-key public-key pre-shared-key reserved allowed-ips mtu persistent-keepalive dns " +
 		"remote-dns-resolve",
 }
@@ -168,6 +168,10 @@ func xrayOutbound(proxy map[string]any) (map[string]any, error) {
 	}
 	if mux, _ := proxy["smux"].(map[string]any); mux["enabled"] == true {
 		return nil, errors.New("sing-mux")
+	}
+	// mihomo reads no tcp-opts; panels send it empty, and anything in it would mean a TCP header mihomo never sends.
+	if opts, isMap := proxy["tcp-opts"].(map[string]any); len(opts) > 0 || !isMap && proxy["tcp-opts"] != nil {
+		return nil, errors.New("tcp-opts")
 	}
 	var out map[string]any
 	var err error
