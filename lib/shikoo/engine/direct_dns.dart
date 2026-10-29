@@ -7,10 +7,24 @@ const shikooDirectIds = 7470000;
 const iranDirectIds = shikooDirectIds + 200;
 const subscriptionDirectIds = shikooDirectIds + 500;
 
+/// Inside the block [shikooDns] sends to the device's DNS: Iranian sites, and the streaming server leaves in Iran too.
+const streamingIds = shikooDirectIds + 300;
+
 const shikooRuleSets = {'shikoo-ir-site': 'domain', 'shikoo-ir-ip': 'ipcidr'};
 
 final iranDirectRules = [
   Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds),
+];
+
+/// What the streaming server carries, measured through it on 2026-10-29 (namava.ir and the sites' ad hosts it
+/// refuses, so they stay with Iran's rules). `MATCH` is FlClash's stand-in for the target of the panel's last rule.
+final streamingRules = [
+  for (final (i, domain) in const [
+    'filimo.com',
+    'gapfilm.ir',
+    'sheyda.com',
+  ].indexed)
+    Rule.parse('DOMAIN-SUFFIX,$domain,MATCH', id: streamingIds + i),
 ];
 
 void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {

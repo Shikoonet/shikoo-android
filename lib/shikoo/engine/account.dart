@@ -647,6 +647,25 @@ Future<void> keepIranDirect(bool on) => database.transaction(() async {
   }
 });
 
+/// The streaming server's sites leave through it, ahead of Iran's rules, while it is the one chosen. True if changed.
+Future<bool> keepStreaming(bool on) => database.transaction(() async {
+  final have = {
+    for (final rule in await database.rulesDao.queryGlobalAddedRules().get())
+      if (rule.id >= streamingIds && rule.id < streamingIds + 100)
+        rule.id: rule.rawValue,
+  };
+  final want = {
+    if (on)
+      for (final rule in streamingRules) rule.id: rule.rawValue,
+  };
+  if (const MapEquality<int, String>().equals(have, want)) return false;
+  await database.rulesDao.delRules(have.keys);
+  for (final rule in streamingRules.where((_) => on)) {
+    await database.rulesDao.putGlobalRule(rule);
+  }
+  return true;
+});
+
 /// Unchanged files stay for a tunnel still up from the last run; a failed write only sends Iranian sites by the server.
 Future<void> writeRuleSets(String home) async {
   try {

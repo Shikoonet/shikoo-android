@@ -113,6 +113,22 @@ void main() {
     }
   });
 
+  test('the streaming server is known by «فیلیمو» or filimo in its name, '
+      'with either yeh, and the app never picks it, not even alone', () {
+    const free = '   (رایگان) نماوا | فیلیمو |‌ شیدا | گپ فیلم';
+    for (final name in [free, 'Free FILIMO', 'فيليمو رایگان']) {
+      expect(streamingOnly(name), isTrue, reason: name);
+    }
+    for (final name in ['Germany 3', 'نماوا', 'NE 2.5 x ضریب مصرف']) {
+      expect(streamingOnly(name), isFalse, reason: name);
+    }
+    final pings = {free: 20, 'Germany 3': 113, 'NE 2.5 x ضریب مصرف': 60};
+    expect(fastest(pings.keys.toList(), (n) => pings[n]), 'Germany 3');
+    pings['Germany 3'] = -1;
+    expect(fastest(pings.keys.toList(), (n) => pings[n]), 'NE 2.5 x ضریب مصرف');
+    expect(fastest([free], (n) => pings[n]), isNull);
+  });
+
   test('keepOrder keeps the sorted order and appends new servers', () {
     expect(keepOrder(['c', 'a', 'b'], ['a', 'b', 'c', 'd']), [
       'c',

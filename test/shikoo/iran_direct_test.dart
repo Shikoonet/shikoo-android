@@ -273,4 +273,32 @@ void main() {
     await expectLater(writeRuleSets(join(home.path, 'missing')), completes);
     expect(lines, [startsWith('[APP] rule sets not written')]);
   });
+
+  test("with the streaming server chosen, its sites take the panel's last "
+      "target ahead of Iran's sets, their names found with the device's "
+      'DNS; keepStreaming tells whether it changed anything', () async {
+    const streaming = [
+      'DOMAIN-SUFFIX,filimo.com,PROXY',
+      'DOMAIN-SUFFIX,gapfilm.ir,PROXY',
+      'DOMAIN-SUFFIX,sheyda.com,PROXY',
+    ];
+    await keepIranDirect(true);
+    expect(await keepStreaming(true), isTrue);
+    expect(await keepStreaming(true), isFalse);
+    var config = await _config();
+    var rules = config['rules'] as List;
+    expect(rules.take(9), containsAll(streaming));
+    expect(rules.skip(9).take(2), _sets);
+    expect(
+      (config['dns'] as YamlMap)['nameserver-policy'] as YamlMap,
+      containsPair('+.sheyda.com', 'system'),
+    );
+
+    expect(await keepStreaming(false), isTrue);
+    expect(await keepStreaming(false), isFalse);
+    config = await _config();
+    rules = config['rules'] as List;
+    expect(rules, isNot(contains(anyOf(streaming))));
+    expect(rules.skip(6).take(2), _sets);
+  });
 }

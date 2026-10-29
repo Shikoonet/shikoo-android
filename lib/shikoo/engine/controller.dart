@@ -325,9 +325,13 @@ class ShikooState {
     this.cores = const [],
     this.coreSwitch,
     this.bridge = noBridge,
+    this.connectedNoTraffic = false,
   });
 
   final ShikooBridge bridge;
+
+  /// Never for the streaming server ([streamingOnly]), which carries no internet by design.
+  final bool connectedNoTraffic;
 
   final ShikooConnection connection;
   final Duration connectedFor;
@@ -418,6 +422,7 @@ NotifierProvider<ShikooCell<T>, T> _cell<T>(T initial) =>
     NotifierProvider<ShikooCell<T>, T>(() => ShikooCell(initial));
 
 final _intentProvider = _cell(const _Intent());
+final _noTrafficProvider = _cell(false);
 
 /// A server chosen while another change is in the core, shown until its own is sent.
 final _wantedProvider = _cell<String?>(null);
@@ -856,6 +861,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       failed: ref.watch(_warpFailedProvider),
       door: ref.watch(_warpDoorProvider),
     ),
+    connectedNoTraffic: ref.watch(_noTrafficProvider),
   );
 });
 
@@ -1208,6 +1214,23 @@ class ShikooController {
               },
       );
     });
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => s.servers.isEmpty ? null : streamingOnly(s.selected ?? ''),
+      ),
+      (_, on) {
+        if (on != null) _routeStreaming(on);
+      },
+      fireImmediately: true,
+    );
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => s.connection == ShikooConnection.on
+            ? (s.service?.id, s.selected)
+            : null,
+      ),
+      (_, now) => scheduleMicrotask(() => unawaited(_checkTraffic(now?.$2))),
+    );
     _ref.listen(coreStatusProvider, (was, now) {
       if (was == CoreStatus.connected &&
           now == CoreStatus.disconnected &&
@@ -1251,6 +1274,12 @@ class ShikooController {
   Future<void>? _iranApplying;
   bool _iranAgain = false;
   Future<void>? _iranSaved;
+
+  /// main.dart clears the streaming rules at launch, so none are in the database until a selection asks.
+  bool _streamingRouted = false;
+  Future<void> _streamingRoute = Future.value();
+  int _trafficNo = 0;
+
   Timer? _ownerWatch;
   DateTime? _ownerRebuiltAt;
   bool _fallingBack = false;
@@ -2350,6 +2379,35 @@ class ShikooController {
     }
   }
 
+  void _routeStreaming(bool on) {
+    if (on == _streamingRouted) return;
+    _streamingRouted = on;
+    _streamingRoute = _streamingRoute.then((_) async {
+      if (on != _streamingRouted || !_ref.mounted) return;
+      try {
+        if (await keepStreaming(on) && _ref.mounted && _running) {
+          await _setup.applyProfile(silence: true);
+        }
+      } catch (e) {
+        commonPrint.log('streaming rules: $e', logLevel: LogLevel.warning);
+      }
+    });
+  }
+
+  /// After a connect or a change of server, whether the internet passes, asked twice. It only tells: the pick stays.
+  Future<void> _checkTraffic(String? server) async {
+    if (!_ref.mounted) return;
+    final no = ++_trafficNo;
+    bool current() => no == _trafficNo && _ref.mounted;
+    _ref.read(_noTrafficProvider.notifier).set(false);
+    if (server == null || streamingOnly(server)) return;
+    if (_ref.read(_nativeStartProvider) == null) return;
+    final passes = _ref.read(trafficPassesProvider);
+    Future<bool> once() => passes().catchError((Object _) => false);
+    final ok = await once() || (current() && await once());
+    if (current()) _ref.read(_noTrafficProvider.notifier).set(!ok);
+  }
+
   void _sort() {
     final group = _group;
     if (group == null) return;
@@ -2364,17 +2422,19 @@ class ShikooController {
     });
   }
 
+  static bool _setAside(String name) => multiplied(name) || streamingOnly(name);
+
   bool _leaveMultiplied(String? to) {
     final chosen = _validSelection();
-    if (to == null || multiplied(to) || chosen == null) return false;
-    if (chosen != _appPick || !multiplied(chosen)) return false;
+    if (to == null || _setAside(to) || chosen == null) return false;
+    if (chosen != _appPick || !_setAside(chosen)) return false;
     unawaited(_choose(to, byApp: true));
     return true;
   }
 
   void _setAsideMultiplied() {
     final chosen = _validSelection();
-    if (chosen == null || chosen != _appPick || !multiplied(chosen)) return;
+    if (chosen == null || chosen != _appPick || !_setAside(chosen)) return;
     _setChoice(_current!, _group!.name, null, null);
   }
 
