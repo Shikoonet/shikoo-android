@@ -1147,9 +1147,10 @@ void main() {
 }
 
 void _downFromTheBarOnTv() {
-  testWidgets('down from renew is the card column\'s first row, from support '
-      'and Settings the power button, with a long or short list and one '
-      'service or three; up from the head is renew again', (tester) async {
+  testWidgets('down from renew is the item of the card column\'s first row '
+      'nearest it, «پینگ», from support and Settings the power button, with a '
+      'long or short list and one service or three; up from the head is renew '
+      'again', (tester) async {
     final long = [
       for (var i = 1; i <= 15; i++)
         ShikooServer(name: 'سرور $i', type: 'Vless', ping: 80 + i),
@@ -1180,7 +1181,6 @@ void _downFromTheBarOnTv() {
       servers: servers,
       selected: servers.first.name,
     );
-    const head = {'به‌روزرسانی', 'پینگ'};
     final wrong = <String>[];
     for (final (name, state, moves) in [
       for (final (name, state) in [
@@ -1193,7 +1193,7 @@ void _downFromTheBarOnTv() {
           name,
           state,
           [
-            ('تمدید', _down, head),
+            ('تمدید', _down, {'پینگ'}),
             ('پشتیبانی', _down, {'power'}),
             ('تنظیمات', _down, {'power'}),
             ('پینگ', _up, {'تمدید'}),

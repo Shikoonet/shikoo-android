@@ -282,9 +282,11 @@ void main() {
     );
   });
 
-  testWidgets('on the TV across the columns the remote keeps its height: a '
-      'row level with it, else the nearest one up or down, even with the '
-      'cores group making the columns uneven', (tester) async {
+  testWidgets('on the TV across the columns the remote keeps its height: of '
+      'the rows level with it the one nearest its middle, else the nearest '
+      'one up or down, even with four cores making the columns uneven', (
+    tester,
+  ) async {
     await _pumpSettings(
       tester,
       _Controller(),
@@ -296,6 +298,8 @@ void main() {
         cores: coreRows({
           ShikooProtocol.vless,
           ShikooProtocol.wireguard,
+          ShikooProtocol.openvpn,
+          ShikooProtocol.ssh,
         }, const {}),
       ),
     );
@@ -318,7 +322,13 @@ void main() {
         for (final MapEntry(key: node, value: rect) in rects.entries)
           if ((rect.center.dx > 480) != inRight) node: apart(at, rect),
       };
+      double off(FocusNode node) =>
+          (rects[node]!.center.dy - at.center.dy).abs();
       final nearest = other.values.reduce(math.min);
+      final middle = [
+        for (final MapEntry(key: node, value: gap) in other.entries)
+          if (gap == nearest) off(node),
+      ].reduce(math.min);
       final got = await _press(
         tester,
         inRight ? LogicalKeyboardKey.arrowLeft : LogicalKeyboardKey.arrowRight,
@@ -326,7 +336,7 @@ void main() {
       final to = FocusManager.instance.primaryFocus!;
       final alongItsRow =
           to != from && !other.containsKey(to) && apart(at, rects[to]!) == 0;
-      if (!alongItsRow && (other[to] ?? double.infinity) > nearest) {
+      if (!alongItsRow && (other[to] != nearest || off(to) != middle)) {
         wrong.add('${_label(from)} -> $got');
       }
     }
