@@ -1285,12 +1285,38 @@ func TestSingBoxResolvesWireGuardNamesAtOnceAndLeavesTheUnresolvedToMihomo(t *te
 	}
 }
 
-// deadResolver answers nothing before the caller gives up, as a DNS server that drops queries.
+func TestSingBoxWireGuardNamesAfterUnresolvedOnesStillGoToSingBox(t *testing.T) {
+	timeout, previous := resolver.DefaultDNSTimeout, resolver.ProxyServerHostResolver
+	resolver.DefaultDNSTimeout, resolver.ProxyServerHostResolver = 300*time.Millisecond, deadResolver{&fakeResolver{
+		answers: map[string]string{"ok1.shikoo.test.": "127.0.0.1", "ok2.shikoo.test.": "127.0.0.1"}}}
+	t.Cleanup(func() { resolver.DefaultDNSTimeout, resolver.ProxyServerHostResolver = timeout, previous })
+	client, server := wgPair(t), wgPair(t)
+	yaml := "proxies:\n"
+	for _, name := range []string{"hang1", "hang2", "ok1", "ok2"} {
+		yaml += fmt.Sprintf("  - {name: %s, type: wireguard, server: %[1]s.shikoo.test, port: 51820, ip: 10.9.0.2, "+
+			"private-key: %q, public-key: %q, udp: true, shikoo-core: singBox}\n", name, client.private, server.public)
+	}
+	cfg := parseShikooCores(t, yaml)
+	t.Cleanup(e2eStop)
+	for name, want := range map[string]C.AdapterType{"hang1": C.WireGuard, "hang2": C.WireGuard, "ok1": C.Socks5,
+		"ok2": C.Socks5} {
+		if kind := cfg.Proxies[name].Type(); kind != want {
+			t.Errorf("%s is %v, want %v", name, kind, want)
+		}
+	}
+}
+
+// deadResolver never answers a name its fakeResolver has none for, and as a real resolver none past the caller's deadline.
 type deadResolver struct{ *fakeResolver }
 
-func (deadResolver) LookupIP(ctx context.Context, _ string) ([]netip.Addr, error) {
-	<-ctx.Done()
-	return nil, ctx.Err()
+func (r deadResolver) LookupIP(ctx context.Context, host string) ([]netip.Addr, error) {
+	if r.answers[host+"."] == "" {
+		<-ctx.Done()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return r.fakeResolver.LookupIP(ctx, host)
 }
 func (r deadResolver) LookupIPv4(ctx context.Context, host string) ([]netip.Addr, error) {
 	return r.LookupIP(ctx, host)
