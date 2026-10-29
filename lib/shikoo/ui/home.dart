@@ -780,7 +780,8 @@ bool offersWarp(ShikooState state, {required bool offline}) =>
     state.lastError == ShikooError.noServer &&
     !state.bridge.on;
 
-/// Toward the card: the crash card, the internet check, then the selected or first server.
+/// Toward the card: the crash card, the internet check, then the selected or first server. Away,
+/// and down but to WARP's offer, nothing (tv-ping.html), not Settings up the far corner.
 class _PowerKeys extends StatelessWidget {
   const _PowerKeys({
     required this.targets,
@@ -794,9 +795,12 @@ class _PowerKeys extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final towardCard = Directionality.of(context) == TextDirection.rtl
-        ? TraversalDirection.right
-        : TraversalDirection.left;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final towardCard = rtl ? TraversalDirection.right : TraversalDirection.left;
+    final stays = {
+      rtl ? TraversalDirection.left : TraversalDirection.right,
+      if (!down) TraversalDirection.down,
+    };
     return Actions(
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
@@ -804,7 +808,7 @@ class _PowerKeys extends StatelessWidget {
             final target = targets.firstWhereOrNull(_onScreen);
             if (intent.direction == towardCard && target != null) {
               target.requestFocus();
-            } else if (intent.direction != TraversalDirection.down || down) {
+            } else if (!stays.contains(intent.direction)) {
               primaryFocus?.focusInDirection(intent.direction);
             }
             return null;

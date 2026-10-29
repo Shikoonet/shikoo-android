@@ -1235,6 +1235,7 @@ void _topBarOnTv() {
     final wrong = <String>[];
     for (final (from, key, to) in [
       ('power', _up, 'پشتیبانی'),
+      ('power', _towardPower, 'power'),
       ('پشتیبانی', _towardCard, 'تمدید'),
       ('پشتیبانی', _towardPower, 'تنظیمات'),
       ('به‌روزرسانی', _up, 'تمدید'),
