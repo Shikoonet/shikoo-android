@@ -320,8 +320,9 @@ if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
   chmod +x "$DL/rustup-init" # run it under this exact name: rustup picks its role from argv[0]
   "$DL/rustup-init" -y -q --no-modify-path --profile minimal --default-toolchain none
 fi
-rustup toolchain install "$RUST_VERSION" --profile minimal --target "$RUST_TARGETS"
+rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt --target "$RUST_TARGETS"
 rustup default "$RUST_VERSION" >/dev/null
+cargo install cargo-ndk --locked --version 4.1.2 # tools/warp-build.sh's pin; it also needs the rustfmt above
 log "rust: $(rustc --version), targets: $(rustup target list --installed | tr '\n' ' ')"
 # rquickjs-sys runs bindgen with the NDK's libclang, which resolves its own resource dir to a relative
 # "lib/clang/19" and so misses stdbool.h ("fatal error: 'stdbool.h' file not found"). bindgen then asks a
