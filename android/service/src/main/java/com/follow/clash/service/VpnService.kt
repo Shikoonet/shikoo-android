@@ -41,7 +41,8 @@ class VpnService : SystemVpnService(), ManagedService {
     @Volatile
     private var startAbandoned = false
 
-    // An owner core's VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking.
+    // Each VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking, and a switch needs no
+    // blocking VPN of its own, so one interface change fewer, each of which leaks for a moment (establishWith).
     private val mainHandler = Handler(Looper.getMainLooper())
     private val heldTun = HeldTun<ParcelFileDescriptor>(
         { task, millis -> mainHandler.postDelayed(task, millis) },
@@ -141,7 +142,7 @@ class VpnService : SystemVpnService(), ManagedService {
     // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
         if (options.ownsTunnel) Core.setOwnerProtector(::protect)
-        if (options.ownsTunnel && !heldTun.take()) holdBlocked(options)
+        if (!heldTun.take() && options.ownsTunnel) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
                 Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
@@ -164,7 +165,7 @@ class VpnService : SystemVpnService(), ManagedService {
             establishWith(options, owner = plan != null)
                 ?: error("VPN establishment was rejected by the system")
         }
-        val fd = if (plan == null) tun.detachFd().also { heldTun.hold(null) } else lend(tun)
+        val fd = lend(tun)
         val started = synchronized(tunLock) {
             tunRunning = true
             try {
@@ -268,8 +269,8 @@ class VpnService : SystemVpnService(), ManagedService {
     private fun JSONObject.cidrs(key: String): List<CIDR> =
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
-    // Android 9+ swaps one VPN for the next with no gap only when both have the same apps and neither is bypassable
-    // (Vpn.updateLinkPropertiesInPlaceIfPossible): otherwise it builds a new network and traffic leaves meanwhile.
+    // Android 9+ keeps the network across VPNs only for the same apps and neither bypassable, else it builds a new one;
+    // even then the new interface's routes land after the old leaves, a moment traffic takes the mobile network.
     private fun Builder.establishWith(options: VpnOptions, owner: Boolean): ParcelFileDescriptor? {
         configureAccessControl(options)
         setSession(getString(CommonR.string.app_name))
