@@ -23,6 +23,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart' show shikooDirectAuth;
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
@@ -874,6 +875,9 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
       _secrets.addAll(container.read(shikooSignInProvider).secrets);
       final auth = container.read(networkSettingProvider).authentication;
       _secrets.addAll([auth.username, auth.password]);
+      if (shikooDirectAuth case final direct?) {
+        _secrets.addAll([direct.user, direct.pass]);
+      }
       for (final profile in container.read(profilesProvider)) {
         _secrets.add(profile.url);
         final uri = Uri.tryParse(profile.url);

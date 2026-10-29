@@ -38,7 +38,6 @@ var (
 type TunHandler struct {
 	listener *sing_tun.Listener
 	callback unsafe.Pointer
-	owner    bool
 
 	mu sync.RWMutex
 }
@@ -95,7 +94,7 @@ func (th *TunHandler) handleProtect(fd int) error {
 	th.mu.RLock()
 	defer th.mu.RUnlock()
 
-	if (th.listener == nil && !th.owner) || th.callback == nil {
+	if th.listener == nil || th.callback == nil {
 		// The tun routes are already live at this point (Android establishes
 		// them before it hands the fd over), so an unprotected socket would be
 		// routed straight back into the tunnel and hang until it times out.
@@ -154,16 +153,13 @@ func installHooks() {
 			if platform.ShouldBlockConnection() {
 				return errBlocked
 			}
-			th := activeTunHandler.Load()
-			if th == nil {
-				th = ownerHandler.Load()
-			}
-			if th == nil {
-				return nil
+			protectFd := func(fd int) error { return ownerProtect.socket(fd, false) }
+			if th := activeTunHandler.Load(); th != nil {
+				protectFd = th.handleProtect
 			}
 			var protectErr error
 			if err := conn.Control(func(fd uintptr) {
-				protectErr = th.handleProtect(int(fd))
+				protectErr = protectFd(int(fd))
 			}); err != nil {
 				return err
 			}
@@ -255,7 +251,7 @@ func handleStartOwner(fd int) bool {
 	stopTunLocked()
 	device, _, err := wgtun.CreateUnmonitoredTUNFromFD(fd)
 	if err == nil {
-		err = startOwner(device, protectedBind{wgconn.NewStdNetBind().(*wgconn.StdNetBind)})
+		err = startProtectedOwner(device, wgconn.NewStdNetBind().(*wgconn.StdNetBind))
 	} else {
 		_ = syscall.Close(fd)
 	}
@@ -266,51 +262,14 @@ func handleStartOwner(fd int) bool {
 	return true
 }
 
-func restartListenersIfStopped() {
-	if !isRunning.Load() {
-		handleStartListener()
-	}
-}
-
-// An owner core's VPN holds this app too (VpnOptions.appRules): its sockets are protected while no mihomo TUN is up.
-var ownerHandler atomic.Pointer[TunHandler]
-
 //export setOwnerProtector
 func setOwnerProtector(callback unsafe.Pointer) {
-	var next *TunHandler
-	if callback != nil {
-		next = &TunHandler{callback: callback, owner: true}
-		installHooks()
+	if callback == nil {
+		ownerProtect.set(nil, nil)
+		return
 	}
-	if previous := ownerHandler.Swap(next); previous != nil {
-		previous.close()
-	}
-}
-
-type protectedBind struct{ *wgconn.StdNetBind }
-
-func (b protectedBind) Open(port uint16) ([]wgconn.ReceiveFunc, uint16, error) {
-	fns, actual, err := b.StdNetBind.Open(port)
-	if err != nil {
-		return fns, actual, err
-	}
-	th := ownerHandler.Load()
-	for _, peek := range []func() (int, error){b.PeekLookAtSocketFd4, b.PeekLookAtSocketFd6} {
-		fd, err := peek()
-		if err != nil {
-			continue
-		}
-		if th == nil {
-			err = errTunNotReady
-		} else {
-			err = th.handleProtect(fd)
-		}
-		if err != nil {
-			_ = b.StdNetBind.Close()
-			return nil, 0, err
-		}
-	}
-	return fns, actual, nil
+	installHooks()
+	ownerProtect.set(func(fd int) bool { return protect(callback, fd) }, func() { releaseObject(callback) })
 }
 
 var (

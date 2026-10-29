@@ -2,9 +2,11 @@ package com.follow.clash.service.models
 
 import com.follow.clash.common.AccessControlMode
 import com.follow.clash.core.OWNER_IRAN_DIRECT
+import java.io.File
 import java.net.Inet4Address
 import java.net.Inet6Address
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -174,6 +176,15 @@ class AppRulesTest {
                 optionsFor(core, accessControl(true, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
             )
         }
+    }
+}
+
+// The Builder needs Android itself, so the service's source is read: a bypassable VPN builds a new network on a switch.
+class VpnShapeTest {
+    @Test
+    fun `no VPN the service builds is bypassable`() {
+        val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+        assertFalse(Regex("""\ballowBypass\s*\(""").containsMatchIn(service))
     }
 }
 

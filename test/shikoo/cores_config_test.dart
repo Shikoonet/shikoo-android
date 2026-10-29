@@ -8,6 +8,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -17,6 +18,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:yaml/yaml.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
 
@@ -37,6 +39,7 @@ void main() {
   Future<String> written({
     bool windowsProxyMode = false,
     bool heldOff = false,
+    List<Rule> addedRules = const [],
   }) async {
     SharedPreferences.setMockInitialValues({});
     final core = _Core();
@@ -85,13 +88,13 @@ void main() {
     final made = await container
         .read(setupActionProvider.notifier)
         .getProfile(
-          setupState: const SetupState(
+          setupState: SetupState(
             profileId: 1,
             profileLastUpdateDate: null,
             overwriteType: OverwriteType.standard,
-            rules: [],
-            proxyGroups: [],
-            addedRules: [],
+            rules: const [],
+            proxyGroups: const [],
+            addedRules: addedRules,
             script: null,
             overrideDns: false,
             dns: defaultDns,
@@ -129,5 +132,33 @@ void main() {
 
     expect(yaml, isNot(contains(shikooOwnerKey)));
     expect(yaml, contains('$shikooCoreKey: "xray"'));
+  });
+
+  test("on Android FlClash's config for the core carries the app's own "
+      'inbound, which reaches the subscription hosts alone', () async {
+    shikooDirectAuth = (port: 7999, user: 'u', pass: 'p');
+    addTearDown(() => shikooDirectAuth = null);
+
+    final config =
+        loadYaml(
+              await written(
+                addedRules: [
+                  subscriptionDirectRule(
+                    'a.panel.example',
+                    subscriptionDirectIds,
+                  ),
+                ],
+              ),
+            )
+            as YamlMap;
+
+    expect(
+      (config['listeners'] as YamlList).single['name'],
+      shikooDirectInbound,
+    );
+    expect((config['sub-rules'] as YamlMap)[shikooDirectInbound], [
+      'DOMAIN,a.panel.example,DIRECT',
+      'MATCH,REJECT',
+    ]);
   });
 }
