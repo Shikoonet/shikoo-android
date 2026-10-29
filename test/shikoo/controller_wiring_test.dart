@@ -555,25 +555,37 @@ void main() {
     });
 
     test('connect: a usage-multiplier first answer is taken at once and gives '
-        'way at the round end to an ordinary reset, whichever answered first '
-        '(Sam: no multiplier first)', () async {
+        'way at the round end to an ordinary reset, whichever answered first, '
+        'with one reconnect so the official engine carries it, the tunnel up '
+        'or still starting (Sam: no multiplier first)', () async {
       const four = 'ضریب مصرف NE 4 x';
       for (final late in [four, 'فرانسه ۴']) {
-        final gate = Completer<void>();
-        final s = await service(
-          {
-            four: ('Vless', 60),
-            'فرانسه ۴': ('OpenVPN', 4),
-            germany: ('Vless', -1),
-          },
-          {late: gate},
-        );
-        unawaited(s.controller.connect());
-        await pumpEventQueue();
-        gate.complete();
-        await pumpEventQueue();
-        expect(s.proxies.picked, [four, 'فرانسه ۴'], reason: '$late last');
-        await s.controller.disconnect();
+        for (final up in [true, false]) {
+          final gate = Completer<void>();
+          final s = await service(
+            {
+              four: ('Vless', 60),
+              'فرانسه ۴': ('OpenVPN', 4),
+              germany: ('Vless', -1),
+            },
+            {late: gate},
+          );
+          if (up) s.setup.tunnel = DateTime(2026);
+          unawaited(s.controller.connect());
+          await pumpEventQueue();
+          gate.complete();
+          await pumpEventQueue();
+          final reason = '$late last, tunnel ${up ? 'up' : 'starting'}';
+          expect(s.proxies.picked, [four, 'فرانسه ۴'], reason: reason);
+          expect(s.setup.runs, [true, false, true], reason: reason);
+          final owner = s.container.read(shikooOwnerProvider);
+          expect(
+            (owner?.core, owner?.server),
+            (ShikooCore.openvpn.name, 'فرانسه ۴'),
+            reason: reason,
+          );
+          await s.controller.disconnect();
+        }
       }
     });
 
@@ -595,6 +607,7 @@ void main() {
       whole.complete();
       await pumpEventQueue();
       expect(s.proxies.picked, [four, germany]);
+      expect(s.setup.runs, [true], reason: 'mihomo to mihomo, in place');
       await s.controller.disconnect();
     });
 

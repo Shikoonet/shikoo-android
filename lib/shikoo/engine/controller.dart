@@ -1993,6 +1993,7 @@ class ShikooController {
     final group = _group;
     if (group == null) return;
     final no = ++_chooseNo;
+    final from = _validSelection();
     if (_changing == null) _pickInCore = _appPick;
     if (byApp != null) _pickedByApp(byApp ? name : null);
     final pick = _appPick;
@@ -2014,6 +2015,14 @@ class ShikooController {
     if (!applied) _pickedByApp(_pickInCore);
     final intent = _ref.read(_intentProvider);
     final error = applied ? null : ShikooError.serverChange;
+    // The app's own move to or from a core that owns the tunnel builds it again, as a tap does (selectServer).
+    if (byApp == true &&
+        applied &&
+        from != null &&
+        (_running || intent.connecting) &&
+        _tunnelKeyOf(from) != _tunnelKeyOf(name)) {
+      return _reconnect();
+    }
     if (intent.waiting && _validSelection() != null) {
       // Up already, as after a switch of service: the answer takes the traffic, no new start.
       return _running
