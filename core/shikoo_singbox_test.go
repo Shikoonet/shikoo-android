@@ -397,7 +397,7 @@ func TestSingBoxConvertsToWhatMihomoWouldUse(t *testing.T) {
 			"data-ciphers-fallback": "AES-CBC"}), "data_ciphers data_ciphers_fallback",
 			`["AES-256-GCM","CHACHA20-POLY1305"] "AES-128-CBC"`},
 	} {
-		out, _, _, err := singBoxConvert(c.mapping)
+		out, _, _, err := singBoxConvert(context.Background(), c.mapping)
 		if err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
@@ -1236,8 +1236,9 @@ func TestSingBoxWireGuardKeepsOneAddressOfAName(t *testing.T) {
 	}
 	e2eNames(t, &resolver.ProxyServerHostResolver, map[string]string{"wg.shikoo.test.": "127.0.0.1 127.0.0.2"})
 	client, server := wgPair(t), wgPair(t)
-	out, _, _, err := singBoxConvert(map[string]any{"name": "wg", "type": "wireguard", "server": "wg.shikoo.test",
-		"port": port, "ip": "10.9.0.2", "private-key": client.private, "public-key": server.public})
+	out, _, _, err := singBoxConvert(context.Background(), map[string]any{"name": "wg", "type": "wireguard",
+		"server": "wg.shikoo.test", "port": port, "ip": "10.9.0.2", "private-key": client.private,
+		"public-key": server.public})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1257,6 +1258,63 @@ func TestSingBoxWireGuardKeepsOneAddressOfAName(t *testing.T) {
 	}
 	if a, b := hits[0].Load(), hits[1].Load(); min(a, b) != 0 || max(a, b) < 2 {
 		t.Fatalf("handshakes to 127.0.0.1: %d, to 127.0.0.2: %d; want one address, again at the retry", a, b)
+	}
+}
+
+// A dead DNS: the apply, which holds configMu, waited a whole DNS timeout per name. An unresolved name stays on mihomo.
+func TestSingBoxResolvesWireGuardNamesAtOnceAndLeavesTheUnresolvedToMihomo(t *testing.T) {
+	timeout, previous := resolver.DefaultDNSTimeout, resolver.ProxyServerHostResolver
+	resolver.DefaultDNSTimeout, resolver.ProxyServerHostResolver = 300*time.Millisecond, deadResolver{&fakeResolver{}}
+	t.Cleanup(func() { resolver.DefaultDNSTimeout, resolver.ProxyServerHostResolver = timeout, previous })
+	client, server := wgPair(t), wgPair(t)
+	yaml := "proxies:\n"
+	for i := range 4 {
+		yaml += fmt.Sprintf("  - {name: wg%d, type: wireguard, server: wg%[1]d.shikoo.test, port: 51820, ip: 10.9.0.2, "+
+			"private-key: %q, public-key: %q, udp: true, shikoo-core: singBox}\n", i, client.private, server.public)
+	}
+	start := time.Now()
+	cfg := parseShikooCores(t, yaml)
+	t.Cleanup(e2eStop)
+	if took := time.Since(start); took > 2*resolver.DefaultDNSTimeout {
+		t.Errorf("the apply took %v, one DNS timeout is %v", took, resolver.DefaultDNSTimeout)
+	}
+	for i := range 4 {
+		if kind := cfg.Proxies[fmt.Sprintf("wg%d", i)].Type(); kind != C.WireGuard {
+			t.Errorf("wg%d is %v, want mihomo's own WireGuard", i, kind)
+		}
+	}
+}
+
+// deadResolver answers nothing before the caller gives up, as a DNS server that drops queries.
+type deadResolver struct{ *fakeResolver }
+
+func (deadResolver) LookupIP(ctx context.Context, _ string) ([]netip.Addr, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+func (r deadResolver) LookupIPv4(ctx context.Context, host string) ([]netip.Addr, error) {
+	return r.LookupIP(ctx, host)
+}
+
+func TestSingBoxWireGuardNameFollowsMihomosIPv6(t *testing.T) {
+	e2eNames(t, &resolver.ProxyServerHostResolver, map[string]string{"both.test.": "127.0.0.1 ::1", "six.test.": "::1"})
+	disabled := resolver.DisableIPv6
+	t.Cleanup(func() { resolver.DisableIPv6 = disabled })
+	for _, c := range []struct {
+		name string
+		ipv6 bool
+		want string
+	}{{"both.test", false, "127.0.0.1"}, {"both.test", true, "127.0.0.1"}, {"six.test", true, "::1"}, {"six.test", false, ""}} {
+		resolver.DisableIPv6 = !c.ipv6
+		out, _, _, err := singBoxConvert(context.Background(), map[string]any{"name": "wg", "type": "wireguard",
+			"server": c.name, "port": 1, "ip": "10.9.0.2", "private-key": "k", "public-key": "p"})
+		got := ""
+		if err == nil {
+			got = fmt.Sprint(out["peers"].([]any)[0].(map[string]any)["address"])
+		}
+		if got != c.want {
+			t.Errorf("%s with mihomo's IPv6 on %v: %q, want %q", c.name, c.ipv6, got, c.want)
+		}
 	}
 }
 

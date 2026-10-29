@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	madapter "github.com/metacubex/mihomo/adapter"
 	mihomo "github.com/metacubex/mihomo/adapter/outbound"
@@ -151,7 +152,7 @@ var singBoxDecoder = structure.NewDecoder(structure.Option{TagName: "proxy", Wea
 
 // singBoxConvert reads a mapping singBoxServes accepted with mihomo's own decoder, so values mean what they mean to
 // mihomo, and says whether mihomo's adapter for it would carry UDP.
-func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp bool, err error) {
+func singBoxConvert(ctx context.Context, proxy map[string]any) (out map[string]any, isEndpoint, udp bool, err error) {
 	switch strings.ToLower(fmt.Sprint(proxy["type"])) {
 	case "vless":
 		var o mihomo.VlessOption
@@ -222,13 +223,10 @@ func singBoxConvert(proxy map[string]any) (out map[string]any, isEndpoint, udp b
 			if len(peer.Reserved) == 0 {
 				peer.Reserved = o.Reserved
 			}
-			// sing-box handshakes every address of a name, again at each rekey; mihomo's adapter resolves it once, as here.
 			server := peer.Server
 			if _, err := netip.ParseAddr(server); err != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), resolver.DefaultDNSTimeout)
 				ip, err := resolver.ResolveIPWithResolver(resolver.WithInitiator(ctx, resolver.InitiatorProxy), server,
 					resolver.ProxyServerHostResolver)
-				cancel()
 				if err != nil {
 					return nil, false, false, err
 				}
@@ -325,6 +323,20 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 	defer release()
 	port := ports[0]
 	password := rand.Text()
+	// WireGuard's server names resolve once as mihomo's do (sing-box's at each rekey), together: the apply holds configMu.
+	ctx, cancel := context.WithTimeout(context.Background(), resolver.DefaultDNSTimeout)
+	converted, convertErrs := make([]singBoxServer, len(proxies)), make([]error, len(proxies))
+	var group sync.WaitGroup
+	for i, proxy := range proxies {
+		if singBoxServes(proxy) {
+			group.Go(func() {
+				c := &converted[i]
+				c.out, c.isEndpoint, c.udp, convertErrs[i] = singBoxConvert(ctx, proxy)
+			})
+		}
+	}
+	group.Wait()
+	cancel()
 	var servers []singBoxServer
 	for i, proxy := range proxies {
 		if !singBoxServes(proxy) {
@@ -335,16 +347,17 @@ func startSingBox(proxies []map[string]any) ([]map[string]any, func(), error) {
 		if err == nil {
 			parsed.Close()
 		}
-		out, isEndpoint, udp, convertErr := singBoxConvert(proxy)
-		if err = errors.Join(err, convertErr); err != nil {
+		if err = errors.Join(err, convertErrs[i]); err != nil {
 			log.Warnln("[SHIKOO] sing-box cannot carry %v; mihomo does: %v", proxy["name"], err)
 			continue
 		}
-		out["tag"] = "s" + strconv.Itoa(i)
-		if out["detour"] == nil {
-			out["detour"] = "mihomo"
+		server := converted[i]
+		server.index, server.dns = i, singBoxTunnelDNS(proxy)
+		server.out["tag"] = "s" + strconv.Itoa(i)
+		if server.out["detour"] == nil {
+			server.out["detour"] = "mihomo"
 		}
-		servers = append(servers, singBoxServer{i, out, isEndpoint, udp, singBoxTunnelDNS(proxy)})
+		servers = append(servers, server)
 	}
 	if len(servers) == 0 {
 		return proxies, func() {}, nil
