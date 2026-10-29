@@ -180,10 +180,18 @@ class AppRulesTest {
 
 // The Builder needs Android itself, so the service's source is read: a bypassable VPN builds a new network on a switch.
 class VpnShapeTest {
+    private val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+
     @Test
     fun `no VPN the service builds is bypassable`() {
-        val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
         assertFalse(Regex("""\ballowBypass\s*\(""").containsMatchIn(service))
+    }
+
+    @Test
+    fun `a revoke drops the owner core's protect, which a switch's stop keeps and Android now denies`() {
+        val onRevoke = Regex("""override fun onRevoke\(\) \{(.*?)\n    \}""", RegexOption.DOT_MATCHES_ALL)
+            .find(service)?.groupValues?.get(1).orEmpty()
+        assertTrue(onRevoke.contains("Core.setOwnerProtector(null)"))
     }
 }
 

@@ -136,6 +136,8 @@ class VpnService : SystemVpnService(), ManagedService {
 
     override fun onRevoke() {
         stop()
+        // Another app holds the VPN now and Android denies our protect: a switch's stop would have kept it.
+        Core.setOwnerProtector(null)
         notifyVpnRevoked()
     }
 
