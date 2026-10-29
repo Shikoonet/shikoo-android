@@ -18,6 +18,12 @@ Java_com_follow_clash_core_Core_startTun(JNIEnv *env, jobject thiz, jint fd, job
 
 extern "C"
 JNIEXPORT void JNICALL
+Java_com_follow_clash_core_Core_setOwnerProtector(JNIEnv *env, jobject thiz, jobject cb) {
+    setOwnerProtector(cb == nullptr ? nullptr : new_global(cb));
+}
+
+extern "C"
+JNIEXPORT void JNICALL
 Java_com_follow_clash_core_Core_stopTun(JNIEnv *env, jobject thiz) {
     stopTun();
 }

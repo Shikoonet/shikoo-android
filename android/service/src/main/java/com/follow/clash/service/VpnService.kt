@@ -140,6 +140,7 @@ class VpnService : SystemVpnService(), ManagedService {
 
     // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
     private fun handleStart(options: VpnOptions) {
+        if (options.ownsTunnel) Core.setOwnerProtector(::protect)
         if (options.ownsTunnel && !heldTun.take()) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
@@ -267,17 +268,14 @@ class VpnService : SystemVpnService(), ManagedService {
     private fun JSONObject.cidrs(key: String): List<CIDR> =
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
+    // Android 9+ swaps one VPN for the next with no gap only when both have the same apps and neither is bypassable
+    // (Vpn.updateLinkPropertiesInPlaceIfPossible): otherwise it builds a new network and traffic leaves meanwhile.
     private fun Builder.establishWith(options: VpnOptions, owner: Boolean): ParcelFileDescriptor? {
-        // shortcut: owner <-> mihomo leaks up to 1.6 s either way, owner -> owner 0.2-0.6 s on Android 7 (SHIKOO_PATCHES 66);
-        // upgrade before subscriptions ship OpenVPN servers or official WireGuard becomes a default, or on a customer report.
         configureAccessControl(options)
         setSession(getString(CommonR.string.app_name))
         setBlocking(false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             setMetered(false)
-        }
-        if (options.allowBypass && !owner) {
-            allowBypass()
         }
         // The proxy is mihomo's port, whose client of the owner's server shares its key.
         if (!owner && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
@@ -386,7 +384,12 @@ class VpnService : SystemVpnService(), ManagedService {
             modules.stop()
         } finally {
             stopTun()
-            if (keepHeld) heldTun.releaseIn(SWITCH_HOLD_MILLIS) else heldTun.hold(null)
+            if (keepHeld) {
+                heldTun.releaseIn(SWITCH_HOLD_MILLIS)
+            } else {
+                heldTun.hold(null)
+                Core.setOwnerProtector(null)
+            }
             startAbandoned = false
         }
     }

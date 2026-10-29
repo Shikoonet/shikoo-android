@@ -17,6 +17,7 @@ import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -72,6 +73,9 @@ class _Setup extends SetupAction {
   DateTime? tunnel;
   bool traffic = true;
 
+  /// False: the core refuses each config, as it does an update whose every server is broken.
+  bool accepts = true;
+
   /// Holds an apply open until completed.
   Completer<void>? gate;
 
@@ -94,7 +98,7 @@ class _Setup extends SetupAction {
     forced.add(force);
     await gate?.future;
     onApply?.call();
-    return true;
+    return accepts;
   }
 }
 
@@ -612,6 +616,38 @@ void main() {
     expect(home.setup.runs, isEmpty);
   });
 
+  test('an update the core refuses, its every server broken, starts no owner '
+      'tunnel again: that start would fall to mihomo and leak', () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => (core: 'wireguard', server: 'W'),
+    );
+    home.container.listen(shikooControllerProvider, (_, _) {});
+    await _connectOn(home, 'W');
+    home.setup.runs.clear();
+    home.setup.accepts = false;
+
+    when(() => home.core.getConfig(any())).thenAnswer(
+      (_) async => {
+        ..._profile,
+        'proxies': [
+          for (final proxy in _profile['proxies']! as List)
+            if ((proxy as Map)['name'] == 'W')
+              {...proxy, 'private-key': 'not*base64!'}
+            else
+              proxy,
+        ],
+      },
+    );
+    home.container.read(initProvider.notifier).value = false;
+    await pumpEventQueue();
+    home.container.read(initProvider.notifier).value = true;
+    await pumpEventQueue();
+
+    expect(home.setup.runs, isNot(contains(true)));
+  });
+
   test('an owner core that dies under a running app is built again; one that '
       'dies again within a minute leaves the connection to mihomo, the pick '
       'kept, until the next disconnect; a silent Go is no death', () async {
@@ -929,41 +965,52 @@ void main() {
     });
   }
 
-  for (final (label, desktop, report, aside)
-      in <(String, bool, ShikooCarrying?, bool)>[
-        (
-          'on Windows, an owner engine that gives no answer counts as not '
-              'carrying: direct',
-          true,
-          null,
-          false,
-        ),
-        (
-          'on Windows, an owner core carrying the server in use: direct by '
-              "mihomo's port, the server by a plain request",
-          true,
-          (core: 'wireguard', server: 'W'),
-          true,
-        ),
-        (
-          'on Android the app is out of the VPN: direct',
-          false,
-          (core: 'wireguard', server: 'W'),
-          false,
-        ),
-        (
-          'on Windows, an owner engine that never started leaves mihomo the tunnel: '
-              'direct',
-          true,
-          (core: '', server: ''),
-          false,
-        ),
-      ]) {
+  for (final (label, desktop, report, aside) in <(String, bool, ShikooCarrying?, bool)>[
+    (
+      'on Windows, an owner engine that gives no answer counts as not '
+          'carrying: direct',
+      true,
+      null,
+      false,
+    ),
+    (
+      'on Windows, an owner core carrying the server in use: direct by '
+          "mihomo's port, the server by a plain request",
+      true,
+      (core: 'wireguard', server: 'W'),
+      true,
+    ),
+    (
+      'on Android, an owner core carrying the server in use: direct by '
+          "the app's own inbound, the server by a plain request",
+      false,
+      (core: 'wireguard', server: 'W'),
+      true,
+    ),
+    (
+      'on Windows, an owner engine that never started leaves mihomo the tunnel: '
+          'direct',
+      true,
+      (core: '', server: ''),
+      false,
+    ),
+    (
+      'on Android, an owner engine that never started leaves mihomo the tunnel: '
+          'direct',
+      false,
+      (core: '', server: ''),
+      false,
+    ),
+  ]) {
     for (final via in [null, ShikooRoute.server]) {
       final route = via == null
           ? 'direct, then by the server'
           : 'by the server';
       test("connected, the app's own requests $route: $label", () async {
+        if (!desktop) {
+          shikooDirectAuth = (port: 7999, user: 'u', pass: 'p');
+          addTearDown(() => shikooDirectAuth = null);
+        }
         final home = await _home(
           ready: {ShikooCore.wireguard},
           choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
@@ -973,6 +1020,7 @@ void main() {
         await _connectOn(home, 'W');
         final mihomo =
             'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
+        final direct = desktop ? mihomo : '127.0.0.1:7999';
         globalState.container = home.container;
         final legs = _Legs();
 
@@ -984,7 +1032,7 @@ void main() {
 
         // Aside, a plain request rides the owner's tunnel, so it is the server leg: mihomo's client of W stays shut.
         expect(legs.proxies, switch ((via, aside)) {
-          (null, true) => [mihomo, null],
+          (null, true) => [direct, null],
           (null, false) => [null, mihomo],
           (_, true) => [null],
           (_, false) => [mihomo],
@@ -993,9 +1041,9 @@ void main() {
     }
   }
 
-  for (final (label, desktop, aside) in [
-    ("on Windows, through mihomo's port", true, true),
-    ('on Android, direct', false, false),
+  for (final (label, desktop) in [
+    ("on Windows, through mihomo's port", true),
+    ("on Android, through mihomo's port too", false),
   ]) {
     test('connected on an owner core, the internet check of the card and of '
         'settings: $label', () async {
@@ -1016,7 +1064,7 @@ void main() {
       );
 
       expect(legs.proxies, isNotEmpty);
-      expect(legs.proxies.toSet(), {aside ? mihomo : null});
+      expect(legs.proxies.toSet(), {mihomo});
     });
   }
 
@@ -1073,32 +1121,35 @@ void main() {
     expect(row(), (ShikooCore.wireguard, ShikooCore.mihomo));
   });
 
-  test('on Windows the app asks Go again before its own requests: an engine '
-      'that stopped since connect leaves them to mihomo', () async {
-    ShikooCarrying report = (core: 'wireguard', server: 'W');
-    final home = await _home(
-      ready: {ShikooCore.wireguard},
-      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
-      carrying: () => report,
-      desktop: true,
-    );
-    await _connectOn(home, 'W');
-    expect(_server(home, 'W').core, ShikooCore.wireguard);
-    report = (core: '', server: '');
-    final mihomo =
-        'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
-    globalState.container = home.container;
-    final legs = _Legs();
+  for (final desktop in [true, false]) {
+    test('on ${desktop ? 'Windows' : 'Android'} the app asks Go again before its '
+        'own requests: an engine that stopped since connect leaves them to '
+        'mihomo', () async {
+      ShikooCarrying report = (core: 'wireguard', server: 'W');
+      final home = await _home(
+        ready: {ShikooCore.wireguard},
+        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+        carrying: () => report,
+        desktop: desktop,
+      );
+      await _connectOn(home, 'W');
+      expect(_server(home, 'W').core, ShikooCore.wireguard);
+      report = (core: '', server: '');
+      final mihomo =
+          'localhost:${home.container.read(patchClashConfigProvider).mixedPort}';
+      globalState.container = home.container;
+      final legs = _Legs();
 
-    await HttpOverrides.runWithHttpOverrides(() async {
-      try {
-        await home.controller.refreshService(via: ShikooRoute.server);
-      } catch (_) {}
-    }, legs);
+      await HttpOverrides.runWithHttpOverrides(() async {
+        try {
+          await home.controller.refreshService(via: ShikooRoute.server);
+        } catch (_) {}
+      }, legs);
 
-    expect(legs.proxies, [mihomo]);
-    expect(_server(home, 'W').core, ShikooCore.mihomo);
-  });
+      expect(legs.proxies, [mihomo]);
+      expect(_server(home, 'W').core, ShikooCore.mihomo);
+    });
+  }
 
   for (final (label, picks, report, rebuilt)
       in <(String, ShikooChoices, ShikooCarrying, bool)>[
@@ -1210,33 +1261,6 @@ void main() {
 
     expect(home.setup.forced, [true]);
   });
-
-  test(
-    'on Android the app does not ask Go again before its own requests',
-    () async {
-      var asked = 0;
-      final home = await _home(
-        ready: {ShikooCore.wireguard},
-        choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
-        carrying: () {
-          asked++;
-          return (core: 'wireguard', server: 'W');
-        },
-      );
-      await _connectOn(home, 'W');
-      final atConnect = asked;
-      globalState.container = home.container;
-
-      await HttpOverrides.runWithHttpOverrides(() async {
-        try {
-          await home.controller.refreshService();
-        } catch (_) {}
-      }, _Legs());
-
-      expect(atConnect, greaterThan(0));
-      expect(asked, atConnect);
-    },
-  );
 
   test("Go's answer about the owner waits its limit at most, however long the "
       'RPC stretches its own', () async {

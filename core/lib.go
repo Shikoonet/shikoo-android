@@ -38,6 +38,7 @@ var (
 type TunHandler struct {
 	listener *sing_tun.Listener
 	callback unsafe.Pointer
+	owner    bool
 
 	mu sync.RWMutex
 }
@@ -94,7 +95,7 @@ func (th *TunHandler) handleProtect(fd int) error {
 	th.mu.RLock()
 	defer th.mu.RUnlock()
 
-	if th.listener == nil || th.callback == nil {
+	if (th.listener == nil && !th.owner) || th.callback == nil {
 		// The tun routes are already live at this point (Android establishes
 		// them before it hands the fd over), so an unprotected socket would be
 		// routed straight back into the tunnel and hang until it times out.
@@ -154,6 +155,9 @@ func installHooks() {
 				return errBlocked
 			}
 			th := activeTunHandler.Load()
+			if th == nil {
+				th = ownerHandler.Load()
+			}
 			if th == nil {
 				return nil
 			}
@@ -245,14 +249,13 @@ func handleStartTun(callback unsafe.Pointer, fd int, stack, address, dns string)
 
 const shikooStartOwnerMethod CoreMethod = "shikooStartOwner"
 
-// handleStartTun for a core that owns the tunnel (shikoo_wg.go); the app is out of its VPN, so nothing needs protect.
 func handleStartOwner(fd int) bool {
 	tunLock.Lock()
 	defer tunLock.Unlock()
 	stopTunLocked()
 	device, _, err := wgtun.CreateUnmonitoredTUNFromFD(fd)
 	if err == nil {
-		err = startOwner(device, wgconn.NewDefaultBind())
+		err = startOwner(device, protectedBind{wgconn.NewStdNetBind().(*wgconn.StdNetBind)})
 	} else {
 		_ = syscall.Close(fd)
 	}
@@ -261,6 +264,53 @@ func handleStartOwner(fd int) bool {
 		return false
 	}
 	return true
+}
+
+func restartListenersIfStopped() {
+	if !isRunning.Load() {
+		handleStartListener()
+	}
+}
+
+// An owner core's VPN holds this app too (VpnOptions.appRules): its sockets are protected while no mihomo TUN is up.
+var ownerHandler atomic.Pointer[TunHandler]
+
+//export setOwnerProtector
+func setOwnerProtector(callback unsafe.Pointer) {
+	var next *TunHandler
+	if callback != nil {
+		next = &TunHandler{callback: callback, owner: true}
+		installHooks()
+	}
+	if previous := ownerHandler.Swap(next); previous != nil {
+		previous.close()
+	}
+}
+
+type protectedBind struct{ *wgconn.StdNetBind }
+
+func (b protectedBind) Open(port uint16) ([]wgconn.ReceiveFunc, uint16, error) {
+	fns, actual, err := b.StdNetBind.Open(port)
+	if err != nil {
+		return fns, actual, err
+	}
+	th := ownerHandler.Load()
+	for _, peek := range []func() (int, error){b.PeekLookAtSocketFd4, b.PeekLookAtSocketFd6} {
+		fd, err := peek()
+		if err != nil {
+			continue
+		}
+		if th == nil {
+			err = errTunNotReady
+		} else {
+			err = th.handleProtect(fd)
+		}
+		if err != nil {
+			_ = b.StdNetBind.Close()
+			return nil, 0, err
+		}
+	}
+	return fns, actual, nil
 }
 
 var (
@@ -299,8 +349,13 @@ func init() {
 		response.success(true)
 	}))
 	registerMethod(shikooStartOwnerMethod, withArguments(func(fd *int, response MethodResponse) {
-		response.success(handleStartOwner(*fd))
+		started := handleStartOwner(*fd)
+		if started {
+			restartListenersIfStopped()
+		}
+		response.success(started)
 	}))
+	ovpnUp = restartListenersIfStopped
 }
 
 //export invokeMethod

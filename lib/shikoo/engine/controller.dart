@@ -17,6 +17,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart' show directInboundProxy;
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
@@ -1044,10 +1045,9 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
   }
 }
 
-/// Windows cannot keep the app out of a tunnel an owner core holds, so the app's direct requests take mihomo's port,
-/// whose DIRECT rules leave by the physical card. Null elsewhere: Android keeps the app out of such a VPN.
+/// An owner core's tunnel holds the app (Android keeps it in every VPN, Windows cannot leave it out), so the app's
+/// direct requests take mihomo's port, whose DIRECT rules leave beside the tunnel. Null while mihomo carries the server.
 String? ownerAside(ProviderReader read, Uri url) {
-  if (!read(shikooDesktopProvider)) return null;
   final core = read(shikooStateProvider).selectedServer?.core;
   if (core == null ||
       read(shikooCoreSpecsProvider)[core]!.shape != ShikooShape.ownsTunnel) {
@@ -1176,8 +1176,6 @@ class ShikooController {
       if (init) scheduleMicrotask(_loadSources);
     });
     // An update that changes the key or address of the server an owner core carries; Windows' Go rebuilds in place.
-    // shortcut: an all-bad update rebuilds too, onto mihomo: up to about 1 s leak till setRunning(false);
-    // upgrade on row 66's trigger: skip the rebuild once the last apply failed (SHIKOO_PATCHES 70).
     _ref.listen(_serverSourceProvider, (was, now) {
       if (!_ref.read(shikooDesktopProvider) &&
           was != null &&
@@ -1637,7 +1635,12 @@ class ShikooController {
       do {
         _rebuildAgain = false;
         final up = _running || _ref.read(_intentProvider).connecting;
-        if (up && _ref.read(shikooOwnerProvider) != null) await _reconnect();
+        // The apply waits out an update's own: a refused config has stopped the app, and a start would land on mihomo.
+        if (up &&
+            _ref.read(shikooOwnerProvider) != null &&
+            await _setup.applyProfile(silence: true)) {
+          await _reconnect();
+        }
       } while (_rebuildAgain);
     }().whenComplete(() => _rebuilding = null);
   }
@@ -2762,8 +2765,10 @@ class ShikooController {
       await _checkCarrying();
       aside = ownerAside(_ref.read, Uri.parse(url));
     }
-    // The owner's tunnel holds the app on Windows: a plain request leaves by the server, and mihomo's client stays shut.
+    // The owner's tunnel holds the app: a plain request leaves by the server, and mihomo's client stays shut.
     final byServer = aside == null ? server : null;
+    // Android's mixed port sends a subscription host by the server (subscriptionDirectRule); its own inbound does not.
+    final direct = aside == null ? null : directInboundProxy() ?? aside;
     if (via == ShikooRoute.server) {
       if (!connected) throw const ShikooNotConnected();
       onLeg?.call(ShikooLeg.server);
@@ -2772,7 +2777,7 @@ class ShikooController {
     onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
     try {
       try {
-        final response = await _getAgain(url, aside);
+        final response = await _getAgain(url, direct);
         await leaveBridge();
         return response;
       } catch (error) {
