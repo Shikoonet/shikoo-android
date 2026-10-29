@@ -115,6 +115,8 @@ class ServiceCard extends StatefulWidget {
 }
 
 class _ServiceCardState extends State<ServiceCard> {
+  final _list = GlobalKey<_ServerListState>();
+
   /// A message leaving from above the list moves the remote's row up, under the top bar.
   @override
   void didUpdateWidget(ServiceCard old) {
@@ -158,9 +160,11 @@ class _ServiceCardState extends State<ServiceCard> {
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
     final onPing = service?.ended != null
         ? null
-        : other
-        ? () => controller.openService(service!.id)
-        : () => unawaited(controller.pingAll());
+        : () {
+            _list.currentState?.sortAfterRound();
+            if (other) return controller.openService(service!.id);
+            unawaited(controller.pingAll());
+          };
     final connected = state.connection == ShikooConnection.on;
     final server = serverName(state.selected ?? widget.tunnelServer ?? '');
     void refresh([ShikooRoute? via]) => unawaited(
@@ -356,6 +360,7 @@ class _ServiceCardState extends State<ServiceCard> {
                   ),
                 if (service.ended == null)
                   _ServerList(
+                    key: _list,
                     state: state,
                     controller: controller,
                     focus: focus,
@@ -1310,8 +1315,10 @@ class _Notice extends StatelessWidget {
 /// `.list-head` and `.servers`. While the remote or a finger is on a row the order stays, so
 /// the row under it never jumps; leaving the list lets the new order in.
 /// Off the TV the first touch, drag, wheel or key holds it until the card folds or the app hides.
+/// A ping the user asks for lets go of it as its round ends, unless a touch comes first.
 class _ServerList extends StatefulWidget {
   const _ServerList({
+    super.key,
     required this.state,
     required this.controller,
     required this.focus,
@@ -1330,6 +1337,7 @@ class _ServerList extends StatefulWidget {
 class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
   List<String>? _held;
   List<String> _shown = const [];
+  var _sortAtRoundEnd = false;
   ScrollPosition? _page;
   final _search = TextEditingController();
 
@@ -1347,6 +1355,18 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
     _page = Scrollable.maybeOf(context)?.position;
     _page?.addListener(_scrolled);
   }
+
+  @override
+  void didUpdateWidget(_ServerList old) {
+    super.didUpdateWidget(old);
+    if (_sortAtRoundEnd &&
+        old.state.pinging != null &&
+        widget.state.pinging == null) {
+      _held = null;
+    }
+  }
+
+  void sortAfterRound() => _sortAtRoundEnd = !widget.state.isTV;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -1369,6 +1389,7 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
   }
 
   void _touch() {
+    _sortAtRoundEnd = false;
     if (!widget.state.isTV && _held == null) setState(() => _held = _shown);
   }
 
