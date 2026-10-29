@@ -305,6 +305,8 @@
   "outsourcedSummary": "Valid from the first connection",
   "@outsourcedSummary": {"description": "Folded card of an outsourced account, beside its protocol chip, in place of data used and the end date."},
   "outsourcedEnded": "Expired. For a new one, go to the ShikooNet bot.",
+  "outsourcedRefused": "This account is no longer accepted; for a new one, go to the bot.",
+  "@outsourcedRefused": {"description": "A shelf account whose OpenVPN server answered AUTH_FAILED after the customer's connect failed: its user or password is not taken any more."},
   "@outsourcedEnded": {"description": "An outsourced account the shop closed; it is never renewed, the bot sells a new one."},
   "summaryExpiredNoDate": "Expired. Renew to use it again.",
   "@summaryExpiredNoDate": {"description": "Phone: summaryExpired for a service that came from the Telegram account without its end date."},

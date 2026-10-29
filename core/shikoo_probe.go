@@ -56,6 +56,9 @@ func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout(proxy, timeout))
 	defer cancel()
 	delay, err := proxy.URLTest(ctx, url, anyDelayTestStatus)
+	if ovpnRefusedLogin(err) {
+		delayData.Value = ovpnLoginRefused
+	}
 	if err != nil {
 		return delayData, nil
 	}

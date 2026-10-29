@@ -1894,6 +1894,191 @@ void main() {
     );
   });
 
+  group("a shelf account's login", () {
+    setUpAll(() => registerFallbackValue(<String, dynamic>{}));
+    var loginAnswer = loginRefusedPing;
+
+    Map<String, dynamic> openvpn(String name) => {
+      'name': name,
+      'type': 'openvpn',
+      'server': '203.0.113.9',
+      'port': 1194,
+      'username': 'user1001',
+      'password': 'made-up',
+    };
+
+    /// No server answers a ping; the login check answers [answer]; [asked] are the servers it was asked for.
+    ({
+      ProviderContainer container,
+      _Core core,
+      _Setup setup,
+      List<String> asked,
+    })
+    shelf({bool outsourced = true, int answer = loginRefusedPing}) {
+      final (:container, :core, :proxies, :setup) = _home([
+        nativeStartFailedProvider.overrideWithValue(() => true),
+      ]);
+      container
+          .read(shikooAccountProvider.notifier)
+          .set(
+            ShikooAccount(
+              services: [
+                LinkedService(
+                  id: 42,
+                  title: 'user1001',
+                  status: 'active',
+                  profileId: container.read(currentProfileIdProvider),
+                  outsourced: outsourced,
+                ),
+              ],
+            ),
+          );
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: -1,
+        ),
+      );
+      when(() => core.getConfig(any())).thenAnswer(
+        (_) async => {
+          'proxies': [openvpn('آلمان ۱'), openvpn('هلند ۱')],
+          'proxy-groups': [
+            {
+              'name': 'PROXY',
+              'type': 'select',
+              'proxies': ['آلمان ۱', 'هلند ۱'],
+            },
+          ],
+        },
+      );
+      final asked = <String>[];
+      loginAnswer = answer;
+      when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
+        final name = '${(call.positionalArguments[1] as Map)['name']}';
+        asked.add(name);
+        return Delay(name: name, url: '', value: loginAnswer);
+      });
+      return (container: container, core: core, setup: setup, asked: asked);
+    }
+
+    ShikooService service(ProviderContainer container) =>
+        container.read(shikooStateProvider).service!;
+
+    void pings(_Core core, int ms) =>
+        when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+          (call) async => Delay(
+            name: call.positionalArguments[1] as String,
+            url: '',
+            value: ms,
+          ),
+        );
+
+    test('is asked only after the customer\'s own connect failed, once a '
+        'press, on the server it wanted; never in a ping round', () async {
+      final (:container, :core, :setup, :asked) = shelf();
+      final controller = container.read(shikooControllerProvider);
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(asked, isEmpty, reason: 'a ping round');
+
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.noServer,
+      );
+      expect(asked, ['آلمان ۱'], reason: 'none chosen: the first');
+      expect(service(container).loginRefused, isTrue);
+
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(asked, hasLength(1), reason: 'a ping round after it');
+
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      await controller.connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(asked, ['آلمان ۱', 'هلند ۱'], reason: 'the chosen one');
+    });
+
+    test('only AUTH_FAILED is a refusal: any other answer leaves the usual '
+        '«وصل نشد»', () async {
+      final (:container, :core, :setup, :asked) = shelf(answer: -1);
+      unawaited(container.read(shikooControllerProvider).connect());
+      await pumpEventQueue();
+      expect(asked, hasLength(1));
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('a usual service is never asked', () async {
+      final (:container, :core, :setup, :asked) = shelf(outsourced: false);
+      unawaited(container.read(shikooControllerProvider).connect());
+      await pumpEventQueue();
+      expect(container.read(shikooStateProvider).lastError, isNotNull);
+      expect(asked, isEmpty);
+    });
+
+    test('the refusal goes with the first answer of a ping', () async {
+      final (:container, :core, :setup, :asked) = shelf();
+      final controller = container.read(shikooControllerProvider);
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+      pings(core, 90);
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('the refusal goes with a start, even one no ping answers after: the '
+        'official engine logged in', () async {
+      final (:container, :core, :setup, :asked) = shelf();
+      final controller = container.read(shikooControllerProvider);
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+      loginAnswer = -1;
+      setup.tunnel = DateTime.now();
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      await controller.connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('connected with no traffic passing, one press asks once: later rounds '
+        'that find none either ask nothing more', () async {
+      final (:container, :core, :setup, :asked) = shelf();
+      final controller = container.read(shikooControllerProvider);
+      setup
+        ..tunnel = DateTime.now()
+        ..traffic = false;
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      await controller.connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      expect(asked, ['هلند ۱']);
+      expect(service(container).loginRefused, isTrue);
+      for (var round = 0; round < 2; round++) {
+        await controller.pingAll();
+        await pumpEventQueue();
+      }
+      expect(asked, hasLength(1));
+    });
+  });
+
   test(
     'every service is listed, and choosing another one puts it in use',
     () async {

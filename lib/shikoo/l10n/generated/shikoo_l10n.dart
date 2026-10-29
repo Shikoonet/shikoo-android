@@ -1520,6 +1520,12 @@ abstract class ShikooL10n {
   /// **'Expired. For a new one, go to the ShikooNet bot.'**
   String get outsourcedEnded;
 
+  /// A shelf account whose OpenVPN server answered AUTH_FAILED after the customer's connect failed: its user or password is not taken any more.
+  ///
+  /// In en, this message translates to:
+  /// **'This account is no longer accepted; for a new one, go to the bot.'**
+  String get outsourcedRefused;
+
   /// Phone: summaryExpired for a service that came from the Telegram account without its end date.
   ///
   /// In en, this message translates to:
