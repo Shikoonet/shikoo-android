@@ -49,11 +49,21 @@ List<String> sortByPing(List<String> panel, int? Function(String name) ping) =>
 bool multiplied(String name) =>
     name.replaceAll('\u064A', '\u06CC').contains('ضریب');
 
-/// The app's own pick: a multiplied server only when no other answered.
-String? fastest(List<String> panel, int? Function(String name) ping) {
-  int ms(String name) => ping(name)!;
-  final answered = panel.where((name) => (ping(name) ?? 0) > 0);
-  return minBy(answered.whereNot(multiplied), ms) ?? minBy(answered, ms);
+/// The app's own pick: a multiplied server only when no other answered, and within each a [handshake] number
+/// (OpenVPN's reset, one round trip against the others' whole test) only when no whole test answered (Sam, 2026-10-29).
+String? fastest(
+  List<String> panel,
+  int? Function(String name) ping, {
+  required bool Function(String name) handshake,
+}) {
+  int rank(String name) =>
+      (multiplied(name) ? 2 : 0) + (handshake(name) ? 1 : 0);
+  final answered = panel.where((name) => (ping(name) ?? 0) > 0).toList();
+  final top = answered.map(rank).minOrNull;
+  return minBy(
+    answered.where((name) => rank(name) == top),
+    (name) => ping(name)!,
+  );
 }
 
 List<String> keepOrder(List<String> order, List<String> panel) => [

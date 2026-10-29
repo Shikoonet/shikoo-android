@@ -203,7 +203,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     client opened a whole session with them to ping. WireGuard has none. A service not opened is pinged through
     `testProxyDelay` with no gate; `_probeOther` marks its mapping as the applied config would, and
     `handleTestProxyDelay` hands a marked one to the same function. A UDP reset with no answer in 500 ms goes once
-    more, timed from the first.
+    more, timed from the first. Such a number is one round trip against the others' whole test, so the app's own
+    pick (`fastest`, `ping.dart`) takes it only when no whole test of that service answered, and connect holds it
+    until the round ends (Sam, 2026-10-29); an OpenVPN-only service picks among its own by it.
   - When `carrying` first returns a server, the engine calls `shikooOwnerTakes(server)` (below).
   - The app asks after the tunnel is up and again before its own requests take an owner's road
     (`ownerCarryingProvider`). Dart caps the wait at two seconds (`ownerAnswerLimit`), since the desktop RPC restarts

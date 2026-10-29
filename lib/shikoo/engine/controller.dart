@@ -1105,7 +1105,14 @@ String? pickNow({
   required int? Function(String name) ping,
   required bool pinging,
   required bool urgent,
-}) => pinging && !urgent ? null : fastest(names, ping);
+  required bool Function(String name) handshake,
+}) => pinging && !urgent
+    ? null
+    : fastest(
+        names,
+        (name) => pinging && handshake(name) ? null : ping(name),
+        handshake: handshake,
+      );
 
 /// While off, a selection that cannot connect gives way to one that can, else to the last ended.
 int? serviceInstead(ShikooState state) {
@@ -1603,6 +1610,9 @@ class ShikooController {
     );
   }
 
+  /// OpenVPN's reset (core/shikoo_ovpn.go) answers before any whole test, so it counts once the round has ended.
+  bool _handshake(String name) => _coreFor(name) == ShikooCore.openvpn;
+
   String _tunnelKeyOf(String name, [_Opened? other]) => tunnelKey(
     _coreFor(name, other),
     name,
@@ -2035,6 +2045,7 @@ class ShikooController {
       ping: ping,
       pinging: pinging,
       urgent: intent.waiting,
+      handshake: _handshake,
     );
     if (best == null) {
       if (pinging) return;
@@ -2089,7 +2100,7 @@ class ShikooController {
         if (ms <= 0) return;
         final first =
             _validSelection() == null && _ref.read(_intentProvider).waiting;
-        if (!first && !_leaveMultiplied(name)) return;
+        if (!first && (_handshake(name) || !_leaveMultiplied(name))) return;
         _heard.add(name);
         _setPing(service, name, ms);
         if (first) _reconcile();
@@ -2310,7 +2321,14 @@ class ShikooController {
     } else if (_validSelection() == null &&
         _ref.read(_wantedProvider) == null &&
         _ref.read(_intentProvider).waiting) {
-      _set(const _Intent(error: ShikooError.noServer));
+      final held = fastest(
+        _names(_group),
+        (name) => _heard.contains(name) ? _ping(name) : null,
+        handshake: _handshake,
+      );
+      held == null
+          ? _set(const _Intent(error: ShikooError.noServer))
+          : unawaited(_choose(held, byApp: true));
     }
     if (_again) {
       _again = false;
@@ -2385,13 +2403,13 @@ class ShikooController {
     final ms = _ping(chosen);
     if (ms == null) return;
     if (ms > 0) {
-      _leaveMultiplied(fastest(_names(_group), _ping));
+      _leaveMultiplied(fastest(_names(_group), _ping, handshake: _handshake));
       return;
     }
     // Flutter says running from the press on; a probe under the consent dialog proves nothing.
     if (_running && await _nativeRunTime() == null) return;
     if (_validSelection() != chosen) return;
-    final best = fastest(_names(_group), _ping);
+    final best = fastest(_names(_group), _ping, handshake: _handshake);
     if (best == null) return;
     unawaited(_choose(best, byApp: true));
     _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));

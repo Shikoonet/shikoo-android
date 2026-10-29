@@ -474,6 +474,126 @@ void main() {
     await controller.disconnect();
   });
 
+  group('an OpenVPN reset never wins the automatic pick (Sam, 2026-10-29)', () {
+    const germany = 'آلمان ۱';
+    Future<
+      ({
+        ProviderContainer container,
+        _Proxies proxies,
+        _Setup setup,
+        ShikooController controller,
+      })
+    >
+    service(
+      Map<String, (String, int)> servers, [
+      Map<String, Completer<void>> gates = const {},
+    ]) async {
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      container.read(groupsProvider.notifier).value = [
+        Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            for (final MapEntry(:key, :value) in servers.entries)
+              Proxy(name: key, type: value.$1),
+          ],
+        ),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        await gates[name]?.future;
+        return Delay(name: name, url: '', value: servers[name]!.$2);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      return (
+        container: container,
+        proxies: proxies,
+        setup: setup,
+        controller: controller,
+      );
+    }
+
+    test('a ping round of a mixed service picks the slower VLESS', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+      });
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [germany]);
+    });
+
+    test('an OpenVPN-only service picks its fastest reset', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 9),
+        'فرانسه ۶': ('OpenVPN', 4),
+      });
+      await s.controller.pingAll();
+      expect(s.proxies.picked, ['فرانسه ۶']);
+    });
+
+    test('connect: the reset answers first, yet the VLESS that answers after '
+        'it takes the tunnel', () async {
+      final whole = Completer<void>();
+      final s = await service(
+        {'فرانسه ۴': ('OpenVPN', 4), germany: ('Vless', 150)},
+        {germany: whole},
+      );
+      unawaited(s.controller.connect());
+      await pumpEventQueue();
+      expect(s.proxies.picked, isEmpty, reason: 'a reset alone waits');
+      whole.complete();
+      await pumpEventQueue();
+      expect(s.proxies.picked, [germany]);
+      expect(s.setup.runs, [true]);
+      await s.controller.disconnect();
+    });
+
+    test('connect: a reset never takes over from a usage-multiplier first '
+        'answer; the ordinary VLESS after it does (#29)', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final reset = Completer<void>();
+      final whole = Completer<void>();
+      final s = await service(
+        {
+          four: ('Vless', 60),
+          'فرانسه ۴': ('OpenVPN', 4),
+          germany: ('Vless', 150),
+        },
+        {'فرانسه ۴': reset, germany: whole},
+      );
+      unawaited(s.controller.connect());
+      await pumpEventQueue();
+      expect(s.proxies.picked, [four], reason: 'connect never waits');
+      reset.complete();
+      await pumpEventQueue();
+      expect(s.proxies.picked, [four]);
+      whole.complete();
+      await pumpEventQueue();
+      expect(s.proxies.picked, [four, germany]);
+      await s.controller.disconnect();
+    });
+
+    test(
+      'connect: every other server silent, the round ends on the OpenVPN',
+      () async {
+        final s = await service({
+          'فرانسه ۴': ('OpenVPN', 4),
+          germany: ('Vless', -1),
+        });
+        unawaited(s.controller.connect());
+        await pumpEventQueue();
+        expect(s.proxies.picked, ['فرانسه ۴']);
+        expect(s.container.read(shikooStateProvider).lastError, isNull);
+        await s.controller.disconnect();
+      },
+    );
+  });
+
   test(
     'connect takes a usage-multiplier first answer at once, and the first '
     'ordinary server to answer then takes over, with no error (#29)',
