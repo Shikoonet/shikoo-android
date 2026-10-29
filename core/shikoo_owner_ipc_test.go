@@ -65,7 +65,7 @@ func TestAMarkedServerItsOwnerDoesNotCarryGetsTheCoresIdlePing(t *testing.T) {
 	carrying := fakeOwner(t, func(params *TestDelayParams) *Delay { return &Delay{Name: params.ProxyName, Value: 42} })
 	shikooOwnerIdlePings["fake-owner"] = ovpnIdlePing
 	t.Cleanup(func() { delete(shikooOwnerIdlePings, "fake-owner") })
-	address, heard := resetServer(t, "udp", nil, ovpn.PControlHardResetServerV2)
+	address, heard := resetServer(t, "udp", nil, ovpn.PControlHardResetServerV2, 0)
 	host, port, _ := net.SplitHostPort(address)
 	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
   - {name: ov, type: openvpn, server: %s, port: %s, ca: %q, username: shikoo, password: secret, shikoo-owner: fake-owner}

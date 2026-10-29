@@ -200,7 +200,10 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     puts a function in `shikooOwnerIdlePings[core]`: then that answers, from the mapping the gate keeps
     (`shikooOwnerGate.mapping`). OpenVPN's (`ovpnIdlePing`, 2026-10-29) is the same hard reset as its `ping`, so the
     list sorts its servers by a real answer before connecting and sends no username or password, where mihomo's
-    client opened a whole session with them to ping. WireGuard has none.
+    client opened a whole session with them to ping. WireGuard has none. A service not opened is pinged through
+    `testProxyDelay` with no gate; `_probeOther` marks its mapping as the applied config would, and
+    `handleTestProxyDelay` hands a marked one to the same function. A UDP reset with no answer in 500 ms goes once
+    more, timed from the first.
   - When `carrying` first returns a server, the engine calls `shikooOwnerTakes(server)` (below).
   - The app asks after the tunnel is up and again before its own requests take an owner's road
     (`ownerCarryingProvider`). Dart caps the wait at two seconds (`ownerAnswerLimit`), since the desktop RPC restarts
@@ -223,9 +226,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     core or Go says an owner carries one, and cleared only by that apply: Go's later "none" (an engine that died, or
     one that took the server after the question) cannot undo a client already closed.
   - **Known limits:** `testProxyDelay`, the ping of servers of a service not opened, builds its own client from the
-    mapping and has no gate; it reaches the carried server only if another service holds the same key or username. And
-    the gate knows a server by its name: two servers under different names with one key or username both pass it. The
-    panel sends no such pair today (h2's verifier).
+    mapping (OpenVPN's official engine excepted, above) and has no gate; it reaches the carried server only if another
+    service holds the same key or username. And the gate knows a server by its name: two servers under different names
+    with one key or username both pass it. The panel sends no such pair today (h2's verifier).
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
   requires.
 

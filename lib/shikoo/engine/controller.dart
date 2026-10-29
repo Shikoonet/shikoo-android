@@ -2576,9 +2576,20 @@ class ShikooController {
     round.set((pending: const {}, total: 0, ended: true));
   }
 
+  /// A server whose core owns the tunnel goes marked, as in the applied config, so Go asks it that core's way.
   Future<int?> _probeOther(String url, Map<String, dynamic> proxy) async {
+    final specs = _ref.read(shikooCoreSpecsProvider);
+    final core = coreFor(
+      proxy,
+      _ref.read(shikooCoresProvider),
+      specs: specs,
+      tunnel: _tunnel,
+    );
+    final asked = ownsTunnel(core, specs)
+        ? {...proxy, shikooOwnerKey: core.name}
+        : proxy;
     try {
-      return (await _ref.read(coreHandlerProvider).getDelayOf(url, proxy))
+      return (await _ref.read(coreHandlerProvider).getDelayOf(url, asked))
           ?.value;
     } catch (_) {
       return null;

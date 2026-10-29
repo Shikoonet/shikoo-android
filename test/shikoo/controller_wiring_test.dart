@@ -4774,7 +4774,11 @@ void main() {
   group('another card opened', () {
     const firstNames = [_version, 'آلمان ۱', 'هلند ۱'];
     const secondNames = ['هلند ۱', 'ترکیه ۱', 'WG ۱'];
-    String typeOf(String name) => name.startsWith('WG') ? 'wireguard' : 'vless';
+    String typeOf(String name) => name.startsWith('WG')
+        ? 'wireguard'
+        : name.startsWith('OV')
+        ? 'openvpn'
+        : 'vless';
     Map<String, dynamic> config(List<String> names, String server) => {
       'proxies': [
         for (final name in names)
@@ -4822,7 +4826,7 @@ void main() {
         List<String> fromFile,
       })
     >
-    twoServices({bool connected = true}) async {
+    twoServices({bool connected = true, List<Override> more = const []}) async {
       coreGate = null;
       fileGate = null;
       applyGate = null;
@@ -4831,6 +4835,7 @@ void main() {
       final fromFile = <String>[];
       final second = Profile.normal(url: 'https://panel.invalid/second');
       final (:container, :core, :proxies, :setup) = _home([
+        ...more,
         serviceAppliedProvider.overrideWith(
           (ref) => () async {
             await applyGate?.future;
@@ -4887,6 +4892,26 @@ void main() {
         fromFile: fromFile,
       );
     }
+
+    test('a server there whose core owns the tunnel goes to Go marked, so '
+        'OpenVPN is asked with a reset that sends no account', () async {
+      final t = await twoServices(
+        more: [
+          shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+          shikooTunnelProvider.overrideWithValue(true),
+        ],
+      );
+      t.lists[t.second] = ['OV ۱', 'ترکیه ۱'];
+      final owners = <String, Object?>{};
+      when(() => t.core.testProxyDelay(any(), any())).thenAnswer((call) async {
+        final proxy = call.positionalArguments[1] as Map<String, dynamic>;
+        owners['${proxy['name']}'] = proxy[shikooOwnerKey];
+        return Delay(name: '${proxy['name']}', url: '', value: 80);
+      });
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      expect(owners, {'OV ۱': ShikooCore.openvpn.name, 'ترکیه ۱': null});
+    });
 
     test('connected, it is measured from its own file and sorted on its own; '
         'the tunnel stays where it is', () async {

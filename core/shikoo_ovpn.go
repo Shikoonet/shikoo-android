@@ -259,6 +259,9 @@ func ovpnDelay(params *TestDelayParams, c *ovpn.ClientConfig) *Delay {
 	return delay
 }
 
+// ovpnResendAfter: one resend of a UDP reset that got no answer, for the networks that lose packets.
+const ovpnResendAfter = 500 * time.Millisecond
+
 func ovpnProbe(c *ovpn.ClientConfig, timeout time.Duration) (time.Duration, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -294,6 +297,11 @@ func ovpnProbe(c *ovpn.ClientConfig, timeout time.Duration) (time.Duration, erro
 	start := time.Now()
 	if err := control.SendReset(ctx); err != nil {
 		return 0, err
+	}
+	if c.Proto != ovpn.ProtoTCP {
+		// The time stays from the first: an answer to either reset reads the same, and this never shows a server faster.
+		resend := time.AfterFunc(ovpnResendAfter, func() { _ = control.RetransmitPending(ctx) })
+		defer resend.Stop()
 	}
 	reply, err := control.Read(ctx)
 	if err != nil {

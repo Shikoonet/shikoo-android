@@ -14,11 +14,14 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outbound"
+	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/constant"
 	ovpn "github.com/metacubex/mihomo/transport/openvpn"
 	"github.com/metacubex/mihomo/tunnel"
@@ -295,8 +298,9 @@ func TestTheServiceTellsTheRegistryWhatOpenvpnCarries(t *testing.T) {
 	}
 }
 
-// resetServer answers a client's hard reset as an OpenVPN server does, over UDP or TCP; heard gives every packet it got.
-func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode ovpn.Opcode) (address string, heard func() [][]byte) {
+// resetServer answers a client's hard reset as an OpenVPN server does, over UDP or TCP, after losing the first drop
+// packets; heard gives every packet it got.
+func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode ovpn.Opcode, drop int) (address string, heard func() [][]byte) {
 	t.Helper()
 	var mu sync.Mutex
 	var packets [][]byte
@@ -308,9 +312,10 @@ func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode
 	answer := func(packet []byte) []byte {
 		mu.Lock()
 		packets = append(packets, slices.Clone(packet))
+		lost := len(packets) <= drop
 		mu.Unlock()
 		reset, _, _, err := ovpn.DecodeControlPacket(crypt, packet)
-		if err != nil || reset.Opcode != ovpn.PControlHardResetClientV2 {
+		if lost || err != nil || reset.Opcode != ovpn.PControlHardResetClientV2 {
 			return nil
 		}
 		reply := ovpn.ControlPacket{Opcode: opcode, LocalSession: must(ovpn.NewSessionID()),
@@ -344,17 +349,19 @@ func resetServer(t *testing.T, network string, crypt ovpn.ControlCryptor, opcode
 			}
 			go func() {
 				defer conn.Close()
-				var size uint16
-				if binary.Read(conn, binary.BigEndian, &size) != nil {
-					return
-				}
-				packet := make([]byte, size)
-				if _, err := io.ReadFull(conn, packet); err != nil {
-					return
-				}
-				if reply := answer(packet); reply != nil {
-					_ = binary.Write(conn, binary.BigEndian, uint16(len(reply)))
-					_, _ = conn.Write(reply)
+				for {
+					var size uint16
+					if binary.Read(conn, binary.BigEndian, &size) != nil {
+						return
+					}
+					packet := make([]byte, size)
+					if _, err := io.ReadFull(conn, packet); err != nil {
+						return
+					}
+					if reply := answer(packet); reply != nil {
+						_ = binary.Write(conn, binary.BigEndian, uint16(len(reply)))
+						_, _ = conn.Write(reply)
+					}
 				}
 			}()
 		}
@@ -407,7 +414,7 @@ func TestOpenvpnsPingIsTheServersAnswerToAReset(t *testing.T) {
 	registerTestOpenvpn(t)
 	cases, wrongPEM := resetCases(t)
 	for _, c := range cases {
-		address, _ := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2)
+		address, _ := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2, 0)
 		if value := pingOpenvpn(t, address, c.set, true); value <= 0 {
 			t.Errorf("%s: ping %d", c.name, value)
 		}
@@ -416,20 +423,27 @@ func TestOpenvpnsPingIsTheServersAnswerToAReset(t *testing.T) {
 		}
 	}
 	serverCrypt := cases[3].server
-	address, _ := resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV2)
+	address, _ := resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV2, 0)
 	if value := pingOpenvpn(t, address, map[string]any{"tls-crypt": wrongPEM}, true); value != -1 {
 		t.Errorf("a server that cannot read the reset answered in %d ms", value)
 	}
-	address, _ = resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV1)
+	address, _ = resetServer(t, "udp", serverCrypt, ovpn.PControlHardResetServerV1, 0)
 	if value := pingOpenvpn(t, address, map[string]any{"tls-crypt": cases[3].set["tls-crypt"]}, true); value != -1 {
 		t.Errorf("a key-method 1 answer, which the engine cannot use, counted as a ping of %d ms", value)
 	}
 }
 
 func TestAServerTheEngineDoesNotCarryAnswersAResetWithNoAccountSent(t *testing.T) {
+	var hooked atomic.Int32
+	previous := dialer.DefaultSocketHook
+	dialer.DefaultSocketHook = func(string, string, syscall.RawConn) error {
+		hooked.Add(1)
+		return nil
+	}
+	t.Cleanup(func() { dialer.DefaultSocketHook = previous })
 	cases, wrongPEM := resetCases(t)
 	for _, c := range cases {
-		address, heard := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2)
+		address, heard := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2, 0)
 		if value := idlePingOpenvpn(address, c.set); value <= 0 {
 			t.Errorf("%s: ping %d", c.name, value)
 		}
@@ -439,10 +453,47 @@ func TestAServerTheEngineDoesNotCarryAnswersAResetWithNoAccountSent(t *testing.T
 			t.Errorf("%s: the server heard %d packets, want the reset alone, with no username or password", c.name, len(packets))
 		}
 	}
+	if hooked.Load() < int32(len(cases)) {
+		t.Errorf("%d of %d resets went through the hook that protects a socket from mihomo's VPN", hooked.Load(), len(cases))
+	}
 	tlsAuth := cases[1]
-	address, _ := resetServer(t, "udp", tlsAuth.server, ovpn.PControlHardResetServerV2)
+	address, _ := resetServer(t, "udp", tlsAuth.server, ovpn.PControlHardResetServerV2, 0)
 	if value := idlePingOpenvpn(address, map[string]any{"tls-auth": wrongPEM, "key-direction": "1"}); value != -1 {
 		t.Errorf("a server that drops a reset signed with another key answered in %d ms", value)
+	}
+}
+
+func TestAUDPResetLostOnTheWayGoesOnceMore(t *testing.T) {
+	cases, _ := resetCases(t)
+	for _, c := range cases {
+		if c.network != "udp" {
+			continue
+		}
+		address, heard := resetServer(t, c.network, c.server, ovpn.PControlHardResetServerV2, 1)
+		if value := idlePingOpenvpn(address, c.set); value < int32(ovpnResendAfter.Milliseconds()) || len(heard()) != 2 {
+			t.Errorf("%s: ping %d after the server heard %d resets, want the second's answer timed from the first",
+				c.name, value, len(heard()))
+		}
+	}
+	address, heard := resetServer(t, "udp", nil, ovpn.PControlHardResetServerV2, 2)
+	if value := idlePingOpenvpn(address, map[string]any{}); value != -1 || len(heard()) != 2 {
+		t.Errorf("both resets lost: ping %d after %d resets, want silent after one resend", value, len(heard()))
+	}
+	address, heard = resetServer(t, "tcp", nil, ovpn.PControlHardResetServerV2, 1)
+	if value := idlePingOpenvpn(address, map[string]any{"proto": "tcp"}); value != -1 || len(heard()) != 1 {
+		t.Errorf("tcp: ping %d after %d resets, want no resend on a stream that does not lose packets", value, len(heard()))
+	}
+}
+
+func TestAnUnopenedServicesServerMarkedForTheEngineIsAskedByReset(t *testing.T) {
+	shikooOwnerIdlePings["openvpn-test"] = ovpnIdlePing
+	t.Cleanup(func() { delete(shikooOwnerIdlePings, "openvpn-test") })
+	address, heard := resetServer(t, "udp", nil, ovpn.PControlHardResetServerV2, 0)
+	host, port, _ := net.SplitHostPort(address)
+	mapping := ovpnMapping(map[string]any{"server": host, "port": port, shikooOwnerKey: "openvpn-test"})
+	delay, err := handleTestProxyDelay(&TestProxyDelayParams{Proxy: mapping, Timeout: 1500})
+	if err != nil || delay.Name != "ov" || delay.Value <= 0 || len(heard()) != 1 {
+		t.Errorf("delay %+v, err %v, after the server heard %d packets: want the reset's time from one", delay, err, len(heard()))
 	}
 }
 
