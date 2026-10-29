@@ -70,13 +70,14 @@ def write(corpus, out, resolve, how):
     rows = list(names(ROOT / 'tools' / corpus))
     with ThreadPoolExecutor(24) as pool:
         answers = list(pool.map(lambda row: resolve(row[1]), rows))
+    # Iran's resolvers answer some names with the national network's 10.x, and blocked ones with 10.10.34.x.
+    answers = [sorted({ip for ip in a if ipaddress.ip_address(ip).is_global}, key=socket.inet_aton) for a in answers]
     answered = sum(1 for a in answers if a)
     if answered < 0.9 * len(rows):
         sys.exit(f'{corpus}: only {answered} of {len(rows)} names answered; nothing written')
     lines = []
     for (category, host), ips in zip(rows, answers):
-        # Iran's resolvers answer some names with the national network's 10.x, and blocked ones with 10.10.34.x.
-        for ip in sorted({ip for ip in ips if ipaddress.ip_address(ip).is_global}, key=socket.inet_aton):
+        for ip in ips:
             lines.append(f'{ip} {category} {host}\n')
     head = (f'# tools/shikoo-iran-first.py, {datetime.date.today()}: tools/{corpus} ({len(rows)} names, {answered} '
             f'answered) {how}.\n# One line per address of each name, in the corpus order.\n')

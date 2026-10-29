@@ -314,11 +314,20 @@ func TestEveryBankGatewayAndKeyAppLeavesTheTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var first []netip.Addr
+	for _, line := range strings.Split(iranFirstList, "\n") {
+		if fields := strings.Fields(line); len(fields) > 1 && slices.Contains([]string{"bank", "pay", "key"}, fields[1]) {
+			first = append(first, netip.MustParseAddr(fields[0]))
+		}
+	}
+	if len(first) < 100 {
+		t.Fatalf("only %d bank, pay and key addresses", len(first))
+	}
 	for _, sdk := range []int{36, 25, windowsSdk} {
 		tunnel := shippedTunnel(t, sdk)
-		for _, site := range iranFirst {
-			if site.first && iran.Contains(site.addr) && tunnel.Contains(site.addr) {
-				t.Errorf("sdk %d: %s rides the tunnel", sdk, site.addr)
+		for _, ip := range first {
+			if iran.Contains(ip) && tunnel.Contains(ip) {
+				t.Errorf("sdk %d: %s rides the tunnel", sdk, ip)
 			}
 		}
 	}
