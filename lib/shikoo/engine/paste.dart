@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum ShikooPasteError {
@@ -60,12 +61,20 @@ const _maxLink = 2048;
 final _link = RegExp(r'https?://[^\s‎‏]+', caseSensitive: false);
 final _sentenceEnd = RegExp(r'[،.,;!؟)»>]+$');
 
-String? shikooLink(String text, {bool debug = shikooDebug}) {
+/// A panel's link, or one at the app door itself (the shop's shelf accounts), its scheme and port included.
+String? shikooLink(
+  String text, {
+  bool debug = shikooDebug,
+  List<String> doors = shikooApiBases,
+}) {
   for (final match in _link.allMatches(text)) {
     final link = match[0]!.replaceFirst(_sentenceEnd, '');
     final uri = link.length > _maxLink ? null : Uri.tryParse(link);
     if (uri == null || !const {'http', 'https'}.contains(uri.scheme)) continue;
     if (debug && uri.host == _emulatorHostMachine) return normalLink(link);
+    if (doors.any((door) => _origin(Uri.tryParse(door)) == _origin(uri))) {
+      return normalLink(link);
+    }
     if (shikooSubscriptionDomains.any(
       (domain) => uri.host == domain || uri.host.endsWith('.$domain'),
     )) {
@@ -74,6 +83,9 @@ String? shikooLink(String text, {bool debug = shikooDebug}) {
   }
   return null;
 }
+
+String? _origin(Uri? uri) =>
+    uri == null ? null : '${uri.scheme}://${uri.host}:${uri.port}';
 
 String normalLink(String link) {
   final uri = Uri.tryParse(link);

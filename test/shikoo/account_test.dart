@@ -26,6 +26,8 @@ import '../helpers/test_profiles.dart';
 /// What the server takes (`appApi.ts`, `DeviceName`).
 final _serverName = RegExp(r'^[A-Za-z0-9 _()-]{1,40}$');
 
+final _door = Uri.parse('https://app.chopon.uk/api/v1/app/services');
+
 class _Code {
   _Code(this.secret, this.expires);
 
@@ -1574,6 +1576,152 @@ void main() {
     });
   });
 
+  group("the shop's shelf accounts", () {
+    const token = 'k3Vq9_Zx-2LmB7tR0pYc4WnE8sJdA1hGfU6oKiQ5yXz';
+    Map<String, Object?> shelf(
+      int id, {
+      String status = 'active',
+      String? url,
+    }) => {
+      ..._service(id, 'user$id', status: status),
+      'location': null,
+      'sub_url': url ?? '/api/v1/app/sub/$token$id',
+      'outsourced': true,
+      'renewable': false,
+    };
+    List<(int, String, bool, bool, bool, bool)> rows(ProviderContainer c) => [
+      for (final s in c.read(shikooAccountProvider).services)
+        (
+          s.id,
+          s.status,
+          s.profileId != null,
+          s.loadFailed,
+          s.renews,
+          s.outsourced,
+        ),
+    ];
+
+    test('the row says outsourced, and its relative link is the door\'s that '
+        'answered; an absolute one stays as it came', () {
+      final door = Uri.parse('http://10.0.2.2:7460/api/v1/app/services');
+      AccountServiceRow row(Object? url, [Object? outsourced]) =>
+          AccountServiceRow.fromJson({
+            'id': 42,
+            'title': 'user1001',
+            'location': null,
+            'status': 'active',
+            'expires_at': null,
+            'sub_url': url,
+            'outsourced': ?outsourced,
+          }, door);
+      final ours = row('/api/v1/app/sub/$token', true);
+      expect(
+        (ours.subUrl, ours.outsourced),
+        ('http://10.0.2.2:7460/api/v1/app/sub/$token', true),
+      );
+      final panel = row('https://sub.4g3.uk/sub/x');
+      expect(
+        (panel.subUrl, panel.outsourced),
+        ('https://sub.4g3.uk/sub/x', false),
+      );
+      expect(row(null, 'yes').outsourced, isFalse);
+    });
+
+    test(
+      'one comes from the door, never renewed, also after a restart',
+      () async {
+        final h = await _harness();
+        h.api.services = [shelf(42)];
+        expect((await _signedIn(h))?.phase, LoginPhase.approved);
+        expect(_urls(h.container), ['${h.api.base}/api/v1/app/sub/${token}42']);
+        expect(rows(h.container), [(42, 'active', true, false, false, true)]);
+        final restarted = ProviderContainer(
+          overrides: [
+            shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
+            shikooStateProvider.overrideWithValue(_state),
+            shikooControllerProvider.overrideWithValue(h.controller),
+            profilesProvider.overrideWith(
+              () => TestProfiles(h.container.read(profilesProvider)),
+            ),
+            profilesActionProvider.overrideWith(_Profiles.new),
+          ],
+        );
+        addTearDown(restarted.dispose);
+        await restarted.read(shikooSignInProvider).load();
+        expect(rows(restarted), rows(h.container));
+      },
+    );
+
+    test("closed by the door's word, whatever the word, it leaves the device "
+        'and reads expired, its link never asked for', () async {
+      final h = await _harness();
+      h.api.services = [shelf(42), shelf(43)];
+      await _signedIn(h);
+      expect(_urls(h.container), hasLength(2));
+      h.api.services = [
+        shelf(42, status: 'disabled'),
+        shelf(43, status: 'expired', url: '/api/v1/app/sub/changed'),
+      ];
+      expect(await h.signIn.sync(), isTrue);
+      expect(_urls(h.container), isEmpty);
+      expect(rows(h.container), [
+        (42, 'expired', false, false, false, true),
+        (43, 'expired', false, false, false, true),
+      ]);
+      verifyNever(
+        () => h.controller.addService(
+          any(that: contains('changed')),
+          any(),
+          any(),
+        ),
+      );
+    });
+
+    test('a 410 on its link is the end too, not a load to retry', () async {
+      final h = await _harness();
+      h.api.services = [shelf(44, url: '/api/v1/app/sub/gone-404')];
+      expect((await _signedIn(h))?.phase, LoginPhase.approved);
+      expect(rows(h.container), [(44, 'expired', false, false, false, true)]);
+      expect(
+        h.container.read(shikooAccountProvider).services.single.finished,
+        isTrue,
+      );
+    });
+
+    test('the door gives a closed one no date: the first sync that sees it '
+        'closed dates it, later ones keep that day, for the 30 days of '
+        '«سرویس‌های تمام‌شده»', () async {
+      final h = await _harness();
+      h.api.services = [shelf(42)];
+      await _signedIn(h);
+      DateTime? end() =>
+          h.container.read(shikooAccountProvider).services.single.expiresAt;
+      expect(end(), isNull, reason: 'active: no date');
+      h.api.services = [shelf(42, status: 'disabled')];
+      final before = DateTime.now();
+      await h.signIn.sync();
+      final first = end();
+      expect(first, isNotNull);
+      expect(
+        first!.isBefore(before.subtract(const Duration(seconds: 1))),
+        isFalse,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await h.signIn.sync();
+      expect(end(), first);
+    });
+
+    test('a link at another host is not taken for the door\'s', () async {
+      final h = await _harness();
+      h.api.services = [
+        shelf(45, url: 'https://evil.example/api/v1/app/sub/$token'),
+      ];
+      await _signedIn(h);
+      expect(_urls(h.container), isEmpty);
+      verifyNever(() => h.controller.addService(any(), any(), any()));
+    });
+  });
+
   test('the API goes direct in every profile, the rule written once', () async {
     final before = database;
     database = Database(NativeDatabase.memory());
@@ -1608,7 +1756,7 @@ void main() {
       'status': 'expired',
       'sub_url': null,
       'expires_at': value,
-    }).expiresAt;
+    }, _door).expiresAt;
     expect(at('2026-10-13T12:00:00.000Z'), DateTime.utc(2026, 10, 13, 12));
     expect(at(null), isNull);
     expect(at('soon'), isNull);

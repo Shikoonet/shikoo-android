@@ -129,11 +129,15 @@ Future<void> _untilClockRight() async {
   await right.future;
 }
 
-/// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`).
+/// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`); the door
+/// also hands a shelf account's link as a bare path.
 @visibleForTesting
 void hideLinksInLogs() {
   final print = debugPrint;
-  final link = RegExp(r'[a-z][a-z0-9+.-]*://\S+', caseSensitive: false);
+  final link = RegExp(
+    r'[a-z][a-z0-9+.-]*://\S+|/api/v1/app/sub/\S+',
+    caseSensitive: false,
+  );
   debugPrint = (message, {wrapWidth}) {
     if (message != null) shikooDiag.add('A', message);
     print(message?.replaceAll(link, '<link>'), wrapWidth: wrapWidth);

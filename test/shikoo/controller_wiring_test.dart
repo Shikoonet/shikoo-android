@@ -16,6 +16,7 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/state.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
@@ -1858,6 +1859,39 @@ void main() {
     container.read(profilesProvider.notifier).put(measured);
     container.read(currentProfileIdProvider.notifier).value = measured.id;
     expect(container.read(shikooStateProvider).service!.usageKnown, isTrue);
+  });
+
+  test('a shelf account shows no usage or end, even from a header', () {
+    final (:container, :core, :proxies, :setup) = _home();
+    final shelf = Profile.normal(url: 'https://panel.invalid/shelf').copyWith(
+      subscriptionInfo: const SubscriptionInfo(
+        download: 2,
+        total: 1,
+        expire: 1,
+      ),
+    );
+    container.read(profilesProvider.notifier).put(shelf);
+    container.read(currentProfileIdProvider.notifier).value = shelf.id;
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 42,
+                title: 'user1001',
+                status: 'active',
+                profileId: shelf.id,
+                outsourced: true,
+              ),
+            ],
+          ),
+        );
+    final service = container.read(shikooStateProvider).service!;
+    expect(
+      (service.outsourced, service.usageKnown, service.ended),
+      (true, false, null),
+    );
   });
 
   test(
