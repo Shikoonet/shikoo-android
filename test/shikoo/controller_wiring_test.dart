@@ -23,6 +23,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
+import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/warp.dart';
@@ -553,10 +554,32 @@ void main() {
       await s.controller.disconnect();
     });
 
-    test('connect: a reset never takes over from a usage-multiplier first '
-        'answer; the ordinary VLESS after it does (#29)', () async {
+    test('connect: a usage-multiplier first answer is taken at once and gives '
+        'way at the round end to an ordinary reset, whichever answered first '
+        '(Sam: no multiplier first)', () async {
       const four = 'ضریب مصرف NE 4 x';
-      final reset = Completer<void>();
+      for (final late in [four, 'فرانسه ۴']) {
+        final gate = Completer<void>();
+        final s = await service(
+          {
+            four: ('Vless', 60),
+            'فرانسه ۴': ('OpenVPN', 4),
+            germany: ('Vless', -1),
+          },
+          {late: gate},
+        );
+        unawaited(s.controller.connect());
+        await pumpEventQueue();
+        gate.complete();
+        await pumpEventQueue();
+        expect(s.proxies.picked, [four, 'فرانسه ۴'], reason: '$late last');
+        await s.controller.disconnect();
+      }
+    });
+
+    test('connect: an ordinary VLESS that answers takes over from a '
+        'usage-multiplier first answer, before the reset can', () async {
+      const four = 'ضریب مصرف NE 4 x';
       final whole = Completer<void>();
       final s = await service(
         {
@@ -564,18 +587,72 @@ void main() {
           'فرانسه ۴': ('OpenVPN', 4),
           germany: ('Vless', 150),
         },
-        {'فرانسه ۴': reset, germany: whole},
+        {germany: whole},
       );
       unawaited(s.controller.connect());
       await pumpEventQueue();
       expect(s.proxies.picked, [four], reason: 'connect never waits');
-      reset.complete();
-      await pumpEventQueue();
-      expect(s.proxies.picked, [four]);
       whole.complete();
       await pumpEventQueue();
       expect(s.proxies.picked, [four, germany]);
       await s.controller.disconnect();
+    });
+
+    test('connect ends on a reset heard this round, never on an older '
+        "round's number of a server now silent", () async {
+      final servers = {'فرانسه ۴': ('OpenVPN', 4), germany: ('Vless', 150)};
+      final s = await service(servers);
+      await s.controller.pingAll();
+      s.container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', '');
+      servers[germany] = ('Vless', -1);
+      unawaited(s.controller.connect());
+      await pumpEventQueue();
+      expect(s.proxies.picked, [germany, 'فرانسه ۴']);
+      await s.controller.disconnect();
+    });
+
+    test("the app's own pick gone silent gives way to the fastest whole test, "
+        'not the reset', () async {
+      const netherlands = 'هلند ۱';
+      final servers = {
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+        netherlands: ('Vless', 200),
+      };
+      final s = await service(servers);
+      await s.controller.pingAll();
+      servers[germany] = ('Vless', -1);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [germany, netherlands]);
+    });
+
+    test("the app's own usage-multiplier pick, still answering, gives way to "
+        'an ordinary whole test before a reset', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final servers = {
+        four: ('Vless', 60),
+        'فرانسه ۴': ('OpenVPN', -1),
+        germany: ('Vless', -1),
+      };
+      final s = await service(servers);
+      await s.controller.pingAll();
+      servers['فرانسه ۴'] = ('OpenVPN', 4);
+      servers[germany] = ('Vless', 150);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [four, germany]);
+    });
+
+    test('held off, the engine leaves OpenVPN to mihomo, whose number is a '
+        'whole test again', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 40),
+        germany: ('Vless', 150),
+      });
+      s.container.read(shikooOwnerHeldOffProvider.notifier).set(true);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, ['فرانسه ۴']);
     });
 
     test(

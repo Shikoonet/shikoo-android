@@ -117,8 +117,10 @@ void main() {
       expect(pick(const {'OV ۱': 12, 'VLESS ۱': -1, 'WG ۱': -1}), 'OV ۱');
     });
 
-    test('an ordinary reset before a usage multiplier (#29)', () {
+    test('an ordinary reset before a usage multiplier, even a faster one '
+        '(#29; Sam: no multiplier first)', () {
       expect(pick(const {'OV ۱': 12, 'VLESS ضریب مصرف 4 x': 90}), 'OV ۱');
+      expect(pick(const {'OV ۱': 120, 'VLESS ضریب مصرف 4 x': 60}), 'OV ۱');
     });
 
     test('connect pressed: a reset answers first, yet is taken only once the '

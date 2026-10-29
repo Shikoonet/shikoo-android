@@ -1610,7 +1610,9 @@ class ShikooController {
     );
   }
 
-  bool _handshake(String name) => _coreFor(name) == ShikooCore.openvpn;
+  bool _handshake(String name) =>
+      _coreFor(name) == ShikooCore.openvpn &&
+      !_ref.read(shikooOwnerHeldOffProvider);
 
   String _tunnelKeyOf(String name, [_Opened? other]) => tunnelKey(
     _coreFor(name, other),
@@ -2099,7 +2101,7 @@ class ShikooController {
         if (ms <= 0) return;
         final first =
             _validSelection() == null && _ref.read(_intentProvider).waiting;
-        if (!first && (_handshake(name) || !_leaveMultiplied(name))) return;
+        if (!first && !_handshake(name) && !_leaveMultiplied(name)) return;
         _heard.add(name);
         _setPing(service, name, ms);
         if (first) _reconcile();
@@ -2317,17 +2319,20 @@ class ShikooController {
         total: 0,
         ended: true,
       ));
-    } else if (_validSelection() == null &&
-        _ref.read(_wantedProvider) == null &&
-        _ref.read(_intentProvider).waiting) {
-      final held = fastest(
+    } else {
+      final best = fastest(
         _names(_group),
         (name) => _heard.contains(name) ? _ping(name) : null,
         handshake: _handshake,
       );
-      held == null
-          ? _set(const _Intent(error: ShikooError.noServer))
-          : unawaited(_choose(held, byApp: true));
+      if (_validSelection() != null) {
+        _leaveMultiplied(best);
+      } else if (_ref.read(_wantedProvider) == null &&
+          _ref.read(_intentProvider).waiting) {
+        best == null
+            ? _set(const _Intent(error: ShikooError.noServer))
+            : unawaited(_choose(best, byApp: true));
+      }
     }
     if (_again) {
       _again = false;
