@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart' show ShikooCore;
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -687,6 +688,24 @@ void main() {
         }
         expect(find.text(l.reportCrashTitle), findsNothing);
       }
+    });
+
+    testWidgets('a core taken back at start brings the card with its line, '
+        'with no crash found, and «نه» clears it', (tester) async {
+      final l = _l('fa');
+      final rig = await _pump(tester, const ShikooHome());
+      rig.container
+          .read(shikooCoreRevertedProvider.notifier)
+          .set(ShikooCore.xray);
+      await tester.pumpAndSettle();
+      expect(rig.container.read(shikooCrashProvider), isNull);
+      expect(find.text(l.reportCrashCore(l.coreXray)), findsOneWidget);
+
+      await tester.tap(find.text(l.reportCrashNo));
+      await tester.pumpAndSettle();
+
+      expect(rig.container.read(shikooCoreRevertedProvider), isNull);
+      expect(find.text(l.reportCrashTitle), findsNothing);
     });
   });
 

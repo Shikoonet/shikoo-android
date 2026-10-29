@@ -1,5 +1,7 @@
-import 'dart:io' show File;
+import 'dart:io' show File, FileSystemException;
 
+import 'package:fl_clash/common/print.dart';
+import 'package:fl_clash/enum/enum.dart' show LogLevel;
 import 'package:fl_clash/providers/config.dart' show appSettingProvider;
 import 'package:fl_clash/providers/state.dart' show ServiceTexts;
 import 'package:fl_clash/shikoo/engine/controller.dart' show ShikooCell;
@@ -119,9 +121,20 @@ class ShikooCoresNotifier extends Notifier<ShikooChoices> {
   /// A core whose start took the app down would do it on every start, the pick being stored: it goes back to default.
   Future<void> forgetCrashed(String home) async {
     final file = File('$home/$shikooCoreStartingFile');
-    if (!file.existsSync()) return;
-    final core = ShikooCore.values.asNameMap()[file.readAsStringSync()];
-    file.deleteSync();
+    final ShikooCore? core;
+    try {
+      if (!file.existsSync()) return;
+      core = ShikooCore.values.asNameMap()[file.readAsStringSync()];
+      file.deleteSync();
+    } on FileSystemException catch (e) {
+      commonPrint.log(
+        'core start marker kept, picks untouched: $e',
+        logLevel: LogLevel.warning,
+      );
+      return;
+    }
+    // shortcut: every pick of that core goes back, not only the protocol that crashed; name it in the file if a core
+    // turns out bad for one protocol only.
     final picked = [
       for (final MapEntry(key: protocol, value: chosen) in state.entries)
         if (chosen == core) protocol,

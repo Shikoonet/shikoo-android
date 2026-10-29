@@ -475,6 +475,27 @@ void main() {
     });
   });
 
+  test('a marker the app cannot read leaves the picks alone and does not stop '
+      'the start', () async {
+    SharedPreferences.setMockInitialValues({'shikoo.core.wireguard': 'xray'});
+    final home = Directory.systemTemp.createTempSync('cores');
+    addTearDown(() => home.deleteSync(recursive: true));
+    File(
+      '${home.path}/$shikooCoreStartingFile',
+    ).writeAsBytesSync([0xff, 0xfe, 0xfd]);
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final picks = container.read(shikooCoresProvider.notifier);
+    await picks.load();
+
+    await picks.forgetCrashed(home.path);
+
+    expect(container.read(shikooCoresProvider), {
+      ShikooProtocol.wireguard: ShikooCore.xray,
+    });
+    expect(container.read(shikooCoreRevertedProvider), isNull);
+  });
+
   test('Go leaves the starting core in the file Dart reads', () {
     expect(
       File('core/shikoo_cores.go').readAsStringSync(),
