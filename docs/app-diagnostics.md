@@ -58,7 +58,7 @@ App, `feat/app` at `cbe365e`:
   recovers only its own method handlers (`core/method.go:104-123,288-296`, `core/lib.go:305-313`); mihomo's goroutines
   are unprotected. `logError` writes to stderr only with `debugStderr` (`core/common.go:414-419`). A deliberate panic
   exists for testing: `coreController.crash()` (`lib/core/controller.dart:242`) → `core/hub.go:635-637`. Init has the
-  home dir: `core/hub.go:41-49`. `core/go.mod:3` says `go 1.21`; the build uses Go 1.26.10, and FlClash's CI runs
+  home dir: `core/hub.go:41-49`. `core/go.mod:3` says `go 1.27`; the build uses Go 1.27.3, and FlClash's CI runs
   `go vet` (`.github/workflows/build.yaml:119,139`, per the verifier). A runtime throw at start, such as the uname
   parse of Go 1.26.3 and 1.26.4 (golang/go#79612), leaves with `exit(2)` before `setCrashOutput` runs, so it writes
   no `go-crash.txt` and no tombstone; its text reaches only logcat, under the tag `Go`.
@@ -250,7 +250,7 @@ the screen under the sheet or dialog, taken before it opens. Frames: `design/moc
 | Section | Fields (nothing else; the server refuses unknown keys) |
 |---|---|
 | meta | schema 1, device time at send, trigger |
-| app | version name, build number, core version (the value Settings › App shows), ABI, staging or production, signed in, language, theme |
+| app | version name, build number, core version (`core`: FlClash's and the stamped mihomo commit, e.g. `FlClash 0.8.98, mihomo 70f0570`; Settings no longer shows it), ABI, staging or production, signed in, language, theme |
 | device | `tv` (from `system.isTV`), manufacturer, brand, model, device, Android release, SDK, security patch, ABIs, low-RAM flag, RAM total/free MB, disk free MB, time zone name and offset, locale |
 | screen | logical size dp, device pixel ratio, text scale, padding and insets dp, bold text, navigation mode |
 | graphics | Impeller backend (`vulkan`, `opengles` or `unknown`), read once per start from our own logcat (`logcat -d -s flutter:I`) |

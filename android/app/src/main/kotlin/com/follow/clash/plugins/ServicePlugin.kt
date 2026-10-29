@@ -44,6 +44,10 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "syncState" -> syncState(call, result)
             "start" -> start(result)
             "stop" -> stop(result)
+            "holdForSwitch" -> {
+                ServiceController.holdForSwitch()
+                result.success(true)
+            }
             else -> result.notImplemented()
         }
     }
@@ -78,7 +82,9 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     private fun getRunTime(result: MethodChannel.Result) {
         scope.launch {
-            result.success(ServiceState.refresh())
+            val time = ServiceState.refresh()
+            // Shikoo: -1 for a start that failed, so the app stops waiting for a tunnel at once.
+            result.success(if (time == 0L && ServiceState.lastStartFailed) -1L else time)
         }
     }
 

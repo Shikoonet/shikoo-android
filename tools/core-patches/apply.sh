@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Applies every patch here to the core submodule (one already applied is skipped), and sing-tun/ to a copy of sing-tun.
+# Applies every patch here to the core submodule (one already applied is skipped), and sing-tun/, sing-box/ and
+# sing-openvpn/ to copies of those modules.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -25,6 +26,16 @@ for patch in "$root"/tools/core-patches/*.patch; do
   fi
 done
 
+# Lines of row ۶۲ no test reaches: a rebuilt patch that drops one still compiles and passes every test.
+require() {
+  if ! grep -qF "$2" "$core/$1"; then
+    echo "core/Clash.Meta/$1 lacks '$2': rebuild openvpn-pushed-keepalive.patch as row ۶۲ in SHIKOO_PATCHES.md says." >&2
+    exit 1
+  fi
+}
+require adapter/outbound/openvpn.go 'startPacketLoops(o.config.ShikooKeepalive(push))'
+require transport/openvpn/client.go 'writeDataPacket(ctx, openVPNPingPacket, true)'
+
 # sing-tun is a module the core downloads, not part of the submodule: core/go.mod replaces the version mihomo pins with
 # a patched copy made here, and go mod download checks that version against mihomo's go.sum.
 singtun=v0.4.28
@@ -45,6 +56,30 @@ for patch in "$root"/tools/core-patches/sing-tun/*.patch; do
   fi
   echo "sing-tun patch $(basename "$patch"): applied to a copy of $singtun"
 done
+
+# sing-box and sing-openvpn, the same way: core/go.mod requires each and replaces it with a patched copy made here.
+patch_module() { # module version folder row
+  local required
+  required=$(go -C "$root/core" list -m -f '{{.Version}}' "$1")
+  if [ "$required" != "$2" ]; then
+    echo "core/go.mod requires $1 $required, but tools/core-patches/$3 and its replace line are for $2." >&2
+    echo "Rebase them, or drop them if upstream fixed it, as row $4 in SHIKOO_PATCHES.md says, before building." >&2
+    exit 1
+  fi
+  go -C "$root/core" mod download "$1@$2"
+  rm -rf "$core/shikoo-$3"
+  cp -r "$(go -C "$root/core" list -m -f '{{.Dir}}' "$1@$2")" "$core/shikoo-$3"
+  chmod -R u+w "$core/shikoo-$3"
+  for patch in "$root/tools/core-patches/$3"/*.patch; do
+    if ! git -C "$core" apply --directory="shikoo-$3" "$patch"; then
+      echo "$3 patch $(basename "$patch") does not apply to $1 $2." >&2
+      exit 1
+    fi
+    echo "$3 patch $(basename "$patch"): applied to a copy of $2"
+  done
+}
+patch_module github.com/sagernet/sing-box v1.14.3 sing-box ۵۷
+patch_module github.com/sagernet/sing-openvpn v0.1.1-0.20260929151220-7c3045dbddce sing-openvpn ۵۸
 
 # git keeps the core's embedded CA bundle empty (mihomo's CI fills it), and Android 7 has no root for the SSL.com
 # chain of 1.1.1.1, the panel's DNS. Mozilla roots only, never a CA added to this machine. Windows has no such folder,

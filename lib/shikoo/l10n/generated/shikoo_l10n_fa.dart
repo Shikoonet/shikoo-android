@@ -488,7 +488,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutSummary =>
-      'نرم‌افزار آزاد با مجوز GPL-3.0، بر پایهٔ FlClash و mihomo';
+      'نرم‌افزار آزاد با مجوز ⁨GPL-3.0⁩، بر پایهٔ ⁨FlClash⁩ و چند نرم‌افزار آزاد دیگر';
 
   @override
   String get aboutFree =>
@@ -496,7 +496,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get aboutBasedOn =>
-      'شیکونت بر پایهٔ دو نرم‌افزار آزاد است: FlClash از chen08209 و هستهٔ mihomo از MetaCubeX. سپاس از سازندگانشان.';
+      'شیکونت بر پایهٔ ⁨FlClash⁩ از ⁨chen08209⁩ و چند نرم‌افزار آزاد دیگر است. سپاس از سازندگانشان.';
 
   @override
   String get aboutSource =>
@@ -1151,12 +1151,6 @@ class ShikooL10nFa extends ShikooL10n {
       'در صفحهٔ بعد «منابع ناشناس» را پیدا و روشن کن، بعد دکمهٔ برگشتِ ریموت را بزن.';
 
   @override
-  String get settingsCore => 'هسته';
-
-  @override
-  String get settingsCoreHelp => 'همراه خودِ برنامه به‌روز می‌شود.';
-
-  @override
   String get settingsCheckUpdate => 'بررسی به‌روزرسانی';
 
   @override
@@ -1692,4 +1686,218 @@ class ShikooL10nFa extends ShikooL10n {
 
     return 'هر چه برنامه در این بخش ثبت کند، تا $daysString روز این‌جا می‌ماند.';
   }
+
+  @override
+  String get connectionGroup => 'اتصال';
+
+  @override
+  String get iranDirect => 'سایت‌های ایرانی بدون فیلترشکن';
+
+  @override
+  String get iranDirectHelp =>
+      'بانک، درگاه پرداخت و سایت‌های ایرانی مستقیم باز می‌شوند، حتی وقتی وصلی.';
+
+  @override
+  String get coresGroup => 'هسته‌ها';
+
+  @override
+  String get coresNote =>
+      'هر نوع سرور با کدام هسته وصل شود. اگر مطمئن نیستی، دست نزن.';
+
+  @override
+  String get protocolVless => 'VLESS';
+
+  @override
+  String get protocolWireguard => 'WireGuard';
+
+  @override
+  String get protocolOpenvpn => 'OpenVPN';
+
+  @override
+  String get protocolSsh => 'SSH';
+
+  @override
+  String get coreMihomo => 'mihomo';
+
+  @override
+  String get coreXray => 'Xray';
+
+  @override
+  String get coreSingBox => 'sing-box';
+
+  @override
+  String get coreWireguard => '⁨WireGuard⁩ رسمی';
+
+  @override
+  String get coreOpenvpn => '⁨OpenVPN⁩ رسمی';
+
+  @override
+  String get coreDefault => 'پیش‌فرض';
+
+  @override
+  String get coreWireguardHelp => 'موتور برنامهٔ رسمی ⁨WireGuard⁩';
+
+  @override
+  String get coreOpenvpnHelp => 'موتور برنامهٔ رسمی ⁨OpenVPN⁩';
+
+  @override
+  String get coreSoon => 'به‌زودی';
+
+  @override
+  String get coreSingBoxVless =>
+      'بعضی سرورهای ⁨VLESS⁩ را بلد نیست؛ آن‌ها با ⁨mihomo⁩ وصل می‌شوند.';
+
+  @override
+  String coreTunnelOnly(String mode) {
+    return 'فقط در حالت «$mode»';
+  }
+
+  @override
+  String coreProxyNow(String mode) {
+    return 'الان حالت «$mode» است.';
+  }
+
+  @override
+  String coreProxyFallback(
+    String proxy,
+    String protocol,
+    String tunnel,
+    String core,
+  ) {
+    return 'در حالت «$proxy»، سرورهای $protocol با ⁨mihomo⁩ وصل می‌شوند؛ در «$tunnel»، با $core.';
+  }
+
+  @override
+  String corePickTitle(String protocol) {
+    return '$protocol با کدام هسته وصل شود؟';
+  }
+
+  @override
+  String corePickForAll(String protocol) {
+    return 'انتخابت برای همهٔ سرورهای $protocol است.';
+  }
+
+  @override
+  String get corePickAgain => 'اگر وصلی، چند ثانیه قطع و دوباره وصل می‌شوی.';
+
+  @override
+  String viaCore(String core) {
+    return 'با $core';
+  }
+
+  @override
+  String coreSwitching(String core) {
+    return 'در حال وصل شدن با «$core»…';
+  }
+
+  @override
+  String coreSwitched(String core) {
+    return 'حالا با «$core» وصلی.';
+  }
+
+  @override
+  String get aboutLicenses => 'مجوز نرم‌افزارهای دیگر';
+
+  @override
+  String get aboutLicensesHelp =>
+      'هسته‌ها و کتابخانه‌هایی که شیکونت با آن‌ها ساخته شده';
+
+  @override
+  String get licensesTitle => 'مجوزها';
+
+  @override
+  String get licensesOthers => 'نرم‌افزارهای دیگر';
+
+  @override
+  String get licenseScrollTv => 'بالا و پایینِ ریموت متن را می‌برد';
+
+  @override
+  String licenseCount(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    return '$countString مجوز';
+  }
+
+  @override
+  String get warpVia => 'از راه ⁨WARP⁩';
+
+  @override
+  String get warpSwitch => '⁨WARP⁩، وقتی سرورها بسته‌اند';
+
+  @override
+  String get warpSwitchHelp =>
+      'سرورهایی که مستقیم جواب ندهند، از راه شبکهٔ ⁨Cloudflare⁩ وصل می‌شوند. در این اتصال‌ها ⁨Cloudflare⁩ آی‌پی تو را می‌بیند.';
+
+  @override
+  String warpFirst(String server) {
+    return '‏«$server» مستقیم جواب نداد؛ از راه ⁨WARP⁩ وصل می‌شوی.\nبار اول ممکن است نیم دقیقه طول بکشد.';
+  }
+
+  @override
+  String get warpAgain => 'از راه ⁨WARP⁩ وصل می‌شوی…';
+
+  @override
+  String get warpFailBothTouch =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩.\nاینترنت این گوشی را بررسی کن. اگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get warpOffTouch =>
+      'سرورها از اینترنت این گوشی جواب ندادند، و ⁨WARP⁩ خاموش است.';
+
+  @override
+  String get warpFailBothTv =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩.\nاینترنت این تلویزیون را بررسی کن. اگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get warpOffTv =>
+      'سرورها از اینترنت این تلویزیون جواب ندادند، و ⁨WARP⁩ خاموش است.';
+
+  @override
+  String get warpFailBothDesktop =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩.\nاینترنت این کامپیوتر را بررسی کن. اگر وصل بود، از «پشتیبانی» بپرس.';
+
+  @override
+  String get warpOffDesktop =>
+      'سرورها از اینترنت این کامپیوتر جواب ندادند، و ⁨WARP⁩ خاموش است.';
+
+  @override
+  String get warpTurnOn => 'روشن کردن ⁨WARP⁩';
+
+  @override
+  String get warpNote => 'با این کار، ⁨Cloudflare⁩ آی‌پی تو را می‌بیند.';
+
+  @override
+  String get warpLoginWaitTitle => 'سرور شیکونت مستقیم جواب نداد.';
+
+  @override
+  String get warpLoginWait =>
+      'کد ورود را از راه ⁨WARP⁩ می‌گیریم؛ بار اول ممکن است نیم دقیقه طول بکشد.';
+
+  @override
+  String get warpLoginFailTouch =>
+      'سرور شیکونت از اینترنت این گوشی جواب نداد. شاید بسته است؛ از راه ⁨WARP⁩ امتحان کن.';
+
+  @override
+  String get warpLoginFailTv =>
+      'سرور شیکونت از اینترنت این تلویزیون جواب نداد. شاید بسته است؛ از راه ⁨WARP⁩ امتحان کن.';
+
+  @override
+  String get warpLoginFailDesktop =>
+      'سرور شیکونت از اینترنت این کامپیوتر جواب نداد. شاید بسته است؛ از راه ⁨WARP⁩ امتحان کن.';
+
+  @override
+  String get warpTry => 'امتحان از راه ⁨WARP⁩';
+
+  @override
+  String get aboutWarp =>
+      'اگر ⁨WARP⁩ را روشن کنی، سرورهایی که مستقیم جواب ندهند از راه شبکهٔ ⁨Cloudflare⁩ وصل می‌شوند؛ ورود و به‌روزرسانی اشتراک هم اگر مستقیم نشوند، از همین راه می‌روند. ⁨Cloudflare⁩ فقط در همین اتصال‌ها آی‌پی تو را می‌بیند.';
+
+  @override
+  String get updatingWarp => 'مستقیم نشد؛ از راه ⁨WARP⁩…';
+
+  @override
+  String get updateFailedWarp =>
+      'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩. با همین سرورها وصل شو، بعد از راه سرور امتحان کن؛ اگر باز نشد، از «پشتیبانی» بپرس.';
 }

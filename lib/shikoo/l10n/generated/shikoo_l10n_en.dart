@@ -527,7 +527,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get aboutSummary =>
-      'Free software under GPL-3.0, built on FlClash and mihomo';
+      'Free software under GPL-3.0, built on FlClash and other free software';
 
   @override
   String get aboutFree =>
@@ -535,7 +535,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get aboutBasedOn =>
-      'It is built on two free programs: FlClash by chen08209 and the mihomo core by MetaCubeX. Thanks to their makers.';
+      'It is built on FlClash by chen08209 and other free software. Thanks to their makers.';
 
   @override
   String get aboutSource =>
@@ -1205,12 +1205,6 @@ class ShikooL10nEn extends ShikooL10n {
       'On the next screen, find and turn on Unknown sources, then press Back on the remote.';
 
   @override
-  String get settingsCore => 'Core';
-
-  @override
-  String get settingsCoreHelp => 'Updates together with the app.';
-
-  @override
   String get settingsCheckUpdate => 'Check for updates';
 
   @override
@@ -1750,4 +1744,225 @@ class ShikooL10nEn extends ShikooL10n {
 
     return 'Whatever the app records here stays for $daysString days.';
   }
+
+  @override
+  String get connectionGroup => 'Connection';
+
+  @override
+  String get iranDirect => 'Iranian sites without VPN';
+
+  @override
+  String get iranDirectHelp =>
+      'Banks, payment pages and Iranian sites open directly, even while connected.';
+
+  @override
+  String get coresGroup => 'Cores';
+
+  @override
+  String get coresNote =>
+      'Which core connects each kind of server. If unsure, leave it as it is.';
+
+  @override
+  String get protocolVless => 'VLESS';
+
+  @override
+  String get protocolWireguard => 'WireGuard';
+
+  @override
+  String get protocolOpenvpn => 'OpenVPN';
+
+  @override
+  String get protocolSsh => 'SSH';
+
+  @override
+  String get coreMihomo => 'mihomo';
+
+  @override
+  String get coreXray => 'Xray';
+
+  @override
+  String get coreSingBox => 'sing-box';
+
+  @override
+  String get coreWireguard => 'Official WireGuard';
+
+  @override
+  String get coreOpenvpn => 'Official OpenVPN';
+
+  @override
+  String get coreDefault => 'Default';
+
+  @override
+  String get coreWireguardHelp => 'The official WireGuard app\'s engine';
+
+  @override
+  String get coreOpenvpnHelp => 'The official OpenVPN app\'s engine';
+
+  @override
+  String get coreSoon => 'Soon';
+
+  @override
+  String get coreSingBoxVless =>
+      'Doesn\'t know some VLESS servers; those connect via mihomo.';
+
+  @override
+  String coreTunnelOnly(String mode) {
+    return '$mode mode only';
+  }
+
+  @override
+  String coreProxyNow(String mode) {
+    return '$mode mode is on.';
+  }
+
+  @override
+  String coreProxyFallback(
+    String proxy,
+    String protocol,
+    String tunnel,
+    String core,
+  ) {
+    return 'In $proxy mode, $protocol servers connect via mihomo; in $tunnel, via $core.';
+  }
+
+  @override
+  String corePickTitle(String protocol) {
+    return 'Connect $protocol with';
+  }
+
+  @override
+  String corePickForAll(String protocol) {
+    return 'Your choice applies to every $protocol server.';
+  }
+
+  @override
+  String get corePickAgain =>
+      'If you\'re connected, you\'ll reconnect for a few seconds.';
+
+  @override
+  String viaCore(String core) {
+    return 'via $core';
+  }
+
+  @override
+  String coreSwitching(String core) {
+    return 'Reconnecting with “$core”…';
+  }
+
+  @override
+  String coreSwitched(String core) {
+    return 'Now connected with “$core”.';
+  }
+
+  @override
+  String get aboutLicenses => 'Other software licenses';
+
+  @override
+  String get aboutLicensesHelp =>
+      'The cores and libraries ShikooNet is built with';
+
+  @override
+  String get licensesTitle => 'Licenses';
+
+  @override
+  String get licensesOthers => 'Other software';
+
+  @override
+  String get licenseScrollTv => 'Up and down on the remote move the text';
+
+  @override
+  String licenseCount(int count) {
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString licenses',
+      one: '1 license',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get warpVia => 'via WARP';
+
+  @override
+  String get warpSwitch => 'WARP when servers are blocked';
+
+  @override
+  String get warpSwitchHelp =>
+      'Servers that don’t answer directly connect through Cloudflare’s network. On these connections Cloudflare sees your IP address.';
+
+  @override
+  String warpFirst(String server) {
+    return '“$server” didn’t answer directly; connecting via WARP.\nThe first time can take half a minute.';
+  }
+
+  @override
+  String get warpAgain => 'Connecting via WARP…';
+
+  @override
+  String get warpFailBothTouch =>
+      'No answer directly or via WARP.\nCheck this phone’s internet. If it works, ask Support.';
+
+  @override
+  String get warpOffTouch =>
+      'The servers didn’t answer from this phone’s internet, and WARP is off.';
+
+  @override
+  String get warpFailBothTv =>
+      'No answer directly or via WARP.\nCheck this TV’s internet. If it works, ask Support.';
+
+  @override
+  String get warpOffTv =>
+      'The servers didn’t answer from this TV’s internet, and WARP is off.';
+
+  @override
+  String get warpFailBothDesktop =>
+      'No answer directly or via WARP.\nCheck this computer’s internet. If it works, ask Support.';
+
+  @override
+  String get warpOffDesktop =>
+      'The servers didn’t answer from this computer’s internet, and WARP is off.';
+
+  @override
+  String get warpTurnOn => 'Turn WARP on';
+
+  @override
+  String get warpNote => 'This way, Cloudflare sees your IP address.';
+
+  @override
+  String get warpLoginWaitTitle => 'ShikooNet’s server didn’t answer directly.';
+
+  @override
+  String get warpLoginWait =>
+      'Getting the sign-in code via WARP; the first time can take half a minute.';
+
+  @override
+  String get warpLoginFailTouch =>
+      'ShikooNet’s server didn’t answer from this phone’s internet. It may be blocked; try via WARP.';
+
+  @override
+  String get warpLoginFailTv =>
+      'ShikooNet’s server didn’t answer from this TV’s internet. It may be blocked; try via WARP.';
+
+  @override
+  String get warpLoginFailDesktop =>
+      'ShikooNet’s server didn’t answer from this computer’s internet. It may be blocked; try via WARP.';
+
+  @override
+  String get warpTry => 'Try via WARP';
+
+  @override
+  String get aboutWarp =>
+      'If you turn WARP on, servers that don’t answer directly connect through Cloudflare’s network; signing in and subscription updates also go that way when they can’t go directly. Cloudflare sees your IP address only on these connections.';
+
+  @override
+  String get updatingWarp => 'No direct answer; trying WARP…';
+
+  @override
+  String get updateFailedWarp =>
+      'No answer directly or via WARP. Connect with these servers, then try through the server; if it still fails, ask Support.';
 }

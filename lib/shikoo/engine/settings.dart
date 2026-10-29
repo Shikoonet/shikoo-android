@@ -1,5 +1,6 @@
 import 'package:fl_clash/providers/config.dart' show appSettingProvider;
 import 'package:fl_clash/providers/state.dart' show ServiceTexts;
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,6 +89,36 @@ final shikooLookProvider = NotifierProvider<ShikooLookNotifier, ShikooLook>(
   ShikooLookNotifier.new,
 );
 
+/// This device only. A core this build no longer knows is skipped but its key kept, so going back a version loses nothing.
+class ShikooCoresNotifier extends Notifier<ShikooChoices> {
+  static String _key(ShikooProtocol protocol) => 'shikoo.core.${protocol.name}';
+
+  @override
+  ShikooChoices build() => const {};
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final known = ShikooCore.values.asNameMap();
+    state = {
+      for (final protocol in ShikooProtocol.values)
+        protocol: ?known[prefs.getString(_key(protocol))],
+    };
+  }
+
+  Future<void> set(ShikooProtocol protocol, ShikooCore core) async {
+    state = {...state, protocol: core};
+    await (await SharedPreferences.getInstance()).setString(
+      _key(protocol),
+      core.name,
+    );
+  }
+}
+
+final shikooCoresProvider =
+    NotifierProvider<ShikooCoresNotifier, ShikooChoices>(
+      ShikooCoresNotifier.new,
+    );
+
 /// FlClash's `autoLaunch`, which its WindowManager writes to Windows' Run key.
 final shikooAutoStartProvider = Provider<bool>(
   (ref) => ref.watch(appSettingProvider.select((s) => s.autoLaunch)),
@@ -97,8 +128,10 @@ void setAutoStart(WidgetRef ref, bool on) => ref
     .read(appSettingProvider.notifier)
     .update((s) => s.copyWith(autoLaunch: on));
 
-class ShikooUpdateNoticeNotifier extends Notifier<bool> {
-  static const _key = 'shikoo.updateNotice';
+class ShikooSwitchNotifier extends Notifier<bool> {
+  ShikooSwitchNotifier(this._key);
+
+  final String _key;
 
   @override
   bool build() => true;
@@ -112,10 +145,14 @@ class ShikooUpdateNoticeNotifier extends Notifier<bool> {
   }
 }
 
-final shikooUpdateNoticeProvider =
-    NotifierProvider<ShikooUpdateNoticeNotifier, bool>(
-      ShikooUpdateNoticeNotifier.new,
-    );
+final shikooUpdateNoticeProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.updateNotice'),
+);
+
+/// Iranian sites bypass the VPN. Turned with `ShikooController.setIranDirect`, which moves the core too.
+final shikooIranDirectProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.iranDirect'),
+);
 
 /// FlClash's l10n has no Persian, so the VPN notification, its toasts and the launcher shortcut
 /// take these. [locale] is null before ShikooApp's first frame.
@@ -156,5 +193,3 @@ const mihomoVersion = '1.19.33';
 /// (`--dart-define=SHIKOO_CORE`); a build without the stamp names the version alone.
 String coreName([String stamp = const String.fromEnvironment('SHIKOO_CORE')]) =>
     'mihomo\u00A0$mihomoVersion${stamp.isEmpty ? '' : '\u00A0($stamp)'}';
-
-final shikooCoreProvider = Provider<String>((ref) => coreName());

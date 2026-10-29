@@ -1,8 +1,14 @@
 package com.follow.clash.core
 
+import org.json.JSONObject
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URI
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+// PrepareOwnerParams' json tag in core/shikoo_wg.go; a test on each side pins it.
+const val OWNER_IRAN_DIRECT = "iran-direct"
 
 object Core {
     private external fun startTun(
@@ -63,6 +69,34 @@ object Core {
     external fun suspended(
         suspended: Boolean,
     )
+
+    fun prepareOwner(core: String, server: String, iranDirect: Boolean): JSONObject =
+        invokeAndWait(
+            "shikooPrepareOwner",
+            JSONObject().put("core", core).put("server", server).put(OWNER_IRAN_DIRECT, iranDirect),
+        ).getJSONObject("result")
+
+    fun startOwner(fd: Int): Boolean = invokeAndWait("shikooStartOwner", fd).optBoolean("result")
+
+    fun openvpnTunnel(spec: String): JSONObject =
+        invokeAndWait("shikooOpenvpnTunnel", JSONObject(spec)).getJSONObject("result")
+
+    fun openvpnState(session: Int, server: String, up: Boolean) {
+        invokeAndWait("shikooOpenvpnState", JSONObject().put("session", session).put("server", server).put("up", up))
+    }
+
+    private fun invokeAndWait(method: String, arguments: Any): JSONObject {
+        val answered = CountDownLatch(1)
+        var answer: String? = null
+        invokeMethod(JSONObject().put("method", method).put("arguments", arguments).toString()) {
+            answer = it
+            answered.countDown()
+        }
+        check(answered.await(15, TimeUnit.SECONDS)) { "$method gave no answer" }
+        val response = JSONObject(requireNotNull(answer) { "$method gave no answer" })
+        response.optJSONObject("error")?.let { error("$method: ${it.optString("message")}") }
+        return response
+    }
 
     private external fun invokeMethod(
         data: String,

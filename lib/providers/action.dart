@@ -12,6 +12,13 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/actions/system_exit.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart'
+    show markCores, shikooCoreSpecsProvider, shikooTunnelProvider;
+import 'package:fl_clash/shikoo/engine/owner.dart'
+    show shikooOwnerHeldOffProvider;
+import 'package:fl_clash/shikoo/engine/settings.dart' show shikooCoresProvider;
+import 'package:fl_clash/shikoo/engine/warp.dart'
+    show markWarp, shikooWarpRouteProvider, warpOnlyProfile;
 import 'package:fl_clash/state.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

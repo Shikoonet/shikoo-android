@@ -10,7 +10,6 @@ import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/update.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
-import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,9 +31,6 @@ const _clock =
     'تاریخ و ساعت دستگاهت درست نیست. '
     'از تنظیمات ← تاریخ و ساعت، «خودکار» را روشن کن (یا درستش کن) و دوباره امتحان کن.';
 const _dateSettings = 'تنظیمات تاریخ و ساعت';
-
-/// The core row as a release build stamps it, its longest.
-final _core = '\u2066${coreName('cd1023a')}\u2069';
 
 const _release = AppRelease(
   versionName: '1.0.58',
@@ -107,7 +103,6 @@ Future<ProviderContainer> _pump(
       ),
       shikooControllerProvider.overrideWithValue(_Controller()),
       shikooVersionProvider.overrideWithValue('1.0.57'),
-      shikooCoreProvider.overrideWithValue(coreName('cd1023a')),
       shikooUpdateOfferProvider.overrideWith(() => ShikooCell(offer)),
       shikooUpdateProvider.overrideWithValue(_engine),
     ],
@@ -182,26 +177,6 @@ void _growOnPress(ProviderContainer container, String to) {
   });
 }
 
-/// The core on one line, inside its row, at 90% of the user's text size or more.
-void _expectCoreOnOneLine(WidgetTester tester, String reason) {
-  final value = find.text(_core);
-  final paragraph = tester.renderObject<RenderParagraph>(value);
-  final whole = TextSelection(baseOffset: 0, extentOffset: _core.length);
-  final tops = paragraph.getBoxesForSelection(whole).map((box) => box.top);
-  expect(tops.toSet(), hasLength(1), reason: reason);
-  final drawn = tester.getRect(value);
-  final row = tester.getRect(
-    find.ancestor(of: value, matching: find.byType(Wrap)).first,
-  );
-  expect(drawn.left, greaterThanOrEqualTo(row.left - 0.01), reason: reason);
-  expect(drawn.right, lessThanOrEqualTo(row.right + 0.01), reason: reason);
-  expect(
-    drawn.width / paragraph.size.width,
-    greaterThanOrEqualTo(0.9),
-    reason: reason,
-  );
-}
-
 double _cardBottom(WidgetTester tester) =>
     tester.getRect(find.byType(UpdateCard)).bottom;
 
@@ -213,29 +188,26 @@ Finder get _cardButton => find.descendant(
   matching: find.byType(ShikooButton),
 );
 
+/// Settings › Connection's second switch (warp_ui_test.dart).
+final _warp = lookupShikooL10n(const Locale('fa')).warpSwitch;
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await loadShikooFonts();
   });
 
-  testWidgets('the App section names the version and the core, with nothing '
-      'under the check yet', (tester) async {
+  testWidgets('the App section names the version, no core (it is in the '
+      'report), and nothing under the check yet', (tester) async {
     for (final isTV in [false, true]) {
       await _pump(tester, isTV: isTV);
       expect(find.text('۱.۰.۵۷'), findsOneWidget, reason: 'TV $isTV');
-      expect(find.text(_core), findsOneWidget);
-      expect(find.text('همراه خودِ برنامه به‌روز می‌شود.'), findsOneWidget);
       expect(_row(_check), findsOneWidget);
       expect(_row('درباره'), findsOneWidget);
       for (final line in [_checking, _latest, _failed]) {
         expect(find.text(line), findsNothing);
       }
-      expect(
-        _row('هسته'),
-        findsNothing,
-        reason: 'the version and the core are only text',
-      );
+      expect(find.text('هسته'), findsNothing);
     }
   });
 
@@ -253,6 +225,7 @@ void main() {
           await _focus(tester, _row(_check));
           await tester.sendKeyEvent(LogicalKeyboardKey.select);
         } else {
+          await tester.ensureVisible(find.text(_check));
           await tester.tap(find.text(_check));
         }
         await tester.pump();
@@ -293,6 +266,7 @@ void main() {
         await _focus(tester, _row(_check));
         await _press(tester, LogicalKeyboardKey.select);
       } else {
+        await tester.ensureVisible(find.text(_check));
         await tester.tap(find.text(_check));
         await tester.pumpAndSettle();
       }
@@ -348,10 +322,15 @@ void main() {
       });
       if (isTV) {
         // By keys, as on a TV: Up must not undo the Down that reached the row.
-        await _press(tester, LogicalKeyboardKey.arrowLeft);
+        expect(
+          await _press(tester, LogicalKeyboardKey.arrowDown),
+          'سایت‌های ایرانی بدون فیلترشکن',
+        );
+        expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
         expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
         await _press(tester, LogicalKeyboardKey.select);
       } else {
+        await tester.ensureVisible(find.text(_check));
         await tester.tap(find.text(_check));
         await tester.pumpAndSettle();
       }
@@ -367,8 +346,8 @@ void main() {
       expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'درباره');
       expect(
         await _press(tester, LogicalKeyboardKey.arrowUp),
-        'فارسی',
-        reason: 'the chosen language, not the option nearest the card',
+        _warp,
+        reason: 'version and core are only text',
       );
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'دریافت');
@@ -444,7 +423,11 @@ void main() {
   ) async {
     await _pump(tester, isTV: true);
     expect(_focused(), 'خودکار');
-    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'فارسی');
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowDown),
+      'سایت‌های ایرانی بدون فیلترشکن',
+    );
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
   });
@@ -569,15 +552,12 @@ void main() {
     }
   });
 
-  testWidgets('on a small phone with large text nothing overflows, and the '
-      'core\'s version goes under its label', (tester) async {
+  testWidgets('on a small phone with large text nothing overflows', (
+    tester,
+  ) async {
     const small = Size(720, 1600);
     await _pump(tester, size: small, scale: 1.45);
     expect(tester.takeException(), isNull);
-    expect(
-      tester.getRect(find.text(_core)).top,
-      greaterThan(tester.getRect(find.text('هسته')).bottom),
-    );
     when(_engine.checkNow).thenAnswer((_) async => UpdateError.network);
     await tester.ensureVisible(find.text(_check));
     await tester.tap(find.text(_check));
@@ -588,29 +568,6 @@ void main() {
       await _pump(tester, size: small, scale: 1.45, offer: offer);
       expect(tester.takeException(), isNull, reason: name);
     }
-  });
-
-  testWidgets('the core row, with version and commit, keeps one line on a 320 '
-      'or 360 phone at font 1.15 or 1.45 in both languages, and on the TV', (
-    tester,
-  ) async {
-    for (final language in ['fa', 'en']) {
-      for (final width in [320.0, 360.0]) {
-        for (final scale in [1.15, 1.45]) {
-          final reason = '$language $width × $scale';
-          await _pump(
-            tester,
-            size: Size(width * 2, 1600),
-            scale: scale,
-            language: language,
-          );
-          expect(tester.takeException(), isNull, reason: reason);
-          _expectCoreOnOneLine(tester, reason);
-        }
-      }
-    }
-    await _pump(tester, isTV: true);
-    _expectCoreOnOneLine(tester, 'TV');
   });
 
   testWidgets('on the TV the page scrolls in its own column: room for the ring '

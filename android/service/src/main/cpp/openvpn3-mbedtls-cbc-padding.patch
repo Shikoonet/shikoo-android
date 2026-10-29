@@ -1,0 +1,14 @@
+--- a/openvpn/mbedtls/crypto/cipher.hpp	2026-10-27 18:35:50.825991196 +0330
++++ b/openvpn/mbedtls/crypto/cipher.hpp	2026-10-27 18:35:50.938002630 +0330
+@@ -158,6 +158,11 @@
+         if (mbedtls_cipher_setup(&ctx, ci) < 0)
+             throw mbedtls_cipher_error("mbedtls_cipher_setup");
+ 
++        // since mbedTLS 3.5, CBC has no padding until one is set, and every message then fails
++        if (mbedtls_cipher_get_cipher_mode(&ctx) == MBEDTLS_MODE_CBC
++            && mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7) < 0)
++            throw mbedtls_cipher_error("mbedtls_cipher_set_padding_mode");
++
+         // set key and encrypt/decrypt mode
+         if (mbedtls_cipher_setkey(&ctx, key, mbedtls_cipher_get_key_bitlen(&ctx), (mbedtls_operation_t)mode) < 0)
+             throw mbedtls_cipher_error("mbedtls_cipher_setkey");

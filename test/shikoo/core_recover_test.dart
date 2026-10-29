@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/desktop/lifecycle.dart';
 import 'package:fl_clash/core/desktop/model.dart';
@@ -210,6 +212,11 @@ class _Desk {
 }
 
 void main() {
+  setUpAll(() {
+    final files = Directory.systemTemp.createTempSync('shikoo-recover-');
+    AppPath.supportDirectory = AppPath.temporaryDirectory =
+        AppPath.cacheDirectory = () async => files;
+  });
   tearDown(() => shikooSkew = Duration.zero);
 
   test('a core that dies while connected comes back with the tunnel, on the '

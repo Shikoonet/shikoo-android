@@ -16,7 +16,7 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.47.1'
-  GO_VERSION: '1.26.10'
+  GO_VERSION: '1.27.3'
   NDK_VERSION: r28c
   VERSION_PREFIX: '1.0'
   APP_ID: com.shikoonet.app
@@ -84,7 +84,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: The core commit, which Settings shows under «هسته»
+      - name: The core commit, which the diagnostics report names
         run: echo "CORE=$(git rev-parse --short=7 HEAD:core/Clash.Meta)" >>"$GITHUB_ENV"
 
       - name: The app takes its server and bot from the build, and staging points away from production
@@ -139,6 +139,27 @@ jobs:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
           link-to-sdk: true
+
+      - name: The WARP bridge, gitignored, from the cache (docs/warp-bridge.md, section 5)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: warp
+        with:
+          path: android/app/src/main/jniLibs/*/libshikoowarp.so
+          key: warp-ndk${{ env.NDK_VERSION }}-${{ hashFiles('tools/warp-build.sh', 'tools/warp/**') }}
+
+      - name: The WARP bridge, with the Rust, cargo-ndk and SDK CMake its script pins
+        if: steps.warp.outputs.cache-hit != 'true'
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          pin() { grep -oP "$1\K[0-9.]+" tools/warp-build.sh | head -1; }
+          rustup toolchain install "$(pin '^rust=')" --profile minimal --component rustfmt \
+            --target aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          cargo install cargo-ndk --locked --version "$(pin '^cargo_ndk=')"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "cmake;$(pin 'cmake/')"
+          bash tools/warp-build.sh android
+          rm -rf /tmp/shikoo-warp-*
 
       - run: flutter pub get
 
@@ -214,10 +235,9 @@ jobs:
               *) [ "$n" -eq 0 ] && [ "$pkg" = "$APP_ID" ] ;;
             esac || { echo "::error::$apk is $pkg and carries the staging server $n times"; exit 1; }
             core=$(git rev-parse --short=7 HEAD:core/Clash.Meta)
-            # The row's text holds a bidi isolate, so the compiler keeps it as a two-byte string.
-            wide=$(sed 's/./&\\x00/g' <<<"$core")
-            [ "$(unzip -p "$apk" 'lib/*/libapp.so' | LC_ALL=C grep -caP "$core|$wide" || true)" -gt 0 ] ||
-              { echo "::error::$apk does not name its core commit $core under «هسته»"; exit 1; }
+            # The diagnostics report names it.
+            [ "$(unzip -p "$apk" 'lib/*/libapp.so' | LC_ALL=C grep -caF "$core" || true)" -gt 0 ] ||
+              { echo "::error::$apk does not name its core commit $core for the diagnostics report"; exit 1; }
           done
           (cd out && sha256sum ./*.apk | sed 's| \./| |' >SHA256SUMS)
           {
@@ -298,6 +318,21 @@ jobs:
           rustup default "$(rustup show active-toolchain | cut -d' ' -f1)"
           rustc --version
 
+      - name: The WARP bridge, gitignored, from the cache (docs/warp-bridge.md, section 5)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: warp
+        with:
+          path: libclash/windows/ShikooNetWarp.exe
+          key: warp-windows-${{ hashFiles('tools/warp-build.sh', 'tools/warp/**') }}
+
+      - name: The WARP bridge, with the Rust its script pins
+        if: steps.warp.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$(sed -n 's/^rust=\([0-9.]*\).*/\1/p' tools/warp-build.sh)" --profile minimal --component rustfmt
+          bash tools/warp-build.sh windows
+          rm -rf build/warp*
+
       - name: Inno Setup 6.7.3, as tools/windows-toolchain.ps1 installs it
         shell: pwsh
         run: |
@@ -323,6 +358,7 @@ jobs:
               --flutter-build-args "build-name=$VN,build-number=$GITHUB_RUN_NUMBER" \
               --build-dart-define APP_ENV=stable --build-dart-define SHIKOO_CORE="$CORE" "${@:2}"
             mv "dist/$1" out/
+            [ -f "$rel/ShikooNetWarp.exe" ] || { echo "::error::$1 has no WARP bridge: $rel/ShikooNetWarp.exe is missing"; exit 1; }
             staging=$(grep -caF "$API" "$rel/data/app.so" || true)
             product=$(pwsh -NoProfile -Command "(Get-Item 'out/$1', '$rel/ShikooNet.exe').VersionInfo.ProductName.Trim() -join ' / '" | tr -d '\r')
             port=$(grep -oaE 'http://127\.0\.0\.1:4789[0-9]' "$rel/data/app.so" | sort -u | paste -sd' ' || true)

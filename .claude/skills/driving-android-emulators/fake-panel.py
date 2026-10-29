@@ -39,7 +39,12 @@ proxy-groups:
 def b64(s): return base64.b64encode(s.encode()).decode()
 
 class Panel(http.server.BaseHTTPRequestHandler):
+    # HTTP/1.0 closes right after the body, and the app's dart:io then fails a reply split in a few segments now
+    # and then, as «اینترنت وصل نیست»; HTTP/1.1 with its length leaves the close to the app.
+    protocol_version = "HTTP/1.1"
+
     def do_GET(self):
+        body = SUB.encode()
         self.send_response(200)
         for k, v in {
             "profile-title": "base64:" + b64("user123 · الماس"),
@@ -48,17 +53,18 @@ class Panel(http.server.BaseHTTPRequestHandler):
             "support-url": "https://t.me/telegram",
             "announce": "base64:" + b64("امشب ۲ تا ۳ بامداد سرور آمریکا به‌روز می‌شود"),
             "Content-Type": "text/yaml; charset=utf-8",
+            "Content-Length": str(len(body)),
         }.items():
             self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(SUB.encode())
+        self.wfile.write(body)
 
 with tempfile.TemporaryDirectory(prefix="fake-panel-") as d:
     (Path(d) / "config.yaml").write_text(EXIT_PROXY, encoding="utf-8")
     proxy = subprocess.Popen([MIHOMO, "-d", d, "-f", str(Path(d) / "config.yaml")])
     print(f"panel pid {os.getpid()} proxy pid {proxy.pid}", flush=True)
     try:
-        http.server.HTTPServer(("127.0.0.1", 18089), Panel).serve_forever()
+        http.server.ThreadingHTTPServer(("127.0.0.1", 18089), Panel).serve_forever()
     finally:
         proxy.terminate()
         proxy.wait()

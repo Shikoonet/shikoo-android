@@ -10,6 +10,7 @@ import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
+import 'package:fl_clash/shikoo/engine/wireguard.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart';
@@ -247,6 +248,8 @@ Future<({String yaml, String md5})> _makeRealProfileTask(
     }
   }
   rawConfig['dns'] = shikooDns(rawConfig['dns'], addedRules);
+  shikooIranSets(rawConfig, addedRules);
+  (rawConfig['proxies'] as List?)?.whereType<Map>().forEach(wireGuardDefaults);
   List<String> rules = [];
   if (data.rules.isEmpty) {
     if (rawConfig['rules'] != null) {

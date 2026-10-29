@@ -38,7 +38,7 @@
 set -euo pipefail
 
 ROOT=${ROOT:-$HOME/android-toolchain}
-GO_VERSION=1.26.10 # not FlClash's 1.26.4: its 32-bit runtime exits on a kernel release like 4.9.37_s5 (golang/go#79612)
+GO_VERSION=1.27.3 # Xray needs 1.27 (docs/multi-core.md); 1.26.4 and older 32-bit runtimes crash on old boxes (golang/go#77621, #79612)
 FLUTTER_VERSION=3.47.1
 JDK_MAJOR=17
 RUST_VERSION=1.95.0
@@ -320,8 +320,9 @@ if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
   chmod +x "$DL/rustup-init" # run it under this exact name: rustup picks its role from argv[0]
   "$DL/rustup-init" -y -q --no-modify-path --profile minimal --default-toolchain none
 fi
-rustup toolchain install "$RUST_VERSION" --profile minimal --target "$RUST_TARGETS"
+rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt --target "$RUST_TARGETS"
 rustup default "$RUST_VERSION" >/dev/null
+cargo install cargo-ndk --locked --version 4.1.2 # tools/warp-build.sh's pin; it also needs the rustfmt above
 log "rust: $(rustc --version), targets: $(rustup target list --installed | tr '\n' ' ')"
 # rquickjs-sys runs bindgen with the NDK's libclang, which resolves its own resource dir to a relative
 # "lib/clang/19" and so misses stdbool.h ("fatal error: 'stdbool.h' file not found"). bindgen then asks a

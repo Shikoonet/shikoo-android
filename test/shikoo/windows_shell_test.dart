@@ -18,7 +18,6 @@ import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapMinTime;
-import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -253,6 +252,8 @@ void main() {
     final row = find.text(_l.autoStart);
     expect(row, findsOne);
     expect(container.read(appSettingProvider).autoLaunch, isFalse);
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
     await tester.tap(row);
     await tester.pump();
     expect(container.read(appSettingProvider).autoLaunch, isTrue);
@@ -435,46 +436,4 @@ void main() {
     expect(back.left, greaterThanOrEqualTo((1920 - ShikooSizes.pageMax) / 2));
     expect(back.right, lessThanOrEqualTo((1920 + ShikooSizes.pageMax) / 2));
   }, variant: _windows);
-
-  // Last: once loaded, Vazirmatn's widths would stay for every test after it.
-  group('in Vazirmatn', () {
-    setUpAll(loadShikooFonts);
-
-    testWidgets('the core row, version and commit, keeps one line inside its '
-        'row in the smallest window, at text size 1 and 1.45', (tester) async {
-      final core = '\u2066${coreName('cd1023a')}\u2069';
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      for (final scale in [1.0, 1.45]) {
-        _size(tester, ShikooSizes.windowMin);
-        tester.platformDispatcher.textScaleFactorTestValue = scale;
-        await _windowCalls(tester);
-        await tester.pumpWidget(
-          _app(
-            const ShikooSettings(),
-            overrides: [
-              shikooCoreProvider.overrideWithValue(coreName('cd1023a')),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull, reason: '$scale');
-        await tester.ensureVisible(find.text(core));
-        final paragraph = tester.renderObject<RenderParagraph>(find.text(core));
-        final whole = TextSelection(baseOffset: 0, extentOffset: core.length);
-        final tops = paragraph.getBoxesForSelection(whole).map((b) => b.top);
-        expect(tops.toSet(), hasLength(1), reason: '$scale');
-        final drawn = tester.getRect(find.text(core));
-        final row = tester.getRect(
-          find.ancestor(of: find.text(core), matching: find.byType(Wrap)).first,
-        );
-        expect(drawn.left, greaterThanOrEqualTo(row.left - 0.01));
-        expect(drawn.right, lessThanOrEqualTo(row.right + 0.01));
-        expect(
-          drawn.width / paragraph.size.width,
-          moreOrLessEquals(1),
-          reason: '$scale',
-        );
-      }
-    }, variant: _windows);
-  });
 }

@@ -13,6 +13,7 @@ import 'package:dio/io.dart';
 import 'package:fl_clash/common/boot_record.dart' show AppExitReason;
 import 'package:fl_clash/common/constant.dart'
     show appHelperService, shikooStagingBuild;
+import 'package:fl_clash/common/provider_reader.dart';
 import 'package:fl_clash/common/system.dart';
 import 'package:fl_clash/core/desktop/helper_client.dart'
     show HelperReadiness, helperClient;
@@ -231,17 +232,19 @@ const probeLimit = Duration(seconds: 5);
 const domesticProbes = ['http://www.aparat.com/', 'http://www.digikala.com/'];
 const internationalProbe = 'http://connectivitycheck.gstatic.com/generate_204';
 
-/// Never through FlClash's local proxy: its own 502 would pass for an Iranian site's answer.
+/// Direct, but for [proxy] ([ownerAside]): through FlClash's local proxy its own 502 or 407 is no site's answer.
 Future<ProbeChecks> runProbes({
   List<String> domestic = domesticProbes,
   String international = internationalProbe,
   List<String> doors = shikooApiBases,
   Duration limit = probeLimit,
+  String? proxy,
 }) async {
   final dio =
       Dio(BaseOptions(followRedirects: false, validateStatus: (_) => true))
         ..httpClientAdapter = IOHttpClientAdapter(
-          createHttpClient: () => HttpClient()..findProxy = (_) => 'DIRECT',
+          createHttpClient: () =>
+              HttpClient()..findProxy = (_) => proxy ?? 'DIRECT',
         );
   Future<Probe> one(String url, {String method = 'GET', int? want}) async {
     final watch = Stopwatch()..start();
@@ -251,7 +254,13 @@ Future<ProbeChecks> runProbes({
           .request<void>(url, options: Options(method: method))
           .timeout(limit);
       final code = response.statusCode;
-      result = want == null || code == want ? 'ok' : 'http_$code';
+      final proxyFailed =
+          proxy != null &&
+          (code == HttpStatus.badGateway ||
+              code == HttpStatus.proxyAuthenticationRequired);
+      result = !proxyFailed && (want == null || code == want)
+          ? 'ok'
+          : 'http_$code';
     } catch (error) {
       result = failureKind(error);
     }
@@ -317,9 +326,11 @@ ProbeReading readProbes(ProbeChecks? checks, List<ShikooServer> servers) {
 
 /// The card after a failed connect: null without one, loading while the probes run.
 class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
-  ShikooProbes([this._probe = runProbes]);
+  ShikooProbes([this._given]);
 
-  final Future<ProbeChecks> Function() _probe;
+  final Future<ProbeChecks> Function()? _given;
+
+  Future<ProbeChecks> _probe() => _given?.call() ?? ownerProbes(ref.read);
   int _round = 0;
 
   /// Microtasks: Riverpod forbids writing a provider while another is being built.
@@ -354,6 +365,9 @@ class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
     if (round == _round) state = AsyncData(checks);
   }
 }
+
+Future<ProbeChecks> ownerProbes(ProviderReader read) =>
+    runProbes(proxy: ownerAside(read, Uri.parse(internationalProbe)));
 
 final shikooProbeProvider =
     NotifierProvider<ShikooProbes, AsyncValue<ProbeChecks>?>(ShikooProbes.new);
@@ -570,7 +584,7 @@ Map<String, Object?> aboutSections({
     'app': {
       'version': version,
       'build': build,
-      'core': 'FlClash $flclashVersion',
+      'core': 'FlClash $flclashVersion, ${coreName()}',
       'abi': abi,
       'env': shikooApiBases.first == 'https://app.chopon.uk'
           ? 'production'
@@ -1307,7 +1321,7 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
     bool images = true,
     ProbeChecks? checks,
   }) async {
-    final probed = checks ?? await runProbes();
+    final probed = checks ?? await ownerProbes(_container!.read);
     try {
       for (final line
           in await _windows?.call(_container!) ?? const <String>[]) {

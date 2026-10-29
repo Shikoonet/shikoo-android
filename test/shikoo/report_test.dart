@@ -996,8 +996,8 @@ void main() {
         expect(await _press(tester, _up), l.reportSendToSupport);
       });
 
-      testWidgets('$name: no sign-in code, then retry, the report and support '
-          'in a row', (tester) async {
+      testWidgets('$name: no sign-in code starts on WARP, then retry, the '
+          'report and support in a row', (tester) async {
         final l = _l(locale);
         await _pump(
           tester,
@@ -1007,7 +1007,8 @@ void main() {
           size: size,
           login: const ShikooLogin(LoginPhase.startFailed),
         );
-        expect(_focused(), l.retry);
+        expect(_focused(), l.warpTry);
+        expect(await _press(tester, _up), l.retry);
         expect(await _press(tester, toEnd), l.reportSendToSupport);
         expect(await _press(tester, toEnd), l.support);
       });

@@ -16,7 +16,7 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.47.1'
-  GO_VERSION: '1.26.10'
+  GO_VERSION: '1.27.3'
   NDK_VERSION: r28c
 
 jobs:
@@ -78,10 +78,36 @@ jobs:
         if: github.event_name == 'push' || !github.event.pull_request.draft
         run: flutter test test/shikoo/windows_names_test.dart --dart-define=SHIKOO_FLAVOR=staging
 
+  go:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+
+      - run: bash tools/core-patches/apply.sh
+
+      - name: Go tests of the core and its cores, without and with cgo
+        working-directory: core
+        run: |
+          tags=$(sed -n 's/^tags: *//p' ../build_config.yaml)
+          CGO_ENABLED=0 go test -tags "$tags" -count=1 ./...
+          CGO_ENABLED=1 go test -tags "$tags" -count=1 ./...
+
+      - name: The Go licences the app ships match the core
+        run: python3 tools/shikoo-go-licenses.py && git diff --exit-code assets/data/shikoo-go-licenses.txt
+
   apk:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Free disk space, which one cold Android build overruns on a hosted runner (run 37618279233)
         run: |
@@ -128,6 +154,27 @@ jobs:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
           link-to-sdk: true
+
+      - name: The WARP bridge, gitignored, from the cache (docs/warp-bridge.md, section 5)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: warp
+        with:
+          path: android/app/src/main/jniLibs/*/libshikoowarp.so
+          key: warp-ndk${{ env.NDK_VERSION }}-${{ hashFiles('tools/warp-build.sh', 'tools/warp/**') }}
+
+      - name: The WARP bridge, with the Rust, cargo-ndk and SDK CMake its script pins
+        if: steps.warp.outputs.cache-hit != 'true'
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          pin() { grep -oP "$1\K[0-9.]+" tools/warp-build.sh | head -1; }
+          rustup toolchain install "$(pin '^rust=')" --profile minimal --component rustfmt \
+            --target aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          cargo install cargo-ndk --locked --version "$(pin '^cargo_ndk=')"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "cmake;$(pin 'cmake/')"
+          bash tools/warp-build.sh android
+          rm -rf /tmp/shikoo-warp-*
 
       - run: flutter pub get
 

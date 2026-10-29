@@ -624,8 +624,8 @@ void main() {
     login.set(const ShikooLogin(LoginPhase.startFailed));
     await tester.pumpAndSettle();
     expect(find.text('کد ورود نرسید'), findsOneWidget);
-    expect(_focusedButton(), 'دوباره');
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    expect(_focusedButton(), 'امتحان از راه \u2068WARP\u2069');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     expect(_focusedButton(), 'ارسال گزارش به پشتیبانی');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);

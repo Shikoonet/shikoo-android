@@ -26,6 +26,8 @@ import (
 	"github.com/metacubex/mihomo/dns"
 	"github.com/metacubex/mihomo/listener/sing_tun"
 	"github.com/metacubex/mihomo/log"
+	wgconn "golang.zx2c4.com/wireguard/conn"
+	wgtun "golang.zx2c4.com/wireguard/tun"
 )
 
 var (
@@ -209,6 +211,7 @@ func handleStopTun() {
 }
 
 func stopTunLocked() {
+	stopOwner()
 	if tunHandler == nil {
 		return
 	}
@@ -238,6 +241,26 @@ func handleStartTun(callback unsafe.Pointer, fd int, stack, address, dns string)
 	// the VPN down rather than leave the device pointed at a black hole.
 	tunHandler = nil
 	return false
+}
+
+const shikooStartOwnerMethod CoreMethod = "shikooStartOwner"
+
+// handleStartTun for a core that owns the tunnel (shikoo_wg.go); the app is out of its VPN, so nothing needs protect.
+func handleStartOwner(fd int) bool {
+	tunLock.Lock()
+	defer tunLock.Unlock()
+	stopTunLocked()
+	device, _, err := wgtun.CreateUnmonitoredTUNFromFD(fd)
+	if err == nil {
+		err = startOwner(device, wgconn.NewDefaultBind())
+	} else {
+		_ = syscall.Close(fd)
+	}
+	if err != nil {
+		logError("owner core did not start: %v", err)
+		return false
+	}
+	return true
 }
 
 var (
@@ -275,6 +298,9 @@ func init() {
 		handleUpdateDns(*value)
 		response.success(true)
 	}))
+	registerMethod(shikooStartOwnerMethod, withArguments(func(fd *int, response MethodResponse) {
+		response.success(handleStartOwner(*fd))
+	}))
 }
 
 //export invokeMethod
@@ -295,6 +321,7 @@ func startTUN(callback unsafe.Pointer, fd C.int, stackChar, addressChar, dnsChar
 		return false
 	}
 	safeGoDetached("rebindWireGuard", rebindWireGuard)
+	safeGoDetached("shikooCoresAfterTun", shikooCoresAfterTun)
 	if !isRunning.Load() {
 		handleStartListener()
 	} else {

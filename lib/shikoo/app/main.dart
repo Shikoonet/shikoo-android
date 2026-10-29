@@ -9,11 +9,13 @@ import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/shikoo/app/app.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
+import 'package:fl_clash/shikoo/app/licenses.dart';
 import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
+import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/state.dart';
@@ -31,6 +33,7 @@ void main(List<String> args) {
         await restoreProxyAndExit();
       }
       hideLinksInLogs();
+      registerGoLicenses();
       FlutterError.onError = (details) {
         shikooDiag.error(details.exception, details.stack);
         Future.microtask(() {
@@ -47,6 +50,7 @@ void main(List<String> args) {
       try {
         await shikooDiag.start(await appPath.homeDirPath);
         await loadShikooFonts();
+        if (Platform.isAndroid) addNativeLicenses();
         await RustLib.init();
         final version = await system.init();
         if (clockTooEarly(DateTime.now())) await _untilClockRight();
@@ -58,8 +62,15 @@ void main(List<String> args) {
             shikooStagingBuild ||
             globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
+        await writeRuleSets(await appPath.homeDirPath);
+        await container.read(shikooIranDirectProvider.notifier).load();
+        await keepIranDirect(container.read(shikooIranDirectProvider));
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
+        await container.read(shikooCoresProvider.notifier).load();
+        await container.read(shikooWarpProvider.notifier).load();
+        await container.read(shikooWarpMemoryProvider.notifier).load();
+        registerWarpLicenses();
         await container.read(shikooSignInProvider).load();
         HttpOverrides.global = FlClashHttpOverrides(container);
         request.attach(container.read);

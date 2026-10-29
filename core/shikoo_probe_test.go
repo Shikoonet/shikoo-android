@@ -10,7 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/component/dialer"
+	C "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/tunnel"
 )
 
 func answerAfter(t *testing.T, wait time.Duration) string {
@@ -78,13 +81,10 @@ func TestTestProxyDelayRejectsAMappingItCannotBuild(t *testing.T) {
 }
 
 func TestTestProxyDelayReleasesItsWireGuardDevice(t *testing.T) {
-	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	withWireGuardGrace(t, 0)
 	probe := func() {
 		delay, err := handleTestProxyDelay(&TestProxyDelayParams{
-			Proxy: map[string]any{
-				"name": "wg", "type": "wireguard", "server": "127.0.0.1", "port": 1,
-				"private-key": key, "public-key": key, "ip": "10.0.0.2", "udp": true,
-			},
+			Proxy:   deadWireGuard(),
 			TestUrl: "http://10.0.0.1/generate_204",
 			Timeout: 300,
 		})
@@ -106,5 +106,78 @@ func TestTestProxyDelayReleasesItsWireGuardDevice(t *testing.T) {
 	}
 	if after := runtime.NumGoroutine(); after > before {
 		t.Fatalf("%d goroutines after the probe, %d before: its WireGuard device is still running", after, before)
+	}
+}
+
+func withWireGuardGrace(t *testing.T, grace time.Duration) {
+	previous := wireGuardGrace
+	wireGuardGrace = grace
+	t.Cleanup(func() { wireGuardGrace = previous })
+}
+
+func deadWireGuard() map[string]any {
+	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	return map[string]any{
+		"name": "wg", "type": "wireguard", "server": "127.0.0.1", "port": 1,
+		"private-key": key, "public-key": key, "ip": "10.0.0.2", "udp": true,
+	}
+}
+
+func TestProbeTimeoutGivesWireGuardOneMoreHandshake(t *testing.T) {
+	for _, tc := range []struct {
+		mapping map[string]any
+		want    time.Duration
+	}{
+		{deadWireGuard(), 13 * time.Second},
+		{map[string]any{"name": "direct", "type": "direct"}, 8 * time.Second},
+	} {
+		proxy, err := adapter.ParseProxy(tc.mapping)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := probeTimeout(proxy, 8*time.Second); got != tc.want {
+			t.Errorf("%s: %v, want %v", tc.mapping["type"], got, tc.want)
+		}
+		_ = proxy.Close()
+	}
+}
+
+func TestTestProxyDelayWaitsTheGraceForWireGuard(t *testing.T) {
+	withWireGuardGrace(t, 400*time.Millisecond)
+	start := time.Now()
+	delay, err := handleTestProxyDelay(&TestProxyDelayParams{
+		Proxy:   deadWireGuard(),
+		TestUrl: "http://10.0.0.1/generate_204",
+		Timeout: 200,
+	})
+	if err != nil || delay == nil || delay.Value != -1 {
+		t.Fatalf("delay %+v, err %v; want -1 from a peer that never answers", delay, err)
+	}
+	if took := time.Since(start); took < 600*time.Millisecond {
+		t.Fatalf("gave up after %v, before the 200 ms timeout and the 400 ms grace", took)
+	}
+}
+
+func TestTestDelayWaitsTheGraceForWireGuard(t *testing.T) {
+	withWireGuardGrace(t, 400*time.Millisecond)
+	proxy, err := adapter.ParseProxy(deadWireGuard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = proxy.Close() })
+	tunnel.UpdateProxies(map[string]C.Proxy{"wg": proxy}, nil)
+	t.Cleanup(func() { tunnel.UpdateProxies(nil, nil) })
+
+	start := time.Now()
+	delay := handleTestDelay(&TestDelayParams{
+		ProxyName: "wg",
+		TestUrl:   "http://10.0.0.1/generate_204",
+		Timeout:   200,
+	})
+	if delay == nil || delay.Value != -1 {
+		t.Fatalf("delay %+v; want -1 from a peer that never answers", delay)
+	}
+	if took := time.Since(start); took < 600*time.Millisecond {
+		t.Fatalf("gave up after %v, before the 200 ms timeout and the 400 ms grace", took)
 	}
 }

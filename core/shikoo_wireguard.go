@@ -10,10 +10,12 @@ import (
 // ponytail: WireGuard only (SHIKOO_PATCHES.md row 24); a QUIC outbound keeps a pre-VPN socket too, add it if one ships.
 func rebindWireGuard() {
 	for _, proxy := range tunnel.AllProxies() {
-		outbound.ShikooRebind(proxy.Adapter())
+		outbound.ShikooRebind(shikooUngated(proxy.Adapter()))
 	}
 }
 
+// closeWireGuard ends what a replaced config's outbounds keep open with their server. WireGuard's key would fight its
+// replacement; an OpenVPN or SSH session would hold a login until the garbage collector reaches its outbound.
 func closeWireGuard(cfg *config.Config) {
 	if cfg == nil {
 		return
@@ -26,7 +28,7 @@ func closeWireGuard(cfg *config.Config) {
 		proxies = append(proxies, provider.Proxies()...)
 	}
 	for _, proxy := range proxies {
-		if proxy.Type() == C.WireGuard {
+		if t := proxy.Type(); t == C.WireGuard || t == C.OpenVPN || t == C.Ssh {
 			_ = proxy.Close()
 		}
 	}

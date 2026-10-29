@@ -94,6 +94,9 @@ Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
   return _focused();
 }
 
+/// Settings › Connection's second switch (warp_ui_test.dart).
+final _warp = lookupShikooL10n(const Locale('fa')).warpSwitch;
+
 void main() {
   // The TV page fits one screen with Vazirmatn's widths, not the test font's.
   setUpAll(() async {
@@ -108,13 +111,16 @@ void main() {
     expect(flclashVersion, name.firstMatch(pubspec)![1]);
   });
 
-  test('the core row names the version and the commit the build stamped, and '
-      'a build without the stamp the version alone (#32)', () {
-    expect(coreName('70f0570'), 'mihomo\u00A0$mihomoVersion\u00A0(70f0570)');
-    expect(coreName(''), 'mihomo\u00A0$mihomoVersion');
-  });
+  test(
+    'the core name in the diagnostics report names the version and the commit the build stamped, and '
+    'a build without the stamp the version alone (#32)',
+    () {
+      expect(coreName('70f0570'), 'mihomo\u00A0$mihomoVersion\u00A0(70f0570)');
+      expect(coreName(''), 'mihomo\u00A0$mihomoVersion');
+    },
+  );
 
-  test('the core row\'s version belongs to the commit core/Clash.Meta is '
+  test('the core name\'s version belongs to the commit core/Clash.Meta is '
       'pinned to', () {
     // The index, not HEAD: CI's comment-density step soft-resets HEAD to the PR's base.
     final git = Process.runSync('git', [
@@ -174,6 +180,7 @@ void main() {
     expect(find.text('۰.۸.۹۸'), findsOneWidget);
     expect(find.text('سرویس‌ها از این تلویزیون پاک می‌شوند.'), findsOneWidget);
 
+    expect(await _press(tester, LogicalKeyboardKey.arrowLeft), 'فارسی');
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'خروج');
     expect(await _press(tester, LogicalKeyboardKey.select), 'انصراف');
     expect(find.text('سرویس‌ها از این تلویزیون پاک شوند؟'), findsOneWidget);
@@ -191,6 +198,7 @@ void main() {
     tester,
   ) async {
     await _pumpSettings(tester, _Controller());
+    await _press(tester, LogicalKeyboardKey.arrowLeft);
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.select);
     Color? title() => tester
@@ -204,11 +212,14 @@ void main() {
     expect(title(), ShikooColors.dark.text);
   });
 
-  testWidgets('About names the licence, both upstreams and the source', (
-    tester,
-  ) async {
+  testWidgets('About names the licence, FlClash, the other free software '
+      'and the source', (tester) async {
     await _pumpSettings(tester, _Controller());
-    await _press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowDown),
+      'سایت‌های ایرانی بدون فیلترشکن',
+    );
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
     expect(
       await _press(tester, LogicalKeyboardKey.arrowDown),
       'بررسی به‌روزرسانی',
@@ -217,7 +228,7 @@ void main() {
     await _press(tester, LogicalKeyboardKey.select);
     expect(find.textContaining('GPL-3.0'), findsOneWidget);
     expect(find.textContaining('FlClash'), findsOneWidget);
-    expect(find.textContaining('mihomo'), findsOneWidget);
+    expect(find.textContaining('چند نرم‌افزار آزاد دیگر'), findsOneWidget);
     expect(
       find.text('کد منبعِ همین نسخه را می‌توانی از «پشتیبانی» بگیری.'),
       findsOneWidget,
@@ -228,21 +239,34 @@ void main() {
     expect(_focused(), 'درباره');
   });
 
-  testWidgets('on the TV two columns hold everything, and the remote crosses '
-      'them', (tester) async {
-    final container = await _pumpSettings(tester, _Controller());
-    for (final language in ['fa', 'en']) {
-      await container.read(shikooLookProvider.notifier).setLanguage(language);
-      await tester.pumpAndSettle();
-      final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
-      expect(scroll.position.maxScrollExtent, 0, reason: language);
-    }
-    await container.read(shikooLookProvider.notifier).setLanguage('fa');
-    await tester.pumpAndSettle();
+  testWidgets('on the TV two columns, the remote crosses them and brings '
+      'the row it lands on into view', (tester) async {
+    await _pumpSettings(tester, _Controller());
     const left = LogicalKeyboardKey.arrowLeft;
     const right = LogicalKeyboardKey.arrowRight;
     const down = LogicalKeyboardKey.arrowDown;
+    const up = LogicalKeyboardKey.arrowUp;
     expect(_focused(), 'خودکار');
+    expect(await _press(tester, down), 'سایت‌های ایرانی بدون فیلترشکن');
+    expect(await _press(tester, down), _warp);
+    expect(await _press(tester, down), 'بررسی به‌روزرسانی');
+    expect(await _press(tester, down), 'درباره');
+    expect(await _press(tester, down), 'درباره', reason: 'the column ends');
+    expect(
+      tester.getRect(find.text('درباره')).bottom,
+      lessThanOrEqualTo(540),
+      reason: 'scrolled into view',
+    );
+    expect(await _press(tester, left), 'خروج');
+    expect(await _press(tester, up), 'فارسی');
+    expect(await _press(tester, down), 'خروج');
+    expect(await _press(tester, right), 'سایت‌های ایرانی بدون فیلترشکن');
+    expect(
+      await _press(tester, up),
+      'خودکار',
+      reason: 'the chosen look, not the option nearest the row',
+    );
+    expect(await _press(tester, left), 'فارسی');
     expect(await _press(tester, down), 'خروج');
     expect(await _press(tester, down), 'عیب‌یابی و گزارش');
     expect(
@@ -250,23 +274,6 @@ void main() {
       'عیب‌یابی و گزارش',
       reason: 'not into the app column',
     );
-    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'خروج');
-    expect(await _press(tester, left), 'بررسی به‌روزرسانی');
-    expect(await _press(tester, right), 'عیب‌یابی و گزارش');
-    expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'خروج');
-    expect(
-      await _press(tester, LogicalKeyboardKey.arrowUp),
-      'خودکار',
-      reason: 'the chosen look, not the option nearest the row',
-    );
-    expect(await _press(tester, left), 'فارسی');
-    expect(
-      await _press(tester, down),
-      'بررسی به‌روزرسانی',
-      reason: 'version and core are only text',
-    );
-    expect(await _press(tester, down), 'درباره');
-    expect(await _press(tester, down), 'درباره');
   });
 
   testWidgets('Latin text keeps the font spacing, as the frames', (

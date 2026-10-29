@@ -1,6 +1,7 @@
 package com.follow.clash.models
 
 import com.follow.clash.common.AccessControlMode
+import com.follow.clash.service.models.ownsTunnel
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -87,6 +88,21 @@ class SharedStateTest {
         )
         assertEquals(listOf("0.0.0.0/0"), state.vpnOptions?.routeAddress)
         assertEquals("https://example.test/204", state.setupParams?.testUrl)
+    }
+
+    // A tile or always-on start reads the stored state without Flutter, so the owner core must be in it.
+    @Test
+    fun `stored vpn options carry the core that owns the tunnel`() {
+        val owner = gson.fromJson(
+            """{"vpnOptions":{"core":"wireguard","server":"Germany 5","iranDirect":true}}""",
+            SharedState::class.java,
+        ).vpnOptions!!
+        assertTrue(owner.ownsTunnel)
+        assertEquals("Germany 5", owner.server)
+        assertEquals(true, owner.iranDirect)
+
+        val older = gson.fromJson("""{"vpnOptions":{"port":7890}}""", SharedState::class.java)
+        assertEquals(false, older.vpnOptions!!.ownsTunnel)
     }
 
     @Test

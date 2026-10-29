@@ -845,7 +845,7 @@ abstract class ShikooL10n {
   /// No description provided for @aboutSummary.
   ///
   /// In en, this message translates to:
-  /// **'Free software under GPL-3.0, built on FlClash and mihomo'**
+  /// **'Free software under GPL-3.0, built on FlClash and other free software'**
   String get aboutSummary;
 
   /// No description provided for @aboutFree.
@@ -857,7 +857,7 @@ abstract class ShikooL10n {
   /// No description provided for @aboutBasedOn.
   ///
   /// In en, this message translates to:
-  /// **'It is built on two free programs: FlClash by chen08209 and the mihomo core by MetaCubeX. Thanks to their makers.'**
+  /// **'It is built on FlClash by chen08209 and other free software. Thanks to their makers.'**
   String get aboutBasedOn;
 
   /// No description provided for @aboutSource.
@@ -1874,18 +1874,6 @@ abstract class ShikooL10n {
   /// **'On the next screen, find and turn on Unknown sources, then press Back on the remote.'**
   String get installPermissionLegacyTv;
 
-  /// No description provided for @settingsCore.
-  ///
-  /// In en, this message translates to:
-  /// **'Core'**
-  String get settingsCore;
-
-  /// Under "Core" in Settings › App, whose value names mihomo by its release and the core/Clash.Meta commit the release build stamps (e.g. mihomo 1.19.33 (cd1023a)), or by its release alone in a build without the stamp. There is no separate core download.
-  ///
-  /// In en, this message translates to:
-  /// **'Updates together with the app.'**
-  String get settingsCoreHelp;
-
   /// Settings › App row: checks now, bypassing the 6-hour cap of the automatic check. When an update is known, this row is replaced by the same update card as Home.
   ///
   /// In en, this message translates to:
@@ -2743,6 +2731,347 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Whatever the app records here stays for {days} days.'**
   String logsEmptyHelp(int days);
+
+  /// No description provided for @connectionGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get connectionGroup;
+
+  /// No description provided for @iranDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'Iranian sites without VPN'**
+  String get iranDirect;
+
+  /// Under the iranDirect switch in Settings › Connection, which is on by default. Off, Iranian sites go through the server too.
+  ///
+  /// In en, this message translates to:
+  /// **'Banks, payment pages and Iranian sites open directly, even while connected.'**
+  String get iranDirectHelp;
+
+  /// No description provided for @coresGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Cores'**
+  String get coresGroup;
+
+  /// Under the Cores group in Settings: one row per kind of server the customer's services have, each naming its core.
+  ///
+  /// In en, this message translates to:
+  /// **'Which core connects each kind of server. If unsure, leave it as it is.'**
+  String get coresNote;
+
+  /// No description provided for @protocolVless.
+  ///
+  /// In en, this message translates to:
+  /// **'VLESS'**
+  String get protocolVless;
+
+  /// No description provided for @protocolWireguard.
+  ///
+  /// In en, this message translates to:
+  /// **'WireGuard'**
+  String get protocolWireguard;
+
+  /// No description provided for @protocolOpenvpn.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenVPN'**
+  String get protocolOpenvpn;
+
+  /// No description provided for @protocolSsh.
+  ///
+  /// In en, this message translates to:
+  /// **'SSH'**
+  String get protocolSsh;
+
+  /// No description provided for @coreMihomo.
+  ///
+  /// In en, this message translates to:
+  /// **'mihomo'**
+  String get coreMihomo;
+
+  /// No description provided for @coreXray.
+  ///
+  /// In en, this message translates to:
+  /// **'Xray'**
+  String get coreXray;
+
+  /// No description provided for @coreSingBox.
+  ///
+  /// In en, this message translates to:
+  /// **'sing-box'**
+  String get coreSingBox;
+
+  /// The official WireGuard engine, beside mihomo's own WireGuard. Persian keeps the name in Latin letters, with «رسمی» after it.
+  ///
+  /// In en, this message translates to:
+  /// **'Official WireGuard'**
+  String get coreWireguard;
+
+  /// No description provided for @coreOpenvpn.
+  ///
+  /// In en, this message translates to:
+  /// **'Official OpenVPN'**
+  String get coreOpenvpn;
+
+  /// No description provided for @coreDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get coreDefault;
+
+  /// No description provided for @coreWireguardHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The official WireGuard app\'s engine'**
+  String get coreWireguardHelp;
+
+  /// No description provided for @coreOpenvpnHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The official OpenVPN app\'s engine'**
+  String get coreOpenvpnHelp;
+
+  /// A chip on a core this build does not have yet: greyed, and it cannot be picked.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon'**
+  String get coreSoon;
+
+  /// Under sing-box in the VLESS list: it has no XHTTP, so those servers stay on mihomo.
+  ///
+  /// In en, this message translates to:
+  /// **'Doesn\'t know some VLESS servers; those connect via mihomo.'**
+  String get coreSingBoxVless;
+
+  /// Windows in Proxy mode, under a core that owns the tunnel (the official WireGuard and OpenVPN), greyed. {mode} is modeTunnel.
+  ///
+  /// In en, this message translates to:
+  /// **'{mode} mode only'**
+  String coreTunnelOnly(String mode);
+
+  /// Windows: the first sentence under a core list in which Proxy mode greys a core. {mode} is modeProxy.
+  ///
+  /// In en, this message translates to:
+  /// **'{mode} mode is on.'**
+  String coreProxyNow(String mode);
+
+  /// Windows in Proxy mode, under a core list whose chosen core owns the tunnel: where its servers go now and in Tunnel mode. {proxy} is modeProxy, {tunnel} modeTunnel.
+  ///
+  /// In en, this message translates to:
+  /// **'In {proxy} mode, {protocol} servers connect via mihomo; in {tunnel}, via {core}.'**
+  String coreProxyFallback(
+    String proxy,
+    String protocol,
+    String tunnel,
+    String core,
+  );
+
+  /// No description provided for @corePickTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect {protocol} with'**
+  String corePickTitle(String protocol);
+
+  /// No description provided for @corePickForAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Your choice applies to every {protocol} server.'**
+  String corePickForAll(String protocol);
+
+  /// No description provided for @corePickAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'If you\'re connected, you\'ll reconnect for a few seconds.'**
+  String get corePickAgain;
+
+  /// A small chip after a server's name when it connects with another core than the one chosen for its kind, as a VLESS XHTTP server while sing-box is chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'via {core}'**
+  String viaCore(String core);
+
+  /// While connected, after another core was picked for the kind of server in use: the same bar or slot as switchingTo. Ends as coreSwitched, or as powerFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting with “{core}”…'**
+  String coreSwitching(String core);
+
+  /// No description provided for @coreSwitched.
+  ///
+  /// In en, this message translates to:
+  /// **'Now connected with “{core}”.'**
+  String coreSwitched(String core);
+
+  /// No description provided for @aboutLicenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Other software licenses'**
+  String get aboutLicenses;
+
+  /// No description provided for @aboutLicensesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The cores and libraries ShikooNet is built with'**
+  String get aboutLicensesHelp;
+
+  /// No description provided for @licensesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Licenses'**
+  String get licensesTitle;
+
+  /// The licences page's second group, under «هسته‌ها» (coresGroup): every other package, A to Z.
+  ///
+  /// In en, this message translates to:
+  /// **'Other software'**
+  String get licensesOthers;
+
+  /// TV only: the hint in the bar of one licence's text, whose card the remote scrolls.
+  ///
+  /// In en, this message translates to:
+  /// **'Up and down on the remote move the text'**
+  String get licenseScrollTv;
+
+  /// Under a package on the licences page: how many licence texts it has.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 license} other{{count} licenses}}'**
+  String licenseCount(int count);
+
+  /// Beside a server, and the server under the power button, that leaves through WARP.
+  ///
+  /// In en, this message translates to:
+  /// **'via WARP'**
+  String get warpVia;
+
+  /// Settings › Connection: the WARP switch, off by default.
+  ///
+  /// In en, this message translates to:
+  /// **'WARP when servers are blocked'**
+  String get warpSwitch;
+
+  /// No description provided for @warpSwitchHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Servers that don’t answer directly connect through Cloudflare’s network. On these connections Cloudflare sees your IP address.'**
+  String get warpSwitchHelp;
+
+  /// Connecting, a server that did not answer directly is tried through WARP.
+  ///
+  /// In en, this message translates to:
+  /// **'“{server}” didn’t answer directly; connecting via WARP.\nThe first time can take half a minute.'**
+  String warpFirst(String server);
+
+  /// No description provided for @warpAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting via WARP…'**
+  String get warpAgain;
+
+  /// No description provided for @warpFailBothTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP.\nCheck this phone’s internet. If it works, ask Support.'**
+  String get warpFailBothTouch;
+
+  /// No description provided for @warpOffTouch.
+  ///
+  /// In en, this message translates to:
+  /// **'The servers didn’t answer from this phone’s internet, and WARP is off.'**
+  String get warpOffTouch;
+
+  /// No description provided for @warpFailBothTv.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP.\nCheck this TV’s internet. If it works, ask Support.'**
+  String get warpFailBothTv;
+
+  /// No description provided for @warpOffTv.
+  ///
+  /// In en, this message translates to:
+  /// **'The servers didn’t answer from this TV’s internet, and WARP is off.'**
+  String get warpOffTv;
+
+  /// No description provided for @warpFailBothDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP.\nCheck this computer’s internet. If it works, ask Support.'**
+  String get warpFailBothDesktop;
+
+  /// No description provided for @warpOffDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'The servers didn’t answer from this computer’s internet, and WARP is off.'**
+  String get warpOffDesktop;
+
+  /// No description provided for @warpTurnOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn WARP on'**
+  String get warpTurnOn;
+
+  /// Under every button that turns WARP on.
+  ///
+  /// In en, this message translates to:
+  /// **'This way, Cloudflare sees your IP address.'**
+  String get warpNote;
+
+  /// No description provided for @warpLoginWaitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer directly.'**
+  String get warpLoginWaitTitle;
+
+  /// No description provided for @warpLoginWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting the sign-in code via WARP; the first time can take half a minute.'**
+  String get warpLoginWait;
+
+  /// Under «کد ورود نرسید.» (codeFailedTitle) while WARP is off.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer from this phone’s internet. It may be blocked; try via WARP.'**
+  String get warpLoginFailTouch;
+
+  /// No description provided for @warpLoginFailTv.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer from this TV’s internet. It may be blocked; try via WARP.'**
+  String get warpLoginFailTv;
+
+  /// No description provided for @warpLoginFailDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'ShikooNet’s server didn’t answer from this computer’s internet. It may be blocked; try via WARP.'**
+  String get warpLoginFailDesktop;
+
+  /// No description provided for @warpTry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try via WARP'**
+  String get warpTry;
+
+  /// No description provided for @aboutWarp.
+  ///
+  /// In en, this message translates to:
+  /// **'If you turn WARP on, servers that don’t answer directly connect through Cloudflare’s network; signing in and subscription updates also go that way when they can’t go directly. Cloudflare sees your IP address only on these connections.'**
+  String get aboutWarp;
+
+  /// No description provided for @updatingWarp.
+  ///
+  /// In en, this message translates to:
+  /// **'No direct answer; trying WARP…'**
+  String get updatingWarp;
+
+  /// Under updateFailedTitle (Couldn’t update.) once WARP was tried too.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer directly or via WARP. Connect with these servers, then try through the server; if it still fails, ask Support.'**
+  String get updateFailedWarp;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

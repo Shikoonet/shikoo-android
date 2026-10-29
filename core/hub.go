@@ -63,6 +63,7 @@ func handleStopListener() bool {
 	defer configMu.Unlock()
 	isRunning.Store(false)
 	listener.StopListener()
+	stopOwnerTun()
 	resolver.ResetConnection()
 	return true
 }
@@ -86,8 +87,10 @@ func handleShutdown() bool {
 	configMu.Lock()
 	isRunning.Store(false)
 	listener.StopListener()
+	stopOwnerTun()
 	updater.StopGeoUpdater()
 	executor.Shutdown()
+	shikooCoresShutdown()
 	currentConfig = nil
 	isInit.Store(false)
 	configMu.Unlock()
@@ -292,7 +295,7 @@ func handleTestDelay(params *TestDelayParams) *Delay {
 	}
 	defer releaseDelayTestSlot()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout(proxy, timeout))
 	defer cancel()
 
 	delay, err := proxy.URLTest(ctx, url, anyDelayTestStatus)

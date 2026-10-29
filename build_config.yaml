@@ -1,5 +1,5 @@
-tags: with_gvisor,no_easytier
-go_ldflags: "-w -s"
+tags: with_gvisor,no_easytier,with_utls
+go_ldflags: "-w -s -checklinkname=0"
 core_dir: core
 core_name: ShikooNetCore
 lib_name: libclash

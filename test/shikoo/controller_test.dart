@@ -85,6 +85,25 @@ void main() {
       expect(up, isNotNull, reason: 'a late OK still connects');
     });
 
+    test(
+      'stops at the first poll after the service says the start failed',
+      () async {
+        var calls = 0;
+        final up = await waitForTunnel(
+          () async {
+            calls++;
+            return null;
+          },
+          timeout: const Duration(seconds: 5),
+          stillWanted: () => true,
+          failed: () => true,
+          every: tick,
+        );
+        expect(up, isNull);
+        expect(calls, 1);
+      },
+    );
+
     test('stops at once when the user cancels', () async {
       var calls = 0;
       final up = await waitForTunnel(

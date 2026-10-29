@@ -156,7 +156,7 @@ func updateListeners(cfg *config.Config) {
 	listener.ReCreateVmess(general.VmessConfig, tunnel.Tunnel)
 	listener.ReCreateTuic(general.TuicServer, tunnel.Tunnel)
 	if !features.Android {
-		listener.ReCreateTun(general.Tun, tunnel.Tunnel)
+		reCreateTun(general.Tun)
 	}
 }
 
@@ -373,8 +373,11 @@ func loadConfig(path string) (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	leaveOutBadServers(raw)
-	return config.ParseRawConfig(raw)
+	cfg, err := shikooCoresParse(raw)
+	if err == nil {
+		shikooLastConfig = buf
+	}
+	return cfg, err
 }
 
 func applyConfig(params *SetupParams) error {
@@ -401,17 +404,24 @@ func applyConfig(params *SetupParams) error {
 		cfg = fallback
 	}
 
+	applyLoaded(cfg, params.SelectedMap, err == nil)
+	return err
+}
+
+// applyLoaded runs a parsed config; the caller holds configMu.
+func applyLoaded(cfg *config.Config, selected map[string]string, listen bool) {
 	previous := currentConfig
 	currentConfig = cfg
 	hub.ApplyConfig(cfg)
 	closeWireGuard(previous)
-	patchSelectGroup(params.SelectedMap)
+	shikooCoresCommit()
+	shikooLastSelected = selected
+	patchSelectGroup(selected)
 	// The fallback has no TUN and no ports: the ones already up stay, now meeting its MATCH,REJECT.
-	if err == nil {
+	if listen {
 		updateListeners(cfg)
 	}
 	reconcileGeoUpdater()
-	return err
 }
 
 func UnmarshalJson(data []byte, v any) error {
