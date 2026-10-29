@@ -801,15 +801,73 @@ void main() {
         selected: 'shikoonetturkey',
       ),
     );
-    expect(find.text('وصل'), findsOneWidget);
-    final warning = find.textContaining(
-      '«\u2068shikoonetturkey\u2069» جواب نمی‌دهد.',
+    expect(find.text('وصل، بی‌اینترنت'), findsOneWidget);
+    expect(
+      find.text('اینترنت از «\u2068shikoonetturkey\u2069» رد نمی‌شود.'),
+      findsOneWidget,
     );
-    expect(warning, findsOneWidget);
-    expect(tester.widget<Text>(warning).style?.color, ShikooColors.dark.danger);
+    expect(
+      find.textContaining('جواب نمی‌دهد'),
+      findsNothing,
+      reason: 'one message, not two',
+    );
 
     await _pumpTvHome(tester, _tv(ShikooConnection.off, selected: 'آلمان ۲'));
-    expect(find.textContaining('جواب نمی‌دهد'), findsNothing);
+    expect(find.textContaining('رد نمی‌شود'), findsNothing);
+  });
+
+  testWidgets('no internet on the TV: the remote moves to «انتخاب سرور دیگر», '
+      'whose OK puts it on the fastest other server; on the streaming '
+      'server the grey card, the remote left on the button', (tester) async {
+    _tvScreen(tester);
+    final holder = await _pumpTvHome(tester, _tv(ShikooConnection.on));
+    expect(_focused(), 'power');
+    holder.value = ShikooState(
+      connection: ShikooConnection.on,
+      connectedFor: holder.value.connectedFor,
+      isTV: true,
+      service: holder.value.service,
+      servers: _servers,
+      selected: 'فنلاند ۲',
+      sorted: true,
+      connectedNoTraffic: true,
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('وصل، بی‌اینترنت'), findsOneWidget);
+    expect(
+      find.text('شاید این سرور روی اینترنت تو بسته باشد.'),
+      findsOneWidget,
+    );
+    expect(find.byType(SpeedPills), findsNothing);
+    expect(_focused(), 'انتخاب سرور دیگر');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(_focused(), 'آلمان ۲', reason: 'the fastest that is not in use');
+
+    const free = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
+    await _pumpTvHome(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: holder.value.connectedFor,
+        isTV: true,
+        service: holder.value.service,
+        servers: [
+          ..._servers,
+          const ShikooServer(name: free, type: 'Shadowsocks', ping: 120),
+        ],
+        selected: free,
+        sorted: true,
+        connectedNoTraffic: true,
+      ),
+    );
+    await tester.pump();
+    expect(find.text('وصل'), findsOneWidget);
+    expect(find.text('فقط برای نماوا، فیلیمو، شیدا و گپ‌فیلم'), findsOneWidget);
+    expect(find.textContaining('رد نمی‌شود'), findsNothing);
+    expect(_focused(), 'power');
   });
 
   testWidgets('a refused or missing VPN consent is not blamed on the server', (

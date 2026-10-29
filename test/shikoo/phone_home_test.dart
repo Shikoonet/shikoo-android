@@ -2149,10 +2149,76 @@ void main() {
     await _pump(tester, phone(connection: ShikooConnection.on));
     expect(
       find.textContaining(
-        '«\u2068NL\u00A03\u00A0x\u00A0ضریب\u00A0مصرف\u2069» جواب نمی‌دهد.',
+        'اینترنت از «\u2068NL\u00A03\u00A0x\u00A0ضریب\u00A0مصرف\u2069» رد نمی‌شود.',
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('connected with no internet: the amber button, the card in the '
+      'speed pills\' place, and «انتخاب سرور دیگر» brings the fastest other '
+      'server into view; the streaming server keeps the green button with '
+      'its grey card, in English too', (tester) async {
+    final many = [
+      for (var i = 1; i <= 12; i++)
+        ShikooServer(
+          name: 'سرور $i',
+          type: 'Vless',
+          ping: i > 10 ? 70 + i : -1,
+        ),
+    ];
+    ShikooState on(String selected, {List<ShikooServer>? servers}) =>
+        ShikooState(
+          connection: ShikooConnection.on,
+          connectedFor: const Duration(minutes: 12, seconds: 47),
+          isTV: false,
+          service: _phone().service,
+          servers: servers ?? many,
+          selected: selected,
+          sorted: true,
+          connectedNoTraffic: true,
+        );
+    await _pump(tester, on('سرور 1'));
+    final label = find.text('وصل، بی‌اینترنت');
+    expect(label, findsOneWidget);
+    expect(
+      tester.widget<Text>(label).style?.color,
+      ShikooColors.light.onWarning,
+    );
+    expect(find.byType(SpeedPills), findsNothing);
+    expect(
+      find.text('اینترنت از «\u2068سرور\u00A01\u2069» رد نمی‌شود.'),
+      findsOneWidget,
+    );
+    final fastest = find.widgetWithText(ServerRow, 'سرور 11');
+    final screen = Offset.zero & tester.view.physicalSize / 2;
+    expect(screen.contains(tester.getCenter(fastest)), isFalse);
+    await tester.tap(find.text('انتخاب سرور دیگر'));
+    await tester.pumpAndSettle();
+    expect(screen.contains(tester.getCenter(fastest)), isTrue);
+
+    const free = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
+    final special = on(
+      free,
+      servers: [
+        ...many,
+        const ShikooServer(name: free, type: 'Shadowsocks', ping: 120),
+      ],
+    );
+    await _pump(tester, special);
+    expect(find.text('وصل'), findsOneWidget);
+    expect(find.byType(SpeedPills), findsOneWidget);
+    expect(find.text('فقط برای نماوا، فیلیمو، شیدا و گپ‌فیلم'), findsOneWidget);
+    expect(find.textContaining('رد نمی‌شود'), findsNothing);
+
+    await _pump(tester, special, locale: 'en');
+    expect(
+      find.text('Only for Namava, Filimo, Shayda and Gapfilm'),
+      findsOneWidget,
+    );
+    await _pump(tester, on('سرور 1'), locale: 'en');
+    expect(find.text('No internet'), findsOneWidget);
+    expect(find.text('Choose another server'), findsOneWidget);
   });
 
   testWidgets('a pasted link the panel no longer knows: its chip, the message, '

@@ -511,6 +511,27 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String get powerNoInternet => 'وصل، بی‌اینترنت';
+
+  @override
+  String noInternetTitle(String name) {
+    return 'اینترنت از «$name» رد نمی‌شود.';
+  }
+
+  @override
+  String get noInternetBody => 'شاید این سرور روی اینترنت تو بسته باشد.';
+
+  @override
+  String get noInternetOther => 'انتخاب سرور دیگر';
+
+  @override
+  String get streamingTitle => 'فقط برای نماوا، فیلیمو، شیدا و گپ‌فیلم';
+
+  @override
+  String get streamingBody =>
+      'سایت‌ها و برنامه‌های دیگر از این سرور باز نمی‌شوند.';
+
+  @override
   String get vpnRefused =>
       'اجازهٔ اتصال داده نشد.\nدوباره وصل شو و در پنجرهٔ اندروید اجازه بده.';
 

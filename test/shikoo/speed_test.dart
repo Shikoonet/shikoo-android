@@ -41,10 +41,13 @@ Finder _inPills(Finder finder) =>
 
 final _windows = TargetPlatformVariant.only(TargetPlatform.windows);
 
+const _streaming = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
+
 ShikooState _state(
   ShikooConnection connection, {
   bool tv = false,
   bool silent = false,
+  bool streaming = false,
   ShikooError? error,
 }) => ShikooState(
   connection: connection,
@@ -59,8 +62,10 @@ ShikooState _state(
   servers: [
     ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: silent ? -1 : 84),
     const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
+    const ShikooServer(name: _streaming, type: 'Shadowsocks', ping: 120),
   ],
-  selected: 'آلمان ۲',
+  selected: streaming ? _streaming : 'آلمان ۲',
+  connectedNoTraffic: streaming,
   sorted: true,
   lastError:
       error ??
@@ -77,6 +82,7 @@ Future<void> _pumpHome(
   bool tv = false,
   String locale = 'fa',
   bool silent = false,
+  bool streaming = false,
   ShikooError? error,
   ({num down, num up})? speed,
 }) async {
@@ -94,7 +100,13 @@ Future<void> _pumpHome(
       overrides: [
         noShots,
         shikooStateProvider.overrideWithValue(
-          _state(connection, tv: tv, silent: silent, error: error),
+          _state(
+            connection,
+            tv: tv,
+            silent: silent,
+            streaming: streaming,
+            error: error,
+          ),
         ),
         if (speed != null) shikooSpeedProvider.overrideWithValue(speed),
       ],
@@ -339,7 +351,8 @@ void main() {
     });
 
     testWidgets('on the TV the pills take the message\'s room under the '
-        'button and news takes theirs; the button stays at 274', (
+        'button and news takes theirs; the button stays at 274, but for the '
+        'no-internet card, taller, which moves it up as design b draws', (
       tester,
     ) async {
       for (final (connection, silent) in [
@@ -357,10 +370,10 @@ void main() {
         final why = '$connection silent: $silent';
         expect(tester.takeException(), isNull, reason: why);
         final button = tester.getRect(find.byType(PowerButton));
-        expect(button.center.dy, closeTo(274, 0.5), reason: why);
+        if (!silent) expect(button.center.dy, closeTo(274, 0.5), reason: why);
         if (connection != ShikooConnection.on) continue;
         final l = ShikooL10n.of(tester.element(find.byType(ShikooHome)));
-        final news = _text(l.selectedDown(serverName('آلمان ۲')));
+        final news = _text(l.noInternetOther);
         expect(find.byType(SpeedPills), silent ? findsNothing : findsOne);
         final under = tester.getRect(silent ? news : find.byType(SpeedPills));
         expect(under.top, greaterThan(button.bottom), reason: why);
@@ -431,6 +444,50 @@ void main() {
         closeTo(282, 1),
         reason: 'one line of news, in the middle of its room',
       );
+    }, variant: _windows);
+
+    testWidgets('in a window design b\'s card is one row in the message\'s '
+        'room, its small button beside the line, and the streaming server\'s '
+        'card two flat lines there', (tester) async {
+      const window = Size(864, 492);
+      await _pumpHome(tester, ShikooConnection.off, window: window);
+      final off = tester.getCenter(find.byType(PowerButton));
+      await _pumpHome(
+        tester,
+        ShikooConnection.on,
+        window: window,
+        silent: true,
+      );
+      final l = ShikooL10n.of(tester.element(find.byType(ShikooHome)));
+      final title = _text(l.noInternetTitle(serverName('آلمان ۲')));
+      final other = _text(l.noInternetOther);
+      expect(tester.takeException(), isNull);
+      expect(_text(l.powerNoInternet), findsOne);
+      expect(
+        tester.getCenter(other).dy,
+        closeTo(tester.getCenter(title).dy, 2),
+      );
+      expect(
+        tester.getRect(title).top,
+        greaterThan(tester.getRect(find.byType(PowerButton)).bottom),
+      );
+      expect(
+        tester.getRect(other).bottom,
+        lessThan(tester.getRect(find.byType(NowPill)).top),
+      );
+      expect(_text(l.noInternetBody), findsNothing, reason: 'one row only');
+
+      await _pumpHome(
+        tester,
+        ShikooConnection.on,
+        window: window,
+        streaming: true,
+      );
+      expect(tester.takeException(), isNull);
+      expect(_text(l.powerOn), findsOne);
+      expect(_text(l.streamingTitle), findsOne);
+      expect(_text(l.streamingBody), findsOne);
+      expect(tester.getCenter(find.byType(PowerButton)), off);
     }, variant: _windows);
 
     testWidgets('a new sample redraws the pills alone, not the home around '

@@ -379,6 +379,17 @@ class ShikooState {
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
 
+  bool get streaming => streamingOnly(selected ?? '');
+
+  /// Connected, and the internet does not get through: the check failed, or the server stopped answering.
+  bool get noInternet {
+    final server = selectedServer;
+    return connection == ShikooConnection.on &&
+        server != null &&
+        !streaming &&
+        (connectedNoTraffic || (server.ping ?? 0) < 0);
+  }
+
   /// Every service in card order ([serviceOrderProvider]), the one in use keeping its place.
   List<ShikooService> get listed {
     final byId = {

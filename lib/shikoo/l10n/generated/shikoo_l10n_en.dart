@@ -550,6 +550,27 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String get powerNoInternet => 'No internet';
+
+  @override
+  String noInternetTitle(String name) {
+    return 'The internet doesn’t get through “$name”.';
+  }
+
+  @override
+  String get noInternetBody => 'This server may be blocked on your network.';
+
+  @override
+  String get noInternetOther => 'Choose another server';
+
+  @override
+  String get streamingTitle => 'Only for Namava, Filimo, Shayda and Gapfilm';
+
+  @override
+  String get streamingBody =>
+      'Other sites and apps won’t open through this server.';
+
+  @override
   String get vpnRefused =>
       'Permission to connect wasn\'t given.\nConnect again and allow it in Android\'s window.';
 
