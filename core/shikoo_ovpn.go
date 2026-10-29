@@ -259,13 +259,12 @@ func ovpnDelay(params *TestDelayParams, c *ovpn.ClientConfig) *Delay {
 	return delay
 }
 
-// ovpnResendAfter: one resend of a UDP reset that got no answer, for the networks that lose packets.
 const ovpnResendAfter = 500 * time.Millisecond
 
+// ovpnProbe dials as mihomo's client does (its resolver, Android's protect), and times a UDP resend from the first reset.
 func ovpnProbe(c *ovpn.ClientConfig, timeout time.Duration) (time.Duration, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	// As mihomo's own client: its resolver for the name, and Android's protect while the app is inside mihomo's VPN.
 	conn, err := dialer.DialContext(ctx, c.Proto, c.RemoteAddress())
 	if err != nil {
 		return 0, err
@@ -299,7 +298,6 @@ func ovpnProbe(c *ovpn.ClientConfig, timeout time.Duration) (time.Duration, erro
 		return 0, err
 	}
 	if c.Proto != ovpn.ProtoTCP {
-		// The time stays from the first: an answer to either reset reads the same, and this never shows a server faster.
 		resend := time.AfterFunc(ovpnResendAfter, func() { _ = control.RetransmitPending(ctx) })
 		defer resend.Stop()
 	}
