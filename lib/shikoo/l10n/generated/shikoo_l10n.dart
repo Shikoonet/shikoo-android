@@ -3072,6 +3072,114 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'No answer directly or via WARP. Connect with these servers, then try through the server; if it still fails, ask Support.'**
   String get updateFailedWarp;
+
+  /// Android notification channel and the Settings › Connection switch that turns alertNoTraffic and alertDropped back on after «Don’t show again».
+  ///
+  /// In en, this message translates to:
+  /// **'Connection alerts'**
+  String get alerts;
+
+  /// Under the alerts switch.
+  ///
+  /// In en, this message translates to:
+  /// **'A notification when the connection has no internet or stops on its own'**
+  String get alertsHelp;
+
+  /// No description provided for @alertNoTrafficTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected, but no internet'**
+  String get alertNoTrafficTitle;
+
+  /// Android alert while connected and nothing passes the server.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing opened through “{server}”. Pick another server.'**
+  String alertNoTrafficBody(String server);
+
+  /// No description provided for @alertPickAnother.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick another server'**
+  String get alertPickAnother;
+
+  /// Alert button; only alertNoTraffic and alertDropped have it.
+  ///
+  /// In en, this message translates to:
+  /// **'Don’t show again'**
+  String get alertDontShow;
+
+  /// Android alert after the VPN stopped without the customer.
+  ///
+  /// In en, this message translates to:
+  /// **'{app} disconnected'**
+  String alertDroppedTitle(String app);
+
+  /// Under alertDroppedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection stopped on its own. Your internet is direct now, not through {app}.'**
+  String alertDroppedBody(String app);
+
+  /// Under alertDroppedTitle when Android handed the VPN to another app.
+  ///
+  /// In en, this message translates to:
+  /// **'Another app took over the connection, so {app} stopped.'**
+  String alertRevokedBody(String app);
+
+  /// No description provided for @alertReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect again'**
+  String get alertReconnect;
+
+  /// No description provided for @alertExpiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your service has expired'**
+  String get alertExpiredTitle;
+
+  /// No description provided for @alertExhaustedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your service is out of data'**
+  String get alertExhaustedTitle;
+
+  /// Under alertExpiredTitle or alertExhaustedTitle; the button is renew.
+  ///
+  /// In en, this message translates to:
+  /// **'“{service}” has ended and you were disconnected. Renew to use it again.'**
+  String alertEndedBody(String service);
+
+  /// No description provided for @alertRefusedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account was refused'**
+  String get alertRefusedTitle;
+
+  /// Android alert when an OpenVPN server refused the account; the button is support.
+  ///
+  /// In en, this message translates to:
+  /// **'“{server}” didn’t accept your username and password. Message support.'**
+  String alertRefusedBody(String server);
+
+  /// No description provided for @alertRemovedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your server was removed'**
+  String get alertRemovedTitle;
+
+  /// Android alert when an update took away the connected server.
+  ///
+  /// In en, this message translates to:
+  /// **'“{server}” is no longer in your subscription, so you were disconnected. Pick another one.'**
+  String alertRemovedBody(String server);
+
+  /// No description provided for @alertPickServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a server'**
+  String get alertPickServer;
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

@@ -1965,4 +1965,73 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get updateFailedWarp =>
       'No answer directly or via WARP. Connect with these servers, then try through the server; if it still fails, ask Support.';
+
+  @override
+  String get alerts => 'Connection alerts';
+
+  @override
+  String get alertsHelp =>
+      'A notification when the connection has no internet or stops on its own';
+
+  @override
+  String get alertNoTrafficTitle => 'Connected, but no internet';
+
+  @override
+  String alertNoTrafficBody(String server) {
+    return 'Nothing opened through “$server”. Pick another server.';
+  }
+
+  @override
+  String get alertPickAnother => 'Pick another server';
+
+  @override
+  String get alertDontShow => 'Don’t show again';
+
+  @override
+  String alertDroppedTitle(String app) {
+    return '$app disconnected';
+  }
+
+  @override
+  String alertDroppedBody(String app) {
+    return 'The connection stopped on its own. Your internet is direct now, not through $app.';
+  }
+
+  @override
+  String alertRevokedBody(String app) {
+    return 'Another app took over the connection, so $app stopped.';
+  }
+
+  @override
+  String get alertReconnect => 'Connect again';
+
+  @override
+  String get alertExpiredTitle => 'Your service has expired';
+
+  @override
+  String get alertExhaustedTitle => 'Your service is out of data';
+
+  @override
+  String alertEndedBody(String service) {
+    return '“$service” has ended and you were disconnected. Renew to use it again.';
+  }
+
+  @override
+  String get alertRefusedTitle => 'Your account was refused';
+
+  @override
+  String alertRefusedBody(String server) {
+    return '“$server” didn’t accept your username and password. Message support.';
+  }
+
+  @override
+  String get alertRemovedTitle => 'Your server was removed';
+
+  @override
+  String alertRemovedBody(String server) {
+    return '“$server” is no longer in your subscription, so you were disconnected. Pick another one.';
+  }
+
+  @override
+  String get alertPickServer => 'Pick a server';
 }

@@ -1241,6 +1241,9 @@ class ShikooController {
   final Ref _ref;
 
   bool foreground = true;
+
+  /// The customer stopped the tunnel, here or from the VPN notification or the tile: no alert follows.
+  bool offByCustomer = false;
   static const _appPicksKey = 'shikoo.appPicks';
 
   Map<String, String> _appPickByService = const {};
@@ -1384,6 +1387,7 @@ class ShikooController {
   }
 
   Future<void> connect() async {
+    offByCustomer = false;
     if (_ref.read(currentProfileProvider) == null) return;
     if (!await _coreReady()) return;
     _setAsideMultiplied();
@@ -1528,7 +1532,7 @@ class ShikooController {
   /// A switch of server or core: the VPN service keeps traffic blocked between the stop and the start.
   Future<void> _reconnect() async {
     await _ref.read(switchHoldProvider)();
-    await disconnect();
+    await _stop();
     await connect();
   }
 
@@ -1691,7 +1695,12 @@ class ShikooController {
     unawaited(_setup.setRunning(false));
   }
 
-  Future<void> disconnect() async {
+  Future<void> disconnect() {
+    offByCustomer = true;
+    return _stop();
+  }
+
+  Future<void> _stop() async {
     if (!_fallingBack) {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }

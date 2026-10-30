@@ -894,13 +894,19 @@ String serviceTitle(BuildContext context, ShikooService service) =>
     ? plainTitle(context, service)
     : bidiName(service.name);
 
-String plainTitle(BuildContext context, ShikooService service) {
-  if (service.name.isNotEmpty) return service.name;
-  final l = ShikooL10n.of(context);
-  return service.number > 1
-      ? '${l.serviceUnnamed} ${localNumber(context, service.number)}'
-      : l.serviceUnnamed;
-}
+String plainTitle(BuildContext context, ShikooService service) =>
+    service.name.isNotEmpty
+    ? service.name
+    : unnamedTitle(
+        ShikooL10n.of(context),
+        Localizations.localeOf(context).languageCode,
+        service.number,
+      );
+
+/// Where no widget is at hand, as in an Android alert.
+String unnamedTitle(ShikooL10n l, String language, int number) => number > 1
+    ? '${l.serviceUnnamed} ${NumberFormat('0', language).format(number)}'
+    : l.serviceUnnamed;
 
 String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
     switch (status) {

@@ -191,6 +191,8 @@ Finder get _cardButton => find.descendant(
 /// Settings › Connection's second switch (warp_ui_test.dart).
 final _warp = lookupShikooL10n(const Locale('fa')).warpSwitch;
 
+final _alerts = lookupShikooL10n(const Locale('fa')).alerts;
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -327,6 +329,7 @@ void main() {
           'سایت‌های ایرانی بدون فیلترشکن',
         );
         expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
+        expect(await _press(tester, LogicalKeyboardKey.arrowDown), _alerts);
         expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
         await _press(tester, LogicalKeyboardKey.select);
       } else {
@@ -346,7 +349,7 @@ void main() {
       expect(await _press(tester, LogicalKeyboardKey.arrowUp), 'درباره');
       expect(
         await _press(tester, LogicalKeyboardKey.arrowUp),
-        _warp,
+        _alerts,
         reason: 'version and core are only text',
       );
       expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
@@ -428,6 +431,7 @@ void main() {
       'سایت‌های ایرانی بدون فیلترشکن',
     );
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), _alerts);
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), _check);
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'درباره');
   });
