@@ -3574,7 +3574,9 @@ void main() {
       ),
     );
     expect(
-      find.text('اینترنت از «⁨آلمان ۵ Reality⁩» رد نمی‌شود.'),
+      find.text(
+        'اینترنت از «\u2068آلمان\u00A0۵\u00A0Reality\u2069» رد نمی‌شود.',
+      ),
       findsOneWidget,
     );
     expect(find.text('اینترنت از این سرور رد نمی‌شود.'), findsNothing);
