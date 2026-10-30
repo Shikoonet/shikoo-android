@@ -362,7 +362,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
     final update = ref.watch(shikooUpdateOfferProvider);
-    final crashed = ref.watch(shikooCrashProvider) != null;
+    final crashed =
+        ref.watch(shikooCrashProvider) != null ||
+        ref.watch(shikooCoreRevertedProvider) != null;
     final check = ref.watch(shikooProbeProvider);
     // Only a card that says the device itself is offline goes before WARP's line and offer.
     final offline =

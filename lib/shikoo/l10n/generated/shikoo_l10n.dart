@@ -1970,6 +1970,12 @@ abstract class ShikooL10n {
   /// **'Send us a report about it?'**
   String get reportCrashAsk;
 
+  /// Between reportCrashTitle and reportCrashAsk, when the core picked in Settings › Cores took the app down as it started: its picks went back to Default. Shows the card even with no crash found.
+  ///
+  /// In en, this message translates to:
+  /// **'The “{core}” core did not work on this device and went back to “Default”.'**
+  String reportCrashCore(String core);
+
   /// Opens the preview.
   ///
   /// In en, this message translates to:

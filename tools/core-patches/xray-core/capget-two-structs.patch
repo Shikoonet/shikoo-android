@@ -1,0 +1,20 @@
+diff --git a/proxy/wireguard/tun_linux.go b/proxy/wireguard/tun_linux.go
+index 4b95e79..da32d9c 100644
+--- a/proxy/wireguard/tun_linux.go
++++ b/proxy/wireguard/tun_linux.go
+@@ -269,10 +269,12 @@ func KernelTunSupported() (bool, error) {
+ 	hdr.Version = unix.LINUX_CAPABILITY_VERSION_3
+ 	hdr.Pid = 0 // 0 means current process
+ 
+-	var data unix.CapUserData
+-	if err := unix.Capget(&hdr, &data); err != nil {
++	// Version 3 makes the kernel write two of these (golang/go#44312). One alone let it write over the
++	// caller's return address on 32-bit ARM, and NewClient returned to address 0.
++	var data [2]unix.CapUserData
++	if err := unix.Capget(&hdr, &data[0]); err != nil {
+ 		return false, fmt.Errorf("failed to get capabilities: %v", err)
+ 	}
+ 
+-	return (data.Effective & (1 << unix.CAP_NET_ADMIN)) != 0, nil
++	return (data[0].Effective & (1 << unix.CAP_NET_ADMIN)) != 0, nil
+ }

@@ -439,6 +439,70 @@ void main() {
     expect(prefs.getString('shikoo.core.ssh'), 'naive');
   });
 
+  test('a core the Go core was still starting when the app went down loses '
+      'its picks to the default, once, and says so', () async {
+    SharedPreferences.setMockInitialValues({
+      'shikoo.core.vless': 'xray',
+      'shikoo.core.wireguard': 'xray',
+      'shikoo.core.ssh': 'singBox',
+    });
+    final home = Directory.systemTemp.createTempSync('cores');
+    addTearDown(() => home.deleteSync(recursive: true));
+    File('${home.path}/$shikooCoreStartingFile').writeAsStringSync('xray');
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final picks = container.read(shikooCoresProvider.notifier);
+    await picks.load();
+
+    await picks.forgetCrashed(home.path);
+
+    expect(container.read(shikooCoresProvider), {
+      ShikooProtocol.ssh: ShikooCore.singBox,
+    });
+    expect(container.read(shikooCoreRevertedProvider), ShikooCore.xray);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('shikoo.core.wireguard'), isNull);
+    expect(prefs.getString('shikoo.core.ssh'), 'singBox');
+    expect(home.listSync(), isEmpty);
+
+    final next = ProviderContainer();
+    addTearDown(next.dispose);
+    await next.read(shikooCoresProvider.notifier).load();
+    await next.read(shikooCoresProvider.notifier).forgetCrashed(home.path);
+    expect(next.read(shikooCoreRevertedProvider), isNull);
+    expect(next.read(shikooCoresProvider), {
+      ShikooProtocol.ssh: ShikooCore.singBox,
+    });
+  });
+
+  test('a marker the app cannot read leaves the picks alone and does not stop '
+      'the start', () async {
+    SharedPreferences.setMockInitialValues({'shikoo.core.wireguard': 'xray'});
+    final home = Directory.systemTemp.createTempSync('cores');
+    addTearDown(() => home.deleteSync(recursive: true));
+    File(
+      '${home.path}/$shikooCoreStartingFile',
+    ).writeAsBytesSync([0xff, 0xfe, 0xfd]);
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final picks = container.read(shikooCoresProvider.notifier);
+    await picks.load();
+
+    await picks.forgetCrashed(home.path);
+
+    expect(container.read(shikooCoresProvider), {
+      ShikooProtocol.wireguard: ShikooCore.xray,
+    });
+    expect(container.read(shikooCoreRevertedProvider), isNull);
+  });
+
+  test('Go leaves the starting core in the file Dart reads', () {
+    expect(
+      File('core/shikoo_cores.go').readAsStringSync(),
+      contains('shikooCoreStartingFile = "$shikooCoreStartingFile"'),
+    );
+  });
+
   test("in Windows' proxy mode neither the mark nor the row's carrier names an "
       'owner core: mihomo carries those servers', () {
     final official = _readyOnly({ShikooCore.wireguard, ShikooCore.openvpn});
