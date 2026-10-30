@@ -2282,6 +2282,8 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.ensureVisible(find.text('حذف').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('حذف').first);
     await tester.pumpAndSettle();
     expect(find.textContaining('اتصال قطع می‌شود و این سرویس'), findsOneWidget);
@@ -2289,6 +2291,8 @@ void main() {
     await tester.pumpAndSettle();
     verifyNever(() => controller.removeService(any()));
 
+    await tester.ensureVisible(find.text('حذف').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('حذف').last);
     await tester.pumpAndSettle();
     expect(find.textContaining('این سرویس از این گوشی پاک'), findsOneWidget);
