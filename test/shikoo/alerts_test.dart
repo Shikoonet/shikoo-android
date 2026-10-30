@@ -263,7 +263,7 @@ void main() {
         expect(alert['title'], 'اعتبار سرویست تمام شد');
         expect(
           alert['body'],
-          '«\u2068test_user\u2069 ·\u00A0\u2068یک‌ماهه\u2069» تمام شد و اتصال قطع شد. '
+          '«\u2068test_user\u2069 ·\u00A0\u2068یک‌ماهه\u2069» تمام شد. '
           'با تمدید دوباره فعال می‌شود.',
         );
         expect(alert['tap'], 'card:1');

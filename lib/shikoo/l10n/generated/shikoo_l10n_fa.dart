@@ -1948,7 +1948,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String alertEndedBody(String service) {
-    return '«$service» تمام شد و اتصال قطع شد. با تمدید دوباره فعال می‌شود.';
+    return '«$service» تمام شد. با تمدید دوباره فعال می‌شود.';
   }
 
   @override

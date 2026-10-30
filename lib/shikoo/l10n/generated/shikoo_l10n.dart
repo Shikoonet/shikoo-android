@@ -3145,10 +3145,10 @@ abstract class ShikooL10n {
   /// **'Your service is out of data'**
   String get alertExhaustedTitle;
 
-  /// Under alertExpiredTitle or alertExhaustedTitle; the button is renew.
+  /// Under alertExpiredTitle or alertExhaustedTitle; the button is renew. The app does not disconnect on its own when a service ends, so the text does not say it did.
   ///
   /// In en, this message translates to:
-  /// **'“{service}” has ended and you were disconnected. Renew to use it again.'**
+  /// **'“{service}” has ended. Renew to use it again.'**
   String alertEndedBody(String service);
 
   /// No description provided for @alertRefusedTitle.

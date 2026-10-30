@@ -507,7 +507,7 @@
   "alertReconnect": "وصل دوباره",
   "alertExpiredTitle": "اعتبار سرویست تمام شد",
   "alertExhaustedTitle": "حجم سرویست تمام شد",
-  "alertEndedBody": "«{service}» تمام شد و اتصال قطع شد. با تمدید دوباره فعال می‌شود.",
+  "alertEndedBody": "«{service}» تمام شد. با تمدید دوباره فعال می‌شود.",
   "alertRefusedTitle": "حسابت پذیرفته نشد",
   "alertRefusedBody": "«{server}» نام کاربری و رمزت را قبول نکرد و وصل نشد. به پشتیبانی پیام بده.",
   "alertRemovedTitle": "سرورت حذف شد",

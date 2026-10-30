@@ -2013,7 +2013,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String alertEndedBody(String service) {
-    return '“$service” has ended and you were disconnected. Renew to use it again.';
+    return '“$service” has ended. Renew to use it again.';
   }
 
   @override
