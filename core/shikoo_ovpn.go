@@ -231,7 +231,6 @@ func ovpnState(params *ovpnStateParams) {
 	}
 }
 
-// ovpnUp: what Android's core does once the engine carries the tunnel (lib.go).
 var ovpnUp = func() {}
 
 func ovpnCarrying() string {
