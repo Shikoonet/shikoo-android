@@ -108,8 +108,11 @@ struct Client : OpenVPNClient {
 
     void acc_event(const AppCustomControlMessageEvent &) override {}
 
+    // The engine logs the server's certificates, host and address: debug builds only.
     void log(const LogInfo &line) override {
+#ifndef NDEBUG
         __android_log_print(ANDROID_LOG_DEBUG, "ovpn3", "%s", line.text.c_str());
+#endif
     }
 
     void external_pki_cert_request(ExternalPKICertRequest &request) override {
