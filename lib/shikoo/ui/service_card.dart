@@ -842,7 +842,9 @@ class _Head extends StatelessWidget {
     final busy = refresh == ShikooRefresh.running;
     final measuring = pinging != null;
     final onPing = this.onPing;
-    final ping = onPing == null || busy ? null : (measuring ? () {} : onPing);
+    final ping = onPing == null || busy || service.notHere
+        ? null
+        : (measuring ? () {} : onPing);
     final controls = RefreshControls(
       isTV: isTV,
       busy: busy,

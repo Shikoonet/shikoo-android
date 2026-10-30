@@ -28,7 +28,7 @@ const (
 	shikooOpenvpnStateMethod  CoreMethod = "shikooOpenvpnState"
 )
 
-// Keys the official engine cannot honour, so the app leaves such a server to mihomo (core_openvpn.dart's serves).
+// Keys the official engine cannot honour: such a server's start fails, as OpenVPN has no mihomo to fall back to.
 var ovpnRefusedKeys = []string{"dialer-proxy", "peer-info"}
 
 type ovpnPlan struct {
@@ -85,7 +85,7 @@ func init() {
 func ovpnPrepare(mapping map[string]any, iranDirect bool) (*ovpnPlan, error) {
 	for _, key := range ovpnRefusedKeys {
 		if _, set := mapping[key]; set {
-			return nil, fmt.Errorf("%s is mihomo's alone", key)
+			return nil, fmt.Errorf("the official engine cannot honour %s", key)
 		}
 	}
 	name, config, err := ovpnConfig(mapping)

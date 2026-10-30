@@ -464,7 +464,6 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       centred: state.isTV || wide,
       controller: controller,
       focusNode: _power,
-      bot: _card.bot,
       renews: renews,
       restingLabel: switch (first) {
         null => null,
@@ -689,10 +688,6 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                         down:
                             offersWarp(state, offline: offline) ||
                             state.noInternet,
-                        below:
-                            state.noInternet && (current?.loginRefused ?? false)
-                            ? _card.bot
-                            : null,
                         targets: [
                           _crashSend,
                           _check,
@@ -842,13 +837,11 @@ class _PowerKeys extends StatelessWidget {
     required this.targets,
     required this.child,
     this.down = false,
-    this.below,
   });
 
   final List<FocusNode> targets;
   final Widget child;
   final bool down;
-  final FocusNode? below;
 
   @override
   Widget build(BuildContext context) {
@@ -865,9 +858,6 @@ class _PowerKeys extends StatelessWidget {
             final target = targets.firstWhereOrNull(_onScreen);
             if (intent.direction == towardCard && target != null) {
               target.requestFocus();
-            } else if (intent.direction == TraversalDirection.down &&
-                _onScreen(below)) {
-              below!.requestFocus();
             } else if (!stays.contains(intent.direction)) {
               primaryFocus?.focusInDirection(intent.direction);
             }
@@ -1219,7 +1209,6 @@ class _PowerZone extends StatelessWidget {
     this.offline = false,
     this.onOther,
     this.onSupport,
-    this.bot,
   });
 
   final ShikooState state;
@@ -1237,9 +1226,6 @@ class _PowerZone extends StatelessWidget {
   final bool offline;
   final VoidCallback? onOther;
   final VoidCallback? onSupport;
-
-  /// The service card's bot button: a refused shelf account's one way, where the amber card would be.
-  final FocusNode? bot;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -1453,7 +1439,7 @@ class _PowerZone extends StatelessWidget {
         : (shikooDesktop ? width : double.infinity);
     final card = message != null
         ? null
-        : state.noInternet && !(state.service?.loginRefused ?? false)
+        : state.noInternet
         ? _NoInternet(
             name: serverName(selected!.name),
             isTV: state.isTV,
@@ -1535,17 +1521,7 @@ class _PowerZone extends StatelessWidget {
             ? Container(
                 constraints: BoxConstraints(minHeight: slot),
                 alignment: Alignment.center,
-                child:
-                    card ??
-                    (!state.noInternet
-                        ? const SpeedPills()
-                        : state.isTV && bot != null
-                        ? _FromPower(
-                            power: focusNode,
-                            node: bot!,
-                            child: const SizedBox.shrink(),
-                          )
-                        : null),
+                child: card ?? (!state.noInternet ? const SpeedPills() : null),
               )
             : say!
       else if (state.connection == ShikooConnection.on && !state.noInternet)

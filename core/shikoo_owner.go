@@ -58,6 +58,9 @@ func shikooOwnerOf(server string) (shikooOwnerEngine, bool) {
 
 var errShikooOwnerCarries = errors.New("an owner core carries this server")
 
+// OpenVPN runs on its official engine alone (Sam, 2026-10-30): mihomo's own client of one never dials, marked or not.
+var errShikooOpenvpnOfficial = errors.New("OpenVPN runs on its official engine alone")
+
 // shikooOwnerIdlePings: a core's ping, from the mapping alone, of a marked server it does not carry (none: mihomo's).
 var shikooOwnerIdlePings = map[string]func(mapping map[string]any, params *TestDelayParams) *Delay{}
 
@@ -67,16 +70,26 @@ type shikooOwnerGate struct {
 	mapping map[string]any
 }
 
-func (gate *shikooOwnerGate) DialContext(ctx context.Context, metadata *C.Metadata) (C.Conn, error) {
+func (gate *shikooOwnerGate) shut() error {
+	if gate.Type() == C.OpenVPN {
+		return errShikooOpenvpnOfficial
+	}
 	if _, carried := shikooOwnerOf(gate.Name()); carried {
-		return nil, errShikooOwnerCarries
+		return errShikooOwnerCarries
+	}
+	return nil
+}
+
+func (gate *shikooOwnerGate) DialContext(ctx context.Context, metadata *C.Metadata) (C.Conn, error) {
+	if err := gate.shut(); err != nil {
+		return nil, err
 	}
 	return gate.ProxyAdapter.DialContext(ctx, metadata)
 }
 
 func (gate *shikooOwnerGate) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (C.PacketConn, error) {
-	if _, carried := shikooOwnerOf(gate.Name()); carried {
-		return nil, errShikooOwnerCarries
+	if err := gate.shut(); err != nil {
+		return nil, err
 	}
 	return gate.ProxyAdapter.ListenPacketContext(ctx, metadata)
 }
@@ -84,10 +97,8 @@ func (gate *shikooOwnerGate) ListenPacketContext(ctx context.Context, metadata *
 // Before mihomo holds cfg, so groups and the tunnel see only the gated proxy.
 func shikooOwnerGates(raw *config.RawConfig, cfg *config.Config) {
 	for _, mapping := range raw.Proxy {
-		if _, marked := mapping[shikooOwnerKey]; !marked {
-			continue
-		}
-		if proxy, ok := cfg.Proxies[fmt.Sprint(mapping["name"])].(*adapter.Proxy); ok {
+		proxy, ok := cfg.Proxies[fmt.Sprint(mapping["name"])].(*adapter.Proxy)
+		if _, marked := mapping[shikooOwnerKey]; ok && (marked || proxy.Type() == C.OpenVPN) {
 			proxy.ProxyAdapter = &shikooOwnerGate{proxy.ProxyAdapter, mapping}
 		}
 	}

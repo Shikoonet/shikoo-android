@@ -99,11 +99,16 @@ class _Setup extends SetupAction {
   /// Holds every stop open until completed.
   Completer<void>? stopGate;
 
+  /// Holds a start open until completed; [startOk] false is a start that fails before native is asked.
+  Completer<void>? startGate;
+  bool startOk = true;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
     if (!running) await stopGate?.future;
-    return true;
+    if (running) await startGate?.future;
+    return !running || startOk;
   }
 
   @override
@@ -2806,6 +2811,84 @@ void main() {
         expect(service(container).loginRefused, isFalse);
       });
     }
+
+    Future<ProviderContainer> refusedOnce() async {
+      final container = openvpnHome([
+        nativeStartFailedProvider.overrideWithValue(() => true),
+        nativeLoginRefusedProvider.overrideWithValue(() => true),
+      ]);
+      markShelf(container);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+      return container;
+    }
+
+    test('a start the app did not make (the tile, always-on) clears the '
+        'refusal once it comes up', () async {
+      final container = await refusedOnce();
+      container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('the refusal stays while the next connect is under way', () async {
+      final container = await refusedOnce();
+      final setup = setupOf(container)..startGate = Completer<void>();
+      unawaited(container.read(shikooControllerProvider).connect());
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.connecting,
+      );
+      expect(service(container).loginRefused, isTrue);
+      setup.startGate!.complete();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+    });
+
+    test('a start that fails before the engine is asked reads no refusal left '
+        'from an earlier start', () async {
+      final container = openvpnHome([
+        nativeStartFailedProvider.overrideWithValue(() => true),
+        nativeLoginRefusedProvider.overrideWithValue(() => true),
+      ]);
+      markShelf(container);
+      setupOf(container).startOk = false;
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('another service lists no OpenVPN server where no core runs it', () {
+      List<String> listed(ShikooPlatform platform) => [
+        ...mainGroupOf({
+          'proxies': [
+            {'name': 'O', 'type': 'openvpn'},
+            {'name': 'V', 'type': 'vless'},
+          ],
+          'proxy-groups': [
+            {
+              'name': 'PROXY',
+              'type': 'select',
+              'proxies': ['O', 'V'],
+            },
+          ],
+        }, specs: readyHere(platform))!.servers.keys,
+      ];
+      expect(listed(ShikooPlatform.android), ['O', 'V']);
+      expect(listed(ShikooPlatform.windows), ['V']);
+    });
 
     test('on Windows, where no core runs OpenVPN yet, its servers are not '
         'offered, and a shelf account says so and its connect does '
