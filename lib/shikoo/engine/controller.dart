@@ -1619,10 +1619,27 @@ class ShikooController {
 
   /// A switch of server or core: the VPN service keeps traffic blocked between the stop and the start.
   Future<void> _reconnect() async {
-    await _ref.read(switchHoldProvider)();
-    await disconnect();
-    await _connect(setAside: false);
+    _reconnects++;
+    try {
+      await _ref.read(switchHoldProvider)();
+      await disconnect();
+      await connectAgain();
+    } finally {
+      _reconnects--;
+    }
   }
+
+  /// The app's own start after its own stop, as a rebuild or a failed install: the pick stays, and SelectedGone holds it.
+  Future<void> connectAgain() async {
+    if (_ref.read(_noticeProvider) is! SelectedGone) {
+      await _connect(setAside: false);
+    }
+  }
+
+  int _reconnects = 0;
+
+  bool get _upOrStarting =>
+      _running || _reconnects > 0 || _ref.read(_intentProvider).connecting;
 
   /// A core behind mihomo only needs the config again; a new tunnel owner, a reconnect. Connected, a move shows as a
   /// server switch, done only once the core carrying the server is the pick: a failed engine leaves it on mihomo.
@@ -2509,9 +2526,7 @@ class ShikooController {
   }
 
   void _replaceSilentPick() {
-    if (_staleGroups || _running || _ref.read(_intentProvider).connecting) {
-      return;
-    }
+    if (_staleGroups || _upOrStarting) return;
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
@@ -2904,7 +2919,7 @@ class ShikooController {
       _endSwitch();
     }
     if (had != null && removed.contains(had)) {
-      if (_running || _ref.read(_intentProvider).connecting) {
+      if (_upOrStarting) {
         _notice(const SelectedGone());
         return disconnect();
       }
