@@ -129,7 +129,7 @@ struct Client : OpenVPNClient {
 std::mutex runningMu;
 Client *running = nullptr;
 
-// OpenVpn.kt's REFUSED: the engine never started on this profile.
+// The start's reason when the engine never started on this profile.
 const std::string refused = "refused: ";
 } // namespace
 

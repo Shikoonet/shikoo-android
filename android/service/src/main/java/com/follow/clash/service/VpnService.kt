@@ -141,7 +141,7 @@ class VpnService : SystemVpnService(), ManagedService {
         notifyVpnRevoked()
     }
 
-    // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
+    // An owner engine that does not start leaves its server to mihomo (Sam, 2026-10-23); OpenVPN fails (2026-10-30).
     private fun handleStart(options: VpnOptions) {
         if (options.ownsTunnel) Core.setOwnerProtector(::protect)
         if (!heldTun.take() && options.ownsTunnel) holdBlocked(options)
@@ -149,6 +149,7 @@ class VpnService : SystemVpnService(), ManagedService {
             runCatching {
                 Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
             }.getOrElse { error ->
+                if (options.core == OPENVPN_CORE) error("OpenVPN has no plan: $error")
                 GlobalState.log("Owner core has no plan, mihomo carries the server: $error")
                 return handleStart(options.copy(core = null))
             }

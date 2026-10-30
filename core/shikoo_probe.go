@@ -42,6 +42,9 @@ func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
 		return nil, err
 	}
 	defer func() { _ = proxy.Close() }()
+	if built, ok := proxy.(*adapter.Proxy); ok && built.Type() == C.OpenVPN {
+		built.ProxyAdapter = &shikooOwnerGate{built.ProxyAdapter, params.Proxy}
+	}
 
 	url := params.TestUrl
 	if url == "" {

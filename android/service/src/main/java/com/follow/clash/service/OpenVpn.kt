@@ -9,6 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 const val OPENVPN_PROFILE = "ovpn"
 
+/** Dart's `ShikooCore.openvpn.name`, the owner core VpnOptions names. */
+const val OPENVPN_CORE = "openvpn"
+
 /** OpenVPN 3's event, and so the start's error, when the server refused the username and password. */
 const val OPENVPN_AUTH_FAILED = "AUTH_FAILED"
 

@@ -1266,6 +1266,10 @@ class ShikooController {
                 if (_ref.read(_noticeProvider) is SelectedGone) {
                   _setNotice(null);
                 }
+                // A start the app did not make (the tile, always-on) came up; its own connects clear it in _start.
+                if (!_ref.read(_intentProvider).connecting) {
+                  _loginRefused(_current, refused: false);
+                }
                 _reconcile();
                 unawaited(_checkCarrying());
                 _watchOwner(true);
@@ -1576,7 +1580,8 @@ class ShikooController {
       unawaited(_checkSelected());
       return;
     }
-    if (_ref.read(nativeLoginRefusedProvider)() &&
+    if (started &&
+        _ref.read(nativeLoginRefusedProvider)() &&
         (_ref.read(shikooStateProvider).service?.outsourced ?? false)) {
       _loginRefused(_current, refused: true);
     }
