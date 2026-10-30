@@ -34,7 +34,9 @@ String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   final ended = row.ended;
   if (row.linked?.disabled ?? false) return l.finishedDisabled;
   if (row.exhausted) return l.finishedData;
-  if (ended == null) return l.finishedNoDate;
+  if (ended == null || (row.linked?.outsourced ?? false)) {
+    return l.finishedNoDate;
+  }
   final days = DateUtils.dateOnly(
     now,
   ).difference(DateUtils.dateOnly(ended)).inDays;
@@ -417,7 +419,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       state,
       linkless: first == null
           ? null
-          : (first.finished && !first.renews ? _topSupport : _linkless),
+          : (first.finished && !first.renews && !first.outsourced
+                ? _topSupport
+                : _linkless),
       renews: renews,
     );
     _onOpened(state);
@@ -1782,7 +1786,9 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
     final _LinklessCard(:service, :bot, :isTV) = widget;
     final finished = service.finished;
     final renews = service.renews;
-    final supportOnly = finished && !renews;
+    // A closed shelf account is never renewed: the bot sells a new one.
+    final ended = finished && service.outsourced;
+    final supportOnly = finished && !renews && !ended;
     final failed = service.loadFailed && !finished;
     return Container(
       padding: const EdgeInsets.all(Space.s4),
@@ -1801,7 +1807,12 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ServiceName(service.title),
-              if (finished)
+              if (ended)
+                StatusChip(
+                  status: ShikooServiceStatus.expired,
+                  label: l.chipFinished,
+                )
+              else if (finished)
                 StatusChip.linked(service)
               else
                 Container(
@@ -1827,6 +1838,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           const SizedBox(height: Space.s2),
           Text(
             switch ((service.status, finished, isTV)) {
+              _ when ended => l.outsourcedEnded,
               _ when supportOnly && !service.disabled => l.summaryNotRenewable,
               _ when supportOnly => l.summaryRemoved,
               ('exhausted', _, false) => l.summaryExhausted,
@@ -1881,13 +1893,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                               id: service.id,
                               name: service.title,
                             )
-                          : openLink(
-                              context,
-                              isTV: isTV,
-                              link: ShikooLinks.openBot(bot),
-                              title: l.openBotTitleTv,
-                              help: l.openBotHelpTv,
-                            ),
+                          : openBot(context, isTV: isTV, bot: bot),
                     ),
                   ),
                 // The phone asks again by itself when it comes back from Telegram.
@@ -1976,6 +1982,20 @@ class _FinishedServicesState extends State<_FinishedServices> {
         isTV &&
         _head.hasFocus &&
         FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+    (String, ShikooIcon?, VoidCallback)? actionOf(Finished row) =>
+        switch (row) {
+          _ when widget.account.renews(row) => (
+            l.renew,
+            isTV ? ShikooIcon.qr : null,
+            () => _renew(row),
+          ),
+          _ when row.linked?.outsourced ?? false => (
+            isTV ? l.openBotTv : l.openBotTouch,
+            isTV ? ShikooIcon.qr : ShikooIcon.plane,
+            () => openBot(context, isTV: isTV, bot: widget.account.bot),
+          ),
+          _ => null,
+        };
     Widget line(Finished row, bool focused) => Container(
       padding: EdgeInsets.symmetric(
         vertical: Space.s3,
@@ -2007,22 +2027,23 @@ class _FinishedServicesState extends State<_FinishedServices> {
               ],
             ),
           ),
-          if (widget.account.renews(row))
+          if (actionOf(row) case (final label, final icon, final act))
             isTV
                 ? ExcludeFocus(
                     child: IgnorePointer(
                       child: ShikooButton(
-                        label: l.renew,
-                        icon: ShikooIcon.qr,
+                        label: label,
+                        icon: icon,
                         small: true,
                         onPressed: () {},
                       ),
                     ),
                   )
                 : ShikooButton(
-                    label: l.renew,
+                    label: label,
+                    icon: icon,
                     small: true,
-                    onPressed: () => _renew(row),
+                    onPressed: act,
                   ),
         ],
       ),
@@ -2092,9 +2113,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
                   child: Pressable(
                     focusNode: i == 0 ? _first : null,
                     shape: shape,
-                    onPressed: widget.account.renews(row)
-                        ? () => _renew(row)
-                        : null,
+                    onPressed: actionOf(row)?.$3,
                     builder: (context, focused) => line(row, focused),
                   ),
                 )

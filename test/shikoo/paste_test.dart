@@ -129,6 +129,31 @@ void main() {
         'https://4g3.uk/sub',
       );
     });
+
+    test('is also one at the app door, only at its scheme, host and port', () {
+      const doors = ['https://app.chopon.uk', 'http://10.0.2.2:7460'];
+      for (final link in [
+        'https://app.chopon.uk/api/v1/app/sub/abc',
+        'http://10.0.2.2:7460/api/v1/app/sub/abc',
+      ]) {
+        expect(shikooLink(link, doors: doors), link, reason: link);
+      }
+      expect(
+        shikooLink('https://app.chopon.uk/api/v1/app/sub/abc'),
+        'https://app.chopon.uk/api/v1/app/sub/abc',
+        reason: "this build's own door",
+      );
+      for (final text in [
+        'http://app.chopon.uk/api/v1/app/sub/abc',
+        'https://app.chopon.uk:8443/api/v1/app/sub/abc',
+        'https://evil.app.chopon.uk/api/v1/app/sub/abc',
+        'https://app.chopon.uk.evil.com/api/v1/app/sub/abc',
+        'https://app.chopon.uk@evil.com/api/v1/app/sub/abc',
+        'http://10.0.2.2:7461/api/v1/app/sub/abc',
+      ]) {
+        expect(shikooLink(text, doors: doors), isNull, reason: text);
+      }
+    });
   });
 
   group('a failed add', () {

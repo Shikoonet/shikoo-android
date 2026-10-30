@@ -1496,6 +1496,30 @@ abstract class ShikooL10n {
   /// **'ShikooNet bot'**
   String get openBotTv;
 
+  /// Bold first line of the grey box on the card of a shop shelf account another provider runs (outsourced): its days and data are not the app's to show, as it may have been opened elsewhere first.
+  ///
+  /// In en, this message translates to:
+  /// **'Validity and data aren\'t shown here.'**
+  String get outsourcedTitle;
+
+  /// No description provided for @outsourcedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Its days count from the first connection. For a new one, go to the ShikooNet bot.'**
+  String get outsourcedHelp;
+
+  /// Folded card of an outsourced account, beside its protocol chip, in place of data used and the end date.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid from the first connection'**
+  String get outsourcedSummary;
+
+  /// An outsourced account the shop closed; it is never renewed, the bot sells a new one.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired. For a new one, go to the ShikooNet bot.'**
+  String get outsourcedEnded;
+
   /// Phone: summaryExpired for a service that came from the Telegram account without its end date.
   ///
   /// In en, this message translates to:

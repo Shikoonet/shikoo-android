@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -914,6 +915,20 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get openBotTv => 'ShikooNet bot';
+
+  @override
+  String get outsourcedTitle => 'Validity and data aren\'t shown here.';
+
+  @override
+  String get outsourcedHelp =>
+      'Its days count from the first connection. For a new one, go to the ShikooNet bot.';
+
+  @override
+  String get outsourcedSummary => 'Valid from the first connection';
+
+  @override
+  String get outsourcedEnded =>
+      'Expired. For a new one, go to the ShikooNet bot.';
 
   @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';

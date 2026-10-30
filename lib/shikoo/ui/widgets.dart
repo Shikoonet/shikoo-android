@@ -912,7 +912,8 @@ String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
 
 class StatusChip extends StatelessWidget {
   const StatusChip({super.key, required this.status, this.label})
-    : disabled = false;
+    : disabled = false,
+      neutral = false;
 
   /// A finished service of the account; one the shop turned off reads «غیرفعال شد», not expired.
   StatusChip.linked(LinkedService service, {super.key})
@@ -920,11 +921,19 @@ class StatusChip extends StatelessWidget {
           ? ShikooServiceStatus.exhausted
           : ShikooServiceStatus.expired,
       disabled = service.disabled,
-      label = null;
+      label = null,
+      neutral = false;
+
+  /// `.chip-neutral`: grey, for a word that is no state, as an outsourced account's protocol.
+  const StatusChip.neutral(String this.label, {super.key})
+    : status = ShikooServiceStatus.active,
+      disabled = false,
+      neutral = true;
 
   final ShikooServiceStatus status;
   final bool disabled;
   final String? label;
+  final bool neutral;
 
   @override
   Widget build(BuildContext context) {
@@ -937,7 +946,9 @@ class StatusChip extends StatelessWidget {
         vertical: Space.s1,
       ),
       decoration: ShapeDecoration(
-        color: ok ? t.c.positiveSoft : t.c.dangerSoft,
+        color: neutral
+            ? t.c.surfaceSunken
+            : (ok ? t.c.positiveSoft : t.c.dangerSoft),
         shape: const StadiumBorder(),
       ),
       child: Text(
@@ -945,7 +956,7 @@ class StatusChip extends StatelessWidget {
         style: t.text(
           t.s.caption,
           weight: FontWeight.w700,
-          color: ok ? t.c.positive : t.c.danger,
+          color: neutral ? t.c.textMuted : (ok ? t.c.positive : t.c.danger),
         ),
       ),
     );

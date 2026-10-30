@@ -86,6 +86,7 @@ class LinkedService {
     this.expiresAt,
     this.loadFailed = false,
     this.renewable,
+    this.outsourced = false,
   });
 
   /// The statuses of shikoo-platform's `/services` that mean ended; `on_hold` has not started.
@@ -109,6 +110,9 @@ class LinkedService {
 
   /// The door's answer by the bot's own renewal rule; null from a door older than it.
   final bool? renewable;
+
+  /// A shelf account another provider runs: no date or volume shown (Sam); undated by the door, a closed one is dated when first seen.
+  final bool outsourced;
 
   bool get botRenews => renewable != false;
 
@@ -288,12 +292,16 @@ class PollAnswer {
 }
 
 class AccountServiceRow {
-  AccountServiceRow.fromJson(Map<String, dynamic> json)
+  AccountServiceRow.fromJson(Map<String, dynamic> json, Uri door)
     : id = json['id'] as int,
       title = json['title'] as String,
       location = json['location'] as String?,
       status = json['status'] as String,
-      subUrl = json['sub_url'] as String?,
+      subUrl = switch (json['sub_url']) {
+        final String url when url.startsWith('/') => '${door.resolve(url)}',
+        final String url => url,
+        _ => null,
+      },
       expiresAt = switch (json['expires_at']) {
         final String at => DateTime.tryParse(at),
         _ => null,
@@ -301,7 +309,8 @@ class AccountServiceRow {
       renewable = switch (json['renewable']) {
         final bool renewable => renewable,
         _ => null,
-      };
+      },
+      outsourced = json['outsourced'] == true;
 
   final int id;
   final String title;
@@ -310,6 +319,7 @@ class AccountServiceRow {
   final String? subUrl;
   final DateTime? expiresAt;
   final bool? renewable;
+  final bool outsourced;
 
   String get label => location == null ? title : '$title · $location';
 }
@@ -513,7 +523,10 @@ class ShikooApi {
       bot: body['bot'] as String?,
       services: [
         for (final row in body['services'] as List)
-          AccountServiceRow.fromJson(row as Map<String, dynamic>),
+          AccountServiceRow.fromJson(
+            row as Map<String, dynamic>,
+            response.requestOptions.uri,
+          ),
       ],
     );
   }
@@ -803,6 +816,7 @@ class ShikooSignIn {
                     final bool renewable => renewable,
                     _ => null,
                   },
+                  outsourced: s['outsourced'] == true,
                 ),
             ],
             total: json['total'] as int? ?? 0,
@@ -861,6 +875,7 @@ class ShikooSignIn {
               'expiresAt': s.expiresAt?.toIso8601String(),
               'loadFailed': s.loadFailed,
               'renewable': s.renewable,
+              'outsourced': s.outsourced,
             },
         ],
         'total': account.total,
@@ -1145,8 +1160,10 @@ class ShikooSignIn {
       final was = before.remove(row.id);
       var profileId = _existing(was?.profileId);
       var loadFailed = false;
-      var status = row.status;
-      final url = _linkOf(row);
+      final closed =
+          row.outsourced && LinkedService.finishedStatuses.contains(row.status);
+      var status = closed ? 'expired' : row.status;
+      final url = closed ? null : _linkOf(row);
       if (url != null && _urlOf(profileId) != url) {
         final (added, failure) = await _add(url, row.label);
         if (token != _token) {
@@ -1158,6 +1175,7 @@ class ShikooSignIn {
           final ended = switch (failure) {
             ShikooPasteError.expired => 'expired',
             ShikooPasteError.exhausted => 'exhausted',
+            ShikooPasteError.revoked when row.outsourced => 'expired',
             _ => null,
           };
           // shortcut: the server's date stays, so its row may read «امروز تمام شد»; carry the panel's expire if seen.
@@ -1168,21 +1186,26 @@ class ShikooSignIn {
           if (profileId != added) await _drop(profileId);
           profileId = added;
         }
-      } else if (url == null && !_keepsLink.contains(row.status)) {
+      } else if (url == null && (closed || !_keepsLink.contains(row.status))) {
         await _drop(profileId);
         profileId = null;
       } else if (url != null && _ended(profileId)) {
         renewed.add(profileId!);
       }
+      final shelfEnded =
+          row.outsourced && LinkedService.finishedStatuses.contains(status);
       kept.add(
         LinkedService(
           id: row.id,
           title: row.label,
           status: status,
           profileId: profileId,
-          expiresAt: row.expiresAt,
+          expiresAt: shelfEnded
+              ? row.expiresAt ?? was?.expiresAt ?? shikooNow()
+              : row.expiresAt,
           loadFailed: loadFailed,
-          renewable: row.renewable,
+          renewable: row.outsourced ? false : row.renewable,
+          outsourced: row.outsourced,
         ),
       );
     }
@@ -1207,8 +1230,8 @@ class ShikooSignIn {
     return !(failed && kept.length == unloaded);
   }
 
-  static String? _linkOf(AccountServiceRow row) =>
-      row.subUrl == null ? null : shikooLink(row.subUrl!);
+  String? _linkOf(AccountServiceRow row) =>
+      row.subUrl == null ? null : shikooLink(row.subUrl!, doors: _api.bases);
 
   int? _existing(int? profileId) =>
       _ref.read(profilesProvider).any((p) => p.id == profileId)

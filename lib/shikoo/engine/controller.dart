@@ -140,6 +140,7 @@ class ShikooService {
     this.revoked = false,
     this.number = 1,
     this.account,
+    this.outsourced = false,
   });
 
   final bool bridgeLeg;
@@ -169,6 +170,9 @@ class ShikooService {
   final int number;
 
   final String? account;
+
+  /// [LinkedService.outsourced]: a shelf account; its usage stays unknown even if a header told it.
+  final bool outsourced;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -673,6 +677,10 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final route = ref.watch(shikooWarpRouteProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
+  final outsourced = {
+    for (final linked in ref.watch(shikooAccountProvider).services)
+      if (linked.outsourced) ?linked.profileId,
+  };
   final unnamed = [
     for (final profile in ref.watch(profilesProvider))
       if (_nameOf(profile).isEmpty) profile.id,
@@ -686,6 +694,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     pasted: pasted.contains(profile.id),
     revoked: revoked.contains(profile.id),
     number: unnamed.indexOf(profile.id) + 1,
+    outsourced: outsourced.contains(profile.id),
   );
 
   final group = _mainGroup(ref);
@@ -955,6 +964,7 @@ ShikooService _serviceFrom(
   bool pasted = false,
   bool revoked = false,
   int number = 1,
+  bool outsourced = false,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
@@ -969,13 +979,14 @@ ShikooService _serviceFrom(
     supportUrl: extras?.supportUrl,
     account: extras?.account,
     updatedAt: profile.lastUpdateDate,
-    usageKnown: info != null,
+    usageKnown: info != null && !outsourced,
     refresh: refresh,
     leg: leg,
     bridgeLeg: bridgeLeg,
     pasted: pasted,
     revoked: revoked,
     number: number < 1 ? 1 : number,
+    outsourced: outsourced,
   );
 }
 

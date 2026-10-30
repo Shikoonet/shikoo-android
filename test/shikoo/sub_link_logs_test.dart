@@ -67,4 +67,28 @@ void main() {
     }
     expect(ring, contains('[APP] find'));
   });
+
+  test("a shelf account's link, the door's bare path or resolved, leaves its "
+      'token in no logcat line and no report line', () {
+    const token = 'k3Vq9_Zx-2LmB7tR0pYc4WnE8sJdA1hGfU6oKiQ5yXz';
+    final printed = <String>[];
+    final print = debugPrint;
+    debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
+    addTearDown(() => debugPrint = print);
+    app.hideLinksInLogs();
+    for (final line in [
+      '{"id":42,"sub_url":"/api/v1/app/sub/$token","renewable":false}',
+      'GET /api/v1/app/sub/$token 410',
+      'DioException [bad response]: https://app.chopon.uk/api/v1/app/sub/$token',
+      'FormatException: no config at (/api/v1/app/sub/$token).',
+    ]) {
+      debugPrint(line);
+      expect(printed.last, isNot(contains(token)), reason: 'logcat: $line');
+      expect(
+        cleanLine(line, null),
+        isNot(contains(token)),
+        reason: 'diag.log and report: $line',
+      );
+    }
+  });
 }
