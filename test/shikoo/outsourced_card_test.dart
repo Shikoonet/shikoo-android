@@ -98,6 +98,17 @@ ShikooState _alone({
   lastError: error,
 );
 
+ShikooState _connectedNoInternet({bool isTV = false, bool refused = true}) =>
+    ShikooState(
+      connection: ShikooConnection.on,
+      connectedFor: const Duration(minutes: 12, seconds: 47),
+      isTV: isTV,
+      service: _shelf(2, refused: refused),
+      servers: _servers,
+      selected: 'آلمان ۱',
+      connectedNoTraffic: true,
+    );
+
 Future<void> _pump(
   WidgetTester tester,
   ShikooState state,
@@ -307,7 +318,9 @@ void main() {
     );
     expect(
       _in<ServiceCard>(
-        find.text('این حساب دیگر پذیرفته نمی‌شود؛ برای حساب تازه به ربات برو.'),
+        find.text(
+          'این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.',
+        ),
       ),
       findsOneWidget,
     );
@@ -340,9 +353,74 @@ void main() {
     );
     expect([for (final f in aside) f.evaluate().length], [0, 0, 0]);
     expect(
-      find.text('این حساب دیگر پذیرفته نمی‌شود؛ برای حساب تازه به ربات برو.'),
+      find.text(
+        'این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.',
+      ),
       findsOneWidget,
     );
+  });
+
+  testWidgets(
+    'refused while «connected» with no internet (design الف): its '
+    'red line alone, no amber card and no speed pills; not refused, the '
+    'amber card',
+    (tester) async {
+      final l = lookupShikooL10n(const Locale('fa'));
+      final card = find.byWidgetPredicate(
+        (w) => '${w.runtimeType}' == '_NoInternet',
+      );
+      for (final (at, isTV)
+          in shikooDesktop
+              ? const [('windows', false)]
+              : const [('phone', false), ('tv', true)]) {
+        for (final refused in [true, false]) {
+          await _pump(
+            tester,
+            _connectedNoInternet(isTV: isTV, refused: refused),
+            const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+            window: shikooDesktop ? const Size(1280, 800) : null,
+          );
+          expect(
+            [
+              for (final f in [
+                find.text(l.outsourcedRefused),
+                card,
+                find.byType(SpeedPills),
+                find.text('وصل، بی‌اینترنت'),
+              ])
+                f.evaluate().length,
+            ],
+            refused ? [1, 0, 0, 1] : [0, 1, 0, 1],
+            reason: '$at refused=$refused',
+          );
+        }
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.windows,
+    }),
+  );
+
+  testWidgets('refused while «connected» with no internet, on the TV down from '
+      'the round button is the bot', (tester) async {
+    await _pump(
+      tester,
+      _connectedNoInternet(isTV: true),
+      const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+    );
+    final power = find.descendant(
+      of: find.byType(PowerButton),
+      matching: find.byType(GestureDetector),
+    );
+    Focus.of(tester.element(power.first)).requestFocus();
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<PowerButton>(),
+      isNotNull,
+    );
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), 'ربات شیکونت');
   });
 
   testWidgets('in English, as the phone-b-en frame', (tester) async {

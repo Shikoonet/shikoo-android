@@ -908,6 +908,18 @@ abstract class ShikooL10n {
   /// **'Choose another server'**
   String get noInternetOther;
 
+  /// Second line of the no-internet card, phone, when the service has this one server only: its button is support (the top bar’s word) instead of noInternetOther.
+  ///
+  /// In en, this message translates to:
+  /// **'This server isn’t answering right now. It sometimes takes a while; try again a bit later or ask support.'**
+  String get noInternetOne;
+
+  /// noInternetOne on the TV: the long line would wrap and shrink the round button. The button shows support’s QR.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again a bit later or ask support.'**
+  String get noInternetOneTv;
+
   /// Grey card while connected to the panel's free streaming server.
   ///
   /// In en, this message translates to:
@@ -1562,10 +1574,10 @@ abstract class ShikooL10n {
   /// **'Expired. For a new one, go to the ShikooNet bot.'**
   String get outsourcedEnded;
 
-  /// A shelf account whose OpenVPN server answered AUTH_FAILED after the customer's connect failed: its user or password is not taken any more.
+  /// A shelf account whose OpenVPN server answered AUTH_FAILED after the customer's connect failed or carried no internet: its user or password is not taken any more. While connected it is the only message: the no-internet card does not come.
   ///
   /// In en, this message translates to:
-  /// **'This account is no longer accepted; for a new one, go to the bot.'**
+  /// **'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.'**
   String get outsourcedRefused;
 
   /// Phone: summaryExpired for a service that came from the Telegram account without its end date.

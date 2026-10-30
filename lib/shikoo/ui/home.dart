@@ -473,6 +473,17 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       checked: check != null,
       offline: offline,
       onOther: () => _toFastest(state, controller),
+      onSupport: current == null
+          ? null
+          : () => unawaited(
+              openSupport(
+                context,
+                isTV: state.isTV,
+                link: current.supportLink,
+                below: serviceTitle(context, current),
+                trigger: 'support',
+              ),
+            ),
     );
     _LinklessCard linkless(LinkedService linked) => _LinklessCard(
       service: linked,
@@ -673,6 +684,10 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                         down:
                             offersWarp(state, offline: offline) ||
                             state.noInternet,
+                        below:
+                            state.noInternet && (current?.loginRefused ?? false)
+                            ? _card.bot
+                            : null,
                         targets: [
                           _crashSend,
                           _check,
@@ -822,11 +837,13 @@ class _PowerKeys extends StatelessWidget {
     required this.targets,
     required this.child,
     this.down = false,
+    this.below,
   });
 
   final List<FocusNode> targets;
   final Widget child;
   final bool down;
+  final FocusNode? below;
 
   @override
   Widget build(BuildContext context) {
@@ -843,6 +860,9 @@ class _PowerKeys extends StatelessWidget {
             final target = targets.firstWhereOrNull(_onScreen);
             if (intent.direction == towardCard && target != null) {
               target.requestFocus();
+            } else if (intent.direction == TraversalDirection.down &&
+                _onScreen(below)) {
+              below!.requestFocus();
             } else if (!stays.contains(intent.direction)) {
               primaryFocus?.focusInDirection(intent.direction);
             }
@@ -1193,6 +1213,7 @@ class _PowerZone extends StatelessWidget {
     this.checked = false,
     this.offline = false,
     this.onOther,
+    this.onSupport,
   });
 
   final ShikooState state;
@@ -1209,6 +1230,7 @@ class _PowerZone extends StatelessWidget {
   final bool checked;
   final bool offline;
   final VoidCallback? onOther;
+  final VoidCallback? onSupport;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -1420,12 +1442,13 @@ class _PowerZone extends StatelessWidget {
         : (shikooDesktop ? width : double.infinity);
     final card = message != null
         ? null
-        : state.noInternet
+        : state.noInternet && !(state.service?.loginRefused ?? false)
         ? _NoInternet(
             name: serverName(selected!.name),
             isTV: state.isTV,
             width: cardWidth,
             onOther: onOther,
+            onSupport: state.servers.length == 1 ? onSupport : null,
             power: focusNode,
           )
         : (state.connection == ShikooConnection.on && state.streaming
@@ -1493,7 +1516,7 @@ class _PowerZone extends StatelessWidget {
             ? Container(
                 constraints: BoxConstraints(minHeight: slot),
                 alignment: Alignment.center,
-                child: card ?? const SpeedPills(),
+                child: card ?? (state.noInternet ? null : const SpeedPills()),
               )
             : say!
       else if (state.connection == ShikooConnection.on && !state.noInternet)
@@ -1563,12 +1586,16 @@ class _NoInternet extends StatefulWidget {
     required this.width,
     required this.onOther,
     required this.power,
+    this.onSupport,
   });
 
   final String name;
   final bool isTV;
   final double width;
   final VoidCallback? onOther;
+
+  /// A service with one server: no other to choose, so its support instead.
+  final VoidCallback? onSupport;
   final FocusNode power;
 
   @override
@@ -1605,6 +1632,9 @@ class _NoInternetState extends State<_NoInternet> {
     final title = widget.isTV
         ? l.noInternetTitleTv
         : l.noInternetTitle(widget.name);
+    final support = widget.onSupport;
+    final label = support == null ? l.noInternetOther : l.support;
+    final onPressed = support ?? widget.onOther;
     if (shikooDesktop) {
       return SizedBox(
         width: widget.width,
@@ -1625,10 +1655,10 @@ class _NoInternetState extends State<_NoInternet> {
                 maxHeight: ShikooSizes.touch,
                 fit: OverflowBoxFit.deferToChild,
                 child: ShikooButton(
-                  label: l.noInternetOther,
+                  label: label,
                   small: true,
                   focusNode: _node,
-                  onPressed: widget.onOther,
+                  onPressed: onPressed,
                 ),
               ),
             ),
@@ -1669,7 +1699,11 @@ class _NoInternetState extends State<_NoInternet> {
                       ),
                     ),
                     Text(
-                      l.noInternetBody,
+                      switch ((support, widget.isTV)) {
+                        (null, _) => l.noInternetBody,
+                        (_, true) => l.noInternetOneTv,
+                        _ => l.noInternetOne,
+                      },
                       style: t.text(
                         t.s.bodySm,
                         color: t.c.textMuted,
@@ -1682,10 +1716,12 @@ class _NoInternetState extends State<_NoInternet> {
             ],
           ),
           ShikooButton(
-            label: l.noInternetOther,
-            icon: ShikooIcon.lines,
+            label: label,
+            icon: support == null
+                ? ShikooIcon.lines
+                : (widget.isTV ? ShikooIcon.qr : null),
             focusNode: _node,
-            onPressed: widget.onOther,
+            onPressed: onPressed,
           ),
         ],
       ),

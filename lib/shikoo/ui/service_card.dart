@@ -50,6 +50,7 @@ class CardFocus {
   final refresh = FocusNode();
   final caret = FocusNode();
   final report = FocusNode();
+  final bot = FocusNode();
 
   /// The failure message's other way.
   final other = FocusNode();
@@ -64,6 +65,7 @@ class CardFocus {
     refresh.dispose();
     caret.dispose();
     report.dispose();
+    bot.dispose();
     other.dispose();
     for (final node in _rows.values) {
       node.dispose();
@@ -320,6 +322,7 @@ class _ServiceCardState extends State<ServiceCard> {
                       isTV: state.isTV,
                       bot: widget.bot,
                       refused: service.loginRefused,
+                      focusNode: focus.bot,
                     ),
                   ),
                 if (service.announce != null && !revoked)
@@ -1285,11 +1288,17 @@ Widget _protocolChip(BuildContext context) =>
 /// `.guide` (ovpn-shelf-card, design ب): an outsourced account's days and data are not the app's to
 /// tell, and the bot sells a new one; on the TV the button shows the bot's QR, between update and servers.
 class _Guide extends StatelessWidget {
-  const _Guide({required this.isTV, required this.bot, this.refused = false});
+  const _Guide({
+    required this.isTV,
+    required this.bot,
+    this.refused = false,
+    this.focusNode,
+  });
 
   final bool isTV;
   final String? bot;
   final bool refused;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -1330,6 +1339,7 @@ class _Guide extends StatelessWidget {
           ShikooButton(
             label: isTV ? l.openBotTv : l.openBotTouch,
             icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
+            focusNode: focusNode,
             onPressed: () => openBot(context, isTV: isTV, bot: bot),
           ),
         ],

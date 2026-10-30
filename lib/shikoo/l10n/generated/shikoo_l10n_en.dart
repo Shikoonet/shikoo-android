@@ -567,6 +567,13 @@ class ShikooL10nEn extends ShikooL10n {
   String get noInternetOther => 'Choose another server';
 
   @override
+  String get noInternetOne =>
+      'This server isn’t answering right now. It sometimes takes a while; try again a bit later or ask support.';
+
+  @override
+  String get noInternetOneTv => 'Try again a bit later or ask support.';
+
+  @override
   String get streamingTitle => 'Only for Namava, Filimo, Shayda and Gapfilm';
 
   @override
@@ -955,7 +962,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get outsourcedRefused =>
-      'This account is no longer accepted; for a new one, go to the bot.';
+      'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.';
 
   @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';

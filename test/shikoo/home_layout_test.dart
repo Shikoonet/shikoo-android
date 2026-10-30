@@ -1446,17 +1446,21 @@ void _switchOnTv() {
     tester,
   ) async {
     final wrong = <String>[];
-    for (final (locale, name) in const [
-      ('fa', 'فنلاند ۲'),
-      ('fa', 'آلمان ۵ Reality'),
-      ('fa', 'آلمان ۲ · سرور ویژهٔ بسیار پرسرعت'),
-      ('en', 'Germany 3'),
+    for (final (locale, name, one) in const [
+      ('fa', 'فنلاند ۲', false),
+      ('fa', 'آلمان ۵ Reality', false),
+      ('fa', 'آلمان ۲ · سرور ویژهٔ بسیار پرسرعت', false),
+      ('en', 'Germany 3', false),
+      ('fa', 'فنلاند ۲', true),
+      ('fa', 'آلمان ۵ Reality', true),
+      ('fa', 'آلمان ۲ · سرور ویژهٔ بسیار پرسرعت', true),
+      ('en', 'Germany 3', true),
     ]) {
       _tvScreen(tester);
       ShikooState at({bool none = false}) => _tv(
         ShikooConnection.on,
         servers: [
-          const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
+          if (!one) const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
           ShikooServer(name: name, type: 'Vless', ping: 70),
         ],
         selected: name,
@@ -1495,8 +1499,62 @@ void _switchOnTv() {
           pill > card) {
         wrong.add('$locale $name: $before → $after, $card/$pill in $column');
       }
+      if (one) {
+        final line = lookupShikooL10n(Locale(locale)).noInternetOneTv;
+        final lines = tester
+            .renderObject<RenderParagraph>(find.text(line))
+            .getBoxesForSelection(
+              TextSelection(baseOffset: 0, extentOffset: line.length),
+            )
+            .map((box) => box.top.round())
+            .toSet();
+        if (lines.length != 1) {
+          wrong.add('$locale $name: $line in ${lines.length} lines');
+        }
+      }
     }
     expect(wrong, isEmpty);
+  });
+
+  testWidgets('no internet on the TV on a service of one server: its short '
+      'line and «پشتیبانی», where the remote goes, whose OK shows the '
+      "service's support QR", (tester) async {
+    _tvScreen(tester);
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.on,
+        servers: const [
+          ShikooServer(name: 'فنلاند ۲', type: 'Vless', ping: 70),
+        ],
+        connectedNoTraffic: true,
+        supportUrl: 'https://t.me/one_server_support',
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final card = find.byWidgetPredicate(
+      (w) => '${w.runtimeType}' == '_NoInternet',
+    );
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.text('کمی بعد امتحان کن یا از پشتیبانی بپرس.'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('انتخاب سرور دیگر'), findsNothing);
+    var inCard = false;
+    FocusManager.instance.primaryFocus?.context?.visitAncestorElements((e) {
+      inCard = '${e.widget.runtimeType}' == '_NoInternet';
+      return !inCard;
+    });
+    expect((_focused(), inCard), ('پشتیبانی', true));
+    await _press(tester, _ok);
+    expect(
+      tester.widget<QrTile>(find.byType(QrTile)).data,
+      'https://t.me/one_server_support',
+    );
   });
 
   testWidgets('with no pings «انتخاب سرور دیگر» passes over the streaming '

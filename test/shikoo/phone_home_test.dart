@@ -2530,6 +2530,59 @@ void main() {
     expect(find.text('Choose another server'), findsOneWidget);
   });
 
+  testWidgets('connected with no internet on a service of one server: no other '
+      'to choose, so the card says wait or ask, and «پشتیبانی» opens its '
+      'support; two servers keep «انتخاب سرور دیگر»', (tester) async {
+    ShikooState on(List<ShikooServer> servers) => ShikooState(
+      connection: ShikooConnection.on,
+      connectedFor: const Duration(minutes: 12, seconds: 47),
+      isTV: false,
+      service: _phone().service,
+      servers: servers,
+      selected: 'آلمان ۲',
+      sorted: true,
+      connectedNoTraffic: true,
+    );
+    Finder inCard(String text) => find.descendant(
+      of: find.byWidgetPredicate((w) => '${w.runtimeType}' == '_NoInternet'),
+      matching: find.text(text),
+    );
+    const one = [ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 96)];
+    await _pump(tester, on(one));
+    expect(
+      inCard(
+        'این سرور الان جواب نمی‌دهد. گاهی کمی طول می‌کشد؛ کمی بعد دوباره '
+        'امتحان کن یا از پشتیبانی بپرس.',
+      ),
+      findsOneWidget,
+    );
+    expect(inCard('انتخاب سرور دیگر'), findsNothing);
+    await tester.tap(inCard('پشتیبانی'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(lookupShikooL10n(const Locale('fa')).reportChatTelegram),
+      findsOneWidget,
+    );
+
+    await _pump(tester, on(one), locale: 'en');
+    expect(
+      inCard(
+        'This server isn’t answering right now. It sometimes takes a while; '
+        'try again a bit later or ask support.',
+      ),
+      findsOneWidget,
+    );
+    expect(inCard('Support'), findsOneWidget);
+
+    await _pump(
+      tester,
+      on([...one, const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 61)]),
+    );
+    expect(inCard('شاید این سرور روی اینترنت تو بسته باشد.'), findsOneWidget);
+    expect(inCard('انتخاب سرور دیگر'), findsOneWidget);
+    expect(inCard('پشتیبانی'), findsNothing);
+  });
+
   testWidgets('a pasted link the panel no longer knows: its chip, the message, '
       'remove and support, and nothing of the old usage', (tester) async {
     final controller = _Controller();

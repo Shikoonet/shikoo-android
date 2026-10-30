@@ -528,6 +528,13 @@ class ShikooL10nFa extends ShikooL10n {
   String get noInternetOther => 'انتخاب سرور دیگر';
 
   @override
+  String get noInternetOne =>
+      'این سرور الان جواب نمی‌دهد. گاهی کمی طول می‌کشد؛ کمی بعد دوباره امتحان کن یا از پشتیبانی بپرس.';
+
+  @override
+  String get noInternetOneTv => 'کمی بعد امتحان کن یا از پشتیبانی بپرس.';
+
+  @override
   String get streamingTitle => 'فقط برای نماوا، فیلیمو، شیدا و گپ‌فیلم';
 
   @override
@@ -913,7 +920,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get outsourcedRefused =>
-      'این حساب دیگر پذیرفته نمی‌شود؛ برای حساب تازه به ربات برو.';
+      'این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.';
 
   @override
   String get summaryExpiredNoDate =>
