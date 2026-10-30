@@ -810,10 +810,7 @@ void main() {
       ),
     );
     expect(find.text('وصل، بی‌اینترنت'), findsOneWidget);
-    expect(
-      find.text('اینترنت از «\u2068shikoonetturkey\u2069» رد نمی‌شود.'),
-      findsOneWidget,
-    );
+    expect(find.text('اینترنت از این سرور رد نمی‌شود.'), findsOneWidget);
     expect(
       find.textContaining('جواب نمی‌دهد'),
       findsNothing,
@@ -1358,57 +1355,63 @@ void _switchOnTv() {
     expect(_focused(), 'هلند ۱');
   });
 
-  testWidgets('on the TV canvas the no-internet card keeps the round button '
-      'its size and inside its column, and so does a long name', (
+  testWidgets('on the TV canvas the round button keeps its size when the '
+      'no-internet card comes, for a short name, «آلمان ۵ Reality», a long '
+      'name and in English; the card and the name pill stay in its column', (
     tester,
   ) async {
-    _tvScreen(tester);
-    const long = 'آلمان ۲ · سرور ویژهٔ بسیار پرسرعت با نامی بلند';
-    final servers = [
-      ..._servers,
-      const ShikooServer(name: long, type: 'Vless', ping: 70),
-    ];
-    final holder = await _pumpTvHome(
-      tester,
-      _tv(ShikooConnection.on, servers: servers),
-      canvas: true,
-    );
-    await tester.pumpAndSettle();
-    final button = find.byType(PowerButton);
-    final before = tester.getRect(button).size;
-    holder.value = _tv(
-      ShikooConnection.on,
-      servers: servers,
-      connectedNoTraffic: true,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('انتخاب سرور دیگر'), findsOneWidget);
-    expect(tester.getRect(button).size, before);
-
-    final column = tester
-        .renderObject<RenderBox>(
-          find.ancestor(of: button, matching: find.byType(LayoutBuilder)).first,
-        )
-        .constraints
-        .maxWidth;
-    double card() => tester
-        .getSize(
-          find.byWidgetPredicate((w) => '${w.runtimeType}' == '_NoInternet'),
-        )
-        .width;
-    expect(card() + 2 * ShikooSizes.ring, lessThanOrEqualTo(column));
-
-    holder.value = _tv(
-      ShikooConnection.on,
-      servers: servers,
-      selected: long,
-      connectedNoTraffic: true,
-    );
-    await tester.pumpAndSettle();
-    expect(
-      tester.getSize(find.byType(NowPill)).width,
-      lessThanOrEqualTo(card()),
-    );
+    final wrong = <String>[];
+    for (final (locale, name) in const [
+      ('fa', 'فنلاند ۲'),
+      ('fa', 'آلمان ۵ Reality'),
+      ('fa', 'آلمان ۲ · سرور ویژهٔ بسیار پرسرعت'),
+      ('en', 'Germany 3'),
+    ]) {
+      _tvScreen(tester);
+      ShikooState at({bool none = false}) => _tv(
+        ShikooConnection.on,
+        servers: [
+          const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
+          ShikooServer(name: name, type: 'Vless', ping: 70),
+        ],
+        selected: name,
+        connectedNoTraffic: none,
+      );
+      final holder = await _pumpTvHome(
+        tester,
+        at(),
+        locale: locale,
+        canvas: true,
+      );
+      await tester.pumpAndSettle();
+      final button = find.byType(PowerButton);
+      final before = tester.getRect(button).width;
+      holder.value = at(none: true);
+      await tester.pumpAndSettle();
+      final after = tester.getRect(button).width;
+      final column = tester
+          .renderObject<RenderBox>(
+            find
+                .ancestor(of: button, matching: find.byType(LayoutBuilder))
+                .first,
+          )
+          .constraints
+          .maxWidth;
+      final card = tester
+          .getSize(
+            find.byWidgetPredicate((w) => '${w.runtimeType}' == '_NoInternet'),
+          )
+          .width;
+      final pill = tester.getSize(find.byType(NowPill)).width;
+      const ring = ShikooSizes.ring;
+      if ((before - ShikooSizes.tv.powerRing).abs() > 0.01 ||
+          (after - before).abs() > 0.01 ||
+          card + 2 * ring > column ||
+          pill > card) {
+        wrong.add('$locale $name: $before → $after, $card/$pill in $column');
+      }
+    }
+    expect(wrong, isEmpty);
   });
 
   testWidgets('with no pings «انتخاب سرور دیگر» passes over the streaming '

@@ -132,6 +132,7 @@
   "selectedDown": "«{name}» جواب نمی‌دهد.\nسرور دیگری را از فهرست انتخاب کن.",
   "powerNoInternet": "وصل، بی‌اینترنت",
   "noInternetTitle": "اینترنت از «{name}» رد نمی‌شود.",
+  "noInternetTitleTv": "اینترنت از این سرور رد نمی‌شود.",
   "noInternetBody": "شاید این سرور روی اینترنت تو بسته باشد.",
   "noInternetOther": "انتخاب سرور دیگر",
   "streamingTitle": "فقط برای نماوا، فیلیمو، شیدا و گپ‌فیلم",

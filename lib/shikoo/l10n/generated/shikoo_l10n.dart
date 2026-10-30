@@ -890,10 +890,16 @@ abstract class ShikooL10n {
   /// **'The internet doesn’t get through “{name}”.'**
   String noInternetTitle(String name);
 
+  /// The no-internet card's first line on the TV: a name would wrap it and shrink the round button, and the server pill under the card names the server.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet through this server.'**
+  String get noInternetTitleTv;
+
   /// Second line of the no-internet card, phone and TV.
   ///
   /// In en, this message translates to:
-  /// **'This server may be blocked on your network.'**
+  /// **'It may be blocked on your network.'**
   String get noInternetBody;
 
   /// Button of the no-internet card: shows the fastest other server in the list (the remote moves onto it on the TV).

@@ -1532,7 +1532,9 @@ class _NoInternetState extends State<_NoInternet> {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    final title = l.noInternetTitle(widget.name);
+    final title = widget.isTV
+        ? l.noInternetTitleTv
+        : l.noInternetTitle(widget.name);
     if (shikooDesktop) {
       return SizedBox(
         width: widget.width,

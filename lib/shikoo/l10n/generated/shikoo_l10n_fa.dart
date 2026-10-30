@@ -519,6 +519,9 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String get noInternetTitleTv => 'اینترنت از این سرور رد نمی‌شود.';
+
+  @override
   String get noInternetBody => 'شاید این سرور روی اینترنت تو بسته باشد.';
 
   @override

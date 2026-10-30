@@ -558,7 +558,10 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
-  String get noInternetBody => 'This server may be blocked on your network.';
+  String get noInternetTitleTv => 'No internet through this server.';
+
+  @override
+  String get noInternetBody => 'It may be blocked on your network.';
 
   @override
   String get noInternetOther => 'Choose another server';

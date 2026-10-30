@@ -3557,6 +3557,28 @@ void main() {
       }
     });
   });
+
+  testWidgets("a phone keeps the server's name in the no-internet card's "
+      'first line, where the TV says «this server»', (tester) async {
+    const name = 'آلمان ۵ Reality';
+    await _pump(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: const Duration(minutes: 1),
+        isTV: false,
+        service: _phone().service,
+        servers: const [ShikooServer(name: name, type: 'Vless', ping: 70)],
+        selected: name,
+        connectedNoTraffic: true,
+      ),
+    );
+    expect(
+      find.text('اینترنت از «⁨آلمان ۵ Reality⁩» رد نمی‌شود.'),
+      findsOneWidget,
+    );
+    expect(find.text('اینترنت از این سرور رد نمی‌شود.'), findsNothing);
+  });
 }
 
 /// On the TV: in use (0), active with the bot's id 70 (7), ended lately (8), revoked (9), and
