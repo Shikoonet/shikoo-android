@@ -568,7 +568,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get streamingBody =>
-      'Other sites and apps won’t open through this server.';
+      'Other sites and apps won’t open through this server.';
 
   @override
   String get vpnRefused =>

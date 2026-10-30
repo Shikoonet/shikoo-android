@@ -911,7 +911,7 @@ abstract class ShikooL10n {
   /// Second line of the streaming server's card.
   ///
   /// In en, this message translates to:
-  /// **'Other sites and apps won’t open through this server.'**
+  /// **'Other sites and apps won’t open through this server.'**
   String get streamingBody;
 
   /// No description provided for @vpnRefused.

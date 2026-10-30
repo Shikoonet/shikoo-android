@@ -817,17 +817,23 @@ void main() {
   });
 
   testWidgets('no internet on the TV: the remote moves to «انتخاب سرور دیگر», '
-      'whose OK puts it on the fastest other server; on the streaming '
-      'server the grey card, the remote left on the button', (tester) async {
+      'whose OK puts it on the fastest other server by its ping; the card '
+      'leaves the round button its size; on the streaming server the grey '
+      'card, the remote left on the button', (tester) async {
     _tvScreen(tester);
     final holder = await _pumpTvHome(tester, _tv(ShikooConnection.on));
     expect(_focused(), 'power');
+    final ring = tester.getSize(find.byType(PowerButton));
     holder.value = ShikooState(
       connection: ShikooConnection.on,
       connectedFor: holder.value.connectedFor,
       isTV: true,
       service: holder.value.service,
-      servers: _servers,
+      servers: const [
+        ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
+        ShikooServer(name: 'فنلاند ۲', type: 'Vless', ping: 112),
+        ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 61),
+      ],
       selected: 'فنلاند ۲',
       sorted: true,
       connectedNoTraffic: true,
@@ -841,10 +847,17 @@ void main() {
     );
     expect(find.byType(SpeedPills), findsNothing);
     expect(_focused(), 'انتخاب سرور دیگر');
+    expect(tester.getSize(find.byType(PowerButton)), ring);
+    expect(
+      tester
+          .getSize(find.widgetWithText(ShikooButton, 'انتخاب سرور دیگر'))
+          .height,
+      ShikooSizes.tv.button,
+    );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
-    expect(_focused(), 'آلمان ۲', reason: 'the fastest that is not in use');
+    expect(_focused(), 'هلند ۱', reason: 'the fastest by ping, not the first');
 
     const free = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
     await _pumpTvHome(

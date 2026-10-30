@@ -187,7 +187,7 @@
   "@noInternetOther": {"description": "Button of the no-internet card: shows the fastest other server in the list (the remote moves onto it on the TV)."},
   "streamingTitle": "Only for Namava, Filimo, Shayda and Gapfilm",
   "@streamingTitle": {"description": "Grey card while connected to the panel's free streaming server."},
-  "streamingBody": "Other sites and apps won’t open through this server.",
+  "streamingBody": "Other sites and apps won’t open through this\u00a0server.",
   "@streamingBody": {"description": "Second line of the streaming server's card."},
   "vpnRefused": "Permission to connect wasn't given.\nConnect again and allow it in Android's window.",
   "vpnMissing": "This device doesn't show Android's permission window.\nAsk Support.",

@@ -529,7 +529,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get streamingBody =>
-      'سایت‌ها و برنامه‌های دیگر از این سرور باز نمی‌شوند.';
+      'سایت‌ها و برنامه‌های دیگر از این سرور باز نمی‌شوند.';
 
   @override
   String get vpnRefused =>

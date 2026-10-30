@@ -476,6 +476,9 @@ void main() {
         lessThan(tester.getRect(find.byType(NowPill)).top),
       );
       expect(_text(l.noInternetBody), findsNothing, reason: 'one row only');
+      final room = ShikooSizes.desktop.dialog;
+      final row = find.ancestor(of: title, matching: find.byType(Row)).first;
+      expect(tester.getSize(row).width, lessThanOrEqualTo(room));
 
       await _pumpHome(
         tester,
@@ -487,6 +490,10 @@ void main() {
       expect(_text(l.powerOn), findsOne);
       expect(_text(l.streamingTitle), findsOne);
       expect(_text(l.streamingBody), findsOne);
+      expect(
+        tester.getSize(_text(l.streamingBody)).width,
+        lessThanOrEqualTo(room),
+      );
       expect(tester.getCenter(find.byType(PowerButton)), off);
     }, variant: _windows);
 

@@ -9,7 +9,7 @@ import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
-import 'package:fl_clash/shikoo/engine/ping.dart' show streamingOnly;
+import 'package:fl_clash/shikoo/engine/ping.dart' show fastest, streamingOnly;
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -284,13 +284,13 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
 
   /// b-warn «انتخاب سرور دیگر»: the list's fastest other server, the remote on it on the TV.
   void _toFastest(ShikooState state, ShikooController controller) {
-    final others = state.servers.where(
-      (server) => server.name != state.selected && !streamingOnly(server.name),
-    );
+    final others = {
+      for (final server in state.servers)
+        if (server.name != state.selected) server.name: server.ping,
+    };
     final name =
-        (others.firstWhereOrNull((server) => (server.ping ?? 0) > 0) ??
-                others.firstOrNull)
-            ?.name;
+        fastest([...others.keys], (name) => others[name]) ??
+        others.keys.firstWhereOrNull((name) => !streamingOnly(name));
     final service = state.service;
     if (name == null || service == null) return;
     void show() {
@@ -1280,10 +1280,14 @@ class _PowerZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = ShikooTheme.of(context).s;
-    if (!shikooDesktop) return _column(context, s.powerRing * 1.5);
+    if (!shikooDesktop && !state.isTV) {
+      return _column(context, s.powerRing * 1.5);
+    }
     return LayoutBuilder(
-      builder: (context, box) =>
-          _column(context, math.min(s.dialog, box.maxWidth)),
+      builder: (context, box) => _column(
+        context,
+        math.min(shikooDesktop ? s.dialog : s.powerRing * 1.5, box.maxWidth),
+      ),
     );
   }
 
@@ -1340,7 +1344,10 @@ class _PowerZone extends StatelessWidget {
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
     final offerWarp = offersWarp(state, offline: offline);
-    final cardWidth = state.isTV ? width : double.infinity;
+    // `.tv-power`'s padding-inline: the remote's ring around the card's button stays inside the column.
+    final cardWidth = state.isTV
+        ? width - 2 * ShikooSizes.ring
+        : (shikooDesktop ? width : double.infinity);
     final card = message != null
         ? null
         : state.noInternet
@@ -1515,31 +1522,34 @@ class _NoInternetState extends State<_NoInternet> {
     final l = ShikooL10n.of(context);
     final title = l.noInternetTitle(widget.name);
     if (shikooDesktop) {
-      return Row(
-        spacing: Space.s2,
-        children: [
-          SvgIcon(ShikooIcon.warn, size: t.s.iconSm, color: t.c.warning),
-          Expanded(
-            child: Text(
-              title,
-              style: t.text(t.s.bodySm, weight: FontWeight.w700),
-            ),
-          ),
-          // The message's room is two lines: the face fits it, the touch padding is left outside.
-          SizedBox(
-            height: t.s.buttonSm,
-            child: OverflowBox(
-              maxHeight: ShikooSizes.touch,
-              fit: OverflowBoxFit.deferToChild,
-              child: ShikooButton(
-                label: l.noInternetOther,
-                small: true,
-                focusNode: _node,
-                onPressed: widget.onOther,
+      return SizedBox(
+        width: widget.width,
+        child: Row(
+          spacing: Space.s2,
+          children: [
+            SvgIcon(ShikooIcon.warn, size: t.s.iconSm, color: t.c.warning),
+            Expanded(
+              child: Text(
+                title,
+                style: t.text(t.s.bodySm, weight: FontWeight.w700),
               ),
             ),
-          ),
-        ],
+            // The message's room is two lines: the face fits it, the touch padding is left outside.
+            SizedBox(
+              height: t.s.buttonSm,
+              child: OverflowBox(
+                maxHeight: ShikooSizes.touch,
+                fit: OverflowBoxFit.deferToChild,
+                child: ShikooButton(
+                  label: l.noInternetOther,
+                  small: true,
+                  focusNode: _node,
+                  onPressed: widget.onOther,
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
     final gap = widget.isTV ? Space.s2 : Space.s3;
@@ -1632,7 +1642,7 @@ class _StreamingCard extends StatelessWidget {
         ),
       ],
     );
-    if (shikooDesktop) return lines;
+    if (shikooDesktop) return SizedBox(width: width, child: lines);
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(
