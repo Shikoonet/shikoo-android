@@ -154,6 +154,74 @@ void main() {
         'a.panel.example': 'system',
       });
     });
+
+    // core/shikoo_direct_inbound_test.go runs this shape in mihomo.
+    test("the app's own inbound: loopback, this run's credentials, the "
+        'subscription hosts direct and nothing else', () async {
+      await keepApiDirect();
+      await keepSubscriptionsDirect([
+        'https://a.panel.example/sub/1',
+        'http://10.0.2.2:18089/sub',
+      ]);
+      await openDirectInbound();
+      addTearDown(() => shikooDirectAuth = null);
+      final auth = shikooDirectAuth!;
+      final added = await database.rulesDao.queryGlobalAddedRules().get();
+      final made = await makeRealProfileTask(
+        MakeRealProfileState(
+          profilesPath: '/profiles',
+          profileId: 1,
+          rawConfig: withDirectInbound(
+            {
+              'proxies': [],
+              'rules': ['MATCH,PROXY'],
+            },
+            added,
+            auth,
+          ),
+          realPatchConfig: const PatchClashConfig(),
+          overrideDns: false,
+          appendSystemDns: false,
+          proxyGroups: const [],
+          rules: const [],
+          addedRules: added,
+          defaultUA: 'FlClash-Test',
+        ),
+      );
+      final config = loadYaml(made.yaml) as YamlMap;
+
+      expect(auth.user, hasLength(24));
+      expect(auth.pass, isNot(auth.user));
+      expect(
+        directInboundProxy(),
+        'PROXY ${auth.user}:${auth.pass}@127.0.0.1:${auth.port}',
+      );
+      expect(config['listeners'], [
+        {
+          'name': 'shikoo-direct',
+          'type': 'http',
+          'listen': '127.0.0.1',
+          'port': '${auth.port}',
+          'users': [
+            {'username': auth.user, 'password': auth.pass},
+          ],
+          'rule': 'shikoo-direct',
+        },
+      ]);
+      expect(
+        (config['sub-rules'] as YamlMap)['shikoo-direct'],
+        unorderedEquals([
+          'DOMAIN,a.panel.example,DIRECT',
+          'IP-CIDR,10.0.2.2/32,DIRECT,no-resolve',
+          'MATCH,REJECT',
+        ]),
+      );
+      expect(
+        ((config['sub-rules'] as YamlMap)['shikoo-direct'] as List).last,
+        'MATCH,REJECT',
+      );
+      expect(config['skip-auth-prefixes'], isEmpty);
+    });
   });
 
   test('the rules follow the services; only while connected does a change '

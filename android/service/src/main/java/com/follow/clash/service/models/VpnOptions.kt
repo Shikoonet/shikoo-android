@@ -36,22 +36,16 @@ data class AppRules(
     val disallowed: List<String>,
 )
 
+// FlClash's rules for an owner core's VPN too: a switch keeps the same apps (VpnService.establishWith). This app stays
+// in, since mihomo's system stack answers through tun0, so an owner's VPN holds it and its sockets need protect.
 fun VpnOptions.appRules(self: String): AppRules {
     val accessControl = accessControlProps
     if (!accessControl.enable) {
-        return AppRules(emptyList(), if (ownsTunnel) listOf(self) else emptyList())
+        return AppRules(emptyList(), emptyList())
     }
     return when (accessControl.mode) {
-        // shortcut: an owner core with nothing else selected takes every app, this one too; Shikoo shows no app list.
-        AccessControlMode.ACCEPT_SELECTED -> AppRules(
-            if (ownsTunnel) accessControl.acceptList - self else accessControl.acceptList + self,
-            emptyList(),
-        )
-
-        AccessControlMode.REJECT_SELECTED -> AppRules(
-            emptyList(),
-            if (ownsTunnel) accessControl.rejectList + self else accessControl.rejectList - self,
-        )
+        AccessControlMode.ACCEPT_SELECTED -> AppRules(accessControl.acceptList + self, emptyList())
+        AccessControlMode.REJECT_SELECTED -> AppRules(emptyList(), accessControl.rejectList - self)
     }
 }
 

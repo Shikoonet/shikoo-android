@@ -368,6 +368,9 @@ class SetupAction extends _$SetupAction {
           !ref.read(shikooOwnerHeldOffProvider),
     );
     rawConfig = markWarp(rawConfig, ref.read(shikooWarpRouteProvider));
+    if (shikooDirectAuth case final auth?) {
+      rawConfig = withDirectInbound(rawConfig, addedRules, auth);
+    }
     final directory = await appPath.profilesPath;
     final res = makeRealProfileTask(
       MakeRealProfileState(

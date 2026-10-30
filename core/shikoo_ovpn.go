@@ -218,7 +218,13 @@ func ovpnState(params *ovpnStateParams) {
 	if was := ovpnNow.Swap(next); was == nil || was.server != params.Server {
 		shikooOwnerTakes(params.Server)
 	}
+	if params.Up {
+		ovpnUp()
+	}
 }
+
+// ovpnUp: what Android's core does once the engine carries the tunnel (lib.go).
+var ovpnUp = func() {}
 
 func ovpnCarrying() string {
 	if now := ovpnNow.Load(); now != nil {

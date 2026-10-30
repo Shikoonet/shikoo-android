@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
@@ -64,6 +65,7 @@ void main(List<String> args) {
             shikooStagingBuild ||
             globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
+        if (Platform.isAndroid) await openDirectInbound();
         await writeRuleSets(await appPath.homeDirPath);
         await container.read(shikooIranDirectProvider.notifier).load();
         await keepIranDirect(container.read(shikooIranDirectProvider));

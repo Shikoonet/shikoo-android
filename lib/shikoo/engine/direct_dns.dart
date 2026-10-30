@@ -1,4 +1,6 @@
-import 'dart:io' show InternetAddress, InternetAddressType;
+import 'dart:convert' show base64Url;
+import 'dart:io' show InternetAddress, InternetAddressType, ServerSocket;
+import 'dart:math' show Random;
 
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -76,3 +78,61 @@ Rule subscriptionDirectRule(
   final type =>
     'AND,((IN-TYPE,TUN),(IP-CIDR,$host/${type == InternetAddressType.IPv6 ? 128 : 32},no-resolve)),DIRECT',
 }, id: id);
+
+const shikooDirectInbound = 'shikoo-direct';
+
+typedef ShikooDirectAuth = ({int port, String user, String pass});
+
+ShikooDirectAuth? shikooDirectAuth;
+
+/// shortcut: a port another app takes before the core binds it leaves updates to the server; pick it per apply if seen.
+Future<void> openDirectInbound() async {
+  final free = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final port = free.port;
+  await free.close();
+  final random = Random.secure();
+  String secret() =>
+      base64Url.encode([for (var i = 0; i < 18; i++) random.nextInt(256)]);
+  shikooDirectAuth = (port: port, user: secret(), pass: secret());
+}
+
+String? directInboundProxy() => switch (shikooDirectAuth) {
+  null => null,
+  final a => 'PROXY ${a.user}:${a.pass}@127.0.0.1:${a.port}',
+};
+
+final _tunOnly = RegExp(
+  r'^AND,\(\(IN-TYPE,TUN\),\((DOMAIN|IP-CIDR),([^,()]+)(,no-resolve)?\)\),DIRECT$',
+);
+
+/// mihomo's inbound for [directInboundProxy]: loopback, this run's credentials, and rules of its own, so another app on
+/// the device that finds it leaves by it only for the subscription hosts [added] sends direct from the tunnel.
+Map<String, dynamic> withDirectInbound(
+  Map<String, dynamic> config,
+  Iterable<Rule> added,
+  ShikooDirectAuth auth,
+) => {
+  ...config,
+  'listeners': [
+    ...?(config['listeners'] as List?),
+    {
+      'name': shikooDirectInbound,
+      'type': 'http',
+      'listen': '127.0.0.1',
+      'port': '${auth.port}',
+      'users': [
+        {'username': auth.user, 'password': auth.pass},
+      ],
+      'rule': shikooDirectInbound,
+    },
+  ],
+  'sub-rules': {
+    ...?(config['sub-rules'] as Map?),
+    shikooDirectInbound: [
+      for (final rule in added)
+        if (_tunOnly.firstMatch(rule.rawValue) case final m?)
+          '${m[1]},${m[2]},DIRECT${m[3] ?? ''}',
+      'MATCH,REJECT',
+    ],
+  },
+};

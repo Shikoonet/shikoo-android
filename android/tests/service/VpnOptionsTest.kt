@@ -2,9 +2,11 @@ package com.follow.clash.service.models
 
 import com.follow.clash.common.AccessControlMode
 import com.follow.clash.core.OWNER_IRAN_DIRECT
+import java.io.File
 import java.net.Inet4Address
 import java.net.Inet6Address
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -158,33 +160,38 @@ class AppRulesTest {
     private val self = "com.shikoonet.app"
 
     @Test
-    fun `mihomo keeps this app in its VPN, as FlClash does`() {
-        val off = optionsFor(null, accessControl(false, AccessControlMode.REJECT_SELECTED))
-        assertEquals(AppRules(emptyList(), emptyList()), off.appRules(self))
-        assertEquals(
-            AppRules(emptyList(), listOf("c.d")),
-            optionsFor("", accessControl(true, AccessControlMode.REJECT_SELECTED)).appRules(self),
-        )
-        assertEquals(
-            AppRules(listOf("a.b", self), emptyList()),
-            optionsFor(null, accessControl(true, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
-        )
+    fun `mihomo and an owner core both keep this app in their VPN, as FlClash does`() {
+        for (core in listOf(null, "", "wireguard", "openvpn")) {
+            assertEquals(
+                AppRules(emptyList(), emptyList()),
+                optionsFor(core, accessControl(false, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
+            )
+            assertEquals(
+                AppRules(emptyList(), listOf("c.d")),
+                optionsFor(core, accessControl(true, AccessControlMode.REJECT_SELECTED)).appRules(self),
+            )
+            assertEquals(
+                AppRules(listOf("a.b", self), emptyList()),
+                optionsFor(core, accessControl(true, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
+            )
+        }
+    }
+}
+
+// The Builder needs Android itself, so the service's source is read: a bypassable VPN builds a new network on a switch.
+class VpnShapeTest {
+    private val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+
+    @Test
+    fun `no VPN the service builds is bypassable`() {
+        assertFalse(Regex("""\ballowBypass\s*\(""").containsMatchIn(service))
     }
 
     @Test
-    fun `an owner core leaves this app out of its VPN`() {
-        assertEquals(
-            AppRules(emptyList(), listOf(self)),
-            optionsFor("wireguard", accessControl(false, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
-        )
-        assertEquals(
-            AppRules(emptyList(), listOf("c.d", self)),
-            optionsFor("wireguard", accessControl(true, AccessControlMode.REJECT_SELECTED)).appRules(self),
-        )
-        assertEquals(
-            AppRules(listOf("a.b"), emptyList()),
-            optionsFor("wireguard", accessControl(true, AccessControlMode.ACCEPT_SELECTED)).appRules(self),
-        )
+    fun `a revoke drops the owner core's protect, which a switch's stop keeps and Android now denies`() {
+        val onRevoke = Regex("""override fun onRevoke\(\) \{(.*?)\n    \}""", RegexOption.DOT_MATCHES_ALL)
+            .find(service)?.groupValues?.get(1).orEmpty()
+        assertTrue(onRevoke.contains("Core.setOwnerProtector(null)"))
     }
 }
 

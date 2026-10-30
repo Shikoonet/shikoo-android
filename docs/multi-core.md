@@ -142,14 +142,16 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - The reconnect rule, in `selectServer` and `setCore`: while connected, reconnect when the selected server's *tunnel
     key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and `<core>/<server>` for an owner core.
     `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
-  - `ownerAside(read, url)` (route «ج», Windows only): while an owner core carries the server in use, the app's own
-    "direct" requests take mihomo's local port, whose DIRECT rules leave by the physical card, since Windows cannot
-    keep the app out of that tunnel. It covers `_fetch`'s direct leg and every internet check (`ownerProbes`), where
+  - `ownerAside(read, url)` (route «ج»): while an owner core carries the server in use, the app's own "direct"
+    requests take mihomo's local port, whose DIRECT rules leave beside the tunnel, since that tunnel holds the app
+    (Windows cannot leave it out; Android keeps it in every VPN, SHIKOO_PATCHES 72). On Android the subscription's
+    direct leg takes mihomo's `shikoo-direct` inbound instead, as the mixed port sends a subscription host by the
+    server. It covers `_fetch`'s direct leg and every internet check (`ownerProbes`), where
     that port's own 502 or 407 counts as a failure, not a site's answer. The server leg, asked for or as the fallback,
     is then a plain request: the owner's tunnel holds the app, so it leaves by the server in use, and mihomo's gated
     client stays shut. So a freshly pasted link, which has no DIRECT rule yet, still arrives by the server. Before
     these legs the app asks Go again (two seconds at most): an engine that stopped since connect leaves them to
-    mihomo. Null on Android, whose VPN leaves our package out, and whenever mihomo carries the server.
+    mihomo. Null whenever mihomo carries the server.
   - Not done: the diagnostics report keeps its keys. The door refuses a whole report over a key it does not know
     (`diag.dart`), so the choice goes into the timeline instead.
 
@@ -229,7 +231,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 - Owner (ه۲ builds it, ه۳ reuses it): `VpnOptions` (Kotlin `service/models/VpnOptions.kt:15-26`, Dart
   `lib/models/core.dart:44`, filled at `lib/providers/state/system.dart:214-228`) gains the core and the tunnel's
   address, DNS, MTU and routes. `handleStart` (`VpnService.kt:119-170`) uses them instead of `IPV4_ADDRESS`, `DNS` and
-  `MTU` (`:292-300`), leaves our package out (`:238`), and hands the fd to the engine instead of `Core.startTun`. A C++
+  `MTU` (`:292-300`), keeps FlClash's app rules (SHIKOO_PATCHES 72), and hands the fd to the engine instead of `Core.startTun`. A C++
   engine (OpenVPN 3) configures the builder through its own Kotlin class and its `tun_builder` callbacks (ه۳).
 - A separate-process core, only if «س» says sing-box must be one: `lib<name>.so` run as a program
   (`useLegacyPackaging = true`, `android/app/build.gradle.kts:56`), started and stopped by the service, never by
