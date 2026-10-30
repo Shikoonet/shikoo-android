@@ -635,6 +635,46 @@ void main() {
       expect(wrong, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
+    testWidgets("on Windows a not-here account's round button is dimmed and "
+        'passed over and its pill hidden, both in their usual places; a usual '
+        'service has them back', (tester) async {
+      final rects = <Rect>[];
+      for (final notHere in [true, false]) {
+        await _pump(
+          tester,
+          ShikooState(
+            connection: ShikooConnection.off,
+            connectedFor: Duration.zero,
+            isTV: false,
+            service: notHere ? _shelf(2, notHere: true) : _usual(),
+            servers: notHere ? const [] : _servers,
+            pick: ShikooPick.auto,
+          ),
+          const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+          window: const Size(880, 508),
+        );
+        final power = find.byType(PowerButton);
+        final pill = find.ancestor(
+          of: find.byType(NowPill),
+          matching: find.byType(Visibility),
+        );
+        expect(
+          (
+            tester.widget<PowerButton>(power).onPressed == null,
+            tester.widget<Visibility>(pill.first).visible,
+          ),
+          (notHere, !notHere),
+          reason: 'not here: $notHere',
+        );
+        expect(
+          find.descendant(of: power, matching: find.byType(Pressable)),
+          notHere ? findsNothing : findsOneWidget,
+        );
+        rects.add(tester.getRect(power));
+      }
+      expect(rects.first, rects.last);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
     for (final b in Brightness.values) {
       for (final language in ['fa', 'en']) {
         testWidgets('on Windows, where no core runs OpenVPN yet, the card says '
