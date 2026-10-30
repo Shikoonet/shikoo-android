@@ -445,23 +445,20 @@ class ShikooUpdate {
       return _move(UpdatePhase.ready, error: UpdateError.install);
     }
     final wasOn = _ref.read(runTimeProvider) != null;
-    final controller = _ref.read(shikooControllerProvider);
-    await controller.disconnect();
     var same = false;
-    // Hashed and started in one turn. PrepareToInstall kills this app: an exit seen here means it never installed.
-    try {
-      same = '${sha256.convert(file.readAsBytesSync())}' == release.sha256;
-      if (same) {
-        await (await startInstaller(file.path, [
-          '/SILENT',
-          '/SUPPRESSMSGBOXES',
-          '/NORESTART',
-        ])).exitCode;
-      }
-    } catch (_) {}
-    if (wasOn && _ref.read(runTimeProvider) == null) {
-      unawaited(controller.connectAgain());
-    }
+    await _ref.read(shikooControllerProvider).whileStopped(() async {
+      // Hashed and started in one turn. PrepareToInstall kills this app: an exit seen here means it never installed.
+      try {
+        same = '${sha256.convert(file.readAsBytesSync())}' == release.sha256;
+        if (same) {
+          await (await startInstaller(file.path, [
+            '/SILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+          ])).exitCode;
+        }
+      } catch (_) {}
+    }, startAgain: () => wasOn && _ref.read(runTimeProvider) == null);
     if (!same) return damaged();
     _move(UpdatePhase.ready, error: UpdateError.install);
   }

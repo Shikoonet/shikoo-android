@@ -1564,6 +1564,22 @@ class ShikooController {
     }
   }
 
+  /// The app's own stop around [step], as the Windows installer's: it counts as up, and [startAgain] keeps the pick.
+  Future<void> whileStopped(
+    Future<void> Function() step, {
+    required bool Function() startAgain,
+  }) async {
+    _reconnects++;
+    var after = Future<void>.value();
+    try {
+      await disconnect();
+      await step();
+      if (startAgain()) after = connectAgain();
+    } finally {
+      unawaited(after.whenComplete(() => _reconnects--));
+    }
+  }
+
   int _reconnects = 0;
 
   bool get _upOrStarting =>

@@ -950,6 +950,64 @@ void main() {
       expect(setup.runs, [true, false, false]);
     });
 
+    test('an update takes the server away while the Windows installer has '
+        'the tunnel stopped: SelectedGone, nothing picked, no start after '
+        '(Sam, 2026-10-30)', () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final panel = await _panel(container, core);
+      container
+          .read(profilesProvider.notifier)
+          .put(
+            container
+                .read(profilesProvider)
+                .single
+                .copyWith(url: '$panel/none/a'),
+          );
+      Group group(List<String> names) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final name in names) Proxy(name: name, type: 'Vless'),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group(['هلند ۲', 'هلند ۱']),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 90,
+        ),
+      );
+      final controller = container.read(shikooControllerProvider);
+      await controller.selectServer('هلند ۲');
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      await settle();
+      final installer = Completer<void>();
+      final stopped = controller.whileStopped(
+        () => installer.future,
+        startAgain: () => true,
+      );
+      await settle();
+      expect(setup.runs, [true, false]);
+
+      setup.onApply = () => container.read(groupsProvider.notifier).value = [
+        group(['هلند ۱']),
+      ];
+      await controller.refreshService();
+      await settle();
+      installer.complete();
+      await stopped;
+      await settle();
+      expect(container.read(shikooStateProvider).notice, isA<SelectedGone>());
+      expect(proxies.picked, ['هلند ۲']);
+      expect(setup.runs, [true, false, false]);
+    });
+
     test('connect hears only a usage-multiplied VLESS and a usage-multiplied '
         'OpenVPN reset: the round end takes the whole test', () async {
       const fourV = 'ضریب مصرف NE 4 x';

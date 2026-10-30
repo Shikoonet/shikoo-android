@@ -44,6 +44,16 @@ class _Controller implements ShikooController {
   Future<void> connectAgain() async => events.add('connect again');
 
   @override
+  Future<void> whileStopped(
+    Future<void> Function() step, {
+    required bool Function() startAgain,
+  }) async {
+    await disconnect();
+    await step();
+    if (startAgain()) await connectAgain();
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
