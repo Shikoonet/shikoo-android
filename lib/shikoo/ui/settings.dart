@@ -1487,6 +1487,7 @@ class _Row extends StatelessWidget {
 }
 
 /// Option «الف»: a kind of server and its core; its list opens from here, under it on a computer.
+/// A protocol with one core is a plain row like the version's, which the remote passes over.
 class _CoreRow extends ConsumerWidget {
   const _CoreRow({super.key, required this.row});
 
@@ -1495,11 +1496,12 @@ class _CoreRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = ShikooL10n.of(context);
+    final locked = shikooOnlyCores.containsKey(row.protocol);
     return _Row(
       title: protocolLabel(l, row.protocol),
       value: coreLabel(l, row.chosen),
-      down: true,
-      onPressed: () => unawaited(pickCore(context, ref, row)),
+      down: !locked,
+      onPressed: locked ? null : () => unawaited(pickCore(context, ref, row)),
     );
   }
 }

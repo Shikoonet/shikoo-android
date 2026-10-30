@@ -212,33 +212,34 @@ void main() {
     expect(running('openvpn'), ShikooCore.mihomo);
   });
 
-  test('OpenVPN defaults to the official core once this build has it ready, '
-      "never over the user's own pick nor in Windows' proxy mode", () {
+  test('OpenVPN runs on its official core alone: no pick of mihomo or '
+      'sing-box is honoured, and nothing falls back to mihomo', () {
     const ovpn = {'name': 'ovpn', 'type': 'openvpn'};
     final official = _readyOnly({ShikooCore.openvpn});
-    expect(
-      coreFor(ovpn, const {}, specs: _noneReady),
-      ShikooCore.mihomo,
-      reason: 'the default is not ready yet',
-    );
-    expect(coreFor(ovpn, const {}, specs: official), ShikooCore.openvpn);
-    expect(
-      coreFor(ovpn, const {}, specs: official, tunnel: false),
-      ShikooCore.mihomo,
-      reason: 'proxy mode has no tunnel for it to own',
-    );
-    expect(
-      coreFor(ovpn, const {
-        ShikooProtocol.openvpn: ShikooCore.mihomo,
-      }, specs: official),
-      ShikooCore.mihomo,
-    );
-    expect(
-      coreFor(ovpn, const {
-        ShikooProtocol.openvpn: ShikooCore.singBox,
-      }, specs: _allReady),
-      ShikooCore.singBox,
-    );
+    for (final pick in [null, ShikooCore.mihomo, ShikooCore.singBox]) {
+      expect(
+        coreFor(ovpn, {ShikooProtocol.openvpn: ?pick}, specs: _allReady),
+        ShikooCore.openvpn,
+        reason: 'stored pick $pick',
+      );
+    }
+    for (final server in [
+      ovpn,
+      {...ovpn, 'dialer-proxy': 'آلمان ۲'},
+      {
+        ...ovpn,
+        'peer-info': {'IV_X': '1'},
+      },
+    ]) {
+      expect(
+        coreFor(server, const {}, specs: _noneReady),
+        ShikooCore.openvpn,
+        reason:
+            'core/shikoo_ovpn.go refuses ${server.keys.last}: the start fails',
+      );
+    }
+    expect(offeredHere(ovpn, official), isTrue);
+    expect(offeredHere(ovpn, _noneReady), isFalse);
     expect(
       runningCore(ovpn, 'OpenVPN', const {}, specs: official),
       ShikooCore.openvpn,
@@ -256,39 +257,28 @@ void main() {
       'proxies': [ovpn],
     };
     expect(
-      (markCores(ovpnConfig, const {}, specs: official)['proxies'] as List)
+      (markCores(ovpnConfig, const {
+                ShikooProtocol.openvpn: ShikooCore.mihomo,
+              }, specs: official)['proxies']
+              as List)
           .single,
       {...ovpn, shikooOwnerKey: 'openvpn'},
     );
     expect(
       identical(markCores(ovpnConfig, const {}, specs: _noneReady), ovpnConfig),
       isTrue,
+      reason: 'not offered there, so never carried',
     );
-
-    ({ShikooCore chosen, ShikooCore defaultCore}) row(
-      ShikooChoices choices,
-      Map<ShikooCore, ShikooCoreSpec> specs,
-    ) {
-      final row = coreRows(
-        {ShikooProtocol.openvpn},
-        choices,
-        specs: specs,
-      ).single;
-      return (chosen: row.chosen, defaultCore: row.defaultCore);
-    }
-
-    expect(row(const {}, _noneReady), (
-      chosen: ShikooCore.mihomo,
-      defaultCore: ShikooCore.mihomo,
-    ));
-    expect(row(const {}, official), (
-      chosen: ShikooCore.openvpn,
-      defaultCore: ShikooCore.openvpn,
-    ));
-    expect(row(const {ShikooProtocol.openvpn: ShikooCore.mihomo}, official), (
-      chosen: ShikooCore.mihomo,
-      defaultCore: ShikooCore.openvpn,
-    ));
+    final row = coreRows(
+      {ShikooProtocol.openvpn},
+      const {ShikooProtocol.openvpn: ShikooCore.mihomo},
+      specs: _allReady,
+    ).single;
+    expect(
+      (row.chosen, row.defaultCore, row.carrier),
+      (ShikooCore.openvpn, ShikooCore.openvpn, ShikooCore.openvpn),
+    );
+    expect(row.options, [(core: ShikooCore.openvpn, ready: true)]);
     expect(
       coreRows(
         {ShikooProtocol.vless},
@@ -335,44 +325,27 @@ void main() {
     );
   });
 
-  test('the shipped official OpenVPN core is ready on Android only: OpenVPN '
-      'defaults to it there, and to mihomo on Windows in either mode', () {
+  test('the shipped official OpenVPN core is ready on Android only: there '
+      'OpenVPN servers are offered and their row shown, on Windows in neither '
+      'mode', () {
     const ovpn = {'name': 'ovpn', 'type': 'openvpn'};
     final android = readyHere(ShikooPlatform.android);
     final windows = readyHere(ShikooPlatform.windows);
-    ShikooCoreRow row(Map<ShikooCore, ShikooCoreSpec> specs, bool tunnel) =>
-        coreRows(
-          {ShikooProtocol.openvpn},
-          const {},
-          specs: specs,
-          tunnel: tunnel,
-        ).single;
-
-    expect(coreFor(ovpn, const {}, specs: android), ShikooCore.openvpn);
-    expect(row(android, true).defaultCore, ShikooCore.openvpn);
-    for (final tunnel in [true, false]) {
-      expect(
-        coreFor(ovpn, const {}, specs: windows, tunnel: tunnel),
-        ShikooCore.mihomo,
-      );
-      expect(row(windows, tunnel).defaultCore, ShikooCore.mihomo);
-    }
-    expect(
-      row(windows, true).options,
-      contains((core: ShikooCore.openvpn, ready: false)),
+    List<ShikooCoreRow> rows(
+      Map<ShikooCore, ShikooCoreSpec> specs,
+      bool tunnel,
+    ) => coreRows(
+      {ShikooProtocol.openvpn},
+      const {},
+      specs: specs,
+      tunnel: tunnel,
     );
-    for (final server in [
-      {...ovpn, 'dialer-proxy': 'آلمان ۲'},
-      {
-        ...ovpn,
-        'peer-info': {'IV_X': '1'},
-      },
-    ]) {
-      expect(
-        coreFor(server, const {}, specs: android),
-        ShikooCore.mihomo,
-        reason: 'core/shikoo_ovpn.go refuses ${server.keys.last}',
-      );
+
+    expect(offeredHere(ovpn, android), isTrue);
+    expect(rows(android, true).single.chosen, ShikooCore.openvpn);
+    for (final tunnel in [true, false]) {
+      expect(offeredHere(ovpn, windows, tunnel: tunnel), isFalse);
+      expect(rows(windows, tunnel), isEmpty);
     }
   });
 
@@ -503,41 +476,41 @@ void main() {
     );
   });
 
-  test("in Windows' proxy mode neither the mark nor the row's carrier names an "
-      'owner core: mihomo carries those servers', () {
-    final official = _readyOnly({ShikooCore.wireguard, ShikooCore.openvpn});
-    const picks = {ShikooProtocol.wireguard: ShikooCore.wireguard};
-    final config = <String, dynamic>{
-      'proxies': [_wireguard],
-    };
-    final present = {ShikooProtocol.wireguard, ShikooProtocol.openvpn};
+  test(
+    "in Windows' proxy mode neither the mark nor the row's carrier names an "
+    'owner core: mihomo carries those servers, and OpenVPN is not offered',
+    () {
+      final official = _readyOnly({ShikooCore.wireguard, ShikooCore.openvpn});
+      const picks = {ShikooProtocol.wireguard: ShikooCore.wireguard};
+      final config = <String, dynamic>{
+        'proxies': [_wireguard],
+      };
+      final present = {ShikooProtocol.wireguard, ShikooProtocol.openvpn};
 
-    expect(
-      markCores(config, picks, specs: official, tunnel: false),
-      same(config),
-    );
-    expect(
-      (markCores(config, picks, specs: official)['proxies'] as List).single,
-      containsPair(shikooOwnerKey, 'wireguard'),
-    );
-    expect(
-      coreRows(
-        present,
-        picks,
-        specs: official,
-        tunnel: false,
-      ).map((row) => (row.chosen, row.defaultCore, row.carrier)),
-      [
-        (ShikooCore.wireguard, ShikooCore.mihomo, ShikooCore.mihomo),
-        (ShikooCore.mihomo, ShikooCore.mihomo, ShikooCore.mihomo),
-      ],
-      reason: 'a pick is kept; with none, the row is the default of the mode',
-    );
-    expect(
-      coreRows(present, picks, specs: official).map((row) => row.carrier),
-      [ShikooCore.wireguard, ShikooCore.openvpn],
-    );
-  });
+      expect(
+        markCores(config, picks, specs: official, tunnel: false),
+        same(config),
+      );
+      expect(
+        (markCores(config, picks, specs: official)['proxies'] as List).single,
+        containsPair(shikooOwnerKey, 'wireguard'),
+      );
+      expect(
+        coreRows(
+          present,
+          picks,
+          specs: official,
+          tunnel: false,
+        ).map((row) => (row.chosen, row.defaultCore, row.carrier)),
+        [(ShikooCore.wireguard, ShikooCore.mihomo, ShikooCore.mihomo)],
+        reason: 'a pick is kept; with none, the row is the default of the mode',
+      );
+      expect(
+        coreRows(present, picks, specs: official).map((row) => row.carrier),
+        [ShikooCore.wireguard, ShikooCore.openvpn],
+      );
+    },
+  );
 
   test('the specs the app reads follow the platform it runs on, and only '
       'Windows in proxy mode has no tunnel', () async {
@@ -578,73 +551,81 @@ void main() {
     ]);
   });
 
-  test('a protocol whose official core is ready on Windows defaults to it in '
-      "tunnel mode, and to mihomo in Windows' proxy mode", () {
-    final windows = readyHere(
-      ShikooPlatform.windows,
-      specs: _readyOnly({ShikooCore.openvpn}),
-      readyOn: const {
-        ShikooCore.openvpn: {ShikooPlatform.windows},
-      },
-    );
-    ShikooCore defaultIn({required bool tunnel}) => coreRows(
-      {ShikooProtocol.openvpn},
-      const {},
-      specs: windows,
-      tunnel: tunnel,
-    ).single.defaultCore;
-
-    expect(defaultIn(tunnel: true), ShikooCore.openvpn);
-    expect(defaultIn(tunnel: false), ShikooCore.mihomo);
-  });
-
-  test('an OpenVPN row over platform, mode, the platform rule and the pick: '
-      'chosen keeps a pick, else it is the default of the current mode', () {
-    const androidOnly = {
-      ShikooCore.openvpn: {ShikooPlatform.android},
-    };
-    const none = <ShikooCore, Set<ShikooPlatform>>{};
-    final (m, o, s) = (
-      ShikooCore.mihomo,
-      ShikooCore.openvpn,
-      ShikooCore.singBox,
-    );
-    final (android, windows) = (ShikooPlatform.android, ShikooPlatform.windows);
-    for (final (platform, tunnel, readyOn, pick, want)
-        in <
-          (
-            ShikooPlatform,
-            bool,
-            Map<ShikooCore, Set<ShikooPlatform>>,
-            ShikooCore?,
-            (ShikooCore, ShikooCore, ShikooCore),
-          )
-        >[
-          (android, true, none, null, (o, o, o)),
-          (android, true, none, m, (m, o, m)),
-          (android, true, androidOnly, s, (s, o, s)),
-          (windows, true, none, null, (o, o, o)),
-          (windows, true, androidOnly, null, (m, m, m)),
-          (windows, true, androidOnly, s, (s, m, s)),
-          (windows, false, none, null, (m, m, m)),
-          (windows, false, none, o, (o, m, m)),
-          (windows, false, none, s, (s, m, s)),
-          (windows, false, androidOnly, m, (m, m, m)),
-        ]) {
-      final row = coreRows(
-        {ShikooProtocol.openvpn},
-        {ShikooProtocol.openvpn: ?pick},
-        specs: readyHere(platform, specs: _allReady, readyOn: readyOn),
-        tunnel: tunnel,
-      ).single;
-
-      expect(
-        (row.chosen, row.defaultCore, row.carrier),
-        want,
-        reason: '${platform.name}, tunnel $tunnel, $readyOn, pick $pick',
+  test(
+    'an official OpenVPN core ready on Windows would carry OpenVPN in tunnel '
+    "mode; Windows' proxy mode has no tunnel for it, so no OpenVPN there",
+    () {
+      final windows = readyHere(
+        ShikooPlatform.windows,
+        specs: _readyOnly({ShikooCore.openvpn}),
+        readyOn: const {
+          ShikooCore.openvpn: {ShikooPlatform.windows},
+        },
       );
-    }
-  });
+      List<ShikooCoreRow> rowsIn({required bool tunnel}) => coreRows(
+        {ShikooProtocol.openvpn},
+        const {},
+        specs: windows,
+        tunnel: tunnel,
+      );
+
+      expect(rowsIn(tunnel: true).single.defaultCore, ShikooCore.openvpn);
+      expect(rowsIn(tunnel: false), isEmpty);
+    },
+  );
+
+  test(
+    'an OpenVPN row over platform, mode, the platform rule and the pick: '
+    'the official core whatever was picked, or no row where it cannot run',
+    () {
+      const androidOnly = {
+        ShikooCore.openvpn: {ShikooPlatform.android},
+      };
+      const none = <ShikooCore, Set<ShikooPlatform>>{};
+      final (m, o, s) = (
+        ShikooCore.mihomo,
+        ShikooCore.openvpn,
+        ShikooCore.singBox,
+      );
+      final (android, windows) = (
+        ShikooPlatform.android,
+        ShikooPlatform.windows,
+      );
+      for (final (platform, tunnel, readyOn, pick, shown)
+          in <
+            (
+              ShikooPlatform,
+              bool,
+              Map<ShikooCore, Set<ShikooPlatform>>,
+              ShikooCore?,
+              bool,
+            )
+          >[
+            (android, true, none, null, true),
+            (android, true, none, m, true),
+            (android, true, androidOnly, s, true),
+            (windows, true, none, null, true),
+            (windows, true, androidOnly, null, false),
+            (windows, true, androidOnly, s, false),
+            (windows, false, none, null, false),
+            (windows, false, none, o, false),
+            (windows, false, androidOnly, m, false),
+          ]) {
+        final rows = coreRows(
+          {ShikooProtocol.openvpn},
+          {ShikooProtocol.openvpn: ?pick},
+          specs: readyHere(platform, specs: _allReady, readyOn: readyOn),
+          tunnel: tunnel,
+        );
+
+        expect(
+          rows.map((row) => (row.chosen, row.defaultCore, row.carrier)),
+          shown ? [(o, o, o)] : isEmpty,
+          reason: '${platform.name}, tunnel $tunnel, $readyOn, pick $pick',
+        );
+      }
+    },
+  );
 
   test('a failed official OpenVPN start names the seconds its engine '
       'waits', () {

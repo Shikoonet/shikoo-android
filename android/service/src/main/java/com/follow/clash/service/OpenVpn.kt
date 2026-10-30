@@ -9,6 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 const val OPENVPN_PROFILE = "ovpn"
 
+/** OpenVPN 3's event, and so the start's error, when the server refused the username and password. */
+const val OPENVPN_AUTH_FAILED = "AUTH_FAILED"
+
 /** OpenVPN 3 (shikoo_ovpn3.cpp) owning the tunnel for one server; [build] makes the VPN once the server pushed it. */
 @Keep
 internal class OpenVpn(
@@ -16,7 +19,7 @@ internal class OpenVpn(
     private val protector: (Int) -> Boolean,
     private val build: (String) -> Int,
 ) {
-    data class Failure(val refused: Boolean, val reason: String)
+    data class Failure(val reason: String)
 
     private val session = sessions.incrementAndGet()
     private val settled = CountDownLatch(1)
@@ -39,7 +42,7 @@ internal class OpenVpn(
     private var thread: Thread? = null
 
     fun start(profile: String, username: String, password: String, seconds: Long = CONNECT_SECONDS): Failure? {
-        if (loaded.isFailure) return Failure(true, "no engine: ${loaded.exceptionOrNull()}")
+        if (loaded.isFailure) return Failure("no engine: ${loaded.exceptionOrNull()}")
         // First, so mihomo's own client of this server is shut before ours dials (core/shikoo_owner.go).
         report(server, false)
         thread = Thread({
@@ -48,11 +51,10 @@ internal class OpenVpn(
             GlobalState.log("OpenVPN ended: ${ended?.ifEmpty { "stopped" }}")
             settled.countDown()
         }, "OpenVPN").apply { start() }
-        if (!settled.await(seconds, TimeUnit.SECONDS)) return Failure(false, "no connection in $seconds s")
+        if (!settled.await(seconds, TimeUnit.SECONDS)) return Failure("no connection in $seconds s")
         if (connected) return null
-        if (abandoned) return Failure(false, "a stop came first")
-        val reason = ended.orEmpty()
-        return Failure(reason.startsWith(REFUSED), reason)
+        if (abandoned) return Failure("a stop came first")
+        return Failure(ended.orEmpty())
     }
 
     fun abandon() {
@@ -103,7 +105,6 @@ internal class OpenVpn(
     private external fun halt()
 
     companion object {
-        private const val REFUSED = "refused: "
         private const val CONNECT_SECONDS = 20L
         private const val STOP_TRIES = 50
         private const val STOP_STEP_MILLIS = 200L

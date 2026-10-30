@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -846,12 +845,7 @@ void main() {
       expect(s.proxies.picked, [four, 'فرانسه ۴'], reason: 'off, it follows');
     });
 
-    for (final how in [
-      'Iran switch',
-      'core change',
-      'owner death',
-      'failed install',
-    ]) {
+    for (final how in ['Iran switch', 'owner death', 'failed install']) {
       test("up on the app's own usage-multiplied OpenVPN pick, a rebuild of "
           'the same server ($how) keeps it, with one restart', () async {
         final before = database;
@@ -871,11 +865,6 @@ void main() {
         switch (how) {
           case 'Iran switch':
             await s.controller.setIranDirect(false);
-          case 'core change':
-            await s.controller.setCore(
-              ShikooProtocol.openvpn,
-              ShikooCore.mihomo,
-            );
           case 'failed install':
             await s.controller.disconnect();
             await s.controller.connectAgain();
@@ -2659,318 +2648,127 @@ void main() {
   });
 
   group("a shelf account's login", () {
-    setUpAll(() => registerFallbackValue(<String, dynamic>{}));
-    // The same file is core/shikoo_ovpn_auth_test.go's: what Go answers a refused login.
-    final goRefused =
-        (jsonDecode(
-                  File(
-                    'core/testdata/ovpn_login_refused.json',
-                  ).readAsStringSync(),
-                )
-                as Map)['value']
-            as int;
-    var loginAnswer = goRefused;
-
-    Map<String, dynamic> openvpn(String name) => {
-      'name': name,
-      'type': 'openvpn',
-      'server': '203.0.113.9',
-      'port': 1194,
-      'username': 'user1001',
-      'password': 'made-up',
-    };
-
-    /// No server answers a ping; the login check answers [answer]; [asked] are the servers it was asked for.
-    ({
-      ProviderContainer container,
-      _Core core,
-      _Setup setup,
-      List<String> asked,
-    })
-    shelf({
-      bool outsourced = true,
-      int? answer,
-      List<Override> more = const [],
-    }) {
-      final (:container, :core, :proxies, :setup) = _home([
-        nativeStartFailedProvider.overrideWithValue(() => true),
-        ...more,
-      ]);
-      container
-          .read(shikooAccountProvider.notifier)
-          .set(
-            ShikooAccount(
-              services: [
-                LinkedService(
-                  id: 42,
-                  title: 'user1001',
-                  status: 'active',
-                  profileId: container.read(currentProfileIdProvider),
-                  outsourced: outsourced,
-                ),
-              ],
-            ),
-          );
+    ProviderContainer openvpnHome(List<Override> more) {
+      final (:container, :core, :proxies, :setup) = _home(more);
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
       when(() => core.asyncTestDelay(any(), any())).thenAnswer(
         (call) async => Delay(
           name: call.positionalArguments[1] as String,
           url: '',
-          value: -1,
+          value: 95,
         ),
       );
-      when(() => core.getConfig(any())).thenAnswer(
-        (_) async => {
-          'proxies': [openvpn('آلمان ۱'), openvpn('هلند ۱')],
-          'proxy-groups': [
-            {
-              'name': 'PROXY',
-              'type': 'select',
-              'proxies': ['آلمان ۱', 'هلند ۱'],
-            },
-          ],
-        },
-      );
-      final asked = <String>[];
-      loginAnswer = answer ?? goRefused;
-      when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
-        final name = '${(call.positionalArguments[1] as Map)['name']}';
-        asked.add(name);
-        return Delay(name: name, url: '', value: loginAnswer);
-      });
-      return (container: container, core: core, setup: setup, asked: asked);
+      return container;
     }
+
+    void markShelf(ProviderContainer container, {bool outsourced = true}) =>
+        container
+            .read(shikooAccountProvider.notifier)
+            .set(
+              ShikooAccount(
+                services: [
+                  LinkedService(
+                    id: 42,
+                    title: 'user1001',
+                    status: 'active',
+                    profileId: container.read(currentProfileIdProvider),
+                    outsourced: outsourced,
+                  ),
+                ],
+              ),
+            );
 
     ShikooService service(ProviderContainer container) =>
         container.read(shikooStateProvider).service!;
 
-    void pings(_Core core, int ms) =>
-        when(() => core.asyncTestDelay(any(), any())).thenAnswer(
-          (call) async => Delay(
-            name: call.positionalArguments[1] as String,
-            url: '',
-            value: ms,
-          ),
-        );
+    _Setup setupOf(ProviderContainer container) =>
+        container.read(setupActionProvider.notifier) as _Setup;
 
-    test('is asked only after the customer\'s own connect failed, once a '
-        'press, on the server it wanted; never in a ping round', () async {
-      final (:container, :core, :setup, :asked) = shelf();
+    test("the official engine's AUTH_FAILED at connect is the refused line, "
+        "not «وصل نشد»; a ping, only the engine's reset, leaves it, and a "
+        'start that comes up clears it', () async {
+      var refused = true;
+      final container = openvpnHome([
+        nativeStartFailedProvider.overrideWithValue(() => true),
+        nativeLoginRefusedProvider.overrideWithValue(() => refused),
+      ]);
+      markShelf(container);
       final controller = container.read(shikooControllerProvider);
-      await controller.pingAll();
-      await pumpEventQueue();
-      expect(asked, isEmpty, reason: 'a ping round');
-
-      unawaited(controller.connect());
-      await pumpEventQueue();
-      expect(
-        container.read(shikooStateProvider).lastError,
-        ShikooError.noServer,
-      );
-      expect(asked, ['آلمان ۱'], reason: 'none chosen: the first');
-      expect(service(container).loginRefused, isTrue);
-
-      await controller.pingAll();
-      await pumpEventQueue();
-      expect(asked, hasLength(1), reason: 'a ping round after it');
-
       container
           .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
       await controller.connect();
       await pumpEventQueue();
       expect(
         container.read(shikooStateProvider).lastError,
         ShikooError.connectTimeout,
       );
-      expect(asked, ['آلمان ۱', 'هلند ۱'], reason: 'the chosen one');
-    });
+      expect(service(container).loginRefused, isTrue);
 
-    test('only AUTH_FAILED is a refusal: any other answer leaves the usual '
-        '«وصل نشد»', () async {
-      final (:container, :core, :setup, :asked) = shelf(answer: -1);
-      unawaited(container.read(shikooControllerProvider).connect());
+      await controller.pingAll();
       await pumpEventQueue();
-      expect(asked, hasLength(1));
+      expect(service(container).loginRefused, isTrue);
+
+      refused = false;
+      setupOf(container).tunnel = DateTime.now();
+      await controller.connect();
+      await pumpEventQueue();
       expect(service(container).loginRefused, isFalse);
     });
 
-    test('Dart reads as refused the value Go answers a refused login', () {
-      expect(loginRefusedPing, goRefused);
-    });
-
-    test(
-      "with the official core owning OpenVPN, the check sends Go the server's "
-      'own mapping, nothing added: marked as the owner\'s, Go would answer a '
-      'reset and log nobody in',
-      () async {
-        final (:container, :core, :setup, :asked) = shelf(
-          more: [
-            shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
-            shikooTunnelProvider.overrideWithValue(true),
-          ],
+    for (final (outsourced, refused, why) in [
+      (true, false, 'a shelf account whose start failed some other way'),
+      (false, true, 'a usual service'),
+    ]) {
+      test('$why keeps the usual «وصل نشد»', () async {
+        final container = openvpnHome([
+          nativeStartFailedProvider.overrideWithValue(() => true),
+          nativeLoginRefusedProvider.overrideWithValue(() => refused),
+        ]);
+        markShelf(container, outsourced: outsourced);
+        container
+            .read(profilesActionProvider.notifier)
+            .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+        await container.read(shikooControllerProvider).connect();
+        await pumpEventQueue();
+        expect(
+          container.read(shikooStateProvider).lastError,
+          ShikooError.connectTimeout,
         );
-        final sent = <Map<String, dynamic>>[];
-        when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
-          final proxy = call.positionalArguments[1] as Map<String, dynamic>;
-          sent.add(proxy);
-          return Delay(
-            name: '${proxy['name']}',
-            url: '',
-            value: proxy.containsKey('shikoo-owner') ? 95 : goRefused,
-          );
-        });
-        unawaited(container.read(shikooControllerProvider).connect());
-        await pumpEventQueue();
-        expect(sent, [openvpn('آلمان ۱')]);
-        expect(service(container).loginRefused, isTrue);
-      },
-    );
-
-    test('connected and carrying, a blip later asks nothing: only the first '
-        'measure after the press may', () async {
-      final (:container, :core, :setup, :asked) = shelf();
-      final controller = container.read(shikooControllerProvider);
-      setup
-        ..tunnel = DateTime.now()
-        ..traffic = true;
-      container
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
-      await controller.connect();
-      await pumpEventQueue();
-      for (var round = 0; round < 3; round++) {
-        await controller.pingAll();
-        await pumpEventQueue();
-      }
-      setup.traffic = false;
-      await controller.pingAll();
-      await pumpEventQueue();
-      expect(
-        container.read(shikooStateProvider).connection,
-        ShikooConnection.on,
-      );
-      container
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
-      await pumpEventQueue();
-      expect(asked, isEmpty);
-    });
-
-    test('a usual service is never asked', () async {
-      final (:container, :core, :setup, :asked) = shelf(outsourced: false);
-      unawaited(container.read(shikooControllerProvider).connect());
-      await pumpEventQueue();
-      expect(container.read(shikooStateProvider).lastError, isNotNull);
-      expect(asked, isEmpty);
-    });
-
-    test('the refusal goes with the first answer of a ping', () async {
-      final (:container, :core, :setup, :asked) = shelf();
-      final controller = container.read(shikooControllerProvider);
-      unawaited(controller.connect());
-      await pumpEventQueue();
-      expect(service(container).loginRefused, isTrue);
-      pings(core, 90);
-      await controller.pingAll();
-      await pumpEventQueue();
-      expect(service(container).loginRefused, isFalse);
-    });
-
-    test('the refusal goes with a start, even one no ping answers after: the '
-        'official engine logged in', () async {
-      final (:container, :core, :setup, :asked) = shelf();
-      final controller = container.read(shikooControllerProvider);
-      unawaited(controller.connect());
-      await pumpEventQueue();
-      expect(service(container).loginRefused, isTrue);
-      loginAnswer = -1;
-      setup.tunnel = DateTime.now();
-      container
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
-      await controller.connect();
-      await pumpEventQueue();
-      expect(service(container).loginRefused, isFalse);
-    });
-
-    test('a first lookup that fails and a second that passes ask no login, '
-        "though the connect's own probe found no traffic meanwhile", () async {
-      final (:container, :core, :setup, :asked) = shelf();
-      final controller = container.read(shikooControllerProvider);
-      final first = Completer<void>();
-      setup
-        ..tunnel = DateTime.now()
-        ..traffic = false
-        ..trafficGate = first;
-      container
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
-      unawaited(controller.connect());
-      await pumpEventQueue();
-      setup.trafficGate = Completer<void>();
-      first.complete();
-      await pumpEventQueue();
-      setup.traffic = true;
-      setup.trafficGate!.complete();
-      await pumpEventQueue();
-      expect(asked, isEmpty);
-      expect(service(container).loginRefused, isFalse);
-    });
-
-    for (final interrupt in ['server change', 'disconnect']) {
-      test(
-        'a traffic check that fails after a $interrupt asks no login',
-        () async {
-          final (:container, :core, :setup, :asked) = shelf();
-          final controller = container.read(shikooControllerProvider);
-          final gate = Completer<void>();
-          setup
-            ..tunnel = DateTime.now()
-            ..traffic = false
-            ..trafficGate = gate;
-          container
-              .read(profilesActionProvider.notifier)
-              .updateCurrentSelectedMap('PROXY', 'هلند ۱');
-          unawaited(controller.connect());
-          await pumpEventQueue();
-          if (interrupt == 'disconnect') {
-            await controller.disconnect();
-          } else {
-            container
-                .read(profilesActionProvider.notifier)
-                .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
-          }
-          await pumpEventQueue();
-          gate.complete();
-          await pumpEventQueue();
-          expect(asked, isEmpty);
-        },
-      );
+        expect(service(container).loginRefused, isFalse);
+      });
     }
 
-    test('connected with no traffic passing, one press asks once: later rounds '
-        'that find none either ask nothing more', () async {
-      final (:container, :core, :setup, :asked) = shelf();
+    test('on Windows, where no core runs OpenVPN yet, its servers are not '
+        'offered, and a shelf account says so and its connect does '
+        'nothing', () async {
+      final container = openvpnHome([
+        shikooDesktopProvider.overrideWithValue(true),
+        nativeStartFailedProvider.overrideWithValue(() => true),
+      ]);
       final controller = container.read(shikooControllerProvider);
-      setup
-        ..tunnel = DateTime.now()
-        ..traffic = false;
-      container
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      expect(container.read(shikooStateProvider).servers.map((s) => s.name), [
+        'هلند ۱',
+      ]);
+      expect(service(container).notHere, isFalse);
+
+      markShelf(container);
+      expect(service(container).notHere, isTrue);
       await controller.connect();
       await pumpEventQueue();
-      expect(
-        container.read(shikooStateProvider).connection,
-        ShikooConnection.on,
-      );
-      expect(asked, ['هلند ۱']);
-      expect(service(container).loginRefused, isTrue);
-      for (var round = 0; round < 2; round++) {
-        await controller.pingAll();
-        await pumpEventQueue();
-      }
-      expect(asked, hasLength(1));
+      final state = container.read(shikooStateProvider);
+      expect((state.connection, state.lastError), (ShikooConnection.off, null));
+      expect(setupOf(container).runs, isEmpty);
     });
   });
 
@@ -4789,7 +4587,7 @@ void main() {
     });
 
     test('a silent server whose core owns the tunnel never goes through the '
-        'bridge; given back to mihomo, it does', () async {
+        'bridge, OpenVPN not even with mihomo picked for it', () async {
       const france = 'فرانسه ۴';
       final made = _home([
         warpNetworkReaderProvider.overrideWithValue(() async => 'mobile'),
@@ -4837,7 +4635,7 @@ void main() {
           .read(shikooCoresProvider.notifier)
           .set(ShikooProtocol.openvpn, ShikooCore.mihomo);
       await controller.pingAll();
-      expect(routes.expand((route) => route.via), contains(france));
+      expect(routes.expand((route) => route.via), isNot(contains(france)));
     });
 
     test('a server remembered on the bridge whose core now owns the tunnel '

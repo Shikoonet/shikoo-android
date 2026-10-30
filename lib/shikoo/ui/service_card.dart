@@ -322,6 +322,7 @@ class _ServiceCardState extends State<ServiceCard> {
                       isTV: state.isTV,
                       bot: widget.bot,
                       refused: service.loginRefused,
+                      notHere: service.notHere,
                       focusNode: focus.bot,
                     ),
                   ),
@@ -370,7 +371,9 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset.copyWith(top: Space.s3),
                     child: _Hint(now: landed?.arrived ?? false),
                   ),
-                if (service.ended == null)
+                if (service.notHere)
+                  const SizedBox.shrink()
+                else if (service.ended == null)
                   _ServerList(
                     key: _list,
                     state: state,
@@ -1291,12 +1294,16 @@ class _Guide extends StatelessWidget {
     required this.isTV,
     required this.bot,
     this.refused = false,
+    this.notHere = false,
     this.focusNode,
   });
 
   final bool isTV;
   final String? bot;
   final bool refused;
+
+  /// In the refused line's place, in the text's own colour: no core here runs it (Sam, 2026-10-30).
+  final bool notHere;
   final FocusNode? focusNode;
 
   @override
@@ -1304,7 +1311,7 @@ class _Guide extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final strong = TextStyle(
-      color: refused ? t.c.danger : t.c.text,
+      color: refused && !notHere ? t.c.danger : t.c.text,
       fontWeight: FontWeight.w700,
     );
     return Container(
@@ -1322,7 +1329,9 @@ class _Guide extends StatelessWidget {
         children: [
           Text.rich(
             TextSpan(
-              children: refused
+              children: notHere
+                  ? [TextSpan(text: l.outsourcedNotHere, style: strong)]
+                  : refused
                   ? [TextSpan(text: l.outsourcedRefused, style: strong)]
                   : [
                       TextSpan(text: '${l.outsourcedTitle}\n', style: strong),

@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
@@ -8,7 +11,8 @@ import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
-import 'package:flutter/rendering.dart' show RenderParagraph;
+import 'package:flutter/rendering.dart'
+    show RenderParagraph, RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,16 +29,18 @@ const _servers = [
   ShikooServer(name: 'آلمان ۲', type: 'OpenVPN', ping: 104),
 ];
 
-ShikooService _shelf(int id, {bool refused = false}) => ShikooService(
-  id: id,
-  name: 'user1001',
-  usedBytes: 0,
-  totalBytes: 0,
-  usageKnown: false,
-  outsourced: true,
-  loginRefused: refused,
-  updatedAt: DateTime.now(),
-);
+ShikooService _shelf(int id, {bool refused = false, bool notHere = false}) =>
+    ShikooService(
+      id: id,
+      name: 'user1001',
+      usedBytes: 0,
+      totalBytes: 0,
+      usageKnown: false,
+      outsourced: true,
+      loginRefused: refused,
+      notHere: notHere,
+      updatedAt: DateTime.now(),
+    );
 
 const _shelfLinked = LinkedService(
   id: 42,
@@ -115,6 +121,7 @@ Future<void> _pump(
   ShikooAccount account, {
   String locale = 'fa',
   Size? window,
+  Brightness brightness = Brightness.light,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -140,12 +147,29 @@ Future<void> _pump(
           ShikooL10n.delegate,
           ...GlobalMaterialLocalizations.delegates,
         ],
-        theme: shikooThemeData(Brightness.light, tv: state.isTV),
+        theme: shikooThemeData(brightness, tv: state.isTV),
+        builder: (_, child) => RepaintBoundary(key: _screen, child: child),
         home: const ShikooHome(),
       ),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+final _screen = GlobalKey();
+
+/// With `SHIKOO_SHOTS=<folder>`, the screen as a PNG there.
+Future<void> _shot(WidgetTester tester, String name) async {
+  final dir = Platform.environment['SHIKOO_SHOTS'];
+  if (dir == null) return;
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_screen),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 2);
+    final png = await image.toByteData(format: ui.ImageByteFormat.png);
+    File('$dir/$name.png').writeAsBytesSync(png!.buffer.asUint8List());
+  });
 }
 
 Finder _in<T>(Finder matching) =>
@@ -610,5 +634,82 @@ void main() {
       }
       expect(wrong, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+    testWidgets("on Windows a not-here account's round button is dimmed and "
+        'passed over and its pill hidden, both in their usual places; a usual '
+        'service has them back', (tester) async {
+      final rects = <Rect>[];
+      for (final notHere in [true, false]) {
+        await _pump(
+          tester,
+          ShikooState(
+            connection: ShikooConnection.off,
+            connectedFor: Duration.zero,
+            isTV: false,
+            service: notHere ? _shelf(2, notHere: true) : _usual(),
+            servers: notHere ? const [] : _servers,
+            pick: ShikooPick.auto,
+          ),
+          const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+          window: const Size(880, 508),
+        );
+        final power = find.byType(PowerButton);
+        final pill = find.ancestor(
+          of: find.byType(NowPill),
+          matching: find.byType(Visibility),
+        );
+        expect(
+          (
+            tester.widget<PowerButton>(power).onPressed == null,
+            tester.widget<Visibility>(pill.first).visible,
+          ),
+          (notHere, !notHere),
+          reason: 'not here: $notHere',
+        );
+        expect(
+          find.descendant(of: power, matching: find.byType(Pressable)),
+          notHere ? findsNothing : findsOneWidget,
+        );
+        rects.add(tester.getRect(power));
+      }
+      expect(rects.first, rects.last);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+    for (final b in Brightness.values) {
+      for (final language in ['fa', 'en']) {
+        testWidgets('on Windows, where no core runs OpenVPN yet, the card says '
+            "so in the refused line's place, not in red, and keeps the bot "
+            'button ($language, ${b.name})', (tester) async {
+          // As the app has it there: its OpenVPN servers are not offered.
+          await _pump(
+            tester,
+            ShikooState(
+              connection: ShikooConnection.off,
+              connectedFor: Duration.zero,
+              isTV: false,
+              service: _shelf(2, notHere: true),
+              servers: const [],
+              pick: ShikooPick.auto,
+            ),
+            const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+            locale: language,
+            window: const Size(880, 508),
+            brightness: b,
+          );
+          final l = lookupShikooL10n(Locale(language));
+          final line = _in<ServiceCard>(find.text(l.outsourcedNotHere));
+          expect(line, findsOneWidget);
+          expect(find.textContaining(l.outsourcedTitle), findsNothing);
+          expect(find.text(l.loadingServers), findsNothing);
+          final colors = b == Brightness.light
+              ? ShikooColors.light
+              : ShikooColors.dark;
+          final span = tester.widget<Text>(line).textSpan! as TextSpan;
+          expect(span.children!.single.style!.color, colors.text);
+          expect(_in<ServiceCard>(_button(l.openBotTouch)), findsOneWidget);
+          await _shot(tester, 'w-not-here-$language-${b.name}');
+        }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+      }
+    }
   });
 }

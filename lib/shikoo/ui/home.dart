@@ -1426,6 +1426,8 @@ class _PowerZone extends StatelessWidget {
       );
     }
     final resting = restingFor(state);
+    // Sam, 2026-10-31: on Windows a shelf account's button is dimmed and its pill hidden, in their usual places.
+    final notHere = state.service?.notHere ?? false;
     final silent = _silent;
     final alarm = switch ((_shift, _coreShift)) {
       (final shift?, _) => shift.stage == ShikooSwitchStage.failed,
@@ -1514,11 +1516,12 @@ class _PowerZone extends StatelessWidget {
         switching: state.switching?.stage == ShikooSwitchStage.moving,
         warn: state.noInternet,
         restingLabel: switch (resting) {
+          null when notHere => l.powerConnect,
           ShikooServiceStatus.exhausted => l.stateExhausted,
           ShikooServiceStatus.revoked => l.chipRevoked,
           _ => l.powerExpired,
         },
-        onPressed: resting != null
+        onPressed: resting != null || notHere
             ? null
             : () => unawaited(switch (state.connection) {
                 ShikooConnection.off ||
@@ -1552,14 +1555,20 @@ class _PowerZone extends StatelessWidget {
           constraints: BoxConstraints(
             maxWidth: state.isTV ? cardWidth : double.infinity,
           ),
-          child: NowPill(
-            pick: state.pick,
-            server: selected,
-            via: (selected?.viaBridge ?? false) ? l.warpVia : null,
-            trying:
-                state.bridge.trying &&
-                (selected?.viaBridge ?? false) &&
-                (selected?.ping ?? -1) < 0,
+          child: Visibility(
+            visible: !notHere,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: NowPill(
+              pick: state.pick,
+              server: selected,
+              via: (selected?.viaBridge ?? false) ? l.warpVia : null,
+              trying:
+                  state.bridge.trying &&
+                  (selected?.viaBridge ?? false) &&
+                  (selected?.ping ?? -1) < 0,
+            ),
           ),
         ),
         if (!under && card != null) card,

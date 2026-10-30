@@ -748,6 +748,34 @@ void main() {
     expect(applies.last.$2, isFalse);
   });
 
+  test('an OpenVPN engine that dies again within the window ends the '
+      'connection («قطع شد»): OpenVPN never falls back to mihomo', () async {
+    final every = ownerWatchEvery;
+    ownerWatchEvery = const Duration(milliseconds: 20);
+    addTearDown(() => ownerWatchEvery = every);
+    var deaths = 0;
+    final home = await _home(
+      ready: {ShikooCore.openvpn},
+      running: const {'A': 'Vless', 'O': 'OpenVPN'},
+      carrying: () => deaths > 0 && deaths-- > 0
+          ? (core: '', server: '')
+          : (core: 'openvpn', server: 'O'),
+    );
+    await _connectOn(home, 'O');
+    home.setup.runs.clear();
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(home.setup.runs, [false, true, false]);
+    expect(home.container.read(shikooOwnerHeldOffProvider), isFalse);
+    expect(
+      home.container.read(shikooStateProvider).lastError,
+      ShikooError.coreDown,
+    );
+  });
+
   test('the hold on mihomo ends with the connection however it ends, and a '
       'death after the window is a first death again', () async {
     final every = ownerWatchEvery;

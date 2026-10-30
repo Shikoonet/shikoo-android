@@ -20,14 +20,17 @@ void main() {
     }
   });
 
-  test('every protocol sing-box can carry lists it as a ready option', () {
+  test('every protocol sing-box can carry lists it as a ready option, but '
+      'OpenVPN, which runs on its official core alone', () {
     final rows = coreRows(ShikooProtocol.values.toSet(), const {
       ShikooProtocol.vless: ShikooCore.singBox,
     });
     for (final row in rows) {
       expect(
         row.options,
-        contains((core: ShikooCore.singBox, ready: true)),
+        row.protocol == ShikooProtocol.openvpn
+            ? [(core: ShikooCore.openvpn, ready: true)]
+            : contains((core: ShikooCore.singBox, ready: true)),
         reason: row.protocol.name,
       );
     }

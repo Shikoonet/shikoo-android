@@ -1580,11 +1580,17 @@ abstract class ShikooL10n {
   /// **'Expired. For a new one, go to the ShikooNet bot.'**
   String get outsourcedEnded;
 
-  /// A shelf account whose OpenVPN server answered AUTH_FAILED after the customer's connect failed or carried no internet: its user or password is not taken any more. While connected it is the only message: the no-internet card does not come.
+  /// A shelf account whose OpenVPN server answered the official engine AUTH_FAILED at the customer's connect: its user or password is not taken any more. It stays until a connect of it succeeds.
   ///
   /// In en, this message translates to:
   /// **'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.'**
   String get outsourcedRefused;
+
+  /// On a shelf (OpenVPN) account's card on Windows, where no core runs OpenVPN yet: in the refused line's place, not red. The account never connects there.
+  ///
+  /// In en, this message translates to:
+  /// **'This account doesn\'t work on Windows yet; connect it on your phone or TV.'**
+  String get outsourcedNotHere;
 
   /// Phone: summaryExpired for a service that came from the Telegram account without its end date.
   ///

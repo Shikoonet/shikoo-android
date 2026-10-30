@@ -332,9 +332,8 @@ class VpnService : SystemVpnService(), ManagedService {
         synchronized(tunLock) {
             if (openVpn === engine) stopTunLocked() else engine.stop()
         }
-        if (!failure.refused) error("OpenVPN did not connect: ${failure.reason}")
-        GlobalState.log("OpenVPN refused the server, mihomo carries it: ${failure.reason}")
-        handleStart(options.copy(core = null))
+        // OpenVPN runs on this engine alone, never on mihomo (Sam, 2026-10-30).
+        error("OpenVPN did not connect: ${failure.reason}")
     }
 
     private fun Builder.configureAccessControl(options: VpnOptions) {
