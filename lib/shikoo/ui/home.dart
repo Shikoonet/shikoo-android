@@ -1448,7 +1448,14 @@ class _PowerZone extends StatelessWidget {
             isTV: state.isTV,
             width: cardWidth,
             onOther: onOther,
-            onSupport: state.servers.length == 1 ? onSupport : null,
+            onSupport:
+                state.servers.any(
+                  (server) =>
+                      server.name != state.selected &&
+                      !streamingOnly(server.name),
+                )
+                ? null
+                : onSupport,
             power: focusNode,
           )
         : (state.connection == ShikooConnection.on && state.streaming

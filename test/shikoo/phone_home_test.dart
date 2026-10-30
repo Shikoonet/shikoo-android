@@ -2532,7 +2532,8 @@ void main() {
 
   testWidgets('connected with no internet on a service of one server: no other '
       'to choose, so the card says wait or ask, and «پشتیبانی» opens its '
-      'support; two servers keep «انتخاب سرور دیگر»', (tester) async {
+      'support, the free streaming server beside it or not; two servers '
+      'keep «انتخاب سرور دیگر»', (tester) async {
     ShikooState on(List<ShikooServer> servers) => ShikooState(
       connection: ShikooConnection.on,
       connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -2573,6 +2574,20 @@ void main() {
       findsOneWidget,
     );
     expect(inCard('Support'), findsOneWidget);
+
+    await _pump(
+      tester,
+      on([
+        ...one,
+        const ShikooServer(
+          name: '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم',
+          type: 'Shadowsocks',
+          ping: 30,
+        ),
+      ]),
+    );
+    expect(inCard('پشتیبانی'), findsOneWidget);
+    expect(inCard('انتخاب سرور دیگر'), findsNothing);
 
     await _pump(
       tester,
