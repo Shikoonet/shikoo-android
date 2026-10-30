@@ -969,6 +969,10 @@ class ShikooL10nEn extends ShikooL10n {
       'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.';
 
   @override
+  String get outsourcedNotHere =>
+      'This account doesn\'t work on Windows yet; connect it on your phone or TV.';
+
+  @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';
 
   @override

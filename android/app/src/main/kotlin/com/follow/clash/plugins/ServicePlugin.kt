@@ -83,8 +83,14 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private fun getRunTime(result: MethodChannel.Result) {
         scope.launch {
             val time = ServiceState.refresh()
-            // Shikoo: -1 for a start that failed, so the app stops waiting for a tunnel at once.
-            result.success(if (time == 0L && ServiceState.lastStartFailed) -1L else time)
+            // Shikoo: -1 for a start that failed, so the app stops waiting for a tunnel at once; -2 for a refused login.
+            result.success(
+                when {
+                    time != 0L || !ServiceState.lastStartFailed -> time
+                    ServiceController.startRefusedLogin -> -2L
+                    else -> -1L
+                },
+            )
         }
     }
 

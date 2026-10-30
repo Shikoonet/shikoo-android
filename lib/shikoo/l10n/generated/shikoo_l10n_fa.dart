@@ -926,6 +926,10 @@ class ShikooL10nFa extends ShikooL10n {
       'این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.';
 
   @override
+  String get outsourcedNotHere =>
+      'این حساب فعلاً روی ویندوز کار نمی‌کند؛ روی گوشی یا تلویزیون وصلش کن.';
+
+  @override
   String get summaryExpiredNoDate =>
       'اعتبارش تمام شد. با تمدید دوباره فعال می‌شود.';
 

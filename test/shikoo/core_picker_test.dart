@@ -7,6 +7,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/cores.dart' show viaLabel;
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart' show SvgIcon;
 import 'package:fl_clash/shikoo/ui/report.dart' show SwitchRow;
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
@@ -30,11 +31,10 @@ const _wireguard = ShikooCore.wireguard;
 const _openvpn = ShikooCore.openvpn;
 
 /// The mockup's four kinds, in the engine's order: sing-box for WireGuard is not ready, and
-/// OpenVPN's new cores, its default the official one (Sam, 2026-10-23), only with [openvpnReady].
+/// OpenVPN is on its official engine alone (Sam, 2026-10-30).
 List<ShikooCoreRow> _rows({
   ShikooCore vless = _mihomo,
   ShikooCore wireguard = _mihomo,
-  bool openvpnReady = false,
   bool tunnel = true,
 }) => [
   (
@@ -62,14 +62,10 @@ List<ShikooCoreRow> _rows({
   ),
   (
     protocol: ShikooProtocol.openvpn,
-    chosen: openvpnReady ? _openvpn : _mihomo,
-    defaultCore: openvpnReady ? _openvpn : _mihomo,
-    carrier: openvpnReady && tunnel ? _openvpn : _mihomo,
-    options: [
-      (core: _mihomo, ready: true),
-      (core: _singBox, ready: openvpnReady),
-      (core: _openvpn, ready: openvpnReady),
-    ],
+    chosen: _openvpn,
+    defaultCore: _openvpn,
+    carrier: _openvpn,
+    options: const [(core: _openvpn, ready: true)],
   ),
   (
     protocol: ShikooProtocol.ssh,
@@ -152,6 +148,7 @@ ShikooState _home({
         type: 'OpenVPN',
         ping: 188,
         protocol: ShikooProtocol.openvpn,
+        core: _openvpn,
       ),
     ],
     selected: names[2],
@@ -388,7 +385,8 @@ void main() {
       ]) {
         expect(find.text(kind), findsOneWidget);
       }
-      expect(find.text(_fa.coreMihomo), findsNWidgets(4));
+      expect(find.text(_fa.coreMihomo), findsNWidgets(3));
+      expect(find.text(_fa.coreOpenvpn), findsOneWidget);
       expect(find.text(_fa.coresNote), findsOneWidget);
       await _shot(tester, 'a-set-light');
 
@@ -455,27 +453,58 @@ void main() {
     });
 
     for (final b in Brightness.values) {
-      testWidgets('OpenVPN today: «پیش‌فرض» under mihomo, the official engine '
-          'with «به‌زودی» (${b.name})', (tester) async {
-        await _pump(tester, _settings(), brightness: b);
-        await tester.ensureVisible(find.text(_fa.protocolOpenvpn).first);
-        await tester.tap(find.text(_fa.protocolOpenvpn).first);
+      testWidgets('OpenVPN is locked on its official engine: the row names it '
+          'with no ⌄, and a tap opens nothing (${b.name})', (tester) async {
+        final rig = await _pump(tester, _settings(), brightness: b);
+        final label = find.text(_fa.protocolOpenvpn).first;
+        final row = find.ancestor(of: label, matching: find.byType(Row)).first;
+        expect(
+          find.descendant(of: row, matching: find.text(_fa.coreOpenvpn)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: row, matching: find.byType(SvgIcon)),
+          findsNothing,
+        );
+        expect(
+          find.ancestor(of: label, matching: find.byType(Pressable)),
+          findsNothing,
+        );
+        await tester.ensureVisible(label);
+        await tester.tap(label);
         await tester.pumpAndSettle();
-        expect(_lineUnder(_fa.coreMihomo), _fa.coreDefault);
-        expect(_lineUnder(_fa.coreOpenvpn), _fa.coreOpenvpnHelp);
-        expect(find.text(_fa.coreSoon), findsNWidgets(2));
-        await _shot(tester, 'o-sheet-${b.name}');
+        expect(
+          find.text(_fa.corePickTitle(bidiName(_fa.protocolOpenvpn))),
+          findsNothing,
+        );
+        verifyNever(() => rig.controller.setCore(any(), any()));
+        await _shot(tester, 'o-locked-${b.name}');
       });
     }
 
     testWidgets('«پیش‌فرض» stands under the core the row names as default', (
       tester,
     ) async {
-      await _pump(tester, _settings(cores: _rows(openvpnReady: true)));
-      await tester.ensureVisible(find.text(_fa.protocolOpenvpn).first);
-      await tester.tap(find.text(_fa.protocolOpenvpn).first);
+      await _pump(
+        tester,
+        _settings(
+          cores: const [
+            (
+              protocol: ShikooProtocol.wireguard,
+              chosen: _mihomo,
+              defaultCore: _wireguard,
+              carrier: _mihomo,
+              options: [
+                (core: _mihomo, ready: true),
+                (core: _wireguard, ready: true),
+              ],
+            ),
+          ],
+        ),
+      );
+      await tester.tap(find.text(_fa.protocolWireguard).first);
       await tester.pumpAndSettle();
-      expect(_lineUnder(_fa.coreOpenvpn), _fa.coreDefault);
+      expect(_lineUnder(_fa.coreWireguard), _fa.coreDefault);
       expect(_lineUnder(_fa.coreMihomo), isNull);
     });
 
@@ -762,22 +791,21 @@ void main() {
     });
 
     for (final b in Brightness.values) {
-      testWidgets(
-        'OpenVPN today on the TV: «پیش‌فرض» under mihomo, the official '
-        'engine with «به‌زودی» (${b.name})',
-        (tester) async {
-          await _pump(tester, _settings(tv: true), brightness: b);
-          await _focusOn(tester, _fa.protocolOpenvpn);
-          expect(
-            await _press(tester, LogicalKeyboardKey.select),
-            _fa.coreMihomo,
-            reason: 'the remote on the current core',
-          );
-          expect(_lineUnder(_fa.coreMihomo), _fa.coreDefault);
-          expect(find.text(_fa.coreSoon), findsNWidgets(2));
-          await _shot(tester, 'o-tv-dialog-${b.name}');
-        },
-      );
+      testWidgets('the remote passes over the locked OpenVPN row, so no list '
+          'opens for it (${b.name})', (tester) async {
+        final rig = await _pump(tester, _settings(tv: true), brightness: b);
+        await _focusOn(tester, _fa.protocolWireguard);
+        expect(
+          await _press(tester, LogicalKeyboardKey.arrowDown),
+          _fa.protocolSsh,
+        );
+        await _shot(tester, 'o-tv-locked-${b.name}');
+        expect(
+          await _press(tester, LogicalKeyboardKey.arrowUp),
+          _fa.protocolWireguard,
+        );
+        verifyNever(() => rig.controller.setCore(any(), any()));
+      });
     }
 
     testWidgets('large text ×1.45: Settings and the dialog fit', (
@@ -1017,6 +1045,28 @@ void main() {
           findsOneWidget,
           reason: 'no engine of VLESS owns the tunnel',
         );
+      }, variant: windows);
+    }
+
+    for (final b in Brightness.values) {
+      testWidgets('no OpenVPN row on Windows, where no core runs it '
+          '(${b.name})', (tester) async {
+        await _pump(
+          tester,
+          _settings(
+            cores: coreRows(
+              {...ShikooProtocol.values},
+              const {},
+              specs: readyHere(ShikooPlatform.windows),
+            ),
+          ),
+          brightness: b,
+        );
+        expect(find.text(_fa.protocolOpenvpn), findsNothing);
+        expect(find.text(_fa.protocolWireguard), findsOneWidget);
+        await tester.ensureVisible(find.text(_fa.coresGroup));
+        await tester.pumpAndSettle();
+        await _shot(tester, 'o-win-${b.name}');
       }, variant: windows);
     }
 
