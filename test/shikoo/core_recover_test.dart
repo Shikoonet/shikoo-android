@@ -511,6 +511,18 @@ void main() {
     expect(desk.state.servers.single.ping, 50);
   });
 
+  test('a core that comes back under the tunnel measures the selected server '
+      'alone, with no round of the list (Sam, 2026-10-11)', () async {
+    final desk = _Desk()..delay = -1;
+    await desk.connect();
+    desk.delay = 50;
+    await desk.die();
+    await pumpEventQueue();
+    expect(desk.state.connection, ShikooConnection.on);
+    expect(desk.state.servers.single.ping, 50);
+    expect(desk.state.sorted, isFalse, reason: 'a round would sort the list');
+  });
+
   test("a round's answers from the dead core are dropped once it is back: "
       'the servers are measured again', () async {
     final desk = _Desk()

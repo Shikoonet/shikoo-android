@@ -288,10 +288,14 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
   void _toFastest(ShikooState state, ShikooController controller) {
     final others = {
       for (final server in state.servers)
-        if (server.name != state.selected) server.name: server.ping,
+        if (server.name != state.selected) server.name: server,
     };
     final name =
-        fastest([...others.keys], (name) => others[name]) ??
+        fastest(
+          [...others.keys],
+          (name) => others[name]!.ping,
+          handshake: (name) => others[name]!.core == ShikooCore.openvpn,
+        ) ??
         others.keys.firstWhereOrNull((name) => !streamingOnly(name));
     final service = state.service;
     if (name == null || service == null) return;

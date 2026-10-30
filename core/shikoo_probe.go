@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/metacubex/mihomo/adapter"
@@ -32,6 +33,10 @@ func init() {
 }
 
 func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
+	if idle := shikooOwnerIdlePings[fmt.Sprint(params.Proxy[shikooOwnerKey])]; idle != nil {
+		name := fmt.Sprint(params.Proxy["name"])
+		return idle(params.Proxy, &TestDelayParams{ProxyName: name, TestUrl: params.TestUrl, Timeout: params.Timeout}), nil
+	}
 	proxy, err := adapter.ParseProxy(params.Proxy)
 	if err != nil {
 		return nil, err

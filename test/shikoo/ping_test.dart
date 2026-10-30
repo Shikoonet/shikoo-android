@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 const _version = 'V3.7.x 🆔 info';
 const _panel = [_version, 'آلمان ۲', 'هلند ۱', 'انگلیس', 'آمریکا ۲'];
 
+bool _whole(String name) => false;
+
 void main() {
   group('pingServers', () {
     test('never runs more than four at once', () async {
@@ -89,9 +91,63 @@ void main() {
       '(#29)', () {
     const panel = ['NL 3 x ضریب مصرف', 'ضریب مصرف FR 4 x', 'Germany 3'];
     final pings = {panel[0]: 60, panel[1]: 70, panel[2]: 113};
-    expect(fastest(panel, (n) => pings[n]), 'Germany 3');
+    expect(fastest(panel, (n) => pings[n], handshake: _whole), 'Germany 3');
     pings['Germany 3'] = -1;
-    expect(fastest(panel, (n) => pings[n]), 'NL 3 x ضریب مصرف');
+    expect(
+      fastest(panel, (n) => pings[n], handshake: _whole),
+      'NL 3 x ضریب مصرف',
+    );
+  });
+
+  group('an OpenVPN reset, one round trip, never beats a whole test (Sam, '
+      '2026-10-29)', () {
+    bool reset(String name) => name.startsWith('OV');
+    String? pick(Map<String, int> pings) =>
+        fastest([...pings.keys], (n) => pings[n], handshake: reset);
+
+    test('a mixed service: the slower VLESS', () {
+      expect(pick(const {'OV ۱': 4, 'OV ۲': 9, 'VLESS ۱': 150}), 'VLESS ۱');
+    });
+
+    test('OpenVPN alone: its fastest reset', () {
+      expect(pick(const {'OV ۱': 40, 'OV ۲': 9, 'OV ۳': -1}), 'OV ۲');
+    });
+
+    test('every other server silent: the OpenVPN', () {
+      expect(pick(const {'OV ۱': 12, 'VLESS ۱': -1, 'WG ۱': -1}), 'OV ۱');
+    });
+
+    test('an ordinary reset before a usage multiplier, even a faster one '
+        '(#29; Sam: no multiplier first)', () {
+      expect(pick(const {'OV ۱': 12, 'VLESS ضریب مصرف 4 x': 90}), 'OV ۱');
+      expect(pick(const {'OV ۱': 120, 'VLESS ضریب مصرف 4 x': 60}), 'OV ۱');
+    });
+
+    test('only usage multipliers answered: the whole test before a faster '
+        'reset there too', () {
+      expect(
+        pick(const {'OV ضریب مصرف 2 x': 4, 'VLESS ضریب مصرف 4 x': 150}),
+        'VLESS ضریب مصرف 4 x',
+      );
+    });
+
+    test('connect pressed: a reset answers first, yet is taken only once the '
+        'round has ended with no whole test', () {
+      String? connecting(Map<String, int> pings, {required bool pinging}) =>
+          pickNow(
+            names: [...pings.keys],
+            ping: (n) => pings[n],
+            pinging: pinging,
+            urgent: true,
+            handshake: reset,
+          );
+      expect(connecting(const {'OV ۱': 4}, pinging: true), isNull);
+      expect(
+        connecting(const {'OV ۱': 4, 'VLESS ۱': 150}, pinging: true),
+        'VLESS ۱',
+      );
+      expect(connecting(const {'OV ۱': 4}, pinging: false), 'OV ۱');
+    });
   });
 
   test('a usage multiplier is known wherever «ضریب» stands in the name, and '
@@ -123,10 +179,16 @@ void main() {
       expect(streamingOnly(name), isFalse, reason: name);
     }
     final pings = {free: 20, 'Germany 3': 113, 'NE 2.5 x ضریب مصرف': 60};
-    expect(fastest(pings.keys.toList(), (n) => pings[n]), 'Germany 3');
+    expect(
+      fastest(pings.keys.toList(), (n) => pings[n], handshake: _whole),
+      'Germany 3',
+    );
     pings['Germany 3'] = -1;
-    expect(fastest(pings.keys.toList(), (n) => pings[n]), 'NE 2.5 x ضریب مصرف');
-    expect(fastest([free], (n) => pings[n]), isNull);
+    expect(
+      fastest(pings.keys.toList(), (n) => pings[n], handshake: _whole),
+      'NE 2.5 x ضریب مصرف',
+    );
+    expect(fastest([free], (n) => pings[n], handshake: _whole), isNull);
   });
 
   test('keepOrder keeps the sorted order and appends new servers', () {
@@ -188,6 +250,7 @@ void main() {
       ping: (n) => pings[n],
       pinging: pinging,
       urgent: urgent,
+      handshake: _whole,
     );
 
     test(
@@ -245,7 +308,7 @@ void main() {
       expect(pick(silent, pinging: false, urgent: false), isNull);
     });
 
-    test('connect pressed: a usage-multiplier first answer is taken at once; '
+    test('connect pressed: a usage-multiplier answer waits for the round end; '
         'an ordinary server that answered too wins (#29)', () {
       const four = 'ضریب مصرف NE 4 x';
       String? connecting(Map<String, int> pings) => pickNow(
@@ -253,8 +316,9 @@ void main() {
         ping: (n) => pings[n],
         pinging: true,
         urgent: true,
+        handshake: _whole,
       );
-      expect(connecting(const {four: 60}), four, reason: 'connect never waits');
+      expect(connecting(const {four: 60}), isNull);
       expect(connecting(const {four: 60, 'هلند ۱': 90}), 'هلند ۱');
     });
   });

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"path/filepath"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/metacubex/mihomo/adapter/outbound"
 	"github.com/metacubex/mihomo/common/structure"
+	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
 	ovpn "github.com/metacubex/mihomo/transport/openvpn"
@@ -88,10 +88,19 @@ func ovpnPrepare(mapping map[string]any, iranDirect bool) (*ovpnPlan, error) {
 			return nil, fmt.Errorf("%s is mihomo's alone", key)
 		}
 	}
+	name, config, err := ovpnConfig(mapping)
+	if err != nil {
+		return nil, err
+	}
+	ovpnPrepared.Store(&ovpnSession{server: name, config: config, iranDirect: iranDirect})
+	return &ovpnPlan{Profile: ovpnProfile(config), Username: config.Username, Password: config.Password}, nil
+}
+
+func ovpnConfig(mapping map[string]any) (string, *ovpn.ClientConfig, error) {
 	var option outbound.OpenVPNOption
 	decoder := structure.NewDecoder(structure.Option{TagName: "proxy", WeaklyTypedInput: true, KeyReplacer: structure.DefaultKeyReplacer})
 	if err := decoder.Decode(mapping, &option); err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	config := &ovpn.ClientConfig{
 		RemoteHost:   option.Server,
@@ -114,10 +123,9 @@ func ovpnPrepare(mapping map[string]any, iranDirect bool) (*ovpnPlan, error) {
 		PingRestart:  time.Duration(option.PingRestart) * time.Second,
 	}
 	if err := config.Prepare(); err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	ovpnPrepared.Store(&ovpnSession{server: option.Name, config: config, iranDirect: iranDirect})
-	return &ovpnPlan{Profile: ovpnProfile(config), Username: config.Username, Password: config.Password}, nil
+	return option.Name, config, nil
 }
 
 // ovpnProfile states mihomo's defaults (Prepare's cipher and auth) instead of leaving OpenVPN 3 its own.
@@ -235,21 +243,35 @@ func ovpnCarrying() string {
 
 // ovpnPing: the server's answer to a session reset while the engine's own session is up, from which it takes nothing.
 func ovpnPing(params *TestDelayParams) *Delay {
+	if now := ovpnNow.Load(); now != nil && now.up && now.server == params.ProxyName {
+		return ovpnDelay(params, now.config)
+	}
+	return ovpnDelay(params, nil)
+}
+
+func ovpnIdlePing(mapping map[string]any, params *TestDelayParams) *Delay {
+	_, config, _ := ovpnConfig(mapping)
+	return ovpnDelay(params, config)
+}
+
+func ovpnDelay(params *TestDelayParams, c *ovpn.ClientConfig) *Delay {
 	delay := &Delay{Name: params.ProxyName, Url: params.TestUrl, Value: -1}
-	now := ovpnNow.Load()
-	if now == nil || !now.up || now.server != params.ProxyName || now.config == nil {
+	if c == nil {
 		return delay
 	}
-	if rtt, err := ovpnProbe(now.config, delayTestTimeout(params.Timeout)); err == nil {
+	if rtt, err := ovpnProbe(c, delayTestTimeout(params.Timeout)); err == nil {
 		delay.Value = int32(max(rtt.Milliseconds(), 1))
 	}
 	return delay
 }
 
+const ovpnResendAfter = 500 * time.Millisecond
+
+// ovpnProbe dials as mihomo's client does (its resolver, Android's protect), and times a UDP resend from the first reset.
 func ovpnProbe(c *ovpn.ClientConfig, timeout time.Duration) (time.Duration, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	conn, err := (&net.Dialer{}).DialContext(ctx, c.Proto, c.RemoteAddress())
+	conn, err := dialer.DialContext(ctx, c.Proto, c.RemoteAddress())
 	if err != nil {
 		return 0, err
 	}
@@ -280,6 +302,10 @@ func ovpnProbe(c *ovpn.ClientConfig, timeout time.Duration) (time.Duration, erro
 	start := time.Now()
 	if err := control.SendReset(ctx); err != nil {
 		return 0, err
+	}
+	if c.Proto != ovpn.ProtoTCP {
+		resend := time.AfterFunc(ovpnResendAfter, func() { _ = control.RetransmitPending(ctx) })
+		defer resend.Stop()
 	}
 	reply, err := control.Read(ctx)
 	if err != nil {

@@ -56,13 +56,24 @@ bool streamingOnly(String name) {
   return plain.contains('فیلیمو') || plain.contains('filimo');
 }
 
-/// The app's own pick: a multiplied server only when no other answered, the streaming one never.
-String? fastest(List<String> panel, int? Function(String name) ping) {
-  int ms(String name) => ping(name)!;
-  final answered = panel.where(
-    (name) => (ping(name) ?? 0) > 0 && !streamingOnly(name),
+/// The app's own pick: never the streaming server; a multiplied server only when no other answered, and within each a
+/// [handshake] number (OpenVPN's reset, one round trip against the others' whole test) only when no whole test
+/// answered (Sam, 2026-10-29).
+String? fastest(
+  List<String> panel,
+  int? Function(String name) ping, {
+  required bool Function(String name) handshake,
+}) {
+  int rank(String name) =>
+      (multiplied(name) ? 2 : 0) + (handshake(name) ? 1 : 0);
+  final answered = panel
+      .where((name) => (ping(name) ?? 0) > 0 && !streamingOnly(name))
+      .toList();
+  final top = answered.map(rank).minOrNull;
+  return minBy(
+    answered.where((name) => rank(name) == top),
+    (name) => ping(name)!,
   );
-  return minBy(answered.whereNot(multiplied), ms) ?? minBy(answered, ms);
 }
 
 List<String> keepOrder(List<String> order, List<String> panel) => [

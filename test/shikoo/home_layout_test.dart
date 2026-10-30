@@ -769,31 +769,28 @@ void main() {
     );
   });
 
-  testWidgets('a silent pick of the app says what took its place', (
-    tester,
-  ) async {
+  testWidgets('a silent pick of the app says what took its place, and a '
+      'server an update took away says to pick another', (tester) async {
     _tvScreen(tester);
     final de = bidiName('آلمان ۲');
-    for (final (moved, second) in [
-      (false, 'سریع‌ترین سرور، «$de»، جایش انتخاب شد.'),
-      (true, 'اتصال همان لحظه به سریع‌ترین سرور، «$de»، رفت.'),
+    for (final (selected, notice, text) in [
+      (
+        'آلمان ۲',
+        const SilentReplaced(silent: '🇫🇮 فنلاند ۲', replacement: 'آلمان ۲'),
+        '«${bidiName('فنلاند ۲')}» جواب نداد. '
+            'سریع‌ترین سرور، «$de»، جایش انتخاب شد.',
+      ),
+      (
+        null,
+        const SelectedGone(),
+        'سرور تو از اشتراک حذف شد. یکی دیگر انتخاب کن.',
+      ),
     ]) {
       await _pumpTvHome(
         tester,
-        _tv(
-          moved ? ShikooConnection.on : ShikooConnection.off,
-          selected: 'آلمان ۲',
-          notice: SilentReplaced(
-            silent: '🇫🇮 فنلاند ۲',
-            replacement: 'آلمان ۲',
-            moved: moved,
-          ),
-        ),
+        _tv(ShikooConnection.off, selected: selected, notice: notice),
       );
-      expect(
-        find.text('«${bidiName('فنلاند ۲')}» جواب نداد. $second'),
-        findsOneWidget,
-      );
+      expect(find.text(text), findsOneWidget);
     }
   });
 
