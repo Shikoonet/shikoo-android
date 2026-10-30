@@ -1533,7 +1533,7 @@ class ShikooController {
       await _checkCarrying();
       if (attempt != _attempt) return;
       _set(_Intent(error: error));
-      unawaited(_checkSelected().whenComplete(() => _loginCheckDue = false));
+      unawaited(_checkSelected());
       return;
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
@@ -2456,6 +2456,8 @@ class ShikooController {
     Future<bool> once() => passes().catchError((Object _) => false);
     final ok = await once() || (current() && await once());
     if (current()) _ref.read(_noTrafficProvider.notifier).set(!ok);
+    if (current() && !ok) unawaited(_checkLogin());
+    _loginCheckDue = false;
   }
 
   void _sort() {
@@ -2520,7 +2522,6 @@ class ShikooController {
     bool carriesTraffic() => name == _validSelection() && _running;
     if (!carriesTraffic() || await _nativeRunTime() == null) return null;
     final passes = await _ref.read(trafficPassesProvider)();
-    if (!passes && carriesTraffic()) unawaited(_checkLogin());
     // The lookup went out through whatever carried traffic when it ended, maybe not [name].
     // Its time is not a ping: the last real one stays, or none (0).
     return passes && carriesTraffic() ? math.max(_ping(name) ?? 0, 0) : null;

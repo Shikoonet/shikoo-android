@@ -2218,6 +2218,10 @@ void main() {
         container.read(shikooStateProvider).connection,
         ShikooConnection.on,
       );
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      await pumpEventQueue();
       expect(asked, isEmpty);
     });
 
