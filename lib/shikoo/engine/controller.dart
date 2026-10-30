@@ -777,7 +777,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
             choices,
             specs: specs,
             tunnel: tunnel,
-            carried: name != selected || carrying == null
+            carried: name != selected || carrying == null || intent.connecting
                 ? null
                 : carrying.server == name
                 ? carrying.core

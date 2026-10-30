@@ -1124,6 +1124,28 @@ void main() {
     expect(_server(home, 'W').core, ShikooCore.wireguard);
   });
 
+  test('connecting, Go\'s "none" before the tunnel is up leaves the owner pick '
+      'shown (tv-10 read «با mihomo»); once up, "none" is mihomo', () async {
+    final home = await _home(
+      ready: {ShikooCore.wireguard},
+      choices: {ShikooProtocol.wireguard: ShikooCore.wireguard},
+      carrying: () => (core: '', server: ''),
+    );
+    await home.controller.selectServer('W');
+    final connecting = home.controller.connect();
+    home.container.read(runTimeProvider.notifier).value = 1;
+    await pumpEventQueue();
+    expect(
+      home.container.read(shikooStateProvider).connection,
+      ShikooConnection.connecting,
+    );
+    expect(_server(home, 'W').core, ShikooCore.wireguard);
+
+    home.setup.tunnel = DateTime(2026);
+    await connecting;
+    expect(_server(home, 'W').core, ShikooCore.mihomo);
+  });
+
   test("in Windows' proxy mode the cores row keeps the owner pick and names "
       'mihomo as its carrier', () async {
     final home = await _home(
