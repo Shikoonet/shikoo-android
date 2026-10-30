@@ -197,7 +197,9 @@ Platform (`shikoo-platform` `origin/main` `d5f86fc1`; read only):
     (none when no server answered), each once more when a report is built; a customer's pick, connected or not
     (`server picked <label>`, from `selectServer`, so never one of the app's own picks), and a connected switch's
     failure (`server switch failed <label>`); the app replacing its own silent pick
-    (`server silent <old> -> <new>`). The door's `servers` section is `.strict()`, so it has no in-use field;
+    (`server silent <old> -> <new>`); and a connected server the internet does not get through, after the check
+    that follows each connect and change of server (`no traffic <label>`). The door's `servers` section is
+    `.strict()`, so it has no in-use field;
   - screen on and off; app start, resume and pause; the renderer line once per start;
   - at each start, every new exit record with its reason name (`LOW_MEMORY`, `SIGNALED`, `USER_REQUESTED`, `OTHER`,
     `FREEZER`, `EXCESSIVE_RESOURCE_USAGE` and the rest, names from `AppExitReason`) and its time. That record is

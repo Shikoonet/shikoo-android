@@ -9,13 +9,32 @@ const shikooDirectIds = 7470000;
 const iranDirectIds = shikooDirectIds + 200;
 const subscriptionDirectIds = shikooDirectIds + 500;
 
+const streamingIds = shikooDirectIds + 300;
+
 const shikooRuleSets = {'shikoo-ir-site': 'domain', 'shikoo-ir-ip': 'ipcidr'};
 
 final iranDirectRules = [
   Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds),
 ];
 
+/// Measured through it 2026-10-29 (it refuses namava.ir and ad hosts); MATCH is FlClash's stand-in for the panel's end.
+final streamingRules = [
+  for (final (i, domain) in const [
+    'filimo.com',
+    'gapfilm.ir',
+    'sheyda.com',
+  ].indexed)
+    Rule.parse('DOMAIN-SUFFIX,$domain,MATCH', id: streamingIds + i),
+];
+
 void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {
+  final rules = config['rules'] as List?;
+  if (added.any((rule) => rule.ruleTarget?.toUpperCase() == 'MATCH') &&
+      !(rules ?? const []).any(
+        (rule) => '$rule'.trim().toUpperCase().startsWith('MATCH'),
+      )) {
+    config['rules'] = [...?rules, 'MATCH,DIRECT'];
+  }
   if (!added.any((rule) => rule.id == iranDirectIds)) return;
   final theirs = config['rule-providers'] is Map
       ? config['rule-providers'] as Map

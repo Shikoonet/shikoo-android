@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/no_shots.dart';
@@ -45,6 +46,7 @@ ShikooState _tv(
   String? supportUrl,
   String? announce,
   bool sorted = true,
+  bool connectedNoTraffic = false,
 }) => ShikooState(
   connection: connection,
   connectedFor: const Duration(minutes: 12, seconds: 47),
@@ -66,6 +68,7 @@ ShikooState _tv(
   refresh: refresh,
   notice: notice,
   sorted: sorted,
+  connectedNoTraffic: connectedNoTraffic,
   lastError:
       error ??
       (connection == ShikooConnection.error
@@ -74,11 +77,14 @@ ShikooState _tv(
 );
 
 /// Swapping the state through one ProviderScope keeps focus where the remote left it.
+class _Controller extends Mock implements ShikooController {}
+
 Future<ValueNotifier<ShikooState>> _pumpTvHome(
   WidgetTester tester,
   ShikooState state, {
   String locale = 'fa',
   bool canvas = false,
+  ShikooController? controller,
 }) async {
   final holder = ValueNotifier(state);
   addTearDown(holder.dispose);
@@ -87,6 +93,8 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
       key: UniqueKey(),
       overrides: [
         noShots,
+        if (controller != null)
+          shikooControllerProvider.overrideWithValue(controller),
         shikooStateProvider.overrideWith((ref) {
           void changed() => ref.invalidateSelf();
           holder.addListener(changed);
@@ -804,15 +812,96 @@ void main() {
         selected: 'shikoonetturkey',
       ),
     );
-    expect(find.text('وصل'), findsOneWidget);
-    final warning = find.textContaining(
-      '«\u2068shikoonetturkey\u2069» جواب نمی‌دهد.',
+    expect(find.text('وصل، بی‌اینترنت'), findsOneWidget);
+    expect(find.text('اینترنت از این سرور رد نمی‌شود.'), findsOneWidget);
+    expect(
+      find.textContaining('جواب نمی‌دهد'),
+      findsNothing,
+      reason: 'one message, not two',
     );
-    expect(warning, findsOneWidget);
-    expect(tester.widget<Text>(warning).style?.color, ShikooColors.dark.danger);
 
     await _pumpTvHome(tester, _tv(ShikooConnection.off, selected: 'آلمان ۲'));
-    expect(find.textContaining('جواب نمی‌دهد'), findsNothing);
+    expect(find.textContaining('رد نمی‌شود'), findsNothing);
+  });
+
+  testWidgets('no internet on the TV: the remote moves to «انتخاب سرور دیگر», '
+      'whose OK puts it on the fastest other server by its ping; the card '
+      'leaves the round button its size; on the streaming server the grey '
+      'card, the remote left on the button', (tester) async {
+    _tvScreen(tester);
+    final controller = _Controller();
+    final holder = await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.on),
+      controller: controller,
+    );
+    expect(_focused(), 'power');
+    final ring = tester.getSize(find.byType(PowerButton));
+    holder.value = ShikooState(
+      connection: ShikooConnection.on,
+      connectedFor: holder.value.connectedFor,
+      isTV: true,
+      service: holder.value.service,
+      servers: const [
+        ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
+        ShikooServer(name: 'فنلاند ۲', type: 'Vless', ping: 112),
+        ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 61),
+        ShikooServer(
+          name: '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم',
+          type: 'Shadowsocks',
+          ping: 30,
+        ),
+      ],
+      selected: 'فنلاند ۲',
+      sorted: true,
+      connectedNoTraffic: true,
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('وصل، بی‌اینترنت'), findsOneWidget);
+    expect(
+      find.text('شاید این سرور روی اینترنت تو بسته باشد.'),
+      findsOneWidget,
+    );
+    expect(find.byType(SpeedPills), findsNothing);
+    expect(_focused(), 'انتخاب سرور دیگر');
+    expect(tester.getSize(find.byType(PowerButton)), ring);
+    expect(
+      tester
+          .getSize(find.widgetWithText(ShikooButton, 'انتخاب سرور دیگر'))
+          .height,
+      ShikooSizes.tv.button,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(_focused(), 'هلند ۱', reason: 'the fastest by ping, not the first');
+    verifyNever(
+      () => controller.selectServer(any(), service: any(named: 'service')),
+    );
+
+    const free = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
+    await _pumpTvHome(
+      tester,
+      ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: holder.value.connectedFor,
+        isTV: true,
+        service: holder.value.service,
+        servers: [
+          ..._servers,
+          const ShikooServer(name: free, type: 'Shadowsocks', ping: 120),
+        ],
+        selected: free,
+        sorted: true,
+        connectedNoTraffic: true,
+      ),
+    );
+    await tester.pump();
+    expect(find.text('وصل'), findsOneWidget);
+    expect(find.text('فقط برای نماوا، فیلیمو، شیدا و گپ‌فیلم'), findsOneWidget);
+    expect(find.textContaining('رد نمی‌شود'), findsNothing);
+    expect(_focused(), 'power');
   });
 
   testWidgets('a refused or missing VPN consent is not blamed on the server', (
@@ -1325,5 +1414,110 @@ void _switchOnTv() {
         expect(find.byType(SnackBar), findsNothing, reason: why);
       }
     }
+  });
+
+  testWidgets('a no-internet card that comes while the remote is down the '
+      'list leaves the remote there', (tester) async {
+    _tvScreen(tester);
+    final holder = await _pumpTvHome(tester, _tv(ShikooConnection.on));
+    await _focus(tester, 'هلند ۱');
+    expect(_focused(), 'هلند ۱');
+    holder.value = ShikooState(
+      connection: ShikooConnection.on,
+      connectedFor: holder.value.connectedFor,
+      isTV: true,
+      service: holder.value.service,
+      servers: _servers,
+      selected: 'فنلاند ۲',
+      sorted: true,
+      connectedNoTraffic: true,
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('انتخاب سرور دیگر'), findsOneWidget);
+    expect(_focused(), 'هلند ۱');
+  });
+
+  testWidgets('on the TV canvas the round button keeps its size when the '
+      'no-internet card comes, for a short name, «آلمان ۵ Reality», a long '
+      'name and in English; the card and the name pill stay in its column', (
+    tester,
+  ) async {
+    final wrong = <String>[];
+    for (final (locale, name) in const [
+      ('fa', 'فنلاند ۲'),
+      ('fa', 'آلمان ۵ Reality'),
+      ('fa', 'آلمان ۲ · سرور ویژهٔ بسیار پرسرعت'),
+      ('en', 'Germany 3'),
+    ]) {
+      _tvScreen(tester);
+      ShikooState at({bool none = false}) => _tv(
+        ShikooConnection.on,
+        servers: [
+          const ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 96),
+          ShikooServer(name: name, type: 'Vless', ping: 70),
+        ],
+        selected: name,
+        connectedNoTraffic: none,
+      );
+      final holder = await _pumpTvHome(
+        tester,
+        at(),
+        locale: locale,
+        canvas: true,
+      );
+      await tester.pumpAndSettle();
+      final button = find.byType(PowerButton);
+      final before = tester.getRect(button).width;
+      holder.value = at(none: true);
+      await tester.pumpAndSettle();
+      final after = tester.getRect(button).width;
+      final column = tester
+          .renderObject<RenderBox>(
+            find
+                .ancestor(of: button, matching: find.byType(LayoutBuilder))
+                .first,
+          )
+          .constraints
+          .maxWidth;
+      final card = tester
+          .getSize(
+            find.byWidgetPredicate((w) => '${w.runtimeType}' == '_NoInternet'),
+          )
+          .width;
+      final pill = tester.getSize(find.byType(NowPill)).width;
+      const ring = ShikooSizes.ring;
+      if ((before - ShikooSizes.tv.powerRing).abs() > 0.01 ||
+          (after - before).abs() > 0.01 ||
+          card + 2 * ring > column ||
+          pill > card) {
+        wrong.add('$locale $name: $before → $after, $card/$pill in $column');
+      }
+    }
+    expect(wrong, isEmpty);
+  });
+
+  testWidgets('with no pings «انتخاب سرور دیگر» passes over the streaming '
+      'server, first in the list', (tester) async {
+    _tvScreen(tester);
+    const free = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
+    await _pumpTvHome(
+      tester,
+      _tv(
+        ShikooConnection.on,
+        servers: const [
+          ShikooServer(name: free, type: 'Shadowsocks'),
+          ShikooServer(name: 'فنلاند ۲', type: 'Vless'),
+          ShikooServer(name: 'هلند ۱', type: 'Vless'),
+        ],
+        sorted: false,
+        connectedNoTraffic: true,
+      ),
+    );
+    await tester.pump();
+    expect(_focused(), 'انتخاب سرور دیگر');
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(_focused(), 'هلند ۱');
   });
 }

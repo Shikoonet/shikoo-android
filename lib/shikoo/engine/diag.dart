@@ -939,6 +939,15 @@ class ShikooDiag with CoreEventListener, WidgetsBindingObserver {
         );
       }
     });
+    container.listen(shikooStateProvider.select((s) => s.connectedNoTraffic), (
+      _,
+      none,
+    ) {
+      final server = container.read(shikooStateProvider).selected;
+      if (none && server != null) {
+        add('T', 'no traffic ${withoutFlags(server)}');
+      }
+    });
     // After the two above, so a cause changing with the server is told first.
     container.listen(shikooStateProvider.select(_serverLine), (_, line) {
       if (line != null) add('T', line);

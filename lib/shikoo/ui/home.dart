@@ -9,6 +9,7 @@ import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
+import 'package:fl_clash/shikoo/engine/ping.dart' show fastest, streamingOnly;
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -283,6 +284,31 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     });
   }
 
+  /// b-warn «انتخاب سرور دیگر»: the list's fastest other server, the remote on it on the TV.
+  void _toFastest(ShikooState state, ShikooController controller) {
+    final others = {
+      for (final server in state.servers)
+        if (server.name != state.selected) server.name: server.ping,
+    };
+    final name =
+        fastest([...others.keys], (name) => others[name]) ??
+        others.keys.firstWhereOrNull((name) => !streamingOnly(name));
+    final service = state.service;
+    if (name == null || service == null) return;
+    void show() {
+      final row = _card.row(name);
+      final at = row.context;
+      if (at == null || !at.mounted) return;
+      state.isTV
+          ? jumpFocus(at, row)
+          : unawaited(Scrollable.ensureVisible(at, alignment: 0.5));
+    }
+
+    if (_card.row(name).context?.mounted ?? false) return show();
+    _open(controller, service.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) => show());
+  }
+
   void _open(ShikooController controller, int id) {
     _opening = (id: id, top: _edge(id));
     setState(() => _folded = false);
@@ -446,6 +472,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
       checked: check != null,
       offline: offline,
+      onOther: () => _toFastest(state, controller),
     );
     _LinklessCard linkless(LinkedService linked) => _LinklessCard(
       service: linked,
@@ -643,7 +670,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                       settings: _settings,
                       actions: top,
                       power: _PowerKeys(
-                        down: offersWarp(state, offline: offline),
+                        down:
+                            offersWarp(state, offline: offline) ||
+                            state.noInternet,
                         targets: [
                           _crashSend,
                           _check,
@@ -1163,6 +1192,7 @@ class _PowerZone extends StatelessWidget {
     this.restingMessage,
     this.checked = false,
     this.offline = false,
+    this.onOther,
   });
 
   final ShikooState state;
@@ -1178,6 +1208,7 @@ class _PowerZone extends StatelessWidget {
   /// The internet check has its card; «check this phone's internet» would contradict it.
   final bool checked;
   final bool offline;
+  final VoidCallback? onOther;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -1272,7 +1303,9 @@ class _PowerZone extends StatelessWidget {
       ),
       null when shift != null => switchNews(l, shift).join(' '),
       null when coreShift != null => coreNews(l, coreShift).join(' '),
-      null when silent => l.selectedDown(serverName(selected!.name)),
+      null when silent && !state.noInternet => l.selectedDown(
+        serverName(selected!.name),
+      ),
       null =>
         state.isTV && state.connection == ShikooConnection.off
             ? l.tvHint
@@ -1317,10 +1350,14 @@ class _PowerZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = ShikooTheme.of(context).s;
-    if (!shikooDesktop) return _column(context, s.powerRing * 1.5);
+    if (!shikooDesktop && !state.isTV) {
+      return _column(context, s.powerRing * 1.5);
+    }
     return LayoutBuilder(
-      builder: (context, box) =>
-          _column(context, math.min(s.dialog, box.maxWidth)),
+      builder: (context, box) => _column(
+        context,
+        math.min(shikooDesktop ? s.dialog : s.powerRing * 1.5, box.maxWidth),
+      ),
     );
   }
 
@@ -1377,8 +1414,27 @@ class _PowerZone extends StatelessWidget {
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
     final offerWarp = offersWarp(state, offline: offline);
+    // `.tv-power`'s padding-inline: the remote's ring around the card's button stays inside the column.
+    final cardWidth = state.isTV
+        ? width - 2 * ShikooSizes.ring
+        : (shikooDesktop ? width : double.infinity);
+    final card = message != null
+        ? null
+        : state.noInternet
+        ? _NoInternet(
+            name: serverName(selected!.name),
+            isTV: state.isTV,
+            width: cardWidth,
+            onOther: onOther,
+            power: focusNode,
+          )
+        : (state.connection == ShikooConnection.on && state.streaming
+              ? _StreamingCard(width: cardWidth)
+              : null);
     // WARP's first try and its failure: two lines wrapping to three on the TV too, where the room is two.
-    final tall = offerWarp || (state.isTV && (warp?.contains('\n') ?? false));
+    final tall =
+        offerWarp ||
+        (state.isTV && (card != null || (warp?.contains('\n') ?? false)));
     final text = Text(
       message ?? '',
       // A phone's message may wrap a line: WARP's failure and first try are two lines, the second one long.
@@ -1417,6 +1473,7 @@ class _PowerZone extends StatelessWidget {
         isTV: state.isTV,
         focusNode: focusNode,
         switching: state.switching?.stage == ShikooSwitchStage.moving,
+        warn: state.noInternet,
         restingLabel: switch (resting) {
           ShikooServiceStatus.exhausted => l.stateExhausted,
           ShikooServiceStatus.revoked => l.chipRevoked,
@@ -1436,21 +1493,27 @@ class _PowerZone extends StatelessWidget {
             ? Container(
                 constraints: BoxConstraints(minHeight: slot),
                 alignment: Alignment.center,
-                child: const SpeedPills(),
+                child: card ?? const SpeedPills(),
               )
             : say!
-      else if (state.connection == ShikooConnection.on)
+      else if (state.connection == ShikooConnection.on && !state.noInternet)
         const SpeedPills(),
       if (resting == null) ...[
-        NowPill(
-          pick: state.pick,
-          server: selected,
-          via: (selected?.viaBridge ?? false) ? l.warpVia : null,
-          trying:
-              state.bridge.trying &&
-              (selected?.viaBridge ?? false) &&
-              (selected?.ping ?? -1) < 0,
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: state.isTV ? cardWidth : double.infinity,
+          ),
+          child: NowPill(
+            pick: state.pick,
+            server: selected,
+            via: (selected?.viaBridge ?? false) ? l.warpVia : null,
+            trying:
+                state.bridge.trying &&
+                (selected?.viaBridge ?? false) &&
+                (selected?.ping ?? -1) < 0,
+          ),
         ),
+        if (!under && card != null) card,
         // c-off-win: the offer keeps with its message, above the mode switch.
         if (shikooDesktop && offerWarp) offer,
         if (shikooDesktop) ...[
@@ -1488,6 +1551,196 @@ class _PowerZone extends StatelessWidget {
             child: SizedBox(width: width, child: column),
           )
         : column;
+  }
+}
+
+/// b-warn: the card in the speed pills' room; on a computer one row, its button small; on the TV the remote moves
+/// to the button as it comes, from the round button only, so the remote's OK no longer drops the connection.
+class _NoInternet extends StatefulWidget {
+  const _NoInternet({
+    required this.name,
+    required this.isTV,
+    required this.width,
+    required this.onOther,
+    required this.power,
+  });
+
+  final String name;
+  final bool isTV;
+  final double width;
+  final VoidCallback? onOther;
+  final FocusNode power;
+
+  @override
+  State<_NoInternet> createState() => _NoInternetState();
+}
+
+class _NoInternetState extends State<_NoInternet> {
+  final _node = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isTV) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final at = FocusManager.instance.primaryFocus;
+        if (mounted &&
+            (at == null || at == widget.power || at is FocusScopeNode)) {
+          _node.requestFocus();
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final title = widget.isTV
+        ? l.noInternetTitleTv
+        : l.noInternetTitle(widget.name);
+    if (shikooDesktop) {
+      return SizedBox(
+        width: widget.width,
+        child: Row(
+          spacing: Space.s2,
+          children: [
+            SvgIcon(ShikooIcon.warn, size: t.s.iconSm, color: t.c.warning),
+            Expanded(
+              child: Text(
+                title,
+                style: t.text(t.s.bodySm, weight: FontWeight.w700),
+              ),
+            ),
+            // The message's room is two lines: the face fits it, the touch padding is left outside.
+            SizedBox(
+              height: t.s.buttonSm,
+              child: OverflowBox(
+                maxHeight: ShikooSizes.touch,
+                fit: OverflowBoxFit.deferToChild,
+                child: ShikooButton(
+                  label: l.noInternetOther,
+                  small: true,
+                  focusNode: _node,
+                  onPressed: widget.onOther,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    final gap = widget.isTV ? Space.s2 : Space.s3;
+    return Container(
+      width: widget.width,
+      padding: EdgeInsets.all(widget.isTV ? Space.s3 : Space.s4),
+      decoration: ShapeDecoration(
+        color: t.c.surface,
+        shadows: t.c.cardShadow,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: gap,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: Space.s3,
+            children: [
+              SvgIcon(ShikooIcon.warn, size: t.s.icon, color: t.c.warning),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: t.text(
+                        t.s.body,
+                        weight: FontWeight.w700,
+                        height: Leading.snug,
+                      ),
+                    ),
+                    Text(
+                      l.noInternetBody,
+                      style: t.text(
+                        t.s.bodySm,
+                        color: t.c.textMuted,
+                        height: Leading.snug,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          ShikooButton(
+            label: l.noInternetOther,
+            icon: ShikooIcon.lines,
+            focusNode: _node,
+            onPressed: widget.onOther,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// b-special: what the free streaming server is for; never the no-internet card. Flat on a computer, two lines.
+class _StreamingCard extends StatelessWidget {
+  const _StreamingCard({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final lines = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          l.streamingTitle,
+          textAlign: TextAlign.center,
+          style: t.text(
+            shikooDesktop ? t.s.bodySm : t.s.body,
+            weight: FontWeight.w700,
+            height: shikooDesktop ? Leading.tight : Leading.snug,
+          ),
+        ),
+        Text(
+          l.streamingBody,
+          textAlign: TextAlign.center,
+          style: t.text(
+            t.s.bodySm,
+            color: t.c.textMuted,
+            height: shikooDesktop ? Leading.tight : Leading.snug,
+          ),
+        ),
+      ],
+    );
+    if (shikooDesktop) return SizedBox(width: width, child: lines);
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.s3,
+        horizontal: Space.s4,
+      ),
+      decoration: ShapeDecoration(
+        color: t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+      ),
+      child: lines,
+    );
   }
 }
 

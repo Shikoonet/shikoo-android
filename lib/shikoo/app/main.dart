@@ -69,6 +69,7 @@ void main(List<String> args) {
         await writeRuleSets(await appPath.homeDirPath);
         await container.read(shikooIranDirectProvider.notifier).load();
         await keepIranDirect(container.read(shikooIranDirectProvider));
+        await keepStreaming(false);
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooCoresProvider.notifier).load();

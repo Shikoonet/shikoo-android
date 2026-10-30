@@ -878,6 +878,48 @@ abstract class ShikooL10n {
   /// **'“{name}” isn\'t answering.\nPick another server from the list.'**
   String selectedDown(String name);
 
+  /// The connected power button while the internet does not get through the selected server; the clock stays under it.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet'**
+  String get powerNoInternet;
+
+  /// Card under the server pill: connected, but the internet check failed through this server.
+  ///
+  /// In en, this message translates to:
+  /// **'The internet doesn’t get through “{name}”.'**
+  String noInternetTitle(String name);
+
+  /// The no-internet card's first line on the TV: a name would wrap it and shrink the round button, and the server pill under the card names the server.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet through this server.'**
+  String get noInternetTitleTv;
+
+  /// Second line of the no-internet card, phone and TV.
+  ///
+  /// In en, this message translates to:
+  /// **'It may be blocked on your network.'**
+  String get noInternetBody;
+
+  /// Button of the no-internet card: shows the fastest other server in the list (the remote moves onto it on the TV).
+  ///
+  /// In en, this message translates to:
+  /// **'Choose another server'**
+  String get noInternetOther;
+
+  /// Grey card while connected to the panel's free streaming server.
+  ///
+  /// In en, this message translates to:
+  /// **'Only for Namava, Filimo, Shayda and Gapfilm'**
+  String get streamingTitle;
+
+  /// Second line of the streaming server's card.
+  ///
+  /// In en, this message translates to:
+  /// **'Other sites and apps won’t open through this server.'**
+  String get streamingBody;
+
   /// No description provided for @vpnRefused.
   ///
   /// In en, this message translates to:

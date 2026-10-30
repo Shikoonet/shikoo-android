@@ -51,6 +51,7 @@ const _shipped = {
 Future<YamlMap> _config({
   bool tun = true,
   Map<String, Object>? panelSets,
+  List<String> rules = _panelRules,
 }) async {
   final made = await makeRealProfileTask(
     MakeRealProfileState(
@@ -63,7 +64,7 @@ Future<YamlMap> _config({
         },
         'proxies': [],
         'rule-providers': ?panelSets,
-        'rules': _panelRules,
+        'rules': rules,
       },
       realPatchConfig: PatchClashConfig(tun: Tun(enable: tun)),
       overrideDns: false,
@@ -272,5 +273,48 @@ void main() {
 
     await expectLater(writeRuleSets(join(home.path, 'missing')), completes);
     expect(lines, [startsWith('[APP] rule sets not written')]);
+  });
+
+  test("with the streaming server chosen, its sites take the panel's last "
+      "target ahead of Iran's sets, their names found with the device's "
+      'DNS; keepStreaming tells whether it changed anything', () async {
+    const streaming = [
+      'DOMAIN-SUFFIX,filimo.com,PROXY',
+      'DOMAIN-SUFFIX,gapfilm.ir,PROXY',
+      'DOMAIN-SUFFIX,sheyda.com,PROXY',
+    ];
+    await keepIranDirect(true);
+    expect(await keepStreaming(true), isTrue);
+    expect(await keepStreaming(true), isFalse);
+    var config = await _config();
+    var rules = config['rules'] as List;
+    expect(rules.take(9), containsAll(streaming));
+    expect(rules.skip(9).take(2), _sets);
+    expect(
+      (config['dns'] as YamlMap)['nameserver-policy'] as YamlMap,
+      containsPair('+.sheyda.com', 'system'),
+    );
+
+    expect(await keepStreaming(false), isTrue);
+    expect(await keepStreaming(false), isFalse);
+    config = await _config();
+    rules = config['rules'] as List;
+    expect(rules, isNot(contains(anyOf(streaming))));
+    expect(rules.skip(6).take(2), _sets);
+  });
+
+  test("a profile with no MATCH rule gets mihomo's own end spelled out, so "
+      "the streaming rules' MATCH stand-in has a target and the core takes "
+      'the config', () async {
+    expect(await keepStreaming(true), isTrue);
+    final rules =
+        (await _config(rules: ['DOMAIN-SUFFIX,ir,PROXY']))['rules'] as List;
+    expect(rules, contains('DOMAIN-SUFFIX,filimo.com,DIRECT'));
+    expect(rules.last, 'MATCH,DIRECT');
+    expect(rules.where((rule) => '$rule'.endsWith(',MATCH')), isEmpty);
+
+    final kept = (await _config())['rules'] as List;
+    expect(kept, contains('DOMAIN-SUFFIX,filimo.com,PROXY'));
+    expect(kept.where((rule) => '$rule'.startsWith('MATCH')), ['MATCH,PROXY']);
   });
 }
