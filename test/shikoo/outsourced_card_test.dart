@@ -93,13 +93,12 @@ ShikooAccount _closedBeside(int daysAgo) => ShikooAccount(
 ShikooState _alone({
   bool isTV = false,
   bool refused = false,
-  bool notHere = false,
   ShikooError? error,
 }) => ShikooState(
   connection: error == null ? ShikooConnection.off : ShikooConnection.error,
   connectedFor: Duration.zero,
   isTV: isTV,
-  service: _shelf(2, refused: refused, notHere: notHere),
+  service: _shelf(2, refused: refused),
   servers: _servers,
   selected: 'آلمان ۱',
   lastError: error,
@@ -641,9 +640,17 @@ void main() {
         testWidgets('on Windows, where no core runs OpenVPN yet, the card says '
             "so in the refused line's place, not in red, and keeps the bot "
             'button ($language, ${b.name})', (tester) async {
+          // As the app has it there: its OpenVPN servers are not offered.
           await _pump(
             tester,
-            _alone(notHere: true),
+            ShikooState(
+              connection: ShikooConnection.off,
+              connectedFor: Duration.zero,
+              isTV: false,
+              service: _shelf(2, notHere: true),
+              servers: const [],
+              pick: ShikooPick.auto,
+            ),
             const ShikooAccount(bot: _bot, services: [_shelfLinked]),
             locale: language,
             window: const Size(880, 508),
@@ -653,6 +660,7 @@ void main() {
           final line = _in<ServiceCard>(find.text(l.outsourcedNotHere));
           expect(line, findsOneWidget);
           expect(find.textContaining(l.outsourcedTitle), findsNothing);
+          expect(find.text(l.loadingServers), findsNothing);
           final colors = b == Brightness.light
               ? ShikooColors.light
               : ShikooColors.dark;

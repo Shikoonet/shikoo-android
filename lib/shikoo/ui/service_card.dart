@@ -371,7 +371,9 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset.copyWith(top: Space.s3),
                     child: _Hint(now: landed?.arrived ?? false),
                   ),
-                if (service.ended == null)
+                if (service.notHere)
+                  const SizedBox.shrink()
+                else if (service.ended == null)
                   _ServerList(
                     key: _list,
                     state: state,
