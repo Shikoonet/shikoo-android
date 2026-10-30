@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'shikoo_l10n.dart';
 
 // ignore_for_file: type=lint
@@ -929,6 +928,10 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get outsourcedEnded =>
       'Expired. For a new one, go to the ShikooNet bot.';
+
+  @override
+  String get outsourcedRefused =>
+      'This account is no longer accepted; for a new one, go to the bot.';
 
   @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';

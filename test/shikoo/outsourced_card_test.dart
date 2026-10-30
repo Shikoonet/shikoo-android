@@ -25,13 +25,14 @@ const _servers = [
   ShikooServer(name: 'آلمان ۲', type: 'OpenVPN', ping: 104),
 ];
 
-ShikooService _shelf(int id) => ShikooService(
+ShikooService _shelf(int id, {bool refused = false}) => ShikooService(
   id: id,
   name: 'user1001',
   usedBytes: 0,
   totalBytes: 0,
   usageKnown: false,
   outsourced: true,
+  loginRefused: refused,
   updatedAt: DateTime.now(),
 );
 
@@ -83,13 +84,18 @@ ShikooAccount _closedBeside(int daysAgo) => ShikooAccount(
   ],
 );
 
-ShikooState _alone({bool isTV = false}) => ShikooState(
-  connection: ShikooConnection.off,
+ShikooState _alone({
+  bool isTV = false,
+  bool refused = false,
+  ShikooError? error,
+}) => ShikooState(
+  connection: error == null ? ShikooConnection.off : ShikooConnection.error,
   connectedFor: Duration.zero,
   isTV: isTV,
-  service: _shelf(2),
+  service: _shelf(2, refused: refused),
   servers: _servers,
   selected: 'آلمان ۱',
+  lastError: error,
 );
 
 Future<void> _pump(
@@ -250,6 +256,10 @@ void main() {
       isNotNull,
     );
     expect(find.text('اعتبارش تمام شد'), findsOneWidget);
+    expect(
+      tester.widget<ShikooButton>(_button('ربات شیکونت')).icon,
+      ShikooIcon.qr,
+    );
     await _press(tester, LogicalKeyboardKey.select);
     expect(
       tester.widget<QrTile>(find.byType(QrTile)).data,
@@ -286,6 +296,53 @@ void main() {
     expect(find.text('تمام‌شده'), findsOneWidget);
     expect(_button('باز کردن ربات'), findsOneWidget);
     expect(_button('تمدید'), findsNothing);
+  });
+
+  testWidgets('refused by its server, the box says so, with the same bot '
+      'button', (tester) async {
+    await _pump(
+      tester,
+      _alone(refused: true),
+      const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+    );
+    expect(
+      _in<ServiceCard>(
+        find.text('این حساب دیگر پذیرفته نمی‌شود؛ برای حساب تازه به ربات برو.'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('اعتبار و حجم'), findsNothing);
+    expect(_in<ServiceCard>(_button('باز کردن ربات')), findsOneWidget);
+  });
+
+  testWidgets('refused, no server answering: no WARP line or offer, nor «check '
+      "this phone's internet», above the card that says why", (tester) async {
+    final l = lookupShikooL10n(const Locale('fa'));
+    final aside = [
+      find.text(l.warpOffTouch),
+      _button(l.warpTurnOn),
+      find.text(l.noServerAnsweredHelpTouch),
+    ];
+    await _pump(
+      tester,
+      _alone(error: ShikooError.noServer),
+      const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+    );
+    expect(
+      [for (final f in aside) f.evaluate().length],
+      [1, 1, 0],
+      reason: 'not refused: WARP is offered, as for any service',
+    );
+    await _pump(
+      tester,
+      _alone(error: ShikooError.noServer, refused: true),
+      const ShikooAccount(bot: _bot, services: [_shelfLinked]),
+    );
+    expect([for (final f in aside) f.evaluate().length], [0, 0, 0]);
+    expect(
+      find.text('این حساب دیگر پذیرفته نمی‌شود؛ برای حساب تازه به ربات برو.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('in English, as the phone-b-en frame', (tester) async {

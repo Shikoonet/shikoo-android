@@ -312,7 +312,11 @@ class _ServiceCardState extends State<ServiceCard> {
                 if (service.outsourced)
                   Padding(
                     padding: inset,
-                    child: _Guide(isTV: state.isTV, bot: widget.bot),
+                    child: _Guide(
+                      isTV: state.isTV,
+                      bot: widget.bot,
+                      refused: service.loginRefused,
+                    ),
                   ),
                 if (service.announce != null && !revoked)
                   Padding(
@@ -1276,15 +1280,20 @@ Widget _protocolChip(BuildContext context) =>
 /// `.guide` (ovpn-shelf-card, design ب): an outsourced account's days and data are not the app's to
 /// tell, and the bot sells a new one; on the TV the button shows the bot's QR, between update and servers.
 class _Guide extends StatelessWidget {
-  const _Guide({required this.isTV, required this.bot});
+  const _Guide({required this.isTV, required this.bot, this.refused = false});
 
   final bool isTV;
   final String? bot;
+  final bool refused;
 
   @override
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
+    final strong = TextStyle(
+      color: refused ? t.c.danger : t.c.text,
+      fontWeight: FontWeight.w700,
+    );
     return Container(
       margin: const EdgeInsets.only(top: Space.s3),
       padding: const EdgeInsets.all(Space.s3),
@@ -1300,16 +1309,12 @@ class _Guide extends StatelessWidget {
         children: [
           Text.rich(
             TextSpan(
-              children: [
-                TextSpan(
-                  text: '${l.outsourcedTitle}\n',
-                  style: TextStyle(
-                    color: t.c.text,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                TextSpan(text: l.outsourcedHelp),
-              ],
+              children: refused
+                  ? [TextSpan(text: l.outsourcedRefused, style: strong)]
+                  : [
+                      TextSpan(text: '${l.outsourcedTitle}\n', style: strong),
+                      TextSpan(text: l.outsourcedHelp),
+                    ],
             ),
             style: t.text(
               t.s.bodySm,

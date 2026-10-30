@@ -141,6 +141,7 @@ class ShikooService {
     this.number = 1,
     this.account,
     this.outsourced = false,
+    this.loginRefused = false,
   });
 
   final bool bridgeLeg;
@@ -171,8 +172,9 @@ class ShikooService {
 
   final String? account;
 
-  /// [LinkedService.outsourced]: a shelf account; its usage stays unknown even if a header told it.
   final bool outsourced;
+
+  final bool loginRefused;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -469,6 +471,11 @@ final _sourcesProvider = _cell<Map<int, Map<String, Map<String, dynamic>>>>(
   const {},
 );
 
+/// Go's ovpnLoginRefused (core/shikoo_ovpn_auth.go): testProxyDelay's answer when the server said AUTH_FAILED.
+const loginRefusedPing = -2;
+
+final _loginRefusedProvider = _cell<Set<int>>(const {});
+
 final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
 final _warpTryingProvider = _cell(false);
 final _warpFailedProvider = _cell(false);
@@ -681,6 +688,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     for (final linked in ref.watch(shikooAccountProvider).services)
       if (linked.outsourced) ?linked.profileId,
   };
+  final loginRefused = ref.watch(_loginRefusedProvider);
   final unnamed = [
     for (final profile in ref.watch(profilesProvider))
       if (_nameOf(profile).isEmpty) profile.id,
@@ -695,6 +703,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     revoked: revoked.contains(profile.id),
     number: unnamed.indexOf(profile.id) + 1,
     outsourced: outsourced.contains(profile.id),
+    loginRefused: loginRefused.contains(profile.id),
   );
 
   final group = _mainGroup(ref);
@@ -965,6 +974,7 @@ ShikooService _serviceFrom(
   bool revoked = false,
   int number = 1,
   bool outsourced = false,
+  bool loginRefused = false,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
@@ -987,6 +997,7 @@ ShikooService _serviceFrom(
     revoked: revoked,
     number: number < 1 ? 1 : number,
     outsourced: outsourced,
+    loginRefused: loginRefused,
   );
 }
 
@@ -1255,6 +1266,9 @@ class ShikooController {
   Map<String, String> _appPickByService = const {};
   int _attempt = 0;
 
+  /// Until the first measure after a press: a login drops the user's live session elsewhere (OpenVPN 2.6, ~114 s).
+  bool _loginCheckDue = false;
+
   Future<void>? _rebuilding;
   bool _rebuildAgain = false;
   Future<void>? _iranApplying;
@@ -1312,7 +1326,16 @@ class ShikooController {
 
   Group? get _group => _ref.read(currentGroupsStateProvider).value.firstOrNull;
 
-  void _set(_Intent intent) => _ref.read(_intentProvider.notifier).set(intent);
+  void _set(_Intent intent) {
+    _ref.read(_intentProvider.notifier).set(intent);
+    if (!intent.connecting &&
+        const {
+          ShikooError.noServer,
+          ShikooError.connectTimeout,
+        }.contains(intent.error)) {
+      unawaited(_checkLogin());
+    }
+  }
 
   int? get _current => _ref.read(currentProfileIdProvider);
 
@@ -1394,6 +1417,7 @@ class ShikooController {
 
   Future<void> connect() async {
     if (_ref.read(currentProfileProvider) == null) return;
+    _loginCheckDue = true;
     if (!await _coreReady()) return;
     _setAsideMultiplied();
     if (_validSelection() != null) return _start();
@@ -1466,10 +1490,11 @@ class ShikooController {
     if (attempt != _attempt) return;
     if (since != null) {
       _nativeStart(since);
+      _loginRefused(_current, refused: false);
       await _checkCarrying();
       if (attempt != _attempt) return;
       _set(_Intent(error: error));
-      unawaited(_checkSelected());
+      unawaited(_checkSelected().whenComplete(() => _loginCheckDue = false));
       return;
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
@@ -2339,6 +2364,7 @@ class ShikooController {
 
   void _setPing(int? service, String name, int ms) {
     if (service == null) return;
+    if (ms > 0) _loginRefused(service, refused: false);
     final all = _ref.read(_pingsProvider);
     _ref.read(_pingsProvider.notifier).set({
       ...all,
@@ -2424,6 +2450,7 @@ class ShikooController {
     bool carriesTraffic() => name == _validSelection() && _running;
     if (!carriesTraffic() || await _nativeRunTime() == null) return null;
     final passes = await _ref.read(trafficPassesProvider)();
+    if (!passes && carriesTraffic()) unawaited(_checkLogin());
     // The lookup went out through whatever carried traffic when it ended, maybe not [name].
     // Its time is not a ping: the last real one stays, or none (0).
     return passes && carriesTraffic() ? math.max(_ping(name) ?? 0, 0) : null;
@@ -2447,6 +2474,38 @@ class ShikooController {
     _ref
         .read(_revokedProvider.notifier)
         .set(revoked ? {...now, id} : ({...now}..remove(id)));
+  }
+
+  void _loginRefused(int? id, {required bool refused}) {
+    final now = _ref.read(_loginRefusedProvider);
+    if (id == null || now.contains(id) == refused) return;
+    _ref
+        .read(_loginRefusedProvider.notifier)
+        .set(refused ? {...now, id} : ({...now}..remove(id)));
+  }
+
+  Future<void> _checkLogin() async {
+    final id = _current;
+    final shelf = _ref
+        .read(shikooAccountProvider)
+        .services
+        .any((s) => s.profileId == id && s.outsourced);
+    final group = _group;
+    if (!_loginCheckDue || !shelf || id == null || group == null) return;
+    _loginCheckDue = false;
+    final name = _validSelection() ?? _names(group).firstOrNull;
+    final proxy = name == null ? null : (await _mainGroupOf(id))?.servers[name];
+    if (proxy == null) return;
+    // Never _probeOther's way: an owner core's mark makes Go answer with a reset, which logs nobody in.
+    final Delay? answer;
+    try {
+      answer = await _ref
+          .read(coreHandlerProvider)
+          .getDelayOf(_testUrl(group), proxy);
+    } catch (_) {
+      return;
+    }
+    if (answer?.value == loginRefusedPing) _loginRefused(id, refused: true);
   }
 
   /// Phone-only, as only a phone pastes: the account's own services leave with its next sync.

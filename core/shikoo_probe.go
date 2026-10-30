@@ -55,12 +55,20 @@ func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout(proxy, timeout))
 	defer cancel()
-	delay, err := proxy.URLTest(ctx, url, anyDelayTestStatus)
+	delay, err := proxyURLTest(ctx, proxy, url)
+	if ovpnRefusedLogin(err) {
+		delayData.Value = ovpnLoginRefused
+	}
 	if err != nil {
 		return delayData, nil
 	}
 	delayData.Value = delayValue(delay)
 	return delayData, nil
+}
+
+// A var so a test hands handleTestProxyDelay a server's answer, AUTH_FAILED among them, without a server.
+var proxyURLTest = func(ctx context.Context, proxy C.Proxy, url string) (uint16, error) {
+	return proxy.URLTest(ctx, url, anyDelayTestStatus)
 }
 
 // wireGuardGrace is wireguard-go's RekeyTimeout: a probe's first dial builds the device, and a lost
