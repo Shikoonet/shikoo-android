@@ -1557,6 +1557,44 @@ void _switchOnTv() {
     );
   });
 
+  testWidgets(
+    'a shelf account refused while «connected»: from the round button '
+    'the remote moves to «ربات شیکونت» by itself, as to the amber card; '
+    'elsewhere it stays',
+    (tester) async {
+      ShikooState on({required bool refused}) => ShikooState(
+        connection: ShikooConnection.on,
+        connectedFor: const Duration(minutes: 12, seconds: 47),
+        isTV: true,
+        service: ShikooService(
+          id: 2,
+          name: 'user1001',
+          usedBytes: 0,
+          totalBytes: 0,
+          usageKnown: false,
+          outsourced: true,
+          loginRefused: refused,
+          updatedAt: DateTime.now(),
+        ),
+        servers: _servers,
+        selected: 'فنلاند ۲',
+        sorted: true,
+        connectedNoTraffic: refused,
+      );
+      final moved = <String, String?>{};
+      for (final from in ['power', 'هلند ۱']) {
+        _tvScreen(tester);
+        final holder = await _pumpTvHome(tester, on(refused: false));
+        await _focus(tester, from);
+        holder.value = on(refused: true);
+        await tester.pump();
+        await tester.pump();
+        moved[from] = _focused();
+      }
+      expect(moved, {'power': 'ربات شیکونت', 'هلند ۱': 'هلند ۱'});
+    },
+  );
+
   testWidgets('with no pings «انتخاب سرور دیگر» passes over the streaming '
       'server, first in the list', (tester) async {
     _tvScreen(tester);

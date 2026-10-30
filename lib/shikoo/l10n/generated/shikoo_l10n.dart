@@ -908,10 +908,10 @@ abstract class ShikooL10n {
   /// **'Choose another server'**
   String get noInternetOther;
 
-  /// Second line of the no-internet card, phone, when the service has this one server only: its button is support (the top bar’s word) instead of noInternetOther.
+  /// Second line of the no-internet card, phone, when the service has no other server to go to (the free streaming one does not count): its button is support (the top bar’s word) instead of noInternetOther.
   ///
   /// In en, this message translates to:
-  /// **'This server isn’t answering right now. It sometimes takes a while; try again a bit later or ask support.'**
+  /// **'It sometimes takes a while; try again a bit later or ask support.'**
   String get noInternetOne;
 
   /// noInternetOne on the TV: the long line would wrap and shrink the round button. The button shows support’s QR.

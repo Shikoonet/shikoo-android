@@ -460,6 +460,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       centred: state.isTV || wide,
       controller: controller,
       focusNode: _power,
+      bot: _card.bot,
       renews: renews,
       restingLabel: switch (first) {
         null => null,
@@ -1214,6 +1215,7 @@ class _PowerZone extends StatelessWidget {
     this.offline = false,
     this.onOther,
     this.onSupport,
+    this.bot,
   });
 
   final ShikooState state;
@@ -1231,6 +1233,9 @@ class _PowerZone extends StatelessWidget {
   final bool offline;
   final VoidCallback? onOther;
   final VoidCallback? onSupport;
+
+  /// The service card's bot button: a refused shelf account's one way, where the amber card would be.
+  final FocusNode? bot;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -1523,7 +1528,17 @@ class _PowerZone extends StatelessWidget {
             ? Container(
                 constraints: BoxConstraints(minHeight: slot),
                 alignment: Alignment.center,
-                child: card ?? (state.noInternet ? null : const SpeedPills()),
+                child:
+                    card ??
+                    (!state.noInternet
+                        ? const SpeedPills()
+                        : state.isTV && bot != null
+                        ? _FromPower(
+                            power: focusNode,
+                            node: bot!,
+                            child: const SizedBox.shrink(),
+                          )
+                        : null),
               )
             : say!
       else if (state.connection == ShikooConnection.on && !state.noInternet)
@@ -1613,20 +1628,6 @@ class _NoInternetState extends State<_NoInternet> {
   final _node = FocusNode();
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.isTV) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final at = FocusManager.instance.primaryFocus;
-        if (mounted &&
-            (at == null || at == widget.power || at is FocusScopeNode)) {
-          _node.requestFocus();
-        }
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _node.dispose();
     super.dispose();
@@ -1674,7 +1675,7 @@ class _NoInternetState extends State<_NoInternet> {
       );
     }
     final gap = widget.isTV ? Space.s2 : Space.s3;
-    return Container(
+    final card = Container(
       width: widget.width,
       padding: EdgeInsets.all(widget.isTV ? Space.s3 : Space.s4),
       decoration: ShapeDecoration(
@@ -1733,7 +1734,44 @@ class _NoInternetState extends State<_NoInternet> {
         ],
       ),
     );
+    return widget.isTV
+        ? _FromPower(power: widget.power, node: _node, child: card)
+        : card;
   }
+}
+
+/// On the TV the remote moves to [node] as it comes, from the round button only, so its OK keeps the connection.
+class _FromPower extends StatefulWidget {
+  const _FromPower({
+    required this.power,
+    required this.node,
+    required this.child,
+  });
+
+  final FocusNode power;
+  final FocusNode node;
+  final Widget child;
+
+  @override
+  State<_FromPower> createState() => _FromPowerState();
+}
+
+class _FromPowerState extends State<_FromPower> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final at = FocusManager.instance.primaryFocus;
+      if (mounted &&
+          _onScreen(widget.node) &&
+          (at == null || at == widget.power || at is FocusScopeNode)) {
+        widget.node.requestFocus();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// b-special: what the free streaming server is for; never the no-internet card. Flat on a computer, two lines.

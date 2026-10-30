@@ -529,7 +529,7 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get noInternetOne =>
-      'این سرور الان جواب نمی‌دهد. گاهی کمی طول می‌کشد؛ کمی بعد دوباره امتحان کن یا از پشتیبانی بپرس.';
+      'گاهی کمی طول می‌کشد؛ کمی بعد دوباره امتحان کن یا از پشتیبانی بپرس.';
 
   @override
   String get noInternetOneTv => 'کمی بعد امتحان کن یا از پشتیبانی بپرس.';

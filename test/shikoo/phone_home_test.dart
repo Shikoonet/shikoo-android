@@ -2552,8 +2552,7 @@ void main() {
     await _pump(tester, on(one));
     expect(
       inCard(
-        'این سرور الان جواب نمی‌دهد. گاهی کمی طول می‌کشد؛ کمی بعد دوباره '
-        'امتحان کن یا از پشتیبانی بپرس.',
+        'گاهی کمی طول می‌کشد؛ کمی بعد دوباره امتحان کن یا از پشتیبانی بپرس.',
       ),
       findsOneWidget,
     );
@@ -2568,8 +2567,7 @@ void main() {
     await _pump(tester, on(one), locale: 'en');
     expect(
       inCard(
-        'This server isn’t answering right now. It sometimes takes a while; '
-        'try again a bit later or ask support.',
+        'It sometimes takes a while; try again a bit later or ask support.',
       ),
       findsOneWidget,
     );

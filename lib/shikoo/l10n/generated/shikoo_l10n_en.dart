@@ -568,7 +568,7 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get noInternetOne =>
-      'This server isn’t answering right now. It sometimes takes a while; try again a bit later or ask support.';
+      'It sometimes takes a while; try again a bit later or ask support.';
 
   @override
   String get noInternetOneTv => 'Try again a bit later or ask support.';
