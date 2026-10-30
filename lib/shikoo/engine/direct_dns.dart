@@ -7,7 +7,6 @@ const shikooDirectIds = 7470000;
 const iranDirectIds = shikooDirectIds + 200;
 const subscriptionDirectIds = shikooDirectIds + 500;
 
-/// Inside the block [shikooDns] sends to the device's DNS: Iranian sites, and the streaming server leaves in Iran too.
 const streamingIds = shikooDirectIds + 300;
 
 const shikooRuleSets = {'shikoo-ir-site': 'domain', 'shikoo-ir-ip': 'ipcidr'};
@@ -16,8 +15,7 @@ final iranDirectRules = [
   Rule.parse('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT', id: iranDirectIds),
 ];
 
-/// What the streaming server carries, measured through it on 2026-10-29 (namava.ir and the sites' ad hosts it
-/// refuses, so they stay with Iran's rules). `MATCH` is FlClash's stand-in for the target of the panel's last rule.
+/// Measured through it 2026-10-29 (it refuses namava.ir and ad hosts); MATCH is FlClash's stand-in for the panel's end.
 final streamingRules = [
   for (final (i, domain) in const [
     'filimo.com',
@@ -29,7 +27,6 @@ final streamingRules = [
 
 void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {
   final rules = config['rules'] as List?;
-  // mihomo's own end is DIRECT: spelled out, [streamingRules]' MATCH has a target even where a profile has none.
   if (added.any((rule) => rule.ruleTarget?.toUpperCase() == 'MATCH') &&
       !(rules ?? const []).any(
         (rule) => '$rule'.trim().toUpperCase().startsWith('MATCH'),
