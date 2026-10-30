@@ -872,6 +872,8 @@ void main() {
           .height,
       ShikooSizes.tv.button,
     );
+    await _focus(tester, 'power');
+    expect(await _press(tester, _down), 'انتخاب سرور دیگر');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();

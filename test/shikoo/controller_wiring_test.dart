@@ -2262,6 +2262,61 @@ void main() {
       expect(service(container).loginRefused, isFalse);
     });
 
+    test('a first lookup that fails and a second that passes ask no login, '
+        "though the connect's own probe found no traffic meanwhile", () async {
+      final (:container, :core, :setup, :asked) = shelf();
+      final controller = container.read(shikooControllerProvider);
+      final first = Completer<void>();
+      setup
+        ..tunnel = DateTime.now()
+        ..traffic = false
+        ..trafficGate = first;
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      setup.trafficGate = Completer<void>();
+      first.complete();
+      await pumpEventQueue();
+      setup.traffic = true;
+      setup.trafficGate!.complete();
+      await pumpEventQueue();
+      expect(asked, isEmpty);
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    for (final interrupt in ['server change', 'disconnect']) {
+      test(
+        'a traffic check that fails after a $interrupt asks no login',
+        () async {
+          final (:container, :core, :setup, :asked) = shelf();
+          final controller = container.read(shikooControllerProvider);
+          final gate = Completer<void>();
+          setup
+            ..tunnel = DateTime.now()
+            ..traffic = false
+            ..trafficGate = gate;
+          container
+              .read(profilesActionProvider.notifier)
+              .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+          unawaited(controller.connect());
+          await pumpEventQueue();
+          if (interrupt == 'disconnect') {
+            await controller.disconnect();
+          } else {
+            container
+                .read(profilesActionProvider.notifier)
+                .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+          }
+          await pumpEventQueue();
+          gate.complete();
+          await pumpEventQueue();
+          expect(asked, isEmpty);
+        },
+      );
+    }
+
     test('connected with no traffic passing, one press asks once: later rounds '
         'that find none either ask nothing more', () async {
       final (:container, :core, :setup, :asked) = shelf();
