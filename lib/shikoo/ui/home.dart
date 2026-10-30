@@ -631,22 +631,26 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           child: FocusTraversalGroup(
             policy: PageTraversalPolicy(),
             child: state.isTV
-                ? _TvLayout(
-                    noService: noService,
-                    settings: _settings,
-                    actions: top,
-                    power: _PowerKeys(
-                      down: offersWarp(state, offline: offline),
-                      targets: [
-                        _crashSend,
-                        _check,
-                        if (inUseOpen && towardCard != null)
-                          _card.row(towardCard),
-                        _inUse,
-                      ],
-                      child: power,
+                ? _BarKeys(
+                    renew: _topRenew,
+                    power: _power,
+                    child: _TvLayout(
+                      noService: noService,
+                      settings: _settings,
+                      actions: top,
+                      power: _PowerKeys(
+                        down: offersWarp(state, offline: offline),
+                        targets: [
+                          _crashSend,
+                          _check,
+                          if (inUseOpen && towardCard != null)
+                            _card.row(towardCard),
+                          _inUse,
+                        ],
+                        child: power,
+                      ),
+                      card: _CardKeys(focus: _card, power: _power, child: card),
                     ),
-                    card: _CardKeys(focus: _card, power: _power, child: card),
                   )
                 : wide
                 ? _WideLayout(
@@ -717,6 +721,61 @@ FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
   return nearest;
 }
 
+/// The card column's first row (an open card's head, a folded card), its item nearest [from].
+FocusNode? _firstRow(FocusNode from) {
+  final column = [
+    for (final node in from.nearestScope?.traversalDescendants ?? <FocusNode>[])
+      if (node.context?.findAncestorWidgetOfExactType<_CardKeys>() != null)
+        node,
+  ];
+  final first = minBy(column, (node) => node.rect.top);
+  if (first == null) return null;
+  return minBy(
+    column.where((node) => node.rect.top < first.rect.bottom),
+    (node) => (node.rect.center.dx - from.rect.center.dx).abs(),
+  );
+}
+
+/// Down from the top bar (the zones below answer their own keys): renew, over the gap where Flutter
+/// picked the power button or a folded card under the list, to the cards; the rest to power.
+class _BarKeys extends StatelessWidget {
+  const _BarKeys({
+    required this.renew,
+    required this.power,
+    required this.child,
+  });
+
+  final FocusNode renew;
+  final FocusNode power;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Actions(
+      actions: {
+        DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
+          onInvoke: (intent) {
+            final from = primaryFocus;
+            final next =
+                from == null || intent.direction != TraversalDirection.down
+                ? null
+                : from == renew
+                ? _firstRow(from)
+                : power;
+            if (_onScreen(next) && next!.canRequestFocus) {
+              jumpFocus(context, next);
+            } else {
+              from?.focusInDirection(intent.direction);
+            }
+            return null;
+          },
+        ),
+      },
+      child: child,
+    );
+  }
+}
+
 bool offersWarp(ShikooState state, {required bool offline}) =>
     !offline &&
     restingFor(state) == null &&
@@ -737,9 +796,12 @@ class _PowerKeys extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final towardCard = Directionality.of(context) == TextDirection.rtl
-        ? TraversalDirection.right
-        : TraversalDirection.left;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final towardCard = rtl ? TraversalDirection.right : TraversalDirection.left;
+    final stays = {
+      rtl ? TraversalDirection.left : TraversalDirection.right,
+      if (!down) TraversalDirection.down,
+    };
     return Actions(
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
@@ -747,7 +809,7 @@ class _PowerKeys extends StatelessWidget {
             final target = targets.firstWhereOrNull(_onScreen);
             if (intent.direction == towardCard && target != null) {
               target.requestFocus();
-            } else if (intent.direction != TraversalDirection.down || down) {
+            } else if (!stays.contains(intent.direction)) {
               primaryFocus?.focusInDirection(intent.direction);
             }
             return null;

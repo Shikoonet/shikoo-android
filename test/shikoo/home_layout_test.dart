@@ -131,6 +131,8 @@ String? _focused() {
   if (context.findAncestorWidgetOfExactType<PowerButton>() != null) {
     return 'power';
   }
+  final folded = context.findAncestorWidgetOfExactType<FoldedServiceCard>();
+  if (folded != null) return folded.service.name;
   final label = context.findAncestorWidgetOfExactType<ShikooButton>()?.label;
   return label == '' ? '▾' : label;
 }
@@ -232,7 +234,7 @@ void main() {
       ('تمدید', _towardPower, 'پشتیبانی'),
       ('تنظیمات', _towardCard, 'پشتیبانی'),
       ('تنظیمات', _down, 'power'),
-      ('پشتیبانی', _down, 'پینگ'),
+      ('پشتیبانی', _down, 'power'),
       ('تمدید', _down, 'پینگ'),
       ('به‌روزرسانی', _up, 'تمدید'),
       ('به‌روزرسانی', _down, 'آلمان ۲'),
@@ -1140,6 +1142,85 @@ void main() {
     setUpAll(loadShikooFonts);
     _switchOnTv();
     _topBarOnTv();
+    _downFromTheBarOnTv();
+  });
+}
+
+void _downFromTheBarOnTv() {
+  testWidgets('down from renew is the item of the card column\'s first row '
+      'nearest it, «پینگ», from support and Settings the power button, with a '
+      'long or short list and one service or three; up from the head is renew '
+      'again', (tester) async {
+    final long = [
+      for (var i = 1; i <= 15; i++)
+        ShikooServer(name: 'سرور $i', type: 'Vless', ping: 80 + i),
+    ];
+    ShikooService service(int id, String name) => ShikooService(
+      id: id,
+      name: name,
+      usedBytes: 33 << 30,
+      totalBytes: 100 << 30,
+      updatedAt: DateTime.now(),
+    );
+    ShikooState home(
+      List<ShikooServer> servers, {
+      bool many = false,
+      int? open,
+    }) => ShikooState(
+      connection: ShikooConnection.on,
+      connectedFor: const Duration(minutes: 3),
+      isTV: true,
+      service: service(0, 'user1001 · الماس'),
+      others: [
+        if (many) ...[
+          service(7, 'user1002 · طلایی'),
+          service(8, 'user1003 · معمولی'),
+        ],
+      ],
+      open: open,
+      servers: servers,
+      selected: servers.first.name,
+    );
+    final wrong = <String>[];
+    for (final (name, state, moves) in [
+      for (final (name, state) in [
+        ('one, long', home(long)),
+        ('one, short', home(_servers)),
+        ('three, long', home(long, many: true, open: 0)),
+        ('three, short', home(_servers, many: true, open: 0)),
+      ])
+        (
+          name,
+          state,
+          [
+            ('تمدید', _down, {'پینگ'}),
+            ('پشتیبانی', _down, {'power'}),
+            ('تنظیمات', _down, {'power'}),
+            ('پینگ', _up, {'تمدید'}),
+            ('به‌روزرسانی', _up, {'تمدید'}),
+          ],
+        ),
+      // Every card folded, as on Sam's box.
+      (
+        'three, folded',
+        home(long, many: true),
+        [
+          ('تمدید', _down, {'user1001 · الماس'}),
+        ],
+      ),
+    ]) {
+      _tvScreen(tester);
+      await _pumpTvHome(tester, state, canvas: true);
+      await tester.pumpAndSettle();
+      for (final (from, key, to) in moves) {
+        await _focus(tester, from);
+        final got = await _press(tester, key);
+        if (!to.contains(got)) {
+          wrong.add('$name: $from ${key.debugName} -> $got');
+        }
+      }
+    }
+    expect(wrong, isEmpty);
   });
 }
 
@@ -1154,6 +1235,7 @@ void _topBarOnTv() {
     final wrong = <String>[];
     for (final (from, key, to) in [
       ('power', _up, 'پشتیبانی'),
+      ('power', _towardPower, 'power'),
       ('پشتیبانی', _towardCard, 'تمدید'),
       ('پشتیبانی', _towardPower, 'تنظیمات'),
       ('به‌روزرسانی', _up, 'تمدید'),
