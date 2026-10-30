@@ -459,11 +459,15 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         !state.isTV &&
         shikooDesktop &&
         MediaQuery.sizeOf(context).width >= ShikooSizes.twoColumns;
+    final refusedBot = state.isTV && (current?.loginRefused ?? false)
+        ? _card.bot
+        : null;
     final power = _PowerZone(
       state: state,
       centred: state.isTV || wide,
       controller: controller,
       focusNode: _power,
+      bot: refusedBot,
       renews: renews,
       restingLabel: switch (first) {
         null => null,
@@ -688,6 +692,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
                         down:
                             offersWarp(state, offline: offline) ||
                             state.noInternet,
+                        below: refusedBot,
                         targets: [
                           _crashSend,
                           _check,
@@ -837,11 +842,13 @@ class _PowerKeys extends StatelessWidget {
     required this.targets,
     required this.child,
     this.down = false,
+    this.below,
   });
 
   final List<FocusNode> targets;
   final Widget child;
   final bool down;
+  final FocusNode? below;
 
   @override
   Widget build(BuildContext context) {
@@ -858,6 +865,9 @@ class _PowerKeys extends StatelessWidget {
             final target = targets.firstWhereOrNull(_onScreen);
             if (intent.direction == towardCard && target != null) {
               target.requestFocus();
+            } else if (intent.direction == TraversalDirection.down &&
+                _onScreen(below)) {
+              below!.requestFocus();
             } else if (!stays.contains(intent.direction)) {
               primaryFocus?.focusInDirection(intent.direction);
             }
@@ -1209,6 +1219,7 @@ class _PowerZone extends StatelessWidget {
     this.offline = false,
     this.onOther,
     this.onSupport,
+    this.bot,
   });
 
   final ShikooState state;
@@ -1226,6 +1237,9 @@ class _PowerZone extends StatelessWidget {
   final bool offline;
   final VoidCallback? onOther;
   final VoidCallback? onSupport;
+
+  /// The TV card's bot button while the shelf account is refused: retrying the round button cannot help.
+  final FocusNode? bot;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -1576,6 +1590,12 @@ class _PowerZone extends StatelessWidget {
           if (i > 0) SizedBox(height: gap),
           item,
         ],
+        if (bot case final bot?)
+          _FromPower(
+            power: focusNode,
+            node: bot,
+            child: const SizedBox.shrink(),
+          ),
       ],
     );
     // c-tv-off, a-tv-fail: the button moves up for WARP's lines; large text shrinks the column, never cuts it.

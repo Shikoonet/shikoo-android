@@ -1554,6 +1554,61 @@ void _switchOnTv() {
     );
   });
 
+  testWidgets(
+    'a shelf account refused by a failed connect (tv-13): from the round '
+    'button the remote moves to «ربات شیکونت» by itself and down reaches '
+    'it; elsewhere it stays; the round button stays put',
+    (tester) async {
+      ShikooState shelf(ShikooConnection connection, {bool refused = false}) =>
+          ShikooState(
+            connection: connection,
+            connectedFor: Duration.zero,
+            isTV: true,
+            service: ShikooService(
+              id: 2,
+              name: 'user1001',
+              usedBytes: 0,
+              totalBytes: 0,
+              usageKnown: false,
+              outsourced: true,
+              loginRefused: refused,
+              updatedAt: DateTime.now(),
+            ),
+            servers: _servers,
+            selected: 'فنلاند ۲',
+            sorted: true,
+            lastError: connection == ShikooConnection.error
+                ? ShikooError.connectTimeout
+                : null,
+          );
+      final moved = <String, String?>{};
+      final power = <Rect>{};
+      for (final from in ['power', 'هلند ۱']) {
+        _tvScreen(tester);
+        final holder = await _pumpTvHome(tester, shelf(ShikooConnection.error));
+        await _focus(tester, from);
+        power.add(tester.getRect(find.byType(PowerButton)));
+        holder.value = shelf(ShikooConnection.error, refused: true);
+        await tester.pump();
+        await tester.pump();
+        moved[from] = _focused();
+        power.add(tester.getRect(find.byType(PowerButton)));
+      }
+      expect(moved, {'power': 'ربات شیکونت', 'هلند ۱': 'هلند ۱'});
+      expect(power, hasLength(1));
+      for (final connection in [ShikooConnection.error, ShikooConnection.off]) {
+        _tvScreen(tester);
+        await _pumpTvHome(tester, shelf(connection, refused: true));
+        await _focus(tester, 'power');
+        expect(
+          await _press(tester, _down),
+          'ربات شیکونت',
+          reason: '$connection',
+        );
+      }
+    },
+  );
+
   testWidgets('with no pings «انتخاب سرور دیگر» passes over the streaming '
       'server, first in the list', (tester) async {
     _tvScreen(tester);
