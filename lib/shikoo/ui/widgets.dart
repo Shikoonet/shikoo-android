@@ -924,7 +924,6 @@ class StatusChip extends StatelessWidget {
       label = null,
       neutral = false;
 
-  /// `.chip-neutral`: grey, for a word that is no state, as an outsourced account's protocol.
   const StatusChip.neutral(String this.label, {super.key})
     : status = ShikooServiceStatus.active,
       disabled = false,

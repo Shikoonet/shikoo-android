@@ -387,7 +387,6 @@ class ShikooState {
 
   bool get streaming => streamingOnly(selected ?? '');
 
-  /// Connected, and the internet does not get through: the check failed, or the server stopped answering.
   bool get noInternet {
     final server = selectedServer;
     return connection == ShikooConnection.on &&
@@ -1083,8 +1082,8 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
   }
 }
 
-/// An owner core's tunnel holds the app (Android keeps it in every VPN, Windows cannot leave it out), so the app's
-/// direct requests take mihomo's port, whose DIRECT rules leave beside the tunnel. Null while mihomo carries the server.
+/// Windows cannot keep the app out of a tunnel an owner core holds, so the app's direct requests take mihomo's port,
+/// whose DIRECT rules leave beside the tunnel. Android keeps the app in every VPN too.
 String? ownerAside(ProviderReader read, Uri url) {
   final core = read(shikooStateProvider).selectedServer?.core;
   if (core == null ||
@@ -2444,7 +2443,6 @@ class ShikooController {
     });
   }
 
-  /// After a connect or a change of server, whether the internet passes, asked twice. It only tells: the pick stays.
   Future<void> _checkTraffic(String? server) async {
     if (!_ref.mounted) return;
     final no = ++_trafficNo;
@@ -2906,9 +2904,8 @@ class ShikooController {
       await _checkCarrying();
       aside = ownerAside(_ref.read, Uri.parse(url));
     }
-    // The owner's tunnel holds the app: a plain request leaves by the server, and mihomo's client stays shut.
+    // The owner's tunnel carries plain requests, and subscription hosts on Android's mixed port (subscriptionDirectRule).
     final byServer = aside == null ? server : null;
-    // Android's mixed port sends a subscription host by the server (subscriptionDirectRule); its own inbound does not.
     final direct = aside == null ? null : directInboundProxy() ?? aside;
     if (via == ShikooRoute.server) {
       if (!connected) throw const ShikooNotConnected();
