@@ -286,7 +286,7 @@ void main() {
       expect(pick(silent, pinging: false, urgent: false), isNull);
     });
 
-    test('connect pressed: a usage-multiplier first answer is taken at once; '
+    test('connect pressed: a usage-multiplier answer waits for the round end; '
         'an ordinary server that answered too wins (#29)', () {
       const four = 'ضریب مصرف NE 4 x';
       String? connecting(Map<String, int> pings) => pickNow(
@@ -296,7 +296,7 @@ void main() {
         urgent: true,
         handshake: _whole,
       );
-      expect(connecting(const {four: 60}), four, reason: 'connect never waits');
+      expect(connecting(const {four: 60}), isNull);
       expect(connecting(const {four: 60, 'هلند ۱': 90}), 'هلند ۱');
     });
   });

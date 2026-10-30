@@ -500,11 +500,17 @@ abstract class ShikooL10n {
   /// **'The connection moved to “{name}” right away.'**
   String selectedMovedFirst(String name);
 
-  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced when disconnected or selectedMoved when connected. Also the first sentence of a failed switch on the phone, followed by switchKept.
+  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced; the app replaces it only while disconnected. Also the first sentence of a failed switch on the phone, followed by switchKept.
   ///
   /// In en, this message translates to:
   /// **'“{name}” didn\'t answer.'**
   String selectedNoAnswer(String name);
+
+  /// A subscription update took away the server of the connection, which then stopped; the app picks no other.
+  ///
+  /// In en, this message translates to:
+  /// **'Your server was removed from the subscription. Pick another.'**
+  String get selectedGone;
 
   /// While connected, from tapping another server until it answers its own ping; the connection still goes through the previous server meanwhile. Phone: bottom snackbar. TV: under the server pill. In all three switch messages {name} goes through bidiName.
   ///

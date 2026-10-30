@@ -80,7 +80,7 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | Its sockets out of the tunnel | it dials through mihomo's `component/dialer`, which brings Android's protect (`core/lib.go:148-160`), Windows' interface binding and real DNS instead of fake-ip. Xray takes a dialer through `internet.UseAlternativeSystemDialer`; its `RegisterDialerController` has `DefaultSocketHook`'s signature. | Android: by leaving our package out. Windows: by binding to the physical interface. |
 | "Update through the server" (`_fetch`, `ShikooRoute.server`) | unchanged: the request goes to mihomo's local port, then the selected server, through the core the user picked | **Android: it fails while the owner core carries the server:** the request goes to mihomo's local port, and mihomo's own client of that server is gated (§4, "one identity, one session"), since a second session with the same key or username would take the owner's. Only "direct" works then. **Windows:** a plain request, which the owner's tunnel carries by the server (`ownerAside`). "Direct" is unchanged: with our package out of the VPN, every request of the app goes direct anyway. |
 | Changing the core | re-apply the config (`applyProfile(silence: true)`, as `followSubscriptions` does, `account.dart:616-623`); the tunnel stays up and the old engine stops after mihomo holds the new config | disconnect, then connect, as `setMode` does (`controller.dart:1231-1239`) |
-| Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address. The app's own move too (`_choose(byApp: true)`: a usage-multiplied pick left, a silent pick replaced, a pick an update took away), measured against what the tunnel carries: Go's `shikooOwner` (`_carryingProvider`), else the `_tunnelKeyOf` the start went with, and no tunnel means no reconnect; without it the gate handed the server to mihomo's own client. Sam's brake (A), 2026-10-30: after one such reconnect the app moves its pick no more, the round that reconnect starts included, until the customer pings, picks a server, connects or disconnects |
+| Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address. Only the customer's switch: the app never moves the server of a tunnel up or starting, and an update that takes that server away stops the tunnel with a notice (`SelectedGone`) and picks none (Sam, 2026-10-30) |
 | Lifecycle | lives with the applied config, inside `applyConfig` (Go). It runs while disconnected too, so pings work. | started and stopped by `VpnService` on Android, and by the core in TUN mode on Windows |
 | Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7), the official OpenVPN default included |
 
@@ -205,9 +205,10 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     `handleTestProxyDelay` hands a marked one to the same function. A UDP reset with no answer in 500 ms goes once
     more, timed from the first. Such a number is one round trip against the others' whole test, so the app's own
     pick (`fastest`, `ping.dart`) takes it only when no ordinary whole test of that service answered, yet before a
-    usage-multiplied one, and connect holds it until the round ends, when it also takes over the app's own
-    multiplied pick (Sam, 2026-10-29); an OpenVPN-only service picks among its own by it. Held off
-    (`shikooOwnerHeldOffProvider`), mihomo pings the server with a whole test and the rule does not apply.
+    usage-multiplied one, and connect holds it, as it holds a usage-multiplied answer, till an ordinary whole test
+    answers or the round ends, then picks once (Sam, 2026-10-29 and 10-30); an OpenVPN-only service picks among its
+    own by it. Held off (`shikooOwnerHeldOffProvider`), mihomo pings the server with a whole test and the rule does
+    not apply.
   - When `carrying` first returns a server, the engine calls `shikooOwnerTakes(server)` (below).
   - The app asks after the tunnel is up and again before its own requests take an owner's road
     (`ownerCarryingProvider`). Dart caps the wait at two seconds (`ownerAnswerLimit`), since the desktop RPC restarts

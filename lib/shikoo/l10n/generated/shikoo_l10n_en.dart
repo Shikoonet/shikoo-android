@@ -329,6 +329,10 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String get selectedGone =>
+      'Your server was removed from the subscription. Pick another.';
+
+  @override
   String switchingTo(String name) {
     return 'Moving to “$name”…';
   }

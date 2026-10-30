@@ -292,6 +292,9 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String get selectedGone => 'سرور تو از اشتراک حذف شد. یکی دیگر انتخاب کن.';
+
+  @override
   String switchingTo(String name) {
     return 'در حال رفتن به «$name»…';
   }

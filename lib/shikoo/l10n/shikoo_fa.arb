@@ -68,6 +68,7 @@
   "selectedMoved": "اتصال همان لحظه به سریع‌ترین سرور، «{name}»، رفت.",
   "selectedMovedFirst": "اتصال همان لحظه به «{name}» رفت.",
   "selectedNoAnswer": "«{name}» جواب نداد.",
+  "selectedGone": "سرور تو از اشتراک حذف شد. یکی دیگر انتخاب کن.",
   "switchingTo": "در حال رفتن به «{name}»…",
   "switchedTo": "حالا از «{name}» وصلی.",
   "switchKept": "هنوز از «{name}» وصلی؛ سرور دیگری را امتحان کن.",

@@ -160,7 +160,7 @@ class _ServiceCardState extends State<ServiceCard> {
         ? null
         : other
         ? () => controller.openService(service!.id)
-        : () => unawaited(controller.ping());
+        : () => unawaited(controller.pingAll());
     final connected = state.connection == ShikooConnection.on;
     final server = serverName(state.selected ?? widget.tunnelServer ?? '');
     void refresh([ShikooRoute? via]) => unawaited(
@@ -1047,12 +1047,11 @@ class _Message extends StatelessWidget {
               ? l.selectedMoved(serverName(replacement))
               : l.selectedReplaced(serverName(replacement)),
         ),
-      SilentReplaced(:final silent, :final replacement, :final moved) => (
+      SilentReplaced(:final silent, :final replacement) => (
         l.selectedNoAnswer(serverName(silent)),
-        moved
-            ? l.selectedMoved(serverName(replacement))
-            : l.selectedReplaced(serverName(replacement)),
+        l.selectedReplaced(serverName(replacement)),
       ),
+      SelectedGone() => (l.selectedGone, ''),
       ServersChanged(:final added, :final removed) => (
         [
           if (added > 0) l.serversAdded(added),

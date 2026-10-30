@@ -227,15 +227,14 @@ class SelectedReplaced extends ShikooNotice {
 }
 
 class SilentReplaced extends ShikooNotice {
-  const SilentReplaced({
-    required this.silent,
-    required this.replacement,
-    required this.moved,
-  });
+  const SilentReplaced({required this.silent, required this.replacement});
 
   final String silent;
   final String replacement;
-  final bool moved;
+}
+
+class SelectedGone extends ShikooNotice {
+  const SelectedGone();
 }
 
 class RefreshFailed extends ShikooNotice {
@@ -1099,7 +1098,7 @@ Future<Response<Uint8List>> _getAgain(String url, String? proxy) async {
 @visibleForTesting
 Duration subscriptionTimeout = const Duration(seconds: 30);
 
-/// Never row 1, the core's fallback: with connect pressed the first answer, else the fastest.
+/// Never row 1, the core's fallback: with connect pressed the first ordinary whole test, as it stays, else the fastest.
 String? pickNow({
   required List<String> names,
   required int? Function(String name) ping,
@@ -1110,7 +1109,9 @@ String? pickNow({
     ? null
     : fastest(
         names,
-        (name) => pinging && handshake(name) ? null : ping(name),
+        (name) => pinging && (handshake(name) || multiplied(name))
+            ? null
+            : ping(name),
         handshake: handshake,
       );
 
@@ -1390,12 +1391,7 @@ class ShikooController {
     return _names(group).contains(chosen) ? chosen : null;
   }
 
-  Future<void> connect() {
-    _hopped = false;
-    return _connect();
-  }
-
-  Future<void> _connect() async {
+  Future<void> connect() async {
     if (_ref.read(currentProfileProvider) == null) return;
     if (!await _coreReady()) return;
     _setAsideMultiplied();
@@ -1403,7 +1399,6 @@ class ShikooController {
     _find();
   }
 
-  /// No server chosen: the first to answer now takes it, with the tunnel up or not.
   void _find({bool list = false}) {
     _set(const _Intent(connecting: true, waiting: true));
     unawaited(pingAll(list: list));
@@ -1448,8 +1443,6 @@ class ShikooController {
     final refused = await _desktopReady(attempt);
     if (attempt != _attempt) return;
     if (refused != null) return _set(refused);
-    final chosen = _validSelection();
-    _startedKey = chosen == null ? null : _tunnelKeyOf(chosen);
     bool started;
     try {
       started = await _setup.setRunning(
@@ -1478,7 +1471,6 @@ class ShikooController {
       return;
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
-    _startedKey = null;
     await _setup.setRunning(false);
   }
 
@@ -1543,8 +1535,8 @@ class ShikooController {
   /// A switch of server or core: the VPN service keeps traffic blocked between the stop and the start.
   Future<void> _reconnect() async {
     await _ref.read(switchHoldProvider)();
-    await _disconnect();
-    await _connect();
+    await disconnect();
+    await connect();
   }
 
   /// A core behind mihomo only needs the config again; a new tunnel owner, a reconnect. Connected, a move shows as a
@@ -1710,12 +1702,7 @@ class ShikooController {
     unawaited(_setup.setRunning(false));
   }
 
-  Future<void> disconnect() {
-    _hopped = false;
-    return _disconnect();
-  }
-
-  Future<void> _disconnect() async {
+  Future<void> disconnect() async {
     if (!_fallingBack) {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }
@@ -1732,31 +1719,11 @@ class ShikooController {
   /// Sticky until the rebuild: a later "none" from Go cannot undo a client `shikooOwnerTakes` closed.
   bool _ownerRoad = false;
 
-  /// The tunnel key a start went with, until Go says what the tunnel carries; null with no tunnel.
-  String? _startedKey;
-
-  /// Sam's brake (A), 2026-10-30: one reconnect of the app's own, then no move of its own until the customer acts.
-  bool _hopped = false;
-
   bool _endOwnerRoad() {
     final took = _ownerRoad;
     _ownerRoad = false;
-    _startedKey = null;
     _ref.read(_carryingProvider.notifier).set(null);
     return took;
-  }
-
-  String? get _carriedKey {
-    final carrying = _ref.read(_carryingProvider);
-    if (carrying == null) return _startedKey;
-    final core = ShikooCore.values.asNameMap()[carrying.core];
-    return core == null
-        ? ShikooCore.mihomo.name
-        : tunnelKey(
-            core,
-            carrying.server,
-            specs: _ref.read(shikooCoreSpecsProvider),
-          );
   }
 
   Future<void> _rebuildClients() =>
@@ -1873,7 +1840,6 @@ class ShikooController {
   /// The user's choice, which the app never replaces; connected, a dead one never gets the traffic.
   /// A [service] other than the one in use is the open card's: choosing there is choosing it too.
   Future<void> selectServer(String name, {int? service}) async {
-    _hopped = false;
     final elsewhere = service != null && service != _current;
     final other = elsewhere ? _ref.read(_openedProvider) : null;
     if (elsewhere &&
@@ -1893,7 +1859,7 @@ class ShikooController {
         .add('T', 'server picked ${withoutFlags(name)}');
     final tap = _endSwitch();
     if (_ref.read(_noticeProvider)
-        case SilentReplaced() || SelectedReplaced()) {
+        case SilentReplaced() || SelectedReplaced() || SelectedGone()) {
       _notice(null);
     }
     final from = _validSelection();
@@ -2048,14 +2014,6 @@ class ShikooController {
     if (!applied) _pickedByApp(_pickInCore);
     final intent = _ref.read(_intentProvider);
     final error = applied ? null : ShikooError.serverChange;
-    final carried = _carriedKey;
-    if (byApp == true &&
-        applied &&
-        carried != null &&
-        carried != _tunnelKeyOf(name)) {
-      _hopped = true;
-      return _reconnect();
-    }
     if (intent.waiting && _validSelection() != null) {
       // Up already, as after a switch of service: the answer takes the traffic, no new start.
       return _running
@@ -2116,11 +2074,6 @@ class ShikooController {
     }
   }
 
-  Future<void> ping() {
-    _hopped = false;
-    return pingAll();
-  }
-
   /// [list] false is connect's probe: its first answer is taken and nothing else shows.
   Future<void> pingAll({bool list = true}) async {
     final group = _group;
@@ -2148,10 +2101,10 @@ class ShikooController {
         if (ms <= 0) return;
         final first =
             _validSelection() == null && _ref.read(_intentProvider).waiting;
-        if (!first && !_handshake(name) && !_leaveMultiplied(name)) return;
+        if (!first) return;
         _heard.add(name);
         _setPing(service, name, ms);
-        if (first) _reconcile();
+        _reconcile();
         return;
       }
       final kept = _names(_group).contains(name);
@@ -2366,26 +2319,23 @@ class ShikooController {
         total: 0,
         ended: true,
       ));
-    } else {
+    } else if (_validSelection() == null &&
+        _ref.read(_wantedProvider) == null &&
+        _ref.read(_intentProvider).waiting) {
       final best = fastest(
         _names(_group),
         (name) => _heard.contains(name) ? _ping(name) : null,
         handshake: _handshake,
       );
-      if (_validSelection() != null) {
-        _leaveMultiplied(best);
-      } else if (_ref.read(_wantedProvider) == null &&
-          _ref.read(_intentProvider).waiting) {
-        best == null
-            ? _set(const _Intent(error: ShikooError.noServer))
-            : unawaited(_choose(best, byApp: true));
-      }
+      best == null
+          ? _set(const _Intent(error: ShikooError.noServer))
+          : unawaited(_choose(best, byApp: true));
     }
     if (_again) {
       _again = false;
       unawaited(pingAll());
     } else if (list) {
-      unawaited(_replaceSilentPick());
+      _replaceSilentPick();
       _reconcile();
       if (_checkNext) unawaited(_checkSelected());
       _checkNext = false;
@@ -2433,37 +2383,25 @@ class ShikooController {
     });
   }
 
-  bool _leaveMultiplied(String? to) {
-    final chosen = _validSelection();
-    if (_hopped || to == null || multiplied(to) || chosen == null) return false;
-    if (chosen != _appPick || !multiplied(chosen)) return false;
-    unawaited(_choose(to, byApp: true));
-    return true;
-  }
-
   void _setAsideMultiplied() {
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick || !multiplied(chosen)) return;
     _setChoice(_current!, _group!.name, null, null);
   }
 
-  Future<void> _replaceSilentPick() async {
-    if (_staleGroups || _hopped) return;
+  void _replaceSilentPick() {
+    if (_staleGroups || _running || _ref.read(_intentProvider).connecting) {
+      return;
+    }
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
-    if (ms == null) return;
-    if (ms > 0) {
-      _leaveMultiplied(fastest(_names(_group), _ping, handshake: _handshake));
-      return;
-    }
-    // Flutter says running from the press on; a probe under the consent dialog proves nothing.
-    if (_running && await _nativeRunTime() == null) return;
-    if (_validSelection() != chosen) return;
     final best = fastest(_names(_group), _ping, handshake: _handshake);
-    if (best == null) return;
+    if (ms == null || best == null) return;
+    final silent = ms < 0;
+    if (!silent && (!multiplied(chosen) || multiplied(best))) return;
     unawaited(_choose(best, byApp: true));
-    _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
+    if (silent) _notice(SilentReplaced(silent: chosen, replacement: best));
   }
 
   Future<int?> _probeFor(int no, String url, String name) async =>
@@ -2588,7 +2526,6 @@ class ShikooController {
 
   /// Off, the card opened is the one connect uses; on, the tunnel stays. Null folds every card.
   void openService(int? id) {
-    _hopped = false;
     _ref.read(_openProvider.notifier).set(id);
     _ref.read(_landedProvider.notifier).set(null);
     _closeOpened();
@@ -2816,9 +2753,12 @@ class ShikooController {
       _endSwitch();
     }
     if (had != null && removed.contains(had)) {
-      // One fresh round names the replacement; connected, its first answer takes the traffic.
+      if (_running || _ref.read(_intentProvider).connecting) {
+        _notice(const SelectedGone());
+        return disconnect();
+      }
       _removed = had;
-      _running ? _find(list: true) : unawaited(pingAll());
+      unawaited(pingAll());
     } else if (added.isNotEmpty || removed.isNotEmpty) {
       _notice(ServersChanged(added: added.length, removed: removed));
     }
