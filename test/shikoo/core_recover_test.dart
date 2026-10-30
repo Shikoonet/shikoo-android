@@ -181,6 +181,8 @@ class _Desk {
   Future<void> connect() async {
     await pumpEventQueue();
     await controller.connect();
+    // The traffic check asks for the tunnel once after the connect: done before a test arms onRunTime.
+    await pumpEventQueue();
     expect(state.connection, ShikooConnection.on);
     calls.clear();
   }

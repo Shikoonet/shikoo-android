@@ -1356,6 +1356,7 @@ class _PowerZone extends StatelessWidget {
             isTV: state.isTV,
             width: cardWidth,
             onOther: onOther,
+            power: focusNode,
           )
         : (state.connection == ShikooConnection.on && state.streaming
               ? _StreamingCard(width: cardWidth)
@@ -1479,19 +1480,21 @@ class _PowerZone extends StatelessWidget {
 }
 
 /// b-warn: the card in the speed pills' room; on a computer one row, its button small; on the TV the remote moves
-/// to the button as it comes, so the remote's OK no longer drops the connection by chance.
+/// to the button as it comes, from the round button only, so the remote's OK no longer drops the connection.
 class _NoInternet extends StatefulWidget {
   const _NoInternet({
     required this.name,
     required this.isTV,
     required this.width,
     required this.onOther,
+    required this.power,
   });
 
   final String name;
   final bool isTV;
   final double width;
   final VoidCallback? onOther;
+  final FocusNode power;
 
   @override
   State<_NoInternet> createState() => _NoInternetState();
@@ -1505,7 +1508,11 @@ class _NoInternetState extends State<_NoInternet> {
     super.initState();
     if (widget.isTV) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _node.requestFocus();
+        final at = FocusManager.instance.primaryFocus;
+        if (mounted &&
+            (at == null || at == widget.power || at is FocusScopeNode)) {
+          _node.requestFocus();
+        }
       });
     }
   }

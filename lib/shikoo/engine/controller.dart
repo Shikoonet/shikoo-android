@@ -2411,7 +2411,7 @@ class ShikooController {
     bool current() => no == _trafficNo && _ref.mounted;
     _ref.read(_noTrafficProvider.notifier).set(false);
     if (server == null || streamingOnly(server)) return;
-    if (_ref.read(_nativeStartProvider) == null) return;
+    if (await _nativeRunTime() == null || !current()) return;
     final passes = _ref.read(trafficPassesProvider);
     Future<bool> once() => passes().catchError((Object _) => false);
     final ok = await once() || (current() && await once());

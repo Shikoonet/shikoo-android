@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/no_shots.dart';
@@ -74,11 +75,14 @@ ShikooState _tv(
 );
 
 /// Swapping the state through one ProviderScope keeps focus where the remote left it.
+class _Controller extends Mock implements ShikooController {}
+
 Future<ValueNotifier<ShikooState>> _pumpTvHome(
   WidgetTester tester,
   ShikooState state, {
   String locale = 'fa',
   bool canvas = false,
+  ShikooController? controller,
 }) async {
   final holder = ValueNotifier(state);
   addTearDown(holder.dispose);
@@ -87,6 +91,8 @@ Future<ValueNotifier<ShikooState>> _pumpTvHome(
       key: UniqueKey(),
       overrides: [
         noShots,
+        if (controller != null)
+          shikooControllerProvider.overrideWithValue(controller),
         shikooStateProvider.overrideWith((ref) {
           void changed() => ref.invalidateSelf();
           holder.addListener(changed);
@@ -821,7 +827,12 @@ void main() {
       'leaves the round button its size; on the streaming server the grey '
       'card, the remote left on the button', (tester) async {
     _tvScreen(tester);
-    final holder = await _pumpTvHome(tester, _tv(ShikooConnection.on));
+    final controller = _Controller();
+    final holder = await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.on),
+      controller: controller,
+    );
     expect(_focused(), 'power');
     final ring = tester.getSize(find.byType(PowerButton));
     holder.value = ShikooState(
@@ -833,6 +844,11 @@ void main() {
         ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: 84),
         ShikooServer(name: 'فنلاند ۲', type: 'Vless', ping: 112),
         ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 61),
+        ShikooServer(
+          name: '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم',
+          type: 'Shadowsocks',
+          ping: 30,
+        ),
       ],
       selected: 'فنلاند ۲',
       sorted: true,
@@ -858,6 +874,9 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
     expect(_focused(), 'هلند ۱', reason: 'the fastest by ping, not the first');
+    verifyNever(
+      () => controller.selectServer(any(), service: any(named: 'service')),
+    );
 
     const free = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
     await _pumpTvHome(
@@ -1313,5 +1332,27 @@ void _switchOnTv() {
         expect(find.byType(SnackBar), findsNothing, reason: why);
       }
     }
+  });
+
+  testWidgets('a no-internet card that comes while the remote is down the '
+      'list leaves the remote there', (tester) async {
+    _tvScreen(tester);
+    final holder = await _pumpTvHome(tester, _tv(ShikooConnection.on));
+    await _focus(tester, 'هلند ۱');
+    expect(_focused(), 'هلند ۱');
+    holder.value = ShikooState(
+      connection: ShikooConnection.on,
+      connectedFor: holder.value.connectedFor,
+      isTV: true,
+      service: holder.value.service,
+      servers: _servers,
+      selected: 'فنلاند ۲',
+      sorted: true,
+      connectedNoTraffic: true,
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('انتخاب سرور دیگر'), findsOneWidget);
+    expect(_focused(), 'هلند ۱');
   });
 }

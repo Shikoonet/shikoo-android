@@ -51,6 +51,7 @@ const _shipped = {
 Future<YamlMap> _config({
   bool tun = true,
   Map<String, Object>? panelSets,
+  List<String> rules = _panelRules,
 }) async {
   final made = await makeRealProfileTask(
     MakeRealProfileState(
@@ -63,7 +64,7 @@ Future<YamlMap> _config({
         },
         'proxies': [],
         'rule-providers': ?panelSets,
-        'rules': _panelRules,
+        'rules': rules,
       },
       realPatchConfig: PatchClashConfig(tun: Tun(enable: tun)),
       overrideDns: false,
@@ -300,5 +301,20 @@ void main() {
     rules = config['rules'] as List;
     expect(rules, isNot(contains(anyOf(streaming))));
     expect(rules.skip(6).take(2), _sets);
+  });
+
+  test("a profile with no MATCH rule gets mihomo's own end spelled out, so "
+      "the streaming rules' MATCH stand-in has a target and the core takes "
+      'the config', () async {
+    expect(await keepStreaming(true), isTrue);
+    final rules =
+        (await _config(rules: ['DOMAIN-SUFFIX,ir,PROXY']))['rules'] as List;
+    expect(rules, contains('DOMAIN-SUFFIX,filimo.com,DIRECT'));
+    expect(rules.last, 'MATCH,DIRECT');
+    expect(rules.where((rule) => '$rule'.endsWith(',MATCH')), isEmpty);
+
+    final kept = (await _config())['rules'] as List;
+    expect(kept, contains('DOMAIN-SUFFIX,filimo.com,PROXY'));
+    expect(kept.where((rule) => '$rule'.startsWith('MATCH')), ['MATCH,PROXY']);
   });
 }

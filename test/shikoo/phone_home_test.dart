@@ -2178,7 +2178,8 @@ void main() {
           sorted: true,
           connectedNoTraffic: true,
         );
-    await _pump(tester, on('سرور 1'));
+    final controller = _Controller();
+    await _pump(tester, on('سرور 1'), controller: controller);
     final label = find.text('وصل، بی‌اینترنت');
     expect(label, findsOneWidget);
     expect(
@@ -2196,6 +2197,9 @@ void main() {
     await tester.tap(find.text('انتخاب سرور دیگر'));
     await tester.pumpAndSettle();
     expect(screen.contains(tester.getCenter(fastest)), isTrue);
+    verifyNever(
+      () => controller.selectServer(any(), service: any(named: 'service')),
+    );
 
     const free = '(رایگان) نماوا | فیلیمو | شیدا | گپ فیلم';
     final special = on(

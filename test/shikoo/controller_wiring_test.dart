@@ -6020,4 +6020,61 @@ void main() {
       await done(controller);
     });
   });
+
+  test(
+    'opened while the tunnel runs, FlClash having restored its run time '
+    'first, a change of server still asks whether the internet passes',
+    () async {
+      _memoryDatabase();
+      final (:container, :core, :proxies, :setup) = _home();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 50,
+        ),
+      );
+      setup.tunnel = DateTime(2026);
+      container.read(runTimeProvider.notifier).value = 1;
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      await controller.selectServer('هلند ۱');
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.selected, setup.trafficAsked, state.connectedNoTraffic),
+        ('هلند ۱', 2, true),
+      );
+    },
+  );
+
+  test("FlClash's own run time with no tunnel behind it yet, as under the "
+      'consent dialog, asks nothing and warns of nothing', () async {
+    _memoryDatabase();
+    final (:container, :core, :proxies, :setup) = _home();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      ),
+    );
+    container.read(runTimeProvider.notifier).value = 1;
+    container
+        .read(profilesActionProvider.notifier)
+        .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect((setup.trafficAsked, state.connectedNoTraffic), (0, false));
+  });
 }

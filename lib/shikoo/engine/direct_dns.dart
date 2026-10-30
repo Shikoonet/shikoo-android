@@ -28,6 +28,14 @@ final streamingRules = [
 ];
 
 void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {
+  final rules = config['rules'] as List?;
+  // mihomo's own end is DIRECT: spelled out, [streamingRules]' MATCH has a target even where a profile has none.
+  if (added.any((rule) => rule.ruleTarget?.toUpperCase() == 'MATCH') &&
+      !(rules ?? const []).any(
+        (rule) => '$rule'.trim().toUpperCase().startsWith('MATCH'),
+      )) {
+    config['rules'] = [...?rules, 'MATCH,DIRECT'];
+  }
   if (!added.any((rule) => rule.id == iranDirectIds)) return;
   final theirs = config['rule-providers'] is Map
       ? config['rule-providers'] as Map

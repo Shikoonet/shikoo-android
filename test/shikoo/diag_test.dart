@@ -395,6 +395,7 @@ ShikooState _serversAt(
   ShikooSwitch? switching,
   ShikooNotice? notice,
   ShikooError? lastError,
+  bool connectedNoTraffic = false,
 }) => ShikooState(
   connection: connection,
   lastError: lastError,
@@ -409,6 +410,7 @@ ShikooState _serversAt(
   selected: selected,
   switching: switching,
   notice: notice,
+  connectedNoTraffic: connectedNoTraffic,
 );
 
 const _noChecks = (
@@ -1574,4 +1576,30 @@ void main() {
       });
     },
   );
+
+  test('the timeline names a connected server the internet does not get '
+      'through, once', () async {
+    const on = ShikooConnection.on;
+    final h = await _harness(
+      state: _serversAt(ShikooConnection.off, selected: _germany),
+    );
+    await h.diag.start(h.home.path);
+    await h.diag.attach(h.container);
+    for (final none in [false, true, true, false]) {
+      h.state.set(_serversAt(on, selected: _germany, connectedNoTraffic: none));
+      await pumpEventQueue();
+    }
+    final report = await h.diag.report(
+      trigger: 'test',
+      about: _about,
+      checks: _noChecks,
+    );
+    expect(
+      [
+        for (final line in (report['log']! as List).cast<String>())
+          if (line.substring(21).startsWith('T no traffic')) line.substring(23),
+      ],
+      ['no traffic Germany 5'],
+    );
+  });
 }
