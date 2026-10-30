@@ -498,6 +498,7 @@ void main() {
     Future<
       ({
         ProviderContainer container,
+        _Core core,
         _Proxies proxies,
         _Setup setup,
         ShikooController controller,
@@ -532,6 +533,7 @@ void main() {
       await pumpEventQueue();
       return (
         container: container,
+        core: core,
         proxies: proxies,
         setup: setup,
         controller: controller,
@@ -796,6 +798,138 @@ void main() {
       await settle();
       expect(s.setup.runs, before);
       expect(s.proxies.picked, [four, 'فرانسه ۴'], reason: 'off, it follows');
+    });
+
+    for (final how in ['Iran switch', 'core change', 'owner death']) {
+      test("up on the app's own usage-multiplied OpenVPN pick, a rebuild of "
+          'the same server ($how) keeps it, with one restart', () async {
+        final before = database;
+        database = Database(NativeDatabase.memory());
+        addTearDown(() async {
+          await database.close();
+          database = before;
+        });
+        const four = 'ضریب مصرف OV 4 x';
+        final servers = {four: ('OpenVPN', 40), germany: ('Vless', -1)};
+        final s = await service(servers);
+        s.setup.tunnel = DateTime(2026);
+        unawaited(s.controller.connect());
+        await settle();
+        expect(s.proxies.picked, [four]);
+        servers[germany] = ('Vless', 150);
+        switch (how) {
+          case 'Iran switch':
+            await s.controller.setIranDirect(false);
+          case 'core change':
+            await s.controller.setCore(
+              ShikooProtocol.openvpn,
+              ShikooCore.mihomo,
+            );
+          default:
+            final every = ownerWatchEvery;
+            ownerWatchEvery = const Duration(milliseconds: 20);
+            addTearDown(() => ownerWatchEvery = every);
+            s.container.read(runTimeProvider.notifier).value = 1;
+            await settle();
+            var dead = true;
+            when(() => s.core.shikooOwner()).thenAnswer((_) {
+              final owner = s.container.read(shikooOwnerProvider);
+              final server = dead ? '' : owner?.server ?? '';
+              dead = false;
+              return Future<Map<String, dynamic>?>.value({
+                'core': owner?.core ?? '',
+                'server': server,
+              });
+            });
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+        }
+        await settle();
+        expect(s.proxies.picked, [four], reason: how);
+        expect(s.setup.runs, [true, false, true], reason: how);
+        await s.controller.disconnect();
+      });
+    }
+
+    test('connect hears only a usage-multiplied VLESS and a usage-multiplied '
+        'OpenVPN reset: the round end takes the whole test', () async {
+      const fourV = 'ضریب مصرف NE 4 x';
+      const twoO = 'ضریب مصرف OV 2 x';
+      final s = await service({
+        fourV: ('Vless', 60),
+        twoO: ('OpenVPN', 4),
+        germany: ('Vless', -1),
+      });
+      s.setup.tunnel = DateTime(2026);
+      unawaited(s.controller.connect());
+      await settle();
+      expect(s.proxies.picked, [fourV]);
+      expect(s.setup.runs, [true]);
+      await s.controller.disconnect();
+    });
+
+    test('after SelectedGone the app picks nothing and the notice stays '
+        'through a ping round, the app going to the background and an '
+        'automatic update; a start from the tile is a first connect (Sam, '
+        '2026-10-30)', () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final panel = await _panel(container, core);
+      container
+          .read(profilesProvider.notifier)
+          .put(
+            container
+                .read(profilesProvider)
+                .single
+                .copyWith(url: '$panel/none/a'),
+          );
+      Group group(List<String> names) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final name in names) Proxy(name: name, type: 'Vless'),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group(['هلند ۲', 'هلند ۱']),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 90,
+        ),
+      );
+      final controller = container.read(shikooControllerProvider);
+      await controller.selectServer('هلند ۲');
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      await settle();
+      setup.onApply = () => container.read(groupsProvider.notifier).value = [
+        group(['هلند ۱']),
+      ];
+      await controller.refreshService();
+      await settle();
+      ShikooState state() => container.read(shikooStateProvider);
+      expect(state().notice, isA<SelectedGone>());
+
+      await controller.pingAll();
+      await settle();
+      expect(proxies.picked, ['هلند ۲'], reason: 'a ping round picks nothing');
+      controller.onBackground();
+      expect(state().notice, isA<SelectedGone>(), reason: 'the background');
+      await controller.refreshService(manual: false);
+      await settle();
+      expect(state().notice, isA<SelectedGone>(), reason: 'an update');
+      expect(state().selected, isNull);
+      expect(proxies.picked, ['هلند ۲']);
+      expect(setup.runs, [true, false]);
+
+      container.read(runTimeProvider.notifier).value = 1;
+      await settle();
+      expect(state().notice, isNull);
+      expect(proxies.picked, ['هلند ۲', 'هلند ۱']);
+      await controller.disconnect();
     });
 
     test('an OpenVPN-only service picks its fastest reset', () async {
@@ -1469,6 +1603,50 @@ void main() {
       container.read(shikooStateProvider).notice,
       isA<SilentReplaced>().having((n) => n.silent, 'from', 'هلند ۱'),
     );
+  });
+
+  test('a search under a tunnel up that moves to a service whose own pick '
+      'is a usage-multiplier server keeps that pick: no set-aside while up '
+      '(#29, Sam 2026-10-30)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: four, type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    SharedPreferences.setMockInitialValues({
+      'shikoo.appPicks': '{"${second.id}":"$four"}',
+    });
+    container
+        .read(profilesProvider.notifier)
+        .put(second.copyWith(selectedMap: {'PROXY': four}));
+    final hold = Completer<void>();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      await hold.future;
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: name == four ? 60 : 90);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).waiting, isTrue);
+
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    hold.complete();
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).selected, four);
+    expect(proxies.picked, isEmpty);
   });
 
   test(

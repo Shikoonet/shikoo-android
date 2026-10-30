@@ -1160,7 +1160,7 @@ class ShikooController {
         if (previous?.$1 != null && previous!.$1 != service) {
           _arrived = false;
           scheduleMicrotask(() {
-            _notice(null);
+            _setNotice(null);
             _forgetRound();
           });
         }
@@ -1200,6 +1200,9 @@ class ShikooController {
       scheduleMicrotask(
         running
             ? () {
+                if (_ref.read(_noticeProvider) is SelectedGone) {
+                  _setNotice(null);
+                }
                 _reconcile();
                 unawaited(_checkCarrying());
                 _watchOwner(true);
@@ -1342,7 +1345,12 @@ class ShikooController {
       _ref.read(runTimeProvider) != null ||
       _ref.read(_nativeStartProvider) != null;
 
-  void _notice(ShikooNotice? notice) =>
+  /// SelectedGone stays till the customer picks a server or connects (Sam, 2026-10-30).
+  void _notice(ShikooNotice? notice) {
+    if (_ref.read(_noticeProvider) is! SelectedGone) _setNotice(notice);
+  }
+
+  void _setNotice(ShikooNotice? notice) =>
       _ref.read(_noticeProvider.notifier).set(notice);
 
   /// News leaves with the app or the next update; a failed update stays until one succeeds.
@@ -1391,11 +1399,15 @@ class ShikooController {
     return _names(group).contains(chosen) ? chosen : null;
   }
 
-  Future<void> connect() async {
-    if (_ref.read(_noticeProvider) is SelectedGone) _notice(null);
+  Future<void> connect() {
+    if (_ref.read(_noticeProvider) is SelectedGone) _setNotice(null);
+    return _connect(setAside: true);
+  }
+
+  Future<void> _connect({required bool setAside}) async {
     if (_ref.read(currentProfileProvider) == null) return;
     if (!await _coreReady()) return;
-    _setAsideMultiplied();
+    if (setAside) _setAsideMultiplied();
     if (_validSelection() != null) return _start();
     _find();
   }
@@ -1537,7 +1549,7 @@ class ShikooController {
   Future<void> _reconnect() async {
     await _ref.read(switchHoldProvider)();
     await disconnect();
-    await connect();
+    await _connect(setAside: false);
   }
 
   /// A core behind mihomo only needs the config again; a new tunnel owner, a reconnect. Connected, a move shows as a
@@ -1828,7 +1840,7 @@ class ShikooController {
     }
     await _ref.read(_extrasProvider.notifier).clear();
     _savePicks(const {});
-    _notice(null);
+    _setNotice(null);
     _forgetRound();
     openService(null);
     _ref.read(_pingsProvider.notifier).set(const {});
@@ -1861,7 +1873,7 @@ class ShikooController {
     final tap = _endSwitch();
     if (_ref.read(_noticeProvider)
         case SilentReplaced() || SelectedReplaced() || SelectedGone()) {
-      _notice(null);
+      _setNotice(null);
     }
     final from = _validSelection();
     final connected = _running && !_ref.read(_intentProvider).connecting;
@@ -2034,6 +2046,7 @@ class ShikooController {
   void _reconcile() {
     final group = _group;
     if (group == null || _staleGroups || _validSelection() != null) return;
+    if (_ref.read(_noticeProvider) is SelectedGone) return;
     final names = _names(group);
     if (names.isEmpty) return;
     final running = _running;
