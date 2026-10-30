@@ -330,7 +330,6 @@ class ShikooState {
 
   final ShikooBridge bridge;
 
-  /// Never for the streaming server ([streamingOnly]), which carries no internet by design.
   final bool connectedNoTraffic;
 
   final ShikooConnection connection;
