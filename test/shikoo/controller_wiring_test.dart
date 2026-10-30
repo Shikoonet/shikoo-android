@@ -605,12 +605,18 @@ void main() {
           expect(state.connection, ShikooConnection.off, reason: reason);
           expect(state.notice, isA<SelectedGone>(), reason: reason);
 
-          await controller.selectServer('هلند ۱');
+          if (up) {
+            await controller.selectServer('هلند ۱');
+          } else {
+            unawaited(controller.connect());
+            await pumpEventQueue();
+          }
           expect(
             container.read(shikooStateProvider).notice,
             isNull,
-            reason: 'picked: $reason',
+            reason: '${up ? 'a pick' : 'connect'} clears it: $reason',
           );
+          await controller.disconnect();
         }
       }
     });
@@ -2861,56 +2867,57 @@ void main() {
     },
   );
 
-  test('connected, another service with a server of its own measures that '
-      "one alone, then a round that only sorts for the app's silent pick: "
-      "the customer's own and the app's stay (Sam, 2026-10-30)", () async {
-    final (:container, :core, :proxies, :setup) = _home();
-    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
-    final probes = <String>[];
-    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-      final name = call.positionalArguments[1] as String;
-      probes.add(name);
-      return Delay(name: name, url: '', value: pings[name] ?? -1);
-    });
-    final controller = container.read(shikooControllerProvider);
-    final first = container.read(currentProfileIdProvider)!;
-    final second = Profile.normal(url: 'https://panel.invalid/second');
-    container.read(profilesProvider.notifier).put(second);
-    await controller.pingAll();
-    expect(proxies.picked, ['آلمان ۱'], reason: "the app's own, in the first");
-    controller.selectService(second.id);
-    await pumpEventQueue();
-    await controller.selectServer('آلمان ۱');
-    container.read(runTimeProvider.notifier).value = 1;
-    setup.tunnel = DateTime(2026);
-    await pumpEventQueue();
+  test(
+    'connected, another service with a server of its own measures that '
+    "one alone, the app's silent pick too, with no round of the list: the "
+    "customer's own and the app's stay (Sam, 2026-10-11 and 10-30)",
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      final probes = <String>[];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        probes.add(name);
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      final first = container.read(currentProfileIdProvider)!;
+      final second = Profile.normal(url: 'https://panel.invalid/second');
+      container.read(profilesProvider.notifier).put(second);
+      await controller.pingAll();
+      expect(proxies.picked, [
+        'آلمان ۱',
+      ], reason: "the app's own, in the first");
+      controller.selectService(second.id);
+      await pumpEventQueue();
+      await controller.selectServer('آلمان ۱');
+      container.read(runTimeProvider.notifier).value = 1;
+      setup.tunnel = DateTime(2026);
+      await pumpEventQueue();
 
-    pings['آلمان ۱'] = -1;
-    probes.clear();
-    controller.selectService(first);
-    await pumpEventQueue();
-    expect(probes.take(2), [
-      'آلمان ۱',
-      'آلمان ۱',
-    ], reason: 'the selected server alone, in two passes');
-    expect(probes.skip(2).toSet(), {
-      'آلمان ۱',
-      'هلند ۱',
-    }, reason: 'then one round, for the silent pick of the app');
-    var state = container.read(shikooStateProvider);
-    expect(state.selected, 'آلمان ۱');
-    expect(state.selectedServer?.ping, -1);
-    expect(state.notice, isNull);
+      pings['آلمان ۱'] = -1;
+      probes.clear();
+      controller.selectService(first);
+      await pumpEventQueue();
+      expect(probes, [
+        'آلمان ۱',
+        'آلمان ۱',
+      ], reason: 'the selected server alone, in two passes');
+      var state = container.read(shikooStateProvider);
+      expect(state.selected, 'آلمان ۱');
+      expect(state.selectedServer?.ping, -1);
+      expect(state.notice, isNull);
 
-    probes.clear();
-    controller.selectService(second.id);
-    await pumpEventQueue();
-    state = container.read(shikooStateProvider);
-    expect(probes, ['آلمان ۱', 'آلمان ۱'], reason: 'one server, two passes');
-    expect(state.selected, 'آلمان ۱', reason: "the customer's own stays");
-    expect(state.selectedServer?.ping, -1, reason: 'with its warning');
-    expect(state.connection, ShikooConnection.on);
-  });
+      probes.clear();
+      controller.selectService(second.id);
+      await pumpEventQueue();
+      state = container.read(shikooStateProvider);
+      expect(probes, ['آلمان ۱', 'آلمان ۱'], reason: 'one server, two passes');
+      expect(state.selected, 'آلمان ۱', reason: "the customer's own stays");
+      expect(state.selectedServer?.ping, -1, reason: 'with its warning');
+      expect(state.connection, ShikooConnection.on);
+    },
+  );
 
   test("connect's probe that answers after a switch picks nothing for the new "
       'service, whose servers share its names', () async {

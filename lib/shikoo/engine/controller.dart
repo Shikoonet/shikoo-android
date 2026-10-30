@@ -1392,6 +1392,7 @@ class ShikooController {
   }
 
   Future<void> connect() async {
+    if (_ref.read(_noticeProvider) is SelectedGone) _notice(null);
     if (_ref.read(currentProfileProvider) == null) return;
     if (!await _coreReady()) return;
     _setAsideMultiplied();
@@ -1779,7 +1780,7 @@ class ShikooController {
     if (up) {
       if (wanted) _set(const _Intent());
       _forgetRound();
-      unawaited(pingAll());
+      unawaited(wanted ? _checkSelected() : pingAll());
     } else if (wanted) {
       final off = disconnect();
       _set(const _Intent(error: ShikooError.coreDown));
@@ -2362,11 +2363,6 @@ class ShikooController {
     await pingServers([chosen], (name) => _probeFor(no, url, name), (name, ms) {
       if (no == _roundNo) _setPing(service, name, ms);
     });
-    if (chosen == _appPick &&
-        chosen == _validSelection() &&
-        (_ping(chosen) ?? 0) < 0) {
-      unawaited(pingAll());
-    }
   }
 
   void _sort() {
