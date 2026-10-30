@@ -43,7 +43,6 @@ const shikooCoreKey = 'shikoo-core';
 
 const shikooOwnerKey = 'shikoo-owner';
 
-/// `shikooCoresRewrite` writes the name of the core it starts here, in the home folder, and removes it once started.
 const shikooCoreStartingFile = 'shikoo-core-starting';
 
 const ShikooCoreSpec _mihomo = (

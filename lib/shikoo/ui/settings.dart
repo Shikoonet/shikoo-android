@@ -940,8 +940,7 @@ class _ColumnPolicy extends ReadingOrderTraversalPolicy {
   }
 }
 
-/// Across the columns, the item level with [from], else the nearest up or down: Flutter's pick
-/// there was the other column's top, a whole page away (the TV with the cores group).
+/// Across the columns, the item level with [from], else the nearest up or down; Flutter picked the other column's top.
 FocusNode? _level(FocusNode from, TraversalDirection direction) {
   final at = from.rect;
   final beside = [
