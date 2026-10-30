@@ -49,16 +49,13 @@ List<String> sortByPing(List<String> panel, int? Function(String name) ping) =>
 bool multiplied(String name) =>
     name.replaceAll('\u064A', '\u06CC').contains('ضریب');
 
-/// The panel's free server for Iranian streaming, «(رایگان) نماوا | فیلیمو | …»: it leaves on an Iranian network and
-/// carries those sites and Google's connectivity checks only, so its ping answers while the internet does not.
+/// The free streaming server carries Iranian sites and Google's connectivity check only: it pings with no internet.
 bool streamingOnly(String name) {
   final plain = name.replaceAll('\u064A', '\u06CC').toLowerCase();
   return plain.contains('فیلیمو') || plain.contains('filimo');
 }
 
-/// The app's own pick: never the streaming server; a multiplied server only when no other answered, and within each a
-/// [handshake] number (OpenVPN's reset, one round trip against the others' whole test) only when no whole test
-/// answered (Sam, 2026-10-29).
+/// The app's own pick: a multiplied server only when no other answered.
 String? fastest(
   List<String> panel,
   int? Function(String name) ping, {
