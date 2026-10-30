@@ -25,7 +25,7 @@ class ShikooAlertsTest {
     }
 
     @Test
-    fun `no VPN, or only ours going down, is the customer's own stop; another app's VPN is a takeover`() {
+    fun `no VPN, or only ours going down, is the customer's own stop, and another app's VPN a takeover`() {
         assertFalse(anotherVpn(emptyList(), us))
         assertFalse(anotherVpn(listOf(us), us))
         assertTrue(anotherVpn(listOf(us, -1), us))
