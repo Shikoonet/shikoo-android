@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,10 +46,12 @@ final _today = DateTime(2026, 10, 16, 12);
 ShikooState _phone({
   List<ShikooServer> servers = _servers,
   bool isTV = false,
+  ({int done, int total})? pinging,
 }) => ShikooState(
   connection: ShikooConnection.off,
   connectedFor: Duration.zero,
   isTV: isTV,
+  pinging: pinging,
   service: ShikooService(
     name: 'user123 · الماس',
     usedBytes: 33 << 30,
@@ -173,6 +176,39 @@ List<String> _rowOrder(WidgetTester tester) => [
     row.server.name,
 ];
 
+/// [_servers] after a round in which آلمان ۱ came first.
+const _pinged = [
+  ShikooServer(name: 'آلمان ۱', type: 'Vless', ping: 40),
+  ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 90),
+  ShikooServer(name: 'آلمان ۲', type: 'Vless', ping: -1),
+];
+
+/// A screen too short for the home, so the page scrolls.
+Future<void> _shortPage(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(824, 1100);
+  await tester.pumpAndSettle();
+}
+
+ScrollPosition _page(WidgetTester tester) => tester
+    .state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    )
+    .position;
+
+Future<void> _refold(WidgetTester tester) async {
+  await tester.ensureVisible(_icon(ShikooIcon.chevronUp));
+  await tester.tap(_icon(ShikooIcon.chevronUp));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(_icon(ShikooIcon.chevronDown));
+  await tester.tap(_icon(ShikooIcon.chevronDown));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   // As in the app: expiry counts on shikooNow(), updatedAt on DateTime.now().
   setUp(() => shikooSkew = _today.difference(DateTime.now()));
@@ -232,20 +268,286 @@ void main() {
     expect(find.text('تازه'), findsNothing);
   });
 
-  testWidgets('a finger on the list holds its order until it lifts', (
+  testWidgets('an untouched list sorts as pings land; a scroll or a search '
+      'holds it, and folding the card lets the fastest up again', (
     tester,
   ) async {
-    final holder = await _pump(tester, _phone());
-    final finger = await tester.startGesture(
-      tester.getCenter(find.text('آلمان ۱')),
+    final holder = await _pump(tester, _phone(), controller: _Controller());
+    await _shortPage(tester);
+    holder.value = _phone(servers: _pinged);
+    await tester.pumpAndSettle();
+    const sorted = ['آلمان ۱', 'هلند ۱', 'آلمان ۲'];
+    expect(_rowOrder(tester), sorted, reason: 'untouched from a cold start');
+
+    await tester.drag(find.byType(PowerButton), const Offset(0, -80));
+    await tester.pumpAndSettle();
+    expect(_page(tester).pixels, greaterThan(0));
+    holder.value = _phone();
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), sorted, reason: 'a scroll holds it');
+    expect(
+      tester.widget<ServerRow>(find.widgetWithText(ServerRow, 'آلمان ۱')),
+      isA<ServerRow>().having((r) => r.server.ping, 'ping', 142),
     );
-    holder.value = _phone(servers: _servers.reversed.toList());
-    await tester.pump();
+
+    await _refold(tester);
     expect(_rowOrder(tester), ['هلند ۱', 'آلمان ۲', 'آلمان ۱']);
 
-    await finger.up();
+    await tester.enterText(find.byType(TextField), 'آلمان');
     await tester.pump();
-    expect(_rowOrder(tester), ['آلمان ۱', 'آلمان ۲', 'هلند ۱']);
+    holder.value = _phone(servers: _pinged);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['آلمان ۲', 'آلمان ۱'], reason: 'search holds');
+    await tester.tap(find.bySemanticsLabel('پاک کردن جست‌وجو'));
+    await tester.pump();
+    expect(_rowOrder(tester), ['هلند ۱', 'آلمان ۲', 'آلمان ۱']);
+  });
+
+  testWidgets('after a wheel turn, a tap where the second row was when new '
+      'pings land picks the server that row showed', (tester) async {
+    final controller = _Controller();
+    when(
+      () => controller.selectServer(any(), service: any(named: 'service')),
+    ).thenAnswer((_) async {});
+    final holder = await _pump(tester, _phone(), controller: controller);
+    await _shortPage(tester);
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(
+      mouse.hover(tester.getCenter(find.byType(PowerButton))),
+    );
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 600)));
+    await tester.pumpAndSettle();
+    expect(_page(tester).pixels, greaterThan(0));
+    final second = tester.getCenter(find.byType(ServerRow).at(1));
+    expect(_rowOrder(tester)[1], 'آلمان ۲');
+
+    holder.value = _phone(servers: _pinged);
+    await tester.pumpAndSettle();
+    await tester.tapAt(second);
+    await tester.pumpAndSettle();
+    verify(() => controller.selectServer('آلمان ۲')).called(1);
+  });
+
+  testWidgets('a held list sorts again once the app comes back from the '
+      'background', (tester) async {
+    final holder = await _pump(tester, _phone());
+    await _shortPage(tester);
+    await tester.drag(find.byType(PowerButton), const Offset(0, -80));
+    await tester.pumpAndSettle();
+    holder.value = _phone(servers: _pinged);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['هلند ۱', 'آلمان ۲', 'آلمان ۱']);
+
+    for (final step in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(step);
+    }
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['آلمان ۱', 'هلند ۱', 'آلمان ۲']);
+  });
+
+  testWidgets("another service's open list sorts until a server there is "
+      'pressed, then holds through its pings and the move to it', (
+    tester,
+  ) async {
+    final controller = _Controller();
+    when(
+      () => controller.selectServer(any(), service: any(named: 'service')),
+    ).thenAnswer((_) async {});
+    const pinged = [
+      ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 50),
+      ShikooServer(name: 'ترکیه ۱', type: 'Vless', ping: 80),
+    ];
+    final holder = await _pump(
+      tester,
+      _cards(open: 7, opened: 7),
+      controller: controller,
+    );
+    holder.value = _cards(open: 7, opened: 7, openedServers: pinged);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['هلند ۱', 'ترکیه ۱']);
+
+    final row = find.widgetWithText(ServerRow, 'ترکیه ۱');
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    holder.value = _cards(open: 7, opened: 7);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['هلند ۱', 'ترکیه ۱']);
+
+    holder.value = _cards(
+      open: 7,
+      current: 7,
+      servers: pinged.reversed.toList(),
+    );
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['هلند ۱', 'ترکیه ۱']);
+  });
+
+  testWidgets("the app's own scrolls, a jump, a slide and a reveal, are no "
+      'touch: the list still sorts', (tester) async {
+    final holder = await _pump(tester, _phone());
+    await _shortPage(tester);
+    final page = _page(tester);
+    page.jumpTo(120);
+    await tester.pumpAndSettle();
+    unawaited(
+      page.animateTo(
+        40,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.linear,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byType(ServerRow).last);
+    await tester.pumpAndSettle();
+    expect(page.pixels, greaterThan(0));
+    holder.value = _phone(servers: _pinged);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['آلمان ۱', 'هلند ۱', 'آلمان ۲']);
+  });
+
+  group('«پینگ سرورها» on a held list', () {
+    const held = ['هلند ۱', 'آلمان ۲', 'آلمان ۱'];
+    const sorted = ['آلمان ۱', 'هلند ۱', 'آلمان ۲'];
+
+    /// [starts] false: the press starts no round, as in the 15 s after an update.
+    Future<ValueNotifier<ShikooState>> pingHeld(
+      WidgetTester tester, {
+      bool starts = true,
+    }) async {
+      final controller = _Controller();
+      late final ValueNotifier<ShikooState> holder;
+      when(() => controller.pingAll()).thenAnswer((_) async {
+        if (starts) {
+          holder.value = _phone(servers: _pinged, pinging: (done: 0, total: 3));
+        }
+      });
+      when(
+        () => controller.selectServer(any(), service: any(named: 'service')),
+      ).thenAnswer((_) async {});
+      holder = await _pump(tester, _phone(), controller: controller);
+      await _shortPage(tester);
+      await tester.drag(find.byType(PowerButton), const Offset(0, -80));
+      await tester.pumpAndSettle();
+      holder.value = _phone(servers: _pinged);
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), held);
+
+      await tester.tap(find.bySemanticsLabel('پینگ سرورها'));
+      await tester.pumpAndSettle();
+      verify(() => controller.pingAll()).called(1);
+      expect(_rowOrder(tester), held, reason: 'not before its round ends');
+      return holder;
+    }
+
+    testWidgets('sorts it once its round ends, then the list follows each '
+        'round again', (tester) async {
+      final holder = await pingHeld(tester);
+      holder.value = _phone(servers: _pinged);
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), sorted);
+
+      holder.value = _phone();
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), held);
+    });
+
+    testWidgets('a finger on a row in that round holds it again: the round '
+        'ends and the row stays under it', (tester) async {
+      final holder = await pingHeld(tester);
+      final row = find.widgetWithText(ServerRow, 'هلند ۱');
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      final finger = await tester.startGesture(tester.getCenter(row));
+      holder.value = _phone(servers: _pinged);
+      await tester.pump();
+      expect(_rowOrder(tester), held);
+      await finger.up();
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), held);
+    });
+
+    testWidgets('a press that starts no round leaves it held through the next '
+        'round nobody asked for', (tester) async {
+      final holder = await pingHeld(tester, starts: false);
+      holder.value = _phone(servers: _pinged, pinging: (done: 1, total: 3));
+      await tester.pumpAndSettle();
+      holder.value = _phone(servers: _pinged);
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), held);
+    });
+  });
+
+  testWidgets("a ping on another service's held list sorts it as that "
+      'round ends, after the list empties for it', (tester) async {
+    const first = [
+      ShikooServer(name: 'ترکیه ۱', type: 'Vless', ping: 80),
+      ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 300),
+    ];
+    const next = [
+      ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 50),
+      ShikooServer(name: 'ترکیه ۱', type: 'Vless', ping: 90),
+    ];
+    final controller = _Controller();
+    late final ValueNotifier<ShikooState> holder;
+    when(
+      () => controller.openService(any()),
+    ).thenAnswer((_) => holder.value = _cards(open: 7));
+    holder = await _pump(
+      tester,
+      _cards(open: 7, opened: 7, openedServers: first),
+      controller: controller,
+    );
+    await _shortPage(tester);
+    await tester.drag(find.byType(PowerButton), const Offset(0, -80));
+    await tester.pumpAndSettle();
+    holder.value = _cards(open: 7, opened: 7, openedServers: next);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['ترکیه ۱', 'هلند ۱'], reason: 'held');
+
+    await tester.tap(find.bySemanticsLabel('پینگ سرورها'));
+    await tester.pumpAndSettle();
+    verify(() => controller.openService(7)).called(1);
+    holder.value = _cards(
+      open: 7,
+      opened: 7,
+      openedServers: next,
+      openedPinging: (done: 1, total: 2),
+    );
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['ترکیه ۱', 'هلند ۱'], reason: 'mid-round');
+    holder.value = _cards(open: 7, opened: 7, openedServers: next);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['هلند ۱', 'ترکیه ۱'], reason: 'round ended');
+  });
+
+  testWidgets('on the TV a ping leaves the order to the remote: a row pressed '
+      'as its round ends holds it until let go', (tester) async {
+    final controller = _Controller();
+    when(() => controller.pingAll()).thenAnswer((_) async {});
+    final holder = await _pump(
+      tester,
+      _phone(isTV: true),
+      controller: controller,
+    );
+    await tester.tap(find.widgetWithText(ShikooButton, 'پینگ'));
+    verify(() => controller.pingAll()).called(1);
+    holder.value = _phone(isTV: true, pinging: (done: 1, total: 3));
+    await tester.pump();
+    final finger = await tester.startGesture(
+      tester.getCenter(find.widgetWithText(ServerRow, 'آلمان ۱')),
+    );
+    holder.value = _phone(servers: _pinged, isTV: true);
+    await tester.pump();
+    expect(_rowOrder(tester), ['هلند ۱', 'آلمان ۲', 'آلمان ۱']);
+    await finger.cancel();
+    await tester.pump();
+    expect(_rowOrder(tester), ['آلمان ۱', 'هلند ۱', 'آلمان ۲']);
   });
 
   testWidgets(
@@ -1008,22 +1310,25 @@ void main() {
     );
   });
 
-  testWidgets('rows slide to a new order rather than jump', (tester) async {
-    final holder = await _pump(tester, _phone());
-    tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
-    await tester.pump();
-    double top(String name) =>
-        tester.getTopLeft(find.widgetWithText(ServerRow, name)).dy;
-    final from = top('آلمان ۱');
-    final to = top('هلند ۱');
+  for (final isTV in [false, true]) {
+    testWidgets('${isTV ? 'on the TV' : 'on the phone'} rows slide to a new '
+        'order rather than jump', (tester) async {
+      final holder = await _pump(tester, _phone(isTV: isTV));
+      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+      await tester.pump();
+      double top(String name) =>
+          tester.getTopLeft(find.widgetWithText(ServerRow, name)).dy;
+      final from = top('آلمان ۱');
+      final to = top('هلند ۱');
 
-    holder.value = _phone(servers: _servers.reversed.toList());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(top('آلمان ۱'), allOf(lessThan(from), greaterThan(to)));
-    await tester.pumpAndSettle();
-    expect(top('آلمان ۱'), to);
-  });
+      holder.value = _phone(servers: _servers.reversed.toList(), isTV: isTV);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(top('آلمان ۱'), allOf(lessThan(from), greaterThan(to)));
+      await tester.pumpAndSettle();
+      expect(top('آلمان ۱'), to);
+    });
+  }
 
   testWidgets('on the TV, down from renew of a used-up service reaches the '
       'services under it', (tester) async {
@@ -2392,14 +2697,14 @@ void main() {
       servers: _servers,
       selected: 'آلمان ۲',
       service: ShikooService(
-        name: 'e7f9 · pasargard_111713193',
+        name: 'e7f9 · pasargard_100000009',
         usedBytes: 1,
         totalBytes: 100,
       ),
       others: [
         ShikooService(
           id: 2,
-          name: 'firstbuy · 2_111713193_111713193',
+          name: 'firstbuy · 2_100000009_100000009',
           usedBytes: 1,
           totalBytes: 100,
         ),
@@ -2421,13 +2726,13 @@ void main() {
         left('pasargard', 'p') < left('pasargard', '_') &&
             left('pasargard', '_') < left('pasargard', '1'),
         isTrue,
-        reason: '$locale: pasargard_111713193 reads left to right',
+        reason: '$locale: pasargard_100000009 reads left to right',
       );
       expect(
-        left('2_1117', '2') < left('2_1117', '_') &&
-            left('2_1117', '_') < left('2_1117', '_', 1),
+        left('2_1000', '2') < left('2_1000', '_') &&
+            left('2_1000', '_') < left('2_1000', '_', 1),
         isTrue,
-        reason: '$locale: 2_111713193_111713193 keeps its order',
+        reason: '$locale: 2_100000009_100000009 keeps its order',
       );
       expect(
         left('pasargard', 'e') > left('pasargard', 'p'),
@@ -3636,6 +3941,7 @@ ShikooState _cards({
   ],
   ShikooLanded? landed,
   ({int done, int total})? pinging,
+  ({int done, int total})? openedPinging,
 }) {
   ShikooService service(int id, String name, int used) => ShikooService(
     id: id,
@@ -3667,7 +3973,12 @@ ShikooState _cards({
     landed: landed,
     opened: opened == null
         ? null
-        : (id: opened, servers: openedServers, pinging: null, sorted: true),
+        : (
+            id: opened,
+            servers: openedServers,
+            pinging: openedPinging,
+            sorted: true,
+          ),
   );
 }
 
