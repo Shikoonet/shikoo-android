@@ -94,9 +94,13 @@ class _Setup extends SetupAction {
   /// What an applied profile changes, such as the core's server list.
   void Function()? onApply;
 
+  /// Holds every stop open until completed.
+  Completer<void>? stopGate;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
+    if (!running) await stopGate?.future;
     return true;
   }
 
@@ -607,16 +611,27 @@ void main() {
           expect(state.connection, ShikooConnection.off, reason: reason);
           expect(state.notice, isA<SelectedGone>(), reason: reason);
 
-          if (up) {
-            await controller.selectServer('هلند ۱');
-          } else {
-            unawaited(controller.connect());
-            await pumpEventQueue();
+          final clear = !up
+              ? 'connect'
+              : gone == 'فرانسه ۴'
+              ? 'a pick'
+              : 'another service';
+          switch (clear) {
+            case 'a pick':
+              await controller.selectServer('هلند ۱');
+            case 'connect':
+              unawaited(controller.connect());
+              await pumpEventQueue();
+            default:
+              final other = Profile.normal(url: 'https://panel.invalid/other');
+              container.read(profilesProvider.notifier).put(other);
+              controller.selectService(other.id);
+              await settle();
           }
           expect(
             container.read(shikooStateProvider).notice,
             isNull,
-            reason: '${up ? 'a pick' : 'connect'} clears it: $reason',
+            reason: '$clear clears it: $reason',
           );
           await controller.disconnect();
         }
@@ -800,7 +815,12 @@ void main() {
       expect(s.proxies.picked, [four, 'فرانسه ۴'], reason: 'off, it follows');
     });
 
-    for (final how in ['Iran switch', 'core change', 'owner death']) {
+    for (final how in [
+      'Iran switch',
+      'core change',
+      'owner death',
+      'failed install',
+    ]) {
       test("up on the app's own usage-multiplied OpenVPN pick, a rebuild of "
           'the same server ($how) keeps it, with one restart', () async {
         final before = database;
@@ -825,6 +845,9 @@ void main() {
               ShikooProtocol.openvpn,
               ShikooCore.mihomo,
             );
+          case 'failed install':
+            await s.controller.disconnect();
+            await s.controller.connectAgain();
           default:
             final every = ownerWatchEvery;
             ownerWatchEvery = const Duration(milliseconds: 20);
@@ -849,6 +872,83 @@ void main() {
         await s.controller.disconnect();
       });
     }
+
+    test('an update takes the server away while its rebuild is between its '
+        'stop and its start: SelectedGone, nothing picked, no start (Sam, '
+        '2026-10-30)', () async {
+      final before = database;
+      database = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await database.close();
+        database = before;
+      });
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      final panel = await _panel(container, core);
+      container
+          .read(profilesProvider.notifier)
+          .put(
+            container
+                .read(profilesProvider)
+                .single
+                .copyWith(url: '$panel/none/a'),
+          );
+      Group group(List<(String, String)> servers) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final (name, type) in servers) Proxy(name: name, type: type),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group([('فرانسه ۴', 'OpenVPN'), ('هلند ۱', 'Vless')]),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 90,
+        ),
+      );
+      goReportsTheOwner(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.selectServer('فرانسه ۴');
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      await settle();
+      final stop = setup.stopGate = Completer<void>();
+      unawaited(controller.setIranDirect(false));
+      await settle();
+      expect(setup.runs, [
+        true,
+        false,
+      ], reason: 'the rebuild waits on its stop');
+
+      setup.onApply = () => container.read(groupsProvider.notifier).value = [
+        group([('هلند ۱', 'Vless')]),
+      ];
+      final refresh = controller.refreshService();
+      for (
+        var i = 0;
+        i < 400 &&
+            container.read(shikooStateProvider).notice is! SelectedGone &&
+            proxies.picked.length == 1;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      stop.complete();
+      await refresh;
+      await settle();
+      expect(container.read(shikooStateProvider).notice, isA<SelectedGone>());
+      expect(proxies.picked, ['فرانسه ۴']);
+      expect(setup.runs, [true, false, false]);
+    });
 
     test('connect hears only a usage-multiplied VLESS and a usage-multiplied '
         'OpenVPN reset: the round end takes the whole test', () async {

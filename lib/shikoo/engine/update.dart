@@ -460,7 +460,7 @@ class ShikooUpdate {
       }
     } catch (_) {}
     if (wasOn && _ref.read(runTimeProvider) == null) {
-      unawaited(controller.connect());
+      unawaited(controller.connectAgain());
     }
     if (!same) return damaged();
     _move(UpdatePhase.ready, error: UpdateError.install);
