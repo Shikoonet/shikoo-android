@@ -723,7 +723,8 @@ bool offersWarp(ShikooState state, {required bool offline}) =>
     !offline &&
     restingFor(state) == null &&
     state.lastError == ShikooError.noServer &&
-    !state.bridge.on;
+    !state.bridge.on &&
+    !(state.service?.loginRefused ?? false);
 
 /// Toward the card: the crash card, the internet check, then the selected or first server.
 class _PowerKeys extends StatelessWidget {
@@ -1163,7 +1164,8 @@ class _PowerZone extends StatelessWidget {
   }
 
   String? message(ShikooL10n l) {
-    if (state.service == null) return null;
+    // A refused shelf account: its card says why; WARP or this phone's internet would not help.
+    if (state.service?.loginRefused ?? true) return null;
     if (warpLine(l) case final warp?) return warp;
     final resting = restingFor(state);
     final selected = state.selectedServer;

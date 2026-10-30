@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -1896,7 +1897,16 @@ void main() {
 
   group("a shelf account's login", () {
     setUpAll(() => registerFallbackValue(<String, dynamic>{}));
-    var loginAnswer = loginRefusedPing;
+    // The same file is core/shikoo_ovpn_auth_test.go's: what Go answers a refused login.
+    final goRefused =
+        (jsonDecode(
+                  File(
+                    'core/testdata/ovpn_login_refused.json',
+                  ).readAsStringSync(),
+                )
+                as Map)['value']
+            as int;
+    var loginAnswer = goRefused;
 
     Map<String, dynamic> openvpn(String name) => {
       'name': name,
@@ -1914,9 +1924,14 @@ void main() {
       _Setup setup,
       List<String> asked,
     })
-    shelf({bool outsourced = true, int answer = loginRefusedPing}) {
+    shelf({
+      bool outsourced = true,
+      int? answer,
+      List<Override> more = const [],
+    }) {
       final (:container, :core, :proxies, :setup) = _home([
         nativeStartFailedProvider.overrideWithValue(() => true),
+        ...more,
       ]);
       container
           .read(shikooAccountProvider.notifier)
@@ -1953,7 +1968,7 @@ void main() {
         },
       );
       final asked = <String>[];
-      loginAnswer = answer;
+      loginAnswer = answer ?? goRefused;
       when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
         final name = '${(call.positionalArguments[1] as Map)['name']}';
         asked.add(name);
@@ -2014,6 +2029,64 @@ void main() {
       await pumpEventQueue();
       expect(asked, hasLength(1));
       expect(service(container).loginRefused, isFalse);
+    });
+
+    test('Dart reads as refused the value Go answers a refused login', () {
+      expect(loginRefusedPing, goRefused);
+    });
+
+    test(
+      "with the official core owning OpenVPN, the check sends Go the server's "
+      'own mapping, nothing added: marked as the owner\'s, Go would answer a '
+      'reset and log nobody in',
+      () async {
+        final (:container, :core, :setup, :asked) = shelf(
+          more: [
+            shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+            shikooTunnelProvider.overrideWithValue(true),
+          ],
+        );
+        final sent = <Map<String, dynamic>>[];
+        when(() => core.testProxyDelay(any(), any())).thenAnswer((call) async {
+          final proxy = call.positionalArguments[1] as Map<String, dynamic>;
+          sent.add(proxy);
+          return Delay(
+            name: '${proxy['name']}',
+            url: '',
+            value: proxy.containsKey('shikoo-owner') ? 95 : goRefused,
+          );
+        });
+        unawaited(container.read(shikooControllerProvider).connect());
+        await pumpEventQueue();
+        expect(sent, [openvpn('آلمان ۱')]);
+        expect(service(container).loginRefused, isTrue);
+      },
+    );
+
+    test('connected and carrying, a blip later asks nothing: only the first '
+        'measure after the press may', () async {
+      final (:container, :core, :setup, :asked) = shelf();
+      final controller = container.read(shikooControllerProvider);
+      setup
+        ..tunnel = DateTime.now()
+        ..traffic = true;
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'هلند ۱');
+      await controller.connect();
+      await pumpEventQueue();
+      for (var round = 0; round < 3; round++) {
+        await controller.pingAll();
+        await pumpEventQueue();
+      }
+      setup.traffic = false;
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      expect(asked, isEmpty);
     });
 
     test('a usual service is never asked', () async {

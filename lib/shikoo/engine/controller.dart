@@ -1269,7 +1269,8 @@ class ShikooController {
   Map<String, String> _appPickByService = const {};
   int _attempt = 0;
 
-  /// One login check a press, once it failed or carried nothing: a login starts a shelf account's days, may push out another device.
+  /// One login check a press, only until the first measure after it: a login starts a shelf account's days and drops
+  /// its live session on another device (OpenVPN 2.6 without duplicate-cn, measured: ~114 s).
   bool _loginCheckDue = false;
 
   Future<void>? _rebuilding;
@@ -1497,7 +1498,7 @@ class ShikooController {
       await _checkCarrying();
       if (attempt != _attempt) return;
       _set(_Intent(error: error));
-      unawaited(_checkSelected());
+      unawaited(_checkSelected().whenComplete(() => _loginCheckDue = false));
       return;
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
@@ -2494,9 +2495,16 @@ class ShikooController {
     final name = _validSelection() ?? _names(group).firstOrNull;
     final proxy = name == null ? null : (await _mainGroupOf(id))?.servers[name];
     if (proxy == null) return;
-    if (await _probeOther(_testUrl(group), proxy) == loginRefusedPing) {
-      _loginRefused(id, refused: true);
+    // Never _probeOther's way: an owner core's mark makes Go answer with a reset, which logs nobody in.
+    final Delay? answer;
+    try {
+      answer = await _ref
+          .read(coreHandlerProvider)
+          .getDelayOf(_testUrl(group), proxy);
+    } catch (_) {
+      return;
     }
+    if (answer?.value == loginRefusedPing) _loginRefused(id, refused: true);
   }
 
   /// Phone-only, as only a phone pastes: the account's own services leave with its next sync.
