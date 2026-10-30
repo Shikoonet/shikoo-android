@@ -432,8 +432,14 @@ void main() {
       0,
     ], reason: 'the VPN stays, blocking, from the stop to the start');
     expect(home.container.read(shikooStateProvider).selected, 'W');
+    expect(
+      home.controller.offByCustomer,
+      isFalse,
+      reason: 'the switch\'s own stop is not the customer\'s',
+    );
 
     await home.controller.disconnect();
+    expect(home.controller.offByCustomer, isTrue);
     expect(home.setup.runs, [false, true, false]);
     expect(home.setup.holds, [0], reason: "the user's own stop frees it");
   });
