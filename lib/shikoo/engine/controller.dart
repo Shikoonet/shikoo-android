@@ -1532,7 +1532,7 @@ class ShikooController {
   /// A switch of server or core: the VPN service keeps traffic blocked between the stop and the start.
   Future<void> _reconnect() async {
     await _ref.read(switchHoldProvider)();
-    await _stop();
+    await disconnect();
     await connect();
   }
 
@@ -1695,12 +1695,8 @@ class ShikooController {
     unawaited(_setup.setRunning(false));
   }
 
-  Future<void> disconnect() {
+  Future<void> disconnect() async {
     offByCustomer = true;
-    return _stop();
-  }
-
-  Future<void> _stop() async {
     if (!_fallingBack) {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }

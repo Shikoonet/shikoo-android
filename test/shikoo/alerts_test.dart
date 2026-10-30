@@ -271,20 +271,23 @@ void main() {
           ['تمدید', 'url:${ShikooLinks.renew}'],
         ]);
 
-        await set(_state(_on, service: _service(ended: true, empty: true)));
         await set(_state(_off, service: _service(ended: true)));
+        await set(_state(_on, service: _service(ended: true)));
         expect(posted(), ['ended'], reason: 'the same ending');
 
         native.clear();
         await set(_state(_on, service: _service()));
-        expect(cancelled(), contains('ended'), reason: 'renewed');
+        expect(cancelled(), ['ended'], reason: 'renewed while connected');
       },
     );
 
-    test('out of data says so in the title', () async {
+    test('out of data says so in the title, and its date running out later '
+        'is the same ending', () async {
       await set(_state(_on));
       await set(_state(_on, service: _service(empty: true)));
       expect(last('ended')['title'], 'حجم سرویست تمام شد');
+      await set(_state(_on, service: _service(ended: true, empty: true)));
+      expect(posted(), ['ended']);
     });
 
     test('a connect with another service clears it; one with the ended '
@@ -305,6 +308,8 @@ void main() {
       await set(_state(_off, service: _service(ended: true)));
       await set(_state(_on, service: _service(ended: true)));
       await set(_state(_on, service: _service(id: 2, ended: true)));
+      await set(_state(_on, service: _service(id: 3)));
+      await set(_state(_on, service: _service(id: 4, ended: true)));
       expect(posted(), isEmpty);
     });
   });

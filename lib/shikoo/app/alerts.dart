@@ -108,13 +108,8 @@ class ShikooAlerts with TileListener {
     }
   }
 
+  /// Any change of the connection cancels the wait, so the tunnel is still down here.
   void _settled() {
-    if (const {
-      ShikooConnection.on,
-      ShikooConnection.connecting,
-    }.contains(_state.connection)) {
-      return;
-    }
     _up = false;
     if (!_ref.read(shikooAlertDroppedProvider)) return;
     final l = _l;
