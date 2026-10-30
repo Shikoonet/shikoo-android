@@ -1429,14 +1429,19 @@ class _PowerZone extends StatelessWidget {
       else if (state.connection == ShikooConnection.on && !state.noInternet)
         const SpeedPills(),
       if (resting == null) ...[
-        NowPill(
-          pick: state.pick,
-          server: selected,
-          via: (selected?.viaBridge ?? false) ? l.warpVia : null,
-          trying:
-              state.bridge.trying &&
-              (selected?.viaBridge ?? false) &&
-              (selected?.ping ?? -1) < 0,
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: state.isTV ? cardWidth : double.infinity,
+          ),
+          child: NowPill(
+            pick: state.pick,
+            server: selected,
+            via: (selected?.viaBridge ?? false) ? l.warpVia : null,
+            trying:
+                state.bridge.trying &&
+                (selected?.viaBridge ?? false) &&
+                (selected?.ping ?? -1) < 0,
+          ),
         ),
         if (!under && card != null) card,
         // c-off-win: the offer keeps with its message, above the mode switch.
