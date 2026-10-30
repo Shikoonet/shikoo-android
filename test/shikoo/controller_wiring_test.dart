@@ -477,6 +477,24 @@ void main() {
 
   group('an OpenVPN reset never wins the automatic pick (Sam, 2026-10-29)', () {
     const germany = 'آلمان ۱';
+
+    /// Go names the owner core the app asked for, as `shikooOwner` does once that engine runs.
+    void goReportsTheOwner(ProviderContainer container, _Core core) =>
+        when(() => core.shikooOwner()).thenAnswer((_) {
+          final owner = container.read(shikooOwnerProvider);
+          return Future<Map<String, dynamic>?>.value({
+            'core': owner?.core ?? '',
+            'server': owner?.server ?? '',
+          });
+        });
+
+    Future<void> settle() async {
+      for (var i = 0; i < 30; i++) {
+        await pumpEventQueue();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+
     Future<
       ({
         ProviderContainer container,
@@ -509,6 +527,7 @@ void main() {
         await gates[name]?.future;
         return Delay(name: name, url: '', value: servers[name]!.$2);
       });
+      goReportsTheOwner(container, core);
       final controller = container.read(shikooControllerProvider);
       await pumpEventQueue();
       return (
@@ -526,6 +545,267 @@ void main() {
       });
       await s.controller.pingAll();
       expect(s.proxies.picked, [germany]);
+    });
+
+    test('an update takes away the OpenVPN the engine carries and a VLESS '
+        'replaces it: the tunnel is built again (P11)', () async {
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      final panel = await _panel(container, core);
+      container
+          .read(profilesProvider.notifier)
+          .put(
+            container
+                .read(profilesProvider)
+                .single
+                .copyWith(url: '$panel/none/a'),
+          );
+      Group group(List<(String, String)> servers) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final (name, type) in servers) Proxy(name: name, type: type),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group([('فرانسه ۴', 'OpenVPN'), ('هلند ۱', 'Vless')]),
+      ];
+      const pings = {'فرانسه ۴': 4, 'هلند ۱': 90};
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      goReportsTheOwner(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await controller.selectServer('فرانسه ۴');
+      container.read(runTimeProvider.notifier).value = 1;
+      setup.tunnel = DateTime(2026);
+      await settle();
+      setup.onApply = () => container.read(groupsProvider.notifier).value = [
+        group([('هلند ۱', 'Vless')]),
+      ];
+      await controller.refreshService();
+      await settle();
+      expect(container.read(shikooStateProvider).selected, 'هلند ۱');
+      expect(setup.runs, [false, true]);
+    });
+
+    test('connected, the app replaces a silent OpenVPN with another: one '
+        'reconnect, a new peer on the same core (P13)', () async {
+      final servers = {'فرانسه ۴': ('OpenVPN', 4), 'فرانسه ۶': ('OpenVPN', 9)};
+      final s = await service(servers);
+      await s.controller.pingAll();
+      s.container.read(runTimeProvider.notifier).value = 1;
+      s.setup.tunnel = DateTime(2026);
+      await settle();
+      servers['فرانسه ۴'] = ('OpenVPN', -1);
+      await s.controller.pingAll();
+      await settle();
+      expect(s.proxies.picked, ['فرانسه ۴', 'فرانسه ۶']);
+      expect(s.setup.runs, [false, true]);
+    });
+
+    test('tunnel up, the app moves between servers mihomo carries, Xray behind '
+        'it either way: no reconnect (P14)', () async {
+      for (final (from, to) in [
+        (('ضریب مصرف NE 4 x', 'Vless'), ('ترکیه ۱', 'Trojan')),
+        (('ضریب مصرف TR 4 x', 'Trojan'), (germany, 'Vless')),
+      ]) {
+        final late = Completer<void>();
+        final s = await service(
+          {from.$1: (from.$2, 60), to.$1: (to.$2, 150)},
+          {to.$1: late},
+        );
+        await s.container
+            .read(shikooCoresProvider.notifier)
+            .set(ShikooProtocol.vless, ShikooCore.xray);
+        s.setup.tunnel = DateTime(2026);
+        unawaited(s.controller.connect());
+        await pumpEventQueue();
+        late.complete();
+        await settle();
+        expect(s.proxies.picked, [from.$1, to.$1]);
+        expect(s.setup.runs, [true], reason: '${from.$1} to ${to.$1}');
+        await s.controller.disconnect();
+      }
+    });
+
+    test('off, a list round moves the app pick from a multiplied VLESS to an '
+        'OpenVPN: no start, no stop (P15)', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final servers = {four: ('Vless', 60), 'فرانسه ۴': ('OpenVPN', -1)};
+      final s = await service(servers);
+      await s.controller.pingAll();
+      servers['فرانسه ۴'] = ('OpenVPN', 4);
+      await s.controller.pingAll();
+      await settle();
+      expect(s.proxies.picked, [four, 'فرانسه ۴']);
+      expect(s.setup.runs, isEmpty);
+    });
+
+    test(
+      'tunnel up, the core refuses the move to the OpenVPN: no reconnect (P16)',
+      () async {
+        const four = 'ضریب مصرف NE 4 x';
+        final gate = Completer<void>();
+        final s = await service(
+          {
+            four: ('Vless', 60),
+            'فرانسه ۴': ('OpenVPN', 4),
+            germany: ('Vless', -1),
+          },
+          {'فرانسه ۴': gate},
+        );
+        s.proxies.refused.add('فرانسه ۴');
+        s.setup.tunnel = DateTime(2026);
+        unawaited(s.controller.connect());
+        await pumpEventQueue();
+        gate.complete();
+        await settle();
+        expect(s.setup.runs, [true]);
+        await s.controller.disconnect();
+      },
+      timeout: const Timeout(Duration(seconds: 20)),
+    );
+
+    test('a tap onto the OpenVPN while connected reconnects once: the '
+        "app's own rule does not add a second", () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+      });
+      await s.controller.pingAll();
+      s.setup.tunnel = DateTime(2026);
+      await s.controller.connect();
+      await settle();
+      await s.controller.selectServer('فرانسه ۴');
+      await settle();
+      expect(s.setup.runs, [true, false, true]);
+      await s.controller.disconnect();
+    });
+
+    /// Connects with nothing chosen and lets the app pick; a server in [silentWhenCarried] answers until it carries
+    /// the tunnel. Past 30 moves nothing answers, so a loop ends.
+    Future<({ShikooController controller, _Proxies proxies, _Setup setup})>
+    looping(
+      Map<String, (String, int)> servers,
+      Set<String> silentWhenCarried, {
+      bool pingFirst = false,
+    }) async {
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      container.read(groupsProvider.notifier).value = [
+        Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            for (final MapEntry(:key, :value) in servers.entries)
+              Proxy(name: key, type: value.$1),
+          ],
+        ),
+      ];
+      bool carried(String name) =>
+          proxies.picked.lastOrNull == name && (setup.runs.lastOrNull ?? false);
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        final silent =
+            proxies.picked.length >= 30 ||
+            silentWhenCarried.contains(name) && carried(name);
+        return Delay(
+          name: name,
+          url: '',
+          value: silent ? -1 : servers[name]!.$2,
+        );
+      });
+      goReportsTheOwner(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      if (pingFirst) await controller.pingAll();
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      return (controller: controller, proxies: proxies, setup: setup);
+    }
+
+    for (final (name, servers, silent, moves) in [
+      (
+        'L1 a multiplied VLESS beside an OpenVPN whose reset answers but '
+            'which is silent once carried',
+        {'ضریب مصرف NE 4 x': ('Vless', 60), 'فرانسه ۴': ('OpenVPN', 4)},
+        {'فرانسه ۴'},
+        2,
+      ),
+      (
+        'L2 two OpenVPN servers whose resets answer but which are silent once '
+            'carried',
+        {'فرانسه ۴': ('OpenVPN', 4), 'فرانسه ۶': ('OpenVPN', 9)},
+        {'فرانسه ۴', 'فرانسه ۶'},
+        2,
+      ),
+      (
+        'L3 the same two OpenVPN servers, healthy once carried',
+        {'فرانسه ۴': ('OpenVPN', 4), 'فرانسه ۶': ('OpenVPN', 9)},
+        <String>{},
+        1,
+      ),
+      (
+        'L4 a multiplied VLESS beside a healthy OpenVPN',
+        {'ضریب مصرف NE 4 x': ('Vless', 60), 'فرانسه ۴': ('OpenVPN', 4)},
+        <String>{},
+        2,
+      ),
+    ]) {
+      test('$name: one reconnect of the app at most, then it stays (Sam: '
+          'brake A)', () async {
+        final l = await looping(servers, silent);
+        await Future<void>.delayed(const Duration(seconds: 5));
+        final picked = [...l.proxies.picked];
+        final stops = l.setup.runs.where((running) => !running).length;
+        await l.controller.disconnect();
+        expect(picked, hasLength(moves), reason: '$picked');
+        expect(stops, moves - 1, reason: '${l.setup.runs}');
+      });
+    }
+
+    test(
+      'L5 a hop onto a multiplied VLESS holds there too: connect sets the '
+      'pick aside and searches, and the reset it hears does not move it',
+      () async {
+        final l = await looping(
+          {'ضریب مصرف NE 4 x': ('Vless', 60), 'فرانسه ۴': ('OpenVPN', 4)},
+          {'فرانسه ۴'},
+          pingFirst: true,
+        );
+        await Future<void>.delayed(const Duration(seconds: 5));
+        final picked = [...l.proxies.picked];
+        final stops = l.setup.runs.where((running) => !running).length;
+        await l.controller.disconnect();
+        expect(picked, ['فرانسه ۴', 'ضریب مصرف NE 4 x', 'ضریب مصرف NE 4 x']);
+        expect(stops, 1, reason: '${l.setup.runs}');
+      },
+    );
+
+    test("the customer's ping lifts the brake: the app may move its pick "
+        'again', () async {
+      final l = await looping(
+        {'ضریب مصرف NE 4 x': ('Vless', 60), 'فرانسه ۴': ('OpenVPN', 4)},
+        {'فرانسه ۴'},
+      );
+      await Future<void>.delayed(const Duration(seconds: 2));
+      expect(l.proxies.picked, ['ضریب مصرف NE 4 x', 'فرانسه ۴']);
+      await l.controller.ping();
+      await Future<void>.delayed(const Duration(seconds: 1));
+      final picked = [...l.proxies.picked];
+      await l.controller.disconnect();
+      expect(picked.length, greaterThan(2), reason: '$picked');
+      expect(picked.last, 'ضریب مصرف NE 4 x');
     });
 
     test('an OpenVPN-only service picks its fastest reset', () async {

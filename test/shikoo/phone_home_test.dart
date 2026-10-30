@@ -2624,7 +2624,7 @@ void main() {
     tester,
   ) async {
     final controller = _Controller();
-    when(() => controller.pingAll()).thenAnswer((_) async {});
+    when(() => controller.ping()).thenAnswer((_) async {});
     when(controller.refreshService).thenAnswer((_) async {});
     final holder = await _pump(
       tester,
@@ -2638,7 +2638,7 @@ void main() {
     expect(find.text('پینگ همه'), findsNothing);
 
     await tester.tap(ping);
-    verify(() => controller.pingAll()).called(1);
+    verify(() => controller.ping()).called(1);
 
     holder.value = _withOther(
       ShikooConnection.off,
@@ -2649,7 +2649,7 @@ void main() {
     await tester.tap(update);
     await tester.tap(ping);
     verifyNever(controller.refreshService);
-    verifyNever(() => controller.pingAll());
+    verifyNever(() => controller.ping());
 
     holder.value = _withOther(
       ShikooConnection.off,
@@ -2657,7 +2657,7 @@ void main() {
     );
     await tester.pump();
     await tester.tap(ping);
-    verifyNever(() => controller.pingAll());
+    verifyNever(() => controller.ping());
   });
 
   testWidgets('connected, a tap on a folded card only opens it: no question, '

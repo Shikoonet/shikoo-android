@@ -1390,7 +1390,12 @@ class ShikooController {
     return _names(group).contains(chosen) ? chosen : null;
   }
 
-  Future<void> connect() async {
+  Future<void> connect() {
+    _hopped = false;
+    return _connect();
+  }
+
+  Future<void> _connect() async {
     if (_ref.read(currentProfileProvider) == null) return;
     if (!await _coreReady()) return;
     _setAsideMultiplied();
@@ -1443,6 +1448,8 @@ class ShikooController {
     final refused = await _desktopReady(attempt);
     if (attempt != _attempt) return;
     if (refused != null) return _set(refused);
+    final chosen = _validSelection();
+    _startedKey = chosen == null ? null : _tunnelKeyOf(chosen);
     bool started;
     try {
       started = await _setup.setRunning(
@@ -1471,6 +1478,7 @@ class ShikooController {
       return;
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
+    _startedKey = null;
     await _setup.setRunning(false);
   }
 
@@ -1535,8 +1543,8 @@ class ShikooController {
   /// A switch of server or core: the VPN service keeps traffic blocked between the stop and the start.
   Future<void> _reconnect() async {
     await _ref.read(switchHoldProvider)();
-    await disconnect();
-    await connect();
+    await _disconnect();
+    await _connect();
   }
 
   /// A core behind mihomo only needs the config again; a new tunnel owner, a reconnect. Connected, a move shows as a
@@ -1702,7 +1710,12 @@ class ShikooController {
     unawaited(_setup.setRunning(false));
   }
 
-  Future<void> disconnect() async {
+  Future<void> disconnect() {
+    _hopped = false;
+    return _disconnect();
+  }
+
+  Future<void> _disconnect() async {
     if (!_fallingBack) {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }
@@ -1719,11 +1732,31 @@ class ShikooController {
   /// Sticky until the rebuild: a later "none" from Go cannot undo a client `shikooOwnerTakes` closed.
   bool _ownerRoad = false;
 
+  /// The tunnel key a start went with, until Go says what the tunnel carries; null with no tunnel.
+  String? _startedKey;
+
+  /// Sam's brake (A), 2026-10-30: one reconnect of the app's own, then no move of its own until the customer acts.
+  bool _hopped = false;
+
   bool _endOwnerRoad() {
     final took = _ownerRoad;
     _ownerRoad = false;
+    _startedKey = null;
     _ref.read(_carryingProvider.notifier).set(null);
     return took;
+  }
+
+  String? get _carriedKey {
+    final carrying = _ref.read(_carryingProvider);
+    if (carrying == null) return _startedKey;
+    final core = ShikooCore.values.asNameMap()[carrying.core];
+    return core == null
+        ? ShikooCore.mihomo.name
+        : tunnelKey(
+            core,
+            carrying.server,
+            specs: _ref.read(shikooCoreSpecsProvider),
+          );
   }
 
   Future<void> _rebuildClients() =>
@@ -1840,6 +1873,7 @@ class ShikooController {
   /// The user's choice, which the app never replaces; connected, a dead one never gets the traffic.
   /// A [service] other than the one in use is the open card's: choosing there is choosing it too.
   Future<void> selectServer(String name, {int? service}) async {
+    _hopped = false;
     final elsewhere = service != null && service != _current;
     final other = elsewhere ? _ref.read(_openedProvider) : null;
     if (elsewhere &&
@@ -1993,7 +2027,6 @@ class ShikooController {
     final group = _group;
     if (group == null) return;
     final no = ++_chooseNo;
-    final from = _validSelection();
     if (_changing == null) _pickInCore = _appPick;
     if (byApp != null) _pickedByApp(byApp ? name : null);
     final pick = _appPick;
@@ -2015,12 +2048,12 @@ class ShikooController {
     if (!applied) _pickedByApp(_pickInCore);
     final intent = _ref.read(_intentProvider);
     final error = applied ? null : ShikooError.serverChange;
-    // The app's own move to or from a core that owns the tunnel builds it again, as a tap does (selectServer).
+    final carried = _carriedKey;
     if (byApp == true &&
         applied &&
-        from != null &&
-        (_running || intent.connecting) &&
-        _tunnelKeyOf(from) != _tunnelKeyOf(name)) {
+        carried != null &&
+        carried != _tunnelKeyOf(name)) {
+      _hopped = true;
       return _reconnect();
     }
     if (intent.waiting && _validSelection() != null) {
@@ -2081,6 +2114,11 @@ class ShikooController {
         ),
       );
     }
+  }
+
+  Future<void> ping() {
+    _hopped = false;
+    return pingAll();
   }
 
   /// [list] false is connect's probe: its first answer is taken and nothing else shows.
@@ -2397,7 +2435,7 @@ class ShikooController {
 
   bool _leaveMultiplied(String? to) {
     final chosen = _validSelection();
-    if (to == null || multiplied(to) || chosen == null) return false;
+    if (_hopped || to == null || multiplied(to) || chosen == null) return false;
     if (chosen != _appPick || !multiplied(chosen)) return false;
     unawaited(_choose(to, byApp: true));
     return true;
@@ -2410,7 +2448,7 @@ class ShikooController {
   }
 
   Future<void> _replaceSilentPick() async {
-    if (_staleGroups) return;
+    if (_staleGroups || _hopped) return;
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
@@ -2550,6 +2588,7 @@ class ShikooController {
 
   /// Off, the card opened is the one connect uses; on, the tunnel stays. Null folds every card.
   void openService(int? id) {
+    _hopped = false;
     _ref.read(_openProvider.notifier).set(id);
     _ref.read(_landedProvider.notifier).set(null);
     _closeOpened();

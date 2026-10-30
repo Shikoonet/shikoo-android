@@ -160,7 +160,7 @@ class _ServiceCardState extends State<ServiceCard> {
         ? null
         : other
         ? () => controller.openService(service!.id)
-        : () => unawaited(controller.pingAll());
+        : () => unawaited(controller.ping());
     final connected = state.connection == ShikooConnection.on;
     final server = serverName(state.selected ?? widget.tunnelServer ?? '');
     void refresh([ShikooRoute? via]) => unawaited(
