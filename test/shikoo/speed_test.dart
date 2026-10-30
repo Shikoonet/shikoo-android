@@ -463,6 +463,8 @@ void main() {
       final other = _text(l.noInternetOther);
       expect(tester.takeException(), isNull);
       expect(_text(l.powerNoInternet), findsOne);
+      expect(title, findsOne, reason: 'a computer keeps the name, as a phone');
+      expect(_text(l.noInternetTitleTv), findsNothing);
       expect(
         tester.getCenter(other).dy,
         closeTo(tester.getCenter(title).dy, 2),
