@@ -171,7 +171,6 @@ class ShikooService {
 
   final String? account;
 
-  /// [LinkedService.outsourced]: a shelf account; its usage stays unknown even if a header told it.
   final bool outsourced;
 
   final bool loginRefused;
@@ -1269,8 +1268,7 @@ class ShikooController {
   Map<String, String> _appPickByService = const {};
   int _attempt = 0;
 
-  /// One login check a press, only until the first measure after it: a login starts a shelf account's days and drops
-  /// its live session on another device (OpenVPN 2.6 without duplicate-cn, measured: ~114 s).
+  /// Until the first measure after a press: a login drops the user's live session elsewhere (OpenVPN 2.6, ~114 s).
   bool _loginCheckDue = false;
 
   Future<void>? _rebuilding;
