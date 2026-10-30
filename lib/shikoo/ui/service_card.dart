@@ -1315,7 +1315,7 @@ class _Notice extends StatelessWidget {
 /// `.list-head` and `.servers`. While the remote or a finger is on a row the order stays, so
 /// the row under it never jumps; leaving the list lets the new order in.
 /// Off the TV the first touch, drag, wheel or key holds it until the card folds or the app hides.
-/// A ping the user asks for lets go of it as its round ends, unless a touch comes first.
+/// A ping that starts a round (another card's list empties first) lets go of it as that round ends, unless touched.
 class _ServerList extends StatefulWidget {
   const _ServerList({
     super.key,
@@ -1366,7 +1366,16 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
     }
   }
 
-  void sortAfterRound() => _sortAtRoundEnd = !widget.state.isTV;
+  void sortAfterRound() {
+    if (widget.state.isTV) return;
+    _sortAtRoundEnd = true;
+    unawaited(
+      WidgetsBinding.instance.endOfFrame.then((_) {
+        final ShikooState(:pinging, :servers) = widget.state;
+        if (pinging == null && servers.isNotEmpty) _sortAtRoundEnd = false;
+      }),
+    );
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {

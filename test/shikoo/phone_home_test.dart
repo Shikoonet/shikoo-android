@@ -415,13 +415,22 @@ void main() {
     const held = ['هلند ۱', 'آلمان ۲', 'آلمان ۱'];
     const sorted = ['آلمان ۱', 'هلند ۱', 'آلمان ۲'];
 
-    Future<ValueNotifier<ShikooState>> pingHeld(WidgetTester tester) async {
+    /// [starts] false: the press starts no round, as in the 15 s after an update.
+    Future<ValueNotifier<ShikooState>> pingHeld(
+      WidgetTester tester, {
+      bool starts = true,
+    }) async {
       final controller = _Controller();
-      when(() => controller.pingAll()).thenAnswer((_) async {});
+      late final ValueNotifier<ShikooState> holder;
+      when(() => controller.pingAll()).thenAnswer((_) async {
+        if (starts) {
+          holder.value = _phone(servers: _pinged, pinging: (done: 0, total: 3));
+        }
+      });
       when(
         () => controller.selectServer(any(), service: any(named: 'service')),
       ).thenAnswer((_) async {});
-      final holder = await _pump(tester, _phone(), controller: controller);
+      holder = await _pump(tester, _phone(), controller: controller);
       await _shortPage(tester);
       await tester.drag(find.byType(PowerButton), const Offset(0, -80));
       await tester.pumpAndSettle();
@@ -430,12 +439,9 @@ void main() {
       expect(_rowOrder(tester), held);
 
       await tester.tap(find.bySemanticsLabel('پینگ سرورها'));
+      await tester.pumpAndSettle();
       verify(() => controller.pingAll()).called(1);
-      for (final pinging in [null, (done: 1, total: 3)]) {
-        holder.value = _phone(servers: _pinged, pinging: pinging);
-        await tester.pumpAndSettle();
-        expect(_rowOrder(tester), held, reason: 'not before its round ends');
-      }
+      expect(_rowOrder(tester), held, reason: 'not before its round ends');
       return holder;
     }
 
@@ -465,6 +471,59 @@ void main() {
       await tester.pumpAndSettle();
       expect(_rowOrder(tester), held);
     });
+
+    testWidgets('a press that starts no round leaves it held through the next '
+        'round nobody asked for', (tester) async {
+      final holder = await pingHeld(tester, starts: false);
+      holder.value = _phone(servers: _pinged, pinging: (done: 1, total: 3));
+      await tester.pumpAndSettle();
+      holder.value = _phone(servers: _pinged);
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), held);
+    });
+  });
+
+  testWidgets("a ping on another service's held list sorts it as that "
+      'round ends, after the list empties for it', (tester) async {
+    const first = [
+      ShikooServer(name: 'ترکیه ۱', type: 'Vless', ping: 80),
+      ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 300),
+    ];
+    const next = [
+      ShikooServer(name: 'هلند ۱', type: 'Vless', ping: 50),
+      ShikooServer(name: 'ترکیه ۱', type: 'Vless', ping: 90),
+    ];
+    final controller = _Controller();
+    late final ValueNotifier<ShikooState> holder;
+    when(
+      () => controller.openService(any()),
+    ).thenAnswer((_) => holder.value = _cards(open: 7));
+    holder = await _pump(
+      tester,
+      _cards(open: 7, opened: 7, openedServers: first),
+      controller: controller,
+    );
+    await _shortPage(tester);
+    await tester.drag(find.byType(PowerButton), const Offset(0, -80));
+    await tester.pumpAndSettle();
+    holder.value = _cards(open: 7, opened: 7, openedServers: next);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['ترکیه ۱', 'هلند ۱'], reason: 'held');
+
+    await tester.tap(find.bySemanticsLabel('پینگ سرورها'));
+    await tester.pumpAndSettle();
+    verify(() => controller.openService(7)).called(1);
+    holder.value = _cards(
+      open: 7,
+      opened: 7,
+      openedServers: next,
+      openedPinging: (done: 1, total: 2),
+    );
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['ترکیه ۱', 'هلند ۱'], reason: 'mid-round');
+    holder.value = _cards(open: 7, opened: 7, openedServers: next);
+    await tester.pumpAndSettle();
+    expect(_rowOrder(tester), ['هلند ۱', 'ترکیه ۱'], reason: 'round ended');
   });
 
   testWidgets('on the TV a ping leaves the order to the remote: a row pressed '
@@ -3882,6 +3941,7 @@ ShikooState _cards({
   ],
   ShikooLanded? landed,
   ({int done, int total})? pinging,
+  ({int done, int total})? openedPinging,
 }) {
   ShikooService service(int id, String name, int used) => ShikooService(
     id: id,
@@ -3913,7 +3973,12 @@ ShikooState _cards({
     landed: landed,
     opened: opened == null
         ? null
-        : (id: opened, servers: openedServers, pinging: null, sorted: true),
+        : (
+            id: opened,
+            servers: openedServers,
+            pinging: openedPinging,
+            sorted: true,
+          ),
   );
 }
 
