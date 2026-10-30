@@ -108,7 +108,6 @@ class ShikooAlerts with TileListener {
     }
   }
 
-  /// Any change of the connection cancels the wait, so the tunnel is still down here.
   void _settled() {
     _up = false;
     if (!_ref.read(shikooAlertDroppedProvider)) return;
@@ -212,7 +211,6 @@ class ShikooAlerts with TileListener {
     await prefs.setString(_refusedKey, jsonEncode({...sent, server: day}));
   }
 
-  /// Once for each server an update took away.
   Future<void> removed(String server) async {
     final key = '${_state.service?.id}/$server';
     if (_removed.contains(key)) return;
@@ -280,7 +278,6 @@ class ShikooAlerts with TileListener {
     'actions': actions,
   };
 
-  /// Kotlin clears it only while it is the alert showing.
   void _cancel(ShikooAlert kind) =>
       unawaited(_channel.invokeMethod<bool>('cancel', kind.name));
 

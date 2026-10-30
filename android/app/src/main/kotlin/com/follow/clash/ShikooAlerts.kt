@@ -37,10 +37,7 @@ internal const val QUIET_MILLIS = 10 * 60_000L
 /** A drop this soon after the last one updates the alert without sound or heads-up. */
 internal fun quiet(lastDropAt: Long, now: Long) = now - lastDropAt in 0 until QUIET_MILLIS
 
-/**
- * Connection alerts for `lib/shikoo/app/alerts.dart`: one channel and one notification id, so a new
- * alert replaces the last. Dart decides when, except a VPN revoke: after Back no Dart runs.
- */
+/** Connection alerts for `lib/shikoo/app/alerts.dart`, one shared id; a revoke is decided here, as no Dart may run. */
 class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListener {
     private var activity: ActivityPluginBinding? = null
 
@@ -146,6 +143,8 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .setAutoCancel(true)
+                // Its own group, or Android bundles it with the VPN notification and hides its buttons.
+                .setGroup(CHANNEL)
                 .setSilent(silent)
                 .setContentIntent(open(context, alert["tap"] as String, 0))
                 .addExtras(bundleOf(ALERT_KIND to kind))
@@ -201,7 +200,6 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
 
-        /** The app's window is on screen; the VPN service alone ranks just below it. */
         private fun inForeground() = ActivityManager.RunningAppProcessInfo()
             .also(ActivityManager::getMyMemoryState)
             .importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
