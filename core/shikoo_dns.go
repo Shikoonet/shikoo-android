@@ -17,7 +17,7 @@ var systemDNS atomic.Pointer[[]string]
 
 var errNoSystemDNS = errors.New("no system DNS list")
 
-// lastEndpoint: the host and address of the owner session running unbroken (a full stop or mihomo's tunnel clears it).
+// lastEndpoint: the host and address of the owner session running unbroken (a full stop, mihomo's tunnel or the next fresh start clears it).
 var lastEndpoint atomic.Pointer[pinnedEndpoint]
 
 type pinnedEndpoint struct {
@@ -44,6 +44,10 @@ var deviceResolver = func() *net.Resolver { return net.DefaultResolver }
 
 // resolveEndpoint: a fresh start asks the device's resolver; a rebuild under a held VPN, which answers no DNS, does not.
 func resolveEndpoint(host string, held bool) (netip.Addr, error) {
+	// A fresh start is a new session: the pin of the one before is no use to it, even when this lookup fails.
+	if !held {
+		lastEndpoint.Store(nil)
+	}
 	if ip, err := netip.ParseAddr(host); err == nil {
 		return ip.Unmap(), nil
 	}

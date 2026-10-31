@@ -363,8 +363,8 @@ door would refuse the report), and pinging unopened services through another cor
   so Private DNS is honoured as before. A rebuild under a held VPN (`VpnService` tells Go with `held`) reuses the
   address the last start resolved for the same host, and for a new host asks the networks' DNS from protected sockets
   first, treating a private, loopback, link-local or unspecified answer as poison (an ISP's `10.10.34.x`). That remembered
-  address lives only while one owner session runs unbroken: a full stop (the protector cleared) or mihomo's tunnel
-  starting forgets it, so a later rebuild resolves again. OpenVPN 3
+  address lives only while one owner session runs unbroken: a full stop (the protector cleared), mihomo's tunnel
+  starting or the next fresh start forgets it, so a later rebuild resolves again. OpenVPN 3
   resolves its `remote` inside the engine, so a live rebuild with a name ended
   the connection («وصل نشد»: `OpenVPN RESOLVE`, then 20 s of nothing) and never reached mihomo; `ovpnPrepare` now hands
   the engine the address `pinnedHost` finds, while the session and the pings keep the name. The engine uses the name

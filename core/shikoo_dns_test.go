@@ -354,8 +354,8 @@ func TestAMihomoTunnelStartForgetsTheAddressAnOwnerSessionPinned(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := regexp.MustCompile(`(?s)func handleStartTun\(.*?\n\}`).Find(source)
-	if !strings.Contains(string(body), "\tlastEndpoint.Store(nil)\n") {
-		t.Fatal("handleStartTun no longer forgets the pinned endpoint")
+	if !strings.Contains(string(body), "\tstopTunLocked()\n\tlastEndpoint.Store(nil)\n") {
+		t.Fatal("handleStartTun no longer forgets the pinned endpoint right after stopping the old tunnel")
 	}
 }
 
@@ -424,4 +424,21 @@ func TestTheEndpointLookupsStayInsideTheCoreCallsCap(t *testing.T) {
 	if total := dnsListWait + dnsBudget + deviceTimeout; total >= 15*time.Second {
 		t.Fatalf("a held rebuild may spend %v in lookups, and Core.prepareOwner gives up at 15 s", total)
 	}
+}
+
+// The 5 s hold can run out before a switch's start, which is then fresh; if nothing answers, the old pin must not survive it.
+func TestAFreshStartThatGetsNoAnswerLeavesNoPinForTheNextHeldRebuild(t *testing.T) {
+	protectRecorder(t, true)
+	systemDNSIs(t, closedUDP(t))
+	deviceDNSIs(t, closedUDP(t))
+	lastEndpoint.Store(&pinnedEndpoint{"wg.shikoo.test", netip.MustParseAddr("198.51.100.1")})
+
+	if ip, err := resolveEndpoint("wg.shikoo.test", false); err == nil {
+		t.Fatalf("nothing answers, yet the fresh start got %v", ip)
+	}
+	if pin := lastEndpoint.Load(); pin != nil {
+		t.Fatalf("a fresh start left the pin of the session before: %+v", *pin)
+	}
+	systemDNSIs(t, answeringDNS(t, "203.0.113.9"))
+	wantAddress(t, "wg.shikoo.test", true, "203.0.113.9")
 }
