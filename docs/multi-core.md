@@ -357,6 +357,11 @@ door would refuse the report), and pinging unopened services through another cor
   REALITY's ClientHello offered `X25519MLKEM768` in its key share, so ML-KEM stays on. **Not tested:** the panel's
   real servers, WireGuard, the 32-bit box, and Windows.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
+- An owner core's server name is resolved by Go while the VPN is blocked (a start) or held (a switch). A held VPN keeps
+  its own DNS servers behind a tun nothing reads, so Android's resolver timed out and the start fell back to mihomo
+  (found 2026-10-31 with a server name; an IP never needed DNS). `lookupEndpoint` now asks the networks' DNS servers
+  from protected sockets first. OpenVPN 3 resolves its `remote` inside the engine and is not covered: a name there may
+  fail a live rebuild, which ends the connection with an error and never reaches mihomo. Not run on a device.
 
 ## 9. From the packages, not yet verified (از بسته‌ها، هنوز سنجیده نشده)
 

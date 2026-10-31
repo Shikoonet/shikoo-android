@@ -279,6 +279,7 @@ var (
 
 func handleUpdateDns(value string) {
 	seq := dnsUpdateSeq.Add(1)
+	rememberSystemDNS(strings.Split(value, ","))
 	safeGoDetached("updateDns", func() {
 		dnsUpdateMu.Lock()
 		defer dnsUpdateMu.Unlock()

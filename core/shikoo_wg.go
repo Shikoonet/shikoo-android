@@ -405,16 +405,19 @@ func wgKey(value string) (string, error) {
 	return hex.EncodeToString(key), nil
 }
 
-// Before the VPN is up, and the app stays out of it: the device's own DNS, as the official app resolves it.
+// The device's own DNS, as the official app resolves it, but not through the VPN a switch holds: protected sockets first.
 func lookupEndpoint(host string) (netip.Addr, error) {
 	if ip, err := netip.ParseAddr(host); err == nil {
 		return ip.Unmap(), nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil {
-		return netip.Addr{}, err
+	ips, outside := lookupOutsideVPN(host)
+	if outside != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		var err error
+		if ips, err = net.DefaultResolver.LookupNetIP(ctx, "ip", host); err != nil {
+			return netip.Addr{}, fmt.Errorf("%w (outside the VPN: %v)", err, outside)
+		}
 	}
 	for _, ip := range ips {
 		if ip.Unmap().Is4() {
