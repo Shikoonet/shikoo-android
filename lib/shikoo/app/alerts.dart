@@ -12,6 +12,8 @@ import 'package:fl_clash/shikoo/ui/widgets.dart'
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,7 +30,7 @@ final shikooAlertsProvider = Provider<ShikooAlerts>(ShikooAlerts.new);
 
 typedef _Ended = ({int? id, ShikooServiceStatus? ended});
 
-class ShikooAlerts with TileListener {
+class ShikooAlerts with TileListener, WidgetsBindingObserver {
   ShikooAlerts(this._ref) {
     // Made after the first frame, often with the tunnel already up.
     _ref.listen(
@@ -69,10 +71,12 @@ class ShikooAlerts with TileListener {
       (_, _) => unawaited(_primeRevoked()),
     );
     tile?.addListener(this);
+    WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler(_fromNative);
     _ref.onDispose(() {
       _settle?.cancel();
       tile?.removeListener(this);
+      WidgetsBinding.instance.removeObserver(this);
       _channel.setMethodCallHandler(null);
     });
   }
@@ -106,6 +110,16 @@ class ShikooAlerts with TileListener {
     if (await _channel.invokeMethod<String>('target') case final target?) {
       _open(target);
     }
+  }
+
+  /// Fully off screen with a problem still holding: said once, as if it had just begun. A begun-on-screen problem
+  /// posted nothing then; each alert keeps its own once-only guard, so a second leave in the same episode adds none.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final server = _state.selected;
+    if (state != AppLifecycleState.paused || server == null) return;
+    if (_state.noInternet) unawaited(noTraffic(server));
+    if (_state.service?.loginRefused ?? false) unawaited(refused(server));
   }
 
   @override

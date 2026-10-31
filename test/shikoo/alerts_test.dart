@@ -2,6 +2,7 @@ import 'package:fl_clash/shikoo/app/alerts.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -646,6 +647,129 @@ void main() {
         expect(posted(), isEmpty);
       },
     );
+  });
+
+  group('1 and 3: leaving the app with the problem still holding', () {
+    Future<void> leave() async {
+      controller.foreground = false;
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      await pumpEventQueue();
+    }
+
+    Future<void> onScreen(ShikooState state) async {
+      controller.foreground = true;
+      await set(state);
+    }
+
+    ShikooState refused({bool on = true, String? server = 'Netherlands 1'}) =>
+        _state(
+          _error,
+          selected: server,
+          service: _service(refused: on),
+        );
+
+    test(
+      'a no-traffic that began on screen is said once when the app '
+      'leaves, and a second leave in the same episode says nothing',
+      () async {
+        await onScreen(_state(_on, noTraffic: true));
+        expect(posted(), isEmpty);
+        await leave();
+        expect(posted(), ['noTraffic']);
+        expect(last('noTraffic')['body'], contains('Germany'));
+
+        native.clear();
+        controller.foreground = true;
+        await leave();
+        expect(posted(), isEmpty);
+      },
+    );
+
+    test('a new connect, or a new server, is a new episode', () async {
+      await onScreen(_state(_on, noTraffic: true));
+      await leave();
+      await onScreen(_state(_off));
+      await onScreen(_state(_on, noTraffic: true));
+      await leave();
+      expect(posted(), ['noTraffic', 'noTraffic'], reason: 'a new connect');
+
+      await onScreen(_state(_on, selected: 'Netherlands 1', noTraffic: true));
+      await leave();
+      expect(posted(), hasLength(3), reason: 'a new server');
+      expect(last('noTraffic')['body'], contains('Netherlands'));
+    });
+
+    test('nothing once the problem has cleared, or while only connecting, '
+        'and only the step of leaving counts', () async {
+      await onScreen(_state(_on, noTraffic: true));
+      await onScreen(_state(_on));
+      await leave();
+      await onScreen(_state(_connecting, noTraffic: true));
+      await leave();
+      await onScreen(_state(_on, noTraffic: true));
+      controller.foreground = false;
+      for (final step in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.resumed,
+      ]) {
+        WidgetsBinding.instance.handleAppLifecycleStateChanged(step);
+      }
+      await pumpEventQueue();
+      expect(posted(), isEmpty);
+    });
+
+    test(
+      '«دیگر نشان نده» is respected, until Settings turns it back on',
+      () async {
+        await container.read(shikooAlertNoTrafficProvider.notifier).set(false);
+        await onScreen(_state(_on, noTraffic: true));
+        await leave();
+        expect(posted(), isEmpty);
+        await container.read(shikooAlertNoTrafficProvider.notifier).set(true);
+        await leave();
+        expect(posted(), ['noTraffic']);
+      },
+    );
+
+    test('never for the streaming server', () async {
+      await onScreen(_state(_on, selected: '🇮🇷 Filimo', noTraffic: true));
+      await onScreen(_state(_on, selected: '🇮🇷 فیلیمو', ping: -1));
+      await leave();
+      expect(posted(), isEmpty);
+    });
+
+    test('a refusal that began on screen is said once when the app leaves, '
+        'and not again the same day', () async {
+      await onScreen(refused());
+      expect(posted(), isEmpty);
+      await leave();
+      expect(posted(), ['refused']);
+      expect(last('refused')['tap'], 'card:1');
+
+      controller.foreground = true;
+      await leave();
+      await onScreen(refused(on: false));
+      await onScreen(refused());
+      await leave();
+      expect(posted(), ['refused'], reason: 'the same refusal, the same day');
+
+      alerts = build();
+      await onScreen(refused());
+      await leave();
+      expect(posted(), ['refused'], reason: 'a new start, the same day');
+    });
+
+    test('no refusal alert while the account is fine, or with no server to '
+        'name', () async {
+      await onScreen(refused(on: false));
+      await leave();
+      await onScreen(refused(server: null));
+      await leave();
+      expect(posted(), isEmpty);
+    });
   });
 
   test('English names the account and server alerts', () async {
