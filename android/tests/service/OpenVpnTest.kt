@@ -9,10 +9,25 @@ class OpenVpnTest {
     @Test
     fun `the profile is read under the key Go writes`() = assertEquals("ovpn", OPENVPN_PROFILE)
 
-    // VpnService then hands the server to mihomo (Sam, 2026-10-23); a JVM test has no libovpn3.so.
+    // A JVM test has no libovpn3.so; VpnService fails the start, never handing the server to mihomo (Sam, 2026-10-30).
     @Test
-    fun `an engine missing from the build refuses the server`() {
+    fun `an engine missing from the build fails the start`() {
         val failure = OpenVpn("ov", { true }, { -1 }).start("client", "u", "p")
-        assertTrue(failure?.refused == true)
+        assertTrue(failure?.reason.orEmpty().startsWith("no engine"))
+    }
+
+    @Test
+    fun `OpenVPN without a plan fails the start before mihomo could carry it`() {
+        val source = java.io.File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+        val noPlan = source.substringAfter("private fun handleStart(").substringAfter("getOrElse { error ->")
+        assertTrue(noPlan.substringBefore("handleStart(").contains("if (options.core == OPENVPN_CORE) error("))
+    }
+
+    @Test
+    fun `VpnService has no mihomo after the official engine`() {
+        val source = java.io.File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+        val failed = source.substringAfter("engine.start(").substringBefore("private fun ")
+        assertTrue(failed.contains("error(\"OpenVPN did not connect"))
+        assertTrue(!failed.contains("handleStart("))
     }
 }

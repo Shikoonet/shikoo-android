@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/metacubex/mihomo/adapter"
@@ -32,11 +33,18 @@ func init() {
 }
 
 func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
+	if idle := shikooOwnerIdlePings[fmt.Sprint(params.Proxy[shikooOwnerKey])]; idle != nil {
+		name := fmt.Sprint(params.Proxy["name"])
+		return idle(params.Proxy, &TestDelayParams{ProxyName: name, TestUrl: params.TestUrl, Timeout: params.Timeout}), nil
+	}
 	proxy, err := adapter.ParseProxy(params.Proxy)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = proxy.Close() }()
+	if built, ok := proxy.(*adapter.Proxy); ok && built.Type() == C.OpenVPN {
+		built.ProxyAdapter = &shikooOwnerGate{built.ProxyAdapter, params.Proxy}
+	}
 
 	url := params.TestUrl
 	if url == "" {
@@ -55,12 +63,20 @@ func handleTestProxyDelay(params *TestProxyDelayParams) (*Delay, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout(proxy, timeout))
 	defer cancel()
-	delay, err := proxy.URLTest(ctx, url, anyDelayTestStatus)
+	delay, err := proxyURLTest(ctx, proxy, url)
+	if ovpnRefusedLogin(err) {
+		delayData.Value = ovpnLoginRefused
+	}
 	if err != nil {
 		return delayData, nil
 	}
 	delayData.Value = delayValue(delay)
 	return delayData, nil
+}
+
+// A var so a test hands handleTestProxyDelay a server's answer, AUTH_FAILED among them, without a server.
+var proxyURLTest = func(ctx context.Context, proxy C.Proxy, url string) (uint16, error) {
+	return proxy.URLTest(ctx, url, anyDelayTestStatus)
 }
 
 // wireGuardGrace is wireguard-go's RekeyTimeout: a probe's first dial builds the device, and a lost

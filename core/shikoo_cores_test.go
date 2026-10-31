@@ -463,3 +463,30 @@ func TestLoopbackPortsAreNeverTheSameTwice(t *testing.T) {
 		}
 	}
 }
+
+// A core that takes the process down while it starts leaves its name behind, for the app's next start.
+func TestShikooCoresNameTheCoreTheyStartUntilItHasStarted(t *testing.T) {
+	home := constant.Path.HomeDir()
+	constant.SetHomeDir(t.TempDir())
+	t.Cleanup(func() { constant.SetHomeDir(home) })
+	starting := filepath.Join(constant.Path.HomeDir(), shikooCoreStartingFile)
+	var during string
+	registerShikooCore("fake", func(proxies []map[string]any) ([]map[string]any, func(), error) {
+		content, err := os.ReadFile(starting)
+		during = fmt.Sprint(string(content), err)
+		return []map[string]any{{"name": "a", "type": "socks5", "server": "127.0.0.1", "port": 21000}}, func() {}, nil
+	})
+	t.Cleanup(func() {
+		delete(shikooCores, "fake")
+		shikooCoresRunning, shikooCoresStarting = nil, nil
+	})
+
+	parseShikooCores(t, "proxies:\n  - {name: a, type: http, server: 1.1.1.1, port: 1, shikoo-core: fake}\n")
+
+	if during != "fake<nil>" {
+		t.Fatalf("while the core started the file held %q, want its name", during)
+	}
+	if _, err := os.Stat(starting); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the file outlived the start: %v", err)
+	}
+}

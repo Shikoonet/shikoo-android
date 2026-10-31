@@ -33,8 +33,8 @@ typedef ShikooCoreRow = ({
   List<ShikooCoreOption> options,
 });
 
-/// A protocol not listed defaults to mihomo. OpenVPN: Sam, 2026-10-23.
-const shikooDefaultCores = <ShikooProtocol, ShikooCore>{
+/// The one core a protocol runs on: no pick, and no mihomo where it cannot run (Sam, 2026-10-30).
+const shikooOnlyCores = <ShikooProtocol, ShikooCore>{
   ShikooProtocol.openvpn: ShikooCore.openvpn,
 };
 
@@ -42,6 +42,8 @@ const shikooDefaultCores = <ShikooProtocol, ShikooCore>{
 const shikooCoreKey = 'shikoo-core';
 
 const shikooOwnerKey = 'shikoo-owner';
+
+const shikooCoreStartingFile = 'shikoo-core-starting';
 
 const ShikooCoreSpec _mihomo = (
   ready: true,
@@ -104,6 +106,16 @@ ShikooProtocol protocolOf(Map<String, dynamic> server) =>
       _ => ShikooProtocol.other,
     };
 
+bool offeredHere(
+  Map<String, dynamic> server,
+  Map<ShikooCore, ShikooCoreSpec> specs, {
+  bool tunnel = true,
+}) {
+  final spec = specs[shikooOnlyCores[protocolOf(server)]];
+  return spec == null ||
+      spec.ready && (tunnel || spec.shape != ShikooShape.ownsTunnel);
+}
+
 /// [tunnel] false is Windows' proxy mode: no tunnel for a core to own, so such a pick falls back to mihomo.
 ShikooCore coreFor(
   Map<String, dynamic> server,
@@ -112,8 +124,8 @@ ShikooCore coreFor(
   bool tunnel = true,
 }) {
   final protocol = protocolOf(server);
-  final core =
-      choices[protocol] ?? shikooDefaultCores[protocol] ?? ShikooCore.mihomo;
+  if (shikooOnlyCores[protocol] case final only?) return only;
+  final core = choices[protocol] ?? ShikooCore.mihomo;
   final spec = specs[core]!;
   return spec.ready &&
           spec.serves(protocol, server) &&
@@ -132,6 +144,7 @@ ShikooCore runningCore(
   String? carried,
 }) {
   final server = source ?? {'type': runningType};
+  if (shikooOnlyCores[protocolOf(server)] case final only?) return only;
   final core = coreFor(server, choices, specs: specs, tunnel: tunnel);
   return switch (specs[core]!.shape) {
     ShikooShape.mihomo => core,
@@ -162,14 +175,18 @@ List<ShikooCoreRow> coreRows(
       carrier: coreFor(server, choices, specs: specs, tunnel: tunnel),
       options: [
         for (final MapEntry(key: core, value: spec) in specs.entries)
-          if (spec.serves(protocol, const {})) (core: core, ready: spec.ready),
+          if (spec.serves(protocol, const {}) &&
+              (shikooOnlyCores[protocol] ?? core) == core)
+            (core: core, ready: spec.ready),
       ],
     );
   }
 
   return [
     for (final protocol in ShikooProtocol.values)
-      if (protocol != ShikooProtocol.other && present.contains(protocol))
+      if (protocol != ShikooProtocol.other &&
+          present.contains(protocol) &&
+          offeredHere({'type': protocol.name}, specs, tunnel: tunnel))
         row(protocol),
   ];
 }
@@ -197,7 +214,10 @@ Map<String, dynamic> markCores(
     final server = Map<String, dynamic>.from(proxy);
     final core = coreFor(server, choices, specs: specs, tunnel: tunnel);
     final shape = specs[core]!.shape;
-    if (shape == ShikooShape.mihomo) return proxy;
+    if (shape == ShikooShape.mihomo ||
+        !offeredHere(server, specs, tunnel: tunnel)) {
+      return proxy;
+    }
     marked = true;
     final key = shape == ShikooShape.ownsTunnel
         ? shikooOwnerKey

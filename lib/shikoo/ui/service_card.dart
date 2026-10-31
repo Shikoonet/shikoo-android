@@ -50,6 +50,7 @@ class CardFocus {
   final refresh = FocusNode();
   final caret = FocusNode();
   final report = FocusNode();
+  final bot = FocusNode();
 
   /// The failure message's other way.
   final other = FocusNode();
@@ -64,6 +65,7 @@ class CardFocus {
     refresh.dispose();
     caret.dispose();
     report.dispose();
+    bot.dispose();
     other.dispose();
     for (final node in _rows.values) {
       node.dispose();
@@ -115,6 +117,8 @@ class ServiceCard extends StatefulWidget {
 }
 
 class _ServiceCardState extends State<ServiceCard> {
+  final _list = GlobalKey<_ServerListState>();
+
   /// A message leaving from above the list moves the remote's row up, under the top bar.
   @override
   void didUpdateWidget(ServiceCard old) {
@@ -158,9 +162,11 @@ class _ServiceCardState extends State<ServiceCard> {
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
     final onPing = service?.ended != null
         ? null
-        : other
-        ? () => controller.openService(service!.id)
-        : () => unawaited(controller.pingAll());
+        : () {
+            _list.currentState?.sortAfterRound();
+            if (other) return controller.openService(service!.id);
+            unawaited(controller.pingAll());
+          };
     final connected = state.connection == ShikooConnection.on;
     final server = serverName(state.selected ?? widget.tunnelServer ?? '');
     void refresh([ShikooRoute? via]) => unawaited(
@@ -309,6 +315,17 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset,
                     child: _Usage(service: service),
                   ),
+                if (service.outsourced)
+                  Padding(
+                    padding: inset,
+                    child: _Guide(
+                      isTV: state.isTV,
+                      bot: widget.bot,
+                      refused: service.loginRefused,
+                      notHere: service.notHere,
+                      focusNode: focus.bot,
+                    ),
+                  ),
                 if (service.announce != null && !revoked)
                   Padding(
                     padding: inset,
@@ -354,8 +371,11 @@ class _ServiceCardState extends State<ServiceCard> {
                     padding: inset.copyWith(top: Space.s3),
                     child: _Hint(now: landed?.arrived ?? false),
                   ),
-                if (service.ended == null)
+                if (service.notHere)
+                  const SizedBox.shrink()
+                else if (service.ended == null)
                   _ServerList(
+                    key: _list,
                     state: state,
                     controller: controller,
                     focus: focus,
@@ -641,6 +661,8 @@ class _StatusRow extends StatelessWidget {
       children: [
         if (service.usageKnown)
           StatusChip(status: service.statusAt(shikooNow()))
+        else if (service.outsourced)
+          _protocolChip(context)
         else
           const SizedBox.shrink(),
         if (text != null)
@@ -820,7 +842,9 @@ class _Head extends StatelessWidget {
     final busy = refresh == ShikooRefresh.running;
     final measuring = pinging != null;
     final onPing = this.onPing;
-    final ping = onPing == null || busy ? null : (measuring ? () {} : onPing);
+    final ping = onPing == null || busy || service.notHere
+        ? null
+        : (measuring ? () {} : onPing);
     final controls = RefreshControls(
       isTV: isTV,
       busy: busy,
@@ -924,13 +948,16 @@ class _Summary extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
-    if (!service.usageKnown && !service.revoked) return const SizedBox.shrink();
+    if (!service.usageKnown && !service.revoked && !service.outsourced) {
+      return const SizedBox.shrink();
+    }
     String whole(String text) => text.replaceAll(' ', '\u00A0');
     String gb(int bytes) => localNumber(context, bytes / _gib, '#,##0.#');
     final total = service.totalBytes;
     final used = service.usedBytes;
     final expire = service.expire;
     final List<InlineSpan> text = switch (service.ended) {
+      _ when service.outsourced => [TextSpan(text: l.outsourcedSummary)],
       ShikooServiceStatus.revoked => [TextSpan(text: l.revokedHelp)],
       ShikooServiceStatus.expired || ShikooServiceStatus.exhausted
           when !renews =>
@@ -961,7 +988,9 @@ class _Summary extends StatelessWidget {
       spacing: Space.s2,
       children: [
         if (service.usageKnown)
-          StatusChip(status: service.statusAt(shikooNow())),
+          StatusChip(status: service.statusAt(shikooNow()))
+        else if (service.outsourced)
+          _protocolChip(context),
         Expanded(
           child: Text.rich(
             TextSpan(children: text),
@@ -1047,12 +1076,11 @@ class _Message extends StatelessWidget {
               ? l.selectedMoved(serverName(replacement))
               : l.selectedReplaced(serverName(replacement)),
         ),
-      SilentReplaced(:final silent, :final replacement, :final moved) => (
+      SilentReplaced(:final silent, :final replacement) => (
         l.selectedNoAnswer(serverName(silent)),
-        moved
-            ? l.selectedMoved(serverName(replacement))
-            : l.selectedReplaced(serverName(replacement)),
+        l.selectedReplaced(serverName(replacement)),
       ),
+      SelectedGone() => (l.selectedGone, ''),
       ServersChanged(:final added, :final removed) => (
         [
           if (added > 0) l.serversAdded(added),
@@ -1257,6 +1285,79 @@ class MeterBar extends StatelessWidget {
   }
 }
 
+// shortcut: the shop's shelf holds only OpenVPN; name it from the servers once it holds another protocol.
+Widget _protocolChip(BuildContext context) =>
+    StatusChip.neutral(ShikooL10n.of(context).protocolOpenvpn);
+
+/// `.guide` (ovpn-shelf-card, design ب): an outsourced account's days and data are not the app's to
+/// tell, and the bot sells a new one; on the TV the button shows the bot's QR, between update and servers.
+class _Guide extends StatelessWidget {
+  const _Guide({
+    required this.isTV,
+    required this.bot,
+    this.refused = false,
+    this.notHere = false,
+    this.focusNode,
+  });
+
+  final bool isTV;
+  final String? bot;
+  final bool refused;
+
+  /// In the refused line's place, in the text's own colour: no core here runs it (Sam, 2026-10-30).
+  final bool notHere;
+  final FocusNode? focusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final strong = TextStyle(
+      color: refused && !notHere ? t.c.danger : t.c.text,
+      fontWeight: FontWeight.w700,
+    );
+    return Container(
+      margin: const EdgeInsets.only(top: Space.s3),
+      padding: const EdgeInsets.all(Space.s3),
+      decoration: ShapeDecoration(
+        color: t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.s3,
+        children: [
+          Text.rich(
+            TextSpan(
+              children: notHere
+                  ? [TextSpan(text: l.outsourcedNotHere, style: strong)]
+                  : refused
+                  ? [TextSpan(text: l.outsourcedRefused, style: strong)]
+                  : [
+                      TextSpan(text: '${l.outsourcedTitle}\n', style: strong),
+                      TextSpan(text: l.outsourcedHelp),
+                    ],
+            ),
+            style: t.text(
+              t.s.bodySm,
+              color: t.c.textMuted,
+              height: Leading.body,
+            ),
+          ),
+          ShikooButton(
+            label: isTV ? l.openBotTv : l.openBotTouch,
+            icon: isTV ? ShikooIcon.qr : ShikooIcon.plane,
+            focusNode: focusNode,
+            onPressed: () => openBot(context, isTV: isTV, bot: bot),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// `.notice`: the panel's announcement, every line of it.
 class _Notice extends StatelessWidget {
   const _Notice({required this.text});
@@ -1309,8 +1410,11 @@ class _Notice extends StatelessWidget {
 
 /// `.list-head` and `.servers`. While the remote or a finger is on a row the order stays, so
 /// the row under it never jumps; leaving the list lets the new order in.
+/// Off the TV the first touch, drag, wheel or key holds it until the card folds or the app hides.
+/// A ping that starts a round (another card's list empties first) lets go of it as that round ends, unless touched.
 class _ServerList extends StatefulWidget {
   const _ServerList({
+    super.key,
     required this.state,
     required this.controller,
     required this.focus,
@@ -1326,20 +1430,72 @@ class _ServerList extends StatefulWidget {
   State<_ServerList> createState() => _ServerListState();
 }
 
-class _ServerListState extends State<_ServerList> {
+class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
   List<String>? _held;
+  List<String> _shown = const [];
+  var _sortAtRoundEnd = false;
+  ScrollPosition? _page;
   final _search = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _search.addListener(() => setState(() {}));
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _page?.removeListener(_scrolled);
+    _page = Scrollable.maybeOf(context)?.position;
+    _page?.addListener(_scrolled);
+  }
+
+  @override
+  void didUpdateWidget(_ServerList old) {
+    super.didUpdateWidget(old);
+    if (_sortAtRoundEnd &&
+        old.state.pinging != null &&
+        widget.state.pinging == null) {
+      _held = null;
+    }
+  }
+
+  void sortAfterRound() {
+    if (widget.state.isTV) return;
+    _sortAtRoundEnd = true;
+    unawaited(
+      WidgetsBinding.instance.endOfFrame.then((_) {
+        final ShikooState(:pinging, :servers) = widget.state;
+        if (pinging == null && servers.isNotEmpty) _sortAtRoundEnd = false;
+      }),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden && !widget.state.isTV) {
+      setState(() => _held = null);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _page?.removeListener(_scrolled);
     _search.dispose();
     super.dispose();
+  }
+
+  /// A drag, a fling or a wheel: the app's own scrolls leave the direction idle.
+  void _scrolled() {
+    if (_page!.userScrollDirection != ScrollDirection.idle) _touch();
+  }
+
+  void _touch() {
+    _sortAtRoundEnd = false;
+    if (!widget.state.isTV && _held == null) setState(() => _held = _shown);
   }
 
   @override
@@ -1350,7 +1506,16 @@ class _ServerListState extends State<_ServerList> {
     final byName = {for (final server in state.servers) server.name: server};
     final order = [...byName.keys];
     final kept = _held == null ? order : keepOrder(_held!, order);
-    void hold(bool on) => setState(() => _held = on ? kept : null);
+    if (!state.isTV && _held != null && order.isNotEmpty) _held = kept;
+    _shown = kept;
+    void hold(bool on) {
+      if (state.isTV) {
+        setState(() => _held = on ? kept : null);
+      } else if (on) {
+        _touch();
+      }
+    }
+
     final shown = [
       for (final name in kept)
         if (serverMatches(byName[name]!.label, _search.text)) name,
@@ -1386,7 +1551,9 @@ class _ServerListState extends State<_ServerList> {
       skipTraversal: true,
       includeSemantics: false,
       onFocusChange: (inside) {
-        if (inside) Scrollable.ensureVisible(context);
+        if (!inside) return;
+        _touch();
+        Scrollable.ensureVisible(context);
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

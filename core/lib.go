@@ -153,13 +153,13 @@ func installHooks() {
 			if platform.ShouldBlockConnection() {
 				return errBlocked
 			}
-			th := activeTunHandler.Load()
-			if th == nil {
-				return nil
+			protectFd := func(fd int) error { return ownerProtect.socket(fd, false) }
+			if th := activeTunHandler.Load(); th != nil {
+				protectFd = th.handleProtect
 			}
 			var protectErr error
 			if err := conn.Control(func(fd uintptr) {
-				protectErr = th.handleProtect(int(fd))
+				protectErr = protectFd(int(fd))
 			}); err != nil {
 				return err
 			}
@@ -245,14 +245,13 @@ func handleStartTun(callback unsafe.Pointer, fd int, stack, address, dns string)
 
 const shikooStartOwnerMethod CoreMethod = "shikooStartOwner"
 
-// handleStartTun for a core that owns the tunnel (shikoo_wg.go); the app is out of its VPN, so nothing needs protect.
 func handleStartOwner(fd int) bool {
 	tunLock.Lock()
 	defer tunLock.Unlock()
 	stopTunLocked()
 	device, _, err := wgtun.CreateUnmonitoredTUNFromFD(fd)
 	if err == nil {
-		err = startOwner(device, wgconn.NewDefaultBind())
+		err = startProtectedOwner(device, wgconn.NewStdNetBind().(*wgconn.StdNetBind))
 	} else {
 		_ = syscall.Close(fd)
 	}
@@ -261,6 +260,16 @@ func handleStartOwner(fd int) bool {
 		return false
 	}
 	return true
+}
+
+//export setOwnerProtector
+func setOwnerProtector(callback unsafe.Pointer) {
+	if callback == nil {
+		ownerProtect.set(nil, nil)
+		return
+	}
+	installHooks()
+	ownerProtect.set(func(fd int) bool { return protect(callback, fd) }, func() { releaseObject(callback) })
 }
 
 var (
@@ -299,8 +308,13 @@ func init() {
 		response.success(true)
 	}))
 	registerMethod(shikooStartOwnerMethod, withArguments(func(fd *int, response MethodResponse) {
-		response.success(handleStartOwner(*fd))
+		started := handleStartOwner(*fd)
+		if started {
+			restartListenersIfStopped()
+		}
+		response.success(started)
 	}))
+	ovpnUp = restartListenersIfStopped
 }
 
 //export invokeMethod

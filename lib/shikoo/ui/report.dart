@@ -7,6 +7,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
+import 'package:fl_clash/shikoo/ui/cores.dart' show coreLabel;
 import 'package:fl_clash/shikoo/ui/dialogs.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/login.dart';
@@ -150,9 +151,11 @@ class CrashCard extends ConsumerWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final diag = ref.read(shikooDiagProvider);
+    final reverted = ref.watch(shikooCoreRevertedProvider);
     void forget(FocusNode node) {
       // Down first: the button goes with the card, and the remote would land nowhere.
       if (node.hasFocus) node.focusInDirection(TraversalDirection.down);
+      ref.read(shikooCoreRevertedProvider.notifier).set(null);
       unawaited(diag.crashAsked());
     }
 
@@ -177,6 +180,11 @@ class CrashCard extends ConsumerWidget {
                 l.reportCrashTitle,
                 style: t.text(t.s.body, weight: FontWeight.w700),
               ),
+              if (reverted != null)
+                Text(
+                  l.reportCrashCore(coreLabel(l, reverted)),
+                  style: t.text(t.s.bodySm),
+                ),
               Text(
                 l.reportCrashAsk,
                 style: t.text(t.s.bodySm, color: t.c.textMuted),

@@ -16,6 +16,7 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/state.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
@@ -23,6 +24,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
+import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/warp.dart';
@@ -86,6 +88,7 @@ class _Setup extends SetupAction {
 
   /// Whether a real request gets through the tunnel.
   bool traffic = false;
+  int trafficAsked = 0;
 
   /// Holds the traffic check open until completed.
   Completer<void>? trafficGate;
@@ -93,10 +96,19 @@ class _Setup extends SetupAction {
   /// What an applied profile changes, such as the core's server list.
   void Function()? onApply;
 
+  /// Holds every stop open until completed.
+  Completer<void>? stopGate;
+
+  /// Holds a start open until completed; [startOk] false is a start that fails before native is asked.
+  Completer<void>? startGate;
+  bool startOk = true;
+
   @override
   Future<bool> setRunning(bool running, {bool initialize = false}) async {
     runs.add(running);
-    return true;
+    if (!running) await stopGate?.future;
+    if (running) await startGate?.future;
+    return !running || startOk;
   }
 
   @override
@@ -180,6 +192,7 @@ _home([List<Override> more = const []]) {
       coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
       nativeRunTimeProvider.overrideWithValue(() async => setup.tunnel),
       trafficPassesProvider.overrideWithValue(() async {
+        setup.trafficAsked++;
         await setup.trafficGate?.future;
         return setup.traffic;
       }),
@@ -203,6 +216,33 @@ _home([List<Override> more = const []]) {
   container.listen(shikooStateProvider, (_, _) {});
   return (container: container, core: core, proxies: proxies, setup: setup);
 }
+
+const _streaming = '   (رایگان) نماوا | فیلیمو |‌ شیدا | گپ فیلم';
+
+/// Choosing the streaming server writes rules: a database per test, so none outlives its test.
+void _memoryDatabase() {
+  final before = database;
+  database = Database(NativeDatabase.memory());
+  addTearDown(() async {
+    await database.close();
+    database = before;
+  });
+}
+
+void _withStreaming(ProviderContainer container) =>
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: _version, type: 'Vless'),
+          Proxy(name: 'آلمان ۱', type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+          Proxy(name: _streaming, type: 'Shadowsocks'),
+        ],
+      ),
+    ];
 
 /// The live panel's shape: every account titled "Shi" (`U2hp`), the account in the file name
 /// (`/file/<user>/…`), in the first row only (`/row/<user>/…`), or nowhere (`/none/…`).
@@ -474,63 +514,854 @@ void main() {
     await controller.disconnect();
   });
 
-  test(
-    'connect takes a usage-multiplier first answer at once, and the first '
-    'ordinary server to answer then takes over, with no error (#29)',
-    () async {
-      const four = 'ضریب مصرف NE 4 x';
-      for (final netherlandsUp in [true, false]) {
-        final (:container, :core, :proxies, :setup) = _home();
-        container.read(groupsProvider.notifier).value = [
-          const Group(
+  group('an OpenVPN reset never wins the automatic pick (Sam, 2026-10-29)', () {
+    const germany = 'آلمان ۱';
+
+    /// Go names the owner core the app asked for, as `shikooOwner` does once that engine runs.
+    void goReportsTheOwner(ProviderContainer container, _Core core) =>
+        when(() => core.shikooOwner()).thenAnswer((_) {
+          final owner = container.read(shikooOwnerProvider);
+          return Future<Map<String, dynamic>?>.value({
+            'core': owner?.core ?? '',
+            'server': owner?.server ?? '',
+          });
+        });
+
+    Future<void> settle() async {
+      for (var i = 0; i < 30; i++) {
+        await pumpEventQueue();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+
+    Future<
+      ({
+        ProviderContainer container,
+        _Core core,
+        _Proxies proxies,
+        _Setup setup,
+        ShikooController controller,
+      })
+    >
+    service(
+      Map<String, (String, int)> servers, [
+      Map<String, Completer<void>> gates = const {},
+    ]) async {
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      container.read(groupsProvider.notifier).value = [
+        Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            for (final MapEntry(:key, :value) in servers.entries)
+              Proxy(name: key, type: value.$1),
+          ],
+        ),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        await gates[name]?.future;
+        return Delay(name: name, url: '', value: servers[name]!.$2);
+      });
+      goReportsTheOwner(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      return (
+        container: container,
+        core: core,
+        proxies: proxies,
+        setup: setup,
+        controller: controller,
+      );
+    }
+
+    test('a ping round of a mixed service picks the slower VLESS', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+      });
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [germany]);
+    });
+
+    test('up or still starting, an update takes the server away: the tunnel '
+        'stops, the card says to pick another, and the app picks none (Sam, '
+        '2026-10-30)', () async {
+      for (final (gone, type) in [
+        ('فرانسه ۴', 'OpenVPN'),
+        ('هلند ۲', 'Vless'),
+      ]) {
+        for (final up in [true, false]) {
+          final reason = '$gone, ${up ? 'up' : 'starting'}';
+          final (:container, :core, :proxies, :setup) = _home([
+            shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+            shikooTunnelProvider.overrideWithValue(true),
+          ]);
+          final panel = await _panel(container, core);
+          container
+              .read(profilesProvider.notifier)
+              .put(
+                container
+                    .read(profilesProvider)
+                    .single
+                    .copyWith(url: '$panel/none/a'),
+              );
+          Group group(List<(String, String)> servers) => Group(
             type: GroupType.Selector,
             name: 'PROXY',
             hidden: false,
             all: [
-              Proxy(name: four, type: 'Vless'),
-              Proxy(name: 'هلند ۱', type: 'Vless'),
+              const Proxy(name: _version, type: 'Vless'),
+              for (final (name, type) in servers) Proxy(name: name, type: type),
             ],
-          ),
-        ];
-        var firstRound = true;
-        final netherlands = Completer<void>();
-        when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-          final name = call.positionalArguments[1] as String;
-          if (name == four) return Delay(name: name, url: '', value: 60);
-          if (!firstRound) await netherlands.future;
-          final up = firstRound || netherlandsUp;
-          return Delay(name: name, url: '', value: up ? 90 : -1);
-        });
-        final controller = container.read(shikooControllerProvider);
-        await controller.pingAll();
-        expect(proxies.picked, ['هلند ۱'], reason: 'a ping round skips the 4x');
+          );
+          container.read(groupsProvider.notifier).value = [
+            group([(gone, type), ('هلند ۱', 'Vless')]),
+          ];
+          when(() => core.asyncTestDelay(any(), any())).thenAnswer((
+            call,
+          ) async {
+            final name = call.positionalArguments[1] as String;
+            return Delay(name: name, url: '', value: 90);
+          });
+          goReportsTheOwner(container, core);
+          final controller = container.read(shikooControllerProvider);
+          await controller.selectServer(gone);
+          if (up) setup.tunnel = DateTime(2026);
+          unawaited(controller.connect());
+          await settle();
+          setup.onApply = () =>
+              container.read(groupsProvider.notifier).value = [
+                group([('هلند ۱', 'Vless')]),
+              ];
+          await controller.refreshService();
+          await settle();
+          final state = container.read(shikooStateProvider);
+          expect(setup.runs, [true, false], reason: reason);
+          expect(proxies.picked, [gone], reason: reason);
+          expect(state.connection, ShikooConnection.off, reason: reason);
+          expect(state.notice, isA<SelectedGone>(), reason: reason);
 
-        container
-            .read(profilesActionProvider.notifier)
-            .updateCurrentSelectedMap('PROXY', 'سرور حذف‌شده');
-        firstRound = false;
-        unawaited(controller.connect());
-        await pumpEventQueue();
-        expect(proxies.picked, ['هلند ۱', four], reason: 'connect never waits');
-        expect(setup.runs, [true]);
-
-        netherlands.complete();
-        await pumpEventQueue();
-        final state = container.read(shikooStateProvider);
-        expect(
-          proxies.picked,
-          ['هلند ۱', four, if (netherlandsUp) 'هلند ۱'],
-          reason: netherlandsUp
-              ? 'the first ordinary answer takes over'
-              : 'هلند ۱ answered only the round before',
-        );
-        expect(setup.runs, [true], reason: 'the tunnel is not started again');
-        expect((state.notice, state.lastError), (null, null));
-
-        await controller.disconnect();
+          final clear = !up
+              ? 'connect'
+              : gone == 'فرانسه ۴'
+              ? 'a pick'
+              : 'another service';
+          switch (clear) {
+            case 'a pick':
+              await controller.selectServer('هلند ۱');
+            case 'connect':
+              unawaited(controller.connect());
+              await pumpEventQueue();
+            default:
+              final other = Profile.normal(url: 'https://panel.invalid/other');
+              container.read(profilesProvider.notifier).put(other);
+              controller.selectService(other.id);
+              await settle();
+          }
+          expect(
+            container.read(shikooStateProvider).notice,
+            isNull,
+            reason: '$clear clears it: $reason',
+          );
+          await controller.disconnect();
+        }
       }
-    },
-  );
+    });
+
+    /// Connects with nothing chosen and lets the app pick; a server in [silentWhenCarried] answers until it carries
+    /// the tunnel.
+    Future<({ShikooController controller, _Proxies proxies, _Setup setup})>
+    carrying(
+      Map<String, (String, int)> servers,
+      Set<String> silentWhenCarried,
+    ) async {
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      container.read(groupsProvider.notifier).value = [
+        Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            for (final MapEntry(:key, :value) in servers.entries)
+              Proxy(name: key, type: value.$1),
+          ],
+        ),
+      ];
+      bool carried(String name) =>
+          proxies.picked.lastOrNull == name && (setup.runs.lastOrNull ?? false);
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        final silent = silentWhenCarried.contains(name) && carried(name);
+        return Delay(
+          name: name,
+          url: '',
+          value: silent ? -1 : servers[name]!.$2,
+        );
+      });
+      goReportsTheOwner(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      return (controller: controller, proxies: proxies, setup: setup);
+    }
+
+    for (final (name, servers, silent, pick) in [
+      (
+        'a multiplied VLESS beside an OpenVPN that answers its reset, silent '
+            'once carried',
+        {'ضریب مصرف NE 4 x': ('Vless', 60), 'فرانسه ۴': ('OpenVPN', 4)},
+        {'فرانسه ۴'},
+        'فرانسه ۴',
+      ),
+      (
+        'two OpenVPN servers, both silent once carried',
+        {'فرانسه ۴': ('OpenVPN', 4), 'فرانسه ۶': ('OpenVPN', 9)},
+        {'فرانسه ۴', 'فرانسه ۶'},
+        'فرانسه ۴',
+      ),
+      (
+        'two VLESS servers, the faster silent once carried',
+        {germany: ('Vless', 60), 'هلند ۱': ('Vless', 90)},
+        {germany},
+        germany,
+      ),
+    ]) {
+      test('connected, the pick of the app gone silent stays: no move, no '
+          'reconnect, and the card says it is silent ($name)', () async {
+        final c = await carrying(servers, silent);
+        await Future<void>.delayed(const Duration(seconds: 2));
+        final picked = [...c.proxies.picked];
+        final runs = [...c.setup.runs];
+        await c.controller.disconnect();
+        expect(picked, [pick]);
+        expect(runs, [true]);
+      });
+    }
+
+    test('up or still starting on a usage-multiplied pick, an ordinary server '
+        'that answers faster later moves nothing', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      for (final (other, type) in [
+        (germany, 'Vless'),
+        ('فرانسه ۴', 'OpenVPN'),
+      ]) {
+        for (final up in [true, false]) {
+          final reason = '$other, ${up ? 'up' : 'starting'}';
+          final servers = {four: ('Vless', 60), other: (type, -1)};
+          final s = await service(servers);
+          if (up) s.setup.tunnel = DateTime(2026);
+          unawaited(s.controller.connect());
+          await settle();
+          expect(s.proxies.picked, [four], reason: reason);
+          servers[other] = (type, 4);
+          await s.controller.pingAll();
+          await settle();
+          expect(s.proxies.picked, [four], reason: reason);
+          expect(s.setup.runs, [true], reason: reason);
+          await s.controller.disconnect();
+        }
+      }
+    });
+
+    test('off, a list round moves the app pick from a multiplied VLESS to an '
+        'OpenVPN: no start, no stop', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final servers = {four: ('Vless', 60), 'فرانسه ۴': ('OpenVPN', -1)};
+      final s = await service(servers);
+      await s.controller.pingAll();
+      servers['فرانسه ۴'] = ('OpenVPN', 4);
+      await s.controller.pingAll();
+      await settle();
+      expect(s.proxies.picked, [four, 'فرانسه ۴']);
+      expect(s.setup.runs, isEmpty);
+    });
+
+    test('a tap onto the OpenVPN while connected reconnects once: the '
+        "customer's switch across engines", () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+      });
+      await s.controller.pingAll();
+      s.setup.tunnel = DateTime(2026);
+      await s.controller.connect();
+      await settle();
+      await s.controller.selectServer('فرانسه ۴');
+      await settle();
+      expect(s.setup.runs, [true, false, true]);
+      await s.controller.disconnect();
+    });
+
+    test('a VPN consent refused while the round runs: its end starts nothing '
+        '(P17)', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      for (final (servers, late) in [
+        (
+          {
+            four: ('Vless', 60),
+            'فرانسه ۴': ('OpenVPN', 4),
+            germany: ('Vless', -1),
+          },
+          'فرانسه ۴',
+        ),
+        ({germany: ('Vless', 150), 'فرانسه ۴': ('OpenVPN', 4)}, 'فرانسه ۴'),
+      ]) {
+        final gate = Completer<void>();
+        final s = await service(servers, {late: gate});
+        unawaited(s.controller.connect());
+        await pumpEventQueue();
+        s.controller.onVpnConsent('refused');
+        await pumpEventQueue();
+        final before = [...s.setup.runs];
+        gate.complete();
+        await settle();
+        expect(s.setup.runs, before, reason: '${servers.keys}');
+        expect(
+          s.container.read(shikooStateProvider).lastError,
+          ShikooError.vpnRefused,
+        );
+      }
+    });
+
+    test('a VPN consent refused, a later round that finds an ordinary OpenVPN '
+        'starts nothing (P17b)', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final servers = {four: ('Vless', 60), 'فرانسه ۴': ('OpenVPN', -1)};
+      final s = await service(servers);
+      unawaited(s.controller.connect());
+      await settle();
+      s.controller.onVpnConsent('refused');
+      await settle();
+      final before = [...s.setup.runs];
+      servers['فرانسه ۴'] = ('OpenVPN', 4);
+      await s.controller.pingAll();
+      await settle();
+      expect(s.setup.runs, before);
+      expect(s.proxies.picked, [four, 'فرانسه ۴'], reason: 'off, it follows');
+    });
+
+    for (final how in ['Iran switch', 'owner death', 'failed install']) {
+      test("up on the app's own usage-multiplied OpenVPN pick, a rebuild of "
+          'the same server ($how) keeps it, with one restart', () async {
+        final before = database;
+        database = Database(NativeDatabase.memory());
+        addTearDown(() async {
+          await database.close();
+          database = before;
+        });
+        const four = 'ضریب مصرف OV 4 x';
+        final servers = {four: ('OpenVPN', 40), germany: ('Vless', -1)};
+        final s = await service(servers);
+        s.setup.tunnel = DateTime(2026);
+        unawaited(s.controller.connect());
+        await settle();
+        expect(s.proxies.picked, [four]);
+        servers[germany] = ('Vless', 150);
+        switch (how) {
+          case 'Iran switch':
+            await s.controller.setIranDirect(false);
+          case 'failed install':
+            await s.controller.disconnect();
+            await s.controller.connectAgain();
+          default:
+            final every = ownerWatchEvery;
+            ownerWatchEvery = const Duration(milliseconds: 20);
+            addTearDown(() => ownerWatchEvery = every);
+            s.container.read(runTimeProvider.notifier).value = 1;
+            await settle();
+            var dead = true;
+            when(() => s.core.shikooOwner()).thenAnswer((_) {
+              final owner = s.container.read(shikooOwnerProvider);
+              final server = dead ? '' : owner?.server ?? '';
+              dead = false;
+              return Future<Map<String, dynamic>?>.value({
+                'core': owner?.core ?? '',
+                'server': server,
+              });
+            });
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+        }
+        await settle();
+        expect(s.proxies.picked, [four], reason: how);
+        expect(s.setup.runs, [true, false, true], reason: how);
+        await s.controller.disconnect();
+      });
+    }
+
+    test('an update takes the server away while its rebuild is between its '
+        'stop and its start: SelectedGone, nothing picked, no start (Sam, '
+        '2026-10-30)', () async {
+      final before = database;
+      database = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await database.close();
+        database = before;
+      });
+      final (:container, :core, :proxies, :setup) = _home([
+        shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+        shikooTunnelProvider.overrideWithValue(true),
+      ]);
+      final panel = await _panel(container, core);
+      container
+          .read(profilesProvider.notifier)
+          .put(
+            container
+                .read(profilesProvider)
+                .single
+                .copyWith(url: '$panel/none/a'),
+          );
+      Group group(List<(String, String)> servers) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final (name, type) in servers) Proxy(name: name, type: type),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group([('فرانسه ۴', 'OpenVPN'), ('هلند ۱', 'Vless')]),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 90,
+        ),
+      );
+      goReportsTheOwner(container, core);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.selectServer('فرانسه ۴');
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      await settle();
+      final stop = setup.stopGate = Completer<void>();
+      unawaited(controller.setIranDirect(false));
+      await settle();
+      expect(setup.runs, [
+        true,
+        false,
+      ], reason: 'the rebuild waits on its stop');
+
+      setup.onApply = () => container.read(groupsProvider.notifier).value = [
+        group([('هلند ۱', 'Vless')]),
+      ];
+      final refresh = controller.refreshService();
+      for (
+        var i = 0;
+        i < 400 &&
+            container.read(shikooStateProvider).notice is! SelectedGone &&
+            proxies.picked.length == 1;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      stop.complete();
+      await refresh;
+      await settle();
+      expect(container.read(shikooStateProvider).notice, isA<SelectedGone>());
+      expect(proxies.picked, ['فرانسه ۴']);
+      expect(setup.runs, [true, false, false]);
+    });
+
+    test('an update takes the server away while the Windows installer has '
+        'the tunnel stopped: SelectedGone, nothing picked, no start after '
+        '(Sam, 2026-10-30)', () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final panel = await _panel(container, core);
+      container
+          .read(profilesProvider.notifier)
+          .put(
+            container
+                .read(profilesProvider)
+                .single
+                .copyWith(url: '$panel/none/a'),
+          );
+      Group group(List<String> names) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final name in names) Proxy(name: name, type: 'Vless'),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group(['هلند ۲', 'هلند ۱']),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 90,
+        ),
+      );
+      final controller = container.read(shikooControllerProvider);
+      await controller.selectServer('هلند ۲');
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      await settle();
+      final installer = Completer<void>();
+      final stopped = controller.whileStopped(
+        () => installer.future,
+        startAgain: () => true,
+      );
+      await settle();
+      expect(setup.runs, [true, false]);
+
+      setup.onApply = () => container.read(groupsProvider.notifier).value = [
+        group(['هلند ۱']),
+      ];
+      await controller.refreshService();
+      await settle();
+      installer.complete();
+      await stopped;
+      await settle();
+      expect(container.read(shikooStateProvider).notice, isA<SelectedGone>());
+      expect(proxies.picked, ['هلند ۲']);
+      expect(setup.runs, [true, false, false]);
+    });
+
+    test('the app stopped around a step starts again only when asked: after '
+        'the Windows installer it comes back, and with startAgain false (it '
+        'was off, or the user started one since) no start follows', () async {
+      for (final (again, runs) in [
+        (true, [true, false, true]),
+        (false, [true, false]),
+      ]) {
+        final s = await service({
+          germany: ('Vless', 150),
+          'هلند ۱': ('Vless', 90),
+        });
+        s.setup.tunnel = DateTime(2026);
+        unawaited(s.controller.connect());
+        await settle();
+        await s.controller.whileStopped(() async {}, startAgain: () => again);
+        await settle();
+        expect(s.setup.runs, runs, reason: 'startAgain: $again');
+      }
+    });
+
+    test('connect hears only a usage-multiplied VLESS and a usage-multiplied '
+        'OpenVPN reset: the round end takes the whole test', () async {
+      const fourV = 'ضریب مصرف NE 4 x';
+      const twoO = 'ضریب مصرف OV 2 x';
+      final s = await service({
+        fourV: ('Vless', 60),
+        twoO: ('OpenVPN', 4),
+        germany: ('Vless', -1),
+      });
+      s.setup.tunnel = DateTime(2026);
+      unawaited(s.controller.connect());
+      await settle();
+      expect(s.proxies.picked, [fourV]);
+      expect(s.setup.runs, [true]);
+      await s.controller.disconnect();
+    });
+
+    test('after SelectedGone the app picks nothing and the notice stays '
+        'through a ping round, the app going to the background and an '
+        'automatic update; a start from the tile is a first connect (Sam, '
+        '2026-10-30)', () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final panel = await _panel(container, core);
+      container
+          .read(profilesProvider.notifier)
+          .put(
+            container
+                .read(profilesProvider)
+                .single
+                .copyWith(url: '$panel/none/a'),
+          );
+      Group group(List<String> names) => Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          const Proxy(name: _version, type: 'Vless'),
+          for (final name in names) Proxy(name: name, type: 'Vless'),
+        ],
+      );
+      container.read(groupsProvider.notifier).value = [
+        group(['هلند ۲', 'هلند ۱']),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 90,
+        ),
+      );
+      final controller = container.read(shikooControllerProvider);
+      await controller.selectServer('هلند ۲');
+      setup.tunnel = DateTime(2026);
+      unawaited(controller.connect());
+      await settle();
+      setup.onApply = () => container.read(groupsProvider.notifier).value = [
+        group(['هلند ۱']),
+      ];
+      await controller.refreshService();
+      await settle();
+      ShikooState state() => container.read(shikooStateProvider);
+      expect(state().notice, isA<SelectedGone>());
+
+      await controller.pingAll();
+      await settle();
+      expect(proxies.picked, ['هلند ۲'], reason: 'a ping round picks nothing');
+      controller.onBackground();
+      expect(state().notice, isA<SelectedGone>(), reason: 'the background');
+      await controller.refreshService(manual: false);
+      await settle();
+      expect(state().notice, isA<SelectedGone>(), reason: 'an update');
+      expect(state().selected, isNull);
+      expect(proxies.picked, ['هلند ۲']);
+      expect(setup.runs, [true, false]);
+
+      container.read(runTimeProvider.notifier).value = 1;
+      await settle();
+      expect(state().notice, isNull);
+      expect(proxies.picked, ['هلند ۲', 'هلند ۱']);
+      await controller.disconnect();
+    });
+
+    test('an OpenVPN-only service picks its fastest reset', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 9),
+        'فرانسه ۶': ('OpenVPN', 4),
+      });
+      await s.controller.pingAll();
+      expect(s.proxies.picked, ['فرانسه ۶']);
+    });
+
+    test('connect: the reset answers first, yet the VLESS that answers after '
+        'it takes the tunnel', () async {
+      final whole = Completer<void>();
+      final s = await service(
+        {'فرانسه ۴': ('OpenVPN', 4), germany: ('Vless', 150)},
+        {germany: whole},
+      );
+      unawaited(s.controller.connect());
+      await pumpEventQueue();
+      expect(s.proxies.picked, isEmpty, reason: 'a reset alone waits');
+      whole.complete();
+      await pumpEventQueue();
+      expect(s.proxies.picked, [germany]);
+      expect(s.setup.runs, [true]);
+      await s.controller.disconnect();
+    });
+
+    test(
+      'connect: a usage-multiplier answer waits like a reset, and the round '
+      'end takes the ordinary reset, whichever answered first: one pick and '
+      'one start, on the official engine (Sam, 2026-10-29 and 10-30)',
+      () async {
+        const four = 'ضریب مصرف NE 4 x';
+        for (final late in [four, 'فرانسه ۴']) {
+          for (final up in [true, false]) {
+            final reason = '$late last, tunnel ${up ? 'up' : 'starting'}';
+            final gate = Completer<void>();
+            final s = await service(
+              {
+                four: ('Vless', 60),
+                'فرانسه ۴': ('OpenVPN', 4),
+                germany: ('Vless', -1),
+              },
+              {late: gate},
+            );
+            if (up) s.setup.tunnel = DateTime(2026);
+            unawaited(s.controller.connect());
+            await pumpEventQueue();
+            expect(s.proxies.picked, isEmpty, reason: reason);
+            gate.complete();
+            await settle();
+            expect(s.proxies.picked, ['فرانسه ۴'], reason: reason);
+            expect(s.setup.runs, [true], reason: reason);
+            final owner = s.container.read(shikooOwnerProvider);
+            expect(
+              (owner?.core, owner?.server),
+              (ShikooCore.openvpn.name, 'فرانسه ۴'),
+              reason: reason,
+            );
+            await s.controller.disconnect();
+          }
+        }
+      },
+    );
+
+    test('connect: an ordinary VLESS that answers after a usage-multiplier one '
+        'is the only pick', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final whole = Completer<void>();
+      final s = await service(
+        {
+          four: ('Vless', 60),
+          'فرانسه ۴': ('OpenVPN', 4),
+          germany: ('Vless', 150),
+        },
+        {germany: whole},
+      );
+      unawaited(s.controller.connect());
+      await pumpEventQueue();
+      expect(s.proxies.picked, isEmpty, reason: 'a multiplier alone waits');
+      whole.complete();
+      await pumpEventQueue();
+      expect(s.proxies.picked, [germany]);
+      expect(s.setup.runs, [true]);
+      await s.controller.disconnect();
+    });
+
+    test('connect ends on a reset heard this round, never on an older '
+        "round's number of a server now silent", () async {
+      final servers = {'فرانسه ۴': ('OpenVPN', 4), germany: ('Vless', 150)};
+      final s = await service(servers);
+      await s.controller.pingAll();
+      s.container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', '');
+      servers[germany] = ('Vless', -1);
+      unawaited(s.controller.connect());
+      await pumpEventQueue();
+      expect(s.proxies.picked, [germany, 'فرانسه ۴']);
+      await s.controller.disconnect();
+    });
+
+    test("the app's own pick gone silent gives way to the fastest whole test, "
+        'not the reset', () async {
+      const netherlands = 'هلند ۱';
+      final servers = {
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+        netherlands: ('Vless', 200),
+      };
+      final s = await service(servers);
+      await s.controller.pingAll();
+      servers[germany] = ('Vless', -1);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [germany, netherlands]);
+    });
+
+    test("the app's own usage-multiplier pick, still answering, gives way to "
+        'an ordinary whole test before a reset', () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final servers = {
+        four: ('Vless', 60),
+        'فرانسه ۴': ('OpenVPN', -1),
+        germany: ('Vless', -1),
+      };
+      final s = await service(servers);
+      await s.controller.pingAll();
+      servers['فرانسه ۴'] = ('OpenVPN', 4);
+      servers[germany] = ('Vless', 150);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [four, germany]);
+    });
+
+    test('held off, the engine leaves OpenVPN to mihomo, whose number is a '
+        'whole test again', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 40),
+        germany: ('Vless', 150),
+      });
+      s.container.read(shikooOwnerHeldOffProvider.notifier).set(true);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, ['فرانسه ۴']);
+    });
+
+    test('a VLESS on Xray, behind mihomo, is a whole test: it still wins over '
+        'the reset', () async {
+      final s = await service({
+        'فرانسه ۴': ('OpenVPN', 4),
+        germany: ('Vless', 150),
+      });
+      await s.container
+          .read(shikooCoresProvider.notifier)
+          .set(ShikooProtocol.vless, ShikooCore.xray);
+      await s.controller.pingAll();
+      expect(s.proxies.picked, [germany]);
+    });
+
+    test(
+      'connect: every other server silent, the round ends on the OpenVPN',
+      () async {
+        final s = await service({
+          'فرانسه ۴': ('OpenVPN', 4),
+          germany: ('Vless', -1),
+        });
+        unawaited(s.controller.connect());
+        await pumpEventQueue();
+        expect(s.proxies.picked, ['فرانسه ۴']);
+        expect(s.container.read(shikooStateProvider).lastError, isNull);
+        await s.controller.disconnect();
+      },
+    );
+  });
+
+  test('connect waits past a usage-multiplier answer for the first ordinary '
+      'server, else the round end takes the multiplier: one pick, one start, '
+      'no error (#29, Sam 2026-10-30)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    for (final netherlandsUp in [true, false]) {
+      final (:container, :core, :proxies, :setup) = _home();
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: four, type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      var firstRound = true;
+      final netherlands = Completer<void>();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        if (name == four) return Delay(name: name, url: '', value: 60);
+        if (!firstRound) await netherlands.future;
+        final up = firstRound || netherlandsUp;
+        return Delay(name: name, url: '', value: up ? 90 : -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await controller.pingAll();
+      expect(proxies.picked, ['هلند ۱'], reason: 'a ping round skips the 4x');
+
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'سرور حذف‌شده');
+      firstRound = false;
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      expect(proxies.picked, ['هلند ۱'], reason: 'a 4x answer alone waits');
+      expect(setup.runs, isEmpty);
+
+      netherlands.complete();
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect(
+        proxies.picked,
+        ['هلند ۱', if (netherlandsUp) 'هلند ۱' else four],
+        reason: netherlandsUp
+            ? 'the first ordinary answer'
+            : 'هلند ۱ answered only the round before',
+      );
+      expect(setup.runs, [true]);
+      expect((state.notice, state.lastError), (null, null));
+
+      await controller.disconnect();
+    }
+  });
 
   test('an automatic pick of a usage-multiplier server gives way at the end of '
       'a ping round to an ordinary server that answers; one the user chose '
@@ -571,39 +1402,44 @@ void main() {
     expect(container.read(shikooStateProvider).selected, four);
   });
 
-  test('a usage-multiplier server an older version picked by itself gives '
-      'way the same way after the update (#29)', () async {
-    const four = 'ضریب مصرف NE 4 x';
-    final (:container, :core, :proxies, :setup) = _home();
-    container.read(groupsProvider.notifier).value = [
-      const Group(
-        type: GroupType.Selector,
-        name: 'PROXY',
-        hidden: false,
-        all: [
-          Proxy(name: four, type: 'Vless'),
-          Proxy(name: 'هلند ۱', type: 'Vless'),
-        ],
-      ),
-    ];
-    final id = container.read(currentProfileIdProvider);
-    SharedPreferences.setMockInitialValues({
-      'shikoo.appPicks': '{"$id":"$four"}',
-    });
-    container
-        .read(profilesActionProvider.notifier)
-        .updateCurrentSelectedMap('PROXY', four);
-    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-      final name = call.positionalArguments[1] as String;
-      return Delay(name: name, url: '', value: name == four ? 60 : 90);
-    });
-    final controller = container.read(shikooControllerProvider);
-    await pumpEventQueue();
+  for (final (kind, old) in [
+    ('a usage-multiplier', 'ضریب مصرف NE 4 x'),
+    ('the streaming', _streaming),
+  ]) {
+    test('$kind server an older version picked by itself gives way the same '
+        'way after the update (#29)', () async {
+      _memoryDatabase();
+      final (:container, :core, :proxies, :setup) = _home();
+      container.read(groupsProvider.notifier).value = [
+        Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: old, type: 'Vless'),
+            const Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      final id = container.read(currentProfileIdProvider);
+      SharedPreferences.setMockInitialValues({
+        'shikoo.appPicks': '{"$id":"$old"}',
+      });
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', old);
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(name: name, url: '', value: name == old ? 60 : 90);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
 
-    await controller.pingAll();
-    await pumpEventQueue();
-    expect(proxies.picked, ['هلند ۱']);
-  });
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(proxies.picked, ['هلند ۱']);
+    });
+  }
 
   test('a usage-multiplier server the user taps while connect still searches '
       'stays when an ordinary server answers after (#29)', () async {
@@ -640,7 +1476,7 @@ void main() {
     await controller.disconnect();
   });
 
-  test('an automatic pick that stops answering gives way to an ordinary '
+  test('off, an automatic pick that stops answering gives way to an ordinary '
       'server, not to a faster usage-multiplier one (#29)', () async {
     const four = 'NL 3 x ضریب مصرف';
     final (:container, :core, :proxies, :setup) = _home();
@@ -664,8 +1500,6 @@ void main() {
     final controller = container.read(shikooControllerProvider);
     await controller.pingAll();
     expect(proxies.picked, ['آلمان ۱']);
-    container.read(runTimeProvider.notifier).value = 1;
-    setup.tunnel = DateTime(2026);
 
     pings['آلمان ۱'] = -1;
     await controller.pingAll();
@@ -675,109 +1509,6 @@ void main() {
       container.read(shikooStateProvider).notice,
       isA<SilentReplaced>().having((n) => n.replacement, 'to', 'هلند ۱'),
     );
-  });
-
-  test('the search moves off a usage-multiplier first answer one change at a '
-      'time: whichever change the core refuses, in either order, connecting '
-      'or connected, the wait ends on the server the core has, and the app '
-      'pick names it (#29)', () async {
-    const four = 'ضریب مصرف NE 4 x';
-    const nl = 'هلند ۱';
-    for (final refused in [
-      <String>{},
-      {nl},
-      {four},
-      {four, nl},
-    ]) {
-      for (final connected in [false, true]) {
-        for (final fourFirst in [true, false]) {
-          final (:container, :core, :proxies, :setup) = _home();
-          container.read(groupsProvider.notifier).value = [
-            const Group(
-              type: GroupType.Selector,
-              name: 'PROXY',
-              hidden: false,
-              all: [
-                Proxy(name: four, type: 'Vless'),
-                Proxy(name: nl, type: 'Vless'),
-              ],
-            ),
-          ];
-          final netherlands = Completer<void>();
-          when(() => core.asyncTestDelay(any(), any())).thenAnswer((
-            call,
-          ) async {
-            final name = call.positionalArguments[1] as String;
-            if (name != four) await netherlands.future;
-            return Delay(name: name, url: '', value: name == four ? 60 : 70);
-          });
-          proxies.gates.addAll({four: Completer(), nl: Completer()});
-          proxies.refused.addAll(refused);
-          final errors = <ShikooError?>[];
-          container.listen(
-            shikooStateProvider.select((s) => s.lastError),
-            (_, error) => errors.add(error),
-          );
-          final controller = container.read(shikooControllerProvider);
-          await pumpEventQueue();
-          if (connected) {
-            setup.tunnel = DateTime(2026);
-            container.read(runTimeProvider.notifier).value = 1;
-          } else {
-            unawaited(controller.connect());
-          }
-          await pumpEventQueue();
-          netherlands.complete();
-          await pumpEventQueue();
-          final reason =
-              'refused=$refused connected=$connected '
-              'fourFirst=$fourFirst';
-          expect(proxies.picked, [four], reason: 'one at a time, $reason');
-
-          for (final name in fourFirst ? [four, nl] : [nl, four]) {
-            proxies.gates[name]!.complete();
-            await pumpEventQueue();
-          }
-          final state = container.read(shikooStateProvider);
-          final has = refused.contains(nl)
-              ? (refused.contains(four) ? null : four)
-              : nl;
-          final id = container.read(currentProfileIdProvider);
-          final picks = (await SharedPreferences.getInstance()).getString(
-            'shikoo.appPicks',
-          );
-          expect(proxies.picked, [four, nl], reason: reason);
-          expect((state.waiting, state.selected), (false, has), reason: reason);
-          expect(picks, has == null ? '{}' : '{"$id":"$has"}', reason: reason);
-          expect(
-            setup.runs,
-            connected || has == null ? isEmpty : [true],
-            reason: reason,
-          );
-          expect(
-            state.lastError,
-            refused.contains(nl) && (connected || has == null)
-                ? ShikooError.serverChange
-                : null,
-            reason: reason,
-          );
-          if (!refused.contains(nl)) {
-            expect(
-              errors,
-              isNot(contains(ShikooError.serverChange)),
-              reason: reason,
-            );
-          }
-          expect(
-            state.servers.firstWhere((s) => s.name == nl).ping,
-            70,
-            reason: 'the server moved to keeps the ping it answered with',
-          );
-
-          await controller.disconnect();
-        }
-      }
-    }
   });
 
   test('a server change the core refuses says so and keeps whose pick the '
@@ -840,7 +1571,7 @@ void main() {
       'usage-multiplier or not (#29)', () async {
     const four = 'ضریب مصرف NE 4 x';
     const three = 'NL 3 x ضریب مصرف';
-    for (final tapped in [three, 'آلمان ۱']) {
+    for (final tapped in [three, 'فنلاند ۱']) {
       final (:container, :core, :proxies, :setup) = _home();
       container.read(groupsProvider.notifier).value = [
         const Group(
@@ -850,8 +1581,9 @@ void main() {
           all: [
             Proxy(name: four, type: 'Vless'),
             Proxy(name: three, type: 'Vless'),
-            Proxy(name: 'هلند ۱', type: 'Vless'),
             Proxy(name: 'آلمان ۱', type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+            Proxy(name: 'فنلاند ۱', type: 'Vless'),
           ],
         ),
       ];
@@ -859,10 +1591,10 @@ void main() {
       when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
         final name = call.positionalArguments[1] as String;
         if (name == 'هلند ۱') await netherlands.future;
-        final ms = {four: 60, 'هلند ۱': 70}[name] ?? -1;
+        final ms = {four: 60, 'آلمان ۱': 50, 'هلند ۱': 70}[name] ?? -1;
         return Delay(name: name, url: '', value: ms);
       });
-      final held = proxies.gates[four] = Completer();
+      final held = proxies.gates['آلمان ۱'] = Completer();
       final controller = container.read(shikooControllerProvider);
       await pumpEventQueue();
       unawaited(controller.connect());
@@ -876,7 +1608,7 @@ void main() {
       held.complete();
       await pumpEventQueue();
       final prefs = await SharedPreferences.getInstance();
-      expect(proxies.picked, [four, tapped], reason: tapped);
+      expect(proxies.picked, ['آلمان ۱', tapped], reason: tapped);
       expect(container.read(shikooStateProvider).selected, tapped);
       expect(prefs.getString('shikoo.appPicks'), '{}', reason: 'a hand pick');
       expect(setup.runs, [true]);
@@ -885,8 +1617,8 @@ void main() {
     }
   });
 
-  test('the first ordinary server to answer takes over from a '
-      'usage-multiplier first answer still in the core; one answering later '
+  test('the first ordinary server to answer is the pick, a usage-multiplier '
+      'answer before it changing nothing in the core; one answering later '
       'changes nothing (#29)', () async {
     const four = 'ضریب مصرف NE 4 x';
     final (:container, :core, :proxies, :setup) = _home();
@@ -908,7 +1640,6 @@ void main() {
       await answers[name]?.future;
       return Delay(name: name, url: '', value: name == four ? 60 : 50);
     });
-    final held = proxies.gates[four] = Completer();
     final controller = container.read(shikooControllerProvider);
     await pumpEventQueue();
     unawaited(controller.connect());
@@ -918,65 +1649,67 @@ void main() {
       answer.complete();
       await pumpEventQueue();
     }
-    expect(container.read(shikooStateProvider).selected, 'هلند ۱');
-    held.complete();
-    await pumpEventQueue();
     final id = container.read(currentProfileIdProvider);
     final prefs = await SharedPreferences.getInstance();
-    expect(proxies.picked, [four, 'هلند ۱']);
+    expect(proxies.picked, ['هلند ۱']);
     expect(container.read(shikooStateProvider).selected, 'هلند ۱');
     expect(prefs.getString('shikoo.appPicks'), '{"$id":"هلند ۱"}');
 
     await controller.disconnect();
   });
 
-  test('connect pressed again while the first search\'s 4x change is still in '
-      'the core: a change still waiting to be sent keeps the search going, '
-      'and it connects once that change is sent (#29)', () async {
-    const four = 'ضریب مصرف NE 4 x';
-    final (:container, :core, :proxies, :setup) = _home();
-    container.read(groupsProvider.notifier).value = [
-      const Group(
-        type: GroupType.Selector,
-        name: 'PROXY',
-        hidden: false,
-        all: [
-          Proxy(name: four, type: 'Vless'),
-          Proxy(name: 'هلند ۱', type: 'Vless'),
-        ],
-      ),
-    ];
-    final netherlands = Completer<void>();
-    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-      final name = call.positionalArguments[1] as String;
-      if (name == 'هلند ۱') await netherlands.future;
-      return Delay(name: name, url: '', value: name == four ? 60 : 90);
-    });
-    final held = proxies.gates[four] = Completer();
-    final controller = container.read(shikooControllerProvider);
-    await pumpEventQueue();
-    unawaited(controller.connect());
-    await pumpEventQueue();
-    await controller.disconnect();
-    unawaited(controller.connect());
-    await pumpEventQueue();
+  test(
+    "connect pressed again while the first search's 4x change, all it "
+    'heard, is still in the core: a change still waiting to be sent keeps '
+    'the search going, and it connects once that change is sent (#29)',
+    () async {
+      const four = 'ضریب مصرف NE 4 x';
+      final (:container, :core, :proxies, :setup) = _home();
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: four, type: 'Vless'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      var netherlands = -1;
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        return Delay(
+          name: name,
+          url: '',
+          value: name == four ? 60 : netherlands,
+        );
+      });
+      final held = proxies.gates[four] = Completer();
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      unawaited(controller.connect());
+      await pumpEventQueue();
+      await controller.disconnect();
+      netherlands = 90;
+      unawaited(controller.connect());
+      await pumpEventQueue();
 
-    netherlands.complete();
-    await pumpEventQueue();
-    var state = container.read(shikooStateProvider);
-    expect((state.waiting, state.lastError), (true, null));
-    held.complete();
-    await pumpEventQueue();
-    state = container.read(shikooStateProvider);
-    expect(proxies.picked, [four, 'هلند ۱']);
-    expect(
-      (state.selected, state.connection),
-      ('هلند ۱', ShikooConnection.connecting),
-    );
-    expect(setup.runs, [false, true]);
+      var state = container.read(shikooStateProvider);
+      expect((state.waiting, state.lastError), (true, null));
+      held.complete();
+      await pumpEventQueue();
+      state = container.read(shikooStateProvider);
+      expect(proxies.picked, [four, 'هلند ۱']);
+      expect(
+        (state.selected, state.connection),
+        ('هلند ۱', ShikooConnection.connecting),
+      );
+      expect(setup.runs, [false, true]);
 
-    await controller.disconnect();
-  });
+      await controller.disconnect();
+    },
+  );
 
   test("a tap the core refuses while connect searches connects on the app's "
       'server it falls back to, and says the tap failed', () async {
@@ -1064,8 +1797,6 @@ void main() {
     await pumpEventQueue();
     expect(proxies.picked, [four], reason: 'a change cuts every connection');
 
-    container.read(runTimeProvider.notifier).value = 1;
-    setup.tunnel = DateTime(2026);
     pings['هلند ۱'] = 90;
     await controller.pingAll();
     await pumpEventQueue();
@@ -1082,10 +1813,54 @@ void main() {
     );
   });
 
+  test('a search under a tunnel up that moves to a service whose own pick '
+      'is a usage-multiplier server keeps that pick: no set-aside while up '
+      '(#29, Sam 2026-10-30)', () async {
+    const four = 'ضریب مصرف NE 4 x';
+    final (:container, :core, :proxies, :setup) = _home();
+    container.read(groupsProvider.notifier).value = [
+      const Group(
+        type: GroupType.Selector,
+        name: 'PROXY',
+        hidden: false,
+        all: [
+          Proxy(name: four, type: 'Vless'),
+          Proxy(name: 'هلند ۱', type: 'Vless'),
+        ],
+      ),
+    ];
+    final second = Profile.normal(url: 'https://panel.invalid/second');
+    SharedPreferences.setMockInitialValues({
+      'shikoo.appPicks': '{"${second.id}":"$four"}',
+    });
+    container
+        .read(profilesProvider.notifier)
+        .put(second.copyWith(selectedMap: {'PROXY': four}));
+    final hold = Completer<void>();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      await hold.future;
+      final name = call.positionalArguments[1] as String;
+      return Delay(name: name, url: '', value: name == four ? 60 : 90);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).waiting, isTrue);
+
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    hold.complete();
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).selected, four);
+    expect(proxies.picked, isEmpty);
+  });
+
   test(
     "connect sets aside the app's own usage-multiplier pick and searches "
     'as for a new customer, also when pressed before the servers are known: '
-    'the first answer at once, then an ordinary server, now the pick (#29)',
+    'a usage-multiplier answer waits, the ordinary server is the pick (#29)',
     () async {
       const four = 'ضریب مصرف NE 4 x';
       const servers = [
@@ -1120,7 +1895,7 @@ void main() {
         await pumpEventQueue();
         if (early) container.read(groupsProvider.notifier).value = servers;
         await pumpEventQueue();
-        expect(proxies.picked, [four, 'هلند ۱'], reason: 'early=$early');
+        expect(proxies.picked, ['هلند ۱'], reason: 'early=$early');
         expect(setup.runs, [true]);
         expect(container.read(shikooStateProvider).selected, 'هلند ۱');
         final prefs = await SharedPreferences.getInstance();
@@ -1218,8 +1993,8 @@ void main() {
     },
   );
 
-  test('connected, a silent pick of the app gives way at round end; the '
-      "user's own stays", () async {
+  test("connected, a silent pick stays, the app's and the customer's own: "
+      'the card says it is silent (Sam, 2026-10-30)', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
     when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
@@ -1235,27 +2010,17 @@ void main() {
     pings['آلمان ۱'] = -1;
     await controller.pingAll();
     await pumpEventQueue();
-    expect(proxies.picked, [
-      'آلمان ۱',
-      'هلند ۱',
-    ], reason: 'the app had picked it');
-    expect(
-      container.read(shikooStateProvider).notice,
-      isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
-    );
+    expect(proxies.picked, ['آلمان ۱'], reason: 'the app had picked it');
+    final state = container.read(shikooStateProvider);
+    expect(state.notice, isNull);
+    expect(state.selectedServer?.ping, -1);
 
-    // The user picks the very server the app had picked: from now on it is theirs.
     await controller.selectServer('هلند ۱');
-    expect(
-      container.read(shikooStateProvider).notice,
-      isNull,
-      reason: 'the user chose; the old switch is news no more',
-    );
     pings
       ..['هلند ۱'] = -1
       ..['آلمان ۱'] = 50;
     await controller.pingAll();
-    expect(proxies.picked, ['آلمان ۱', 'هلند ۱', 'هلند ۱']);
+    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
     expect(setup.runs, isEmpty);
   });
 
@@ -1290,8 +2055,7 @@ void main() {
     pings[germany] = -1;
     await controller.pingAll();
     await pumpEventQueue();
-    expect(proxies.picked, [germany, 'هلند ۱']);
-    expect(container.read(shikooStateProvider).notice, isA<SilentReplaced>());
+    expect(proxies.picked, [germany]);
     expect(timeline.lines, isEmpty, reason: 'only the app picked so far');
 
     pings[germany] = 50;
@@ -1301,7 +2065,7 @@ void main() {
     await controller.disconnect();
     await controller.selectServer('هلند ۱');
 
-    expect(proxies.picked, [germany, 'هلند ۱', germany, 'هلند ۱']);
+    expect(proxies.picked, [germany, germany, 'هلند ۱']);
     expect(timeline.lines, [
       'T server picked آلمان ۱',
       'T server picked هلند ۱',
@@ -1401,10 +2165,7 @@ void main() {
       pings['آلمان ۱'] = -1;
       await controller.pingAll();
       expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
-      expect(
-        container.read(shikooStateProvider).notice,
-        isA<SilentReplaced>().having((n) => n.moved, 'moved', isFalse),
-      );
+      expect(container.read(shikooStateProvider).notice, isA<SilentReplaced>());
     },
   );
 
@@ -1487,7 +2248,8 @@ void main() {
   );
 
   test(
-    "the tunnel really up, the app's own silent pick moves at once",
+    "connected, the app's own silent pick stays, under the consent dialog and "
+    'with the tunnel really up (Sam, 2026-10-30)',
     () async {
       final (:container, :core, :proxies, :setup) = _home();
       final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
@@ -1497,45 +2259,20 @@ void main() {
       });
       final controller = container.read(shikooControllerProvider);
       await controller.pingAll();
-      expect(proxies.picked, ['آلمان ۱']);
-
-      pings['آلمان ۱'] = -1;
       // FlClash marks the run at the press, before Android's consent dialog.
       container.read(runTimeProvider.notifier).value = 1;
-      setup.tunnel = DateTime(2026);
-      await controller.connect();
-      await pumpEventQueue();
-      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
-      expect(
-        container.read(shikooStateProvider).notice,
-        isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
-      );
-    },
-  );
-
-  test(
-    "under the consent dialog the app's silent pick stays: no tunnel, no proof",
-    () async {
-      final (:container, :core, :proxies, :setup) = _home();
-      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
-      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-        final name = call.positionalArguments[1] as String;
-        return Delay(name: name, url: '', value: pings[name] ?? -1);
-      });
-      final controller = container.read(shikooControllerProvider);
-      await controller.pingAll();
-      container.read(runTimeProvider.notifier).value = 1;
 
       pings['آلمان ۱'] = -1;
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(proxies.picked, ['آلمان ۱']);
+
+      setup.tunnel = DateTime(2026);
+      await controller.connect();
       await controller.pingAll();
       await pumpEventQueue();
       expect(proxies.picked, ['آلمان ۱']);
       expect(container.read(shikooStateProvider).notice, isNull);
-
-      setup.tunnel = DateTime(2026);
-      await controller.pingAll();
-      await pumpEventQueue();
-      expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
     },
   );
 
@@ -1594,7 +2331,8 @@ void main() {
   });
 
   test('a pick whose pings fail but whose traffic flows stays, with no warning '
-      'and its last real ping; when traffic fails too, it moves', () async {
+      'and its last real ping; when traffic fails too, it stays and shows '
+      'silent (Sam, 2026-10-30)', () async {
     final (:container, :core, :proxies, :setup) = _home();
     final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
     when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
@@ -1626,8 +2364,9 @@ void main() {
     await controller.pingAll();
     await pumpEventQueue();
     state = container.read(shikooStateProvider);
-    expect(proxies.picked, ['آلمان ۱', 'هلند ۱']);
-    expect(state.notice, isA<SilentReplaced>());
+    expect(proxies.picked, ['آلمان ۱']);
+    expect(state.notice, isNull);
+    expect(state.selectedServer?.ping, -1);
   });
 
   test('a server the user picked that carries traffic gets no warning, and no '
@@ -1655,6 +2394,104 @@ void main() {
     setup.traffic = false;
     await controller.selectServer('هلند ۱');
     expect(container.read(shikooStateProvider).selectedServer?.ping, -1);
+  });
+
+  test('connected, the internet is asked twice whether it passes; none says '
+      'so and keeps the pick, a change of server asks again, and the '
+      'streaming server is neither asked nor warned about', () async {
+    _memoryDatabase();
+    final (:container, :core, :proxies, :setup) = _home();
+    _withStreaming(container);
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      ),
+    );
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
+    setup.tunnel = DateTime(2026);
+    await controller.connect();
+    await pumpEventQueue();
+    var state = container.read(shikooStateProvider);
+    expect(
+      (state.connection, state.selected, state.connectedNoTraffic),
+      (ShikooConnection.on, 'هلند ۱', true),
+    );
+    expect((setup.trafficAsked, state.notice), (2, null));
+
+    setup.traffic = true;
+    await controller.selectServer('آلمان ۱');
+    await pumpEventQueue();
+    state = container.read(shikooStateProvider);
+    expect(
+      (state.selected, state.connectedNoTraffic, setup.trafficAsked),
+      ('آلمان ۱', false, 3),
+    );
+
+    setup.traffic = false;
+    await controller.selectServer(_streaming);
+    await pumpEventQueue();
+    state = container.read(shikooStateProvider);
+    expect(
+      (state.selected, state.connectedNoTraffic, setup.trafficAsked),
+      (_streaming, false, 3),
+    );
+
+    await controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).connectedNoTraffic, isTrue);
+    await controller.disconnect();
+    await pumpEventQueue();
+    expect(container.read(shikooStateProvider).connectedNoTraffic, isFalse);
+  });
+
+  test('the streaming server is never the app\'s pick, even first to answer; '
+      'chosen, its sites take it past the Iran rules, in place while '
+      'connected, until the next pick', () async {
+    _memoryDatabase();
+    Future<List<String>> stored() async => [
+      for (final rule in await database.rulesDao.queryGlobalAddedRules().get())
+        if (rule.id >= streamingIds && rule.id < streamingIds + 100)
+          rule.rawValue,
+    ];
+    final (:container, :core, :proxies, :setup) = _home();
+    _withStreaming(container);
+    var applied = 0;
+    setup.onApply = () => applied++;
+    final netherlands = Completer<void>();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      if (name == 'هلند ۱') await netherlands.future;
+      return Delay(
+        name: name,
+        url: '',
+        value: {_streaming: 20, 'هلند ۱': 90}[name] ?? -1,
+      );
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    setup.tunnel = DateTime(2026);
+    unawaited(controller.connect());
+    await pumpEventQueue();
+    expect(proxies.picked, isEmpty, reason: 'it answered first, alone');
+    netherlands.complete();
+    await pumpEventQueue();
+    expect(proxies.picked, ['هلند ۱']);
+    expect(await stored(), isEmpty);
+
+    await controller.selectServer(_streaming);
+    await pumpEventQueue();
+    expect(await stored(), [for (final rule in streamingRules) rule.rawValue]);
+    expect(applied, 1);
+
+    await controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    expect(await stored(), isEmpty);
+    expect(applied, 2);
+    await controller.disconnect();
   });
 
   test('nothing is measured at the press, under the consent dialog; the '
@@ -1858,6 +2695,271 @@ void main() {
     container.read(profilesProvider.notifier).put(measured);
     container.read(currentProfileIdProvider.notifier).value = measured.id;
     expect(container.read(shikooStateProvider).service!.usageKnown, isTrue);
+  });
+
+  test('a shelf account shows no usage or end, even from a header', () {
+    final (:container, :core, :proxies, :setup) = _home();
+    final shelf = Profile.normal(url: 'https://panel.invalid/shelf').copyWith(
+      subscriptionInfo: const SubscriptionInfo(
+        download: 2,
+        total: 1,
+        expire: 1,
+      ),
+    );
+    container.read(profilesProvider.notifier).put(shelf);
+    container.read(currentProfileIdProvider.notifier).value = shelf.id;
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 42,
+                title: 'user1001',
+                status: 'active',
+                profileId: shelf.id,
+                outsourced: true,
+              ),
+            ],
+          ),
+        );
+    final service = container.read(shikooStateProvider).service!;
+    expect(
+      (service.outsourced, service.usageKnown, service.ended),
+      (true, false, null),
+    );
+  });
+
+  group("a shelf account's login", () {
+    ProviderContainer openvpnHome(List<Override> more) {
+      final (:container, :core, :proxies, :setup) = _home(more);
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+          ],
+        ),
+      ];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 95,
+        ),
+      );
+      return container;
+    }
+
+    void markShelf(ProviderContainer container, {bool outsourced = true}) =>
+        container
+            .read(shikooAccountProvider.notifier)
+            .set(
+              ShikooAccount(
+                services: [
+                  LinkedService(
+                    id: 42,
+                    title: 'user1001',
+                    status: 'active',
+                    profileId: container.read(currentProfileIdProvider),
+                    outsourced: outsourced,
+                  ),
+                ],
+              ),
+            );
+
+    ShikooService service(ProviderContainer container) =>
+        container.read(shikooStateProvider).service!;
+
+    _Setup setupOf(ProviderContainer container) =>
+        container.read(setupActionProvider.notifier) as _Setup;
+
+    test("the official engine's AUTH_FAILED at connect is the refused line, "
+        "not «وصل نشد»; a ping, only the engine's reset, leaves it, and a "
+        'start that comes up clears it', () async {
+      var refused = true;
+      final container = openvpnHome([
+        nativeStartFailedProvider.overrideWithValue(() => true),
+        nativeLoginRefusedProvider.overrideWithValue(() => refused),
+      ]);
+      markShelf(container);
+      final controller = container.read(shikooControllerProvider);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      await controller.connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isTrue);
+
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+
+      refused = false;
+      setupOf(container).tunnel = DateTime.now();
+      await controller.connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    for (final (outsourced, refused, why) in [
+      (true, false, 'a shelf account whose start failed some other way'),
+      (false, true, 'a usual service'),
+    ]) {
+      test('$why keeps the usual «وصل نشد»', () async {
+        final container = openvpnHome([
+          nativeStartFailedProvider.overrideWithValue(() => true),
+          nativeLoginRefusedProvider.overrideWithValue(() => refused),
+        ]);
+        markShelf(container, outsourced: outsourced);
+        container
+            .read(profilesActionProvider.notifier)
+            .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+        await container.read(shikooControllerProvider).connect();
+        await pumpEventQueue();
+        expect(
+          container.read(shikooStateProvider).lastError,
+          ShikooError.connectTimeout,
+        );
+        expect(service(container).loginRefused, isFalse);
+      });
+    }
+
+    Future<ProviderContainer> refusedOnce() async {
+      final container = openvpnHome([
+        nativeStartFailedProvider.overrideWithValue(() => true),
+        nativeLoginRefusedProvider.overrideWithValue(() => true),
+      ]);
+      markShelf(container);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+      return container;
+    }
+
+    test('a start the app did not make (the tile, always-on) clears the '
+        'refusal once it comes up', () async {
+      final container = await refusedOnce();
+      container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('a failed connect, then a start the app did not make comes up: no '
+        'connect error is left on the home screen', () async {
+      final container = await refusedOnce();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+      expect(container.read(shikooStateProvider).lastError, isNull);
+    });
+
+    test('the refusal stays while the next connect is under way', () async {
+      final container = await refusedOnce();
+      final setup = setupOf(container)..startGate = Completer<void>();
+      unawaited(container.read(shikooControllerProvider).connect());
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.connecting,
+      );
+      expect(service(container).loginRefused, isTrue);
+      setup.startGate!.complete();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+    });
+
+    test("FlClash's run time comes up at the app's own start, while it is "
+        'still connecting: the refusal stays', () async {
+      final container = await refusedOnce();
+      final setup = setupOf(container)..startGate = Completer<void>();
+      unawaited(container.read(shikooControllerProvider).connect());
+      await pumpEventQueue();
+      container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.connecting,
+      );
+      expect(service(container).loginRefused, isTrue);
+      setup.startGate!.complete();
+      await pumpEventQueue();
+    });
+
+    test('a start that fails before the engine is asked reads no refusal left '
+        'from an earlier start', () async {
+      final container = openvpnHome([
+        nativeStartFailedProvider.overrideWithValue(() => true),
+        nativeLoginRefusedProvider.overrideWithValue(() => true),
+      ]);
+      markShelf(container);
+      setupOf(container).startOk = false;
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('another service lists no OpenVPN server where no core runs it', () {
+      List<String> listed(ShikooPlatform platform) => [
+        ...mainGroupOf({
+          'proxies': [
+            {'name': 'O', 'type': 'openvpn'},
+            {'name': 'V', 'type': 'vless'},
+          ],
+          'proxy-groups': [
+            {
+              'name': 'PROXY',
+              'type': 'select',
+              'proxies': ['O', 'V'],
+            },
+          ],
+        }, specs: readyHere(platform))!.servers.keys,
+      ];
+      expect(listed(ShikooPlatform.android), ['O', 'V']);
+      expect(listed(ShikooPlatform.windows), ['V']);
+    });
+
+    test('on Windows, where no core runs OpenVPN yet, its servers are not '
+        'offered, and a shelf account says so and its connect does '
+        'nothing', () async {
+      final container = openvpnHome([
+        shikooDesktopProvider.overrideWithValue(true),
+        nativeStartFailedProvider.overrideWithValue(() => true),
+      ]);
+      final controller = container.read(shikooControllerProvider);
+      expect(container.read(shikooStateProvider).servers.map((s) => s.name), [
+        'هلند ۱',
+      ]);
+      expect(service(container).notHere, isFalse);
+
+      markShelf(container);
+      expect(service(container).notHere, isTrue);
+      await controller.connect();
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect((state.connection, state.lastError), (ShikooConnection.off, null));
+      expect(setupOf(container).runs, isEmpty);
+    });
   });
 
   test(
@@ -2514,58 +3616,57 @@ void main() {
     },
   );
 
-  test('connected, another service with a server of its own measures that '
-      "one alone: the customer's own stays though silent, the app's own gives "
-      'way to the fastest after one round', () async {
-    final (:container, :core, :proxies, :setup) = _home();
-    final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
-    final probes = <String>[];
-    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-      final name = call.positionalArguments[1] as String;
-      probes.add(name);
-      return Delay(name: name, url: '', value: pings[name] ?? -1);
-    });
-    final controller = container.read(shikooControllerProvider);
-    final first = container.read(currentProfileIdProvider)!;
-    final second = Profile.normal(url: 'https://panel.invalid/second');
-    container.read(profilesProvider.notifier).put(second);
-    await controller.pingAll();
-    expect(proxies.picked, ['آلمان ۱'], reason: "the app's own, in the first");
-    controller.selectService(second.id);
-    await pumpEventQueue();
-    await controller.selectServer('آلمان ۱');
-    container.read(runTimeProvider.notifier).value = 1;
-    setup.tunnel = DateTime(2026);
-    await pumpEventQueue();
+  test(
+    'connected, another service with a server of its own measures that '
+    "one alone, the app's silent pick too, with no round of the list: the "
+    "customer's own and the app's stay (Sam, 2026-10-11 and 10-30)",
+    () async {
+      final (:container, :core, :proxies, :setup) = _home();
+      final pings = {'آلمان ۱': 50, 'هلند ۱': 90};
+      final probes = <String>[];
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        probes.add(name);
+        return Delay(name: name, url: '', value: pings[name] ?? -1);
+      });
+      final controller = container.read(shikooControllerProvider);
+      final first = container.read(currentProfileIdProvider)!;
+      final second = Profile.normal(url: 'https://panel.invalid/second');
+      container.read(profilesProvider.notifier).put(second);
+      await controller.pingAll();
+      expect(proxies.picked, [
+        'آلمان ۱',
+      ], reason: "the app's own, in the first");
+      controller.selectService(second.id);
+      await pumpEventQueue();
+      await controller.selectServer('آلمان ۱');
+      container.read(runTimeProvider.notifier).value = 1;
+      setup.tunnel = DateTime(2026);
+      await pumpEventQueue();
 
-    pings['آلمان ۱'] = -1;
-    probes.clear();
-    controller.selectService(first);
-    await pumpEventQueue();
-    expect(probes.take(2), [
-      'آلمان ۱',
-      'آلمان ۱',
-    ], reason: 'the selected server alone, in two passes');
-    expect(probes.skip(2).toSet(), {
-      'آلمان ۱',
-      'هلند ۱',
-    }, reason: 'then one round, for the silent pick of the app');
-    var state = container.read(shikooStateProvider);
-    expect(state.selected, 'هلند ۱');
-    expect(
-      state.notice,
-      isA<SilentReplaced>().having((n) => n.moved, 'moved', isTrue),
-    );
+      pings['آلمان ۱'] = -1;
+      probes.clear();
+      controller.selectService(first);
+      await pumpEventQueue();
+      expect(probes, [
+        'آلمان ۱',
+        'آلمان ۱',
+      ], reason: 'the selected server alone, in two passes');
+      var state = container.read(shikooStateProvider);
+      expect(state.selected, 'آلمان ۱');
+      expect(state.selectedServer?.ping, -1);
+      expect(state.notice, isNull);
 
-    probes.clear();
-    controller.selectService(second.id);
-    await pumpEventQueue();
-    state = container.read(shikooStateProvider);
-    expect(probes, ['آلمان ۱', 'آلمان ۱'], reason: 'one server, two passes');
-    expect(state.selected, 'آلمان ۱', reason: "the customer's own stays");
-    expect(state.selectedServer?.ping, -1, reason: 'with its warning');
-    expect(state.connection, ShikooConnection.on);
-  });
+      probes.clear();
+      controller.selectService(second.id);
+      await pumpEventQueue();
+      state = container.read(shikooStateProvider);
+      expect(probes, ['آلمان ۱', 'آلمان ۱'], reason: 'one server, two passes');
+      expect(state.selected, 'آلمان ۱', reason: "the customer's own stays");
+      expect(state.selectedServer?.ping, -1, reason: 'with its warning');
+      expect(state.connection, ShikooConnection.on);
+    },
+  );
 
   test("connect's probe that answers after a switch picks nothing for the new "
       'service, whose servers share its names', () async {
@@ -2842,7 +3943,7 @@ void main() {
 
   test('an update that takes the selected server away pings that service once '
       'and names the fastest of this round, not of an older one; connected, '
-      'the first answer takes the traffic and is then checked', () async {
+      'the tunnel stops and nothing is picked (Sam, 2026-10-30)', () async {
     for (final mode in ['pinged', 'off', 'connected']) {
       final (:container, :core, :proxies, :setup) = _home();
       final panel = await _panel(container, core);
@@ -2893,33 +3994,25 @@ void main() {
       await controller.refreshService();
       await pumpEventQueue();
       final state = container.read(shikooStateProvider);
+      if (mode == 'connected') {
+        expect(setup.runs, [false]);
+        expect(probes, isEmpty, reason: 'no round');
+        expect(proxies.picked, ['آلمان ۱'], reason: 'no pick');
+        expect(state.notice, isA<SelectedGone>());
+        continue;
+      }
       expect(state.selected, 'هلند ۱', reason: "$mode: this round's fastest");
       expect(probes.toSet(), {
         'هلند ۱',
         'ترکیه ۱',
       }, reason: '$mode: one round, never row 1');
       expect(state.sorted, isTrue, reason: mode);
-      if (mode == 'connected') {
-        expect(state.connection, ShikooConnection.on);
-        expect(
-          probes.where((name) => name == 'هلند ۱'),
-          hasLength(2),
-          reason: 'the round, then the check of the new server',
-        );
-        expect(
-          state.notice,
-          isA<SelectedReplaced>()
-              .having((n) => n.fastest, 'fastest', false)
-              .having((n) => n.moved, 'moved', true),
-        );
-      } else {
-        expect(
-          state.notice,
-          isA<SelectedReplaced>()
-              .having((n) => n.fastest, 'fastest', true)
-              .having((n) => n.moved, 'moved', false),
-        );
-      }
+      expect(
+        state.notice,
+        isA<SelectedReplaced>()
+            .having((n) => n.fastest, 'fastest', true)
+            .having((n) => n.moved, 'moved', false),
+      );
     }
   });
 
@@ -3684,7 +4777,7 @@ void main() {
     });
 
     test('a silent server whose core owns the tunnel never goes through the '
-        'bridge; given back to mihomo, it does', () async {
+        'bridge, OpenVPN not even with mihomo picked for it', () async {
       const france = 'فرانسه ۴';
       final made = _home([
         warpNetworkReaderProvider.overrideWithValue(() async => 'mobile'),
@@ -3732,7 +4825,7 @@ void main() {
           .read(shikooCoresProvider.notifier)
           .set(ShikooProtocol.openvpn, ShikooCore.mihomo);
       await controller.pingAll();
-      expect(routes.expand((route) => route.via), contains(france));
+      expect(routes.expand((route) => route.via), isNot(contains(france)));
     });
 
     test('a server remembered on the bridge whose core now owns the tunnel '
@@ -4560,63 +5653,6 @@ void main() {
     await controller.disconnect();
   });
 
-  test('a search the tunnel started after an update ends when another '
-      'service with its own server becomes the one in use', () async {
-    final (:container, :core, :proxies, :setup) = _home();
-    final panel = await _panel(container, core);
-    container
-        .read(profilesProvider.notifier)
-        .put(
-          container
-              .read(profilesProvider)
-              .single
-              .copyWith(url: '$panel/none/a'),
-        );
-    var hold = Completer<void>()..complete();
-    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
-      final name = call.positionalArguments[1] as String;
-      await hold.future;
-      return Delay(name: name, url: '', value: 50);
-    });
-    final controller = container.read(shikooControllerProvider);
-    final first = container.read(currentProfileIdProvider)!;
-    final second = Profile.normal(url: 'https://panel.invalid/second');
-    container.read(profilesProvider.notifier).put(second);
-    controller.selectService(second.id);
-    await pumpEventQueue();
-    await controller.selectServer('هلند ۱');
-    controller.selectService(first);
-    await pumpEventQueue();
-    await controller.selectServer('آلمان ۱');
-    container.read(runTimeProvider.notifier).value = 1;
-    setup.tunnel = DateTime(2026);
-    await pumpEventQueue();
-
-    hold = Completer<void>();
-    setup.onApply = () => container.read(groupsProvider.notifier).value = [
-      const Group(
-        type: GroupType.Selector,
-        name: 'PROXY',
-        hidden: false,
-        all: [
-          Proxy(name: _version, type: 'Vless'),
-          Proxy(name: 'هلند ۱', type: 'Vless'),
-        ],
-      ),
-    ];
-    await controller.refreshService();
-    await pumpEventQueue();
-    expect(container.read(shikooStateProvider).waiting, isTrue);
-    controller.selectService(second.id);
-    await pumpEventQueue();
-    hold.complete();
-    await pumpEventQueue();
-    final state = container.read(shikooStateProvider);
-    expect(state.waiting, isFalse);
-    expect(state.connection, ShikooConnection.on);
-    expect(state.selected, 'هلند ۱');
-  });
-
   test('a check of the selected server that answers after a switch writes '
       "nothing on the new service's server of the same name, and starts no "
       'round there', () async {
@@ -4774,7 +5810,11 @@ void main() {
   group('another card opened', () {
     const firstNames = [_version, 'آلمان ۱', 'هلند ۱'];
     const secondNames = ['هلند ۱', 'ترکیه ۱', 'WG ۱'];
-    String typeOf(String name) => name.startsWith('WG') ? 'wireguard' : 'vless';
+    String typeOf(String name) => name.startsWith('WG')
+        ? 'wireguard'
+        : name.startsWith('OV')
+        ? 'openvpn'
+        : 'vless';
     Map<String, dynamic> config(List<String> names, String server) => {
       'proxies': [
         for (final name in names)
@@ -4822,7 +5862,7 @@ void main() {
         List<String> fromFile,
       })
     >
-    twoServices({bool connected = true}) async {
+    twoServices({bool connected = true, List<Override> more = const []}) async {
       coreGate = null;
       fileGate = null;
       applyGate = null;
@@ -4831,6 +5871,7 @@ void main() {
       final fromFile = <String>[];
       final second = Profile.normal(url: 'https://panel.invalid/second');
       final (:container, :core, :proxies, :setup) = _home([
+        ...more,
         serviceAppliedProvider.overrideWith(
           (ref) => () async {
             await applyGate?.future;
@@ -4887,6 +5928,26 @@ void main() {
         fromFile: fromFile,
       );
     }
+
+    test('a server there whose core owns the tunnel goes to Go marked, so '
+        'OpenVPN is asked with a reset that sends no account', () async {
+      final t = await twoServices(
+        more: [
+          shikooCoreSpecsProvider.overrideWithValue(shikooCoreSpecs),
+          shikooTunnelProvider.overrideWithValue(true),
+        ],
+      );
+      t.lists[t.second] = ['OV ۱', 'ترکیه ۱'];
+      final owners = <String, Object?>{};
+      when(() => t.core.testProxyDelay(any(), any())).thenAnswer((call) async {
+        final proxy = call.positionalArguments[1] as Map<String, dynamic>;
+        owners['${proxy['name']}'] = proxy[shikooOwnerKey];
+        return Delay(name: '${proxy['name']}', url: '', value: 80);
+      });
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      expect(owners, {'OV ۱': ShikooCore.openvpn.name, 'ترکیه ۱': null});
+    });
 
     test('connected, it is measured from its own file and sorted on its own; '
         'the tunnel stays where it is', () async {
@@ -5887,5 +6948,62 @@ void main() {
       expect(calls, isEmpty);
       await done(controller);
     });
+  });
+
+  test(
+    'opened while the tunnel runs, FlClash having restored its run time '
+    'first, a change of server still asks whether the internet passes',
+    () async {
+      _memoryDatabase();
+      final (:container, :core, :proxies, :setup) = _home();
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String,
+          url: '',
+          value: 50,
+        ),
+      );
+      setup.tunnel = DateTime(2026);
+      container.read(runTimeProvider.notifier).value = 1;
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.on,
+      );
+      await controller.selectServer('هلند ۱');
+      await pumpEventQueue();
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.selected, setup.trafficAsked, state.connectedNoTraffic),
+        ('هلند ۱', 2, true),
+      );
+    },
+  );
+
+  test("FlClash's own run time with no tunnel behind it yet, as under the "
+      'consent dialog, asks nothing and warns of nothing', () async {
+    _memoryDatabase();
+    final (:container, :core, :proxies, :setup) = _home();
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer(
+      (call) async => Delay(
+        name: call.positionalArguments[1] as String,
+        url: '',
+        value: 50,
+      ),
+    );
+    container.read(runTimeProvider.notifier).value = 1;
+    container
+        .read(profilesActionProvider.notifier)
+        .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+    await controller.selectServer('هلند ۱');
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect((setup.trafficAsked, state.connectedNoTraffic), (0, false));
   });
 }

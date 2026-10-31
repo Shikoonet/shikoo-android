@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outboundgroup"
 	"github.com/metacubex/mihomo/config"
+	"github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
 )
@@ -18,6 +21,10 @@ type shikooCoreStart func(proxies []map[string]any) (replacements []map[string]a
 
 // shikooCoreKey is what lib/shikoo/engine/cores.dart writes on a marked proxy.
 const shikooCoreKey = "shikoo-core"
+
+// shikooCoreStartingFile names the core being started; left behind, the app takes that pick back on its next start
+// (`forgetCrashed` in lib/shikoo/engine/settings.dart).
+const shikooCoreStartingFile = "shikoo-core-starting"
 
 var (
 	shikooCores = map[string]shikooCoreStart{}
@@ -79,7 +86,10 @@ func shikooCoresRewrite(raw *config.RawConfig) {
 		for j, i := range at {
 			proxies[j] = raw.Proxy[i]
 		}
+		starting := filepath.Join(constant.Path.HomeDir(), shikooCoreStartingFile)
+		_ = os.WriteFile(starting, []byte(name), 0o600)
 		replacements, stop, err := start(proxies)
+		_ = os.Remove(starting)
 		if err == nil {
 			if err = shikooCoresMatch(proxies, replacements); err != nil {
 				stop()

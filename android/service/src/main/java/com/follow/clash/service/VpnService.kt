@@ -41,7 +41,8 @@ class VpnService : SystemVpnService(), ManagedService {
     @Volatile
     private var startAbandoned = false
 
-    // An owner core's VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking.
+    // Each VPN, lent to its engine as a copy: one that ends leaves traffic blocked, not leaking, and a switch needs no
+    // blocking VPN of its own, so one interface change fewer, each of which leaks for a moment (establishWith).
     private val mainHandler = Handler(Looper.getMainLooper())
     private val heldTun = HeldTun<ParcelFileDescriptor>(
         { task, millis -> mainHandler.postDelayed(task, millis) },
@@ -135,16 +136,20 @@ class VpnService : SystemVpnService(), ManagedService {
 
     override fun onRevoke() {
         stop()
+        // Another app holds the VPN now and Android denies our protect: a switch's stop would have kept it.
+        Core.setOwnerProtector(null)
         notifyVpnRevoked()
     }
 
-    // An owner engine that does not start leaves its server to mihomo, which carries it (Sam, 2026-10-23).
+    // An owner engine that does not start leaves its server to mihomo (Sam, 2026-10-23); OpenVPN fails (2026-10-30).
     private fun handleStart(options: VpnOptions) {
-        if (options.ownsTunnel && !heldTun.take()) holdBlocked(options)
+        if (options.ownsTunnel) Core.setOwnerProtector(::protect)
+        if (!heldTun.take() && options.ownsTunnel) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
                 Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
             }.getOrElse { error ->
+                if (options.core == OPENVPN_CORE) error("OpenVPN has no plan: $error")
                 GlobalState.log("Owner core has no plan, mihomo carries the server: $error")
                 return handleStart(options.copy(core = null))
             }
@@ -163,7 +168,7 @@ class VpnService : SystemVpnService(), ManagedService {
             establishWith(options, owner = plan != null)
                 ?: error("VPN establishment was rejected by the system")
         }
-        val fd = if (plan == null) tun.detachFd().also { heldTun.hold(null) } else lend(tun)
+        val fd = lend(tun)
         val started = synchronized(tunLock) {
             tunRunning = true
             try {
@@ -267,17 +272,14 @@ class VpnService : SystemVpnService(), ManagedService {
     private fun JSONObject.cidrs(key: String): List<CIDR> =
         getJSONArray(key).let { list -> List(list.length()) { list.getString(it).toCIDR() } }
 
+    // Android 9+ keeps the network across VPNs only for the same apps and neither bypassable, else it builds a new one;
+    // even then the new interface's routes land after the old leaves, a moment traffic takes the mobile network.
     private fun Builder.establishWith(options: VpnOptions, owner: Boolean): ParcelFileDescriptor? {
-        // shortcut: owner <-> mihomo leaks up to 1.6 s either way, owner -> owner 0.2-0.6 s on Android 7 (SHIKOO_PATCHES 66);
-        // upgrade before subscriptions ship OpenVPN servers or official WireGuard becomes a default, or on a customer report.
         configureAccessControl(options)
         setSession(getString(CommonR.string.app_name))
         setBlocking(false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             setMetered(false)
-        }
-        if (options.allowBypass && !owner) {
-            allowBypass()
         }
         // The proxy is mihomo's port, whose client of the owner's server shares its key.
         if (!owner && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
@@ -331,9 +333,8 @@ class VpnService : SystemVpnService(), ManagedService {
         synchronized(tunLock) {
             if (openVpn === engine) stopTunLocked() else engine.stop()
         }
-        if (!failure.refused) error("OpenVPN did not connect: ${failure.reason}")
-        GlobalState.log("OpenVPN refused the server, mihomo carries it: ${failure.reason}")
-        handleStart(options.copy(core = null))
+        // OpenVPN runs on this engine alone, never on mihomo (Sam, 2026-10-30).
+        error("OpenVPN did not connect: ${failure.reason}")
     }
 
     private fun Builder.configureAccessControl(options: VpnOptions) {
@@ -386,7 +387,12 @@ class VpnService : SystemVpnService(), ManagedService {
             modules.stop()
         } finally {
             stopTun()
-            if (keepHeld) heldTun.releaseIn(SWITCH_HOLD_MILLIS) else heldTun.hold(null)
+            if (keepHeld) {
+                heldTun.releaseIn(SWITCH_HOLD_MILLIS)
+            } else {
+                heldTun.hold(null)
+                Core.setOwnerProtector(null)
+            }
             startAbandoned = false
         }
     }

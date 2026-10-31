@@ -9,6 +9,7 @@ import 'package:fl_clash/shikoo/engine/core_openvpn.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
+import 'package:fl_clash/shikoo/engine/ping.dart' show fastest, streamingOnly;
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/update.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -34,7 +35,9 @@ String finishedStatus(ShikooL10n l, Finished row, DateTime now) {
   final ended = row.ended;
   if (row.linked?.disabled ?? false) return l.finishedDisabled;
   if (row.exhausted) return l.finishedData;
-  if (ended == null) return l.finishedNoDate;
+  if (ended == null || (row.linked?.outsourced ?? false)) {
+    return l.finishedNoDate;
+  }
   final days = DateUtils.dateOnly(
     now,
   ).difference(DateUtils.dateOnly(ended)).inDays;
@@ -281,6 +284,35 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     });
   }
 
+  /// b-warn «انتخاب سرور دیگر»: the list's fastest other server, the remote on it on the TV.
+  void _toFastest(ShikooState state, ShikooController controller) {
+    final others = {
+      for (final server in state.servers)
+        if (server.name != state.selected) server.name: server,
+    };
+    final name =
+        fastest(
+          [...others.keys],
+          (name) => others[name]!.ping,
+          handshake: (name) => others[name]!.core == ShikooCore.openvpn,
+        ) ??
+        others.keys.firstWhereOrNull((name) => !streamingOnly(name));
+    final service = state.service;
+    if (name == null || service == null) return;
+    void show() {
+      final row = _card.row(name);
+      final at = row.context;
+      if (at == null || !at.mounted) return;
+      state.isTV
+          ? jumpFocus(at, row)
+          : unawaited(Scrollable.ensureVisible(at, alignment: 0.5));
+    }
+
+    if (_card.row(name).context?.mounted ?? false) return show();
+    _open(controller, service.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) => show());
+  }
+
   void _open(ShikooController controller, int id) {
     _opening = (id: id, top: _edge(id));
     setState(() => _folded = false);
@@ -362,7 +394,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
     final controller = ref.watch(shikooControllerProvider);
     final account = ref.watch(shikooAccountProvider);
     final update = ref.watch(shikooUpdateOfferProvider);
-    final crashed = ref.watch(shikooCrashProvider) != null;
+    final crashed =
+        ref.watch(shikooCrashProvider) != null ||
+        ref.watch(shikooCoreRevertedProvider) != null;
     final check = ref.watch(shikooProbeProvider);
     // Only a card that says the device itself is offline goes before WARP's line and offer.
     final offline =
@@ -415,7 +449,9 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       state,
       linkless: first == null
           ? null
-          : (first.finished && !first.renews ? _topSupport : _linkless),
+          : (first.finished && !first.renews && !first.outsourced
+                ? _topSupport
+                : _linkless),
       renews: renews,
     );
     _onOpened(state);
@@ -423,11 +459,15 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         !state.isTV &&
         shikooDesktop &&
         MediaQuery.sizeOf(context).width >= ShikooSizes.twoColumns;
+    final refusedBot = state.isTV && (current?.loginRefused ?? false)
+        ? _card.bot
+        : null;
     final power = _PowerZone(
       state: state,
       centred: state.isTV || wide,
       controller: controller,
       focusNode: _power,
+      bot: refusedBot,
       renews: renews,
       restingLabel: switch (first) {
         null => null,
@@ -440,6 +480,18 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       restingMessage: (first?.renews ?? false) ? l.renewToConnect : null,
       checked: check != null,
       offline: offline,
+      onOther: () => _toFastest(state, controller),
+      onSupport: current == null
+          ? null
+          : () => unawaited(
+              openSupport(
+                context,
+                isTV: state.isTV,
+                link: current.supportLink,
+                below: serviceTitle(context, current),
+                trigger: 'support',
+              ),
+            ),
     );
     _LinklessCard linkless(LinkedService linked) => _LinklessCard(
       service: linked,
@@ -629,22 +681,29 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           child: FocusTraversalGroup(
             policy: PageTraversalPolicy(),
             child: state.isTV
-                ? _TvLayout(
-                    noService: noService,
-                    settings: _settings,
-                    actions: top,
-                    power: _PowerKeys(
-                      down: offersWarp(state, offline: offline),
-                      targets: [
-                        _crashSend,
-                        _check,
-                        if (inUseOpen && towardCard != null)
-                          _card.row(towardCard),
-                        _inUse,
-                      ],
-                      child: power,
+                ? _BarKeys(
+                    renew: _topRenew,
+                    power: _power,
+                    child: _TvLayout(
+                      noService: noService,
+                      settings: _settings,
+                      actions: top,
+                      power: _PowerKeys(
+                        down:
+                            offersWarp(state, offline: offline) ||
+                            state.noInternet,
+                        below: refusedBot,
+                        targets: [
+                          _crashSend,
+                          _check,
+                          if (inUseOpen && towardCard != null)
+                            _card.row(towardCard),
+                          _inUse,
+                        ],
+                        child: power,
+                      ),
+                      card: _CardKeys(focus: _card, power: _power, child: card),
                     ),
-                    card: _CardKeys(focus: _card, power: _power, child: card),
                   )
                 : wide
                 ? _WideLayout(
@@ -715,11 +774,67 @@ FocusNode? _beside(BuildContext cards, FocusNode from, {required bool rtl}) {
   return nearest;
 }
 
+/// The card column's first row (an open card's head, a folded card), its item nearest [from].
+FocusNode? _firstRow(FocusNode from) {
+  final column = [
+    for (final node in from.nearestScope?.traversalDescendants ?? <FocusNode>[])
+      if (node.context?.findAncestorWidgetOfExactType<_CardKeys>() != null)
+        node,
+  ];
+  final first = minBy(column, (node) => node.rect.top);
+  if (first == null) return null;
+  return minBy(
+    column.where((node) => node.rect.top < first.rect.bottom),
+    (node) => (node.rect.center.dx - from.rect.center.dx).abs(),
+  );
+}
+
+/// Down from the top bar (the zones below answer their own keys): renew, over the gap where Flutter
+/// picked the power button or a folded card under the list, to the cards; the rest to power.
+class _BarKeys extends StatelessWidget {
+  const _BarKeys({
+    required this.renew,
+    required this.power,
+    required this.child,
+  });
+
+  final FocusNode renew;
+  final FocusNode power;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Actions(
+      actions: {
+        DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
+          onInvoke: (intent) {
+            final from = primaryFocus;
+            final next =
+                from == null || intent.direction != TraversalDirection.down
+                ? null
+                : from == renew
+                ? _firstRow(from)
+                : power;
+            if (_onScreen(next) && next!.canRequestFocus) {
+              jumpFocus(context, next);
+            } else {
+              from?.focusInDirection(intent.direction);
+            }
+            return null;
+          },
+        ),
+      },
+      child: child,
+    );
+  }
+}
+
 bool offersWarp(ShikooState state, {required bool offline}) =>
     !offline &&
     restingFor(state) == null &&
     state.lastError == ShikooError.noServer &&
-    !state.bridge.on;
+    !state.bridge.on &&
+    !(state.service?.loginRefused ?? false);
 
 /// Toward the card: the crash card, the internet check, then the selected or first server.
 class _PowerKeys extends StatelessWidget {
@@ -727,17 +842,22 @@ class _PowerKeys extends StatelessWidget {
     required this.targets,
     required this.child,
     this.down = false,
+    this.below,
   });
 
   final List<FocusNode> targets;
   final Widget child;
   final bool down;
+  final FocusNode? below;
 
   @override
   Widget build(BuildContext context) {
-    final towardCard = Directionality.of(context) == TextDirection.rtl
-        ? TraversalDirection.right
-        : TraversalDirection.left;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final towardCard = rtl ? TraversalDirection.right : TraversalDirection.left;
+    final stays = {
+      rtl ? TraversalDirection.left : TraversalDirection.right,
+      if (!down) TraversalDirection.down,
+    };
     return Actions(
       actions: {
         DirectionalFocusIntent: CallbackAction<DirectionalFocusIntent>(
@@ -745,7 +865,10 @@ class _PowerKeys extends StatelessWidget {
             final target = targets.firstWhereOrNull(_onScreen);
             if (intent.direction == towardCard && target != null) {
               target.requestFocus();
-            } else if (intent.direction != TraversalDirection.down || down) {
+            } else if (intent.direction == TraversalDirection.down &&
+                _onScreen(below)) {
+              below!.requestFocus();
+            } else if (!stays.contains(intent.direction)) {
               primaryFocus?.focusInDirection(intent.direction);
             }
             return null;
@@ -1094,6 +1217,9 @@ class _PowerZone extends StatelessWidget {
     this.restingMessage,
     this.checked = false,
     this.offline = false,
+    this.onOther,
+    this.onSupport,
+    this.bot,
   });
 
   final ShikooState state;
@@ -1109,6 +1235,11 @@ class _PowerZone extends StatelessWidget {
   /// The internet check has its card; «check this phone's internet» would contradict it.
   final bool checked;
   final bool offline;
+  final VoidCallback? onOther;
+  final VoidCallback? onSupport;
+
+  /// The TV card's bot button while the shelf account is refused: retrying the round button cannot help.
+  final FocusNode? bot;
 
   bool get _silent =>
       state.connection == ShikooConnection.on &&
@@ -1159,7 +1290,8 @@ class _PowerZone extends StatelessWidget {
   }
 
   String? message(ShikooL10n l) {
-    if (state.service == null) return null;
+    // A refused shelf account: its card says why; WARP or this phone's internet would not help.
+    if (state.service?.loginRefused ?? true) return null;
     if (warpLine(l) case final warp?) return warp;
     final resting = restingFor(state);
     final selected = state.selectedServer;
@@ -1202,7 +1334,9 @@ class _PowerZone extends StatelessWidget {
       ),
       null when shift != null => switchNews(l, shift).join(' '),
       null when coreShift != null => coreNews(l, coreShift).join(' '),
-      null when silent => l.selectedDown(serverName(selected!.name)),
+      null when silent && !state.noInternet => l.selectedDown(
+        serverName(selected!.name),
+      ),
       null =>
         state.isTV && state.connection == ShikooConnection.off
             ? l.tvHint
@@ -1247,10 +1381,14 @@ class _PowerZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = ShikooTheme.of(context).s;
-    if (!shikooDesktop) return _column(context, s.powerRing * 1.5);
+    if (!shikooDesktop && !state.isTV) {
+      return _column(context, s.powerRing * 1.5);
+    }
     return LayoutBuilder(
-      builder: (context, box) =>
-          _column(context, math.min(s.dialog, box.maxWidth)),
+      builder: (context, box) => _column(
+        context,
+        math.min(shikooDesktop ? s.dialog : s.powerRing * 1.5, box.maxWidth),
+      ),
     );
   }
 
@@ -1288,6 +1426,8 @@ class _PowerZone extends StatelessWidget {
       );
     }
     final resting = restingFor(state);
+    // Sam, 2026-10-31: on Windows a shelf account's button is dimmed and its pill hidden, in their usual places.
+    final notHere = state.service?.notHere ?? false;
     final silent = _silent;
     final alarm = switch ((_shift, _coreShift)) {
       (final shift?, _) => shift.stage == ShikooSwitchStage.failed,
@@ -1307,8 +1447,35 @@ class _PowerZone extends StatelessWidget {
     final failed =
         state.lastError != null || state.busyPort != null || state.helperFailed;
     final offerWarp = offersWarp(state, offline: offline);
+    // `.tv-power`'s padding-inline: the remote's ring around the card's button stays inside the column.
+    final cardWidth = state.isTV
+        ? width - 2 * ShikooSizes.ring
+        : (shikooDesktop ? width : double.infinity);
+    final card = message != null
+        ? null
+        : state.noInternet
+        ? _NoInternet(
+            name: serverName(selected!.name),
+            isTV: state.isTV,
+            width: cardWidth,
+            onOther: onOther,
+            onSupport:
+                state.servers.any(
+                  (server) =>
+                      server.name != state.selected &&
+                      !streamingOnly(server.name),
+                )
+                ? null
+                : onSupport,
+            power: focusNode,
+          )
+        : (state.connection == ShikooConnection.on && state.streaming
+              ? _StreamingCard(width: cardWidth)
+              : null);
     // WARP's first try and its failure: two lines wrapping to three on the TV too, where the room is two.
-    final tall = offerWarp || (state.isTV && (warp?.contains('\n') ?? false));
+    final tall =
+        offerWarp ||
+        (state.isTV && (card != null || (warp?.contains('\n') ?? false)));
     final text = Text(
       message ?? '',
       // A phone's message may wrap a line: WARP's failure and first try are two lines, the second one long.
@@ -1347,12 +1514,14 @@ class _PowerZone extends StatelessWidget {
         isTV: state.isTV,
         focusNode: focusNode,
         switching: state.switching?.stage == ShikooSwitchStage.moving,
+        warn: state.noInternet,
         restingLabel: switch (resting) {
+          null when notHere => l.powerConnect,
           ShikooServiceStatus.exhausted => l.stateExhausted,
           ShikooServiceStatus.revoked => l.chipRevoked,
           _ => l.powerExpired,
         },
-        onPressed: resting != null
+        onPressed: resting != null || notHere
             ? null
             : () => unawaited(switch (state.connection) {
                 ShikooConnection.off ||
@@ -1366,21 +1535,33 @@ class _PowerZone extends StatelessWidget {
             ? Container(
                 constraints: BoxConstraints(minHeight: slot),
                 alignment: Alignment.center,
-                child: const SpeedPills(),
+                child: card ?? (!state.noInternet ? const SpeedPills() : null),
               )
             : say!
-      else if (state.connection == ShikooConnection.on)
+      else if (state.connection == ShikooConnection.on && !state.noInternet)
         const SpeedPills(),
       if (resting == null) ...[
-        NowPill(
-          pick: state.pick,
-          server: selected,
-          via: (selected?.viaBridge ?? false) ? l.warpVia : null,
-          trying:
-              state.bridge.trying &&
-              (selected?.viaBridge ?? false) &&
-              (selected?.ping ?? -1) < 0,
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: state.isTV ? cardWidth : double.infinity,
+          ),
+          child: Visibility(
+            visible: !notHere,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: NowPill(
+              pick: state.pick,
+              server: selected,
+              via: (selected?.viaBridge ?? false) ? l.warpVia : null,
+              trying:
+                  state.bridge.trying &&
+                  (selected?.viaBridge ?? false) &&
+                  (selected?.ping ?? -1) < 0,
+            ),
+          ),
         ),
+        if (!under && card != null) card,
         // c-off-win: the offer keeps with its message, above the mode switch.
         if (shikooDesktop && offerWarp) offer,
         if (shikooDesktop) ...[
@@ -1409,6 +1590,12 @@ class _PowerZone extends StatelessWidget {
           if (i > 0) SizedBox(height: gap),
           item,
         ],
+        if (bot case final bot?)
+          _FromPower(
+            power: focusNode,
+            node: bot,
+            child: const SizedBox.shrink(),
+          ),
       ],
     );
     // c-tv-off, a-tv-fail: the button moves up for WARP's lines; large text shrinks the column, never cuts it.
@@ -1418,6 +1605,232 @@ class _PowerZone extends StatelessWidget {
             child: SizedBox(width: width, child: column),
           )
         : column;
+  }
+}
+
+/// b-warn: the card in the speed pills' room; on a computer one row, its button small; on the TV the remote moves
+/// to the button as it comes, from the round button only, so the remote's OK no longer drops the connection.
+class _NoInternet extends StatefulWidget {
+  const _NoInternet({
+    required this.name,
+    required this.isTV,
+    required this.width,
+    required this.onOther,
+    required this.power,
+    this.onSupport,
+  });
+
+  final String name;
+  final bool isTV;
+  final double width;
+  final VoidCallback? onOther;
+
+  /// A service with one server: no other to choose, so its support instead.
+  final VoidCallback? onSupport;
+  final FocusNode power;
+
+  @override
+  State<_NoInternet> createState() => _NoInternetState();
+}
+
+class _NoInternetState extends State<_NoInternet> {
+  final _node = FocusNode();
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final title = widget.isTV
+        ? l.noInternetTitleTv
+        : l.noInternetTitle(widget.name);
+    final support = widget.onSupport;
+    final label = support == null ? l.noInternetOther : l.support;
+    final onPressed = support ?? widget.onOther;
+    if (shikooDesktop) {
+      return SizedBox(
+        width: widget.width,
+        child: Row(
+          spacing: Space.s2,
+          children: [
+            SvgIcon(ShikooIcon.warn, size: t.s.iconSm, color: t.c.warning),
+            Expanded(
+              child: Text(
+                title,
+                style: t.text(t.s.bodySm, weight: FontWeight.w700),
+              ),
+            ),
+            // The message's room is two lines: the face fits it, the touch padding is left outside.
+            SizedBox(
+              height: t.s.buttonSm,
+              child: OverflowBox(
+                maxHeight: ShikooSizes.touch,
+                fit: OverflowBoxFit.deferToChild,
+                child: ShikooButton(
+                  label: label,
+                  small: true,
+                  focusNode: _node,
+                  onPressed: onPressed,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    final gap = widget.isTV ? Space.s2 : Space.s3;
+    final card = Container(
+      width: widget.width,
+      padding: EdgeInsets.all(widget.isTV ? Space.s3 : Space.s4),
+      decoration: ShapeDecoration(
+        color: t.c.surface,
+        shadows: t.c.cardShadow,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: gap,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: Space.s3,
+            children: [
+              SvgIcon(ShikooIcon.warn, size: t.s.icon, color: t.c.warning),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: t.text(
+                        t.s.body,
+                        weight: FontWeight.w700,
+                        height: Leading.snug,
+                      ),
+                    ),
+                    Text(
+                      switch ((support, widget.isTV)) {
+                        (null, _) => l.noInternetBody,
+                        (_, true) => l.noInternetOneTv,
+                        _ => l.noInternetOne,
+                      },
+                      style: t.text(
+                        t.s.bodySm,
+                        color: t.c.textMuted,
+                        height: Leading.snug,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          ShikooButton(
+            label: label,
+            icon: support == null
+                ? ShikooIcon.lines
+                : (widget.isTV ? ShikooIcon.qr : null),
+            focusNode: _node,
+            onPressed: onPressed,
+          ),
+        ],
+      ),
+    );
+    return widget.isTV
+        ? _FromPower(power: widget.power, node: _node, child: card)
+        : card;
+  }
+}
+
+/// On the TV the remote moves to [node] as it comes, from the round button only, so its OK keeps the connection.
+class _FromPower extends StatefulWidget {
+  const _FromPower({
+    required this.power,
+    required this.node,
+    required this.child,
+  });
+
+  final FocusNode power;
+  final FocusNode node;
+  final Widget child;
+
+  @override
+  State<_FromPower> createState() => _FromPowerState();
+}
+
+class _FromPowerState extends State<_FromPower> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final at = FocusManager.instance.primaryFocus;
+      if (mounted &&
+          _onScreen(widget.node) &&
+          (at == null || at == widget.power || at is FocusScopeNode)) {
+        widget.node.requestFocus();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// b-special: what the free streaming server is for; never the no-internet card. Flat on a computer, two lines.
+class _StreamingCard extends StatelessWidget {
+  const _StreamingCard({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ShikooTheme.of(context);
+    final l = ShikooL10n.of(context);
+    final lines = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          l.streamingTitle,
+          textAlign: TextAlign.center,
+          style: t.text(
+            shikooDesktop ? t.s.bodySm : t.s.body,
+            weight: FontWeight.w700,
+            height: shikooDesktop ? Leading.tight : Leading.snug,
+          ),
+        ),
+        Text(
+          l.streamingBody,
+          textAlign: TextAlign.center,
+          style: t.text(
+            t.s.bodySm,
+            color: t.c.textMuted,
+            height: shikooDesktop ? Leading.tight : Leading.snug,
+          ),
+        ),
+      ],
+    );
+    if (shikooDesktop) return SizedBox(width: width, child: lines);
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.s3,
+        horizontal: Space.s4,
+      ),
+      decoration: ShapeDecoration(
+        color: t.c.surfaceSunken,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+      ),
+      child: lines,
+    );
   }
 }
 
@@ -1718,7 +2131,9 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
     final _LinklessCard(:service, :bot, :isTV) = widget;
     final finished = service.finished;
     final renews = service.renews;
-    final supportOnly = finished && !renews;
+    // A closed shelf account is never renewed: the bot sells a new one.
+    final ended = finished && service.outsourced;
+    final supportOnly = finished && !renews && !ended;
     final failed = service.loadFailed && !finished;
     return Container(
       padding: const EdgeInsets.all(Space.s4),
@@ -1737,7 +2152,12 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ServiceName(service.title),
-              if (finished)
+              if (ended)
+                StatusChip(
+                  status: ShikooServiceStatus.expired,
+                  label: l.chipFinished,
+                )
+              else if (finished)
                 StatusChip.linked(service)
               else
                 Container(
@@ -1763,6 +2183,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
           const SizedBox(height: Space.s2),
           Text(
             switch ((service.status, finished, isTV)) {
+              _ when ended => l.outsourcedEnded,
               _ when supportOnly && !service.disabled => l.summaryNotRenewable,
               _ when supportOnly => l.summaryRemoved,
               ('exhausted', _, false) => l.summaryExhausted,
@@ -1817,13 +2238,7 @@ class _LinklessCardState extends ConsumerState<_LinklessCard> {
                               id: service.id,
                               name: service.title,
                             )
-                          : openLink(
-                              context,
-                              isTV: isTV,
-                              link: ShikooLinks.openBot(bot),
-                              title: l.openBotTitleTv,
-                              help: l.openBotHelpTv,
-                            ),
+                          : openBot(context, isTV: isTV, bot: bot),
                     ),
                   ),
                 // The phone asks again by itself when it comes back from Telegram.
@@ -1912,6 +2327,20 @@ class _FinishedServicesState extends State<_FinishedServices> {
         isTV &&
         _head.hasFocus &&
         FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+    (String, ShikooIcon?, VoidCallback)? actionOf(Finished row) =>
+        switch (row) {
+          _ when widget.account.renews(row) => (
+            l.renew,
+            isTV ? ShikooIcon.qr : null,
+            () => _renew(row),
+          ),
+          _ when row.linked?.outsourced ?? false => (
+            isTV ? l.openBotTv : l.openBotTouch,
+            isTV ? ShikooIcon.qr : ShikooIcon.plane,
+            () => openBot(context, isTV: isTV, bot: widget.account.bot),
+          ),
+          _ => null,
+        };
     Widget line(Finished row, bool focused) => Container(
       padding: EdgeInsets.symmetric(
         vertical: Space.s3,
@@ -1943,22 +2372,23 @@ class _FinishedServicesState extends State<_FinishedServices> {
               ],
             ),
           ),
-          if (widget.account.renews(row))
+          if (actionOf(row) case (final label, final icon, final act))
             isTV
                 ? ExcludeFocus(
                     child: IgnorePointer(
                       child: ShikooButton(
-                        label: l.renew,
-                        icon: ShikooIcon.qr,
+                        label: label,
+                        icon: icon,
                         small: true,
                         onPressed: () {},
                       ),
                     ),
                   )
                 : ShikooButton(
-                    label: l.renew,
+                    label: label,
+                    icon: icon,
                     small: true,
-                    onPressed: () => _renew(row),
+                    onPressed: act,
                   ),
         ],
       ),
@@ -2028,9 +2458,7 @@ class _FinishedServicesState extends State<_FinishedServices> {
                   child: Pressable(
                     focusNode: i == 0 ? _first : null,
                     shape: shape,
-                    onPressed: widget.account.renews(row)
-                        ? () => _renew(row)
-                        : null,
+                    onPressed: actionOf(row)?.$3,
                     builder: (context, focused) => line(row, focused),
                   ),
                 )

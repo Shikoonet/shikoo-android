@@ -329,6 +329,10 @@ class ShikooL10nEn extends ShikooL10n {
   }
 
   @override
+  String get selectedGone =>
+      'Your server was removed from the subscription. Pick another.';
+
+  @override
   String switchingTo(String name) {
     return 'Moving to “$name”…';
   }
@@ -548,6 +552,37 @@ class ShikooL10nEn extends ShikooL10n {
   String selectedDown(String name) {
     return '“$name” isn\'t answering.\nPick another server from the list.';
   }
+
+  @override
+  String get powerNoInternet => 'No internet';
+
+  @override
+  String noInternetTitle(String name) {
+    return 'The internet doesn’t get through “$name”.';
+  }
+
+  @override
+  String get noInternetTitleTv => 'No internet through this server.';
+
+  @override
+  String get noInternetBody => 'It may be blocked on your network.';
+
+  @override
+  String get noInternetOther => 'Choose another server';
+
+  @override
+  String get noInternetOne =>
+      'It sometimes takes a while; try again a bit later or ask support.';
+
+  @override
+  String get noInternetOneTv => 'Try again a bit later or ask support.';
+
+  @override
+  String get streamingTitle => 'Only for Namava, Filimo, Shayda and Gapfilm';
+
+  @override
+  String get streamingBody =>
+      'Other sites and apps won’t open through this server.';
 
   @override
   String get vpnRefused =>
@@ -916,6 +951,28 @@ class ShikooL10nEn extends ShikooL10n {
   String get openBotTv => 'ShikooNet bot';
 
   @override
+  String get outsourcedTitle => 'Validity and data aren\'t shown here.';
+
+  @override
+  String get outsourcedHelp =>
+      'Its days count from the first connection. For a new one, go to the ShikooNet bot.';
+
+  @override
+  String get outsourcedSummary => 'Valid from the first connection';
+
+  @override
+  String get outsourcedEnded =>
+      'Expired. For a new one, go to the ShikooNet bot.';
+
+  @override
+  String get outsourcedRefused =>
+      'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.';
+
+  @override
+  String get outsourcedNotHere =>
+      'This account doesn\'t work on Windows yet; connect it on your phone or TV.';
+
+  @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';
 
   @override
@@ -1255,6 +1312,11 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get reportCrashAsk => 'Send us a report about it?';
+
+  @override
+  String reportCrashCore(String core) {
+    return 'The “$core” core did not work on this device and went back to “Default”.';
+  }
 
   @override
   String get reportCrashYes => 'Send';

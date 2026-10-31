@@ -21,6 +21,22 @@ object Core {
 
     external fun forceGC()
 
+    private external fun setOwnerProtector(cb: TunInterface?)
+
+    fun setOwnerProtector(protect: ((Int) -> Boolean)?) {
+        setOwnerProtector(
+            protect?.let {
+                object : TunInterface {
+                    override fun protect(fd: Int): Boolean = it(fd)
+
+                    override fun resolveUid(protocol: Int, source: String, target: String): Int = -1
+
+                    override fun resolvePackage(uid: Int): String = ""
+                }
+            },
+        )
+    }
+
     external fun updateDNS(
         dns: String,
     )

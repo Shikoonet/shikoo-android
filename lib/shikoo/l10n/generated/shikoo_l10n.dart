@@ -500,11 +500,17 @@ abstract class ShikooL10n {
   /// **'The connection moved to “{name}” right away.'**
   String selectedMovedFirst(String name);
 
-  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced when disconnected or selectedMoved when connected. Also the first sentence of a failed switch on the phone, followed by switchKept.
+  /// First sentence when a server the app picked by itself stopped answering; followed by selectedReplaced; the app replaces it only while disconnected. Also the first sentence of a failed switch on the phone, followed by switchKept.
   ///
   /// In en, this message translates to:
   /// **'“{name}” didn\'t answer.'**
   String selectedNoAnswer(String name);
+
+  /// A subscription update took away the server of the connection, which then stopped; the app picks no other.
+  ///
+  /// In en, this message translates to:
+  /// **'Your server was removed from the subscription. Pick another.'**
+  String get selectedGone;
 
   /// While connected, from tapping another server until it answers its own ping; the connection still goes through the previous server meanwhile. Phone: bottom snackbar. TV: under the server pill. In all three switch messages {name} goes through bidiName.
   ///
@@ -877,6 +883,60 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'“{name}” isn\'t answering.\nPick another server from the list.'**
   String selectedDown(String name);
+
+  /// The connected power button while the internet does not get through the selected server; the clock stays under it.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet'**
+  String get powerNoInternet;
+
+  /// Card under the server pill: connected, but the internet check failed through this server.
+  ///
+  /// In en, this message translates to:
+  /// **'The internet doesn’t get through “{name}”.'**
+  String noInternetTitle(String name);
+
+  /// The no-internet card's first line on the TV: a name would wrap it and shrink the round button, and the server pill under the card names the server.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet through this server.'**
+  String get noInternetTitleTv;
+
+  /// Second line of the no-internet card, phone and TV.
+  ///
+  /// In en, this message translates to:
+  /// **'It may be blocked on your network.'**
+  String get noInternetBody;
+
+  /// Button of the no-internet card: shows the fastest other server in the list (the remote moves onto it on the TV).
+  ///
+  /// In en, this message translates to:
+  /// **'Choose another server'**
+  String get noInternetOther;
+
+  /// Second line of the no-internet card, phone, when the service has no other server to go to (the free streaming one does not count): its button is support (the top bar’s word) instead of noInternetOther.
+  ///
+  /// In en, this message translates to:
+  /// **'It sometimes takes a while; try again a bit later or ask support.'**
+  String get noInternetOne;
+
+  /// noInternetOne on the TV: the long line would wrap and shrink the round button. The button shows support’s QR.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again a bit later or ask support.'**
+  String get noInternetOneTv;
+
+  /// Grey card while connected to the panel's free streaming server.
+  ///
+  /// In en, this message translates to:
+  /// **'Only for Namava, Filimo, Shayda and Gapfilm'**
+  String get streamingTitle;
+
+  /// Second line of the streaming server's card.
+  ///
+  /// In en, this message translates to:
+  /// **'Other sites and apps won’t open through this server.'**
+  String get streamingBody;
 
   /// No description provided for @vpnRefused.
   ///
@@ -1496,6 +1556,42 @@ abstract class ShikooL10n {
   /// **'ShikooNet bot'**
   String get openBotTv;
 
+  /// Bold first line of the grey box on the card of a shop shelf account another provider runs (outsourced): its days and data are not the app's to show, as it may have been opened elsewhere first.
+  ///
+  /// In en, this message translates to:
+  /// **'Validity and data aren\'t shown here.'**
+  String get outsourcedTitle;
+
+  /// No description provided for @outsourcedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Its days count from the first connection. For a new one, go to the ShikooNet bot.'**
+  String get outsourcedHelp;
+
+  /// Folded card of an outsourced account, beside its protocol chip, in place of data used and the end date.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid from the first connection'**
+  String get outsourcedSummary;
+
+  /// An outsourced account the shop closed; it is never renewed, the bot sells a new one.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired. For a new one, go to the ShikooNet bot.'**
+  String get outsourcedEnded;
+
+  /// A shelf account whose OpenVPN server answered the official engine AUTH_FAILED at the customer's connect: its user or password is not taken any more. It stays until a connect of it succeeds.
+  ///
+  /// In en, this message translates to:
+  /// **'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.'**
+  String get outsourcedRefused;
+
+  /// On a shelf (OpenVPN) account's card on Windows, where no core runs OpenVPN yet: in the refused line's place, not red. The account never connects there.
+  ///
+  /// In en, this message translates to:
+  /// **'This account doesn\'t work on Windows yet; connect it on your phone or TV.'**
+  String get outsourcedNotHere;
+
   /// Phone: summaryExpired for a service that came from the Telegram account without its end date.
   ///
   /// In en, this message translates to:
@@ -1969,6 +2065,12 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Send us a report about it?'**
   String get reportCrashAsk;
+
+  /// Between reportCrashTitle and reportCrashAsk, when the core picked in Settings › Cores took the app down as it started: its picks went back to Default. Shows the card even with no crash found.
+  ///
+  /// In en, this message translates to:
+  /// **'The “{core}” core did not work on this device and went back to “Default”.'**
+  String reportCrashCore(String core);
 
   /// Opens the preview.
   ///

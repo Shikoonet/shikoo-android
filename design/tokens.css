@@ -57,6 +57,8 @@
   --color-on-positive:    light-dark(#FFFFFF, #06210F);
   --color-positive-soft:  light-dark(#DCF2E3, #153222);
   --color-warning:        light-dark(#A15C07, #F2B544); /* پینگ کند، حجم رو به اتمام */
+  --color-on-warning:     light-dark(#FFFFFF, #2A1A02); /* نوشته روی دکمهٔ «وصل، بی‌اینترنت» */
+  --color-warning-soft:   light-dark(#FAEBD5, #3A2C12); /* حلقهٔ دور همان دکمه */
   --color-danger:         light-dark(#B42318, #F5847A); /* تمام‌شده، بی‌پاسخ، خروج؛ ≥ ۴٫۵:۱ روی focus-bg */
   --color-on-danger:      light-dark(#FFFFFF, #2A0F0C);
   --color-danger-soft:    light-dark(#FCEBE9, #3A1D1A);

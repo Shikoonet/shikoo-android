@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/engine/warp.dart';
 import 'package:fl_clash/shikoo/ui/clock.dart';
@@ -64,12 +65,17 @@ void main(List<String> args) {
             shikooStagingBuild ||
             globalState.packageInfo.packageName.endsWith('.dev');
         await keepApiDirect();
+        if (Platform.isAndroid) await openDirectInbound();
         await writeRuleSets(await appPath.homeDirPath);
         await container.read(shikooIranDirectProvider.notifier).load();
         await keepIranDirect(container.read(shikooIranDirectProvider));
+        await keepStreaming(false);
         await followSubscriptions(container);
         await container.read(shikooLookProvider.notifier).load();
         await container.read(shikooCoresProvider.notifier).load();
+        await container
+            .read(shikooCoresProvider.notifier)
+            .forgetCrashed(await appPath.homeDirPath);
         await container.read(shikooWarpProvider.notifier).load();
         await container.read(shikooWarpMemoryProvider.notifier).load();
         registerWarpLicenses();
@@ -131,11 +137,15 @@ Future<void> _untilClockRight() async {
   await right.future;
 }
 
-/// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`).
+/// FlClash logs every url it fetches, tokens included (`lib/common/http.dart:25`); the door
+/// also hands a shelf account's link as a bare path.
 @visibleForTesting
 void hideLinksInLogs() {
   final print = debugPrint;
-  final link = RegExp(r'[a-z][a-z0-9+.-]*://\S+', caseSensitive: false);
+  final link = RegExp(
+    r'[a-z][a-z0-9+.-]*://\S+|/api/v1/app/sub/\S+',
+    caseSensitive: false,
+  );
   debugPrint = (message, {wrapWidth}) {
     if (message != null) shikooDiag.add('A', message);
     print(message?.replaceAll(link, '<link>'), wrapWidth: wrapWidth);

@@ -223,3 +223,37 @@ func TestAServerNoOwnerCarriesStaysMihomosAndRebinds(t *testing.T) {
 	}
 	t.Fatalf("every packet still came from port %d: the rebind did not reach the client behind the gate", heard[0])
 }
+
+// Sam, 2026-10-30: OpenVPN runs on its official engine alone, so mihomo's own client of one never dials, marked or not.
+func TestMihomoNeverDialsAnOpenvpnServerMarkedOrNot(t *testing.T) {
+	for _, mark := range []string{"", ", shikoo-owner: openvpn"} {
+		cfg := parseShikooCores(t, fmt.Sprintf("proxies:\n  - {name: O, type: openvpn, server: 127.0.0.1, port: 1, "+
+			"ca: %q, username: u, password: p%s}\n", testCA, mark))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		proxy := cfg.Proxies["O"]
+		if proxy == nil {
+			t.Fatalf("mark %q: the server was left out", mark)
+		}
+		if _, err := proxy.DialContext(ctx, toTCP); !errors.Is(err, errShikooOpenvpnOfficial) {
+			t.Fatalf("mark %q: mihomo dialed the OpenVPN server: %v", mark, err)
+		}
+		if _, err := proxy.ListenPacketContext(ctx, toUDP); !errors.Is(err, errShikooOpenvpnOfficial) {
+			t.Fatalf("mark %q: mihomo listened through the OpenVPN server: %v", mark, err)
+		}
+	}
+}
+
+func TestTestProxyDelayNeverLogsInToAnOpenvpnServerThroughMihomo(t *testing.T) {
+	before := proxyURLTest
+	t.Cleanup(func() { proxyURLTest = before })
+	var dialed error
+	proxyURLTest = func(ctx context.Context, proxy constant.Proxy, _ string) (uint16, error) {
+		_, dialed = proxy.DialContext(ctx, toTCP)
+		return 0, dialed
+	}
+	delay, err := handleTestProxyDelay(&TestProxyDelayParams{Proxy: ovpnMapping(nil), Timeout: 1000})
+	if err != nil || delay == nil || delay.Value != -1 || !errors.Is(dialed, errShikooOpenvpnOfficial) {
+		t.Fatalf("delay %+v, %v; the dial: %v", delay, err, dialed)
+	}
+}

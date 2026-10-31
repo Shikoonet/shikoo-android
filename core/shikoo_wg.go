@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -285,40 +286,26 @@ const (
 	wgRoutesBudget   = 1000
 )
 
-// Out first, each while the shipped Iranian set holds all of it: key sites' and payment gateways' blocks (Shecan).
-var iranFirst = []netip.Prefix{
-	netip.MustParsePrefix("185.143.232.0/22"), netip.MustParsePrefix("176.56.144.0/20"),
-	netip.MustParsePrefix("185.192.8.0/22"), netip.MustParsePrefix("82.99.192.0/18"),
-	netip.MustParsePrefix("185.30.4.0/22"), netip.MustParsePrefix("193.8.139.0/24"),
-	netip.MustParsePrefix("5.160.152.0/21"), netip.MustParsePrefix("89.43.0.0/20"),
-	netip.MustParsePrefix("164.215.56.0/21"), netip.MustParsePrefix("212.1.192.0/21"),
-	netip.MustParsePrefix("217.218.0.0/15"), netip.MustParsePrefix("91.212.252.0/24"),
-	netip.MustParsePrefix("5.160.192.0/18"), netip.MustParsePrefix("178.21.40.0/21"),
-	netip.MustParsePrefix("185.167.72.0/22"), netip.MustParsePrefix("91.240.180.0/22"),
-	netip.MustParsePrefix("212.80.16.0/20"), netip.MustParsePrefix("185.132.124.0/24"),
-	netip.MustParsePrefix("185.79.60.0/22"), netip.MustParsePrefix("185.210.200.0/22"),
-	netip.MustParsePrefix("91.232.64.0/22"), netip.MustParsePrefix("130.185.72.0/21"),
-	netip.MustParsePrefix("78.38.0.0/15"), netip.MustParsePrefix("77.104.64.0/18"),
-	netip.MustParsePrefix("77.237.64.0/19"), netip.MustParsePrefix("94.232.168.0/21"),
-	netip.MustParsePrefix("185.12.100.0/22"), netip.MustParsePrefix("185.188.104.0/22"),
-	netip.MustParsePrefix("185.147.176.0/22"), netip.MustParsePrefix("185.166.104.0/22"),
-	netip.MustParsePrefix("81.12.0.0/17"), netip.MustParsePrefix("2.176.0.0/12"),
-	netip.MustParsePrefix("5.106.0.0/16"), netip.MustParsePrefix("185.203.160.0/22"),
-	netip.MustParsePrefix("92.42.48.0/21"), netip.MustParsePrefix("45.89.200.0/22"),
-	netip.MustParsePrefix("185.120.208.0/20"), netip.MustParsePrefix("178.216.248.0/21"),
-	netip.MustParsePrefix("46.102.128.0/20"), netip.MustParsePrefix("94.182.0.0/16"),
-	netip.MustParsePrefix("79.175.128.0/18"), netip.MustParsePrefix("185.60.136.0/22"),
-	netip.MustParsePrefix("37.156.144.0/22"), netip.MustParsePrefix("194.41.48.0/22"),
-	netip.MustParsePrefix("194.156.140.0/22"), netip.MustParsePrefix("95.128.194.0/24"),
-	netip.MustParsePrefix("85.15.0.0/18"), netip.MustParsePrefix("185.60.32.0/22"),
-	netip.MustParsePrefix("87.107.0.0/16"), netip.MustParsePrefix("78.157.32.0/19"),
-	netip.MustParsePrefix("193.3.31.0/24"), netip.MustParsePrefix("185.25.172.0/22"),
-	netip.MustParsePrefix("195.225.232.0/24"), netip.MustParsePrefix("212.16.64.0/21"),
-	netip.MustParsePrefix("91.207.138.0/23"), netip.MustParsePrefix("185.231.112.0/22"),
-	netip.MustParsePrefix("45.157.244.0/22"), netip.MustParsePrefix("185.78.20.0/22"),
+//go:embed shikoo_iran_first.txt
+var iranFirstList string
+
+type keySite struct {
+	addr  netip.Addr
+	first bool
 }
 
-// cutIran takes Iran's blocks out up to the route budget: the key sites, then IPv4, then IPv6, each family by size.
+var iranFirst = func() (out []keySite) {
+	for _, line := range strings.Split(iranFirstList, "\n") {
+		if fields := strings.Fields(line); len(fields) > 1 {
+			if ip, err := netip.ParseAddr(fields[0]); err == nil {
+				out = append(out, keySite{ip, fields[1] == "bank" || fields[1] == "pay" || fields[1] == "key"})
+			}
+		}
+	}
+	return out
+}()
+
+// cutIran fills the route budget: Iran's /16s and wider (cheap below 13), key sites (bank, pay, key first), by size.
 func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.IPSet, excluded []string, err error) {
 	var inside netipx.IPSetBuilder
 	inside.AddSet(routes)
@@ -327,20 +314,36 @@ func cutIran(routes, iran *netipx.IPSet, excludeRoute bool) (routesLeft *netipx.
 	if err != nil {
 		return nil, nil, err
 	}
-	var order []netip.Prefix
-	for _, p := range iranFirst {
-		if all.ContainsPrefix(p) {
-			order = append(order, p)
+	blocks := all.Prefixes()
+	var sites []netip.Prefix
+	weight := map[netip.Prefix]int{}
+	for _, site := range iranFirst {
+		i, found := slices.BinarySearchFunc(blocks, site.addr, func(b netip.Prefix, ip netip.Addr) int { return b.Addr().Compare(ip) })
+		if !found {
+			i--
+		}
+		if i >= 0 && blocks[i].Contains(site.addr) {
+			if weight[blocks[i]] == 0 {
+				sites = append(sites, blocks[i])
+			}
+			weight[blocks[i]]++
+			if site.first {
+				weight[blocks[i]] += 1 << 16
+			}
 		}
 	}
-	blocks := all.Prefixes()
+	slices.SortStableFunc(sites, func(a, b netip.Prefix) int { return weight[b] - weight[a] })
 	slices.SortStableFunc(blocks, func(a, b netip.Prefix) int {
 		if a.Addr().Is4() != b.Addr().Is4() {
 			return cmp.Compare(a.Addr().BitLen(), b.Addr().BitLen())
 		}
 		return a.Bits() - b.Bits()
 	})
-	order = append(order, blocks...)
+	wide := slices.IndexFunc(blocks, func(p netip.Prefix) bool { return !p.Addr().Is4() || p.Bits() > 16 })
+	if wide < 0 {
+		wide = len(blocks)
+	}
+	order := append(append(slices.Clone(blocks[:wide]), sites...), blocks...)
 	cut := func(n int) (out, left *netipx.IPSet, fits bool, err error) {
 		var b netipx.IPSetBuilder
 		for _, p := range order[:n] {

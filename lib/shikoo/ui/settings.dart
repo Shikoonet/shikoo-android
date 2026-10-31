@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
@@ -921,14 +922,48 @@ class _Column extends StatelessWidget {
 class _ColumnPolicy extends ReadingOrderTraversalPolicy {
   @override
   bool inDirection(FocusNode currentNode, TraversalDirection direction) {
-    currentNode.nearestScope!.directionalTraversalEdgeBehavior =
-        switch (direction) {
-          TraversalDirection.up ||
-          TraversalDirection.down => TraversalEdgeBehavior.stop,
-          _ => TraversalEdgeBehavior.parentScope,
-        };
+    final scope = currentNode.nearestScope!;
+    scope.directionalTraversalEdgeBehavior = TraversalEdgeBehavior.stop;
+    final moved = super.inDirection(currentNode, direction);
+    if (moved ||
+        direction == TraversalDirection.up ||
+        direction == TraversalDirection.down) {
+      return moved;
+    }
+    if (_level(currentNode, direction) case final target?) {
+      invalidateScopeData(scope);
+      jumpFocus(target.context!, target);
+      return true;
+    }
+    scope.directionalTraversalEdgeBehavior = TraversalEdgeBehavior.parentScope;
     return super.inDirection(currentNode, direction);
   }
+}
+
+/// Across the columns, the item level with [from], else the nearest up or down; Flutter picked the other column's top.
+FocusNode? _level(FocusNode from, TraversalDirection direction) {
+  final at = from.rect;
+  final beside = [
+    for (final node
+        in from.nearestScope?.enclosingScope?.traversalDescendants ??
+            <FocusNode>[])
+      if (node is! FocusScopeNode &&
+          (direction == TraversalDirection.left
+              ? node.rect.right <= at.left
+              : node.rect.left >= at.right))
+        node,
+  ];
+  double apart(Rect r) =>
+      math.max(0, math.max(at.top - r.bottom, r.top - at.bottom));
+  double off(Rect r) => (r.center.dy - at.center.dy).abs();
+  int closer(FocusNode a, FocusNode b) {
+    final byGap = apart(a.rect).compareTo(apart(b.rect));
+    return byGap != 0 ? byGap : off(a.rect).compareTo(off(b.rect));
+  }
+
+  return beside.isEmpty
+      ? null
+      : beside.reduce((a, b) => closer(a, b) <= 0 ? a : b);
 }
 
 /// `.group-title` over its control, and a `.group-note` under it.
@@ -1451,6 +1486,7 @@ class _Row extends StatelessWidget {
 }
 
 /// Option «الف»: a kind of server and its core; its list opens from here, under it on a computer.
+/// A protocol with one core is a plain row like the version's, which the remote passes over.
 class _CoreRow extends ConsumerWidget {
   const _CoreRow({super.key, required this.row});
 
@@ -1459,11 +1495,12 @@ class _CoreRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = ShikooL10n.of(context);
+    final locked = shikooOnlyCores.containsKey(row.protocol);
     return _Row(
       title: protocolLabel(l, row.protocol),
       value: coreLabel(l, row.chosen),
-      down: true,
-      onPressed: () => unawaited(pickCore(context, ref, row)),
+      down: !locked,
+      onPressed: locked ? null : () => unawaited(pickCore(context, ref, row)),
     );
   }
 }

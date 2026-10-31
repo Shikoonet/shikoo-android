@@ -95,12 +95,14 @@ class Service {
     return await methodChannel.invokeMethod<bool>('shutdown') ?? true;
   }
 
-  /// Shikoo: the native side's -1, a start that failed, read by [getRunTime].
+  /// Shikoo: the native side's -1, a start that failed, read by [getRunTime]; -2 when the OpenVPN server refused the login.
   bool startFailed = false;
+  bool loginRefused = false;
 
   Future<DateTime?> getRunTime() async {
     final ms = await methodChannel.invokeMethod<int>('getRunTime') ?? 0;
     startFailed = ms < 0;
+    loginRefused = ms == -2;
     if (ms <= 0) {
       return null;
     }

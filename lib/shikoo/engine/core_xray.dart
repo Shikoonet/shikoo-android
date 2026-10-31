@@ -16,7 +16,7 @@ const _keys = {
   ShikooProtocol.vless:
       'uuid flow tls alpn servername client-fingerprint reality-opts network '
       'ws-opts grpc-opts xhttp-opts encryption packet-encoding xudp '
-      'packet-addr skip-cert-verify smux',
+      'packet-addr skip-cert-verify smux tcp-opts',
   ShikooProtocol.wireguard:
       'ip ipv6 private-key public-key pre-shared-key reserved allowed-ips mtu '
       'persistent-keepalive dns remote-dns-resolve',
@@ -46,8 +46,10 @@ bool _vless(Map<String, dynamic> server) {
   final reality = '${(server['reality-opts'] as Map?)?['public-key'] ?? ''}';
   final encrypted = !_oneOf(server, 'encryption', 'none');
   final host = server['server'];
+  final tcp = server['tcp-opts'];
   return server['skip-cert-verify'] != true &&
       (server['smux'] as Map?)?['enabled'] != true &&
+      (tcp == null || tcp is Map && tcp.isEmpty) &&
       _oneOf(server, 'network', 'tcp ws grpc xhttp') &&
       _oneOf(server, 'flow', 'xtls-rprx-vision xtls-rprx-vision-udp443') &&
       _oneOf(server, 'client-fingerprint', _fingerprints) &&
