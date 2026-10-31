@@ -87,6 +87,8 @@ class LinkedService {
     this.loadFailed = false,
     this.renewable,
     this.outsourced = false,
+    this.purchasedAt,
+    this.durationDays,
   });
 
   /// The statuses of shikoo-platform's `/services` that mean ended; `on_hold` has not started.
@@ -113,6 +115,10 @@ class LinkedService {
 
   /// A shelf account another provider runs: no date or volume shown (Sam); undated by the door, a closed one is dated when first seen.
   final bool outsourced;
+
+  /// When the shop sold it and for how many days: only a door of app 1.0.58 or later says, and only of a shelf account.
+  final DateTime? purchasedAt;
+  final int? durationDays;
 
   bool get botRenews => renewable != false;
 
@@ -310,7 +316,15 @@ class AccountServiceRow {
         final bool renewable => renewable,
         _ => null,
       },
-      outsourced = json['outsourced'] == true;
+      outsourced = json['outsourced'] == true,
+      purchasedAt = switch (json['purchased_at']) {
+        final String at => DateTime.tryParse(at),
+        _ => null,
+      },
+      durationDays = switch (json['duration_days']) {
+        final int days when days > 0 => days,
+        _ => null,
+      };
 
   final int id;
   final String title;
@@ -320,6 +334,8 @@ class AccountServiceRow {
   final DateTime? expiresAt;
   final bool? renewable;
   final bool outsourced;
+  final DateTime? purchasedAt;
+  final int? durationDays;
 
   String get label => location == null ? title : '$title · $location';
 }
@@ -847,6 +863,10 @@ class ShikooSignIn {
                     _ => null,
                   },
                   outsourced: s['outsourced'] == true,
+                  purchasedAt: DateTime.tryParse(
+                    s['purchasedAt'] as String? ?? '',
+                  ),
+                  durationDays: s['durationDays'] as int?,
                 ),
             ],
             total: json['total'] as int? ?? 0,
@@ -906,6 +926,8 @@ class ShikooSignIn {
               'loadFailed': s.loadFailed,
               'renewable': s.renewable,
               'outsourced': s.outsourced,
+              'purchasedAt': s.purchasedAt?.toIso8601String(),
+              'durationDays': s.durationDays,
             },
         ],
         'total': account.total,
@@ -1236,6 +1258,8 @@ class ShikooSignIn {
           loadFailed: loadFailed,
           renewable: row.outsourced ? false : row.renewable,
           outsourced: row.outsourced,
+          purchasedAt: row.purchasedAt,
+          durationDays: row.durationDays,
         ),
       );
     }

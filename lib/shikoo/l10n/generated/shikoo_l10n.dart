@@ -1592,6 +1592,54 @@ abstract class ShikooL10n {
   /// **'This account doesn\'t work on Windows yet; connect it on your phone or TV.'**
   String get outsourcedNotHere;
 
+  /// Grey line under the refused sentence of a shelf account's card when its door told the sale date but not the plan. {date} is Jalali in Persian, Gregorian in English.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought {date}'**
+  String outsourcedBought(String date);
+
+  /// The same line with the plan's length, one of the plan words below.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought {date} · {plan}'**
+  String outsourcedBoughtPlan(String date, String plan);
+
+  /// No description provided for @planMonths1.
+  ///
+  /// In en, this message translates to:
+  /// **'1 month'**
+  String get planMonths1;
+
+  /// No description provided for @planMonths2.
+  ///
+  /// In en, this message translates to:
+  /// **'2 months'**
+  String get planMonths2;
+
+  /// No description provided for @planMonths3.
+  ///
+  /// In en, this message translates to:
+  /// **'3 months'**
+  String get planMonths3;
+
+  /// No description provided for @planMonths6.
+  ///
+  /// In en, this message translates to:
+  /// **'6 months'**
+  String get planMonths6;
+
+  /// No description provided for @planYear.
+  ///
+  /// In en, this message translates to:
+  /// **'1 year'**
+  String get planYear;
+
+  /// A plan of any other length, in days.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day} other{{days} days}}'**
+  String planDays(int days);
+
   /// Phone: summaryExpired for a service that came from the Telegram account without its end date.
   ///
   /// In en, this message translates to:

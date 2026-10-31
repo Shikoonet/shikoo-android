@@ -973,6 +973,47 @@ class ShikooL10nEn extends ShikooL10n {
       'This account doesn\'t work on Windows yet; connect it on your phone or TV.';
 
   @override
+  String outsourcedBought(String date) {
+    return 'Bought $date';
+  }
+
+  @override
+  String outsourcedBoughtPlan(String date, String plan) {
+    return 'Bought $date · $plan';
+  }
+
+  @override
+  String get planMonths1 => '1 month';
+
+  @override
+  String get planMonths2 => '2 months';
+
+  @override
+  String get planMonths3 => '3 months';
+
+  @override
+  String get planMonths6 => '6 months';
+
+  @override
+  String get planYear => '1 year';
+
+  @override
+  String planDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$daysString days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';
 
   @override

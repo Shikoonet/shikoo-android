@@ -2623,6 +2623,39 @@ void main() {
     expect(held, hasLength(1));
   });
 
+  test('a shelf account carries its sale and plan to its service, and no '
+      'other service does', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final id = container.read(currentProfileIdProvider);
+    void account({required bool shelf}) => container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 42,
+                title: 'user1001',
+                status: 'active',
+                profileId: id,
+                outsourced: shelf,
+                purchasedAt: DateTime.utc(2026, 9, 30, 8),
+                durationDays: 30,
+              ),
+            ],
+          ),
+        );
+
+    account(shelf: true);
+    var service = container.read(shikooStateProvider).service!;
+    expect(
+      (service.purchasedAt, service.durationDays),
+      (DateTime.utc(2026, 9, 30, 8), 30),
+    );
+    account(shelf: false);
+    service = container.read(shikooStateProvider).service!;
+    expect((service.purchasedAt, service.durationDays), (null, null));
+  });
+
   test('a link at the door is fetched with the app version, a panel link '
       'without', () async {
     final (:container, :core, :proxies, :setup) = _home();

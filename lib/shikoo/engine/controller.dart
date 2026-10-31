@@ -143,6 +143,8 @@ class ShikooService {
     this.outsourced = false,
     this.loginRefused = false,
     this.notHere = false,
+    this.purchasedAt,
+    this.durationDays,
   });
 
   final bool bridgeLeg;
@@ -179,6 +181,10 @@ class ShikooService {
 
   /// An outsourced (OpenVPN) account no core here runs, as on Windows: its card says so, and it never connects.
   final bool notHere;
+
+  /// A shelf account's sale, as its door told it; null for any other service.
+  final DateTime? purchasedAt;
+  final int? durationDays;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -718,9 +724,9 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final route = ref.watch(shikooWarpRouteProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
-  final outsourced = {
+  final shelf = {
     for (final linked in ref.watch(shikooAccountProvider).services)
-      if (linked.outsourced) ?linked.profileId,
+      if (linked.outsourced) ?linked.profileId: linked,
   };
   final loginRefused = ref.watch(_loginRefusedProvider);
   final specs = ref.watch(shikooCoreSpecsProvider);
@@ -743,9 +749,11 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     pasted: pasted.contains(profile.id),
     revoked: revoked.contains(profile.id),
     number: unnamed.indexOf(profile.id) + 1,
-    outsourced: outsourced.contains(profile.id),
+    outsourced: shelf.containsKey(profile.id),
     loginRefused: loginRefused.contains(profile.id),
-    notHere: outsourced.contains(profile.id) && !openvpnHere,
+    notHere: shelf.containsKey(profile.id) && !openvpnHere,
+    purchasedAt: shelf[profile.id]?.purchasedAt,
+    durationDays: shelf[profile.id]?.durationDays,
   );
 
   final group = _mainGroup(ref);
@@ -1025,6 +1033,8 @@ ShikooService _serviceFrom(
   bool outsourced = false,
   bool loginRefused = false,
   bool notHere = false,
+  DateTime? purchasedAt,
+  int? durationDays,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
@@ -1049,6 +1059,8 @@ ShikooService _serviceFrom(
     outsourced: outsourced,
     loginRefused: loginRefused,
     notHere: notHere,
+    purchasedAt: purchasedAt,
+    durationDays: durationDays,
   );
 }
 
