@@ -2,16 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/constant"
 	"github.com/miekg/dns"
 )
 
@@ -137,6 +140,11 @@ func TestARebuildReusesTheAddressOfTheStartBeforeForItsHostOnly(t *testing.T) {
 		t.Fatalf("a rebuild for the same host asked DNS: networks %d, device %d more", network.Load(), device.Load()-asked)
 	}
 	wantAddress(t, "other.shikoo.test", true, "203.0.113.7")
+	asked = network.Load()
+	wantAddress(t, "other.shikoo.test", true, "203.0.113.7")
+	if network.Load() != asked {
+		t.Fatalf("the rebuild's new host was asked again: %d more queries", network.Load()-asked)
+	}
 }
 
 func TestAFreshStartResolvesAgainWhatTheLastStartKept(t *testing.T) {
@@ -311,5 +319,109 @@ func TestAnOpenvpnRemoteAddressNeedsNoDNSAndAnUnansweredNameStaysTheName(t *test
 		if err != nil || !strings.Contains(plan.Profile, "\nremote "+remote+" 1194\n") {
 			t.Errorf("remote %s: profile %q, %v; want it as it came", remote, plan, err)
 		}
+	}
+}
+
+func TestAFullStopForgetsTheAddressItsSessionPinned(t *testing.T) {
+	protectRecorder(t, true)
+	systemDNSIs(t)
+	deviceDNSIs(t, answeringDNS(t, "198.51.100.1"))
+	wantAddress(t, "wg.shikoo.test", false, "198.51.100.1")
+
+	ownerProtect.set(nil, nil)
+	if pin := lastEndpoint.Load(); pin != nil {
+		t.Fatalf("a full stop cleared the protector and left the pin %+v", *pin)
+	}
+	protectRecorder(t, true)
+	systemDNSIs(t, answeringDNS(t, "203.0.113.50"))
+	wantAddress(t, "wg.shikoo.test", true, "203.0.113.50")
+}
+
+func TestASwitchTakingTheProtectorAgainKeepsThePin(t *testing.T) {
+	protectRecorder(t, true)
+	systemDNSIs(t, answeringDNS(t, "203.0.113.60"))
+	deviceDNSIs(t, answeringDNS(t, "198.51.100.1"))
+	wantAddress(t, "wg.shikoo.test", false, "198.51.100.1")
+
+	protectRecorder(t, true)
+	wantAddress(t, "wg.shikoo.test", true, "198.51.100.1")
+}
+
+// lib.go builds only for Android with cgo, so its source is read: mihomo's tunnel taking over ends the owner session.
+func TestAMihomoTunnelStartForgetsTheAddressAnOwnerSessionPinned(t *testing.T) {
+	source, err := os.ReadFile("lib.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := regexp.MustCompile(`(?s)func handleStartTun\(.*?\n\}`).Find(source)
+	if !strings.Contains(string(body), "\tlastEndpoint.Store(nil)\n") {
+		t.Fatal("handleStartTun no longer forgets the pinned endpoint")
+	}
+}
+
+func homeConfig(t *testing.T, mapping map[string]any) {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"proxies": []any{mapping}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	was := constant.Path.HomeDir()
+	constant.SetHomeDir(home)
+	t.Cleanup(func() { constant.SetHomeDir(was) })
+	if err := os.WriteFile(filepath.Join(home, "config.yaml"), body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// What VpnService sends as held decides each core's endpoint: a held rebuild takes the pin, a fresh start the device's answer.
+func TestPrepareOwnerGivesWireGuardItsEndpointByWhetherTheVPNWasHeld(t *testing.T) {
+	protectRecorder(t, true)
+	systemDNSIs(t)
+	homeConfig(t, wgMapping(t, map[string]any{"server": "wg.shikoo.test"}))
+	t.Cleanup(func() { ownerMu.Lock(); ownerPrepared = nil; ownerMu.Unlock() })
+	for _, c := range []struct {
+		held bool
+		want string
+	}{{true, "198.51.100.31"}, {false, "198.51.100.32"}} {
+		deviceDNSIs(t, answeringDNS(t, "198.51.100.32"))
+		lastEndpoint.Store(&pinnedEndpoint{"wg.shikoo.test", netip.MustParseAddr("198.51.100.31")})
+		if _, err := handlePrepareOwner(&PrepareOwnerParams{Core: "wireguard", Server: "wg", Held: c.held}); err != nil {
+			t.Fatal(err)
+		}
+		ownerMu.Lock()
+		uapi := ownerPrepared.uapi
+		ownerMu.Unlock()
+		if !strings.Contains(uapi, "endpoint="+c.want+":51820\n") {
+			t.Errorf("held=%v: the peer's endpoint is not %s in\n%s", c.held, c.want, uapi)
+		}
+	}
+}
+
+func TestPrepareOwnerGivesOpenvpnItsRemoteByWhetherTheVPNWasHeld(t *testing.T) {
+	protectRecorder(t, true)
+	systemDNSIs(t)
+	homeConfig(t, ovpnMapping(map[string]any{"server": "ov.shikoo.test"}))
+	t.Cleanup(func() { ovpnPrepared.Store(nil) })
+	for _, c := range []struct {
+		held bool
+		want string
+	}{{true, "198.51.100.31"}, {false, "198.51.100.32"}} {
+		deviceDNSIs(t, answeringDNS(t, "198.51.100.32"))
+		lastEndpoint.Store(&pinnedEndpoint{"ov.shikoo.test", netip.MustParseAddr("198.51.100.31")})
+		answer, err := handlePrepareOwner(&PrepareOwnerParams{Core: "openvpn", Server: "ov", Held: c.held})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan, ok := answer.(*ovpnPlan); !ok || !strings.Contains(plan.Profile, "\nremote "+c.want+" 1194\n") {
+			t.Errorf("held=%v: the remote is not %s in %+v", c.held, c.want, answer)
+		}
+	}
+}
+
+// Core.invokeAndWait gives a prepare 15 s; the lookups before it are bounded by these three.
+func TestTheEndpointLookupsStayInsideTheCoreCallsCap(t *testing.T) {
+	if total := dnsListWait + dnsBudget + deviceTimeout; total >= 15*time.Second {
+		t.Fatalf("a held rebuild may spend %v in lookups, and Core.prepareOwner gives up at 15 s", total)
 	}
 }

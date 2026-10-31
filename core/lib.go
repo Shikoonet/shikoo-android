@@ -223,6 +223,7 @@ func handleStartTun(callback unsafe.Pointer, fd int, stack, address, dns string)
 	tunLock.Lock()
 	defer tunLock.Unlock()
 	stopTunLocked()
+	lastEndpoint.Store(nil)
 	if fd == 0 {
 		if callback != nil {
 			releaseObject(callback)

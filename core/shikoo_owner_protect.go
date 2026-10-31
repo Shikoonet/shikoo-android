@@ -28,6 +28,9 @@ func (o *ownerProtector) set(protect func(fd int) bool, release func()) {
 	last := o.release
 	o.protect, o.release = protect, release
 	o.mu.Unlock()
+	if protect == nil {
+		lastEndpoint.Store(nil)
+	}
 	if last != nil {
 		last()
 	}

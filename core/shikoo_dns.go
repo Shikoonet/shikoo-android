@@ -17,7 +17,7 @@ var systemDNS atomic.Pointer[[]string]
 
 var errNoSystemDNS = errors.New("no system DNS list")
 
-// lastEndpoint is the host the last owner start resolved and the address it got, which a held VPN's rebuild reuses.
+// lastEndpoint: the host and address of the owner session running unbroken (a full stop or mihomo's tunnel clears it).
 var lastEndpoint atomic.Pointer[pinnedEndpoint]
 
 type pinnedEndpoint struct {
@@ -35,6 +35,7 @@ func rememberSystemDNS(servers []string) {
 const (
 	dnsListWait      = time.Second
 	dnsServerTimeout = 2 * time.Second
+	deviceTimeout    = 5 * time.Second
 )
 
 var dnsBudget = 6 * time.Second
@@ -80,7 +81,7 @@ func pinnedHost(host string, held bool) string {
 }
 
 func lookupDevice(host string) ([]netip.Addr, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), deviceTimeout)
 	defer cancel()
 	ips, err := deviceResolver().LookupNetIP(ctx, "ip", host)
 	if err == nil && len(ips) == 0 {

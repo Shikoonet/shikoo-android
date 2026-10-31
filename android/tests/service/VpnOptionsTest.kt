@@ -205,10 +205,23 @@ class OwnerArgumentsTest {
     fun heldGoesUnderTheKeyGoReads() = assertEquals("held", OWNER_HELD)
 
     // Whether a switch held the VPN is the one fact Go cannot see: its DNS decides on it (core/shikoo_dns.go).
+    private val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+
     @Test
-    fun `a start tells Go whether the VPN it takes was held by a switch`() {
-        val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
-        assertTrue(service.contains("val held = heldTun.take()"))
-        assertTrue(Regex("""Core\.prepareOwner\(.*\bheld\)""").containsMatchIn(service))
+    fun `a start reads whether a switch held the VPN before it holds a blocking one`() {
+        val start = service.substringAfter("private fun handleStart(options: VpnOptions) {")
+        val take = start.indexOf("val held = heldTun.take()")
+        assertTrue(take >= 0 && start.indexOf("holdBlocked(options)") > take)
+    }
+
+    @Test
+    fun `a start hands the answer itself to prepareOwner`() {
+        assertTrue(Regex("""Core\.prepareOwner\(.*,\s*held\)""").containsMatchIn(service))
+    }
+
+    @Test
+    fun `prepareOwner puts the answer itself in the call`() {
+        val core = File("../core/src/main/java/com/follow/clash/core/Core.kt").readText()
+        assertTrue(core.contains(".put(OWNER_HELD, held)"))
     }
 }
