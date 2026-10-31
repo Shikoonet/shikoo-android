@@ -56,6 +56,7 @@ var (
 	wintunNew = newWintun
 
 	ovpnLive    atomic.Pointer[ovpnWin]
+	ovpnLiveMu  sync.Mutex
 	ovpnLatest  atomic.Int64
 	ovpnCounter atomic.Int64
 )
@@ -209,7 +210,9 @@ func ovpnWinStart(device string, mapping map[string]any, iranDirect bool, physic
 	if !ovpnWinStop() {
 		return errors.New("the last session did not stop")
 	}
+	ovpnLiveMu.Lock()
 	ovpnLive.Store(s)
+	ovpnLiveMu.Unlock()
 	// First, so mihomo's own client of this server is shut before ours dials, and the server is carried at once.
 	s.report(false)
 	go s.run()
@@ -223,6 +226,10 @@ func ovpnWinStop() bool {
 		return true
 	}
 	s.stopping.Store(true)
+	if s.stuck.Load() {
+		s.kick()
+		return false
+	}
 	if s.halt() {
 		return true
 	}
@@ -238,7 +245,7 @@ func (s *ovpnWin) halt() bool {
 			return true
 		default:
 		}
-		s.lib.halt()
+		s.kick()
 		select {
 		case <-s.ended:
 			return true
@@ -246,6 +253,15 @@ func (s *ovpnWin) halt() bool {
 		}
 	}
 	return false
+}
+
+// kick halts the DLL's one session, and only while s is still the live one: a newer session may have started.
+func (s *ovpnWin) kick() {
+	ovpnLiveMu.Lock()
+	defer ovpnLiveMu.Unlock()
+	if ovpnLive.Load() == s {
+		s.lib.halt()
+	}
 }
 
 func (s *ovpnWin) stale() bool {

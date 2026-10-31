@@ -175,6 +175,9 @@ func TestOpenvpnsStateWordFollowsItsSessionAndItsFailure(t *testing.T) {
 		t.Errorf("up: %q", got)
 	}
 	ovpnEnded.Store(&ovpnOutcome{state: stateRefused})
+	if got := ovpnOwnerState(); got != stateRefused {
+		t.Errorf("a session that cannot be stopped is still carried, but its failure is the word: %q", got)
+	}
 	ovpnState(&ovpnStateParams{Session: 1})
 	if got := ovpnOwnerState(); got != stateRefused {
 		t.Errorf("ended refused: %q", got)

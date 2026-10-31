@@ -248,14 +248,14 @@ type ovpnOutcome struct {
 }
 
 func ovpnOwnerState() string {
+	if ended := ovpnEnded.Load(); ended != nil {
+		return ended.state
+	}
 	if now := ovpnNow.Load(); now != nil {
 		if now.up {
 			return stateUp
 		}
 		return stateConnecting
-	}
-	if ended := ovpnEnded.Load(); ended != nil {
-		return ended.state
 	}
 	return ""
 }

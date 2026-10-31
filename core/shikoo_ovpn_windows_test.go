@@ -607,3 +607,42 @@ func TestAnAdapterFailureOfAnOldSessionLeavesTheNewOneRunning(t *testing.T) {
 		t.Errorf("the new session was halted by the old one's adapter: live %v, halts %d", ovpnLive.Load() == current, again.haltCount())
 	}
 }
+
+func TestAStuckEngineCostsOneHaltLoopAnApplyAndTheCoreFailsAtOnce(t *testing.T) {
+	engine, _ := withEngine(t)
+	engine.ignore = 1 << 30
+	tries := ovpnStopTries
+	ovpnStopTries = 4
+	was := ownerTun
+	ownerTun = &ownerTunnel{key: "old"}
+	t.Cleanup(func() { ovpnStopTries, engine.ignore, ownerTun = tries, 0, was })
+	startFake(t, engine, nil)
+
+	// What recreateOwnerTun does for a new key: close the last tunnel, start the next, which cleans up after itself.
+	closeOwnerTun()
+	if err := startOwnerTun("ShikooNet", "new", "openvpn", ovpnMapping(nil), false); err == nil {
+		t.Fatal("a session started over an engine that would not stop")
+	}
+	if halts := engine.haltCount(); halts > ovpnStopTries+2 {
+		t.Errorf("%d halts in one apply: one loop of %d, and a kick at most for each later stop", halts, ovpnStopTries)
+	}
+	if got := shikooOwnerNow(); got != (ShikooOwner{Core: "openvpn", Server: "ov", State: stateFailed}) {
+		t.Errorf("the core says %+v: the app reads connecting for 30 s instead of the failure", got)
+	}
+}
+
+func TestAHaltReachesTheEngineOnlyWhileTheSessionIsTheLiveOne(t *testing.T) {
+	engine, _ := withEngine(t)
+	session := func() *ovpnWin { return &ovpnWin{lib: &engine.ovpnLib, ended: make(chan struct{})} }
+	old, current := session(), session()
+	ovpnLive.Store(current)
+	old.kick()
+	if engine.haltCount() != 0 {
+		t.Error("a session that is not the live one halted the DLL's live session")
+	}
+	current.kick()
+	if engine.haltCount() != 1 {
+		t.Errorf("%d halts after the live session's own", engine.haltCount())
+	}
+	ovpnLive.Store(nil)
+}
