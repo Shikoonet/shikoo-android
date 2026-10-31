@@ -2882,33 +2882,71 @@ void main() {
       expect(service(container).loginRefused, isFalse);
     });
 
-    test('another service lists no OpenVPN server where no core runs it', () {
-      List<String> listed(ShikooPlatform platform) => [
-        ...mainGroupOf({
-          'proxies': [
-            {'name': 'O', 'type': 'openvpn'},
-            {'name': 'V', 'type': 'vless'},
-          ],
-          'proxy-groups': [
+    test(
+      'another service lists an OpenVPN server where its core runs: Android, '
+      "and Windows' tunnel mode, not its proxy mode",
+      () {
+        List<String> listed(ShikooPlatform platform, {bool tunnel = true}) => [
+          ...mainGroupOf(
             {
-              'name': 'PROXY',
-              'type': 'select',
-              'proxies': ['O', 'V'],
+              'proxies': [
+                {'name': 'O', 'type': 'openvpn'},
+                {'name': 'V', 'type': 'vless'},
+              ],
+              'proxy-groups': [
+                {
+                  'name': 'PROXY',
+                  'type': 'select',
+                  'proxies': ['O', 'V'],
+                },
+              ],
             },
-          ],
-        }, specs: readyHere(platform))!.servers.keys,
-      ];
-      expect(listed(ShikooPlatform.android), ['O', 'V']);
-      expect(listed(ShikooPlatform.windows), ['V']);
-    });
+            specs: readyHere(platform),
+            tunnel: tunnel,
+          )!.servers.keys,
+        ];
+        expect(listed(ShikooPlatform.android), ['O', 'V']);
+        expect(listed(ShikooPlatform.windows), ['O', 'V']);
+        expect(listed(ShikooPlatform.windows, tunnel: false), ['V']);
+      },
+    );
 
-    test('on Windows, where no core runs OpenVPN yet, its servers are not '
-        'offered, and a shelf account says so and its connect does '
-        'nothing', () async {
+    ProviderContainer windowsShelf(
+      List<String> words, {
+      ShikooMode mode = ShikooMode.tunnel,
+      Future<String> Function()? ask,
+      List<int>? asks,
+    }) {
+      var asked = 0;
+      final container = openvpnHome([
+        shikooDesktopProvider.overrideWithValue(true),
+        tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
+        ownerSessionProvider.overrideWithValue(
+          ask ??
+              () async {
+                asks?.add(asked);
+                return words[math.min(asked++, words.length - 1)];
+              },
+        ),
+      ]);
+      unawaited(container.read(shikooModeProvider.notifier).save(mode));
+      markShelf(container);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      return container;
+    }
+
+    test('on Windows in proxy mode, no tunnel for the official engine to own: '
+        'OpenVPN servers are not offered, and a shelf account says so and its '
+        'connect does nothing', () async {
       final container = openvpnHome([
         shikooDesktopProvider.overrideWithValue(true),
         nativeStartFailedProvider.overrideWithValue(() => true),
       ]);
+      unawaited(
+        container.read(shikooModeProvider.notifier).save(ShikooMode.proxy),
+      );
       final controller = container.read(shikooControllerProvider);
       expect(container.read(shikooStateProvider).servers.map((s) => s.name), [
         'هلند ۱',
@@ -2923,6 +2961,173 @@ void main() {
       expect((state.connection, state.lastError), (ShikooConnection.off, null));
       expect(setupOf(container).runs, isEmpty);
     });
+
+    test("on Windows in tunnel mode a shelf account's servers are offered and "
+        'it has no line saying it does not work here', () {
+      final container = windowsShelf(['up']);
+      expect(container.read(shikooStateProvider).servers.map((s) => s.name), [
+        'آلمان ۱',
+        'هلند ۱',
+      ]);
+      expect(service(container).notHere, isFalse);
+    });
+
+    test("Go's word is what a Windows OpenVPN start waits for: the adapter "
+        'being up is not enough, and the start comes up with «up»', () async {
+      final asks = <int>[];
+      final container = windowsShelf([
+        'connecting',
+        'connecting',
+        'up',
+      ], asks: asks);
+      setupOf(container).tunnel = DateTime.now();
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(asks, [0, 1, 2]);
+      final state = container.read(shikooStateProvider);
+      expect((state.connection, state.lastError), (ShikooConnection.on, null));
+      expect(setupOf(container).runs, [true]);
+    });
+
+    test("Go's «failed» ends the start at once with «وصل نشد» and stops the "
+        'core, with no refusal', () async {
+      final asks = <int>[];
+      final container = windowsShelf(['connecting', 'failed'], asks: asks);
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(asks, [0, 1]);
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+      expect(setupOf(container).runs, [true, false]);
+    });
+
+    test("Go's «refused» is the refused line, as on Android: it stays through "
+        'a ping', () async {
+      final container = windowsShelf(['refused']);
+      final controller = container.read(shikooControllerProvider);
+      await controller.connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isTrue);
+      expect(setupOf(container).runs, [true, false]);
+
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+    });
+
+    test('a refusal left from an earlier start is not read into the next: a '
+        'start that comes up clears it', () async {
+      var word = 'refused';
+      final container = windowsShelf(const [], ask: () async => word);
+      final controller = container.read(shikooControllerProvider);
+      await controller.connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+
+      word = 'up';
+      setupOf(container).tunnel = DateTime.now();
+      await controller.connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isFalse);
+      expect(container.read(shikooStateProvider).lastError, isNull);
+    });
+
+    test('a usual service whose start Go says refused keeps the usual '
+        '«وصل نشد»', () async {
+      final container = windowsShelf(['refused']);
+      markShelf(container, outsourced: false);
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('Go that never says «up» ends the start at the wait, as «وصل نشد», '
+        'and stops the core', () async {
+      final was = connectWait;
+      connectWait = const Duration(milliseconds: 100);
+      addTearDown(() => connectWait = was);
+      final container = windowsShelf(['connecting']);
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+      expect(setupOf(container).runs, [true, false]);
+    });
+
+    test('Go is asked only for an OpenVPN pick on Windows: not for another '
+        'protocol there, nor for OpenVPN on Android', () async {
+      for (final (desktop, pick) in [(true, 'هلند ۱'), (false, 'آلمان ۱')]) {
+        final asks = <int>[];
+        final container = openvpnHome([
+          shikooDesktopProvider.overrideWithValue(desktop),
+          tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
+          ownerSessionProvider.overrideWithValue(() async {
+            asks.add(0);
+            return 'failed';
+          }),
+        ]);
+        markShelf(container);
+        container
+            .read(profilesActionProvider.notifier)
+            .updateCurrentSelectedMap('PROXY', pick);
+        setupOf(container).tunnel = DateTime.now();
+        await container.read(shikooControllerProvider).connect();
+        await pumpEventQueue();
+        expect(asks, isEmpty, reason: 'desktop $desktop, $pick');
+        expect(
+          container.read(shikooStateProvider).connection,
+          ShikooConnection.on,
+        );
+      }
+    });
+
+    for (final connecting in [false, true]) {
+      test('the tunnel mode left for the proxy mode while OpenVPN is '
+          '${connecting ? 'connecting' : 'connected'}: the app stops, shows '
+          'off, and starts nothing', () async {
+        final container = windowsShelf(['up']);
+        final setup = setupOf(container)..tunnel = DateTime.now();
+        final controller = container.read(shikooControllerProvider);
+        if (connecting) {
+          setup.startGate = Completer<void>();
+          unawaited(controller.connect());
+        } else {
+          await controller.connect();
+        }
+        await pumpEventQueue();
+        expect(
+          container.read(shikooStateProvider).connection,
+          connecting ? ShikooConnection.connecting : ShikooConnection.on,
+        );
+
+        final change = controller.setMode(ShikooMode.proxy);
+        setup.startGate?.complete();
+        await change;
+        await pumpEventQueue();
+        final state = container.read(shikooStateProvider);
+        expect(
+          (state.connection, state.lastError, state.notice),
+          (ShikooConnection.off, null, null),
+        );
+        expect(service(container).notHere, isTrue);
+        expect(setup.runs.last, isFalse);
+        expect(setup.runs.where((run) => run), hasLength(1));
+      });
+    }
   });
 
   test(

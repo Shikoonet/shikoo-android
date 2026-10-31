@@ -334,9 +334,9 @@ void main() {
     );
   });
 
-  test('the shipped official OpenVPN core is ready on Android only: there '
-      'OpenVPN servers are offered and their row shown, on Windows in neither '
-      'mode', () {
+  test('the shipped official OpenVPN core is ready on Android and Windows: '
+      'OpenVPN servers are offered and their row shown, on Windows in tunnel '
+      'mode only', () {
     const ovpn = {'name': 'ovpn', 'type': 'openvpn'};
     final android = readyHere(ShikooPlatform.android);
     final windows = readyHere(ShikooPlatform.windows);
@@ -352,9 +352,21 @@ void main() {
 
     expect(offeredHere(ovpn, android), isTrue);
     expect(rows(android, true).single.chosen, ShikooCore.openvpn);
-    for (final tunnel in [true, false]) {
-      expect(offeredHere(ovpn, windows, tunnel: tunnel), isFalse);
-      expect(rows(windows, tunnel), isEmpty);
+    expect(offeredHere(ovpn, windows), isTrue);
+    expect(rows(windows, true).single.chosen, ShikooCore.openvpn);
+    expect(offeredHere(ovpn, windows, tunnel: false), isFalse);
+    expect(rows(windows, false), isEmpty);
+  });
+
+  test('an owner core ready on Windows is one the Go core registers in its '
+      'Windows build, under the same name', () {
+    final registered = _ownersBuiltFor('windows');
+    for (final MapEntry(key: core, value: spec) in readyHere(
+      ShikooPlatform.windows,
+    ).entries) {
+      if (spec.ready && spec.shape == ShikooShape.ownsTunnel) {
+        expect(registered, contains(core.name));
+      }
     }
   });
 
@@ -636,6 +648,10 @@ void main() {
         'android/service/src/main/java/com/follow/clash/service/OpenVpn.kt',
       ).readAsStringSync(),
       contains('CONNECT_SECONDS = ${openvpnConnectLimit.inSeconds}L'),
+    );
+    expect(
+      File('core/shikoo_ovpn_windows.go').readAsStringSync(),
+      contains('ovpnConnectLimit = ${openvpnConnectLimit.inSeconds} * time'),
     );
   });
 }

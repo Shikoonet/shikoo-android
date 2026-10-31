@@ -79,6 +79,9 @@ typedef ShikooOpened = ({
 
 const connectTimeout = Duration(seconds: 30);
 
+@visibleForTesting
+Duration connectWait = connectTimeout;
+
 /// A core that keeps dying is left down: a profile it cannot run would restart it forever.
 const coreRevives = 3;
 const coreReviveWindow = Duration(minutes: 2);
@@ -540,6 +543,26 @@ final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
 );
 
 final _carryingProvider = _cell<ShikooCarrying?>(null);
+
+/// Go's word on an owner session (`state` of `shikooOwner`, core/shikoo_owner.go): '' for none or no answer.
+final ownerSessionProvider = Provider<Future<String> Function()>(
+  (ref) => () async {
+    try {
+      final data = await ref
+          .read(coreHandlerProvider)
+          .shikooOwner()
+          .timeout(ownerAnswerLimit, onTimeout: () => null);
+      return '${data?['state'] ?? ''}';
+    } catch (_) {
+      return '';
+    }
+  },
+);
+
+const _sessionUp = 'up';
+const _sessionRefused = 'refused';
+
+final _sessionProvider = _cell('');
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
 typedef _Extras = ({String? announce, String? supportUrl, String? account});
@@ -1548,6 +1571,20 @@ class ShikooController {
     }
   }
 
+  /// Windows has no service to block on the official OpenVPN engine's start: Go says when its session is up or why it ended.
+  bool get _askGo =>
+      _ref.read(shikooDesktopProvider) &&
+      _ref.read(shikooStateProvider).selectedServer?.core == ShikooCore.openvpn;
+
+  Future<DateTime?> _sessionRunTime() async {
+    final word = await _ref.read(ownerSessionProvider)();
+    _ref.read(_sessionProvider.notifier).set(word);
+    return word == _sessionUp ? _nativeRunTime() : null;
+  }
+
+  bool _sessionEnded() =>
+      const {'failed', _sessionRefused}.contains(_ref.read(_sessionProvider));
+
   Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
     _set(_Intent(connecting: true, error: error));
@@ -1563,13 +1600,16 @@ class ShikooController {
     } catch (_) {
       started = false;
     }
+    final askGo = _askGo;
     final since = started
         ? await waitForTunnel(
-            _nativeRunTime,
-            timeout: connectTimeout,
+            askGo ? _sessionRunTime : _nativeRunTime,
+            timeout: connectWait,
             stillWanted: () => attempt == _attempt,
             paused: () => !foreground,
-            failed: _ref.read(nativeStartFailedProvider),
+            failed: askGo
+                ? _sessionEnded
+                : _ref.read(nativeStartFailedProvider),
           )
         : null;
     if (attempt != _attempt) return;
@@ -1583,7 +1623,8 @@ class ShikooController {
       return;
     }
     if (started &&
-        _ref.read(nativeLoginRefusedProvider)() &&
+        (_ref.read(nativeLoginRefusedProvider)() ||
+            (askGo && _ref.read(_sessionProvider) == _sessionRefused)) &&
         (_ref.read(shikooStateProvider).service?.outsourced ?? false)) {
       _loginRefused(_current, refused: true);
     }
