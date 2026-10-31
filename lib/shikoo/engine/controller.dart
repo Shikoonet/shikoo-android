@@ -1581,7 +1581,6 @@ class ShikooController {
     }
   }
 
-  /// Windows has no service to block on the official OpenVPN engine's start: Go says when its session is up or why it ended.
   bool get _askGo =>
       _ref.read(shikooDesktopProvider) &&
       _ref.read(shikooStateProvider).selectedServer?.core == ShikooCore.openvpn;
