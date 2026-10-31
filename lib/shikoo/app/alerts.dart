@@ -4,6 +4,7 @@ import 'dart:ui' show Locale;
 
 import 'package:fl_clash/plugins/tile.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
@@ -225,7 +226,7 @@ class ShikooAlerts with TileListener, WidgetsBindingObserver {
   /// At most once a day for each server, kept across starts: the account stays refused until support acts.
   Future<void> refused(String server) async {
     final prefs = await SharedPreferences.getInstance();
-    final day = DateTime.now().toIso8601String().substring(0, 10);
+    final day = shikooNow().toIso8601String().substring(0, 10);
     final sent = {
       for (final MapEntry(:key, :value)
           in (jsonDecode(prefs.getString(_refusedKey) ?? '{}') as Map).entries)

@@ -1,4 +1,5 @@
 import 'package:fl_clash/shikoo/app/alerts.dart';
+import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:flutter/services.dart';
@@ -584,6 +585,20 @@ void main() {
       await set(refused(on: false));
       await set(refused());
       expect(posted(), ['refused']);
+    });
+
+    test('a day is the unit: later the same day is none, the next day is '
+        'one, and the clock is the server-corrected one', () async {
+      addTearDown(() => shikooSkew = Duration.zero);
+      shikooSkew = DateTime(2026, 10, 31, 12).difference(DateTime.now());
+      await alerts.refused('Germany 5');
+      expect(posted(), ['refused']);
+      shikooSkew += const Duration(hours: 3);
+      await alerts.refused('Germany 5');
+      expect(posted(), ['refused'], reason: 'the same day, three hours on');
+      shikooSkew += const Duration(days: 1);
+      await alerts.refused('Germany 5');
+      expect(posted(), ['refused', 'refused'], reason: 'the next day');
     });
 
     test('none while the app is on screen, after the customer\'s own stop, '
