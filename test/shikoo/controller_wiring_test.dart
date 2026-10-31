@@ -3184,6 +3184,101 @@ void main() {
       expect(await ask(), '');
     });
 
+    test('a held OpenVPN pick in the proxy mode survives a refresh of '
+        'the groups and a ping round', () async {
+      final container = windowsShelf(['up']);
+      markShelf(container, outsourced: false);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.setMode(ShikooMode.proxy);
+      await pumpEventQueue(times: 50);
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+            Proxy(name: 'هلند ۲', type: 'Vless'),
+          ],
+        ),
+      ];
+      await pumpEventQueue(times: 200);
+      await controller.pingAll();
+      await pumpEventQueue(times: 200);
+      expect(container.read(selectedMapProvider)['PROXY'], 'آلمان ۱');
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.connection, state.selected, state.notice),
+        (ShikooConnection.off, null, null),
+      );
+      expect(setupOf(container).runs, isEmpty);
+    });
+
+    for (final held in [true, false]) {
+      test(
+        'the customer connects while a listed ping round is under '
+        'way, ${held ? 'on a held OpenVPN pick' : 'with no pick'} in the proxy mode: a server that runs here starts',
+        () async {
+          final (:container, :core, :proxies, :setup) = _home([
+            shikooDesktopProvider.overrideWithValue(true),
+            tunAuthorizeProvider.overrideWithValue(
+              () async => ShikooAdmin.ready,
+            ),
+            ownerSessionProvider.overrideWithValue(() async => 'up'),
+          ]);
+          container.read(groupsProvider.notifier).value = [
+            const Group(
+              type: GroupType.Selector,
+              name: 'PROXY',
+              hidden: false,
+              all: [
+                Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
+                Proxy(name: 'هلند ۱', type: 'Vless'),
+              ],
+            ),
+          ];
+          final gate = Completer<void>();
+          when(() => core.asyncTestDelay(any(), any())).thenAnswer((
+            call,
+          ) async {
+            await gate.future;
+            return Delay(
+              name: call.positionalArguments[1] as String,
+              url: '',
+              value: 95,
+            );
+          });
+          unawaited(
+            container.read(shikooModeProvider.notifier).save(ShikooMode.tunnel),
+          );
+          markShelf(container, outsourced: false);
+          if (held) {
+            container
+                .read(profilesActionProvider.notifier)
+                .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+          }
+          setup.tunnel = DateTime.now();
+          final controller = container.read(shikooControllerProvider);
+          await pumpEventQueue();
+          await controller.setMode(ShikooMode.proxy);
+          await pumpEventQueue(times: 50);
+          unawaited(controller.pingAll());
+          await pumpEventQueue(times: 50);
+          unawaited(controller.connect());
+          await pumpEventQueue(times: 50);
+          gate.complete();
+          await pumpEventQueue(times: 500);
+          final state = container.read(shikooStateProvider);
+          expect(
+            (state.connection, state.selected),
+            (ShikooConnection.on, 'هلند ۱'),
+          );
+        },
+      );
+    }
+
     for (final connecting in [false, true]) {
       test('the tunnel mode left for the proxy mode while OpenVPN is '
           '${connecting ? 'connecting' : 'connected'}: the app stops, shows '

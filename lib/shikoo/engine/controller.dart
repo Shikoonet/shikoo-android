@@ -2242,7 +2242,7 @@ class ShikooController {
     if (names.isEmpty) return;
     final running = _running;
     final intent = _ref.read(_intentProvider);
-    if (_held) return;
+    if (_held && !intent.waiting) return;
     final pinging = _pinging || _again;
     // Connect pressed while finding takes this round's first answer, not the round before's best.
     int? ping(String name) =>
