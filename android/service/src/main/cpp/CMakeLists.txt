@@ -105,7 +105,7 @@ if (WIN32)
     target_include_directories(ovpn3 PRIVATE ${tap_windows_dir})
     target_compile_options(ovpn3 PRIVATE /bigobj /W3 /wd4200 /wd4146 /Gy /Gw)
     target_link_options(ovpn3 PRIVATE /OPT:REF /OPT:ICF)
-    target_link_libraries(ovpn3 PRIVATE ws2_32 iphlpapi fwpuclnt wininet setupapi rpcrt4 wtsapi32)
+    target_link_libraries(ovpn3 PRIVATE ws2_32 iphlpapi)
 else ()
     target_compile_options(ovpn3 PRIVATE -Os -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections
             -fdata-sections -Wno-sign-compare -Wno-unused-parameter)

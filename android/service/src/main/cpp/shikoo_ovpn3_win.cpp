@@ -2,6 +2,7 @@
 // tunnel (wintun, routes, DNS) stays Go's; OpenVPN 3 only hands packets across.
 #include <client/ovpncli.cpp>
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -33,6 +34,7 @@ class GoTun;
 std::mutex runningMu;
 struct Client *running = nullptr;
 GoTun *active = nullptr;
+std::atomic<int> backlog{0};
 
 struct Client : OpenVPNClient {
     const ShikooOvpnCallbacks *go = nullptr;
@@ -165,8 +167,12 @@ class GoTun : public TunClient {
     int vpn_mtu() const override { return state->mtu; }
 
     // On a Go goroutine: the refcount is not thread-safe, so no Ptr; the session's thread checks active instead.
+    // Drops as a NIC would: past what a tun read takes (writing it throws, ending the session) or a full queue.
     void post(const std::uint8_t *packet, size_t size) {
+        if (size > (*config.frame)[Frame::READ_TUN].payload() || backlog >= 1024) return;
+        ++backlog;
         openvpn_io::post(io, [tun = this, bytes = std::vector<std::uint8_t>(packet, packet + size)] {
+            --backlog;
             {
                 std::lock_guard<std::mutex> lock(runningMu);
                 if (active != tun) return;
@@ -218,6 +224,8 @@ void answer(const std::string &text, char *out, uintptr_t cap) {
 extern "C" __declspec(dllexport) void shikoo_ovpn3_run(const char *profile, const char *username,
                                                        const char *password, const ShikooOvpnCallbacks *go, char *out,
                                                        uintptr_t cap) noexcept {
+    // Packets still queued when the last session ended went, uncounted, with its client's io_context.
+    backlog = 0;
     try {
         Client client;
         client.go = go;
