@@ -58,19 +58,38 @@ func shikooOwnerOf(server string) (shikooOwnerEngine, bool) {
 
 var errShikooOwnerCarries = errors.New("an owner core carries this server")
 
-// shikooOwnerGate: one session per key or username on the server, so mihomo's client waits while an owner carries it.
-type shikooOwnerGate struct{ C.ProxyAdapter }
+// OpenVPN runs on its official engine alone (Sam, 2026-10-30): mihomo's own client of one never dials, marked or not.
+var errShikooOpenvpnOfficial = errors.New("OpenVPN runs on its official engine alone")
 
-func (gate shikooOwnerGate) DialContext(ctx context.Context, metadata *C.Metadata) (C.Conn, error) {
+// shikooOwnerIdlePings: a core's ping, from the mapping alone, of a marked server it does not carry (none: mihomo's).
+var shikooOwnerIdlePings = map[string]func(mapping map[string]any, params *TestDelayParams) *Delay{}
+
+// shikooOwnerGate: one session per key or username on the server, so mihomo's client waits while an owner carries it.
+type shikooOwnerGate struct {
+	C.ProxyAdapter
+	mapping map[string]any
+}
+
+func (gate *shikooOwnerGate) shut() error {
+	if gate.Type() == C.OpenVPN {
+		return errShikooOpenvpnOfficial
+	}
 	if _, carried := shikooOwnerOf(gate.Name()); carried {
-		return nil, errShikooOwnerCarries
+		return errShikooOwnerCarries
+	}
+	return nil
+}
+
+func (gate *shikooOwnerGate) DialContext(ctx context.Context, metadata *C.Metadata) (C.Conn, error) {
+	if err := gate.shut(); err != nil {
+		return nil, err
 	}
 	return gate.ProxyAdapter.DialContext(ctx, metadata)
 }
 
-func (gate shikooOwnerGate) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (C.PacketConn, error) {
-	if _, carried := shikooOwnerOf(gate.Name()); carried {
-		return nil, errShikooOwnerCarries
+func (gate *shikooOwnerGate) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (C.PacketConn, error) {
+	if err := gate.shut(); err != nil {
+		return nil, err
 	}
 	return gate.ProxyAdapter.ListenPacketContext(ctx, metadata)
 }
@@ -78,11 +97,9 @@ func (gate shikooOwnerGate) ListenPacketContext(ctx context.Context, metadata *C
 // Before mihomo holds cfg, so groups and the tunnel see only the gated proxy.
 func shikooOwnerGates(raw *config.RawConfig, cfg *config.Config) {
 	for _, mapping := range raw.Proxy {
-		if _, marked := mapping[shikooOwnerKey]; !marked {
-			continue
-		}
-		if proxy, ok := cfg.Proxies[fmt.Sprint(mapping["name"])].(*adapter.Proxy); ok {
-			proxy.ProxyAdapter = shikooOwnerGate{proxy.ProxyAdapter}
+		proxy, ok := cfg.Proxies[fmt.Sprint(mapping["name"])].(*adapter.Proxy)
+		if _, marked := mapping[shikooOwnerKey]; ok && (marked || proxy.Type() == C.OpenVPN) {
+			proxy.ProxyAdapter = &shikooOwnerGate{proxy.ProxyAdapter, mapping}
 		}
 	}
 }
@@ -96,10 +113,18 @@ func shikooOwnerTakes(server string) {
 }
 
 func shikooUngated(proxy C.ProxyAdapter) C.ProxyAdapter {
-	if gate, ok := proxy.(shikooOwnerGate); ok {
+	if gate, ok := proxy.(*shikooOwnerGate); ok {
 		return gate.ProxyAdapter
 	}
 	return proxy
+}
+
+func shikooGateOf(server string) *shikooOwnerGate {
+	if proxy, ok := lookupProxy(server).(*adapter.Proxy); ok {
+		gate, _ := proxy.ProxyAdapter.(*shikooOwnerGate)
+		return gate
+	}
+	return nil
 }
 
 func init() {
@@ -110,9 +135,16 @@ func init() {
 	methodHandlers[asyncTestDelayMethod] = func(call *MethodCall, response MethodResponse) {
 		var params TestDelayParams
 		if call.decodeArguments(&params) == nil {
-			if owner, carried := shikooOwnerOf(params.ProxyName); carried && owner.ping != nil {
+			owner, carried := shikooOwnerOf(params.ProxyName)
+			if carried && owner.ping != nil {
 				safeGo(response, func() { response.success(owner.ping(&params)) })
 				return
+			}
+			if gate := shikooGateOf(params.ProxyName); gate != nil && !carried {
+				if idle := shikooOwnerIdlePings[fmt.Sprint(gate.mapping[shikooOwnerKey])]; idle != nil {
+					safeGo(response, func() { response.success(idle(gate.mapping, &params)) })
+					return
+				}
 			}
 		}
 		mihomoDelay(call, response)

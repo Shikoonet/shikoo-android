@@ -10,8 +10,6 @@ const ShikooCoreSpec openvpnSpec = (
 /// How long the official engine waits for its server before the start fails: OpenVpn.kt's CONNECT_SECONDS.
 const openvpnConnectLimit = Duration(seconds: 20);
 
-/// A dialer chain and extra peer info are mihomo's alone (core/shikoo_ovpn.go refuses them).
-bool _serves(ShikooProtocol protocol, Map<String, dynamic> server) =>
-    protocol == ShikooProtocol.openvpn &&
-    !server.containsKey('dialer-proxy') &&
-    !server.containsKey('peer-info');
+/// OpenVPN's only core: a dialer chain or extra peer info, which core/shikoo_ovpn.go refuses, fails its start.
+bool _serves(ShikooProtocol protocol, Map<String, dynamic> _) =>
+    protocol == ShikooProtocol.openvpn;

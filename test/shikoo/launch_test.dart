@@ -40,4 +40,15 @@ void main() {
     expect(forget, isNonNegative);
     expect(forget, lessThan(source.indexOf('bootstrap.init(')));
   });
+
+  test('main takes back a crashed core once the picks are loaded, before the '
+      'app that applies them runs', () {
+    final source = File('lib/shikoo/app/main.dart').readAsStringSync();
+    final load = source.indexOf('read(shikooCoresProvider.notifier).load()');
+    final forget = source.indexOf('.forgetCrashed(await appPath.homeDirPath)');
+
+    expect(load, isNonNegative);
+    expect(forget, greaterThan(load));
+    expect(forget, lessThan(source.indexOf('child: const ShikooApp()')));
+  });
 }

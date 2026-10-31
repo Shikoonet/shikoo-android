@@ -4,9 +4,14 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	ovpn "github.com/metacubex/mihomo/transport/openvpn"
+	"github.com/metacubex/mihomo/tunnel"
 )
 
 // askDelay is Dart's ping of a server; a server outside the applied config gets mihomo's -1.
@@ -53,6 +58,28 @@ func TestTheOwnerAnswersThePingOfTheServerItCarries(t *testing.T) {
 	if got := askDelay(t, ""); got != -1 || pinged.Load() != 1 {
 		t.Errorf("a nameless ping with nothing carried: answer %d after %d engine pings, want mihomo's -1",
 			got, pinged.Load())
+	}
+}
+
+func TestAMarkedServerItsOwnerDoesNotCarryGetsTheCoresIdlePing(t *testing.T) {
+	carrying := fakeOwner(t, func(params *TestDelayParams) *Delay { return &Delay{Name: params.ProxyName, Value: 42} })
+	shikooOwnerIdlePings["fake-owner"] = ovpnIdlePing
+	t.Cleanup(func() { delete(shikooOwnerIdlePings, "fake-owner") })
+	address, heard := resetServer(t, "udp", nil, ovpn.PControlHardResetServerV2, 0)
+	host, port, _ := net.SplitHostPort(address)
+	cfg := parseShikooCores(t, fmt.Sprintf(`proxies:
+  - {name: ov, type: openvpn, server: %s, port: %s, ca: %q, username: shikoo, password: secret, shikoo-owner: fake-owner}
+`, host, port, testCA))
+	proxies, providers := tunnel.Proxies(), tunnel.Providers()
+	tunnel.UpdateProxies(cfg.Proxies, providers)
+	t.Cleanup(func() { tunnel.UpdateProxies(proxies, providers) })
+
+	if got := askDelay(t, "ov"); got <= 0 || got == 42 || len(heard()) != 1 {
+		t.Errorf("answer %d after the server heard %d packets, want the reset's own time from one", got, len(heard()))
+	}
+	*carrying = "ov"
+	if got := askDelay(t, "ov"); got != 42 || len(heard()) != 1 {
+		t.Errorf("carried: answer %d after the server heard %d packets, want the engine's 42", got, len(heard()))
 	}
 }
 

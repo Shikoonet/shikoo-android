@@ -61,10 +61,14 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - A `ShikooCoresNotifier` in `lib/shikoo/engine/settings.dart`, beside `ShikooLookNotifier` (`:52-89`): one
   SharedPreferences key per row, `shikoo.core.<protocol>` = the core's name.
 - Device only: never sent to the server, and not backed up (`allowBackup="false"`, `SHIKOO_PATCHES.md` row 10).
-- No key means the protocol's default, `shikooDefaultCores` in `cores.dart`: **OpenVPN defaults to the official core**
-  (Sam, 2026-10-23), every other protocol to mihomo. Changing a default is one line there; WireGuard's waits for the
-  phone test. A default this build does not have ready, or one a server cannot use, means mihomo until it is, with
-  nothing for the user to do. A pick of the user's, mihomo included, is stored and always wins over the default.
+- No key means mihomo. A pick this build does not have ready, or one a server cannot use, means mihomo until it is,
+  with nothing for the user to do.
+- **OpenVPN runs on its official core alone** (`shikooOnlyCores` in `cores.dart`; Sam, 2026-10-30): never on mihomo
+  or sing-box, with no fallback. A stored OpenVPN pick is never honoured, its settings row is a plain «رسمی» the
+  remote passes over, and where that core cannot run (Windows, until its own official core; Windows' proxy mode) its
+  servers are not offered, the row is hidden, and a shelf account's card says it does not work there yet. A start
+  the official engine fails is «وصل نشد», its AUTH_FAILED a shelf account's refused line (`getRunTime` -2), and a
+  second engine death within a minute ends the connection (`coreDown`) instead of handing it to mihomo.
 - A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
 - Loaded in the shell before `runApp`, as the look is (`lib/shikoo/app/main.dart:62`), so the first config apply already
   sees it.
@@ -80,9 +84,9 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | Its sockets out of the tunnel | it dials through mihomo's `component/dialer`, which brings Android's protect (`core/lib.go:148-160`), Windows' interface binding and real DNS instead of fake-ip. Xray takes a dialer through `internet.UseAlternativeSystemDialer`; its `RegisterDialerController` has `DefaultSocketHook`'s signature. | Android: by leaving our package out. Windows: by binding to the physical interface. |
 | "Update through the server" (`_fetch`, `ShikooRoute.server`) | unchanged: the request goes to mihomo's local port, then the selected server, through the core the user picked | **Android: it fails while the owner core carries the server:** the request goes to mihomo's local port, and mihomo's own client of that server is gated (§4, "one identity, one session"), since a second session with the same key or username would take the owner's. Only "direct" works then. **Windows:** a plain request, which the owner's tunnel carries by the server (`ownerAside`). "Direct" is unchanged: with our package out of the VPN, every request of the app goes direct anyway. |
 | Changing the core | re-apply the config (`applyProfile(silence: true)`, as `followSubscriptions` does, `account.dart:616-623`); the tunnel stays up and the old engine stops after mihomo holds the new config | disconnect, then connect, as `setMode` does (`controller.dart:1231-1239`) |
-| Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address |
+| Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address. Only the customer's switch: the app never moves the server of a tunnel up or starting, and an update that takes that server away stops the tunnel with a notice (`SelectedGone`) and picks none till the customer picks a server or connects (Sam, 2026-10-30). A rebuild of the same server (`_reconnect`: Iran switch, core change, new key, owner death) keeps the pick, the app's usage-multiplied one too |
 | Lifecycle | lives with the applied config, inside `applyConfig` (Go). It runs while disconnected too, so pings work. | started and stopped by `VpnService` on Android, and by the core in TUN mode on Windows |
-| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7), the official OpenVPN default included |
+| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7); OpenVPN's are not offered (§2) |
 
 **Sam's behaviour decisions (2026-10-22, through the lead):**
 - A core this build lacks shows switched off with «به‌زودی». So the state carries every core that can carry a protocol,
@@ -142,14 +146,16 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - The reconnect rule, in `selectServer` and `setCore`: while connected, reconnect when the selected server's *tunnel
     key* changes. The key is `mihomo` for mihomo and for behind-mihomo cores, and `<core>/<server>` for an owner core.
     `selectService` needs none: it runs only while off (`serviceInstead` returns null when on or connecting).
-  - `ownerAside(read, url)` (route «ج», Windows only): while an owner core carries the server in use, the app's own
-    "direct" requests take mihomo's local port, whose DIRECT rules leave by the physical card, since Windows cannot
-    keep the app out of that tunnel. It covers `_fetch`'s direct leg and every internet check (`ownerProbes`), where
+  - `ownerAside(read, url)` (route «ج»): while an owner core carries the server in use, the app's own "direct"
+    requests take mihomo's local port, whose DIRECT rules leave beside the tunnel, since that tunnel holds the app
+    (Windows cannot leave it out; Android keeps it in every VPN, SHIKOO_PATCHES 72). On Android the subscription's
+    direct leg takes mihomo's `shikoo-direct` inbound instead, as the mixed port sends a subscription host by the
+    server. It covers `_fetch`'s direct leg and every internet check (`ownerProbes`), where
     that port's own 502 or 407 counts as a failure, not a site's answer. The server leg, asked for or as the fallback,
     is then a plain request: the owner's tunnel holds the app, so it leaves by the server in use, and mihomo's gated
     client stays shut. So a freshly pasted link, which has no DIRECT rule yet, still arrives by the server. Before
     these legs the app asks Go again (two seconds at most): an engine that stopped since connect leaves them to
-    mihomo. Null on Android, whose VPN leaves our package out, and whenever mihomo carries the server.
+    mihomo. Null whenever mihomo carries the server.
   - Not done: the diagnostics report keeps its keys. The door refuses a whole report over a key it does not know
     (`diag.dart`), so the choice goes into the timeline instead.
 
@@ -196,6 +202,19 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
   - `ping` answers a delay test of that server from the engine's own session, on a goroutine of its own, within the
     test's timeout. **It is required in practice:** with nil, mihomo answers, the gate below makes that a failure, so
     the server in use shows dead and every `setCore` to the owner core ends `failed`.
+  - A server marked for the engine that it does not carry is pinged by mihomo's own client of it, unless the engine
+    puts a function in `shikooOwnerIdlePings[core]`: then that answers, from the mapping the gate keeps
+    (`shikooOwnerGate.mapping`). OpenVPN's (`ovpnIdlePing`, 2026-10-29) is the same hard reset as its `ping`, so the
+    list sorts its servers by a real answer before connecting and sends no username or password, where mihomo's
+    client opened a whole session with them to ping. WireGuard has none. A service not opened is pinged through
+    `testProxyDelay` with no gate; `_probeOther` marks its mapping as the applied config would, and
+    `handleTestProxyDelay` hands a marked one to the same function. A UDP reset with no answer in 500 ms goes once
+    more, timed from the first. Such a number is one round trip against the others' whole test, so the app's own
+    pick (`fastest`, `ping.dart`) takes it only when no ordinary whole test of that service answered, yet before a
+    usage-multiplied one, and connect holds it, as it holds a usage-multiplied answer, till an ordinary whole test
+    answers or the round ends, then picks once (Sam, 2026-10-29 and 10-30); an OpenVPN-only service picks among its
+    own by it. Held off (`shikooOwnerHeldOffProvider`), mihomo pings the server with a whole test and the rule does
+    not apply.
   - When `carrying` first returns a server, the engine calls `shikooOwnerTakes(server)` (below).
   - The app asks after the tunnel is up and again before its own requests take an owner's road
     (`ownerCarryingProvider`). Dart caps the wait at two seconds (`ownerAnswerLimit`), since the desktop RPC restarts
@@ -218,9 +237,9 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     core or Go says an owner carries one, and cleared only by that apply: Go's later "none" (an engine that died, or
     one that took the server after the question) cannot undo a client already closed.
   - **Known limits:** `testProxyDelay`, the ping of servers of a service not opened, builds its own client from the
-    mapping and has no gate; it reaches the carried server only if another service holds the same key or username. And
-    the gate knows a server by its name: two servers under different names with one key or username both pass it. The
-    panel sends no such pair today (h2's verifier).
+    mapping (OpenVPN's official engine excepted, above) and has no gate; it reaches the carried server only if another
+    service holds the same key or username. And the gate knows a server by its name: two servers under different names
+    with one key or username both pass it. The panel sends no such pair today (h2's verifier).
 - `go.mod`/`go.sum`: Go 1.27 and the `go 1.27` line come from base (build-engineer); each package adds its own
   requires.
 
@@ -229,7 +248,7 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
 - Owner (ه۲ builds it, ه۳ reuses it): `VpnOptions` (Kotlin `service/models/VpnOptions.kt:15-26`, Dart
   `lib/models/core.dart:44`, filled at `lib/providers/state/system.dart:214-228`) gains the core and the tunnel's
   address, DNS, MTU and routes. `handleStart` (`VpnService.kt:119-170`) uses them instead of `IPV4_ADDRESS`, `DNS` and
-  `MTU` (`:292-300`), leaves our package out (`:238`), and hands the fd to the engine instead of `Core.startTun`. A C++
+  `MTU` (`:292-300`), keeps FlClash's app rules (SHIKOO_PATCHES 72), and hands the fd to the engine instead of `Core.startTun`. A C++
   engine (OpenVPN 3) configures the builder through its own Kotlin class and its `tun_builder` callbacks (ه۳).
 - A separate-process core, only if «س» says sing-box must be one: `lib<name>.so` run as a program
   (`useLegacyPackaging = true`, `android/app/build.gradle.kts:56`), started and stopped by the service, never by

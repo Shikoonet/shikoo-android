@@ -15,6 +15,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart'
     show coreName, flclashVersion, mihomoVersion;
@@ -34,6 +35,8 @@ const _subLink =
     '&k8=Eightchr&k7=Sevench';
 const _portUser = 'QwmZpLkr';
 const _portPass = 'HvBnTyUiOpAsDfGh';
+const _directUser = 'quietmeadow';
+const _directPass = 'silverharbor';
 const _laterPass = 'JkLzXcVbNmQwErTy';
 const _signInToken = 'TokenSecretAbcDefGhi';
 const _pollSecret = 'PollSecretXyzUvwRst';
@@ -54,6 +57,7 @@ const _plants = [
   'token Zk3Qp9Lx2Vb7Nc4Rt8Wy1Ha6Jd5Ks0Mf3Gq9Xe2Uo7_',
   'wg yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=',
   'port $_portUser $_portPass',
+  'direct user $_directUser pass $_directPass',
   'secrets $_signInToken $_pollSecret $_liveCode',
   'path PlantedPathToken and QueryTokenValue alone',
   'query Eightchr alone',
@@ -110,6 +114,8 @@ const _needles = [
   'Bmk=',
   _portUser,
   _portPass,
+  _directUser,
+  _directPass,
   _laterPass,
   _signInToken,
   _pollSecret,
@@ -266,6 +272,8 @@ Future<_Harness> _harness({
   Future<List<String>> Function(ProviderContainer)? windows,
   List<Override> overrides = const [],
 }) async {
+  shikooDirectAuth = (port: 41000, user: _directUser, pass: _directPass);
+  addTearDown(() => shikooDirectAuth = null);
   SharedPreferences.setMockInitialValues({
     'shikoo.account': jsonEncode({
       'token': _signInToken,
@@ -395,6 +403,7 @@ ShikooState _serversAt(
   ShikooSwitch? switching,
   ShikooNotice? notice,
   ShikooError? lastError,
+  bool connectedNoTraffic = false,
 }) => ShikooState(
   connection: connection,
   lastError: lastError,
@@ -409,6 +418,7 @@ ShikooState _serversAt(
   selected: selected,
   switching: switching,
   notice: notice,
+  connectedNoTraffic: connectedNoTraffic,
 );
 
 const _noChecks = (
@@ -1401,7 +1411,6 @@ void main() {
           notice: const SilentReplaced(
             silent: _secretNamed,
             replacement: _netherlands,
-            moved: true,
           ),
         ),
       );
@@ -1574,4 +1583,30 @@ void main() {
       });
     },
   );
+
+  test('the timeline names a connected server the internet does not get '
+      'through, once', () async {
+    const on = ShikooConnection.on;
+    final h = await _harness(
+      state: _serversAt(ShikooConnection.off, selected: _germany),
+    );
+    await h.diag.start(h.home.path);
+    await h.diag.attach(h.container);
+    for (final none in [false, true, true, false]) {
+      h.state.set(_serversAt(on, selected: _germany, connectedNoTraffic: none));
+      await pumpEventQueue();
+    }
+    final report = await h.diag.report(
+      trigger: 'test',
+      about: _about,
+      checks: _noChecks,
+    );
+    expect(
+      [
+        for (final line in (report['log']! as List).cast<String>())
+          if (line.substring(21).startsWith('T no traffic')) line.substring(23),
+      ],
+      ['no traffic Germany 5'],
+    );
+  });
 }

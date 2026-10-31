@@ -108,8 +108,11 @@ struct Client : OpenVPNClient {
 
     void acc_event(const AppCustomControlMessageEvent &) override {}
 
+    // The engine logs the server's certificates, host and address: debug builds only.
     void log(const LogInfo &line) override {
+#ifndef NDEBUG
         __android_log_print(ANDROID_LOG_DEBUG, "ovpn3", "%s", line.text.c_str());
+#endif
     }
 
     void external_pki_cert_request(ExternalPKICertRequest &request) override {
@@ -126,7 +129,7 @@ struct Client : OpenVPNClient {
 std::mutex runningMu;
 Client *running = nullptr;
 
-// OpenVpn.kt's REFUSED: the engine never started on this profile.
+// The start's reason when the engine never started on this profile.
 const std::string refused = "refused: ";
 } // namespace
 

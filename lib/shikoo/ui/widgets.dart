@@ -918,7 +918,8 @@ String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
 
 class StatusChip extends StatelessWidget {
   const StatusChip({super.key, required this.status, this.label})
-    : disabled = false;
+    : disabled = false,
+      neutral = false;
 
   /// A finished service of the account; one the shop turned off reads «غیرفعال شد», not expired.
   StatusChip.linked(LinkedService service, {super.key})
@@ -926,11 +927,18 @@ class StatusChip extends StatelessWidget {
           ? ShikooServiceStatus.exhausted
           : ShikooServiceStatus.expired,
       disabled = service.disabled,
-      label = null;
+      label = null,
+      neutral = false;
+
+  const StatusChip.neutral(String this.label, {super.key})
+    : status = ShikooServiceStatus.active,
+      disabled = false,
+      neutral = true;
 
   final ShikooServiceStatus status;
   final bool disabled;
   final String? label;
+  final bool neutral;
 
   @override
   Widget build(BuildContext context) {
@@ -943,7 +951,9 @@ class StatusChip extends StatelessWidget {
         vertical: Space.s1,
       ),
       decoration: ShapeDecoration(
-        color: ok ? t.c.positiveSoft : t.c.dangerSoft,
+        color: neutral
+            ? t.c.surfaceSunken
+            : (ok ? t.c.positiveSoft : t.c.dangerSoft),
         shape: const StadiumBorder(),
       ),
       child: Text(
@@ -951,7 +961,7 @@ class StatusChip extends StatelessWidget {
         style: t.text(
           t.s.caption,
           weight: FontWeight.w700,
-          color: ok ? t.c.positive : t.c.danger,
+          color: neutral ? t.c.textMuted : (ok ? t.c.positive : t.c.danger),
         ),
       ),
     );
@@ -970,6 +980,7 @@ class PowerButton extends StatefulWidget {
     this.focusNode,
     this.restingLabel,
     this.switching = false,
+    this.warn = false,
   });
 
   final ShikooConnection connection;
@@ -983,6 +994,9 @@ class PowerButton extends StatefulWidget {
 
   /// What a button with no [onPressed] says; "No service" unless given.
   final String? restingLabel;
+
+  /// Connected, but the internet does not get through: amber, the clock still counting.
+  final bool warn;
 
   @override
   State<PowerButton> createState() => _PowerButtonState();
@@ -1033,9 +1047,10 @@ class _PowerButtonState extends State<PowerButton>
     final l = ShikooL10n.of(context);
     final conn = widget.connection;
     final on = conn == ShikooConnection.on;
+    final warn = on && widget.warn;
     final error = conn == ShikooConnection.error;
     final halo = switch (conn) {
-      ShikooConnection.on => c.positiveSoft,
+      ShikooConnection.on => warn ? c.warningSoft : c.positiveSoft,
       ShikooConnection.error => c.dangerSoft,
       _ => null,
     };
@@ -1045,7 +1060,7 @@ class _PowerButtonState extends State<PowerButton>
       _ when !enabled => widget.restingLabel ?? l.powerNoService,
       ShikooConnection.off => l.powerConnect,
       ShikooConnection.connecting => l.powerConnecting,
-      ShikooConnection.on => l.powerOn,
+      ShikooConnection.on => warn ? l.powerNoInternet : l.powerOn,
       ShikooConnection.error => l.powerFailed,
     };
     final sub = switch (conn) {
@@ -1059,13 +1074,15 @@ class _PowerButtonState extends State<PowerButton>
             : (shikooDesktop ? l.subRetryDesktop : l.subRetryTouch),
       _ => null,
     };
-    final fg = on ? c.onPositive : c.text;
+    final fg = warn ? c.onWarning : (on ? c.onPositive : c.text);
     Widget face(bool focused, double size) => Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: !enabled ? c.surfaceSunken : (on ? c.positive : c.surface),
+        color: !enabled
+            ? c.surfaceSunken
+            : (warn ? c.warning : (on ? c.positive : c.surface)),
         boxShadow: !enabled ? null : (focused ? c.raisedShadow : c.cardShadow),
       ),
       child: Semantics(

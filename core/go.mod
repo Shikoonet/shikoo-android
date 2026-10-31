@@ -16,6 +16,8 @@ replace github.com/sagernet/sing-box v1.14.3 => ./Clash.Meta/shikoo-sing-box
 
 replace github.com/sagernet/sing-openvpn v0.1.1-0.20260929151220-7c3045dbddce => ./Clash.Meta/shikoo-sing-openvpn
 
+replace github.com/xtls/xray-core v1.260327.1-0.20261021115930-1b1647cd9ddf => ./Clash.Meta/shikoo-xray-core
+
 require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/klauspost/compress v1.20.0

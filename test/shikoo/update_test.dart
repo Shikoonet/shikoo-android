@@ -41,7 +41,17 @@ class _Controller implements ShikooController {
   }
 
   @override
-  Future<void> connect() async => events.add('connect');
+  Future<void> connectAgain() async => events.add('connect again');
+
+  @override
+  Future<void> whileStopped(
+    Future<void> Function() step, {
+    required bool Function() startAgain,
+  }) async {
+    await disconnect();
+    await step();
+    if (startAgain()) await connectAgain();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -892,7 +902,7 @@ void main() {
         () => exe().writeAsBytesSync(utf8.encode('not the sealed file')),
       );
       await update.install();
-      expect(events, ['disconnect', 'connect']);
+      expect(events, ['disconnect', 'connect again']);
       expect(started, isEmpty);
       expect(exe().existsSync(), isFalse);
       expect(offer()!.phase, UpdatePhase.offered);
@@ -910,7 +920,7 @@ void main() {
           if (unreadable) Directory(exe().path).createSync();
         });
         await update.install();
-        expect(events, ['disconnect', 'connect'], reason: '$unreadable');
+        expect(events, ['disconnect', 'connect again'], reason: '$unreadable');
         expect(started, isEmpty);
         expect(offer()!.phase, UpdatePhase.offered);
         expect(offer()!.error, UpdateError.checksum);
@@ -928,7 +938,7 @@ void main() {
               ..lockSync(FileLock.exclusive),
       );
       await update.install();
-      expect(events, ['disconnect', 'connect']);
+      expect(events, ['disconnect', 'connect again']);
       expect(started, isEmpty);
       expect(exe().existsSync(), isTrue);
       expect(offer()!.error, UpdateError.checksum);
@@ -1013,7 +1023,7 @@ void main() {
       await until(() => started.isNotEmpty);
       installer.exited.complete(2);
       await installing;
-      expect(events, ['disconnect', 'start', 'connect']);
+      expect(events, ['disconnect', 'start', 'connect again']);
       expect(offer()!.phase, UpdatePhase.ready);
       expect(offer()!.error, UpdateError.install);
     });
@@ -1022,7 +1032,7 @@ void main() {
       startFails = true;
       final update = await ready();
       await update.install();
-      expect(events, ['disconnect', 'start', 'connect']);
+      expect(events, ['disconnect', 'start', 'connect again']);
       expect(offer()!.error, UpdateError.install);
     });
 

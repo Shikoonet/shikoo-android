@@ -142,6 +142,17 @@ void openLink(
   );
 }
 
+void openBot(BuildContext context, {required bool isTV, required String? bot}) {
+  final l = ShikooL10n.of(context);
+  openLink(
+    context,
+    isTV: isTV,
+    link: ShikooLinks.openBot(bot),
+    title: l.openBotTitleTv,
+    help: l.openBotHelpTv,
+  );
+}
+
 /// «تمدید» of one service: the bot's page for [id], or its list with [name]'s username to find.
 void openRenew(
   BuildContext context, {

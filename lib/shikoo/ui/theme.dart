@@ -67,6 +67,8 @@ class ShikooColors {
     required this.onPositive,
     required this.positiveSoft,
     required this.warning,
+    required this.onWarning,
+    required this.warningSoft,
     required this.danger,
     required this.dangerSoft,
     required this.onDanger,
@@ -93,6 +95,8 @@ class ShikooColors {
   final Color onPositive;
   final Color positiveSoft;
   final Color warning;
+  final Color onWarning;
+  final Color warningSoft;
   final Color danger;
   final Color dangerSoft;
   final Color onDanger;
@@ -127,6 +131,8 @@ class ShikooColors {
     onPositive: Color(0xFFFFFFFF),
     positiveSoft: Color(0xFFDCF2E3),
     warning: Color(0xFFA15C07),
+    onWarning: Color(0xFFFFFFFF),
+    warningSoft: Color(0xFFFAEBD5),
     danger: Color(0xFFB42318),
     dangerSoft: Color(0xFFFCEBE9),
     onDanger: Color(0xFFFFFFFF),
@@ -172,6 +178,8 @@ class ShikooColors {
     onPositive: Color(0xFF06210F),
     positiveSoft: Color(0xFF153222),
     warning: Color(0xFFF2B544),
+    onWarning: Color(0xFF2A1A02),
+    warningSoft: Color(0xFF3A2C12),
     danger: Color(0xFFF5847A),
     dangerSoft: Color(0xFF3A1D1A),
     onDanger: Color(0xFF2A0F0C),

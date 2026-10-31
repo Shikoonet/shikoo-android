@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Applies every patch here to the core submodule (one already applied is skipped), and sing-tun/, sing-box/ and
-# sing-openvpn/ to copies of those modules.
+# Applies every patch here to the core submodule (one already applied is skipped), and sing-tun/, sing-box/,
+# sing-openvpn/ and xray-core/ to copies of those modules.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -57,7 +57,8 @@ for patch in "$root"/tools/core-patches/sing-tun/*.patch; do
   echo "sing-tun patch $(basename "$patch"): applied to a copy of $singtun"
 done
 
-# sing-box and sing-openvpn, the same way: core/go.mod requires each and replaces it with a patched copy made here.
+# sing-box, sing-openvpn and xray-core, the same way: core/go.mod requires each and replaces it with a patched copy
+# made here.
 patch_module() { # module version folder row
   local required
   required=$(go -C "$root/core" list -m -f '{{.Version}}' "$1")
@@ -80,6 +81,7 @@ patch_module() { # module version folder row
 }
 patch_module github.com/sagernet/sing-box v1.14.3 sing-box ۵۷
 patch_module github.com/sagernet/sing-openvpn v0.1.1-0.20260929151220-7c3045dbddce sing-openvpn ۵۸
+patch_module github.com/xtls/xray-core v1.260327.1-0.20261021115930-1b1647cd9ddf xray-core ۷۱
 
 # git keeps the core's embedded CA bundle empty (mihomo's CI fills it), and Android 7 has no root for the SSL.com
 # chain of 1.1.1.1, the panel's DNS. Mozilla roots only, never a CA added to this machine. Windows has no such folder,

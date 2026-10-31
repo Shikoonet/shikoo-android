@@ -105,6 +105,7 @@ $A install -r /d/dev/shikoo-spike/apk/FlClash-0.8.98-android-x86_64.apk
 - **شناسهٔ اپ ما:** از `cf8089b` به بعد `com.shikoonet.app.dev` است (ساخت با کلید debug؛ با کلید اصلی `com.shikoonet.app`). ساخت‌های قبلی `com.follow.clash.dev` بودند و کنار آن نصب می‌مانند.
   کلاس‌ها بستهٔ جاوای FlClash را نگه داشته‌اند، پس صفحهٔ اصلی `com.shikoonet.app.dev/com.follow.clash.MainActivity` است.
   لینک آزمایشی (فقط ساخت `SHIKOO_DEBUG`): `am start -n com.shikoonet.app.dev/com.follow.clash.MainActivity -a android.intent.action.VIEW -d 'shikoo-debug://add?url=<encoded>'`.
+  با `&outsourced=true` سرویس تازه حساب «قفسه» (اوپن‌وی‌پی‌انِ فروشنده‌ای دیگر) می‌شود، تا خط ردِ حساب (`outsourcedRefused`) آزمودنی باشد. `&` را در `-d` به شکل `\&` بنویس، چون `adb shell` رشته را دوباره به شل دستگاه می‌دهد.
 - **اپ‌های فقط-ARM** (مثل Happ) نصب و باز می‌شوند، ولی هستهٔ Goشان لحظهٔ وصل شدن کرش می‌کند. اتصالشان روی امولاتور تست‌شدنی نیست.
 - **اگر اپی روی گوشی مجازی به `10.0.2.2` نرسید:** Happ این‌طور بود و علتش پیدا نشد. این راه برای گرفتن اشتراک کار کرد:
   `adb -s emulator-5554 reverse tcp:18089 tcp:18089`، و بعد آدرس `127.0.0.1` به‌جای `10.0.2.2`.

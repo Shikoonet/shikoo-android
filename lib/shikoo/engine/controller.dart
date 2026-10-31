@@ -17,6 +17,7 @@ import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
+import 'package:fl_clash/shikoo/engine/direct_dns.dart' show directInboundProxy;
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
@@ -139,6 +140,9 @@ class ShikooService {
     this.revoked = false,
     this.number = 1,
     this.account,
+    this.outsourced = false,
+    this.loginRefused = false,
+    this.notHere = false,
   });
 
   final bool bridgeLeg;
@@ -168,6 +172,13 @@ class ShikooService {
   final int number;
 
   final String? account;
+
+  final bool outsourced;
+
+  final bool loginRefused;
+
+  /// An outsourced (OpenVPN) account no core here runs, as on Windows: its card says so, and it never connects.
+  final bool notHere;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -227,15 +238,14 @@ class SelectedReplaced extends ShikooNotice {
 }
 
 class SilentReplaced extends ShikooNotice {
-  const SilentReplaced({
-    required this.silent,
-    required this.replacement,
-    required this.moved,
-  });
+  const SilentReplaced({required this.silent, required this.replacement});
 
   final String silent;
   final String replacement;
-  final bool moved;
+}
+
+class SelectedGone extends ShikooNotice {
+  const SelectedGone();
 }
 
 class RefreshFailed extends ShikooNotice {
@@ -325,9 +335,12 @@ class ShikooState {
     this.cores = const [],
     this.coreSwitch,
     this.bridge = noBridge,
+    this.connectedNoTraffic = false,
   });
 
   final ShikooBridge bridge;
+
+  final bool connectedNoTraffic;
 
   final ShikooConnection connection;
   final Duration connectedFor;
@@ -375,6 +388,16 @@ class ShikooState {
   ShikooServer? get selectedServer =>
       servers.firstWhereOrNull((server) => server.name == selected);
 
+  bool get streaming => streamingOnly(selected ?? '');
+
+  bool get noInternet {
+    final server = selectedServer;
+    return connection == ShikooConnection.on &&
+        server != null &&
+        !streaming &&
+        (connectedNoTraffic || (server.ping ?? 0) < 0);
+  }
+
   /// Every service in card order ([serviceOrderProvider]), the one in use keeping its place.
   List<ShikooService> get listed {
     final byId = {
@@ -418,6 +441,7 @@ NotifierProvider<ShikooCell<T>, T> _cell<T>(T initial) =>
     NotifierProvider<ShikooCell<T>, T>(() => ShikooCell(initial));
 
 final _intentProvider = _cell(const _Intent());
+final _noTrafficProvider = _cell(false);
 
 /// A server chosen while another change is in the core, shown until its own is sent.
 final _wantedProvider = _cell<String?>(null);
@@ -463,6 +487,8 @@ final _nativeStartProvider = _cell<DateTime?>(null);
 final _sourcesProvider = _cell<Map<int, Map<String, Map<String, dynamic>>>>(
   const {},
 );
+
+final _loginRefusedProvider = _cell<Set<int>>(const {});
 
 final _coreSwitchProvider = _cell<ShikooCoreSwitch?>(null);
 final _warpTryingProvider = _cell(false);
@@ -591,7 +617,11 @@ typedef MainGroup = ({
 });
 
 /// A config's first visible group, which the home lists, and its real servers' mappings in order.
-MainGroup? mainGroupOf(Map<String, dynamic> config) {
+MainGroup? mainGroupOf(
+  Map<String, dynamic> config, {
+  Map<ShikooCore, ShikooCoreSpec> specs = shikooCoreSpecs,
+  bool tunnel = true,
+}) {
   final proxies = {
     for (final proxy in config['proxies'] as List? ?? const [])
       if (proxy is Map) '${proxy['name']}': Map<String, dynamic>.from(proxy),
@@ -605,7 +635,8 @@ MainGroup? mainGroupOf(Map<String, dynamic> config) {
       servers: {
         for (final name in group['proxies'] as List? ?? const [])
           if (proxies['$name'] case final proxy?
-              when isServer('${proxy['type']}', '$name'))
+              when isServer('${proxy['type']}', '$name') &&
+                  offeredHere(proxy, specs, tunnel: tunnel))
             '$name': proxy,
       },
     );
@@ -613,9 +644,15 @@ MainGroup? mainGroupOf(Map<String, dynamic> config) {
   return null;
 }
 
-List<Proxy> _serversOf(Group? group) => [
+List<Proxy> _serversOf(
+  Group? group,
+  Map<ShikooCore, ShikooCoreSpec> specs,
+  bool tunnel,
+) => [
   for (final proxy in group?.all ?? const <Proxy>[])
-    if (isServer(proxy.type, proxy.name)) proxy,
+    if (isServer(proxy.type, proxy.name) &&
+        offeredHere({'type': proxy.type}, specs, tunnel: tunnel))
+      proxy,
 ];
 
 Group? _mainGroup(Ref ref) =>
@@ -672,6 +709,18 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final route = ref.watch(shikooWarpRouteProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
+  final outsourced = {
+    for (final linked in ref.watch(shikooAccountProvider).services)
+      if (linked.outsourced) ?linked.profileId,
+  };
+  final loginRefused = ref.watch(_loginRefusedProvider);
+  final specs = ref.watch(shikooCoreSpecsProvider);
+  final tunnel = ref.watch(shikooTunnelProvider);
+  final openvpnHere = offeredHere(
+    const {'type': 'openvpn'},
+    specs,
+    tunnel: tunnel,
+  );
   final unnamed = [
     for (final profile in ref.watch(profilesProvider))
       if (_nameOf(profile).isEmpty) profile.id,
@@ -685,6 +734,9 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     pasted: pasted.contains(profile.id),
     revoked: revoked.contains(profile.id),
     number: unnamed.indexOf(profile.id) + 1,
+    outsourced: outsourced.contains(profile.id),
+    loginRefused: loginRefused.contains(profile.id),
+    notHere: outsourced.contains(profile.id) && !openvpnHere,
   );
 
   final group = _mainGroup(ref);
@@ -692,7 +744,9 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final pings = ref.watch(_pingsProvider);
   final orders = ref.watch(_orderProvider);
   final fresh = ref.watch(_freshProvider);
-  final byName = {for (final proxy in _serversOf(group)) proxy.name: proxy};
+  final byName = {
+    for (final proxy in _serversOf(group, specs, tunnel)) proxy.name: proxy,
+  };
   final chosen = group == null
       ? null
       : ref.watch(_wantedProvider) ??
@@ -701,10 +755,8 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final switching = ref.watch(_switchProvider);
   final switchService = ref.watch(_switchServiceProvider);
   final choices = ref.watch(shikooCoresProvider);
-  final specs = ref.watch(shikooCoreSpecsProvider);
   final sources = ref.watch(_sourcesProvider);
   final carrying = ref.watch(_carryingProvider);
-  final tunnel = ref.watch(shikooTunnelProvider);
   List<ShikooServer> listOf(
     int? id,
     Map<String, String> types,
@@ -725,7 +777,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
             choices,
             specs: specs,
             tunnel: tunnel,
-            carried: name != selected || carrying == null
+            carried: name != selected || carrying == null || intent.connecting
                 ? null
                 : carrying.server == name
                 ? carrying.core
@@ -856,6 +908,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
       failed: ref.watch(_warpFailedProvider),
       door: ref.watch(_warpDoorProvider),
     ),
+    connectedNoTraffic: ref.watch(_noTrafficProvider),
   );
 });
 
@@ -890,6 +943,12 @@ final nativeRunTimeProvider = Provider<Future<DateTime?> Function()>(
 final nativeStartFailedProvider = Provider<bool Function()>(
   (_) =>
       () => service?.startFailed ?? false,
+);
+
+/// The failed start was the official OpenVPN engine's AUTH_FAILED.
+final nativeLoginRefusedProvider = Provider<bool Function()>(
+  (_) =>
+      () => service?.loginRefused ?? false,
 );
 
 final switchHoldProvider = Provider<Future<void> Function()>(
@@ -954,6 +1013,9 @@ ShikooService _serviceFrom(
   bool pasted = false,
   bool revoked = false,
   int number = 1,
+  bool outsourced = false,
+  bool loginRefused = false,
+  bool notHere = false,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
@@ -968,13 +1030,16 @@ ShikooService _serviceFrom(
     supportUrl: extras?.supportUrl,
     account: extras?.account,
     updatedAt: profile.lastUpdateDate,
-    usageKnown: info != null,
+    usageKnown: info != null && !outsourced,
     refresh: refresh,
     leg: leg,
     bridgeLeg: bridgeLeg,
     pasted: pasted,
     revoked: revoked,
     number: number < 1 ? 1 : number,
+    outsourced: outsourced,
+    loginRefused: loginRefused,
+    notHere: notHere,
   );
 }
 
@@ -1045,9 +1110,8 @@ SubscriptionInfo? _subscriptionInfo(String? header) {
 }
 
 /// Windows cannot keep the app out of a tunnel an owner core holds, so the app's direct requests take mihomo's port,
-/// whose DIRECT rules leave by the physical card. Null elsewhere: Android keeps the app out of such a VPN.
+/// whose DIRECT rules leave beside the tunnel. Android keeps the app in every VPN too.
 String? ownerAside(ProviderReader read, Uri url) {
-  if (!read(shikooDesktopProvider)) return null;
   final core = read(shikooStateProvider).selectedServer?.core;
   if (core == null ||
       read(shikooCoreSpecsProvider)[core]!.shape != ShikooShape.ownsTunnel) {
@@ -1099,13 +1163,22 @@ Future<Response<Uint8List>> _getAgain(String url, String? proxy) async {
 @visibleForTesting
 Duration subscriptionTimeout = const Duration(seconds: 30);
 
-/// Never row 1, the core's fallback: with connect pressed the first answer, else the fastest.
+/// Never row 1, the core's fallback: with connect pressed the first ordinary whole test, as it stays, else the fastest.
 String? pickNow({
   required List<String> names,
   required int? Function(String name) ping,
   required bool pinging,
   required bool urgent,
-}) => pinging && !urgent ? null : fastest(names, ping);
+  required bool Function(String name) handshake,
+}) => pinging && !urgent
+    ? null
+    : fastest(
+        names,
+        (name) => pinging && (handshake(name) || multiplied(name))
+            ? null
+            : ping(name),
+        handshake: handshake,
+      );
 
 /// While off, a selection that cannot connect gives way to one that can, else to the last ended.
 int? serviceInstead(ShikooState state) {
@@ -1152,7 +1225,7 @@ class ShikooController {
         if (previous?.$1 != null && previous!.$1 != service) {
           _arrived = false;
           scheduleMicrotask(() {
-            _notice(null);
+            _setNotice(null);
             _forgetRound();
           });
         }
@@ -1176,8 +1249,6 @@ class ShikooController {
       if (init) scheduleMicrotask(_loadSources);
     });
     // An update that changes the key or address of the server an owner core carries; Windows' Go rebuilds in place.
-    // shortcut: an all-bad update rebuilds too, onto mihomo: up to about 1 s leak till setRunning(false);
-    // upgrade on row 66's trigger: skip the rebuild once the last apply failed (SHIKOO_PATCHES 70).
     _ref.listen(_serverSourceProvider, (was, now) {
       if (!_ref.read(shikooDesktopProvider) &&
           was != null &&
@@ -1192,6 +1263,15 @@ class ShikooController {
       scheduleMicrotask(
         running
             ? () {
+                if (_ref.read(_noticeProvider) is SelectedGone) {
+                  _setNotice(null);
+                }
+                // A start the app did not make (the tile, always-on) came up; its own connects clear both in _start.
+                final intent = _ref.read(_intentProvider);
+                if (!intent.connecting) {
+                  _loginRefused(_current, refused: false);
+                  if (intent.error != null) _set(const _Intent());
+                }
                 _reconcile();
                 unawaited(_checkCarrying());
                 _watchOwner(true);
@@ -1208,6 +1288,23 @@ class ShikooController {
               },
       );
     });
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => s.servers.isEmpty ? null : streamingOnly(s.selected ?? ''),
+      ),
+      (_, on) {
+        if (on != null) _routeStreaming(on);
+      },
+      fireImmediately: true,
+    );
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => s.connection == ShikooConnection.on
+            ? (s.service?.id, s.selected)
+            : null,
+      ),
+      (_, now) => scheduleMicrotask(() => unawaited(_checkTraffic(now?.$2))),
+    );
     _ref.listen(coreStatusProvider, (was, now) {
       if (was == CoreStatus.connected &&
           now == CoreStatus.disconnected &&
@@ -1254,6 +1351,12 @@ class ShikooController {
   Future<void>? _iranApplying;
   bool _iranAgain = false;
   Future<void>? _iranSaved;
+
+  /// main.dart clears the streaming rules at launch, so none are in the database until a selection asks.
+  bool _streamingRouted = false;
+  Future<void> _streamingRoute = Future.value();
+  int _trafficNo = 0;
+
   Timer? _ownerWatch;
   DateTime? _ownerRebuiltAt;
   bool _fallingBack = false;
@@ -1337,7 +1440,12 @@ class ShikooController {
       _ref.read(runTimeProvider) != null ||
       _ref.read(_nativeStartProvider) != null;
 
-  void _notice(ShikooNotice? notice) =>
+  /// SelectedGone stays till the customer picks a server or connects (Sam, 2026-10-30).
+  void _notice(ShikooNotice? notice) {
+    if (_ref.read(_noticeProvider) is! SelectedGone) _setNotice(notice);
+  }
+
+  void _setNotice(ShikooNotice? notice) =>
       _ref.read(_noticeProvider.notifier).set(notice);
 
   /// News leaves with the app or the next update; a failed update stays until one succeeds.
@@ -1368,8 +1476,11 @@ class ShikooController {
     return ++_tap;
   }
 
+  List<Proxy> _offered(Group? group) =>
+      _serversOf(group, _ref.read(shikooCoreSpecsProvider), _tunnel);
+
   List<String> _names(Group? group) => [
-    for (final proxy in _serversOf(group)) proxy.name,
+    for (final proxy in _offered(group)) proxy.name,
   ];
 
   String _testUrl(Group group) => _ref.read(realTestUrlProvider(group.testUrl));
@@ -1386,16 +1497,23 @@ class ShikooController {
     return _names(group).contains(chosen) ? chosen : null;
   }
 
-  Future<void> connect() async {
+  Future<void> connect() {
+    if (_ref.read(_noticeProvider) is SelectedGone) _setNotice(null);
+    return _connect(setAside: true);
+  }
+
+  Future<void> _connect({required bool setAside}) async {
     offByCustomer = false;
-    if (_ref.read(currentProfileProvider) == null) return;
+    if (_ref.read(currentProfileProvider) == null ||
+        (_ref.read(shikooStateProvider).service?.notHere ?? false)) {
+      return;
+    }
     if (!await _coreReady()) return;
-    _setAsideMultiplied();
+    if (setAside) _setAsideMultiplied();
     if (_validSelection() != null) return _start();
     _find();
   }
 
-  /// No server chosen: the first to answer now takes it, with the tunnel up or not.
   void _find({bool list = false}) {
     _set(const _Intent(connecting: true, waiting: true));
     unawaited(pingAll(list: list));
@@ -1461,11 +1579,17 @@ class ShikooController {
     if (attempt != _attempt) return;
     if (since != null) {
       _nativeStart(since);
+      _loginRefused(_current, refused: false);
       await _checkCarrying();
       if (attempt != _attempt) return;
       _set(_Intent(error: error));
       unawaited(_checkSelected());
       return;
+    }
+    if (started &&
+        _ref.read(nativeLoginRefusedProvider)() &&
+        (_ref.read(shikooStateProvider).service?.outsourced ?? false)) {
+      _loginRefused(_current, refused: true);
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
     await _setup.setRunning(false);
@@ -1531,10 +1655,43 @@ class ShikooController {
 
   /// A switch of server or core: the VPN service keeps traffic blocked between the stop and the start.
   Future<void> _reconnect() async {
-    await _ref.read(switchHoldProvider)();
-    await disconnect();
-    await connect();
+    _reconnects++;
+    try {
+      await _ref.read(switchHoldProvider)();
+      await disconnect();
+      await connectAgain();
+    } finally {
+      _reconnects--;
+    }
   }
+
+  /// The app's own start after its own stop, as a rebuild or a failed install: the pick stays, and SelectedGone holds it.
+  Future<void> connectAgain() async {
+    if (_ref.read(_noticeProvider) is! SelectedGone) {
+      await _connect(setAside: false);
+    }
+  }
+
+  /// The app's own stop around [step], as the Windows installer's: it counts as up, and [startAgain] keeps the pick.
+  Future<void> whileStopped(
+    Future<void> Function() step, {
+    required bool Function() startAgain,
+  }) async {
+    _reconnects++;
+    var after = Future<void>.value();
+    try {
+      await disconnect();
+      await step();
+      if (startAgain()) after = connectAgain();
+    } finally {
+      unawaited(after.whenComplete(() => _reconnects--));
+    }
+  }
+
+  int _reconnects = 0;
+
+  bool get _upOrStarting =>
+      _running || _reconnects > 0 || _ref.read(_intentProvider).connecting;
 
   /// A core behind mihomo only needs the config again; a new tunnel owner, a reconnect. Connected, a move shows as a
   /// server switch, done only once the core carrying the server is the pick: a failed engine leaves it on mihomo.
@@ -1594,7 +1751,7 @@ class ShikooController {
   bool get _tunnel => _ref.read(shikooTunnelProvider);
 
   ShikooCore _coreFor(String name, [_Opened? other]) {
-    final running = _serversOf(
+    final running = _offered(
       _group,
     ).firstWhereOrNull((proxy) => proxy.name == name)?.type;
     return coreFor(
@@ -1606,6 +1763,10 @@ class ShikooController {
       tunnel: _tunnel,
     );
   }
+
+  bool _handshake(String name) =>
+      _coreFor(name) == ShikooCore.openvpn &&
+      !_ref.read(shikooOwnerHeldOffProvider);
 
   String _tunnelKeyOf(String name, [_Opened? other]) => tunnelKey(
     _coreFor(name, other),
@@ -1641,7 +1802,12 @@ class ShikooController {
       do {
         _rebuildAgain = false;
         final up = _running || _ref.read(_intentProvider).connecting;
-        if (up && _ref.read(shikooOwnerProvider) != null) await _reconnect();
+        // The apply waits out an update's own: a refused config has stopped the app, and a start would land on mihomo.
+        if (up &&
+            _ref.read(shikooOwnerProvider) != null &&
+            await _setup.applyProfile(silence: true)) {
+          await _reconnect();
+        }
       } while (_rebuildAgain);
     }().whenComplete(() => _rebuilding = null);
   }
@@ -1669,7 +1835,13 @@ class ShikooController {
         _ownerRebuiltAt != null &&
         now.difference(_ownerRebuiltAt!) < ownerDeathWindow;
     _ownerRebuiltAt = now;
-    await (again ? _fallBackToMihomo() : _rebuildOwnerTunnel());
+    if (!again) return _rebuildOwnerTunnel();
+    if (!shikooOnlyCores.containsValue(_coreFor(carried))) {
+      return _fallBackToMihomo();
+    }
+    final off = disconnect();
+    _set(const _Intent(error: ShikooError.coreDown));
+    await off;
   }
 
   Future<void> _fallBackToMihomo() async {
@@ -1773,7 +1945,7 @@ class ShikooController {
     if (up) {
       if (wanted) _set(const _Intent());
       _forgetRound();
-      unawaited(pingAll());
+      unawaited(wanted ? _checkSelected() : pingAll());
     } else if (wanted) {
       final off = disconnect();
       _set(const _Intent(error: ShikooError.coreDown));
@@ -1821,7 +1993,7 @@ class ShikooController {
     }
     await _ref.read(_extrasProvider.notifier).clear();
     _savePicks(const {});
-    _notice(null);
+    _setNotice(null);
     _forgetRound();
     openService(null);
     _ref.read(_pingsProvider.notifier).set(const {});
@@ -1853,8 +2025,8 @@ class ShikooController {
         .add('T', 'server picked ${withoutFlags(name)}');
     final tap = _endSwitch();
     if (_ref.read(_noticeProvider)
-        case SilentReplaced() || SelectedReplaced()) {
-      _notice(null);
+        case SilentReplaced() || SelectedReplaced() || SelectedGone()) {
+      _setNotice(null);
     }
     final from = _validSelection();
     final connected = _running && !_ref.read(_intentProvider).connecting;
@@ -1904,7 +2076,7 @@ class ShikooController {
       },
     );
     if (tap != _tap) return;
-    final running = _serversOf(
+    final running = _offered(
       _group,
     ).firstWhereOrNull((proxy) => proxy.name == name)?.type;
     if (mapping == null && running == null) return _switching(null);
@@ -2027,6 +2199,7 @@ class ShikooController {
   void _reconcile() {
     final group = _group;
     if (group == null || _staleGroups || _validSelection() != null) return;
+    if (_ref.read(_noticeProvider) is SelectedGone) return;
     final names = _names(group);
     if (names.isEmpty) return;
     final running = _running;
@@ -2040,6 +2213,7 @@ class ShikooController {
       ping: ping,
       pinging: pinging,
       urgent: intent.waiting,
+      handshake: _handshake,
     );
     if (best == null) {
       if (pinging) return;
@@ -2094,10 +2268,10 @@ class ShikooController {
         if (ms <= 0) return;
         final first =
             _validSelection() == null && _ref.read(_intentProvider).waiting;
-        if (!first && !_leaveMultiplied(name)) return;
+        if (!first) return;
         _heard.add(name);
         _setPing(service, name, ms);
-        if (first) _reconcile();
+        _reconcile();
         return;
       }
       final kept = _names(_group).contains(name);
@@ -2315,13 +2489,20 @@ class ShikooController {
     } else if (_validSelection() == null &&
         _ref.read(_wantedProvider) == null &&
         _ref.read(_intentProvider).waiting) {
-      _set(const _Intent(error: ShikooError.noServer));
+      final best = fastest(
+        _names(_group),
+        (name) => _heard.contains(name) ? _ping(name) : null,
+        handshake: _handshake,
+      );
+      best == null
+          ? _set(const _Intent(error: ShikooError.noServer))
+          : unawaited(_choose(best, byApp: true));
     }
     if (_again) {
       _again = false;
       unawaited(pingAll());
     } else if (list) {
-      unawaited(_replaceSilentPick());
+      _replaceSilentPick();
       _reconcile();
       if (_checkNext) unawaited(_checkSelected());
       _checkNext = false;
@@ -2348,11 +2529,34 @@ class ShikooController {
     await pingServers([chosen], (name) => _probeFor(no, url, name), (name, ms) {
       if (no == _roundNo) _setPing(service, name, ms);
     });
-    if (chosen == _appPick &&
-        chosen == _validSelection() &&
-        (_ping(chosen) ?? 0) < 0) {
-      unawaited(pingAll());
-    }
+  }
+
+  void _routeStreaming(bool on) {
+    if (on == _streamingRouted) return;
+    _streamingRouted = on;
+    _streamingRoute = _streamingRoute.then((_) async {
+      if (on != _streamingRouted || !_ref.mounted) return;
+      try {
+        if (await keepStreaming(on) && _ref.mounted && _running) {
+          await _setup.applyProfile(silence: true);
+        }
+      } catch (e) {
+        commonPrint.log('streaming rules: $e', logLevel: LogLevel.warning);
+      }
+    });
+  }
+
+  Future<void> _checkTraffic(String? server) async {
+    if (!_ref.mounted) return;
+    final no = ++_trafficNo;
+    bool current() => no == _trafficNo && _ref.mounted;
+    _ref.read(_noTrafficProvider.notifier).set(false);
+    if (server == null || streamingOnly(server)) return;
+    if (await _nativeRunTime() == null || !current()) return;
+    final passes = _ref.read(trafficPassesProvider);
+    Future<bool> once() => passes().catchError((Object _) => false);
+    final ok = await once() || (current() && await once());
+    if (current()) _ref.read(_noTrafficProvider.notifier).set(!ok);
   }
 
   void _sort() {
@@ -2369,37 +2573,25 @@ class ShikooController {
     });
   }
 
-  bool _leaveMultiplied(String? to) {
-    final chosen = _validSelection();
-    if (to == null || multiplied(to) || chosen == null) return false;
-    if (chosen != _appPick || !multiplied(chosen)) return false;
-    unawaited(_choose(to, byApp: true));
-    return true;
-  }
+  static bool _setAside(String name) => multiplied(name) || streamingOnly(name);
 
   void _setAsideMultiplied() {
     final chosen = _validSelection();
-    if (chosen == null || chosen != _appPick || !multiplied(chosen)) return;
+    if (chosen == null || chosen != _appPick || !_setAside(chosen)) return;
     _setChoice(_current!, _group!.name, null, null);
   }
 
-  Future<void> _replaceSilentPick() async {
-    if (_staleGroups) return;
+  void _replaceSilentPick() {
+    if (_staleGroups || _upOrStarting) return;
     final chosen = _validSelection();
     if (chosen == null || chosen != _appPick) return;
     final ms = _ping(chosen);
-    if (ms == null) return;
-    if (ms > 0) {
-      _leaveMultiplied(fastest(_names(_group), _ping));
-      return;
-    }
-    // Flutter says running from the press on; a probe under the consent dialog proves nothing.
-    if (_running && await _nativeRunTime() == null) return;
-    if (_validSelection() != chosen) return;
-    final best = fastest(_names(_group), _ping);
-    if (best == null) return;
+    final best = fastest(_names(_group), _ping, handshake: _handshake);
+    if (ms == null || best == null) return;
+    final silent = ms < 0;
+    if (!silent && (!_setAside(chosen) || multiplied(best))) return;
     unawaited(_choose(best, byApp: true));
-    _notice(SilentReplaced(silent: chosen, replacement: best, moved: _running));
+    if (silent) _notice(SilentReplaced(silent: chosen, replacement: best));
   }
 
   Future<int?> _probeFor(int no, String url, String name) async =>
@@ -2438,6 +2630,14 @@ class ShikooController {
     _ref
         .read(_revokedProvider.notifier)
         .set(revoked ? {...now, id} : ({...now}..remove(id)));
+  }
+
+  void _loginRefused(int? id, {required bool refused}) {
+    final now = _ref.read(_loginRefusedProvider);
+    if (id == null || now.contains(id) == refused) return;
+    _ref
+        .read(_loginRefusedProvider.notifier)
+        .set(refused ? {...now, id} : ({...now}..remove(id)));
   }
 
   /// Phone-only, as only a phone pastes: the account's own services leave with its next sync.
@@ -2581,9 +2781,20 @@ class ShikooController {
     round.set((pending: const {}, total: 0, ended: true));
   }
 
+  /// A server whose core owns the tunnel goes marked, as in the applied config, so Go asks it that core's way.
   Future<int?> _probeOther(String url, Map<String, dynamic> proxy) async {
+    final specs = _ref.read(shikooCoreSpecsProvider);
+    final core = coreFor(
+      proxy,
+      _ref.read(shikooCoresProvider),
+      specs: specs,
+      tunnel: _tunnel,
+    );
+    final asked = ownsTunnel(core, specs)
+        ? {...proxy, shikooOwnerKey: core.name}
+        : proxy;
     try {
-      return (await _ref.read(coreHandlerProvider).getDelayOf(url, proxy))
+      return (await _ref.read(coreHandlerProvider).getDelayOf(url, asked))
           ?.value;
     } catch (_) {
       return null;
@@ -2615,7 +2826,11 @@ class ShikooController {
 
   Future<MainGroup?> _mainGroupOf(int id) async {
     try {
-      return mainGroupOf(await _ref.read(coreHandlerProvider).getConfig(id));
+      return mainGroupOf(
+        await _ref.read(coreHandlerProvider).getConfig(id),
+        specs: _ref.read(shikooCoreSpecsProvider),
+        tunnel: _tunnel,
+      );
     } catch (_) {
       return null;
     }
@@ -2740,9 +2955,12 @@ class ShikooController {
       _endSwitch();
     }
     if (had != null && removed.contains(had)) {
-      // One fresh round names the replacement; connected, its first answer takes the traffic.
+      if (_upOrStarting) {
+        _notice(const SelectedGone());
+        return disconnect();
+      }
       _removed = had;
-      _running ? _find(list: true) : unawaited(pingAll());
+      unawaited(pingAll());
     } else if (added.isNotEmpty || removed.isNotEmpty) {
       _notice(ServersChanged(added: added.length, removed: removed));
     }
@@ -2767,8 +2985,9 @@ class ShikooController {
       await _checkCarrying();
       aside = ownerAside(_ref.read, Uri.parse(url));
     }
-    // The owner's tunnel holds the app on Windows: a plain request leaves by the server, and mihomo's client stays shut.
+    // The owner's tunnel carries plain requests, and subscription hosts on Android's mixed port (subscriptionDirectRule).
     final byServer = aside == null ? server : null;
+    final direct = aside == null ? null : directInboundProxy() ?? aside;
     if (via == ShikooRoute.server) {
       if (!connected) throw const ShikooNotConnected();
       onLeg?.call(ShikooLeg.server);
@@ -2777,7 +2996,7 @@ class ShikooController {
     onLeg?.call(connected ? ShikooLeg.direct : ShikooLeg.directOff);
     try {
       try {
-        final response = await _getAgain(url, aside);
+        final response = await _getAgain(url, direct);
         await leaveBridge();
         return response;
       } catch (error) {

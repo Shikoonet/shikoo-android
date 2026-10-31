@@ -11,6 +11,7 @@ import com.follow.clash.common.GlobalState
 import com.follow.clash.common.intent
 import com.follow.clash.core.Core
 import com.follow.clash.service.ManagedService
+import com.follow.clash.service.OPENVPN_AUTH_FAILED
 import com.follow.clash.service.ProxyService
 import com.follow.clash.service.ServiceConfig
 import com.follow.clash.service.VpnService
@@ -33,6 +34,11 @@ object ServiceController {
     private var binding: ManagedServiceBinding? = null
     @Volatile
     private var runTimeMillis = 0L
+
+    // Shikoo: the last start failed on the OpenVPN server's AUTH_FAILED (ServicePlugin's getRunTime).
+    @Volatile
+    var startRefusedLogin = false
+        private set
 
     suspend fun unbind() = lock.withLock {
         clearBinding()
@@ -66,6 +72,7 @@ object ServiceController {
 
     suspend fun start(options: VpnOptions): Long = lock.withLock {
         startAbandoned = false
+        startRefusedLogin = false
         ServiceConfig.updateVpnOptions(options)
         val nextIntent = if (options.enable) {
             VpnService::class.intent
@@ -97,6 +104,7 @@ object ServiceController {
         }
         if (result.isFailure) {
             GlobalState.log("Unable to start background service: ${result.exceptionOrNull()}")
+            startRefusedLogin = result.exceptionOrNull()?.message.orEmpty().contains(OPENVPN_AUTH_FAILED)
             currentBinding.stopIfConnected()
                 .onFailure { error ->
                     GlobalState.log("Unable to clean up failed background service start: $error")

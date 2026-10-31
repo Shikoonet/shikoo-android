@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:fl_clash/shikoo/engine/controller.dart';
+import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
@@ -28,8 +30,9 @@ const _tvState = ShikooState(
 
 Future<ProviderContainer> _pumpSettings(
   WidgetTester tester,
-  ShikooController controller,
-) async {
+  ShikooController controller, {
+  ShikooState state = _tvState,
+}) async {
   tester.view
     ..physicalSize = const Size(1920, 1080)
     ..devicePixelRatio = 2;
@@ -40,7 +43,7 @@ Future<ProviderContainer> _pumpSettings(
   final container = ProviderContainer(
     overrides: [
       noShots,
-      shikooStateProvider.overrideWithValue(_tvState),
+      shikooStateProvider.overrideWithValue(state),
       shikooControllerProvider.overrideWithValue(controller),
       shikooVersionProvider.overrideWithValue('0.8.98'),
     ],
@@ -73,8 +76,10 @@ Future<ProviderContainer> _pumpSettings(
 }
 
 /// The label under the remote: a button's, else the first text inside the focused item.
-String? _focused() {
-  final element = FocusManager.instance.primaryFocus?.context as Element?;
+String? _focused() => _label(FocusManager.instance.primaryFocus);
+
+String? _label(FocusNode? node) {
+  final element = node?.context as Element?;
   if (element == null) return null;
   final button = element.findAncestorWidgetOfExactType<ShikooButton>();
   if (button != null) return button.label;
@@ -262,7 +267,8 @@ void main() {
       lessThanOrEqualTo(540),
       reason: 'scrolled into view',
     );
-    expect(await _press(tester, left), 'خروج');
+    expect(await _press(tester, left), 'عیب‌یابی و گزارش', reason: 'level');
+    expect(await _press(tester, up), 'خروج');
     expect(await _press(tester, up), 'فارسی');
     expect(await _press(tester, down), 'خروج');
     expect(await _press(tester, right), 'سایت‌های ایرانی بدون فیلترشکن');
@@ -279,6 +285,68 @@ void main() {
       'عیب‌یابی و گزارش',
       reason: 'not into the app column',
     );
+  });
+
+  testWidgets('on the TV across the columns the remote keeps its height: of '
+      'the rows level with it the one nearest its middle, else the nearest '
+      'one up or down, even with four cores making the columns uneven', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      _Controller(),
+      state: ShikooState(
+        connection: ShikooConnection.off,
+        connectedFor: Duration.zero,
+        isTV: true,
+        servers: const [],
+        cores: coreRows({
+          ShikooProtocol.vless,
+          ShikooProtocol.wireguard,
+          ShikooProtocol.openvpn,
+          ShikooProtocol.ssh,
+        }, const {}),
+      ),
+    );
+    final page =
+        FocusManager.instance.primaryFocus!.nearestScope!.enclosingScope!;
+    final rows = [
+      for (final node in page.traversalDescendants)
+        if (node is! FocusScopeNode) node,
+    ];
+    double apart(Rect a, Rect b) =>
+        math.max(0, math.max(a.top - b.bottom, b.top - a.bottom));
+    final wrong = <String>[];
+    for (final from in rows) {
+      jumpFocus(from.context!, from);
+      await tester.pumpAndSettle();
+      final at = from.rect;
+      final inRight = at.center.dx > 480;
+      final rects = {for (final node in rows) node: node.rect};
+      final other = {
+        for (final MapEntry(key: node, value: rect) in rects.entries)
+          if ((rect.center.dx > 480) != inRight) node: apart(at, rect),
+      };
+      double off(FocusNode node) =>
+          (rects[node]!.center.dy - at.center.dy).abs();
+      final nearest = other.values.reduce(math.min);
+      final middle = [
+        for (final MapEntry(key: node, value: gap) in other.entries)
+          if (gap == nearest) off(node),
+      ].reduce(math.min);
+      final got = await _press(
+        tester,
+        inRight ? LogicalKeyboardKey.arrowLeft : LogicalKeyboardKey.arrowRight,
+      );
+      final to = FocusManager.instance.primaryFocus!;
+      final alongItsRow =
+          to != from && !other.containsKey(to) && apart(at, rects[to]!) == 0;
+      if (!alongItsRow && (other[to] != nearest || off(to) != middle)) {
+        wrong.add('${_label(from)} -> $got');
+      }
+    }
+    expect(rows.length, greaterThan(10));
+    expect(wrong, isEmpty);
   });
 
   testWidgets('Latin text keeps the font spacing, as the frames', (

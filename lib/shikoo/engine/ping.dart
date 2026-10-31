@@ -49,11 +49,28 @@ List<String> sortByPing(List<String> panel, int? Function(String name) ping) =>
 bool multiplied(String name) =>
     name.replaceAll('\u064A', '\u06CC').contains('ضریب');
 
+/// The free streaming server carries Iranian sites and Google's connectivity check only: it pings with no internet.
+bool streamingOnly(String name) {
+  final plain = name.replaceAll('\u064A', '\u06CC').toLowerCase();
+  return plain.contains('فیلیمو') || plain.contains('filimo');
+}
+
 /// The app's own pick: a multiplied server only when no other answered.
-String? fastest(List<String> panel, int? Function(String name) ping) {
-  int ms(String name) => ping(name)!;
-  final answered = panel.where((name) => (ping(name) ?? 0) > 0);
-  return minBy(answered.whereNot(multiplied), ms) ?? minBy(answered, ms);
+String? fastest(
+  List<String> panel,
+  int? Function(String name) ping, {
+  required bool Function(String name) handshake,
+}) {
+  int rank(String name) =>
+      (multiplied(name) ? 2 : 0) + (handshake(name) ? 1 : 0);
+  final answered = panel
+      .where((name) => (ping(name) ?? 0) > 0 && !streamingOnly(name))
+      .toList();
+  final top = answered.map(rank).minOrNull;
+  return minBy(
+    answered.where((name) => rank(name) == top),
+    (name) => ping(name)!,
+  );
 }
 
 List<String> keepOrder(List<String> order, List<String> panel) => [

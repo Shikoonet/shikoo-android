@@ -292,6 +292,9 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
+  String get selectedGone => 'سرور تو از اشتراک حذف شد. یکی دیگر انتخاب کن.';
+
+  @override
   String switchingTo(String name) {
     return 'در حال رفتن به «$name»…';
   }
@@ -509,6 +512,37 @@ class ShikooL10nFa extends ShikooL10n {
   String selectedDown(String name) {
     return '«$name» جواب نمی‌دهد.\nسرور دیگری را از فهرست انتخاب کن.';
   }
+
+  @override
+  String get powerNoInternet => 'وصل، بی‌اینترنت';
+
+  @override
+  String noInternetTitle(String name) {
+    return 'اینترنت از «$name» رد نمی‌شود.';
+  }
+
+  @override
+  String get noInternetTitleTv => 'اینترنت از این سرور رد نمی‌شود.';
+
+  @override
+  String get noInternetBody => 'شاید این سرور روی اینترنت تو بسته باشد.';
+
+  @override
+  String get noInternetOther => 'انتخاب سرور دیگر';
+
+  @override
+  String get noInternetOne =>
+      'گاهی کمی طول می‌کشد؛ کمی بعد دوباره امتحان کن یا از پشتیبانی بپرس.';
+
+  @override
+  String get noInternetOneTv => 'کمی بعد امتحان کن یا از پشتیبانی بپرس.';
+
+  @override
+  String get streamingTitle => 'فقط برای نماوا، فیلیمو، شیدا و گپ‌فیلم';
+
+  @override
+  String get streamingBody =>
+      'سایت‌ها و برنامه‌های دیگر از این سرور باز نمی‌شوند.';
 
   @override
   String get vpnRefused =>
@@ -874,6 +908,28 @@ class ShikooL10nFa extends ShikooL10n {
   String get openBotTv => 'ربات شیکونت';
 
   @override
+  String get outsourcedTitle => 'اعتبار و حجم این حساب این‌جا دیده نمی‌شود.';
+
+  @override
+  String get outsourcedHelp =>
+      'اعتبارش از اولین اتصال شمرده می‌شود. برای حساب تازه، به ربات شیکونت برو.';
+
+  @override
+  String get outsourcedSummary => 'اعتبار از اولین اتصال';
+
+  @override
+  String get outsourcedEnded =>
+      'اعتبارش تمام شد. برای حساب تازه، به ربات شیکونت برو.';
+
+  @override
+  String get outsourcedRefused =>
+      'این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.';
+
+  @override
+  String get outsourcedNotHere =>
+      'این حساب فعلاً روی ویندوز کار نمی‌کند؛ روی گوشی یا تلویزیون وصلش کن.';
+
+  @override
   String get summaryExpiredNoDate =>
       'اعتبارش تمام شد. با تمدید دوباره فعال می‌شود.';
 
@@ -1201,6 +1257,11 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get reportCrashAsk => 'گزارشش را برای ما بفرستیم؟';
+
+  @override
+  String reportCrashCore(String core) {
+    return 'هستهٔ «$core» روی این دستگاه کار نکرد و به «پیش‌فرض» برگشت.';
+  }
 
   @override
   String get reportCrashYes => 'بفرست';

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdh"
 	"crypto/rand"
@@ -15,6 +16,7 @@ import (
 	"net/netip"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -66,6 +68,8 @@ func TestXrayOutboundConvertsWhatThePanelSends(t *testing.T) {
 			"network": "ws", "security": "tls", "ws.path": "/ws?ed=2048", "ws.host": "cdn.example.com",
 			"ws.headers": `{"X-A":"b"}`, "tls.alpn": `["http/1.1"]`,
 		}},
+		{"reality with an empty tcp-opts", with(reality, map[string]any{"network": "tcp", "tcp-opts": map[string]any{}}),
+			map[string]string{"network": "raw", "security": "reality", "reality.serverName": "www.example.com"}},
 		{"httpupgrade", map[string]any{
 			"name": "u", "type": "vless", "server": "cdn.example.com", "port": 443, "uuid": xrayTestUUID, "tls": true,
 			"network": "ws", "ws-opts": map[string]any{"path": "/up", "v2ray-http-upgrade": true},
@@ -456,6 +460,113 @@ proxies:
 	for _, name := range []string{"reality", "wireguard"} {
 		if got := udpRoundTrip(t, cfg.Proxies[name], to); got != "ping "+name {
 			t.Errorf("%s: UDP came back as %q", name, got)
+		}
+	}
+}
+
+// SHIKOO_XRAY_IMAGE names the official Xray image (ghcr.io/xtls/xray-core) to play the panel's server: REALITY and
+// vision over an empty tcp-opts, with and without VLESS encryption. Its only outbound, a blackhole, answers 403.
+func TestXrayReachesOfficialXrayInDocker(t *testing.T) {
+	image := os.Getenv("SHIKOO_XRAY_IMAGE")
+	if image == "" {
+		t.Skip("SHIKOO_XRAY_IMAGE names the official Xray image")
+	}
+	docker := "docker"
+	// WSL reaches Docker Desktop through Windows' own CLI.
+	if exec.Command(docker, "version").Run() != nil {
+		docker = "docker.exe"
+	}
+	pki := t.TempDir()
+	e2ePKI(t, pki)
+	pemLines := func(name string) []string {
+		data, err := os.ReadFile(filepath.Join(pki, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Split(strings.TrimSpace(string(data)), "\n")
+	}
+	realityKey, _ := ecdh.X25519().GenerateKey(rand.Reader)
+	vlessKey, _ := ecdh.X25519().GenerateKey(rand.Reader)
+	b64 := base64.RawURLEncoding.EncodeToString
+	stream := map[string]any{"network": "raw", "security": "reality", "realitySettings": map[string]any{
+		"target": "127.0.0.1:8443", "serverNames": []string{"example.com"}, "privateKey": b64(realityKey.Bytes()),
+		"shortIds": []string{"6ba85179e30d4fc2"},
+	}}
+	vlessIn := func(port int, decryption string, stream map[string]any) map[string]any {
+		return map[string]any{"listen": "0.0.0.0", "port": port, "protocol": "vless", "streamSettings": stream,
+			"settings": map[string]any{"decryption": decryption,
+				"clients": []any{map[string]any{"id": xrayTestUUID, "flow": "xtls-rprx-vision"}}}}
+	}
+	server, err := json.Marshal(map[string]any{
+		"inbounds": []any{
+			vlessIn(443, "mlkem768x25519plus.native.600s."+b64(vlessKey.Bytes()), stream),
+			vlessIn(444, "none", stream),
+			// The camouflage REALITY borrows its handshake from, inside the container and never published.
+			vlessIn(8443, "none", map[string]any{"network": "raw", "security": "tls", "tlsSettings": map[string]any{
+				"certificates": []any{map[string]any{"certificate": pemLines("server.crt"), "key": pemLines("server.key")}},
+			}}),
+		},
+		"outbounds": []any{map[string]any{"protocol": "blackhole", "settings": map[string]any{"response": map[string]any{"type": "http"}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "shikoo-xray-" + strings.ToLower(rand.Text()[:12])
+	run := exec.Command(docker, "run", "--rm", "-i", "--name", name, "-p", "127.0.0.1::443", "-p", "127.0.0.1::444",
+		image, "run", "-c", "stdin:")
+	run.Stdin = bytes.NewReader(server)
+	if err := run.Start(); err != nil {
+		t.Fatal(err)
+	}
+	logs := func() string {
+		out, _ := exec.Command(docker, "logs", name).CombinedOutput()
+		return string(out)
+	}
+	t.Cleanup(func() {
+		_ = exec.Command(docker, "rm", "-f", "-v", name).Run()
+		_ = run.Wait()
+	})
+	for deadline := time.Now().Add(30 * time.Second); !strings.Contains(logs(), " started"); time.Sleep(200 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the official Xray did not start: %s", logs())
+		}
+	}
+	port := func(inside string) string {
+		out, err := exec.Command(docker, "port", name, inside+"/tcp").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, port, _ := strings.Cut(strings.Fields(string(out))[0], "127.0.0.1:")
+		return port
+	}
+
+	reality := fmt.Sprintf("tls: true, servername: example.com, reality-opts: {public-key: %s, short-id: 6ba85179e30d4fc2}",
+		b64(realityKey.PublicKey().Bytes()))
+	vless := "type: vless, server: 127.0.0.1, flow: xtls-rprx-vision, udp: true, network: tcp, tcp-opts: {}, shikoo-core: xray, " + reality
+	cfg := parseShikooCores(t, fmt.Sprintf(`
+proxies:
+  - {name: encrypted, port: %s, uuid: %s, client-fingerprint: chrome, encryption: mlkem768x25519plus.native.0rtt.%s, %s}
+  - {name: plain, port: %s, uuid: %s, client-fingerprint: firefox, %s}
+  - {name: stranger, port: %s, uuid: e6647b9c-89f6-4c44-8150-b444010f35c4, client-fingerprint: firefox, %s}
+`, port("443"), xrayTestUUID, b64(vlessKey.PublicKey().Bytes()), vless, port("444"), xrayTestUUID, vless, port("444"), vless))
+	shikooCoresCommit()
+	t.Cleanup(func() {
+		for _, stop := range shikooCoresRunning {
+			stop()
+		}
+		shikooCoresRunning = nil
+	})
+	for _, name := range []string{"encrypted", "plain", "stranger"} {
+		proxy := cfg.Proxies[name]
+		if proxy.Type() != constant.Socks5 {
+			t.Fatalf("%s is %v, want the SOCKS in front of Xray", name, proxy.Type())
+		}
+		// 20 s: REALITY holds its first connection while it learns its target.
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		delay, err := proxy.URLTest(ctx, "http://example.com/generate_204", anyDelayTestStatus)
+		cancel()
+		if got, want := err == nil && delay > 0, name != "stranger"; got != want {
+			t.Errorf("%s: delay %d, err %v; want an answer %v\n%s", name, delay, err, want, logs())
 		}
 	}
 }
