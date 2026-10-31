@@ -12,7 +12,7 @@ skills: [agent-ground-rules, ponytail:ponytail]
 
 - از FlClash فقط موتور و لایهٔ زیرین برداشته می‌شود: `core/`، `android/`، `lib/providers`، `lib/manager`، `lib/core`، `lib/models`.
 - UI شیکو از صفر در `lib/shikoo/ui/` ساخته می‌شود و به FlClash فقط از راه کنترل‌گر `lib/shikoo/engine/` می‌رسد؛ `test/shikoo/ui_boundary_test.dart` این مرز را می‌سنجد.
-  فقط ورودی اپ (`lib/main.dart` یا `lib/application.dart`) به UI ما وصل می‌شود.
+  ورودی اپ شیکو `lib/shikoo/app/main.dart` است و با `-t` ساخته می‌شود (`SHIKOO_PATCHES.md` › «ساختن اپ شیکو»).
 - صفحه‌های FlClash (`lib/views`، `lib/pages`، `lib/widgets`) دست‌نخورده می‌مانند و هیچ‌وقت نمایش داده نمی‌شوند.
 - هر فایل upstream که لمس شود در `SHIKOO_PATCHES.md` ثبت می‌شود. هدف کمتر از حدود ۱۰ فایل است.
 
