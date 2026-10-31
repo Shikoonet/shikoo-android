@@ -499,12 +499,22 @@ void main() {
       DateTime? bought,
       int? days,
       bool isTV = false,
+      Brightness brightness = Brightness.light,
     }) => _pump(
       tester,
       _alone(refused: true, bought: bought, days: days, isTV: isTV),
       account,
       locale: locale,
+      brightness: brightness,
     );
+
+    Text guide(WidgetTester tester) => tester
+        .widgetList<Text>(_in<ServiceCard>(find.byType(Text)))
+        .firstWhere((text) {
+          final plain = text.textSpan?.toPlainText() ?? '';
+          return plain.startsWith('این حساب') ||
+              plain.startsWith('This account');
+        });
 
     testWidgets('a grey line under the red sentence, inside the same box: the '
         'date in Jalali with the plan in Persian, Gregorian in English, and '
@@ -524,6 +534,21 @@ void main() {
       await refused(tester, locale: 'en', bought: _bought);
       expect(inCard('$refusedEn\nBought Sep 30, 2026'), findsOneWidget);
       expect(_in<ServiceCard>(_button('Open the bot')), findsOneWidget);
+
+      for (final b in Brightness.values) {
+        await refused(tester, bought: _bought, days: 30, brightness: b);
+        final colors = b == Brightness.light
+            ? ShikooColors.light
+            : ShikooColors.dark;
+        final text = guide(tester);
+        final spans = (text.textSpan! as TextSpan).children!.cast<TextSpan>();
+        expect(spans, hasLength(2), reason: b.name);
+        expect(spans[0].style!.color, colors.danger, reason: b.name);
+        expect(spans[0].style!.fontWeight, FontWeight.w700, reason: b.name);
+        expect(spans[1].style, isNull, reason: 'the line takes the base style');
+        expect(text.style!.color, colors.textMuted, reason: b.name);
+        expect(text.style!.fontWeight, anyOf(isNull, FontWeight.w400));
+      }
     });
 
     testWidgets('the plan has its words, and any other length is its days', (
@@ -533,14 +558,7 @@ void main() {
       for (final days in [30, 60, 90, 180, 360, 365, 45, 1]) {
         for (final locale in ['fa', 'en']) {
           await refused(tester, locale: locale, bought: _bought, days: days);
-          final line = tester
-              .widgetList<Text>(_in<ServiceCard>(find.byType(Text)))
-              .map((text) => text.textSpan?.toPlainText() ?? '')
-              .firstWhere(
-                (text) =>
-                    text.startsWith('این حساب') ||
-                    text.startsWith('This account'),
-              );
+          final line = guide(tester).textSpan!.toPlainText();
           seen.add(line.split('\n').last.split(' · ').last);
         }
       }
@@ -563,6 +581,52 @@ void main() {
         '1 day',
       ]);
     });
+
+    final offset = DateTime.now().timeZoneOffset;
+    const tehran = Duration(hours: 3, minutes: 30);
+
+    testWidgets(
+      'the day of the sale is the local day: Tehran midnight is 20:30 UTC',
+      (tester) async {
+        if (![Duration.zero, tehran].contains(offset)) {
+          return markTestSkipped(
+            'its days are those of UTC and of Tehran time',
+          );
+        }
+        if (Platform.environment['TZ'] == 'Asia/Tehran') {
+          expect(offset, tehran, reason: 'the run took the zone it was given');
+        }
+        final door = Uri.parse('http://10.0.2.2:7460/api/v1/app/services');
+        Future<String> line(String at, String locale) async {
+          final row = AccountServiceRow.fromJson({
+            'id': 42,
+            'title': 'user1001',
+            'location': null,
+            'status': 'expired',
+            'expires_at': null,
+            'sub_url': null,
+            'outsourced': true,
+            'purchased_at': at,
+          }, door);
+          await refused(tester, locale: locale, bought: row.purchasedAt);
+          return guide(tester).textSpan!.toPlainText().split('\n').last;
+        }
+
+        final next = offset == tehran;
+        expect(
+          [
+            for (final at in ['2026-09-30T20:29:59Z', '2026-09-30T20:30:00Z'])
+              for (final locale in ['fa', 'en']) await line(at, locale),
+          ],
+          [
+            'خرید ۸\u00A0مهر\u00A0۱۴۰۵',
+            'Bought Sep 30, 2026',
+            next ? 'خرید ۹\u00A0مهر\u00A0۱۴۰۵' : 'خرید ۸\u00A0مهر\u00A0۱۴۰۵',
+            next ? 'Bought Oct 1, 2026' : 'Bought Sep 30, 2026',
+          ],
+        );
+      },
+    );
 
     testWidgets('no date, no line: a plan alone says nothing and the card is '
         'as it was', (tester) async {
