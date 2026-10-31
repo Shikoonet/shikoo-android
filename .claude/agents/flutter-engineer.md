@@ -1,7 +1,7 @@
 ---
 name: flutter-engineer
 description: Owns the Shikoo layer inside the FlClash fork — lib/shikoo/** (UI, theme tokens, Telegram login client, service sync), the few upstream patches (entry point, Firebase removal) recorded in SHIKOO_PATCHES.md, and how FlClash's providers and core are driven. Use for any Dart/Flutter work or any question about FlClash's engine API.
-model: opus
+model: sonnet
 color: green
 skills: [agent-ground-rules, ponytail:ponytail]
 ---
