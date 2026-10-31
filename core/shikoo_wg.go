@@ -628,24 +628,25 @@ func (c countingTun) Write(bufs [][]byte, offset int) (int, error) {
 	return n, err
 }
 
-// ownerInUse: the live pick of the listed group (mainGroupOf), if marked; Iran's ranges stay out while DIRECT by rule.
-func ownerInUse(raw *config.RawConfig, now func(group string) string) (mapping map[string]any, iranDirect bool) {
+// ownerInUse: the live pick of the listed group (mainGroupOf), if marked for an owner core; Iran's ranges stay out while
+// DIRECT by rule.
+func ownerInUse(raw *config.RawConfig, now func(group string) string) (core string, mapping map[string]any, iranDirect bool) {
 	for _, group := range raw.ProxyGroup {
 		if hidden, _ := group["hidden"].(bool); hidden {
 			continue
 		}
 		server := now(fmt.Sprint(group["name"]))
 		for _, proxy := range raw.Proxy {
-			if proxy["name"] == server && proxy[shikooOwnerKey] == "wireguard" {
-				mapping = proxy
+			if marked, _ := proxy[shikooOwnerKey].(string); proxy["name"] == server && (marked == "wireguard" || marked == "openvpn") {
+				core, mapping = marked, proxy
 			}
 		}
 		break
 	}
 	if mapping == nil {
-		return nil, false
+		return "", nil, false
 	}
-	return mapping, slices.ContainsFunc(raw.Rule, func(rule string) bool {
+	return core, mapping, slices.ContainsFunc(raw.Rule, func(rule string) bool {
 		fields := strings.Split(strings.ReplaceAll(rule, " ", ""), ",")
 		return len(fields) >= 3 && fields[0] == "RULE-SET" && fields[1] == "shikoo-ir-ip" && fields[2] == "DIRECT"
 	})

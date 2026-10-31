@@ -237,7 +237,35 @@ func ovpnCarrying() string {
 	if now := ovpnNow.Load(); now != nil {
 		return now.server
 	}
+	return buildingFor("openvpn")
+}
+
+var ovpnEnded atomic.Pointer[ovpnOutcome]
+
+type ovpnOutcome struct {
+	session int
+	state   string
+	reason  string
+}
+
+func ovpnOwnerState() string {
+	if now := ovpnNow.Load(); now != nil {
+		if now.up {
+			return stateUp
+		}
+		return stateConnecting
+	}
+	if ended := ovpnEnded.Load(); ended != nil {
+		return ended.state
+	}
 	return ""
+}
+
+// ovpnPinned puts the server's address for its name in the profile: a reconnect would look it up through the tunnel's down DNS.
+func ovpnPinned(c *ovpn.ClientConfig, ip netip.Addr) string {
+	pinned := *c
+	pinned.RemoteHost = ip.String()
+	return ovpnProfile(&pinned)
 }
 
 // ovpnPing: the server's answer to a session reset while the engine's own session is up, from which it takes nothing.

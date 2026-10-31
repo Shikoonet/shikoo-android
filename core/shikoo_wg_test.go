@@ -868,15 +868,33 @@ func TestTheServerInUseRunsOnTheOwnerOnlyWhenMarked(t *testing.T) {
 	picks := map[string]string{"info": "wg-b", "main": "wg-a", "other": "wg-b"}
 	now := func(group string) string { return picks[group] }
 
-	if mapping, iran := ownerInUse(raw, now); mapping["name"] != "wg-a" || iran {
-		t.Fatalf("got %v, Iran %v; want wg-a without Iran's ranges", mapping["name"], iran)
+	if core, mapping, iran := ownerInUse(raw, now); core != "wireguard" || mapping["name"] != "wg-a" || iran {
+		t.Fatalf("got %s %v, Iran %v; want wireguard wg-a without Iran's ranges", core, mapping["name"], iran)
 	}
 	raw.Rule = append([]string{"RULE-SET, shikoo-ir-ip, DIRECT, no-resolve"}, raw.Rule...)
-	if _, iran := ownerInUse(raw, now); !iran {
+	if _, _, iran := ownerInUse(raw, now); !iran {
 		t.Error("the Iranian switch's rule did not keep Iran's ranges out")
 	}
 	picks["main"], picks["other"] = "wg-b", "wg-a"
-	if mapping, _ := ownerInUse(raw, now); mapping != nil {
-		t.Errorf("the owner took %v, a pick outside the listed group", mapping["name"])
+	if core, mapping, _ := ownerInUse(raw, now); mapping != nil || core != "" {
+		t.Errorf("the owner took %s %v, a pick outside the listed group", core, mapping["name"])
+	}
+}
+
+func TestTheServerInUseNamesTheCoreItsMarkSays(t *testing.T) {
+	raw := &config.RawConfig{
+		Proxy: []map[string]any{
+			{"name": "ov", "type": "openvpn", shikooOwnerKey: "openvpn"},
+			{"name": "wg", "type": "wireguard", shikooOwnerKey: "wireguard"},
+			{"name": "odd", "type": "http", shikooOwnerKey: "xray"},
+			{"name": "plain", "type": "openvpn"},
+		},
+		ProxyGroup: []map[string]any{{"name": "main"}},
+	}
+	for server, want := range map[string]string{"ov": "openvpn", "wg": "wireguard", "odd": "", "plain": ""} {
+		core, mapping, _ := ownerInUse(raw, func(string) string { return server })
+		if core != want || (want == "") != (mapping == nil) {
+			t.Errorf("%s: core %q, mapping %v; want core %q", server, core, mapping, want)
+		}
 	}
 }

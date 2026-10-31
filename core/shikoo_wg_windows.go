@@ -4,27 +4,22 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/netip"
-	"sync/atomic"
 	"time"
 
-	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/iface"
 	"github.com/metacubex/mihomo/component/resolver"
-	"github.com/metacubex/mihomo/listener"
 	LC "github.com/metacubex/mihomo/listener/config"
 	"github.com/metacubex/mihomo/listener/sing_tun"
 	"github.com/metacubex/mihomo/log"
-	"github.com/metacubex/mihomo/tunnel"
 	singtun "github.com/metacubex/sing-tun"
 	"github.com/metacubex/sing/common/control"
 	wgconn "golang.zx2c4.com/wireguard/conn"
 )
 
-// Windows' TUN mode on the official engine (docs/multi-core.md §4), under configMu. Windows cannot leave the app out of
+// Windows' TUN mode on the official engines (docs/multi-core.md §4), under configMu. Windows cannot leave the app out of
 // the tunnel, so the engine's socket and mihomo's dialer (the door, DIRECT rules, pings) bind to the physical interface.
 
 type ownerTunnel struct {
@@ -35,105 +30,58 @@ type ownerTunnel struct {
 }
 
 // Android registers in shikoo_wg_android.go: a name registered twice panics.
-func init() { registerShikooOwner("wireguard", windowsCarrying, ownerPing) }
+func init() {
+	registerShikooOwner("wireguard", windowsCarrying, ownerPing)
+	startOwnerTunnel, ownerTunnelKey, closeOwnerTunnel = startOwnerTun, liveOwnerKey, closeOwnerTun
+}
 
-var (
-	ownerTun *ownerTunnel
-	// Sam (2026-10-23): an engine that would not start leaves its server on mihomo's tun until the next run.
-	ownerFailed string
-	// Go's own rebuild for a new key is no death to the app's watch: the server, until the new engine runs or fails.
-	ownerBuilding atomic.Pointer[string]
-
-	startOwnerTunnel = startOwnerTun
-	mihomoTun        = func(conf LC.Tun) { listener.ReCreateTun(conf, tunnel.Tunnel) }
-	pickOf           = groupPick
-)
+var ownerTun *ownerTunnel
 
 func windowsCarrying() string {
 	if server := ownerServer(); server != "" {
 		return server
 	}
-	if building := ownerBuilding.Load(); building != nil {
-		return *building
+	return buildingFor("wireguard")
+}
+
+func reCreateTun(conf LC.Tun) { recreateOwnerTun(conf) }
+
+func liveOwnerKey() string {
+	if ownerTun != nil {
+		return ownerTun.key
 	}
 	return ""
 }
 
-func reCreateTun(conf LC.Tun) {
-	var mapping map[string]any
-	var iranDirect bool
-	if conf.Enable {
-		raw, err := appliedRawConfig()
-		if err != nil {
-			log.Warnln("[WG] config not read: %v", err)
-		} else {
-			mapping, iranDirect = ownerInUse(raw, pickOf)
-		}
-	}
-	key := fmt.Sprint(conf.Device, mapping, iranDirect)
-	if mapping == nil || key == ownerFailed {
-		closeOwnerTun()
-		mihomoTun(conf)
-		return
-	}
-	if ownerTun != nil && ownerTun.key == key {
-		return
-	}
-	if ownerServer() != "" {
-		server := fmt.Sprint(mapping["name"])
-		ownerBuilding.Store(&server)
-		defer ownerBuilding.Store(nil)
-	}
-	// mihomo's tun leaves first: its DNS would answer the endpoint's name with a fake address.
-	mihomoTun(LC.Tun{})
-	closeOwnerTun()
-	if err := startOwnerTunnel(conf.Device, key, mapping, iranDirect); err != nil {
-		log.Errorln("[WG] owner core did not start, mihomo carries the server: %v", err)
-		ownerFailed = key
-		mihomoTun(conf)
-	}
-}
-
-func groupPick(name string) string {
-	if proxy, ok := tunnel.AllProxies()[name].(*adapter.Proxy); ok {
-		if group, ok := proxy.ProxyAdapter.(interface{ Now() string }); ok {
-			return group.Now()
-		}
-	}
-	return ""
-}
-
-func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) (err error) {
-	plan, prepared, err := wgPlan(mapping, iranRanges(iranDirect), windowsSdk, lookupEndpoint)
-	if err != nil {
-		return err
-	}
+func startOwnerTun(device, key, core string, mapping map[string]any, iranDirect bool) (err error) {
 	owner := &ownerTunnel{key: key}
 	defer func() {
 		if err != nil {
 			owner.close()
 		}
 	}()
-	if owner.network, err = singtun.NewNetworkUpdateMonitor(log.SingLogger); err != nil {
-		return err
+	if core == "openvpn" {
+		err = owner.startOpenvpn(device, mapping, iranDirect)
+	} else {
+		err = owner.startWireGuard(device, mapping, iranDirect)
 	}
-	if err = owner.network.Start(); err != nil {
-		return err
-	}
-	owner.monitor, err = singtun.NewDefaultInterfaceMonitor(owner.network, log.SingLogger,
-		singtun.DefaultInterfaceMonitorOptions{InterfaceFinder: sing_tun.DefaultInterfaceFinder})
 	if err != nil {
 		return err
 	}
-	if err = owner.monitor.Start(); err != nil {
+	ownerTun = owner
+	return nil
+}
+
+func (o *ownerTunnel) startWireGuard(device string, mapping map[string]any, iranDirect bool) error {
+	plan, prepared, err := wgPlan(mapping, iranRanges(iranDirect), windowsSdk, lookupEndpoint)
+	if err != nil {
 		return err
 	}
-	bind := &physicalBind{Bind: wgconn.NewDefaultBind(), monitor: owner.monitor}
-	owner.monitor.RegisterCallback(func(*control.Interface, int) {
-		bind.follow()
-		iface.FlushCache()
-		resolver.ResetConnection()
-	})
+	if err = o.startMonitor(); err != nil {
+		return err
+	}
+	bind := &physicalBind{Bind: wgconn.NewDefaultBind(), monitor: o.monitor}
+	o.watch(bind.follow)
 
 	options := wintunOptions(device, plan)
 	wintun, err := newWintun(options)
@@ -146,12 +94,46 @@ func startOwnerTun(device, key string, mapping map[string]any, iranDirect bool) 
 	if err = startOwner(newWinTun(wintun, device, plan.MTU), bind); err != nil {
 		return err
 	}
-	owner.finder = &physicalFinder{owner.monitor}
-	if !dialer.DefaultInterfaceFinder.CompareAndSwap(nil, owner.finder) {
-		log.Warnln("[WG] another interface finder holds mihomo's dialer")
-	}
-	ownerTun = owner
+	o.install()
 	return nil
+}
+
+func (o *ownerTunnel) startMonitor() (err error) {
+	if o.network, err = singtun.NewNetworkUpdateMonitor(log.SingLogger); err != nil {
+		return err
+	}
+	if err = o.network.Start(); err != nil {
+		return err
+	}
+	o.monitor, err = singtun.NewDefaultInterfaceMonitor(o.network, log.SingLogger,
+		singtun.DefaultInterfaceMonitorOptions{InterfaceFinder: sing_tun.DefaultInterfaceFinder})
+	if err != nil {
+		return err
+	}
+	return o.monitor.Start()
+}
+
+// watch runs follow on each change of the default interface, then drops what mihomo kept of the old network.
+func (o *ownerTunnel) watch(follow func()) {
+	o.monitor.RegisterCallback(func(*control.Interface, int) {
+		follow()
+		iface.FlushCache()
+		resolver.ResetConnection()
+	})
+}
+
+func (o *ownerTunnel) install() {
+	o.finder = &physicalFinder{o.monitor}
+	if !dialer.DefaultInterfaceFinder.CompareAndSwap(nil, o.finder) {
+		log.Warnln("[Owner] another interface finder holds mihomo's dialer")
+	}
+}
+
+func (o *ownerTunnel) physicalIndex() uint32 {
+	if physical := o.monitor.DefaultInterface(); physical != nil {
+		return uint32(physical.Index)
+	}
+	return 0
 }
 
 // On-link routes as wireguard-windows adds them; a missing family comes in to be dropped, as Windows lets it out.
@@ -220,6 +202,7 @@ func (o *ownerTunnel) close() {
 		dialer.DefaultInterfaceFinder.CompareAndSwap(o.finder, nil)
 	}
 	stopOwner()
+	ovpnWinStop()
 	if o.monitor != nil {
 		_ = o.monitor.Close()
 	}
