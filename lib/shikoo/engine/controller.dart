@@ -1130,6 +1130,12 @@ String? ownerAside(ProviderReader read, Uri url) {
   return proxy == 'DIRECT' ? null : proxy;
 }
 
+@visibleForTesting
+Options subscriptionOptions(String url) => Options(
+  responseType: ResponseType.bytes,
+  headers: doorHeaders(Uri.parse(url), () => globalState.packageInfo.version),
+);
+
 Future<Response<Uint8List>> _get(
   String url,
   String? proxy, {
@@ -1143,7 +1149,7 @@ Future<Response<Uint8List>> _get(
     );
   try {
     return await dio
-        .get<Uint8List>(url, options: Options(responseType: ResponseType.bytes))
+        .get<Uint8List>(url, options: subscriptionOptions(url))
         .timeout(timeout ?? subscriptionTimeout);
   } catch (error) {
     commonPrint.log(

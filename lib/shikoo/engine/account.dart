@@ -353,17 +353,22 @@ class AppRelease {
 final _sha256 = RegExp(r'^[0-9a-f]{64}$');
 
 class ShikooApi {
-  ShikooApi(this.bases, [Dio? dio, this.bridge, this.answeredDirect])
-    : _dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              connectTimeout: const Duration(seconds: 10),
-              sendTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 15),
-              validateStatus: (_) => true,
-            ),
-          );
+  ShikooApi(
+    this.bases, [
+    Dio? dio,
+    this.bridge,
+    this.answeredDirect,
+    this.version,
+  ]) : _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 10),
+               sendTimeout: const Duration(seconds: 10),
+               receiveTimeout: const Duration(seconds: 15),
+               validateStatus: (_) => true,
+             ),
+           );
 
   final List<String> bases;
   final Dio _dio;
@@ -376,6 +381,8 @@ class ShikooApi {
 
   final Future<void> Function()? answeredDirect;
 
+  final String Function()? version;
+
   /// The address that answered last goes first; the next is the backup for a blocked one.
   int _first = 0;
 
@@ -387,6 +394,7 @@ class ShikooApi {
     Duration? sendTimeout,
   }) async {
     final name = path.split('/').where((part) => part.isNotEmpty).join('-');
+    final app = version?.call();
     (DioException, String)? failed;
     Future<Response<Object?>?> each(Dio dio) async {
       for (var i = 0; i < bases.length; i++) {
@@ -401,6 +409,7 @@ class ShikooApi {
               headers: {
                 if (token != null)
                   HttpHeaders.authorizationHeader: 'Bearer $token',
+                shikooAppHeader: ?app,
               },
             ),
           );
@@ -609,6 +618,7 @@ class ShikooApi {
         // Ranges count stored bytes; HttpClient would ask for gzip and unpack it.
         HttpHeaders.acceptEncodingHeader: 'identity',
         if (from > 0) HttpHeaders.rangeHeader: 'bytes=$from-',
+        shikooAppHeader: ?version?.call(),
       },
     ),
   );
@@ -622,6 +632,7 @@ final shikooApiProvider = Provider<ShikooApi>(
         .read(shikooControllerProvider)
         .throughBridge<Response<Object?>?>(call),
     () => ref.read(shikooControllerProvider).leaveBridge(),
+    () => ref.read(shikooVersionProvider),
   ),
 );
 
