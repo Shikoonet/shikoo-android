@@ -1841,7 +1841,7 @@ class ShikooController {
     if (!shikooOnlyCores.containsValue(_coreFor(carried))) {
       return _fallBackToMihomo();
     }
-    final off = disconnect();
+    final off = disconnect(dropped: true);
     _set(const _Intent(error: ShikooError.coreDown));
     await off;
   }
@@ -1869,8 +1869,10 @@ class ShikooController {
     unawaited(_setup.setRunning(false));
   }
 
-  Future<void> disconnect() async {
-    offByCustomer = true;
+  /// [dropped]: the app gave up on an engine that died, a stop the customer is told of; every other stop is the
+  /// customer's or has an alert of its own, and says no drop.
+  Future<void> disconnect({bool dropped = false}) async {
+    offByCustomer = !dropped;
     if (!_fallingBack) {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }
@@ -1949,7 +1951,7 @@ class ShikooController {
       _forgetRound();
       unawaited(wanted ? _checkSelected() : pingAll());
     } else if (wanted) {
-      final off = disconnect();
+      final off = disconnect(dropped: true);
       _set(const _Intent(error: ShikooError.coreDown));
       await off;
     }

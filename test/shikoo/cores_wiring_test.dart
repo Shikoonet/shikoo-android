@@ -14,6 +14,7 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
+import 'package:fl_clash/shikoo/app/alerts.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -22,6 +23,7 @@ import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -780,6 +782,51 @@ void main() {
       home.container.read(shikooStateProvider).lastError,
       ShikooError.coreDown,
     );
+  });
+
+  test('an engine death the app gives up on is a drop the customer is told '
+      'of: the «dropped» alert posts, not the customer-stop silence', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final posts = <String>[];
+    const channel = MethodChannel('shikoo/alerts');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'post') posts.add((call.arguments as Map)['kind']);
+      return call.method == 'target' ? null : true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final settle = alertSettle;
+    alertSettle = const Duration(milliseconds: 20);
+    addTearDown(() => alertSettle = settle);
+    final every = ownerWatchEvery;
+    ownerWatchEvery = const Duration(milliseconds: 20);
+    addTearDown(() => ownerWatchEvery = every);
+    var deaths = 0;
+    final home = await _home(
+      ready: {ShikooCore.openvpn},
+      running: const {'A': 'Vless', 'O': 'OpenVPN'},
+      carrying: () => deaths > 0 && deaths-- > 0
+          ? (core: '', server: '')
+          : (core: 'openvpn', server: 'O'),
+    );
+    await _connectOn(home, 'O');
+    home.controller.foreground = false;
+    home.container.read(shikooAlertsProvider);
+    home.setup.runs.clear();
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(
+      home.container.read(shikooStateProvider).lastError,
+      ShikooError.coreDown,
+    );
+    // The stop the app asked for reaches the service, as it does on a phone.
+    home.container.read(runTimeProvider.notifier).value = null;
+    await Future<void>.delayed(alertSettle * 4);
+    expect(posts, ['dropped']);
   });
 
   test('the hold on mihomo ends with the connection however it ends, and a '
