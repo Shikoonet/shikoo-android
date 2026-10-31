@@ -13,7 +13,7 @@ skills: [agent-ground-rules, ponytail:ponytail]
 - FlClash روی ویندوز برای اندروید ساخته نمی‌شود (CLAUDE.md › «شبکهٔ این ماشین»). ساخت روی **WSL Ubuntu** است.
   آن نصب است: WSL 2، توزیع پیش‌فرض `Ubuntu`.
 - ابزارها و کد را داخل فایل‌سیستم لینوکس بگذار (`~/`)، نه روی `/mnt/d`؛ آن‌جا کند است.
-- نسخه‌ها را از خود FlClash بخوان، نه از حدس: `.github/workflows/build.yaml` و `.agents/commands.md`.
+- نسخه‌ها را از کارگاه شیکو بخوان، نه از حدس: `.github/workflows/shikoo-ci.yml`، `tools/wsl-toolchain.sh` و `core/go.mod`. `build.yaml` خود FlClash خاموش است و Go کهنه‌تری دارد.
 - ابزار ویندوزی `D:\dev\android-toolchain` برای امولاتور و adb می‌ماند.
 
 ## شبکه
