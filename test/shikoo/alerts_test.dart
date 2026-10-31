@@ -590,7 +590,7 @@ void main() {
     test('a day is the unit: later the same day is none, the next day is '
         'one, and the clock is the server-corrected one', () async {
       addTearDown(() => shikooSkew = Duration.zero);
-      shikooSkew = DateTime(2026, 10, 31, 12).difference(DateTime.now());
+      shikooSkew = DateTime(2026, 10, 15, 12).difference(DateTime.now());
       await alerts.refused('Germany 5');
       expect(posted(), ['refused']);
       shikooSkew += const Duration(hours: 3);
