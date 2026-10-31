@@ -43,17 +43,27 @@ class ShikooAlertsTest {
         assertFalse(anotherVpn(listOf(us), us))
         assertTrue(anotherVpn(listOf(us, -1), us))
         assertTrue(anotherVpn(listOf(-1), us))
-        assertFalse(anotherVpn(listOf("VPN:com.shikoonet.app"), "VPN:com.shikoonet.app"))
-        assertTrue(anotherVpn(listOf("VPN:com.follow.clash"), "VPN:com.shikoonet.app"))
     }
 
     @Test
-    fun `a takeover is waited for a few seconds, then given up`() = runTest {
+    fun `below Android 10 a VPN network that appears after the revoke is another app's, ours going or coming back is not`() {
+        val ours = setOf(7L)
+        assertFalse(takeoverSeen(ours, ours, ownUp = false))
+        assertFalse(takeoverSeen(ours, emptySet(), ownUp = false))
+        assertTrue(takeoverSeen(ours, setOf(7L, 9L), ownUp = false))
+        assertTrue(takeoverSeen(ours, setOf(9L), ownUp = false))
+        assertTrue(takeoverSeen(emptySet(), setOf(9L), ownUp = false))
+        assertFalse(takeoverSeen(ours, setOf(9L), ownUp = true))
+    }
+
+    @Test
+    fun `a takeover is waited for ten seconds, then given up`() = runTest {
+        assertEquals(10_000L, TAKEOVER_MILLIS)
         var checks = 0
         assertTrue(appears(TAKEOVER_MILLIS) { ++checks == 3 })
         assertEquals(1_000L, currentTime)
 
         assertFalse(appears(TAKEOVER_MILLIS) { false })
-        assertEquals(1_000L + TAKEOVER_MILLIS, currentTime)
+        assertEquals(11_000L, currentTime)
     }
 }

@@ -9,9 +9,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Process
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -52,7 +54,9 @@ internal fun quietKind(kind: String, lastDropAt: Long, now: Long) =
 /** Where Dart's own switch for [kind] lives (`flutter.` is the prefix the shared_preferences plugin adds). */
 internal fun muteKey(kind: String) = "flutter.shikoo.alerts.$kind"
 
-internal fun anotherVpn(owners: List<Any>, own: Any) = owners.any { it != own }
+internal fun anotherVpn(owners: List<Int>, own: Int) = owners.any { it != own }
+
+internal fun takeoverSeen(before: Set<Long>, now: Set<Long>, ownUp: Boolean) = !ownUp && (now - before).isNotEmpty()
 
 internal suspend fun appears(within: Long, check: () -> Boolean) =
     withTimeoutOrNull(within) {
@@ -130,10 +134,11 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
         /** A takeover only once another app's VPN is up: Android's own Disconnect revokes too, and is the customer's. */
         fun revoked(context: Context) {
             val alert = own(context).getString(REVOKED, null) ?: return
-            if (!flutter(context).getBoolean("flutter.shikoo.alerts.$ALERT_DROPPED", true)) return
+            if (!flutter(context).getBoolean(muteKey(ALERT_DROPPED), true)) return
             reconnect?.cancel()
+            val seen = takeover(context)
             reconnect = GlobalState.launch {
-                if (!appears(TAKEOVER_MILLIS) { anotherVpn(vpnOwners(context), ownId(context)) }) return@launch
+                if (!appears(TAKEOVER_MILLIS, seen)) return@launch
                 if (inForeground() || !post(context, JSONObject(alert).plain() as Map<*, *>)) return@launch
                 ServiceState.runState.first { it == RunState.STOPPED }
                 ServiceState.runState.first { it == RunState.STARTED }
@@ -222,26 +227,28 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
 
-        // Android gives another app's VPN the owner uid -1; below 10 only its NetworkInfo names the app.
-        @Suppress("DEPRECATION")
-        private fun vpnOwners(context: Context): List<Any> {
-            val manager = context.getSystemService(ConnectivityManager::class.java) ?: return emptyList()
-            return manager.allNetworks.mapNotNull { network ->
-                val caps = manager.getNetworkCapabilities(network)
-                    ?.takeIf { it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) }
-                    ?: return@mapNotNull null
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    caps.ownerUid
-                } else {
-                    manager.getNetworkInfo(network)?.extraInfo
-                }
-            }
+        // Before Android 10 no VPN names its app (extraInfo is empty until 15): a network that appears after the revoke is another's.
+        private fun takeover(context: Context): () -> Boolean {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return { anotherVpn(vpnOwners(context), Process.myUid()) }
+            val before = vpnNetworks(context)
+            return { takeoverSeen(before, vpnNetworks(context), ServiceState.runState.value == RunState.STARTED) }
         }
 
-        private fun ownId(context: Context): Any =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) Process.myUid() else "VPN:${context.packageName}"
+        @RequiresApi(Build.VERSION_CODES.Q)
+        private fun vpnOwners(context: Context): List<Int> {
+            val manager = context.getSystemService(ConnectivityManager::class.java) ?: return emptyList()
+            return manager.allNetworks.mapNotNull { vpnCaps(manager, it)?.ownerUid }
+        }
 
-        private fun inForeground() =ActivityManager.RunningAppProcessInfo()
+        private fun vpnNetworks(context: Context): Set<Long> {
+            val manager = context.getSystemService(ConnectivityManager::class.java) ?: return emptySet()
+            return manager.allNetworks.filter { vpnCaps(manager, it) != null }.map { it.networkHandle }.toSet()
+        }
+
+        private fun vpnCaps(manager: ConnectivityManager, network: Network) =
+            manager.getNetworkCapabilities(network)?.takeIf { it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) }
+
+        private fun inForeground() = ActivityManager.RunningAppProcessInfo()
             .also(ActivityManager::getMyMemoryState)
             .importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
 
