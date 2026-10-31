@@ -1146,6 +1146,32 @@ void main() {
     expect(_server(home, 'W').core, ShikooCore.mihomo);
   });
 
+  test(
+    'an OpenVPN server\'s chip is its official core idle, connecting and up, '
+    'whatever Go says it carries (tv-10)',
+    () async {
+      final home = await _home(
+        ready: {ShikooCore.openvpn},
+        running: const {'A': 'Vless', 'O': 'OpenVPN'},
+        carrying: () => (core: '', server: ''),
+      );
+      expect(_server(home, 'O').core, ShikooCore.openvpn);
+      await home.controller.selectServer('O');
+      final connecting = home.controller.connect();
+      home.container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+      expect(
+        home.container.read(shikooStateProvider).connection,
+        ShikooConnection.connecting,
+      );
+      expect(_server(home, 'O').core, ShikooCore.openvpn);
+
+      home.setup.tunnel = DateTime(2026);
+      await connecting;
+      expect(_server(home, 'O').core, ShikooCore.openvpn);
+    },
+  );
+
   test("in Windows' proxy mode the cores row keeps the owner pick and names "
       'mihomo as its carrier', () async {
     final home = await _home(
