@@ -4,7 +4,11 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart'
-    show subscriptionOptions;
+    show
+        ShikooConnection,
+        ShikooState,
+        shikooStateProvider,
+        subscriptionOptions;
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
@@ -12,6 +16,8 @@ import 'package:fl_clash/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod/riverpod.dart';
+
+import '../helpers/redirecting_client.dart';
 
 /// Plain `test`s only: TestWidgetsFlutterBinding would answer every request itself with a 400.
 
@@ -36,6 +42,18 @@ class _Site {
   final seen = <_Seen>[];
 
   String get url => 'http://127.0.0.1:${server.port}';
+}
+
+class _ToSite extends HttpOverrides {
+  _ToSite(this.port);
+
+  final int port;
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) => RedirectingClient(
+    super.createHttpClient(context),
+    (url) => url.replace(scheme: 'http', host: '127.0.0.1', port: port),
+  );
 }
 
 Future<_Site> _site() async {
@@ -126,6 +144,35 @@ void main() {
         expect([...home.seen, ...abroad.seen].map((s) => s.app), [null, null]);
       },
     );
+
+    test('the app\'s own internet check reaches the door with it and no '
+        'other site', () async {
+      final site = await _site();
+      final container = ProviderContainer(
+        overrides: [
+          shikooVersionProvider.overrideWithValue('1.0.58'),
+          shikooStateProvider.overrideWithValue(
+            const ShikooState(
+              connection: ShikooConnection.off,
+              connectedFor: Duration.zero,
+              isTV: false,
+              servers: [],
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await HttpOverrides.runWithHttpOverrides(
+        () => ownerProbes(container.read),
+        _ToSite(site.server.port),
+      );
+
+      expect(
+        {for (final s in site.seen) s.line: s.app},
+        {'HEAD /': null, 'GET /generate_204': null, 'GET /health': '1.0.58'},
+      );
+    });
 
     test(
       'a link at the door gets it, a panel link and a foreign port do not',

@@ -36,6 +36,7 @@ import 'package:riverpod/misc.dart' show Override;
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/redirecting_client.dart';
 import '../helpers/test_profiles.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
@@ -264,6 +265,24 @@ final _gone = <String>{};
 /// The next request to a path waits until completed; the gate is gone once a request took it.
 final _held = <String, Completer<void>>{};
 
+/// The app header each path of the panel was asked with.
+final _panelSaw = <String, String?>{};
+
+/// The door's https address answers from the test's own panel server.
+class _DoorAtPanel extends HttpOverrides {
+  _DoorAtPanel(this.port);
+
+  final int port;
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) => RedirectingClient(
+    super.createHttpClient(context),
+    (url) => url.host == Uri.parse(shikooApiBases.first).host
+        ? url.replace(scheme: 'http', host: '127.0.0.1', port: port)
+        : url,
+  );
+}
+
 Future<void> _taken(String path) async {
   while (_held.containsKey(path)) {
     await Future<void>.delayed(const Duration(milliseconds: 5));
@@ -280,6 +299,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   _mostInFlight = 0;
   _gone.clear();
   _held.clear();
+  _panelSaw.clear();
   _panelClock = null;
   _panelInfo = _unused;
   when(() => core.validateConfig(any())).thenAnswer((_) async => '');
@@ -298,6 +318,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   addTearDown(() => server.close(force: true));
   server.listen((call) async {
     final held = _held.remove(call.uri.path)?.future;
+    _panelSaw[call.uri.path] = call.headers.value(shikooAppHeader);
     _mostInFlight = math.max(_mostInFlight, ++_inFlight);
     await Future<void>.delayed(const Duration(milliseconds: 20));
     await held;
@@ -2600,6 +2621,23 @@ void main() {
     );
     expect(pasted.error, ShikooPasteError.offline);
     expect(held, hasLength(1));
+  });
+
+  test('a link at the door is fetched with the app version, a panel link '
+      'without', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+
+    await HttpOverrides.runWithHttpOverrides(() async {
+      await controller.addService('${shikooApiBases.first}/file/user111/a');
+      await controller.addService('$panel/file/user222/a');
+    }, _DoorAtPanel(Uri.parse(panel).port));
+
+    expect(_panelSaw, {
+      '/file/user111/a': globalState.packageInfo.version,
+      '/file/user222/a': null,
+    });
   });
 
   test(
@@ -7378,6 +7416,35 @@ void main() {
         expect(stateOf(container).connection, ShikooConnection.off);
       },
     );
+
+    test('a failed ask leaves the flag down when only the ping raised the '
+        'warning', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(passing: true);
+      expect(stateOf(container).noInternet, isFalse);
+
+      delay = -1;
+      setup
+        ..traffic = false
+        ..holdAsks = true;
+      var pinged = false;
+      unawaited(controller.pingAll().whenComplete(() => pinged = true));
+      await failUntil(setup, () => pinged);
+      var state = stateOf(container);
+      expect(
+        (
+          state.selectedServer?.ping,
+          state.connectedNoTraffic,
+          state.noInternet,
+        ),
+        (-1, false, true),
+      );
+
+      (await open(setup)).complete(false);
+      await pumpEventQueue();
+      state = stateOf(container);
+      expect((state.connectedNoTraffic, state.noInternet), (false, true));
+    });
 
     test('a tunnel native does not report is not asked, and the warning '
         'waits for it', () async {
