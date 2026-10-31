@@ -195,7 +195,6 @@ class VpnShapeTest {
         assertTrue(onRevoke.contains("Core.setOwnerProtector(null)"))
     }
 
-    // A full stop clears the pin through the protector; only a switch's stop may keep both (core/shikoo_owner_protect.go).
     @Test
     fun `a full stop drops the owner core's protect and only a switch keeps it`() {
         val cleanup = Regex("""private fun cleanup\(keepHeld: Boolean = false\) \{(.*?)\n    \}""", RegexOption.DOT_MATCHES_ALL)
