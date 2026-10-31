@@ -518,6 +518,10 @@ func TestANewStartClearsWhatTheLastSessionLeft(t *testing.T) {
 	if got := shikooOwnerNow(); got != (ShikooOwner{Core: "openvpn", Server: "ov", State: stateConnecting}) {
 		t.Errorf("a new start hears the last one's failure: %+v", got)
 	}
+	ovpnWinStop()
+	if got := shikooOwnerNow(); got != (ShikooOwner{}) {
+		t.Errorf("the new session's own stop brings the last one's failure back: %+v", got)
+	}
 }
 
 func TestTheAppsStopClearsWhatTheLastSessionLeft(t *testing.T) {
