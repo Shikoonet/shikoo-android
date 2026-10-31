@@ -46,17 +46,6 @@ class ShikooAlertsTest {
     }
 
     @Test
-    fun `below Android 10 a VPN network that appears after the revoke is another app's, ours going or coming back is not`() {
-        val ours = setOf(7L)
-        assertFalse(takeoverSeen(ours, ours, ownUp = false))
-        assertFalse(takeoverSeen(ours, emptySet(), ownUp = false))
-        assertTrue(takeoverSeen(ours, setOf(7L, 9L), ownUp = false))
-        assertTrue(takeoverSeen(ours, setOf(9L), ownUp = false))
-        assertTrue(takeoverSeen(emptySet(), setOf(9L), ownUp = false))
-        assertFalse(takeoverSeen(ours, setOf(9L), ownUp = true))
-    }
-
-    @Test
     fun `a takeover is waited for ten seconds, then given up`() = runTest {
         assertEquals(10_000L, TAKEOVER_MILLIS)
         var checks = 0

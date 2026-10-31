@@ -56,8 +56,6 @@ internal fun muteKey(kind: String) = "flutter.shikoo.alerts.$kind"
 
 internal fun anotherVpn(owners: List<Int>, own: Int) = owners.any { it != own }
 
-internal fun takeoverSeen(before: Set<Long>, now: Set<Long>, ownUp: Boolean) = !ownUp && (now - before).isNotEmpty()
-
 internal suspend fun appears(within: Long, check: () -> Boolean) =
     withTimeoutOrNull(within) {
         while (!check()) delay(500)
@@ -227,11 +225,10 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
 
-        // Before Android 10 no VPN names its app (extraInfo is empty until 15): a network that appears after the revoke is another's.
+        // Before Android 10 no VPN names its app (extraInfo is empty until 15); ours is gone by the revoke, so one up is another's.
         private fun takeover(context: Context): () -> Boolean {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return { anotherVpn(vpnOwners(context), Process.myUid()) }
-            val before = vpnNetworks(context)
-            return { takeoverSeen(before, vpnNetworks(context), ServiceState.runState.value == RunState.STARTED) }
+            return { vpnUp(context) }
         }
 
         @RequiresApi(Build.VERSION_CODES.Q)
@@ -240,9 +237,9 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
             return manager.allNetworks.mapNotNull { vpnCaps(manager, it)?.ownerUid }
         }
 
-        private fun vpnNetworks(context: Context): Set<Long> {
-            val manager = context.getSystemService(ConnectivityManager::class.java) ?: return emptySet()
-            return manager.allNetworks.filter { vpnCaps(manager, it) != null }.map { it.networkHandle }.toSet()
+        private fun vpnUp(context: Context): Boolean {
+            val manager = context.getSystemService(ConnectivityManager::class.java) ?: return false
+            return manager.allNetworks.any { vpnCaps(manager, it) != null }
         }
 
         private fun vpnCaps(manager: ConnectivityManager, network: Network) =
