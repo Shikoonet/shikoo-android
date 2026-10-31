@@ -500,8 +500,8 @@ func TestOnePeerTakesEveryFamilyWhateverAllowedIPsSays(t *testing.T) {
 // The literal Kotlin's Core.prepareOwner sends; VpnOptionsTest pins the same key on its side.
 func TestPrepareOwnerReadsTheKeysKotlinSends(t *testing.T) {
 	var params PrepareOwnerParams
-	if err := json.Unmarshal([]byte(`{"core":"wireguard","server":"Germany 5","iran-direct":true}`), &params); err != nil ||
-		params != (PrepareOwnerParams{Core: "wireguard", Server: "Germany 5", IranDirect: true}) {
+	if err := json.Unmarshal([]byte(`{"core":"wireguard","server":"Germany 5","iran-direct":true,"held":true}`), &params); err != nil ||
+		params != (PrepareOwnerParams{Core: "wireguard", Server: "Germany 5", IranDirect: true, Held: true}) {
 		t.Errorf("read %+v (%v)", params, err)
 	}
 }

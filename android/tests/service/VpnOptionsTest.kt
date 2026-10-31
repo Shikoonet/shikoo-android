@@ -1,6 +1,7 @@
 package com.follow.clash.service.models
 
 import com.follow.clash.common.AccessControlMode
+import com.follow.clash.core.OWNER_HELD
 import com.follow.clash.core.OWNER_IRAN_DIRECT
 import java.io.File
 import java.net.Inet4Address
@@ -199,4 +200,15 @@ class OwnerArgumentsTest {
     // The json tag Go reads (PrepareOwnerParams, TestPrepareOwnerReadsTheKeysKotlinSends).
     @Test
     fun iranDirectGoesUnderTheKeyGoReads() = assertEquals("iran-direct", OWNER_IRAN_DIRECT)
+
+    @Test
+    fun heldGoesUnderTheKeyGoReads() = assertEquals("held", OWNER_HELD)
+
+    // Whether a switch held the VPN is the one fact Go cannot see: its DNS decides on it (core/shikoo_dns.go).
+    @Test
+    fun `a start tells Go whether the VPN it takes was held by a switch`() {
+        val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+        assertTrue(service.contains("val held = heldTun.take()"))
+        assertTrue(Regex("""Core\.prepareOwner\(.*\bheld\)""").containsMatchIn(service))
+    }
 }

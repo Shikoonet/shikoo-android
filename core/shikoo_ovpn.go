@@ -82,7 +82,7 @@ func init() {
 
 // ovpnPrepare reads a mapping the way mihomo's OpenVPN outbound does (adapter/outbound/openvpn.go), so a key both
 // read means the same in both cores, and writes it as the profile OpenVPN 3 reads.
-func ovpnPrepare(mapping map[string]any, iranDirect bool) (*ovpnPlan, error) {
+func ovpnPrepare(mapping map[string]any, iranDirect, held bool) (*ovpnPlan, error) {
 	for _, key := range ovpnRefusedKeys {
 		if _, set := mapping[key]; set {
 			return nil, fmt.Errorf("the official engine cannot honour %s", key)
@@ -95,7 +95,7 @@ func ovpnPrepare(mapping map[string]any, iranDirect bool) (*ovpnPlan, error) {
 	ovpnPrepared.Store(&ovpnSession{server: name, config: config, iranDirect: iranDirect})
 	// OpenVPN 3 dials a remote name through the VPN a switch holds, where no DNS answers; the pings keep the name.
 	dialed := *config
-	dialed.RemoteHost = pinnedHost(config.RemoteHost)
+	dialed.RemoteHost = pinnedHost(config.RemoteHost, held)
 	return &ovpnPlan{Profile: ovpnProfile(&dialed), Username: config.Username, Password: config.Password}, nil
 }
 
