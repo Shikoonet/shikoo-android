@@ -1033,6 +1033,26 @@ void main() {
       expect(setup.runs, [true, false, false]);
     });
 
+    test('the app stopped around a step starts again only when asked: after '
+        'the Windows installer it comes back, and with startAgain false (it '
+        'was off, or the user started one since) no start follows', () async {
+      for (final (again, runs) in [
+        (true, [true, false, true]),
+        (false, [true, false]),
+      ]) {
+        final s = await service({
+          germany: ('Vless', 150),
+          'هلند ۱': ('Vless', 90),
+        });
+        s.setup.tunnel = DateTime(2026);
+        unawaited(s.controller.connect());
+        await settle();
+        await s.controller.whileStopped(() async {}, startAgain: () => again);
+        await settle();
+        expect(s.setup.runs, runs, reason: 'startAgain: $again');
+      }
+    });
+
     test('connect hears only a usage-multiplied VLESS and a usage-multiplied '
         'OpenVPN reset: the round end takes the whole test', () async {
       const fourV = 'ضریب مصرف NE 4 x';
@@ -2860,6 +2880,23 @@ void main() {
       setup.startGate!.complete();
       await pumpEventQueue();
       expect(service(container).loginRefused, isTrue);
+    });
+
+    test("FlClash's run time comes up at the app's own start, while it is "
+        'still connecting: the refusal stays', () async {
+      final container = await refusedOnce();
+      final setup = setupOf(container)..startGate = Completer<void>();
+      unawaited(container.read(shikooControllerProvider).connect());
+      await pumpEventQueue();
+      container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).connection,
+        ShikooConnection.connecting,
+      );
+      expect(service(container).loginRefused, isTrue);
+      setup.startGate!.complete();
+      await pumpEventQueue();
     });
 
     test('a start that fails before the engine is asked reads no refusal left '
