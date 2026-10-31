@@ -240,10 +240,19 @@ void main() {
     }
     expect(offeredHere(ovpn, official), isTrue);
     expect(offeredHere(ovpn, _noneReady), isFalse);
-    expect(
-      runningCore(ovpn, 'OpenVPN', const {}, specs: official),
-      ShikooCore.openvpn,
-    );
+    for (final carried in [null, '', 'wireguard']) {
+      expect(
+        runningCore(
+          ovpn,
+          'OpenVPN',
+          const {},
+          specs: official,
+          carried: carried,
+        ),
+        ShikooCore.openvpn,
+        reason: 'Go carrying "$carried": never «با mihomo» (tv-10)',
+      );
+    }
     expect(
       [
         _reality,

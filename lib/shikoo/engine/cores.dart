@@ -144,6 +144,7 @@ ShikooCore runningCore(
   String? carried,
 }) {
   final server = source ?? {'type': runningType};
+  if (shikooOnlyCores[protocolOf(server)] case final only?) return only;
   final core = coreFor(server, choices, specs: specs, tunnel: tunnel);
   return switch (specs[core]!.shape) {
     ShikooShape.mihomo => core,
