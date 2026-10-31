@@ -42,6 +42,7 @@ internal const val ALERT_KIND = "kind"
 internal const val ALERT_DROPPED = "dropped"
 internal const val QUIET_MILLIS = 10 * 60_000L
 
+// shortcut: a VPN app that comes up after 10 s is not seen, give the window longer if reports show it.
 internal const val TAKEOVER_MILLIS = 10_000L
 
 /** A drop this soon after the last one updates the alert without sound or heads-up. */
@@ -55,6 +56,13 @@ internal fun quietKind(kind: String, lastDropAt: Long, now: Long) =
 internal fun muteKey(kind: String) = "flutter.shikoo.alerts.$kind"
 
 internal fun anotherVpn(owners: List<Int>, own: Int) = owners.any { it != own }
+
+internal fun takeoverSeen(sdk: Int, owners: () -> List<Int>, me: Int, anyVpn: () -> Boolean) =
+    if (sdk >= Build.VERSION_CODES.Q) anotherVpn(owners(), me) else anyVpn()
+
+internal fun alertOn(kind: String, read: (String, Boolean) -> Boolean) = read(muteKey(kind), true)
+
+internal fun postOffScreen(foreground: Boolean, post: () -> Boolean) = !foreground && post()
 
 internal suspend fun appears(within: Long, check: () -> Boolean) =
     withTimeoutOrNull(within) {
@@ -132,12 +140,13 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
         /** A takeover only once another app's VPN is up: Android's own Disconnect revokes too, and is the customer's. */
         fun revoked(context: Context) {
             val alert = own(context).getString(REVOKED, null) ?: return
-            if (!flutter(context).getBoolean(muteKey(ALERT_DROPPED), true)) return
+            if (!alertOn(ALERT_DROPPED, flutter(context)::getBoolean)) return
             reconnect?.cancel()
             val seen = takeover(context)
             reconnect = GlobalState.launch {
                 if (!appears(TAKEOVER_MILLIS, seen)) return@launch
-                if (inForeground() || !post(context, JSONObject(alert).plain() as Map<*, *>)) return@launch
+                val said = postOffScreen(inForeground()) { post(context, JSONObject(alert).plain() as Map<*, *>) }
+                if (!said) return@launch
                 ServiceState.runState.first { it == RunState.STOPPED }
                 ServiceState.runState.first { it == RunState.STARTED }
                 cancel(context, ALERT_DROPPED)
@@ -226,10 +235,9 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
             )
 
         // Before Android 10 no VPN names its app (extraInfo is empty until 15); ours is gone by the revoke, so one up is another's.
-        private fun takeover(context: Context): () -> Boolean {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return { anotherVpn(vpnOwners(context), Process.myUid()) }
-            return { vpnUp(context) }
-        }
+        @SuppressLint("NewApi")
+        private fun takeover(context: Context): () -> Boolean =
+            { takeoverSeen(Build.VERSION.SDK_INT, { vpnOwners(context) }, Process.myUid()) { vpnUp(context) } }
 
         @RequiresApi(Build.VERSION_CODES.Q)
         private fun vpnOwners(context: Context): List<Int> {

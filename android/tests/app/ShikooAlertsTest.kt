@@ -45,6 +45,48 @@ class ShikooAlertsTest {
         assertTrue(anotherVpn(listOf(-1), us))
     }
 
+    private val unread: () -> List<Int> = { error("owners are read from Android 10 only") }
+    private val blind: () -> Boolean = { error("a bare VPN check is for below Android 10") }
+
+    @Test
+    fun `below Android 10, up to API 28, any VPN up is a takeover and no owner is read`() {
+        for (sdk in listOf(25, 28)) {
+            assertTrue("$sdk", takeoverSeen(sdk, unread, us) { true })
+            assertFalse("$sdk", takeoverSeen(sdk, unread, us) { false })
+        }
+    }
+
+    @Test
+    fun `from Android 10, API 29, only another app's owner is a takeover and no bare check is made`() {
+        for (sdk in listOf(29, 30)) {
+            assertTrue("$sdk", takeoverSeen(sdk, { listOf(us, -1) }, us, blind))
+            assertFalse("$sdk", takeoverSeen(sdk, { listOf(us) }, us, blind))
+            assertFalse("$sdk", takeoverSeen(sdk, { emptyList() }, us, blind))
+        }
+    }
+
+    @Test
+    fun `the revoke alert is on until Dart's own switch for it is turned off, and no other switch turns it off`() {
+        val stored = mutableMapOf<String, Boolean>()
+        val read = { key: String, default: Boolean -> stored[key] ?: default }
+        assertTrue(alertOn(ALERT_DROPPED, read))
+        stored[muteKey("noTraffic")] = false
+        assertTrue(alertOn(ALERT_DROPPED, read))
+        stored[muteKey(ALERT_DROPPED)] = false
+        assertFalse(alertOn(ALERT_DROPPED, read))
+        assertFalse(alertOn("noTraffic", read))
+    }
+
+    @Test
+    fun `nothing is posted while the app is on screen, and what the post says is what comes back`() {
+        var posts = 0
+        assertFalse(postOffScreen(true) { posts++; true })
+        assertEquals(0, posts)
+        assertTrue(postOffScreen(false) { posts++; true })
+        assertFalse(postOffScreen(false) { posts++; false })
+        assertEquals(2, posts)
+    }
+
     @Test
     fun `a takeover is waited for ten seconds, then given up`() = runTest {
         assertEquals(10_000L, TAKEOVER_MILLIS)
