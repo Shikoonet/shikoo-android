@@ -308,6 +308,24 @@ func TestTheNewestAskWinsAndTheOldSessionIsRefused(t *testing.T) {
 	}
 }
 
+// While the last engine still takes halts, the newer ask is already the latest: what the old one says is not heard.
+func TestASessionThatIsNotTheLatestIsRefusedWhileItIsStillStopping(t *testing.T) {
+	engine, _ := withEngine(t)
+	engine.ignore = 1 << 30
+	old := startFake(t, engine, nil)
+	old.report(false)
+	ovpnLatest.Store(int64(old.id) + 1)
+	t.Cleanup(func() { engine.ignore = 0 })
+
+	if old.establish(pushedSpec) || old.protect(0, false) || old.write(echoV4([4]byte{10, 89, 0, 2}, [4]byte{10, 89, 0, 1})) {
+		t.Error("a session that is no longer the latest was served before it stopped")
+	}
+	old.event("CONNECTED", "", false)
+	if got := shikooOwnerNow(); got.State != stateConnecting {
+		t.Errorf("the core says %+v: a session that is not the latest cannot say it is up", got)
+	}
+}
+
 func TestNoConnectionInTheLimitFailsTheSessionAndAConnectedOneIsLeftAlone(t *testing.T) {
 	limit := ovpnConnectLimit
 	ovpnConnectLimit = 80 * time.Millisecond

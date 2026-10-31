@@ -48,7 +48,7 @@ func hostTun(t *testing.T, pick *string) *tunHost {
 	ownerTunnelKey = func() string { return h.live }
 	closeOwnerTunnel = func() { h.live = "" }
 	startOwnerTunnel = func(_, key, core string, mapping map[string]any, _ bool) error {
-		h.buildingAtStart = append(h.buildingAtStart, buildingFor("openvpn")+"/"+buildingFor("wireguard"))
+		h.buildingAtStart = append(h.buildingAtStart, buildingFor("openvpn")+"/"+buildingFor("wireguard")+"/"+ovpnCarrying())
 		h.starts = append(h.starts, core+":"+fmt.Sprint(mapping["name"]))
 		if err := h.fail[core]; err != nil {
 			return err
@@ -123,7 +123,7 @@ func TestARebuildNamesTheServerBeingBuiltForTheCoreBuildingItOnly(t *testing.T) 
 
 	pick = "O"
 	recreateOwnerTun(tunOn)
-	if !slices.Equal(h.buildingAtStart, []string{"O/"}) {
+	if !slices.Equal(h.buildingAtStart, []string{"O//O"}) {
 		t.Errorf("building %v: between WireGuard and OpenVPN only OpenVPN's answer names the new server", h.buildingAtStart)
 	}
 	if ownerBuilding.Load() != nil || buildingFor("openvpn") != "" {
