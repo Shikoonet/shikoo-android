@@ -782,7 +782,7 @@ void main() {
       ),
       (
         null,
-        const SelectedGone(),
+        const SelectedGone('Germany 5'),
         'سرور تو از اشتراک حذف شد. یکی دیگر انتخاب کن.',
       ),
     ]) {

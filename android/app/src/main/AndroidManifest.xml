@@ -101,6 +101,10 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".ShikooAlertMute"
+            android:exported="false" />
+
         <provider
             android:name="com.follow.clash.service.FilesProvider"
             tools:node="remove" />

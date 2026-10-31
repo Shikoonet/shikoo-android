@@ -190,6 +190,17 @@ final shikooUpdateNoticeProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
   () => ShikooSwitchNotifier('shikoo.updateNotice'),
 );
 
+/// Off after «دیگر نشان نده» on that alert; Settings › Connection turns both back on. `ShikooAlerts.kt` reads the
+/// dropped one too, as `flutter.shikoo.alerts.dropped`.
+final shikooAlertNoTrafficProvider =
+    NotifierProvider<ShikooSwitchNotifier, bool>(
+      () => ShikooSwitchNotifier('shikoo.alerts.noTraffic'),
+    );
+
+final shikooAlertDroppedProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.alerts.dropped'),
+);
+
 /// Iranian sites bypass the VPN. Turned with `ShikooController.setIranDirect`, which moves the core too.
 final shikooIranDirectProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
   () => ShikooSwitchNotifier('shikoo.iranDirect'),

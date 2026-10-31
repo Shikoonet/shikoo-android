@@ -674,7 +674,11 @@ void main() {
           expect(setup.runs, [true, false], reason: reason);
           expect(proxies.picked, [gone], reason: reason);
           expect(state.connection, ShikooConnection.off, reason: reason);
-          expect(state.notice, isA<SelectedGone>(), reason: reason);
+          expect(
+            state.notice,
+            isA<SelectedGone>().having((n) => n.server, 'server', gone),
+            reason: reason,
+          );
 
           final clear = !up
               ? 'connect'

@@ -251,7 +251,9 @@ class SilentReplaced extends ShikooNotice {
 }
 
 class SelectedGone extends ShikooNotice {
-  const SelectedGone();
+  const SelectedGone(this.server);
+
+  final String server;
 }
 
 class RefreshFailed extends ShikooNotice {
@@ -1372,6 +1374,9 @@ class ShikooController {
   final Ref _ref;
 
   bool foreground = true;
+
+  /// The customer stopped the tunnel, here or from the VPN notification or the tile: no alert follows.
+  bool offByCustomer = false;
   static const _appPicksKey = 'shikoo.appPicks';
 
   Map<String, String> _appPickByService = const {};
@@ -1541,6 +1546,7 @@ class ShikooController {
   }
 
   Future<void> _connect({required bool setAside}) async {
+    offByCustomer = false;
     if (_ref.read(currentProfileProvider) == null ||
         (_ref.read(shikooStateProvider).service?.notHere ?? false)) {
       return;
@@ -1876,7 +1882,7 @@ class ShikooController {
     if (!shikooOnlyCores.containsValue(_coreFor(carried))) {
       return _fallBackToMihomo();
     }
-    final off = disconnect();
+    final off = disconnect(dropped: true);
     _set(const _Intent(error: ShikooError.coreDown));
     await off;
   }
@@ -1904,7 +1910,10 @@ class ShikooController {
     unawaited(_setup.setRunning(false));
   }
 
-  Future<void> disconnect() async {
+  /// [dropped]: the app gave up on an engine that died, a stop the customer is told of; every other stop is the
+  /// customer's or has an alert of its own, and says no drop.
+  Future<void> disconnect({bool dropped = false}) async {
+    offByCustomer = !dropped;
     if (!_fallingBack) {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }
@@ -1983,7 +1992,7 @@ class ShikooController {
       _forgetRound();
       unawaited(wanted ? _checkSelected() : pingAll());
     } else if (wanted) {
-      final off = disconnect();
+      final off = disconnect(dropped: true);
       _set(const _Intent(error: ShikooError.coreDown));
       await off;
     }
@@ -3033,7 +3042,7 @@ class ShikooController {
     }
     if (had != null && removed.contains(had)) {
       if (_upOrStarting) {
-        _notice(const SelectedGone());
+        _notice(SelectedGone(had));
         return disconnect();
       }
       _removed = had;

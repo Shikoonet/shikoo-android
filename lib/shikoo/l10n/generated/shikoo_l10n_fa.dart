@@ -1996,4 +1996,73 @@ class ShikooL10nFa extends ShikooL10n {
   @override
   String get updateFailedWarp =>
       'نه مستقیم جواب آمد، نه از راه ⁨WARP⁩. با همین سرورها وصل شو، بعد از راه سرور امتحان کن؛ اگر باز نشد، از «پشتیبانی» بپرس.';
+
+  @override
+  String get alerts => 'هشدارهای اتصال';
+
+  @override
+  String get alertsHelp =>
+      'اعلان، وقتی وصلی ولی اینترنت رد نمی‌شود یا اتصال خودبه‌خود قطع شد';
+
+  @override
+  String get alertNoTrafficTitle => 'وصل، ولی اینترنت رد نمی‌شود';
+
+  @override
+  String alertNoTrafficBody(String server) {
+    return 'از «$server» هیچ سایتی باز نشد. یک سرور دیگر انتخاب کن.';
+  }
+
+  @override
+  String get alertPickAnother => 'انتخاب سرور دیگر';
+
+  @override
+  String get alertDontShow => 'دیگر نشان نده';
+
+  @override
+  String alertDroppedTitle(String app) {
+    return '$app قطع شد';
+  }
+
+  @override
+  String alertDroppedBody(String app) {
+    return 'اتصال خودبه‌خود قطع شد. اینترنتت الان مستقیم است، نه از راه $app.';
+  }
+
+  @override
+  String alertRevokedBody(String app) {
+    return 'برنامهٔ دیگری اتصال را گرفت و $app قطع شد.';
+  }
+
+  @override
+  String get alertReconnect => 'وصل دوباره';
+
+  @override
+  String get alertExpiredTitle => 'اعتبار سرویست تمام شد';
+
+  @override
+  String get alertExhaustedTitle => 'حجم سرویست تمام شد';
+
+  @override
+  String alertEndedBody(String service) {
+    return '«$service» تمام شد. با تمدید دوباره فعال می‌شود.';
+  }
+
+  @override
+  String get alertRefusedTitle => 'حسابت پذیرفته نشد';
+
+  @override
+  String alertRefusedBody(String server) {
+    return '«$server» نام کاربری و رمزت را قبول نکرد و وصل نشد. به پشتیبانی پیام بده.';
+  }
+
+  @override
+  String get alertRemovedTitle => 'سرورت حذف شد';
+
+  @override
+  String alertRemovedBody(String server) {
+    return '«$server» دیگر در اشتراکت نیست و اتصال قطع شد. یکی دیگر انتخاب کن.';
+  }
+
+  @override
+  String get alertPickServer => 'انتخاب سرور';
 }

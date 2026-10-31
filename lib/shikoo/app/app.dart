@@ -14,6 +14,7 @@ import 'package:fl_clash/manager/status_manager.dart' show StatusManager;
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/shikoo/app/alerts.dart';
 import 'package:fl_clash/shikoo/app/desktop.dart';
 import 'package:fl_clash/shikoo/app/windows_proxy.dart';
 import 'package:fl_clash/shikoo/engine/account.dart';
@@ -168,6 +169,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
       ref.read(shikooControllerProvider).onForeground();
       ref.read(shikooSignInProvider).onForeground();
       unawaited(ref.read(shikooUpdateProvider).onForeground());
+      if (system.isAndroid) unawaited(ref.read(shikooAlertsProvider).start());
       _due = Timer.periodic(
         const Duration(minutes: 1),
         (_) => everyMinute(globalState.container),
