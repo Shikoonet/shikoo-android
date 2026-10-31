@@ -528,41 +528,34 @@ Duration ownerDeathWindow = const Duration(minutes: 1);
 /// Go's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no answer.
 final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
   (ref) => () async {
-    try {
-      final data = await ref
-          .read(coreHandlerProvider)
-          .shikooOwner()
-          .timeout(ownerAnswerLimit, onTimeout: () => null);
-      return data == null
-          ? null
-          : (core: '${data['core'] ?? ''}', server: '${data['server'] ?? ''}');
-    } catch (_) {
-      return null;
-    }
+    final data = await _askOwner(ref);
+    return data == null
+        ? null
+        : (core: '${data['core'] ?? ''}', server: '${data['server'] ?? ''}');
   },
 );
+
+Future<Map<String, dynamic>?> _askOwner(Ref ref) async {
+  try {
+    return await ref
+        .read(coreHandlerProvider)
+        .shikooOwner()
+        .timeout(ownerAnswerLimit, onTimeout: () => null);
+  } catch (_) {
+    return null;
+  }
+}
 
 final _carryingProvider = _cell<ShikooCarrying?>(null);
 
 /// Go's word on an owner session (`state` of `shikooOwner`, core/shikoo_owner.go): '' for none or no answer.
 final ownerSessionProvider = Provider<Future<String> Function()>(
-  (ref) => () async {
-    try {
-      final data = await ref
-          .read(coreHandlerProvider)
-          .shikooOwner()
-          .timeout(ownerAnswerLimit, onTimeout: () => null);
-      return '${data?['state'] ?? ''}';
-    } catch (_) {
-      return '';
-    }
-  },
+  (ref) =>
+      () async => '${(await _askOwner(ref))?['state'] ?? ''}',
 );
 
 const _sessionUp = 'up';
 const _sessionRefused = 'refused';
-
-final _sessionProvider = _cell('');
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
 typedef _Extras = ({String? announce, String? supportUrl, String? account});
@@ -1585,14 +1578,14 @@ class ShikooController {
       _ref.read(shikooDesktopProvider) &&
       _ref.read(shikooStateProvider).selectedServer?.core == ShikooCore.openvpn;
 
+  String _session = '';
+
   Future<DateTime?> _sessionRunTime() async {
-    final word = await _ref.read(ownerSessionProvider)();
-    _ref.read(_sessionProvider.notifier).set(word);
-    return word == _sessionUp ? _nativeRunTime() : null;
+    _session = await _ref.read(ownerSessionProvider)();
+    return _session == _sessionUp ? _nativeRunTime() : null;
   }
 
-  bool _sessionEnded() =>
-      const {'failed', _sessionRefused}.contains(_ref.read(_sessionProvider));
+  bool _sessionEnded() => const {'failed', _sessionRefused}.contains(_session);
 
   Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
@@ -1633,7 +1626,7 @@ class ShikooController {
     }
     if (started &&
         (_ref.read(nativeLoginRefusedProvider)() ||
-            (askGo && _ref.read(_sessionProvider) == _sessionRefused)) &&
+            (askGo && _session == _sessionRefused)) &&
         (_ref.read(shikooStateProvider).service?.outsourced ?? false)) {
       _loginRefused(_current, refused: true);
     }
@@ -2249,7 +2242,7 @@ class ShikooController {
     if (names.isEmpty) return;
     final running = _running;
     final intent = _ref.read(_intentProvider);
-    if (_held && !intent.waiting) return;
+    if (_held) return;
     final pinging = _pinging || _again;
     // Connect pressed while finding takes this round's first answer, not the round before's best.
     int? ping(String name) =>

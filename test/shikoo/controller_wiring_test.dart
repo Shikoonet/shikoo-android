@@ -3147,6 +3147,43 @@ void main() {
       );
     });
 
+    test("Go's word is the state of its owner answer: no state, no answer, an "
+        'error and a core that never answers all read as none', () async {
+      final core = _Core();
+      final container = ProviderContainer(
+        overrides: [
+          coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
+        ],
+      );
+      addTearDown(container.dispose);
+      final ask = container.read(ownerSessionProvider);
+      final was = ownerAnswerLimit;
+      ownerAnswerLimit = const Duration(milliseconds: 50);
+      addTearDown(() => ownerAnswerLimit = was);
+
+      // The future's own type is what the call's timeout checks, so it says it may hold null as the real one does.
+      Future<Map<String, dynamic>?> answered(Map<String, dynamic>? answer) =>
+          Future<Map<String, dynamic>?>.value(answer);
+      when(() => core.shikooOwner()).thenAnswer(
+        (_) =>
+            answered({'core': 'openvpn', 'server': 'ov', 'state': 'refused'}),
+      );
+      expect(await ask(), 'refused');
+      for (final answer in <Map<String, dynamic>?>[
+        {'core': 'openvpn', 'server': 'ov'},
+        null,
+      ]) {
+        when(() => core.shikooOwner()).thenAnswer((_) => answered(answer));
+        expect(await ask(), '', reason: '$answer');
+      }
+      when(() => core.shikooOwner()).thenThrow(StateError('the core is down'));
+      expect(await ask(), '');
+      when(
+        () => core.shikooOwner(),
+      ).thenAnswer((_) => Completer<Map<String, dynamic>?>().future);
+      expect(await ask(), '');
+    });
+
     for (final connecting in [false, true]) {
       test('the tunnel mode left for the proxy mode while OpenVPN is '
           '${connecting ? 'connecting' : 'connected'}: the app stops, shows '
