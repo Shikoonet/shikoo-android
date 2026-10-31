@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"net"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -493,5 +495,111 @@ func TestBothOfficialEnginesAreRegisteredOnWindowsWithTheirOwnPingAndWord(t *tes
 	}
 	if shikooOwnerIdlePings["openvpn"] == nil || shikooOwnerStates["openvpn"] == nil {
 		t.Error("OpenVPN has no idle ping or session word on Windows")
+	}
+}
+
+func refusedOnce(t *testing.T, engine *fakeEngine) {
+	t.Helper()
+	s := startFake(t, engine, nil)
+	s.event("AUTH_FAILED", "", true)
+	engine.finish()
+	waitFor(t, "the end", func() bool { return ovpnLive.Load() == nil })
+	if got := shikooOwnerNow(); got != (ShikooOwner{Core: "openvpn", State: stateRefused}) {
+		t.Fatalf("the core says %+v after a refused session", got)
+	}
+}
+
+func TestANewStartClearsWhatTheLastSessionLeft(t *testing.T) {
+	engine, _ := withEngine(t)
+	refusedOnce(t, engine)
+	again := newFakeEngine()
+	ovpnLoad = func() (*ovpnLib, error) { return &again.ovpnLib, nil }
+	startFake(t, again, nil)
+	if got := shikooOwnerNow(); got != (ShikooOwner{Core: "openvpn", Server: "ov", State: stateConnecting}) {
+		t.Errorf("a new start hears the last one's failure: %+v", got)
+	}
+}
+
+func TestTheAppsStopClearsWhatTheLastSessionLeft(t *testing.T) {
+	engine, _ := withEngine(t)
+	refusedOnce(t, engine)
+	stopOwnerTun()
+	if got := shikooOwnerNow(); got != (ShikooOwner{}) {
+		t.Errorf("the core says %+v after the app stopped: a later connect of another kind would read it", got)
+	}
+}
+
+func TestASupersededSessionThatTimesOutLeavesNoFailureBehind(t *testing.T) {
+	limit := ovpnConnectLimit
+	ovpnConnectLimit = 150 * time.Millisecond
+	t.Cleanup(func() { ovpnConnectLimit = limit })
+	engine, _ := withEngine(t)
+	old := startFake(t, engine, nil)
+	ovpnLatest.Store(int64(old.id) + 1)
+	waitFor(t, "the old session's end", func() bool { return ovpnLive.Load() == nil })
+	if got := ovpnEnded.Load(); got != nil {
+		t.Errorf("a session that was not the latest left %+v for the newer one to read", got)
+	}
+}
+
+func TestTheServerIsCarriedAsSoonAsTheStartReturns(t *testing.T) {
+	withEngine(t)
+	was := runtime.GOMAXPROCS(1)
+	t.Cleanup(func() { runtime.GOMAXPROCS(was) })
+	if err := ovpnWinStart("ShikooNet", ovpnMapping(nil), false, physicalIs(1)); err != nil {
+		t.Fatal(err)
+	}
+	if got := shikooOwnerNow(); got != (ShikooOwner{Core: "openvpn", Server: "ov", State: stateConnecting}) {
+		t.Errorf("right after the start returned the core says %+v, which the app's watch reads as a death", got)
+	}
+}
+
+func TestAStuckEngineIsHaltedOnceAnApplyAndNoSessionStartsOnIt(t *testing.T) {
+	engine, _ := withEngine(t)
+	engine.ignore = 1 << 30
+	tries := ovpnStopTries
+	ovpnStopTries = 4
+	t.Cleanup(func() { ovpnStopTries, engine.ignore = tries, 0 })
+	startFake(t, engine, nil)
+	if ovpnWinStop() {
+		t.Fatal("reported a stop that did not happen")
+	}
+	halts := engine.haltCount()
+	if err := ovpnWinStart("ShikooNet", ovpnMapping(nil), false, physicalIs(1)); err == nil {
+		t.Error("a session started on an engine that would not stop")
+	}
+	if more := engine.haltCount() - halts; more != 0 {
+		t.Errorf("%d more halts: an apply with a stuck engine waits out one halt loop, not a second", more)
+	}
+}
+
+type brokenWintun struct{ *fakeWintun }
+
+func (brokenWintun) ReadPacket() ([]byte, func(), error) {
+	return nil, nil, errors.New("device gone")
+}
+
+func TestAnAdapterThatFailsEndsItsSessionAsFailed(t *testing.T) {
+	engine, _ := withEngine(t)
+	wintunNew = func(singtun.Options) (singtun.WinTun, error) { return brokenWintun{newFakeWintun()}, nil }
+	s := startFake(t, engine, nil)
+	if !s.establish(pushedSpec) {
+		t.Fatal("establish refused")
+	}
+	waitFor(t, "the end", func() bool { return ovpnLive.Load() == nil })
+	if got := ovpnEnded.Load(); got == nil || got.state != stateFailed || !bytes.Contains([]byte(got.reason), []byte("device gone")) {
+		t.Errorf("outcome %+v", got)
+	}
+}
+
+func TestAnAdapterFailureOfAnOldSessionLeavesTheNewOneRunning(t *testing.T) {
+	engine, _ := withEngine(t)
+	old := startFake(t, engine, nil)
+	again := newFakeEngine()
+	ovpnLoad = func() (*ovpnLib, error) { return &again.ovpnLib, nil }
+	current := startFake(t, again, map[string]any{"name": "ov2"})
+	old.breaks(errors.New("device gone"))
+	if ovpnLive.Load() != current || again.haltCount() != 0 {
+		t.Errorf("the new session was halted by the old one's adapter: live %v, halts %d", ovpnLive.Load() == current, again.haltCount())
 	}
 }

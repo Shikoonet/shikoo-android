@@ -159,10 +159,10 @@ type ovpnWin struct {
 	physical func() uint32
 	ended    chan struct{}
 
-	connected, stopping, timedOut, broken atomic.Bool
-	lastError, result                     atomic.Value
-	tun                                   atomic.Pointer[ovpnTun]
-	mu                                    sync.Mutex
+	connected, stopping, stuck, timedOut, broken atomic.Bool
+	lastError, result                            atomic.Value
+	tun                                          atomic.Pointer[ovpnTun]
+	mu                                           sync.Mutex
 }
 
 type ovpnTun struct {
@@ -195,6 +195,9 @@ func ovpnWinStart(device string, mapping map[string]any, iranDirect bool, physic
 	if err != nil {
 		return fmt.Errorf("no engine: %w", err)
 	}
+	if live := ovpnLive.Load(); live != nil && live.stuck.Load() {
+		return errors.New("the last session did not stop")
+	}
 	prepared := ovpnPrepared.Load()
 	s := &ovpnWin{
 		id: int(ovpnCounter.Add(1)), server: prepared.server, device: device, config: prepared.config, lib: lib,
@@ -207,6 +210,8 @@ func ovpnWinStart(device string, mapping map[string]any, iranDirect bool, physic
 		return errors.New("the last session did not stop")
 	}
 	ovpnLive.Store(s)
+	// First, so mihomo's own client of this server is shut before ours dials, and the server is carried at once.
+	s.report(false)
 	go s.run()
 	return nil
 }
@@ -221,6 +226,7 @@ func ovpnWinStop() bool {
 	if s.halt() {
 		return true
 	}
+	s.stuck.Store(true)
 	log.Warnln("[OpenVPN] did not stop in time")
 	return false
 }
@@ -252,8 +258,6 @@ func (s *ovpnWin) report(up bool) {
 
 func (s *ovpnWin) run() {
 	defer s.finish()
-	// First, so mihomo's own client of this server is shut before ours dials (core/shikoo_owner.go).
-	s.report(false)
 	limit := time.AfterFunc(ovpnConnectLimit, s.timeout)
 	defer limit.Stop()
 	if s.stopping.Load() {
@@ -297,7 +301,7 @@ func (s *ovpnWin) finish() {
 func (s *ovpnWin) outcome() *ovpnOutcome {
 	switch reason, _ := s.result.Load().(string); {
 	case s.timedOut.Load():
-		return &ovpnOutcome{s.id, stateFailed, fmt.Sprintf("no connection in %v", ovpnConnectLimit)}
+		return &ovpnOutcome{stateFailed, fmt.Sprintf("no connection in %v", ovpnConnectLimit)}
 	case s.stopping.Load() && !s.broken.Load():
 		return nil
 	default:
@@ -308,7 +312,7 @@ func (s *ovpnWin) outcome() *ovpnOutcome {
 		if strings.Contains(reason, ovpnAuthFailed) {
 			state = stateRefused
 		}
-		return &ovpnOutcome{s.id, state, reason}
+		return &ovpnOutcome{state, reason}
 	}
 }
 
@@ -397,10 +401,7 @@ func (s *ovpnWin) pump(tun *ovpnTun) {
 		packet, release, err := tun.wintun.ReadPacket()
 		if err != nil {
 			if s.tun.Load() == tun && !s.stale() {
-				log.Warnln("[OpenVPN] wintun read: %v", err)
-				s.lastError.Store("wintun: " + err.Error())
-				s.broken.Store(true)
-				go ovpnWinStop()
+				go s.breaks(err)
 			}
 			return
 		}
@@ -410,6 +411,14 @@ func (s *ovpnWin) pump(tun *ovpnTun) {
 		}
 		release()
 	}
+}
+
+func (s *ovpnWin) breaks(err error) {
+	log.Warnln("[OpenVPN] wintun read: %v", err)
+	s.lastError.Store("wintun: " + err.Error())
+	s.broken.Store(true)
+	s.stopping.Store(true)
+	s.halt()
 }
 
 func (s *ovpnWin) write(packet []byte) bool {

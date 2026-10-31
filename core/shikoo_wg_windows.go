@@ -188,6 +188,7 @@ func newWintun(options singtun.Options) (wintun singtun.WinTun, err error) {
 func stopOwnerTun() {
 	closeOwnerTun()
 	ownerFailed = ""
+	ovpnEnded.Store(nil)
 }
 
 func closeOwnerTun() {

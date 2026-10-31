@@ -243,9 +243,8 @@ func ovpnCarrying() string {
 var ovpnEnded atomic.Pointer[ovpnOutcome]
 
 type ovpnOutcome struct {
-	session int
-	state   string
-	reason  string
+	state  string
+	reason string
 }
 
 func ovpnOwnerState() string {
