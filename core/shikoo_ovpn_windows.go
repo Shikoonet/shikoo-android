@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -138,7 +139,11 @@ func loadOvpn() (*ovpnLib, error) {
 					return "refused: " + perr.Error()
 				}
 			}
+			// The engine writes its answer here when run ends, minutes on: on this goroutine's stack it would have moved.
+			var pin runtime.Pinner
+			defer pin.Unpin()
 			out := make([]byte, 512)
+			pin.Pin(&out[0])
 			syscall.SyscallN(run, uintptr(unsafe.Pointer(text[0])), uintptr(unsafe.Pointer(text[1])), uintptr(unsafe.Pointer(text[2])),
 				uintptr(unsafe.Pointer(callbacks)), uintptr(unsafe.Pointer(&out[0])), uintptr(len(out)))
 			return windows.ByteSliceToString(out)
