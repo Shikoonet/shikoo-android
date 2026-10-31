@@ -3095,6 +3095,27 @@ void main() {
       }
     });
 
+    test("a usual service on an OpenVPN pick when the tunnel mode is left: the "
+        "app moves to a server that runs in the proxy mode, none of OpenVPN's, "
+        'and is never up on a server it does not carry', () async {
+      final container = windowsShelf(['up']);
+      markShelf(container, outsourced: false);
+      final setup = setupOf(container)..tunnel = DateTime.now();
+      final controller = container.read(shikooControllerProvider);
+      await controller.connect();
+      await pumpEventQueue();
+      expect(container.read(shikooStateProvider).selected, 'آلمان ۱');
+
+      await controller.setMode(ShikooMode.proxy);
+      await pumpEventQueue(times: 200);
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.connection, state.selected, state.lastError, state.notice),
+        (ShikooConnection.on, 'هلند ۱', null, null),
+      );
+      expect(setup.runs, [true, false, true]);
+    });
+
     for (final connecting in [false, true]) {
       test('the tunnel mode left for the proxy mode while OpenVPN is '
           '${connecting ? 'connecting' : 'connected'}: the app stops, shows '
