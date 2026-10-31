@@ -140,3 +140,34 @@ func TestAFailedLookupOutsideTheVPNFallsBackToTheDevicesOwnDNS(t *testing.T) {
 		t.Fatalf("lookupEndpoint = %v, %v; want the default resolver answer, 203.0.113.12", ip, err)
 	}
 }
+
+func TestAnOpenvpnRemoteNameGoesToTheEngineAsItsAddressAndStaysAName(t *testing.T) {
+	protectRecorder(t, true)
+	systemDNSIs(t, answeringDNS(t, "203.0.113.21"))
+	t.Cleanup(func() { ovpnPrepared.Store(nil) })
+
+	plan, err := ovpnPrepare(ovpnMapping(map[string]any{"server": "ov.shikoo.test"}), false)
+	if err != nil || !strings.Contains(plan.Profile, "\nremote 203.0.113.21 1194\n") || strings.Contains(plan.Profile, "shikoo.test") {
+		t.Fatalf("profile = %q, %v; want the address and no name", plan, err)
+	}
+	if prepared := ovpnPrepared.Load(); prepared == nil || prepared.config.RemoteHost != "ov.shikoo.test" {
+		t.Fatalf("the pings and the session need the name: %+v", prepared)
+	}
+}
+
+func TestAnOpenvpnRemoteAddressNeedsNoDNSAndAnUnansweredNameStaysTheName(t *testing.T) {
+	protectRecorder(t, true)
+	systemDNSIs(t, closedUDP(t))
+	previous := net.DefaultResolver
+	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, closedUDP(t))
+	}}
+	t.Cleanup(func() { net.DefaultResolver = previous; ovpnPrepared.Store(nil) })
+
+	for _, remote := range []string{"203.0.113.9", "2001:db8::9", "ov.shikoo.test"} {
+		plan, err := ovpnPrepare(ovpnMapping(map[string]any{"server": remote}), false)
+		if err != nil || !strings.Contains(plan.Profile, "\nremote "+remote+" 1194\n") {
+			t.Errorf("remote %s: profile %q, %v; want it as it came", remote, plan, err)
+		}
+	}
+}

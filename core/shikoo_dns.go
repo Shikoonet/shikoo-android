@@ -58,3 +58,10 @@ func lookupOutsideVPN(host string) ([]netip.Addr, error) {
 	}
 	return nil, errors.New(strings.Join(failed, "; "))
 }
+
+func pinnedHost(host string) string {
+	if ip, err := lookupEndpoint(host); err == nil {
+		return ip.String()
+	}
+	return host
+}

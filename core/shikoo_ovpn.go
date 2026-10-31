@@ -93,7 +93,10 @@ func ovpnPrepare(mapping map[string]any, iranDirect bool) (*ovpnPlan, error) {
 		return nil, err
 	}
 	ovpnPrepared.Store(&ovpnSession{server: name, config: config, iranDirect: iranDirect})
-	return &ovpnPlan{Profile: ovpnProfile(config), Username: config.Username, Password: config.Password}, nil
+	// OpenVPN 3 dials a remote name through the VPN a switch holds, where no DNS answers; the pings keep the name.
+	dialed := *config
+	dialed.RemoteHost = pinnedHost(config.RemoteHost)
+	return &ovpnPlan{Profile: ovpnProfile(&dialed), Username: config.Username, Password: config.Password}, nil
 }
 
 func ovpnConfig(mapping map[string]any) (string, *ovpn.ClientConfig, error) {

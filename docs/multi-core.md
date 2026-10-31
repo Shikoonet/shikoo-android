@@ -360,8 +360,10 @@ door would refuse the report), and pinging unopened services through another cor
 - An owner core's server name is resolved by Go while the VPN is blocked (a start) or held (a switch). A held VPN keeps
   its own DNS servers behind a tun nothing reads, so Android's resolver timed out and the start fell back to mihomo
   (found 2026-10-31 with a server name; an IP never needed DNS). `lookupEndpoint` now asks the networks' DNS servers
-  from protected sockets first. OpenVPN 3 resolves its `remote` inside the engine and is not covered: a name there may
-  fail a live rebuild, which ends the connection with an error and never reaches mihomo. Not run on a device.
+  from protected sockets first. OpenVPN 3 resolves its `remote` inside the engine, so a live rebuild with a name ended
+  the connection («وصل نشد»: `OpenVPN RESOLVE`, then 20 s of nothing) and never reached mihomo; `ovpnPrepare` now hands
+  the engine the address `pinnedHost` finds, while the session and the pings keep the name. The engine uses the name
+  for nothing else: the profile has no `verify-x509-name`, and OpenVPN 3 sets no TLS hostname without one.
 
 ## 9. From the packages, not yet verified (از بسته‌ها، هنوز سنجیده نشده)
 
