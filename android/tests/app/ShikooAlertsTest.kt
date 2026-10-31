@@ -25,6 +25,19 @@ class ShikooAlertsTest {
     }
 
     @Test
+    fun `no traffic, a refusal, a removal and an ending head up even right after a drop`() {
+        val kinds = listOf("noTraffic", "refused", "removed", "ended")
+        kinds.forEach { assertFalse(it, quietKind(it, at, at)) }
+        assertTrue(quietKind(ALERT_DROPPED, at, at))
+    }
+
+    @Test
+    fun `Don't show again writes the switch Dart reads, under the plugin's prefix`() {
+        assertEquals("flutter.shikoo.alerts.noTraffic", muteKey("noTraffic"))
+        assertEquals("flutter.shikoo.alerts.$ALERT_DROPPED", muteKey(ALERT_DROPPED))
+    }
+
+    @Test
     fun `no VPN, or only ours going down, is the customer's own stop, and another app's VPN a takeover`() {
         assertFalse(anotherVpn(emptyList(), us))
         assertFalse(anotherVpn(listOf(us), us))

@@ -45,6 +45,13 @@ internal const val TAKEOVER_MILLIS = 10_000L
 /** A drop this soon after the last one updates the alert without sound or heads-up. */
 internal fun quiet(lastDropAt: Long, now: Long) = now - lastDropAt in 0 until QUIET_MILLIS
 
+/** Only a drop is ever quiet: the other kinds are news the customer has to see. */
+internal fun quietKind(kind: String, lastDropAt: Long, now: Long) =
+    kind == ALERT_DROPPED && quiet(lastDropAt, now)
+
+/** Where Dart's own switch for [kind] lives (`flutter.` is the prefix the shared_preferences plugin adds). */
+internal fun muteKey(kind: String) = "flutter.shikoo.alerts.$kind"
+
 internal fun anotherVpn(owners: List<Any>, own: Any) = owners.any { it != own }
 
 internal suspend fun appears(within: Long, check: () -> Boolean) =
@@ -145,7 +152,7 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
             )
             val kind = alert[ALERT_KIND] as String
             val now = System.currentTimeMillis()
-            val silent = kind == ALERT_DROPPED && quiet(lastDropAt, now)
+            val silent = quietKind(kind, lastDropAt, now)
             if (kind == ALERT_DROPPED) lastDropAt = now
             val body = alert["body"] as String
             val builder = NotificationCompat.Builder(context, CHANNEL)
@@ -256,7 +263,7 @@ class ShikooAlerts : FlutterPlugin, ActivityAware, PluginRegistry.NewIntentListe
 class ShikooAlertMute : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val kind = intent.getStringExtra(ALERT_KIND) ?: return
-        ShikooAlerts.flutter(context).edit().putBoolean("flutter.shikoo.alerts.$kind", false).apply()
+        ShikooAlerts.flutter(context).edit().putBoolean(muteKey(kind), false).apply()
         ShikooAlerts.cancel(context, kind)
         ShikooAlerts.live?.invokeMethod("muted", kind)
     }
