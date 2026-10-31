@@ -93,6 +93,10 @@ class _Setup extends SetupAction {
   /// Holds the traffic check open until completed.
   Completer<void>? trafficGate;
 
+  /// With [holdAsks], each traffic ask waits in [asks] for the test to answer it.
+  bool holdAsks = false;
+  final asks = <Completer<bool>>[];
+
   /// What an applied profile changes, such as the core's server list.
   void Function()? onApply;
 
@@ -193,6 +197,11 @@ _home([List<Override> more = const []]) {
       nativeRunTimeProvider.overrideWithValue(() async => setup.tunnel),
       trafficPassesProvider.overrideWithValue(() async {
         setup.trafficAsked++;
+        if (setup.holdAsks) {
+          final answer = Completer<bool>();
+          setup.asks.add(answer);
+          return answer.future;
+        }
         await setup.trafficGate?.future;
         return setup.traffic;
       }),
@@ -7005,5 +7014,206 @@ void main() {
     await pumpEventQueue();
     final state = container.read(shikooStateProvider);
     expect((setup.trafficAsked, state.connectedNoTraffic), (0, false));
+  });
+
+  group('the no-internet warning', () {
+    final probed = <String>[];
+    var delay = 50;
+
+    Future<void> within(bool Function() done) async {
+      for (var i = 0; i < 300 && !done(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(done(), isTrue, reason: 'it came within three seconds');
+    }
+
+    Future<Completer<bool>> ask(_Setup setup, int n) async {
+      await within(() => setup.asks.length > n);
+      return setup.asks[n];
+    }
+
+    ShikooState stateOf(ProviderContainer container) =>
+        container.read(shikooStateProvider);
+
+    /// Connected on 'هلند ۱' with ticks of 20 ms; [held] hands each traffic ask to the test in [asks].
+    Future<
+      ({ProviderContainer container, ShikooController controller, _Setup setup})
+    >
+    warned({
+      bool desktop = false,
+      bool held = false,
+      bool streaming = false,
+    }) async {
+      final every = internetRecheckEvery;
+      internetRecheckEvery = const Duration(milliseconds: 20);
+      addTearDown(() => internetRecheckEvery = every);
+      probed.clear();
+      if (streaming) _memoryDatabase();
+      final (:container, :core, :proxies, :setup) = _home([
+        if (desktop) ...[
+          shikooDesktopProvider.overrideWithValue(true),
+          localPortFreeProvider.overrideWithValue((_) async => true),
+          tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
+          coreActionProvider.overrideWith(() => _Restart([])),
+        ],
+      ]);
+      if (streaming) _withStreaming(container);
+      setup.holdAsks = held;
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        probed.add(name);
+        return Delay(name: name, url: '', value: delay);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.selectServer('هلند ۱');
+      setup.tunnel = DateTime(2026);
+      await controller.connect();
+      await pumpEventQueue();
+      return (container: container, controller: controller, setup: setup);
+    }
+
+    for (final desktop in [false, true]) {
+      test(
+        '${desktop ? 'on Windows' : 'on a phone'} it stays while the traffic '
+        'still fails, and goes by itself once the traffic passes, '
+        'with no reconnect',
+        () async {
+          delay = 50;
+          final (:container, :controller, :setup) = await warned(
+            desktop: desktop,
+          );
+          expect(stateOf(container).noInternet, isTrue);
+          final asked = setup.trafficAsked;
+          await within(() => setup.trafficAsked >= asked + 3);
+          expect(stateOf(container).noInternet, isTrue);
+
+          setup.traffic = true;
+          await within(() => !stateOf(container).noInternet);
+          final state = stateOf(container);
+          expect(
+            (state.connectedNoTraffic, state.selected, state.connection),
+            (false, 'هلند ۱', ShikooConnection.on),
+          );
+          expect(setup.runs, [true]);
+        },
+      );
+    }
+
+    test('a silent ping goes with it: the selected server is pinged again, '
+        'the rest of the list never', () async {
+      delay = -1;
+      final (:container, :controller, :setup) = await warned();
+      var state = stateOf(container);
+      expect(
+        (state.selectedServer?.ping, state.connectedNoTraffic),
+        (-1, true),
+      );
+      probed.clear();
+      final order = [for (final server in state.servers) server.name];
+
+      delay = 40;
+      setup.traffic = true;
+      await within(() => !stateOf(container).noInternet);
+      state = stateOf(container);
+      expect(state.selectedServer?.ping, 40);
+      expect(probed.toSet(), {'هلند ۱'});
+      expect([for (final server in state.servers) server.name], order);
+    });
+
+    test('a server whose pings stay silent while it carries traffic loses '
+        'its warning and shows no number', () async {
+      delay = -1;
+      final (:container, :controller, :setup) = await warned();
+      expect(stateOf(container).selectedServer?.ping, -1);
+
+      setup.traffic = true;
+      await within(() => !stateOf(container).noInternet);
+      expect(stateOf(container).selectedServer?.ping, isNull);
+    });
+
+    test('an ask that outlives a change of server does not decide for the '
+        'new one', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      (await ask(setup, 0)).complete(false);
+      (await ask(setup, 1)).complete(false);
+      await within(() => stateOf(container).connectedNoTraffic);
+      final stale = await ask(setup, 2);
+
+      await controller.selectServer('آلمان ۱');
+      (await ask(setup, 3)).complete(false);
+      (await ask(setup, 4)).complete(false);
+      await within(
+        () =>
+            stateOf(container).selected == 'آلمان ۱' &&
+            stateOf(container).connectedNoTraffic,
+      );
+
+      stale.complete(true);
+      await pumpEventQueue();
+      expect(stateOf(container).connectedNoTraffic, isTrue);
+      expect(stateOf(container).noInternet, isTrue);
+    });
+
+    test(
+      'it asks one at a time, and not at all after the disconnect',
+      () async {
+        delay = 50;
+        final (:container, :controller, :setup) = await warned(held: true);
+        (await ask(setup, 0)).complete(false);
+        (await ask(setup, 1)).complete(false);
+        await within(() => stateOf(container).noInternet);
+        await ask(setup, 2);
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        expect(
+          setup.asks,
+          hasLength(3),
+          reason: 'the open ask has no second beside it',
+        );
+
+        setup.asks[2].complete(false);
+        await ask(setup, 3);
+        await controller.disconnect();
+        setup.asks[3].complete(true);
+        await pumpEventQueue();
+        final asked = setup.asks.length;
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(setup.asks, hasLength(asked));
+        expect(stateOf(container).connection, ShikooConnection.off);
+      },
+    );
+
+    test('a tunnel native does not report is not asked, and the warning '
+        'waits for it', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned();
+      setup.tunnel = null;
+      final asked = setup.trafficAsked;
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(setup.trafficAsked, asked);
+      expect(stateOf(container).noInternet, isTrue);
+
+      setup
+        ..tunnel = DateTime(2026)
+        ..traffic = true;
+      await within(() => !stateOf(container).noInternet);
+    });
+
+    test(
+      'a change to the streaming server ends it: no warning, no ask',
+      () async {
+        delay = 50;
+        final (:container, :controller, :setup) = await warned(streaming: true);
+        expect(stateOf(container).noInternet, isTrue);
+
+        await controller.selectServer(_streaming);
+        await pumpEventQueue();
+        expect(stateOf(container).noInternet, isFalse);
+        final asked = setup.trafficAsked;
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(setup.trafficAsked, asked);
+      },
+    );
   });
 }

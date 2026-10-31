@@ -520,6 +520,9 @@ Duration ownerAnswerLimit = const Duration(seconds: 2);
 Duration ownerWatchEvery = const Duration(seconds: 2);
 
 @visibleForTesting
+Duration internetRecheckEvery = const Duration(seconds: 15);
+
+@visibleForTesting
 Duration ownerDeathWindow = const Duration(minutes: 1);
 
 /// Go's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no answer.
@@ -1203,6 +1206,7 @@ class ShikooController {
       _switched?.cancel();
       _coreSwitched?.cancel();
       _ownerWatch?.cancel();
+      _internetWatch?.cancel();
     });
     _ref.listen(shikooStateProvider.select(serviceInstead), (_, id) {
       if (id != null) scheduleMicrotask(() => selectService(id));
@@ -1305,6 +1309,12 @@ class ShikooController {
       ),
       (_, now) => scheduleMicrotask(() => unawaited(_checkTraffic(now?.$2))),
     );
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => s.noInternet ? (s.service?.id, s.selected) : null,
+      ),
+      (_, now) => _watchInternet(now != null),
+    );
     _ref.listen(coreStatusProvider, (was, now) {
       if (was == CoreStatus.connected &&
           now == CoreStatus.disconnected &&
@@ -1353,6 +1363,8 @@ class ShikooController {
   bool _streamingRouted = false;
   Future<void> _streamingRoute = Future.value();
   int _trafficNo = 0;
+  Timer? _internetWatch;
+  bool _rechecking = false;
 
   Timer? _ownerWatch;
   DateTime? _ownerRebuiltAt;
@@ -2552,6 +2564,33 @@ class ShikooController {
     Future<bool> once() => passes().catchError((Object _) => false);
     final ok = await once() || (current() && await once());
     if (current()) _ref.read(_noTrafficProvider.notifier).set(!ok);
+  }
+
+  void _watchInternet(bool on) {
+    _internetWatch?.cancel();
+    _internetWatch = on
+        ? Timer.periodic(
+            internetRecheckEvery,
+            (_) => unawaited(_recheckInternet()),
+          )
+        : null;
+  }
+
+  /// Only lifts the warning, for the pick's traffic flag and its ping alike; raising it stays [_checkTraffic]'s two asks.
+  Future<void> _recheckInternet() async {
+    if (_rechecking || !_ref.read(shikooStateProvider).noInternet) return;
+    _rechecking = true;
+    final no = _trafficNo;
+    bool current() => no == _trafficNo && _ref.mounted;
+    try {
+      if (await _nativeRunTime() == null || !current()) return;
+      if (!await _ref.read(trafficPassesProvider)() || !current()) return;
+      _ref.read(_noTrafficProvider.notifier).set(false);
+      await _checkSelected();
+    } catch (_) {
+    } finally {
+      _rechecking = false;
+    }
   }
 
   void _sort() {
