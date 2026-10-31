@@ -5,6 +5,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +19,13 @@ import (
 func protectRecorder(t *testing.T, answer bool) *[]int {
 	t.Helper()
 	asked, released := []int{}, false
-	ownerProtect.set(func(fd int) bool { asked = append(asked, fd); return answer }, func() { released = true })
+	var mu sync.Mutex
+	ownerProtect.set(func(fd int) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		asked = append(asked, fd)
+		return answer
+	}, func() { released = true })
 	t.Cleanup(func() {
 		ownerProtect.set(nil, nil)
 		if !released {
