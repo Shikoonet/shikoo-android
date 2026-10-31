@@ -666,7 +666,7 @@ func TestAHaltReachesTheEngineOnlyWhileTheSessionIsTheLiveOne(t *testing.T) {
 
 func TestANewStartClearsTheLastWordOnlyOnceTheLastSessionHasEnded(t *testing.T) {
 	engine, _ := withEngine(t)
-	engine.ignore = 5
+	engine.ignore = 20
 	startFake(t, engine, nil)
 	ovpnEnded.Store(&ovpnOutcome{state: stateFailed, reason: "the last session's own end"})
 	again := newFakeEngine()
