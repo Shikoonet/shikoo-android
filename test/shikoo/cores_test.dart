@@ -360,14 +360,7 @@ void main() {
 
   test('an owner core ready on Android is one the Go core registers in its '
       'Android build, under the same name', () {
-    final registered = {
-      for (final file in Directory('core').listSync().whereType<File>())
-        if (file.path.endsWith('_android.go'))
-          for (final match in RegExp(
-            r'register(?:Shikoo)?Owner\("([^"]+)"',
-          ).allMatches(file.readAsStringSync()))
-            match[1]!,
-    };
+    final registered = _ownersBuiltFor('android');
     for (final MapEntry(key: core, value: spec) in readyHere(
       ShikooPlatform.android,
     ).entries) {
@@ -645,4 +638,21 @@ void main() {
       contains('CONNECT_SECONDS = ${openvpnConnectLimit.inSeconds}L'),
     );
   });
+}
+
+Set<String> _ownersBuiltFor(String os) {
+  final tag = RegExp('^//go:build (.*)\$', multiLine: true);
+  final mentions = RegExp('(?<![!\\w])$os\\b');
+  return {
+    for (final file in Directory('core').listSync().whereType<File>())
+      if (file.path.endsWith('.go') && !file.path.endsWith('_test.go'))
+        if (file.path.endsWith('_$os.go') ||
+            mentions.hasMatch(
+              tag.firstMatch(file.readAsStringSync())?[1] ?? '',
+            ))
+          for (final match in RegExp(
+            r'register(?:Shikoo)?Owner\("([^"]+)"',
+          ).allMatches(file.readAsStringSync()))
+            match[1]!,
+  };
 }
