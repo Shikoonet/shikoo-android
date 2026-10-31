@@ -663,3 +663,24 @@ func TestAHaltReachesTheEngineOnlyWhileTheSessionIsTheLiveOne(t *testing.T) {
 	}
 	ovpnLive.Store(nil)
 }
+
+func TestANewStartClearsTheLastWordOnlyOnceTheLastSessionHasEnded(t *testing.T) {
+	engine, _ := withEngine(t)
+	engine.ignore = 5
+	startFake(t, engine, nil)
+	ovpnEnded.Store(&ovpnOutcome{state: stateFailed, reason: "the last session's own end"})
+	again := newFakeEngine()
+	ovpnLoad = func() (*ovpnLib, error) { return &again.ovpnLib, nil }
+	started := make(chan error, 1)
+	go func() { started <- ovpnWinStart("ShikooNet", ovpnMapping(nil), false, physicalIs(1)) }()
+	waitFor(t, "the stop under way", func() bool { return engine.haltCount() >= 1 })
+	if ovpnEnded.Load() == nil {
+		t.Error("the word was cleared while the last session still ran, so its end could store it again")
+	}
+	if err := <-started; err != nil {
+		t.Fatal(err)
+	}
+	if ovpnEnded.Load() != nil {
+		t.Errorf("a new start left %+v", ovpnEnded.Load())
+	}
+}

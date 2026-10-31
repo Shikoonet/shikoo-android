@@ -211,10 +211,11 @@ func ovpnWinStart(device string, mapping map[string]any, iranDirect bool, physic
 	}
 	// The newest ask first, so what the last session still says is refused while it stops.
 	ovpnLatest.Store(int64(s.id))
-	ovpnEnded.Store(nil)
 	if !ovpnWinStop() {
 		return errors.New("the last session did not stop")
 	}
+	// After the stop: the last session's end may still be storing its failure, which this start must not read as its own.
+	ovpnEnded.Store(nil)
 	ovpnLiveMu.Lock()
 	ovpnLive.Store(s)
 	ovpnLiveMu.Unlock()
