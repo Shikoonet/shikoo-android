@@ -20,6 +20,7 @@ skills: [agent-ground-rules, ponytail:ponytail]
 
 - راهنمای خود FlClash را بخوان: `AGENTS.md` و `.agents/`، به‌ویژه
   `architecture.md`، `commands.md`، `rules.md` و `skills/ui-work`، `skills/provider-tests` و `skills/core-platform`.
+  `skills/ui-work` مال صفحه‌های FlClash است: UI شیکو گردی، رنگ و فاصله را از توکن‌های خودش می‌گیرد (`lib/shikoo/ui/theme.dart`)، نه از `lib/common/shape.dart`، و providerهای FlClash را نمی‌خواند.
 
 ## قواعد
 
