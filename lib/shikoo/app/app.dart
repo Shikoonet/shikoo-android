@@ -246,6 +246,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
 
   Future<void> _onConnectivityChanged(List<ConnectivityResult> results) async {
     shikooDiag.network(results);
+    ref.read(shikooControllerProvider).onNetworkChange();
     unawaited(ref.read(systemActionProvider.notifier).updateLocalIp());
     final hasVpn = results.contains(ConnectivityResult.vpn);
     if (_hadVpn == hasVpn) ref.read(checkIpNumProvider.notifier).add();

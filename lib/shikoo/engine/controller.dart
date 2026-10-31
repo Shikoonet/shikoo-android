@@ -523,6 +523,12 @@ Duration ownerWatchEvery = const Duration(seconds: 2);
 Duration internetRecheckEvery = const Duration(seconds: 15);
 
 @visibleForTesting
+Duration internetRecheckMax = const Duration(seconds: 120);
+
+@visibleForTesting
+Duration internetSettle = const Duration(seconds: 3);
+
+@visibleForTesting
 Duration ownerDeathWindow = const Duration(minutes: 1);
 
 /// Go's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no answer.
@@ -1364,7 +1370,12 @@ class ShikooController {
   Future<void> _streamingRoute = Future.value();
   int _trafficNo = 0;
   Timer? _internetWatch;
+  int _watchNo = 0;
+  Duration _internetGap = internetRecheckEvery;
   bool _rechecking = false;
+
+  @visibleForTesting
+  Duration get internetGap => _internetGap;
 
   Timer? _ownerWatch;
   DateTime? _ownerRebuiltAt;
@@ -2566,15 +2577,29 @@ class ShikooController {
     if (current()) _ref.read(_noTrafficProvider.notifier).set(!ok);
   }
 
-  void _watchInternet(bool on) {
+  void _watchInternet(bool on, [Duration? first]) {
     _internetWatch?.cancel();
+    final no = ++_watchNo;
+    _internetGap = internetRecheckEvery;
     _internetWatch = on
-        ? Timer.periodic(
-            internetRecheckEvery,
-            (_) => unawaited(_recheckInternet()),
-          )
+        ? Timer(first ?? _internetGap, () => unawaited(_tick(no)))
         : null;
   }
+
+  Future<void> _tick(int no) async {
+    await _recheckInternet();
+    if (no != _watchNo ||
+        !_ref.mounted ||
+        !_ref.read(shikooStateProvider).noInternet) {
+      return;
+    }
+    final doubled = _internetGap * 2;
+    _internetGap = doubled > internetRecheckMax ? internetRecheckMax : doubled;
+    _internetWatch = Timer(_internetGap, () => unawaited(_tick(no)));
+  }
+
+  /// The route needs a moment after a network change: one ask once it has settled, then the pace starts over.
+  void onNetworkChange() => _watchInternet(true, internetSettle);
 
   /// Only lifts the warning, for the pick's traffic flag and its ping alike; raising it stays [_checkTraffic]'s two asks.
   Future<void> _recheckInternet() async {

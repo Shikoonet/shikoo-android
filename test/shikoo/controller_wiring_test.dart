@@ -7035,7 +7035,8 @@ void main() {
     ShikooState stateOf(ProviderContainer container) =>
         container.read(shikooStateProvider);
 
-    /// Connected on 'هلند ۱' with ticks of 20 ms; [held] hands each traffic ask to the test in [asks].
+    /// Connected on 'هلند ۱' with the first tick after [every] and no wait over [max]; [held] hands each
+    /// traffic ask to the test in `setup.asks`, [passing] lets traffic through from the start.
     Future<
       ({ProviderContainer container, ShikooController controller, _Setup setup})
     >
@@ -7043,10 +7044,23 @@ void main() {
       bool desktop = false,
       bool held = false,
       bool streaming = false,
+      bool passing = false,
+      Duration every = const Duration(milliseconds: 20),
+      Duration max = const Duration(milliseconds: 80),
     }) async {
-      final every = internetRecheckEvery;
-      internetRecheckEvery = const Duration(milliseconds: 20);
-      addTearDown(() => internetRecheckEvery = every);
+      final (was, wasMax, wasSettle) = (
+        internetRecheckEvery,
+        internetRecheckMax,
+        internetSettle,
+      );
+      internetRecheckEvery = every;
+      internetRecheckMax = max;
+      internetSettle = const Duration(milliseconds: 30);
+      addTearDown(() {
+        internetRecheckEvery = was;
+        internetRecheckMax = wasMax;
+        internetSettle = wasSettle;
+      });
       probed.clear();
       if (streaming) _memoryDatabase();
       final (:container, :core, :proxies, :setup) = _home([
@@ -7059,6 +7073,7 @@ void main() {
       ]);
       if (streaming) _withStreaming(container);
       setup.holdAsks = held;
+      setup.traffic = passing;
       when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
         final name = call.positionalArguments[1] as String;
         probed.add(name);
@@ -7072,6 +7087,186 @@ void main() {
       await pumpEventQueue();
       return (container: container, controller: controller, setup: setup);
     }
+
+    /// The first traffic ask the test has not answered yet, once it has come.
+    Future<Completer<bool>> open(_Setup setup) async {
+      late Completer<bool> found;
+      await within(() {
+        final waiting = setup.asks.where((ask) => !ask.isCompleted);
+        if (waiting.isEmpty) return false;
+        found = waiting.first;
+        return true;
+      });
+      return found;
+    }
+
+    /// Answers every ask "no traffic" until [done], and none after it.
+    Future<void> failUntil(_Setup setup, bool Function() done) => within(() {
+      if (done()) return true;
+      for (final ask in setup.asks) {
+        if (!ask.isCompleted) ask.complete(false);
+      }
+      return done();
+    });
+
+    /// Holds [ticks] ticks open one by one, reading the wait before each, and answers each "no traffic".
+    Future<List<Duration>> waits(
+      _Setup setup,
+      ShikooController controller,
+      int ticks,
+    ) async {
+      final seen = <Duration>[];
+      for (var i = 0; i < ticks; i++) {
+        final tick = await open(setup);
+        seen.add(controller.internetGap);
+        tick.complete(false);
+      }
+      return seen;
+    }
+
+    const ms = Duration(milliseconds: 1);
+
+    test(
+      'each tick that leaves the warning doubles the wait, up to a cap',
+      () async {
+        delay = 50;
+        final (:container, :controller, :setup) = await warned(held: true);
+        await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+
+        expect(await waits(setup, controller, 5), [
+          ms * 20,
+          ms * 40,
+          ms * 80,
+          ms * 80,
+          ms * 80,
+        ]);
+      },
+    );
+
+    test('a new pick starts the wait over', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      expect(await waits(setup, controller, 4), [
+        ms * 20,
+        ms * 40,
+        ms * 80,
+        ms * 80,
+      ]);
+
+      await controller.selectServer('آلمان ۱');
+      await pumpEventQueue();
+      await failUntil(
+        setup,
+        () =>
+            stateOf(container).selected == 'آلمان ۱' &&
+            stateOf(container).connectedNoTraffic,
+      );
+      expect(await waits(setup, controller, 2), [ms * 20, ms * 40]);
+    });
+
+    test('a reconnect starts the wait over', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      expect(await waits(setup, controller, 4), [
+        ms * 20,
+        ms * 40,
+        ms * 80,
+        ms * 80,
+      ]);
+
+      await controller.disconnect();
+      await controller.connect();
+      await pumpEventQueue();
+      await failUntil(
+        setup,
+        () =>
+            stateOf(container).connection == ShikooConnection.on &&
+            stateOf(container).connectedNoTraffic,
+      );
+      expect(await waits(setup, controller, 2), [ms * 20, ms * 40]);
+    });
+
+    test('a network change asks once after a short wait though the next tick '
+        'is an hour away, and the answer lifts the warning', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(
+        held: true,
+        every: const Duration(hours: 1),
+      );
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(setup.asks, hasLength(2), reason: 'no tick for an hour');
+
+      controller.onNetworkChange();
+      (await open(setup)).complete(true);
+      await within(() => !stateOf(container).noInternet);
+      expect(stateOf(container).connectedNoTraffic, isFalse);
+    });
+
+    test('a network change after the wait has grown starts it over', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(
+        held: true,
+        max: const Duration(seconds: 1),
+      );
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      expect(await waits(setup, controller, 4), [
+        ms * 20,
+        ms * 40,
+        ms * 80,
+        ms * 160,
+      ]);
+
+      controller.onNetworkChange();
+      final settled = await open(setup);
+      expect(controller.internetGap, ms * 20);
+      settled.complete(false);
+      expect(await waits(setup, controller, 1), [ms * 40]);
+    });
+
+    test('a network change while an ask is open adds no second one beside '
+        'it', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      final inFlight = await open(setup);
+
+      controller.onNetworkChange();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(setup.asks, hasLength(3));
+      inFlight.complete(false);
+    });
+
+    test('a network change asks nothing when no warning shows', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(passing: true);
+      expect(stateOf(container).noInternet, isFalse);
+      final asked = setup.trafficAsked;
+
+      controller.onNetworkChange();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(setup.trafficAsked, asked);
+
+      await controller.disconnect();
+      controller.onNetworkChange();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(setup.trafficAsked, asked);
+    });
+
+    test('the app shell hands every connectivity change to the controller', () {
+      final shell = File('lib/shikoo/app/app.dart').readAsStringSync();
+      final handler = shell
+          .split('_onConnectivityChanged(List<ConnectivityResult> results)')
+          .last
+          .split('\n  }\n')
+          .first;
+      expect(
+        handler,
+        contains('ref.read(shikooControllerProvider).onNetworkChange()'),
+      );
+    });
 
     for (final desktop in [false, true]) {
       test(
