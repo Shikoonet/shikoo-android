@@ -2,6 +2,7 @@ import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
@@ -27,7 +28,11 @@ import '../helpers/test_profiles.dart';
 class _Core extends Mock implements CoreHandlerInterface {}
 
 /// The card as the app derives it on Windows: from the mode and the account, not from a state handed in.
-Future<void> _pump(WidgetTester tester, ShikooMode mode) async {
+Future<void> _pump(
+  WidgetTester tester,
+  ShikooMode mode, {
+  bool mixed = false,
+}) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
     ..physicalSize = const Size(880, 1200)
@@ -58,7 +63,7 @@ Future<void> _pump(WidgetTester tester, ShikooMode mode) async {
                   title: 'user1001',
                   status: 'active',
                   profileId: profile.id,
-                  outsourced: true,
+                  outsourced: !mixed,
                 ),
               ],
             ),
@@ -82,16 +87,24 @@ Future<void> _pump(WidgetTester tester, ShikooMode mode) async {
   );
   container.read(currentProfileIdProvider.notifier).value = profile.id;
   container.read(groupsProvider.notifier).value = [
-    const Group(
+    Group(
       type: GroupType.Selector,
       name: 'PROXY',
       hidden: false,
       all: [
-        Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
-        Proxy(name: 'آلمان ۲', type: 'OpenVPN'),
+        const Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
+        if (mixed)
+          const Proxy(name: 'هلند ۱', type: 'Vless')
+        else
+          const Proxy(name: 'آلمان ۲', type: 'OpenVPN'),
       ],
     ),
   ];
+  if (mixed) {
+    container
+        .read(profilesActionProvider.notifier)
+        .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+  }
   await container.read(shikooModeProvider.notifier).save(mode);
   await tester.pump(const Duration(seconds: 1));
   await tester.pump(const Duration(seconds: 1));
@@ -169,6 +182,35 @@ void main() {
             )
             .visible,
         isTrue,
+      );
+    },
+    variant: windows,
+  );
+
+  testWidgets(
+    'a usual service on an OpenVPN pick in the proxy mode: its list has only '
+    'what runs there, nothing selected or green, and no line about the '
+    'account; back in the tunnel mode the pick is in its row again',
+    (tester) async {
+      await _pump(tester, ShikooMode.proxy, mixed: true);
+      expect(find.text(l.outsourcedNotHere), findsNothing);
+      final rows = tester.widgetList<ServerRow>(find.byType(ServerRow));
+      expect(rows.map((row) => row.server.name), ['هلند ۱']);
+      expect(rows.any((row) => row.selected), isFalse);
+      final power = tester.widget<PowerButton>(find.byType(PowerButton));
+      expect(power.connection, ShikooConnection.off);
+      expect(power.onPressed, isNotNull);
+      expect(tester.widget<NowPill>(find.byType(NowPill)).server, isNull);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ShikooHome)),
+      );
+      await container.read(shikooModeProvider.notifier).save(ShikooMode.tunnel);
+      await tester.pump(const Duration(seconds: 1));
+      final back = tester.widgetList<ServerRow>(find.byType(ServerRow));
+      expect(
+        {for (final row in back) row.server.name: row.selected},
+        {'آلمان ۱': true, 'هلند ۱': false},
       );
     },
     variant: windows,

@@ -3096,24 +3096,55 @@ void main() {
     });
 
     test('a usual service on an OpenVPN pick when the tunnel mode is left: the '
-        "app moves to a server that runs in the proxy mode, none of OpenVPN's, "
-        'and is never up on a server it does not carry', () async {
+        'app ends off and the pick stays, no ping round or restart moves it, and '
+        'the way back to the tunnel mode has it again', () async {
       final container = windowsShelf(['up']);
       markShelf(container, outsourced: false);
       final setup = setupOf(container)..tunnel = DateTime.now();
       final controller = container.read(shikooControllerProvider);
+      String? pick() => container.read(selectedMapProvider)['PROXY'];
       await controller.connect();
       await pumpEventQueue();
       expect(container.read(shikooStateProvider).selected, 'آلمان ۱');
 
       await controller.setMode(ShikooMode.proxy);
       await pumpEventQueue(times: 200);
+      await controller.pingAll();
+      await pumpEventQueue(times: 200);
       final state = container.read(shikooStateProvider);
       expect(
-        (state.connection, state.selected, state.lastError, state.notice),
-        (ShikooConnection.on, 'هلند ۱', null, null),
+        (state.connection, state.lastError, state.notice),
+        (ShikooConnection.off, null, null),
       );
-      expect(setup.runs, [true, false, true]);
+      expect(pick(), 'آلمان ۱');
+      expect(state.selected, isNull);
+      expect(setup.runs, [true, false]);
+
+      await controller.setMode(ShikooMode.tunnel);
+      await pumpEventQueue(times: 200);
+      final back = container.read(shikooStateProvider);
+      expect(
+        (back.connection, back.selected),
+        (ShikooConnection.off, 'آلمان ۱'),
+      );
+    });
+
+    test('a usual service on an OpenVPN pick in the proxy mode: the '
+        "customer's connect, as with any pick that cannot run, finds a server "
+        'that can', () async {
+      final container = windowsShelf(['up']);
+      markShelf(container, outsourced: false);
+      setupOf(container).tunnel = DateTime.now();
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.setMode(ShikooMode.proxy);
+      await controller.connect();
+      await pumpEventQueue(times: 200);
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.connection, state.selected),
+        (ShikooConnection.on, 'هلند ۱'),
+      );
     });
 
     for (final connecting in [false, true]) {

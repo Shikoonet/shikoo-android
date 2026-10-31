@@ -1517,6 +1517,16 @@ class ShikooController {
     return _names(group).contains(chosen) ? chosen : null;
   }
 
+  /// The pick is in the subscription but not offered in this mode (Windows' proxy mode has no OpenVPN): it stays the customer's.
+  bool get _held {
+    final group = _group;
+    final chosen = group == null
+        ? null
+        : _ref.read(selectedMapProvider)[group.name];
+    return _validSelection() == null &&
+        (group?.all.any((proxy) => proxy.name == chosen) ?? false);
+  }
+
   Future<void> connect() {
     if (_ref.read(_noticeProvider) is SelectedGone) _setNotice(null);
     return _connect(setAside: true);
@@ -1704,7 +1714,7 @@ class ShikooController {
 
   /// The app's own start after its own stop, as a rebuild or a failed install: the pick stays, and SelectedGone holds it.
   Future<void> connectAgain() async {
-    if (_ref.read(_noticeProvider) is! SelectedGone) {
+    if (_ref.read(_noticeProvider) is! SelectedGone && !_held) {
       await _connect(setAside: false);
     }
   }
@@ -2240,6 +2250,7 @@ class ShikooController {
     if (names.isEmpty) return;
     final running = _running;
     final intent = _ref.read(_intentProvider);
+    if (_held && !intent.waiting) return;
     final pinging = _pinging || _again;
     // Connect pressed while finding takes this round's first answer, not the round before's best.
     int? ping(String name) =>
