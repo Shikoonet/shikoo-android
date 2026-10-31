@@ -11,6 +11,7 @@ import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/home.dart';
+import 'package:fl_clash/shikoo/ui/icons.dart';
 import 'package:fl_clash/shikoo/ui/service_card.dart';
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
@@ -99,6 +100,9 @@ Future<void> _pump(WidgetTester tester, ShikooMode mode) async {
 void main() {
   final windows = TargetPlatformVariant.only(TargetPlatform.windows);
   final l = lookupShikooL10n(const Locale('fa'));
+  final gauge = find.byWidgetPredicate(
+    (w) => w is ShikooIconButton && w.icon == ShikooIcon.gauge,
+  );
 
   testWidgets(
     "a shelf account's card on Windows in proxy mode: the line, no server "
@@ -113,6 +117,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(ServerRow), findsNothing);
+      expect(tester.widget<ShikooIconButton>(gauge).onPressed, isNull);
       expect(
         tester.widget<PowerButton>(find.byType(PowerButton)).onPressed,
         isNull,
@@ -140,6 +145,7 @@ void main() {
     (tester) async {
       await _pump(tester, ShikooMode.tunnel);
       expect(find.text(l.outsourcedNotHere), findsNothing);
+      expect(tester.widget<ShikooIconButton>(gauge).onPressed, isNotNull);
       expect(
         find.descendant(
           of: find.byType(ServiceCard),
