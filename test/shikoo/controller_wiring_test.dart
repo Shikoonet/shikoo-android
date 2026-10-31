@@ -3095,7 +3095,7 @@ void main() {
       }
     });
 
-    test("a usual service on an OpenVPN pick when the tunnel mode is left: the "
+    test('a usual service on an OpenVPN pick when the tunnel mode is left: the '
         "app moves to a server that runs in the proxy mode, none of OpenVPN's, "
         'and is never up on a server it does not carry', () async {
       final container = windowsShelf(['up']);
