@@ -2835,6 +2835,18 @@ void main() {
       expect(service(container).loginRefused, isFalse);
     });
 
+    test('a failed connect, then a start the app did not make comes up: no '
+        'connect error is left on the home screen', () async {
+      final container = await refusedOnce();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      container.read(runTimeProvider.notifier).value = 1;
+      await pumpEventQueue();
+      expect(container.read(shikooStateProvider).lastError, isNull);
+    });
+
     test('the refusal stays while the next connect is under way', () async {
       final container = await refusedOnce();
       final setup = setupOf(container)..startGate = Completer<void>();

@@ -1266,9 +1266,11 @@ class ShikooController {
                 if (_ref.read(_noticeProvider) is SelectedGone) {
                   _setNotice(null);
                 }
-                // A start the app did not make (the tile, always-on) came up; its own connects clear it in _start.
-                if (!_ref.read(_intentProvider).connecting) {
+                // A start the app did not make (the tile, always-on) came up; its own connects clear both in _start.
+                final intent = _ref.read(_intentProvider);
+                if (!intent.connecting) {
                   _loginRefused(_current, refused: false);
+                  if (intent.error != null) _set(const _Intent());
                 }
                 _reconcile();
                 unawaited(_checkCarrying());
