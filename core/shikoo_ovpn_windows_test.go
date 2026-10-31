@@ -631,6 +631,23 @@ func TestAStuckEngineCostsOneHaltLoopAnApplyAndTheCoreFailsAtOnce(t *testing.T) 
 	}
 }
 
+func TestAStuckEngineThatRecoversIsHaltedByTheNextStop(t *testing.T) {
+	engine, _ := withEngine(t)
+	engine.ignore = 1 << 30
+	tries := ovpnStopTries
+	ovpnStopTries = 4
+	t.Cleanup(func() { ovpnStopTries = tries })
+	startFake(t, engine, nil)
+	if ovpnWinStop() {
+		t.Fatal("reported a stop that did not happen")
+	}
+	engine.mu.Lock()
+	engine.ignore = 0
+	engine.mu.Unlock()
+	ovpnWinStop()
+	waitFor(t, "the engine to stop", func() bool { return ovpnLive.Load() == nil })
+}
+
 func TestAHaltReachesTheEngineOnlyWhileTheSessionIsTheLiveOne(t *testing.T) {
 	engine, _ := withEngine(t)
 	session := func() *ovpnWin { return &ovpnWin{lib: &engine.ovpnLib, ended: make(chan struct{})} }
