@@ -930,6 +930,41 @@ class ShikooL10nFa extends ShikooL10n {
       'این حساب فعلاً روی ویندوز کار نمی‌کند؛ روی گوشی یا تلویزیون وصلش کن.';
 
   @override
+  String outsourcedBought(String date) {
+    return 'خرید $date';
+  }
+
+  @override
+  String outsourcedBoughtPlan(String date, String plan) {
+    return 'خرید $date · $plan';
+  }
+
+  @override
+  String get planMonths1 => 'یک‌ماهه';
+
+  @override
+  String get planMonths2 => 'دوماهه';
+
+  @override
+  String get planMonths3 => 'سه‌ماهه';
+
+  @override
+  String get planMonths6 => 'شش‌ماهه';
+
+  @override
+  String get planYear => 'یک‌ساله';
+
+  @override
+  String planDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return '$daysString روزه';
+  }
+
+  @override
   String get summaryExpiredNoDate =>
       'اعتبارش تمام شد. با تمدید دوباره فعال می‌شود.';
 

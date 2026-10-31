@@ -323,6 +323,8 @@ class _ServiceCardState extends State<ServiceCard> {
                       bot: widget.bot,
                       refused: service.loginRefused,
                       notHere: service.notHere,
+                      purchasedAt: service.purchasedAt,
+                      durationDays: service.durationDays,
                       focusNode: focus.bot,
                     ),
                   ),
@@ -1289,6 +1291,15 @@ class MeterBar extends StatelessWidget {
 Widget _protocolChip(BuildContext context) =>
     StatusChip.neutral(ShikooL10n.of(context).protocolOpenvpn);
 
+String _plan(ShikooL10n l, int days) => switch (days) {
+  30 => l.planMonths1,
+  60 => l.planMonths2,
+  90 => l.planMonths3,
+  180 => l.planMonths6,
+  360 || 365 => l.planYear,
+  _ => l.planDays(days),
+};
+
 /// `.guide` (ovpn-shelf-card, design ب): an outsourced account's days and data are not the app's to
 /// tell, and the bot sells a new one; on the TV the button shows the bot's QR, between update and servers.
 class _Guide extends StatelessWidget {
@@ -1297,12 +1308,16 @@ class _Guide extends StatelessWidget {
     required this.bot,
     this.refused = false,
     this.notHere = false,
+    this.purchasedAt,
+    this.durationDays,
     this.focusNode,
   });
 
   final bool isTV;
   final String? bot;
   final bool refused;
+  final DateTime? purchasedAt;
+  final int? durationDays;
 
   /// In the refused line's place, in the text's own colour: no core here runs it (Sam, 2026-10-30).
   final bool notHere;
@@ -1316,6 +1331,9 @@ class _Guide extends StatelessWidget {
       color: refused && !notHere ? t.c.danger : t.c.text,
       fontWeight: FontWeight.w700,
     );
+    final bought = purchasedAt;
+    final date = bought == null ? null : _date(context, l, bought.toLocal());
+    final plan = durationDays == null ? null : _plan(l, durationDays!);
     return Container(
       margin: const EdgeInsets.only(top: Space.s3),
       padding: const EdgeInsets.all(Space.s3),
@@ -1334,7 +1352,14 @@ class _Guide extends StatelessWidget {
               children: notHere
                   ? [TextSpan(text: l.outsourcedNotHere, style: strong)]
                   : refused
-                  ? [TextSpan(text: l.outsourcedRefused, style: strong)]
+                  ? [
+                      TextSpan(text: l.outsourcedRefused, style: strong),
+                      if (date != null)
+                        TextSpan(
+                          text:
+                              '\n${plan == null ? l.outsourcedBought(date) : l.outsourcedBoughtPlan(date, plan)}',
+                        ),
+                    ]
                   : [
                       TextSpan(text: '${l.outsourcedTitle}\n', style: strong),
                       TextSpan(text: l.outsourcedHelp),

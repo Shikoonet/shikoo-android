@@ -37,6 +37,9 @@ const shikooApiBases = [
 
 const shikooTestDoor = _apiOverride != '';
 
+/// The app's version, sent to the door alone: the server answers some calls by what the version can read.
+const shikooAppHeader = 'X-Shikoo-App';
+
 /// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.
 String? usableLink(String? url) {
   final uri = Uri.tryParse(url ?? '');

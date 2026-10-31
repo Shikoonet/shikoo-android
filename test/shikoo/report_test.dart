@@ -597,6 +597,7 @@ void main() {
           shikooApiProvider.overrideWithValue(
             ShikooApi(['http://door.test'], door.dio),
           ),
+          shikooVersionProvider.overrideWithValue('1.0.57'),
         ],
       );
       addTearDown(container.dispose);
