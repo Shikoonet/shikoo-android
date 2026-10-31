@@ -26,26 +26,39 @@ const _off = ShikooConnection.off;
 const _connecting = ShikooConnection.connecting;
 const _error = ShikooConnection.error;
 
-ShikooService _service({int id = 1, bool ended = false, bool empty = false}) =>
-    ShikooService(
-      id: id,
-      name: 'test_user · یک‌ماهه',
-      usedBytes: empty ? 100 : 10,
-      totalBytes: 100,
-      expire: DateTime.now().add(Duration(days: ended ? -1 : 30)),
-    );
+ShikooService _service({
+  int id = 1,
+  bool ended = false,
+  bool empty = false,
+  bool refused = false,
+}) => ShikooService(
+  id: id,
+  name: 'test_user · یک‌ماهه',
+  usedBytes: empty ? 100 : 10,
+  totalBytes: 100,
+  expire: DateTime.now().add(Duration(days: ended ? -1 : 30)),
+  loginRefused: refused,
+);
 
 ShikooState _state(
   ShikooConnection connection, {
   ShikooService? service,
   String? selected = 'Germany 3',
+  bool noTraffic = false,
+  int? ping,
+  ShikooNotice? notice,
 }) => ShikooState(
   connection: connection,
   connectedFor: Duration.zero,
   isTV: false,
-  servers: const [],
+  servers: [
+    if (selected != null)
+      ShikooServer(name: selected, type: 'vless', ping: ping),
+  ],
   service: service ?? _service(),
   selected: selected,
+  connectedNoTraffic: noTraffic,
+  notice: notice,
 );
 
 final _fake = NotifierProvider<ShikooCell<ShikooState>, ShikooState>(
@@ -445,6 +458,221 @@ void main() {
       await set(_state(_on));
       expect(cancelled(), contains('removed'));
     });
+  });
+
+  Future<void> muted(String kind) => messenger.handlePlatformMessage(
+    _channel.name,
+    _channel.codec.encodeMethodCall(MethodCall('muted', kind)),
+    (_) {},
+  );
+
+  group('1 from the state: connected with no traffic', () {
+    test('posts once when it begins, and goes when traffic passes', () async {
+      await set(_state(_on));
+      expect(posted(), isEmpty);
+      await set(_state(_on, noTraffic: true));
+      expect(posted(), ['noTraffic']);
+      expect(last('noTraffic')['body'], contains('Germany'));
+
+      native.clear();
+      await set(_state(_on));
+      expect(cancelled(), ['noTraffic']);
+
+      await set(_state(_on, noTraffic: true));
+      expect(posted(), isEmpty, reason: 'one for each connect');
+    });
+
+    test('a failed ping alone counts, as the app\'s own card does', () async {
+      await set(_state(_on, ping: -1));
+      expect(posted(), ['noTraffic']);
+    });
+
+    test('a new server, or a new connect, gets its own', () async {
+      await set(_state(_on, noTraffic: true));
+      await set(_state(_on, selected: 'Netherlands 1', noTraffic: true));
+      expect(posted(), ['noTraffic', 'noTraffic']);
+      expect(last('noTraffic')['body'], contains('Netherlands'));
+
+      await set(_state(_off, selected: 'Netherlands 1'));
+      await set(_state(_on, selected: 'Netherlands 1', noTraffic: true));
+      expect(posted(), hasLength(3));
+    });
+
+    test(
+      'never for the streaming server, which pings with no internet',
+      () async {
+        await set(_state(_on, selected: '🇮🇷 فیلیمو', noTraffic: true));
+        await set(_state(_on, selected: '🇮🇷 Filimo', ping: -1));
+        expect(posted(), isEmpty);
+      },
+    );
+
+    test(
+      'none while it is only connecting, or while the app is on screen',
+      () async {
+        await set(_state(_connecting, noTraffic: true));
+        await set(_state(_off, noTraffic: true));
+        controller.foreground = true;
+        await set(_state(_on, noTraffic: true));
+        expect(posted(), isEmpty);
+      },
+    );
+
+    test(
+      '«دیگر نشان نده» stops the next one, and Settings brings it back',
+      () async {
+        await set(_state(_on, noTraffic: true));
+        expect(last('noTraffic')['actions'], [
+          ['انتخاب سرور دیگر', 'open:list'],
+          ['دیگر نشان نده', 'mute'],
+        ]);
+        await muted('noTraffic');
+
+        native.clear();
+        await set(_state(_off));
+        await set(_state(_on, noTraffic: true));
+        expect(posted(), isEmpty);
+
+        await container.read(shikooAlertNoTrafficProvider.notifier).set(true);
+        await set(_state(_off));
+        await set(_state(_on, noTraffic: true));
+        expect(posted(), ['noTraffic']);
+      },
+    );
+
+    test(
+      'the switch is the key Kotlin writes, without the plugin\'s prefix',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'shikoo.alerts.noTraffic': false,
+        });
+        final read = ProviderContainer();
+        addTearDown(read.dispose);
+        await read.read(shikooAlertNoTrafficProvider.notifier).load();
+        expect(read.read(shikooAlertNoTrafficProvider), isFalse);
+      },
+    );
+  });
+
+  group('3 from the state: the shelf account refused', () {
+    ShikooState refused({bool on = true}) => _state(
+      _error,
+      selected: 'Netherlands 1',
+      service: _service(refused: on),
+    );
+
+    test('posts when the refusal begins, and goes when it clears', () async {
+      await set(refused(on: false));
+      expect(posted(), isEmpty);
+      await set(refused());
+      expect(posted(), ['refused']);
+      final alert = last('refused');
+      expect(alert['body'], contains('Netherlands'));
+      expect(alert['tap'], 'card:1');
+      expect(alert['actions'], [
+        ['پشتیبانی', 'url:${ShikooLinks.support}'],
+      ]);
+
+      native.clear();
+      await set(refused(on: false));
+      expect(cancelled(), ['refused']);
+    });
+
+    test('a retry refused again the same day posts nothing more', () async {
+      await set(refused());
+      await set(refused(on: false));
+      await set(refused());
+      expect(posted(), ['refused']);
+    });
+
+    test('none while the app is on screen, after the customer\'s own stop, '
+        'or with no server to name', () async {
+      controller.foreground = true;
+      await set(refused());
+      await set(refused(on: false));
+      controller.foreground = false;
+      controller.offByCustomer = true;
+      await set(refused());
+      await set(refused(on: false));
+      controller.offByCustomer = false;
+      await set(
+        _state(_error, selected: null, service: _service(refused: true)),
+      );
+      expect(posted(), isEmpty);
+    });
+  });
+
+  group('4 from the state: the server was removed', () {
+    ShikooState gone(String server) =>
+        _state(_off, selected: null, notice: SelectedGone(server));
+
+    test('after the app\'s own disconnect, one alert names the server and '
+        'the drop alert stays quiet; the next connect clears it', () async {
+      await set(_state(_on));
+      controller.offByCustomer = true;
+      await set(gone('🇩🇪 Germany 5'));
+      await settle();
+      expect(posted(), ['removed']);
+      expect(last('removed')['body'], contains('Germany'));
+      expect(last('removed')['tap'], 'list');
+
+      native.clear();
+      await set(_state(_on, selected: 'Netherlands 1'));
+      expect(cancelled(), contains('removed'));
+    });
+
+    test('once for each server removed', () async {
+      await set(gone('Germany 5'));
+      await set(_state(_off));
+      await set(gone('Germany 5'));
+      expect(posted(), ['removed']);
+      await set(_state(_off));
+      await set(gone('Germany 6'));
+      expect(posted(), ['removed', 'removed']);
+    });
+
+    test(
+      'other news after an update, and the app on screen, post nothing',
+      () async {
+        await set(
+          _state(
+            _on,
+            notice: const ServersChanged(added: 0, removed: ['Germany 6']),
+          ),
+        );
+        await set(_state(_on, notice: const RefreshFailed()));
+        controller.foreground = true;
+        await set(gone('Germany 5'));
+        expect(posted(), isEmpty);
+      },
+    );
+  });
+
+  test('English names the account and server alerts', () async {
+    await container.read(shikooLookProvider.notifier).setLanguage('en');
+    await set(
+      _state(
+        _error,
+        selected: 'Netherlands 1',
+        service: _service(refused: true),
+      ),
+    );
+    expect(last('refused')['title'], 'Your account was refused');
+    expect(
+      last('refused')['body'],
+      '“\u2068Netherlands\u00A01\u2069” didn’t accept your username and password. Message support.',
+    );
+    expect(last('refused')['actions'], [
+      ['Support', 'url:${ShikooLinks.support}'],
+    ]);
+
+    await set(
+      _state(_off, selected: null, notice: const SelectedGone('Germany 5')),
+    );
+    expect(last('removed')['title'], 'Your server was removed');
+    expect(last('removed')['actions'], [
+      ['Pick a server', 'open:list'],
+    ]);
   });
 
   test('English names the same things', () async {

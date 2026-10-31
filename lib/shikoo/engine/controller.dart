@@ -245,7 +245,9 @@ class SilentReplaced extends ShikooNotice {
 }
 
 class SelectedGone extends ShikooNotice {
-  const SelectedGone();
+  const SelectedGone(this.server);
+
+  final String server;
 }
 
 class RefreshFailed extends ShikooNotice {
@@ -2956,7 +2958,7 @@ class ShikooController {
     }
     if (had != null && removed.contains(had)) {
       if (_upOrStarting) {
-        _notice(const SelectedGone());
+        _notice(SelectedGone(had));
         return disconnect();
       }
       _removed = had;

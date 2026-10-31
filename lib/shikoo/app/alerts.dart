@@ -42,6 +42,29 @@ class ShikooAlerts with TileListener {
     });
     _ref.listen(shikooStateProvider.select(_endedOf), _ended);
     _ref.listen(
+      shikooStateProvider.select((s) => s.noInternet ? s.selected : null),
+      (_, server) =>
+          server == null ? trafficPassed() : unawaited(noTraffic(server)),
+    );
+    _ref.listen(
+      shikooStateProvider.select((s) => s.service?.loginRefused ?? false),
+      (_, now) {
+        if (!now) return _cancel(ShikooAlert.refused);
+        if (_state.selected case final server?) unawaited(refused(server));
+      },
+    );
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => switch (s.notice) {
+          SelectedGone(:final server) => server,
+          _ => null,
+        },
+      ),
+      (_, server) {
+        if (server != null) unawaited(removed(server));
+      },
+    );
+    _ref.listen(
       shikooLookProvider.select((look) => look.language),
       (_, _) => unawaited(_primeRevoked()),
     );
@@ -223,6 +246,7 @@ class ShikooAlerts with TileListener {
       actions: [
         [l.alertPickServer, 'open:list'],
       ],
+      ownStop: true,
     )) {
       _removed.add(key);
     }
@@ -254,8 +278,12 @@ class ShikooAlerts with TileListener {
     required String body,
     required String tap,
     required List<List<String>> actions,
+    bool ownStop = false,
   }) async {
-    if (_controller.foreground || _controller.offByCustomer) return false;
+    // The app's own stop sets offByCustomer too, and the removal alert follows that stop.
+    if (_controller.foreground || (_controller.offByCustomer && !ownStop)) {
+      return false;
+    }
     return await _channel.invokeMethod<bool>(
           'post',
           _alert(kind, title: title, body: body, tap: tap, actions: actions),
