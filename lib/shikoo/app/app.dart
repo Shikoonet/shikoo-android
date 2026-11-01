@@ -195,7 +195,7 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
     if (state == AppLifecycleState.paused) controller.onBackground();
   }
 
-  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>[&outsourced=true]`, `lang?code=en`, `warp?on=true` and `crash`.
+  /// Test builds only: `shikoo-debug://add?url=<encoded>&name=<label>[&outsourced=true][&status=on_hold][&fileonly=true&days=30]`, `lang?code=en`, `warp?on=true` and `crash`.
   /// The link carries a subscription url: never print or log it.
   void _onDebugLink(Uri uri) {
     if (uri.scheme != 'shikoo-debug') return;
@@ -211,7 +211,11 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
               .then((failure) {
                 if (!mounted ||
                     failure != null ||
-                    query['outsourced'] != 'true') {
+                    !const {
+                      'outsourced',
+                      'status',
+                      'fileonly',
+                    }.any(query.containsKey)) {
                   return;
                 }
                 ref
@@ -222,9 +226,11 @@ class _ShikooAppState extends ConsumerState<ShikooApp>
                           LinkedService(
                             id: 0,
                             title: query['name'] ?? '',
-                            status: 'active',
+                            status: query['status'] ?? 'active',
                             profileId: ref.read(currentProfileIdProvider),
-                            outsourced: true,
+                            outsourced: query['outsourced'] == 'true',
+                            fileOnly: query['fileonly'] == 'true',
+                            durationDays: int.tryParse(query['days'] ?? ''),
                           ),
                         ],
                       ),

@@ -18,7 +18,16 @@ const shikooOwnerKey = "shikoo-owner"
 type ShikooOwner struct {
 	Core   string `json:"core"`
 	Server string `json:"server"`
+	// State is a session's own word (shikoo_ovpn.go): connecting or up, and with no server carried, failed or refused.
+	State string `json:"state,omitempty"`
 }
+
+const (
+	stateConnecting = "connecting"
+	stateUp         = "up"
+	stateFailed     = "failed"
+	stateRefused    = "refused"
+)
 
 type shikooOwnerEngine struct {
 	carrying func() string
@@ -36,10 +45,21 @@ func registerShikooOwner(core string, carrying func() string, ping func(params *
 	shikooOwners[core] = shikooOwnerEngine{carrying: carrying, ping: ping}
 }
 
+var shikooOwnerStates = map[string]func() string{}
+
 func shikooOwnerNow() ShikooOwner {
 	for core, owner := range shikooOwners {
 		if server := owner.carrying(); server != "" {
-			return ShikooOwner{Core: core, Server: server}
+			now := ShikooOwner{Core: core, Server: server}
+			if state := shikooOwnerStates[core]; state != nil {
+				now.State = state()
+			}
+			return now
+		}
+	}
+	for core, state := range shikooOwnerStates {
+		if word := state(); word == stateFailed || word == stateRefused {
+			return ShikooOwner{Core: core, State: word}
 		}
 	}
 	return ShikooOwner{}

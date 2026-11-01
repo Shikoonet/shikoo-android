@@ -21,7 +21,7 @@ one of the cores that can carry it. Line numbers are at `5c6f159f`; mihomo paths
 | `xray` | behind mihomo | linked into the same Go core (route ب of `docs/xray-study.md`) | ه۱ |
 | `singBox` | behind mihomo | the same Go core, or its own process if «س» finds the modules clash | ه۴ |
 | `wireguard` (official, wireguard-go) | owns the tunnel | the Go core, reading the TUN fd itself (guess) | ه۲ |
-| `openvpn` (official, OpenVPN 3 core, C++) | owns the tunnel | its own native library; a driver on Windows («س») | ه۳ |
+| `openvpn` (official, OpenVPN 3 core, C++) | owns the tunnel | its own native library: `libovpn3.so` on Android; on Windows `ShikooNetOvpn3.dll` beside `ShikooNetCore.exe`, which loads it and hands it the wintun adapter the core already embeds, so no new driver (TUN mode only) | ه۳ |
 
 mihomo's own OpenVPN and SSH (ه۵) are mihomo, not a new core.
 
@@ -65,9 +65,10 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
   with nothing for the user to do.
 - **OpenVPN runs on its official core alone** (`shikooOnlyCores` in `cores.dart`; Sam, 2026-10-30): never on mihomo
   or sing-box, with no fallback. A stored OpenVPN pick is never honoured, its settings row is a plain «رسمی» the
-  remote passes over, and where that core cannot run (Windows, until its own official core; Windows' proxy mode) its
+  remote passes over, and where that core cannot run (Windows' proxy mode: its Windows engine needs the TUN mode) its
   servers are not offered, the row is hidden, and a shelf account's card says it does not work there yet. A start
-  the official engine fails is «وصل نشد», its AUTH_FAILED a shelf account's refused line (`getRunTime` -2), and a
+  the official engine fails is «وصل نشد», its AUTH_FAILED a shelf account's refused line (`getRunTime` -2; on Windows
+  the `refused` state of `shikooOwner`), and a
   second engine death within a minute ends the connection (`coreDown`) instead of handing it to mihomo.
 - A stored core that this build lacks is kept and ignored, so going back a version loses nothing.
 - Loaded in the shell before `runApp`, as the look is (`lib/shikoo/app/main.dart:62`), so the first config apply already
@@ -86,7 +87,7 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 | Changing the core | re-apply the config (`applyProfile(silence: true)`, as `followSubscriptions` does, `account.dart:616-623`); the tunnel stays up and the old engine stops after mihomo holds the new config | disconnect, then connect, as `setMode` does (`controller.dart:1231-1239`) |
 | Changing the server | a selector change, as today, even between two engines | a reconnect whenever an owner core is involved: new peer, new tunnel address. Only the customer's switch: the app never moves the server of a tunnel up or starting, and an update that takes that server away stops the tunnel with a notice (`SelectedGone`) and picks none till the customer picks a server or connects (Sam, 2026-10-30). A rebuild of the same server (`_reconnect`: Iran switch, core change, new key, owner death) keeps the pick, the app's usage-multiplied one too |
 | Lifecycle | lives with the applied config, inside `applyConfig` (Go). It runs while disconnected too, so pings work. | started and stopped by `VpnService` on Android, and by the core in TUN mode on Windows |
-| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: the servers stay on mihomo (decided, §7); OpenVPN's are not offered (§2) |
+| Windows proxy mode | works (mihomo's mixed port) | impossible without a TUN: WireGuard's servers stay on mihomo (decided, §7); OpenVPN's are not offered (§2), as its Windows engine runs in the TUN mode only |
 
 **Sam's behaviour decisions (2026-10-22, through the lead):**
 - A core this build lacks shows switched off with «به‌زودی». So the state carries every core that can carry a protocol,
@@ -95,6 +96,10 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - **2026-10-23:** if the picked core's engine does not start at all, Go leaves its servers to mihomo, which keeps
   carrying them: the customer sees «وصل نشد», the server shows «با میهومو» (`ShikooServer.core`), and the pick stays.
   For owner cores the same rule is package h2's to build.
+- **2026-11-02, the exception (Sam):** a customer's own connect on the official WireGuard core while offline waits, with
+  no VPN of ours up, instead of leaving the server to mihomo (`lib/shikoo/engine/offline.dart`). Offline is no network but
+  none, or a server name that does not resolve while neither the door nor `shikooServerNameDns` (TCP 53) answers. Any doubt,
+  a switch's rebuild, the tile and always-on go on as before.
 - Changing the core while connected uses today's server-switch notices («در حال رفتن به…» / «حالا از … وصلی»), named
   after the core. The state's `coreSwitch` carries it.
 - Screens: design «الف», a «هسته‌ها» group in settings with one row per protocol the customer's services hold
@@ -363,6 +368,11 @@ door would refuse the report), and pinging unopened services through another cor
   REALITY's ClientHello offered `X25519MLKEM768` in its key share, so ML-KEM stays on. **Not tested:** the panel's
   real servers, WireGuard, the 32-bit box, and Windows.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
+- mihomo's own DNS is poisoned on some ISPs (doh.pub answered with the ISP's sinkhole), so a server name never resolved: the OpenVPN ping
+  (`ovpnProbe` dials through `proxy-server-nameserver`) showed «وصل، بی‌اینترنت» on a working tunnel, and a WireGuard endpoint did not carry data.
+  `shikooDns` appends `8.8.8.8` and `1.1.1.1` to `proxy-server-nameserver`, only when the profile has a list. A WireGuard server that names
+  its own `dns` but not `remote-dns-resolve` gets the latter from `wireGuardDefaults` (patch 59), under its UDP, IPv4 and `allowed-ips` guards and only when every
+  `dns` element is an address (a bad one would make mihomo refuse the whole subscription).
 - An owner core's server name is resolved by Go while the VPN is blocked (a start) or held (a switch). A held VPN keeps
   its own DNS servers behind a tun nothing reads, so Android's resolver timed out and the start fell back to mihomo
   (found 2026-10-31 with a server name; an IP never needed DNS). A fresh start still asks the device's resolver first,

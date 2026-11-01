@@ -657,7 +657,7 @@ void main() {
         account,
       );
       noSale();
-      expect(find.textContaining('روی ویندوز کار نمی‌کند'), findsOneWidget);
+      expect(find.textContaining('فقط در حالت «تونل»'), findsOneWidget);
 
       await _pump(
         tester,
@@ -941,8 +941,8 @@ void main() {
 
     for (final b in Brightness.values) {
       for (final language in ['fa', 'en']) {
-        testWidgets('on Windows, where no core runs OpenVPN yet, the card says '
-            "so in the refused line's place, not in red, and keeps the bot "
+        testWidgets('on Windows in proxy mode, where the official core has no '
+            "tunnel to own, the card says so in the refused line's place, not in red, and keeps the bot "
             'button ($language, ${b.name})', (tester) async {
           // As the app has it there: its OpenVPN servers are not offered.
           await _pump(
@@ -961,7 +961,9 @@ void main() {
             brightness: b,
           );
           final l = lookupShikooL10n(Locale(language));
-          final line = _in<ServiceCard>(find.text(l.outsourcedNotHere));
+          final line = _in<ServiceCard>(
+            find.text(l.outsourcedNotHere(l.modeTunnel, l.powerConnect)),
+          );
           expect(line, findsOneWidget);
           expect(find.textContaining(l.outsourcedTitle), findsNothing);
           expect(find.text(l.loadingServers), findsNothing);

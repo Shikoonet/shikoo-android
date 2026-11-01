@@ -1049,25 +1049,31 @@ void main() {
     }
 
     for (final b in Brightness.values) {
-      testWidgets('no OpenVPN row on Windows, where no core runs it '
-          '(${b.name})', (tester) async {
-        await _pump(
-          tester,
-          _settings(
-            cores: coreRows(
-              {...ShikooProtocol.values},
-              const {},
-              specs: readyHere(ShikooPlatform.windows),
+      for (final tunnel in [true, false]) {
+        testWidgets('the OpenVPN row on Windows is there in tunnel mode only '
+            '(${b.name}, tunnel $tunnel)', (tester) async {
+          await _pump(
+            tester,
+            _settings(
+              cores: coreRows(
+                {...ShikooProtocol.values},
+                const {},
+                specs: readyHere(ShikooPlatform.windows),
+                tunnel: tunnel,
+              ),
             ),
-          ),
-          brightness: b,
-        );
-        expect(find.text(_fa.protocolOpenvpn), findsNothing);
-        expect(find.text(_fa.protocolWireguard), findsOneWidget);
-        await tester.ensureVisible(find.text(_fa.coresGroup));
-        await tester.pumpAndSettle();
-        await _shot(tester, 'o-win-${b.name}');
-      }, variant: windows);
+            brightness: b,
+          );
+          expect(
+            find.text(_fa.protocolOpenvpn),
+            tunnel ? findsOneWidget : findsNothing,
+          );
+          expect(find.text(_fa.protocolWireguard), findsOneWidget);
+          await tester.ensureVisible(find.text(_fa.coresGroup));
+          await tester.pumpAndSettle();
+          await _shot(tester, 'o-win-${b.name}-${tunnel ? 'tun' : 'proxy'}');
+        }, variant: windows);
+      }
     }
 
     for (final b in Brightness.values) {

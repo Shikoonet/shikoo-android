@@ -363,6 +363,14 @@ class ShikooL10nEn extends ShikooL10n {
       'You\'ll connect to the first server that answers.';
 
   @override
+  String get waitsForInternet =>
+      'Your phone has no internet. Check your connection; I\'ll connect as soon as it\'s back.';
+
+  @override
+  String get waitsForInternetTv =>
+      'No internet. Check your connection; I\'ll connect as soon as it\'s back.';
+
+  @override
   String get noServerAnswered => 'No server answered';
 
   @override
@@ -969,8 +977,9 @@ class ShikooL10nEn extends ShikooL10n {
       'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.';
 
   @override
-  String get outsourcedNotHere =>
-      'This account doesn\'t work on Windows yet; connect it on your phone or TV.';
+  String outsourcedNotHere(String mode, String connect) {
+    return 'On Windows this account works only in $mode mode. Choose $mode under the $connect button.';
+  }
 
   @override
   String outsourcedBought(String date) {
@@ -2137,4 +2146,58 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get alertPickServer => 'Pick a server';
+
+  @override
+  String get statusOnHold => 'Not activated yet';
+
+  @override
+  String get validFromFirstShort => 'Valid from your first connection';
+
+  @override
+  String validDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$daysString days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String validFromFirst(String days) {
+    return 'Valid: $days from your first connection';
+  }
+
+  @override
+  String validFromToday(String days) {
+    return 'Valid: $days from today';
+  }
+
+  @override
+  String get pingHeld =>
+      'Ping comes after your first connection, so your validity doesn’t start early.';
+
+  @override
+  String pingHeldDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other:
+          'Ping comes after your first connection, so your $daysString days don’t start early.',
+      one:
+          'Ping comes after your first connection, so your 1 day doesn’t start early.',
+    );
+    return '$_temp0';
+  }
 }

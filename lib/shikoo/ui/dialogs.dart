@@ -179,6 +179,7 @@ typedef ServiceChoice = ({
   String name,
   String? chip,
   bool ok,
+  bool held,
   VoidCallback open,
 });
 
@@ -240,7 +241,9 @@ Future<void> chooseService(
                   ],
                 ),
               ),
-              if (chip != null)
+              if (chip != null && choice.held)
+                StatusChip.neutral(chip)
+              else if (chip != null)
                 StatusChip(
                   status: choice.ok
                       ? ShikooServiceStatus.active

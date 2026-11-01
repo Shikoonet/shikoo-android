@@ -38,6 +38,7 @@ ShikooState _tv(
   ShikooPick pick = ShikooPick.server,
   ShikooError? error,
   bool waiting = false,
+  bool waitingForInternet = false,
   ({int done, int total})? pinging,
   ShikooRefresh refresh = ShikooRefresh.idle,
   ShikooNotice? notice,
@@ -64,6 +65,7 @@ ShikooState _tv(
   selected: selected,
   pick: pick,
   waiting: waiting,
+  waitingForInternet: waitingForInternet,
   pinging: pinging,
   refresh: refresh,
   notice: notice,
@@ -323,6 +325,45 @@ void main() {
     );
     await tester.pump();
     expect(find.text('در حال یافتن بهترین سرور…'), findsOneWidget);
+  });
+
+  testWidgets('connect waiting for internet on the TV: its own words, the '
+      'remote can reach the power button, and OK on it cancels', (
+    tester,
+  ) async {
+    _tvScreen(tester);
+    final controller = _Controller();
+    when(() => controller.disconnect()).thenAnswer((_) async {});
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.connecting, waitingForInternet: true),
+      controller: controller,
+    );
+
+    expect(
+      find.text(
+        'اینترنت وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.',
+      ),
+      findsOneWidget,
+    );
+    await _focus(tester, 'فنلاند ۲');
+    expect(await _press(tester, _towardPower), 'power');
+    await tester.sendKeyEvent(_ok);
+    await tester.pump();
+    verify(() => controller.disconnect()).called(1);
+
+    await _pumpTvHome(
+      tester,
+      _tv(ShikooConnection.connecting, waitingForInternet: true),
+      controller: controller,
+      locale: 'en',
+    );
+    expect(
+      find.text(
+        "No internet. Check your connection; I'll connect as soon as it's back.",
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the card column scrolls back up once the remote leaves it', (

@@ -81,6 +81,19 @@ class _Profiles extends ProfilesAction {
   }
 }
 
+/// Counts the account syncs the controller asks for.
+class _CountingSignIn extends ShikooSignIn {
+  _CountingSignIn(super.ref, this.syncs);
+
+  final List<int> syncs;
+
+  @override
+  Future<bool?> sync() async {
+    syncs.add(1);
+    return true;
+  }
+}
+
 class _Setup extends SetupAction {
   final runs = <bool>[];
 
@@ -3003,33 +3016,71 @@ void main() {
       expect(service(container).loginRefused, isFalse);
     });
 
-    test('another service lists no OpenVPN server where no core runs it', () {
-      List<String> listed(ShikooPlatform platform) => [
-        ...mainGroupOf({
-          'proxies': [
-            {'name': 'O', 'type': 'openvpn'},
-            {'name': 'V', 'type': 'vless'},
-          ],
-          'proxy-groups': [
+    test(
+      'another service lists an OpenVPN server where its core runs: Android, '
+      "and Windows' tunnel mode, not its proxy mode",
+      () {
+        List<String> listed(ShikooPlatform platform, {bool tunnel = true}) => [
+          ...mainGroupOf(
             {
-              'name': 'PROXY',
-              'type': 'select',
-              'proxies': ['O', 'V'],
+              'proxies': [
+                {'name': 'O', 'type': 'openvpn'},
+                {'name': 'V', 'type': 'vless'},
+              ],
+              'proxy-groups': [
+                {
+                  'name': 'PROXY',
+                  'type': 'select',
+                  'proxies': ['O', 'V'],
+                },
+              ],
             },
-          ],
-        }, specs: readyHere(platform))!.servers.keys,
-      ];
-      expect(listed(ShikooPlatform.android), ['O', 'V']);
-      expect(listed(ShikooPlatform.windows), ['V']);
-    });
+            specs: readyHere(platform),
+            tunnel: tunnel,
+          )!.servers.keys,
+        ];
+        expect(listed(ShikooPlatform.android), ['O', 'V']);
+        expect(listed(ShikooPlatform.windows), ['O', 'V']);
+        expect(listed(ShikooPlatform.windows, tunnel: false), ['V']);
+      },
+    );
 
-    test('on Windows, where no core runs OpenVPN yet, its servers are not '
-        'offered, and a shelf account says so and its connect does '
-        'nothing', () async {
+    ProviderContainer windowsShelf(
+      List<String> words, {
+      ShikooMode mode = ShikooMode.tunnel,
+      Future<String> Function()? ask,
+      List<int>? asks,
+    }) {
+      var asked = 0;
+      final container = openvpnHome([
+        shikooDesktopProvider.overrideWithValue(true),
+        tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
+        ownerSessionProvider.overrideWithValue(
+          ask ??
+              () async {
+                asks?.add(asked);
+                return words[math.min(asked++, words.length - 1)];
+              },
+        ),
+      ]);
+      unawaited(container.read(shikooModeProvider.notifier).save(mode));
+      markShelf(container);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+      return container;
+    }
+
+    test('on Windows in proxy mode, no tunnel for the official engine to own: '
+        'OpenVPN servers are not offered, and a shelf account says so and its '
+        'connect does nothing', () async {
       final container = openvpnHome([
         shikooDesktopProvider.overrideWithValue(true),
         nativeStartFailedProvider.overrideWithValue(() => true),
       ]);
+      unawaited(
+        container.read(shikooModeProvider.notifier).save(ShikooMode.proxy),
+      );
       final controller = container.read(shikooControllerProvider);
       expect(container.read(shikooStateProvider).servers.map((s) => s.name), [
         'هلند ۱',
@@ -3044,6 +3095,357 @@ void main() {
       expect((state.connection, state.lastError), (ShikooConnection.off, null));
       expect(setupOf(container).runs, isEmpty);
     });
+
+    test("on Windows in tunnel mode a shelf account's servers are offered and "
+        'it has no line saying it does not work here', () {
+      final container = windowsShelf(['up']);
+      expect(container.read(shikooStateProvider).servers.map((s) => s.name), [
+        'آلمان ۱',
+        'هلند ۱',
+      ]);
+      expect(service(container).notHere, isFalse);
+    });
+
+    test("Go's word is what a Windows OpenVPN start waits for: the adapter "
+        'being up is not enough, and the start comes up with «up»', () async {
+      final asks = <int>[];
+      final container = windowsShelf([
+        'connecting',
+        'connecting',
+        'up',
+      ], asks: asks);
+      setupOf(container).tunnel = DateTime.now();
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(asks, [0, 1, 2]);
+      final state = container.read(shikooStateProvider);
+      expect((state.connection, state.lastError), (ShikooConnection.on, null));
+      expect(setupOf(container).runs, [true]);
+    });
+
+    test("Go's «failed» ends the start at once with «وصل نشد» and stops the "
+        'core, with no refusal', () async {
+      final asks = <int>[];
+      final container = windowsShelf(['connecting', 'failed'], asks: asks);
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(asks, [0, 1]);
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+      expect(setupOf(container).runs, [true, false]);
+    });
+
+    test("Go's «refused» is the refused line, as on Android: it stays through "
+        'a ping', () async {
+      final container = windowsShelf(['refused']);
+      final controller = container.read(shikooControllerProvider);
+      await controller.connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isTrue);
+      expect(setupOf(container).runs, [true, false]);
+
+      await controller.pingAll();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+    });
+
+    test('a refusal left from an earlier start is not read into the next: a '
+        'start that comes up clears it', () async {
+      var word = 'refused';
+      final container = windowsShelf(const [], ask: () async => word);
+      final controller = container.read(shikooControllerProvider);
+      await controller.connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isTrue);
+
+      word = 'up';
+      setupOf(container).tunnel = DateTime.now();
+      await controller.connect();
+      await pumpEventQueue();
+      expect(service(container).loginRefused, isFalse);
+      expect(container.read(shikooStateProvider).lastError, isNull);
+    });
+
+    test('a usual service whose start Go says refused keeps the usual '
+        '«وصل نشد»', () async {
+      final container = windowsShelf(['refused']);
+      markShelf(container, outsourced: false);
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+    });
+
+    test('Go that never says «up» ends the start at the wait, as «وصل نشد», '
+        'and stops the core', () async {
+      final was = connectWait;
+      connectWait = const Duration(milliseconds: 100);
+      addTearDown(() => connectWait = was);
+      final container = windowsShelf(['connecting']);
+      await container.read(shikooControllerProvider).connect();
+      await pumpEventQueue();
+      expect(
+        container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(service(container).loginRefused, isFalse);
+      expect(setupOf(container).runs, [true, false]);
+    });
+
+    test('Go is asked only for an OpenVPN pick on Windows: not for another '
+        'protocol there, nor for OpenVPN on Android', () async {
+      for (final (desktop, pick) in [(true, 'هلند ۱'), (false, 'آلمان ۱')]) {
+        final asks = <int>[];
+        final container = openvpnHome([
+          shikooDesktopProvider.overrideWithValue(desktop),
+          tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
+          ownerSessionProvider.overrideWithValue(() async {
+            asks.add(0);
+            return 'failed';
+          }),
+        ]);
+        markShelf(container);
+        container
+            .read(profilesActionProvider.notifier)
+            .updateCurrentSelectedMap('PROXY', pick);
+        setupOf(container).tunnel = DateTime.now();
+        await container.read(shikooControllerProvider).connect();
+        await pumpEventQueue();
+        expect(asks, isEmpty, reason: 'desktop $desktop, $pick');
+        expect(
+          container.read(shikooStateProvider).connection,
+          ShikooConnection.on,
+        );
+      }
+    });
+
+    test('a usual service on an OpenVPN pick when the tunnel mode is left: the '
+        'app ends off and the pick stays, no ping round or restart moves it, and '
+        'the way back to the tunnel mode has it again', () async {
+      final container = windowsShelf(['up']);
+      markShelf(container, outsourced: false);
+      final setup = setupOf(container)..tunnel = DateTime.now();
+      final controller = container.read(shikooControllerProvider);
+      String? pick() => container.read(selectedMapProvider)['PROXY'];
+      await controller.connect();
+      await pumpEventQueue();
+      expect(container.read(shikooStateProvider).selected, 'آلمان ۱');
+
+      await controller.setMode(ShikooMode.proxy);
+      await pumpEventQueue(times: 200);
+      await controller.pingAll();
+      await pumpEventQueue(times: 200);
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.connection, state.lastError, state.notice),
+        (ShikooConnection.off, null, null),
+      );
+      expect(pick(), 'آلمان ۱');
+      expect(state.selected, isNull);
+      expect(setup.runs, [true, false]);
+
+      await controller.setMode(ShikooMode.tunnel);
+      await pumpEventQueue(times: 200);
+      final back = container.read(shikooStateProvider);
+      expect(
+        (back.connection, back.selected),
+        (ShikooConnection.off, 'آلمان ۱'),
+      );
+    });
+
+    test('a usual service on an OpenVPN pick in the proxy mode: the '
+        "customer's connect, as with any pick that cannot run, finds a server "
+        'that can', () async {
+      final container = windowsShelf(['up']);
+      markShelf(container, outsourced: false);
+      setupOf(container).tunnel = DateTime.now();
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.setMode(ShikooMode.proxy);
+      await controller.connect();
+      await pumpEventQueue(times: 200);
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.connection, state.selected),
+        (ShikooConnection.on, 'هلند ۱'),
+      );
+    });
+
+    test("Go's word is the state of its owner answer: no state, no answer, an "
+        'error and a core that never answers all read as none', () async {
+      final core = _Core();
+      final container = ProviderContainer(
+        overrides: [
+          coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
+        ],
+      );
+      addTearDown(container.dispose);
+      final ask = container.read(ownerSessionProvider);
+      final was = ownerAnswerLimit;
+      ownerAnswerLimit = const Duration(milliseconds: 50);
+      addTearDown(() => ownerAnswerLimit = was);
+
+      // The future's own type is what the call's timeout checks, so it says it may hold null as the real one does.
+      Future<Map<String, dynamic>?> answered(Map<String, dynamic>? answer) =>
+          Future<Map<String, dynamic>?>.value(answer);
+      when(() => core.shikooOwner()).thenAnswer(
+        (_) =>
+            answered({'core': 'openvpn', 'server': 'ov', 'state': 'refused'}),
+      );
+      expect(await ask(), 'refused');
+      for (final answer in <Map<String, dynamic>?>[
+        {'core': 'openvpn', 'server': 'ov'},
+        null,
+      ]) {
+        when(() => core.shikooOwner()).thenAnswer((_) => answered(answer));
+        expect(await ask(), '', reason: '$answer');
+      }
+      when(() => core.shikooOwner()).thenThrow(StateError('the core is down'));
+      expect(await ask(), '');
+      when(
+        () => core.shikooOwner(),
+      ).thenAnswer((_) => Completer<Map<String, dynamic>?>().future);
+      expect(await ask(), '');
+    });
+
+    test('a held OpenVPN pick in the proxy mode survives a refresh of '
+        'the groups and a ping round', () async {
+      final container = windowsShelf(['up']);
+      markShelf(container, outsourced: false);
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.setMode(ShikooMode.proxy);
+      await pumpEventQueue(times: 50);
+      container.read(groupsProvider.notifier).value = [
+        const Group(
+          type: GroupType.Selector,
+          name: 'PROXY',
+          hidden: false,
+          all: [
+            Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
+            Proxy(name: 'هلند ۱', type: 'Vless'),
+            Proxy(name: 'هلند ۲', type: 'Vless'),
+          ],
+        ),
+      ];
+      await pumpEventQueue(times: 200);
+      await controller.pingAll();
+      await pumpEventQueue(times: 200);
+      expect(container.read(selectedMapProvider)['PROXY'], 'آلمان ۱');
+      final state = container.read(shikooStateProvider);
+      expect(
+        (state.connection, state.selected, state.notice),
+        (ShikooConnection.off, null, null),
+      );
+      expect(setupOf(container).runs, isEmpty);
+    });
+
+    for (final held in [true, false]) {
+      test(
+        'the customer connects while a listed ping round is under '
+        'way, ${held ? 'on a held OpenVPN pick' : 'with no pick'} in the proxy mode: a server that runs here starts',
+        () async {
+          final (:container, :core, :proxies, :setup) = _home([
+            shikooDesktopProvider.overrideWithValue(true),
+            tunAuthorizeProvider.overrideWithValue(
+              () async => ShikooAdmin.ready,
+            ),
+            ownerSessionProvider.overrideWithValue(() async => 'up'),
+          ]);
+          container.read(groupsProvider.notifier).value = [
+            const Group(
+              type: GroupType.Selector,
+              name: 'PROXY',
+              hidden: false,
+              all: [
+                Proxy(name: 'آلمان ۱', type: 'OpenVPN'),
+                Proxy(name: 'هلند ۱', type: 'Vless'),
+              ],
+            ),
+          ];
+          final gate = Completer<void>();
+          when(() => core.asyncTestDelay(any(), any())).thenAnswer((
+            call,
+          ) async {
+            await gate.future;
+            return Delay(
+              name: call.positionalArguments[1] as String,
+              url: '',
+              value: 95,
+            );
+          });
+          unawaited(
+            container.read(shikooModeProvider.notifier).save(ShikooMode.tunnel),
+          );
+          markShelf(container, outsourced: false);
+          if (held) {
+            container
+                .read(profilesActionProvider.notifier)
+                .updateCurrentSelectedMap('PROXY', 'آلمان ۱');
+          }
+          setup.tunnel = DateTime.now();
+          final controller = container.read(shikooControllerProvider);
+          await pumpEventQueue();
+          await controller.setMode(ShikooMode.proxy);
+          await pumpEventQueue(times: 50);
+          unawaited(controller.pingAll());
+          await pumpEventQueue(times: 50);
+          unawaited(controller.connect());
+          await pumpEventQueue(times: 50);
+          gate.complete();
+          await pumpEventQueue(times: 500);
+          final state = container.read(shikooStateProvider);
+          expect(
+            (state.connection, state.selected),
+            (ShikooConnection.on, 'هلند ۱'),
+          );
+        },
+      );
+    }
+
+    for (final connecting in [false, true]) {
+      test('the tunnel mode left for the proxy mode while OpenVPN is '
+          '${connecting ? 'connecting' : 'connected'}: the app stops, shows '
+          'off, and starts nothing', () async {
+        final container = windowsShelf(['up']);
+        final setup = setupOf(container)..tunnel = DateTime.now();
+        final controller = container.read(shikooControllerProvider);
+        if (connecting) {
+          setup.startGate = Completer<void>();
+          unawaited(controller.connect());
+        } else {
+          await controller.connect();
+        }
+        await pumpEventQueue();
+        expect(
+          container.read(shikooStateProvider).connection,
+          connecting ? ShikooConnection.connecting : ShikooConnection.on,
+        );
+
+        final change = controller.setMode(ShikooMode.proxy);
+        setup.startGate?.complete();
+        await change;
+        await pumpEventQueue();
+        final state = container.read(shikooStateProvider);
+        expect(
+          (state.connection, state.lastError, state.notice),
+          (ShikooConnection.off, null, null),
+        );
+        expect(service(container).notHere, isTrue);
+        expect(setup.runs.last, isFalse);
+        expect(setup.runs.where((run) => run), hasLength(1));
+      });
+    }
   });
 
   test(
@@ -6356,6 +6758,338 @@ void main() {
         );
       },
     );
+
+    test(
+      'a service the panel holds reads onHold until the tunnel is on it; a '
+      'file-only row carries its days and no data (Sam, 2026-11-01)',
+      () async {
+        final t = await twoServices();
+        ShikooService of(int id) {
+          final state = t.container.read(shikooStateProvider);
+          return [
+            state.service!,
+            ...state.others,
+          ].firstWhere((s) => s.id == id);
+        }
+
+        void account(List<LinkedService> rows) => t.container
+            .read(shikooAccountProvider.notifier)
+            .set(ShikooAccount(services: rows));
+        LinkedService row(int id, String status, {bool fileOnly = false}) =>
+            LinkedService(
+              id: id + 1000,
+              title: 'user$id',
+              status: status,
+              profileId: id,
+              fileOnly: fileOnly,
+              durationDays: fileOnly ? 30 : null,
+            );
+
+        account([row(t.first, 'on_hold'), row(t.second, 'on_hold')]);
+        expect(of(t.first).onHold, isFalse, reason: 'the tunnel is on it');
+        expect(of(t.second).onHold, isTrue);
+        expect(of(t.second).statusAt(shikooNow()), ShikooServiceStatus.onHold);
+        expect(of(t.second).ended, isNull);
+
+        await t.controller.disconnect();
+        t.container.read(runTimeProvider.notifier).value = null;
+        await pumpEventQueue();
+        expect(of(t.first).onHold, isTrue, reason: 'off, it is held again');
+
+        account([row(t.first, 'active'), row(t.second, 'active')]);
+        expect(of(t.second).onHold, isFalse);
+        expect(of(t.second).fileOnly, isFalse);
+
+        t.container
+            .read(profilesProvider.notifier)
+            .put(
+              t.container
+                  .read(profilesProvider)
+                  .getProfile(t.second)!
+                  .copyWith(
+                    subscriptionInfo: const SubscriptionInfo(
+                      download: 10,
+                      total: 5,
+                      expire: 4102444800,
+                    ),
+                  ),
+            );
+        account([row(t.second, 'on_hold', fileOnly: true)]);
+        final file = of(t.second);
+        expect((file.fileOnly, file.durationDays), (true, 30));
+        expect(
+          file.ended,
+          isNull,
+          reason: 'a file\x27s data figures never end it',
+        );
+        expect(file.expire, isNull, reason: 'only the panel row dates it');
+        expect(
+          (file.usageKnown, file.usedBytes, file.totalBytes),
+          (true, 0, 0),
+        );
+        expect(file.onHold, isTrue);
+
+        final end = DateTime.now().add(const Duration(days: 18));
+        account([
+          LinkedService(
+            id: 1,
+            title: 'user',
+            status: 'active',
+            profileId: t.second,
+            fileOnly: true,
+            expiresAt: end,
+          ),
+        ]);
+        expect(of(t.second).expire, end, reason: 'the panel\x27s date');
+      },
+    );
+
+    const key = 'shikoo.held_connected';
+    final syncs = <int>[];
+
+    void rows(ProviderContainer container, int id, String status) => container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: id + 1000,
+                title: 'user$id',
+                status: status,
+                profileId: id,
+                fileOnly: true,
+                durationDays: 30,
+              ),
+            ],
+          ),
+        );
+
+    Future<
+      ({
+        ProviderContainer container,
+        ShikooController controller,
+        _Core core,
+        _Setup setup,
+        int first,
+      })
+    >
+    held({bool failing = false}) async {
+      syncs.clear();
+      SharedPreferences.setMockInitialValues({});
+      firstConnectSync = const Duration(milliseconds: 40);
+      addTearDown(() => firstConnectSync = const Duration(minutes: 2));
+      final t = await twoServices(
+        connected: false,
+        more: [
+          shikooSignInProvider.overrideWith(
+            (ref) => _CountingSignIn(ref, syncs),
+          ),
+          if (failing) nativeStartFailedProvider.overrideWithValue(() => true),
+        ],
+      );
+      rows(t.container, t.first, 'on_hold');
+      return (
+        container: t.container,
+        controller: t.controller,
+        core: t.core,
+        setup: t.setup,
+        first: t.first,
+      );
+    }
+
+    ShikooService current(ProviderContainer container) =>
+        container.read(shikooStateProvider).service!;
+
+    Future<void> connectAndStop(
+      ProviderContainer container,
+      ShikooController controller,
+      _Setup setup,
+    ) async {
+      setup.tunnel = DateTime(2026);
+      await controller.connect();
+      await pumpEventQueue();
+      await controller.disconnect();
+      container.read(runTimeProvider.notifier).value = null;
+      await pumpEventQueue();
+    }
+
+    test(
+      'a held service connects once: connect, then disconnect: the card still reads started, the ping '
+      'comes back and the note goes (Sam, 2026-11-01)',
+      () async {
+        final t = await held();
+        expect(current(t.container).onHold, isTrue);
+        clearInteractions(t.core);
+        t.controller.openService(null);
+        t.controller.openService(t.first);
+        await pumpEventQueue();
+        verifyNever(() => t.core.asyncTestDelay(any(), any()));
+
+        await connectAndStop(t.container, t.controller, t.setup);
+        final service = current(t.container);
+        expect(service.onHold, isFalse);
+        expect(service.statusAt(shikooNow()), ShikooServiceStatus.active);
+        expect((service.fileOnly, service.durationDays), (true, 30));
+        expect(service.expire, isNull, reason: 'the panel has no date yet');
+        clearInteractions(t.core);
+        t.controller.openService(null);
+        t.controller.openService(t.first);
+        await pumpEventQueue();
+        verify(
+          () => t.core.asyncTestDelay(any(), any()),
+        ).called(greaterThan(0));
+      },
+    );
+
+    test('the sync for the panel\'s date is scheduled once, however often '
+        'the service connects again', () async {
+      final t = await held();
+      await connectAndStop(t.container, t.controller, t.setup);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(syncs, [1]);
+      await connectAndStop(t.container, t.controller, t.setup);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(syncs, [1], reason: 'the second connect asks nothing more');
+    });
+
+    test('a service renewed out of file-only reads its data again: used up is '
+        'exhausted, not active (Sam, 2026-11-01)', () async {
+      final t = await held();
+      t.container
+          .read(profilesProvider.notifier)
+          .put(
+            t.container
+                .read(profilesProvider)
+                .getProfile(t.first)!
+                .copyWith(
+                  subscriptionInfo: const SubscriptionInfo(
+                    download: 10,
+                    total: 5,
+                    expire: 4102444800,
+                  ),
+                ),
+          );
+      t.container
+          .read(shikooAccountProvider.notifier)
+          .set(
+            ShikooAccount(
+              services: [
+                LinkedService(
+                  id: 1000 + t.first,
+                  title: 'user',
+                  status: 'active',
+                  profileId: t.first,
+                ),
+              ],
+            ),
+          );
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      final service = [
+        state.service!,
+        ...state.others,
+      ].firstWhere((s) => s.id == t.first);
+      expect(service.fileOnly, isFalse);
+      expect((service.usedBytes, service.totalBytes), (10, 5));
+      expect(service.ended, ShikooServiceStatus.exhausted);
+    });
+
+    test('a connect that fails marks nothing: the service stays held, no '
+        'memory is written and no sync is asked', () async {
+      final t = await held(failing: true);
+      t.setup.tunnel = null;
+      await t.controller.connect();
+      await pumpEventQueue();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(
+        t.container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(current(t.container).onHold, isTrue);
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(key),
+        isNull,
+      );
+      expect(syncs, isEmpty);
+    });
+
+    for (final status in ['expired', 'disabled', 'removed']) {
+      test('a file-only $status row with no expires_at is ended, not a '
+          'started service with 30 days from today', () async {
+        final t = await held();
+        t.container
+            .read(shikooAccountProvider.notifier)
+            .set(
+              ShikooAccount(
+                services: [
+                  LinkedService(
+                    id: 1000 + t.first,
+                    title: 'user',
+                    status: status,
+                    profileId: t.first,
+                    fileOnly: true,
+                    durationDays: 30,
+                  ),
+                ],
+              ),
+            );
+        await pumpEventQueue();
+        final state = t.container.read(shikooStateProvider);
+        final service = [
+          state.service!,
+          ...state.others,
+        ].firstWhere((s) => s.id == t.first);
+        expect(service.ended, ShikooServiceStatus.expired);
+        expect(service.finished, isTrue);
+        expect((service.onHold, service.fileOnly), (false, true));
+        expect((service.usedBytes, service.totalBytes), (0, 0));
+      });
+    }
+
+    test('a service the panel does not hold starts no sync and keeps no '
+        'memory', () async {
+      final t = await held();
+      rows(t.container, t.first, 'active');
+      await connectAndStop(t.container, t.controller, t.setup);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(syncs, isEmpty);
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(key),
+        isNull,
+      );
+    });
+
+    test('the memory is written down, and a restart reads it', () async {
+      final t = await held();
+      await connectAndStop(t.container, t.controller, t.setup);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList(key), ['${t.first}']);
+
+      final (:container, :core, :proxies, :setup) = _home();
+      final id = container.read(currentProfileIdProvider)!;
+      rows(container, id, 'on_hold');
+      expect(current(container).onHold, isTrue, reason: 'not read yet');
+      await prefs.setStringList(key, ['$id']);
+      container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      expect(current(container).onHold, isFalse, reason: 'after a restart');
+    });
+
+    test('once the panel no longer says on_hold the memory is dropped, so '
+        'a later hold reads held again', () async {
+      final t = await held();
+      await connectAndStop(t.container, t.controller, t.setup);
+      expect(current(t.container).onHold, isFalse);
+
+      rows(t.container, t.first, 'active');
+      await pumpEventQueue();
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(key),
+        isEmpty,
+      );
+      rows(t.container, t.first, 'on_hold');
+      expect(current(t.container).onHold, isTrue);
+    });
 
     /// A pasted service's file holds «سوئد ۱»; its id is known only once it is saved.
     Future<String> pasteable(

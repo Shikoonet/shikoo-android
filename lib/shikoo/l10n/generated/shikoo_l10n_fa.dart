@@ -324,6 +324,14 @@ class ShikooL10nFa extends ShikooL10n {
   String get connectsToFirst => 'اولین سروری که جواب بدهد، وصل می‌شوی.';
 
   @override
+  String get waitsForInternet =>
+      'اینترنت گوشی وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.';
+
+  @override
+  String get waitsForInternetTv =>
+      'اینترنت وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.';
+
+  @override
   String get noServerAnswered => 'هیچ سروری جواب نداد';
 
   @override
@@ -926,8 +934,9 @@ class ShikooL10nFa extends ShikooL10n {
       'این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.';
 
   @override
-  String get outsourcedNotHere =>
-      'این حساب فعلاً روی ویندوز کار نمی‌کند؛ روی گوشی یا تلویزیون وصلش کن.';
+  String outsourcedNotHere(String mode, String connect) {
+    return 'این حساب روی ویندوز فقط در حالت «$mode» کار می‌کند. زیر دکمهٔ «$connect»، «$mode» را انتخاب کن.';
+  }
 
   @override
   String outsourcedBought(String date) {
@@ -2065,4 +2074,43 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get alertPickServer => 'انتخاب سرور';
+
+  @override
+  String get statusOnHold => 'در انتظار فعال‌سازی';
+
+  @override
+  String get validFromFirstShort => 'اعتبار از اولین اتصال';
+
+  @override
+  String validDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return '$daysString روز';
+  }
+
+  @override
+  String validFromFirst(String days) {
+    return 'اعتبار: $days از اولین اتصال';
+  }
+
+  @override
+  String validFromToday(String days) {
+    return 'اعتبار: $days از امروز';
+  }
+
+  @override
+  String get pingHeld => 'پینگ بعد از اولین اتصال، تا اعتبارت زودتر شروع نشود.';
+
+  @override
+  String pingHeldDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'پینگ بعد از اولین اتصال، تا $daysString روزت زودتر شروع نشود.';
+  }
 }

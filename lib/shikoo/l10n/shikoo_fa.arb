@@ -76,6 +76,8 @@
   "findingBest": "در حال یافتن بهترین سرور…",
   "autoPick": "سرور خودکار انتخاب می‌شود",
   "connectsToFirst": "اولین سروری که جواب بدهد، وصل می‌شوی.",
+  "waitsForInternet": "اینترنت گوشی وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.",
+  "waitsForInternetTv": "اینترنت وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.",
   "noServerAnswered": "هیچ سروری جواب نداد",
   "noServerAnsweredHelpTouch": "اینترنت این گوشی را بررسی کن.\nاگر وصل بود، از «پشتیبانی» بپرس.",
   "noServerAnsweredHelpTv": "اینترنت این تلویزیون را بررسی کن.\nاگر وصل بود، از «پشتیبانی» بپرس.",
@@ -248,7 +250,7 @@
   "outsourcedSummary": "اعتبار از اولین اتصال",
   "outsourcedEnded": "اعتبارش تمام شد. برای حساب تازه، به ربات شیکونت برو.",
   "outsourcedRefused": "این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.",
-  "outsourcedNotHere": "این حساب فعلاً روی ویندوز کار نمی‌کند؛ روی گوشی یا تلویزیون وصلش کن.",
+  "outsourcedNotHere": "این حساب روی ویندوز فقط در حالت «{mode}» کار می‌کند. زیر دکمهٔ «{connect}»، «{mode}» را انتخاب کن.",
   "outsourcedBought": "خرید {date}",
   "outsourcedBoughtPlan": "خرید {date} · {plan}",
   "planMonths1": "یک‌ماهه",
@@ -537,5 +539,12 @@
   "alertRefusedBody": "«{server}» نام کاربری و رمزت را قبول نکرد و وصل نشد. به پشتیبانی پیام بده.",
   "alertRemovedTitle": "سرورت حذف شد",
   "alertRemovedBody": "«{server}» دیگر در اشتراکت نیست و اتصال قطع شد. یکی دیگر انتخاب کن.",
-  "alertPickServer": "انتخاب سرور"
+  "alertPickServer": "انتخاب سرور",
+  "statusOnHold": "در انتظار فعال‌سازی",
+  "validFromFirstShort": "اعتبار از اولین اتصال",
+  "validDays": "{days} روز",
+  "validFromFirst": "اعتبار: {days} از اولین اتصال",
+  "validFromToday": "اعتبار: {days} از امروز",
+  "pingHeld": "پینگ بعد از اولین اتصال، تا اعتبارت زودتر شروع نشود.",
+  "pingHeldDays": "پینگ بعد از اولین اتصال، تا {days} روزت زودتر شروع نشود."
 }

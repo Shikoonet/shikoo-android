@@ -139,6 +139,10 @@ if(EXISTS "${CORE_ARTIFACTS_DIR}/ShikooNetWarp.exe")
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+# The OpenVPN 3 engine the core loads from its own folder (tools/ovpn3-build.sh windows); required.
+install(FILES "${CORE_ARTIFACTS_DIR}/ShikooNetOvpn3.dll"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")

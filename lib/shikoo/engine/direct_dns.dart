@@ -63,6 +63,8 @@ void shikooIranSets(Map<dynamic, dynamic> config, Iterable<Rule> added) {
   }
 }
 
+const shikooServerNameDns = ['8.8.8.8', '1.1.1.1'];
+
 final _tunDomain = RegExp(r'^\(\(IN-TYPE,TUN\),\(DOMAIN,([^()]+)\)\)$');
 
 /// SHIKOO_PATCHES 21: Shikoo's DIRECT hosts resolve with the device's DNS unless the panel's policy names that host.
@@ -73,6 +75,11 @@ Map<String, dynamic> shikooDns(
 ) => {
   for (final MapEntry(:key, :value) in dns.entries)
     if (key != 'listen') key: value,
+  // A line that poisons doh.pub (FlClash's default) refuses every server name; plain UDP to these answers.
+  if (dns['proxy-server-nameserver'] case final List servers)
+    'proxy-server-nameserver': [
+      ...{...servers, ...shikooServerNameDns},
+    ],
   'nameserver-policy': {
     for (final rule in added)
       if (rule.id >= shikooDirectIds && rule.id < shikooDirectIds + 1000)

@@ -7,11 +7,16 @@ void wireGuardDefaults(Map proxy) {
   proxy['mtu'] ??= 1280;
   proxy['persistent-keepalive'] ??= 25;
   proxy['udp'] ??= true;
-  if (proxy['dns'] == null &&
-      proxy['remote-dns-resolve'] == null &&
-      _tunnelReachesDns(proxy)) {
+  if (proxy['remote-dns-resolve'] != null || !_tunnelReachesDns(proxy)) return;
+  final dns = proxy['dns'];
+  if (dns == null) {
     proxy['remote-dns-resolve'] = true;
     proxy['dns'] = [for (final ip in _tunnelDns) ip.address];
+  } else if (dns is List &&
+      dns.isNotEmpty &&
+      dns.every((server) => InternetAddress.tryParse('$server') != null)) {
+    // One element mihomo cannot parse ("1.1.1.1, 8.8.8.8") would refuse the whole config once names resolve in the tunnel.
+    proxy['remote-dns-resolve'] = true;
   }
 }
 
