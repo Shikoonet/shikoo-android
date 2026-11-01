@@ -124,7 +124,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    alertSettle = const Duration(milliseconds: 20);
+    alertSettle = const Duration(milliseconds: 200);
     controller = _Controller();
     native = [];
     shown = true;
