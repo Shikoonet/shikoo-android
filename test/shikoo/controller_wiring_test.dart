@@ -6408,6 +6408,7 @@ void main() {
                     subscriptionInfo: const SubscriptionInfo(
                       download: 10,
                       total: 5,
+                      expire: 4102444800,
                     ),
                   ),
             );
@@ -6419,6 +6420,7 @@ void main() {
           isNull,
           reason: 'a file\x27s data figures never end it',
         );
+        expect(file.expire, isNull, reason: 'only the panel row dates it');
         expect(
           (file.usageKnown, file.usedBytes, file.totalBytes),
           (true, 0, 0),

@@ -1074,7 +1074,7 @@ ShikooService _serviceFrom(
     name: _nameOf(profile),
     usedBytes: fileOnly ? 0 : (info?.upload ?? 0) + (info?.download ?? 0),
     totalBytes: fileOnly ? 0 : info?.total ?? 0,
-    expire: fileOnly && fileExpire != null
+    expire: fileOnly
         ? fileExpire
         : (info?.expire ?? 0) > 0
         ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
