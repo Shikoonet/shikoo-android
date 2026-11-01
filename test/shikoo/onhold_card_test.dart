@@ -42,13 +42,14 @@ ShikooService _file({bool onHold = false, int? days = 30, DateTime? expire}) =>
       updatedAt: DateTime.now().subtract(const Duration(minutes: 5)),
     );
 
-ShikooService _usual({bool onHold = false}) => ShikooService(
+ShikooService _usual({bool onHold = false, int? days}) => ShikooService(
   id: 1,
   name: 'user123 · الماس',
   usedBytes: 34 << 30,
   totalBytes: 100 << 30,
   expire: onHold ? null : DateTime.now().add(const Duration(days: 20)),
   onHold: onHold,
+  durationDays: days,
   updatedAt: DateTime.now().subtract(const Duration(minutes: 5)),
 );
 
@@ -216,7 +217,8 @@ void main() {
         expect(find.text(l.unlimited), findsNothing);
         expect(_text(l.validUntil('')), findsNothing);
         expect(_pingButton, findsNothing);
-        expect(_text(l.pingHeld), findsOneWidget);
+        expect(_text(l.pingHeldDays(30)), findsOneWidget);
+        expect(_text(l.pingHeld), findsNothing);
         expect(find.byType(ServerRow), findsNWidgets(3));
         expect(
           find.widgetWithText(ShikooButton, l.renew),
@@ -276,6 +278,7 @@ void main() {
         expect(find.text(l.unlimited), findsNothing);
         expect(_pingButton, findsOneWidget);
         expect(_text(l.pingHeld), findsNothing);
+        expect(_text(l.pingHeldDays(30)), findsNothing);
       });
     }
 
@@ -322,6 +325,7 @@ void main() {
         expect(_usage, findsWidgets, reason: 'the volume is the usual one');
         expect(_pingButton, findsNothing);
         expect(_text(l.pingHeld), findsOneWidget);
+        expect(_text(l.pingHeldDays(30)), findsNothing);
       });
 
       testWidgets('active is as before: the active chip, the ping button, '
@@ -429,6 +433,66 @@ void main() {
     await tester.tap(find.widgetWithText(ShikooButton, l.renew).first);
     await tester.pumpAndSettle();
     expect(find.text(l.statusOnHold), findsNWidgets(2), reason: 'and its row');
+    final grey = ShikooTheme.of(tester.element(find.byType(ShikooHome))).c;
+    for (final label in find.text(l.statusOnHold).evaluate()) {
+      final chip = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.byWidget(label.widget),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(
+        (chip.decoration! as ShapeDecoration).color,
+        grey.surfaceSunken,
+        reason: 'not the green of an active one',
+      );
+    }
+  });
+
+  group('the note over the servers of a held service', () {
+    for (final locale in ['fa', 'en']) {
+      testWidgets('has no number for a service of unknown length, and its '
+          'own length for one that has it ($locale)', (tester) async {
+        final l = _l(locale);
+        for (final (service, note) in [
+          (_file(onHold: true, days: null), l.pingHeld),
+          (_usual(onHold: true), l.pingHeld),
+          (_usual(onHold: true, days: 60), l.pingHeldDays(60)),
+          (_file(onHold: true, days: 90), l.pingHeldDays(90)),
+        ]) {
+          await _pump(
+            tester,
+            _state(service),
+            _account(service, 'on_hold'),
+            locale: locale,
+          );
+          expect(
+            _text(note),
+            findsOneWidget,
+            reason: '${service.durationDays}',
+          );
+          expect(
+            _text(l.pingHeldDays(30)),
+            findsNothing,
+            reason: 'no fixed 30 for ${service.durationDays}',
+          );
+        }
+      });
+    }
+
+    testWidgets('says «اعتبارت» in Persian when the length is unknown', (
+      tester,
+    ) async {
+      final service = _usual(onHold: true);
+      await _pump(tester, _state(service), _account(service, 'on_hold'));
+      expect(
+        _text('پینگ بعد از اولین اتصال، تا اعتبارت زودتر شروع نشود.'),
+        findsOneWidget,
+      );
+      expect(_text('۳۰'), findsNothing);
+    });
   });
 
   group('on the TV', () {
@@ -442,7 +506,7 @@ void main() {
         _account(service, 'on_hold'),
       );
       expect(_pingButton, findsNothing);
-      expect(_text(_l('fa').pingHeld), findsOneWidget);
+      expect(_text(_l('fa').pingHeldDays(30)), findsOneWidget);
       expect(_text(_l('fa').fastestFirst), findsNothing);
       expect(_text(_l('fa').sortsOnPing), findsNothing);
       await _focusFirstServer(tester);
