@@ -1267,7 +1267,10 @@ class ShikooSignIn {
           outsourced: row.outsourced,
           purchasedAt: row.purchasedAt,
           durationDays: row.durationDays,
-          fileOnly: row.fileOnly || (was?.fileOnly ?? false),
+          fileOnly:
+              row.fileOnly ||
+              (LinkedService.finishedStatuses.contains(row.status) &&
+                  (was?.fileOnly ?? false)),
         ),
       );
     }
