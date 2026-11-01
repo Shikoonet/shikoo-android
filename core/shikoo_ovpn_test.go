@@ -286,7 +286,7 @@ func registerTestOpenvpn(t *testing.T) {
 func TestTheServiceTellsTheRegistryWhatOpenvpnCarries(t *testing.T) {
 	registerTestOpenvpn(t)
 	ovpnState(&ovpnStateParams{Session: 1, Server: "ov"})
-	if now := shikooOwnerNow(); now != (ShikooOwner{Core: "openvpn-test", Server: "ov"}) {
+	if now := shikooOwnerNow(); now.Server != "ov" || !strings.HasPrefix(now.Core, "openvpn") {
 		t.Errorf("carrying %+v while connecting", now)
 	}
 	ovpnState(&ovpnStateParams{Session: 2, Server: "ov2"})

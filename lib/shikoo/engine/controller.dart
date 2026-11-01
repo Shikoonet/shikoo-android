@@ -79,6 +79,9 @@ typedef ShikooOpened = ({
 
 const connectTimeout = Duration(seconds: 30);
 
+@visibleForTesting
+Duration connectWait = connectTimeout;
+
 /// A core that keeps dying is left down: a profile it cannot run would restart it forever.
 const coreRevives = 3;
 const coreReviveWindow = Duration(minutes: 2);
@@ -542,21 +545,34 @@ Duration ownerDeathWindow = const Duration(minutes: 1);
 /// Go's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no answer.
 final ownerCarryingProvider = Provider<Future<ShikooCarrying?> Function()>(
   (ref) => () async {
-    try {
-      final data = await ref
-          .read(coreHandlerProvider)
-          .shikooOwner()
-          .timeout(ownerAnswerLimit, onTimeout: () => null);
-      return data == null
-          ? null
-          : (core: '${data['core'] ?? ''}', server: '${data['server'] ?? ''}');
-    } catch (_) {
-      return null;
-    }
+    final data = await _askOwner(ref);
+    return data == null
+        ? null
+        : (core: '${data['core'] ?? ''}', server: '${data['server'] ?? ''}');
   },
 );
 
+Future<Map<String, dynamic>?> _askOwner(Ref ref) async {
+  try {
+    return await ref
+        .read(coreHandlerProvider)
+        .shikooOwner()
+        .timeout(ownerAnswerLimit, onTimeout: () => null);
+  } catch (_) {
+    return null;
+  }
+}
+
 final _carryingProvider = _cell<ShikooCarrying?>(null);
+
+/// Go's word on an owner session (`state` of `shikooOwner`, core/shikoo_owner.go): '' for none or no answer.
+final ownerSessionProvider = Provider<Future<String> Function()>(
+  (ref) =>
+      () async => '${(await _askOwner(ref))?['state'] ?? ''}',
+);
+
+const _sessionUp = 'up';
+const _sessionRefused = 'refused';
 
 /// Panel headers FlClash does not keep (`announce`, `support-url`), per profile id.
 typedef _Extras = ({String? announce, String? supportUrl, String? account});
@@ -1540,6 +1556,16 @@ class ShikooController {
     return _names(group).contains(chosen) ? chosen : null;
   }
 
+  /// The pick is in the subscription but not offered in this mode (Windows' proxy mode has no OpenVPN): it stays the customer's.
+  bool get _held {
+    final group = _group;
+    final chosen = group == null
+        ? null
+        : _ref.read(selectedMapProvider)[group.name];
+    return _validSelection() == null &&
+        (group?.all.any((proxy) => proxy.name == chosen) ?? false);
+  }
+
   Future<void> connect() {
     if (_ref.read(_noticeProvider) is SelectedGone) _setNotice(null);
     return _connect(setAside: true);
@@ -1595,6 +1621,19 @@ class ShikooController {
     }
   }
 
+  bool get _askGo =>
+      _ref.read(shikooDesktopProvider) &&
+      _ref.read(shikooStateProvider).selectedServer?.core == ShikooCore.openvpn;
+
+  String _session = '';
+
+  Future<DateTime?> _sessionRunTime() async {
+    _session = await _ref.read(ownerSessionProvider)();
+    return _session == _sessionUp ? _nativeRunTime() : null;
+  }
+
+  bool _sessionEnded() => const {'failed', _sessionRefused}.contains(_session);
+
   Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
     _set(_Intent(connecting: true, error: error));
@@ -1610,13 +1649,16 @@ class ShikooController {
     } catch (_) {
       started = false;
     }
+    final askGo = _askGo;
     final since = started
         ? await waitForTunnel(
-            _nativeRunTime,
-            timeout: connectTimeout,
+            askGo ? _sessionRunTime : _nativeRunTime,
+            timeout: connectWait,
             stillWanted: () => attempt == _attempt,
             paused: () => !foreground,
-            failed: _ref.read(nativeStartFailedProvider),
+            failed: askGo
+                ? _sessionEnded
+                : _ref.read(nativeStartFailedProvider),
           )
         : null;
     if (attempt != _attempt) return;
@@ -1630,7 +1672,8 @@ class ShikooController {
       return;
     }
     if (started &&
-        _ref.read(nativeLoginRefusedProvider)() &&
+        (_ref.read(nativeLoginRefusedProvider)() ||
+            (askGo && _session == _sessionRefused)) &&
         (_ref.read(shikooStateProvider).service?.outsourced ?? false)) {
       _loginRefused(_current, refused: true);
     }
@@ -1710,7 +1753,7 @@ class ShikooController {
 
   /// The app's own start after its own stop, as a rebuild or a failed install: the pick stays, and SelectedGone holds it.
   Future<void> connectAgain() async {
-    if (_ref.read(_noticeProvider) is! SelectedGone) {
+    if (_ref.read(_noticeProvider) is! SelectedGone && !_held) {
       await _connect(setAside: false);
     }
   }
@@ -2253,6 +2296,7 @@ class ShikooController {
     if (names.isEmpty) return;
     final running = _running;
     final intent = _ref.read(_intentProvider);
+    if (_held && !intent.waiting) return;
     final pinging = _pinging || _again;
     // Connect pressed while finding takes this round's first answer, not the round before's best.
     int? ping(String name) =>

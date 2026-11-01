@@ -83,16 +83,10 @@ func init() {
 // ovpnPrepare reads a mapping the way mihomo's OpenVPN outbound does (adapter/outbound/openvpn.go), so a key both
 // read means the same in both cores, and writes it as the profile OpenVPN 3 reads.
 func ovpnPrepare(mapping map[string]any, iranDirect, held bool) (*ovpnPlan, error) {
-	for _, key := range ovpnRefusedKeys {
-		if _, set := mapping[key]; set {
-			return nil, fmt.Errorf("the official engine cannot honour %s", key)
-		}
-	}
-	name, config, err := ovpnConfig(mapping)
+	config, err := ovpnSessionOf(mapping, iranDirect)
 	if err != nil {
 		return nil, err
 	}
-	ovpnPrepared.Store(&ovpnSession{server: name, config: config, iranDirect: iranDirect})
 	// OpenVPN 3 dials a remote name through the VPN a switch holds, where no DNS answers; the pings keep the name.
 	dialed := *config
 	dialed.RemoteHost = pinnedHost(config.RemoteHost, held)
@@ -240,7 +234,49 @@ func ovpnCarrying() string {
 	if now := ovpnNow.Load(); now != nil {
 		return now.server
 	}
+	return buildingFor("openvpn")
+}
+
+var ovpnEnded atomic.Pointer[ovpnOutcome]
+
+type ovpnOutcome struct {
+	state  string
+	reason string
+}
+
+func ovpnOwnerState() string {
+	if ended := ovpnEnded.Load(); ended != nil {
+		return ended.state
+	}
+	if now := ovpnNow.Load(); now != nil {
+		if now.up {
+			return stateUp
+		}
+		return stateConnecting
+	}
 	return ""
+}
+
+// ovpnSessionOf stores what the next session runs; Windows looks the name up on the session's own goroutine, off configMu.
+func ovpnSessionOf(mapping map[string]any, iranDirect bool) (*ovpn.ClientConfig, error) {
+	for _, key := range ovpnRefusedKeys {
+		if _, set := mapping[key]; set {
+			return nil, fmt.Errorf("the official engine cannot honour %s", key)
+		}
+	}
+	name, config, err := ovpnConfig(mapping)
+	if err != nil {
+		return nil, err
+	}
+	ovpnPrepared.Store(&ovpnSession{server: name, config: config, iranDirect: iranDirect})
+	return config, nil
+}
+
+// ovpnPinned puts the server's address for its name in the profile: a reconnect would look it up through the tunnel's down DNS.
+func ovpnPinned(c *ovpn.ClientConfig, ip netip.Addr) string {
+	pinned := *c
+	pinned.RemoteHost = ip.String()
+	return ovpnProfile(&pinned)
 }
 
 // ovpnPing: the server's answer to a session reset while the engine's own session is up, from which it takes nothing.
