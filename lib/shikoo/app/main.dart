@@ -52,7 +52,7 @@ void main(List<String> args) {
       try {
         await shikooDiag.start(await appPath.homeDirPath);
         await loadShikooFonts();
-        if (Platform.isAndroid) addNativeLicenses();
+        if (Platform.isAndroid || Platform.isWindows) addNativeLicenses();
         if (Platform.isAndroid) trustIsrgRootX1();
         await RustLib.init();
         final version = await system.init();
