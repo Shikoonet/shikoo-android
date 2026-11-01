@@ -1776,6 +1776,25 @@ void main() {
       expect((row.status, row.fileOnly), ('expired', true));
     });
 
+    test('a file-only service renewed into a normal plan, now active and with '
+        'no flag, is not file-only any more (Sam, 2026-11-01)', () async {
+      final h = await _harness();
+      h.api.services = [
+        {
+          ..._service(42, 'user42', status: 'on_hold'),
+          'file_only': true,
+          'duration_days': 30,
+        },
+      ];
+      await _signedIn(h);
+      for (final status in ['active', 'on_hold']) {
+        h.api.services = [_service(42, 'user42', status: status)];
+        expect(await h.signIn.sync(), isTrue);
+        final row = h.container.read(shikooAccountProvider).services.single;
+        expect((row.status, row.fileOnly), (status, false), reason: status);
+      }
+    });
+
     test(
       'one comes from the door, never renewed, also after a restart',
       () async {

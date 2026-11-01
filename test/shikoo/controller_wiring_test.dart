@@ -6563,6 +6563,48 @@ void main() {
       expect(syncs, [1], reason: 'the second connect asks nothing more');
     });
 
+    test('a service renewed out of file-only reads its data again: used up is '
+        'exhausted, not active (Sam, 2026-11-01)', () async {
+      final t = await held();
+      t.container
+          .read(profilesProvider.notifier)
+          .put(
+            t.container
+                .read(profilesProvider)
+                .getProfile(t.first)!
+                .copyWith(
+                  subscriptionInfo: const SubscriptionInfo(
+                    download: 10,
+                    total: 5,
+                    expire: 4102444800,
+                  ),
+                ),
+          );
+      t.container
+          .read(shikooAccountProvider.notifier)
+          .set(
+            ShikooAccount(
+              services: [
+                LinkedService(
+                  id: 1000 + t.first,
+                  title: 'user',
+                  status: 'active',
+                  profileId: t.first,
+                ),
+              ],
+            ),
+          );
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      final service = [
+        state.service!,
+        ...state.others,
+      ].firstWhere((s) => s.id == t.first);
+      expect(service.fileOnly, isFalse);
+      expect((service.usedBytes, service.totalBytes), (10, 5));
+      expect(service.ended, ShikooServiceStatus.exhausted);
+    });
+
     test('a connect that fails marks nothing: the service stays held, no '
         'memory is written and no sync is asked', () async {
       final t = await held(failing: true);
