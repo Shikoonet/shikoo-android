@@ -157,6 +157,8 @@ void main() {
           'would refuse the whole subscription', () {
         for (final dns in [
           ['1.1.1.1, 8.8.8.8'],
+          ['1.1.1.1', ' 8.8.8.8'],
+          ['1.1.1.1 '],
           ['9.9.9.9', 'dns.example'],
           <String>[],
           '9.9.9.9',
