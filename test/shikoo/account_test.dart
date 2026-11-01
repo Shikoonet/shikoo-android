@@ -1759,6 +1759,23 @@ void main() {
       },
     );
 
+    test('a file-only service the door later sends as ended, without the flag, '
+        'stays file-only (Sam, 2026-11-01)', () async {
+      final h = await _harness();
+      h.api.services = [
+        {
+          ..._service(42, 'user42', status: 'on_hold'),
+          'file_only': true,
+          'duration_days': 30,
+        },
+      ];
+      await _signedIn(h);
+      h.api.services = [_service(42, 'user42', status: 'expired')];
+      expect(await h.signIn.sync(), isTrue);
+      final row = h.container.read(shikooAccountProvider).services.single;
+      expect((row.status, row.fileOnly), ('expired', true));
+    });
+
     test(
       'one comes from the door, never renewed, also after a restart',
       () async {

@@ -306,6 +306,20 @@ void main() {
     });
   });
 
+  for (final status in ['expired', 'disabled', 'removed']) {
+    testWidgets('a file-only $status service shows ended and red, with renew, '
+        'and no ping button and no data', (tester) async {
+      final service = _file(expire: DateTime.now());
+      await _pump(tester, _state(service), _account(service, status));
+      expect(find.text(_l('fa').chipExpired), findsOneWidget);
+      expect(find.text(_l('fa').statusActive), findsNothing);
+      expect(_text('۳۰ روز از امروز'), findsNothing);
+      expect(_usage, findsNothing);
+      expect(_pingButton, findsNothing);
+      expect(find.widgetWithText(ShikooButton, _l('fa').renew), findsWidgets);
+    });
+  }
+
   group('a usual service', () {
     for (final locale in ['fa', 'en']) {
       testWidgets('held reads «not activated» and has no ping button, but '

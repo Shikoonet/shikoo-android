@@ -6484,7 +6484,7 @@ void main() {
         int first,
       })
     >
-    held() async {
+    held({bool failing = false}) async {
       syncs.clear();
       SharedPreferences.setMockInitialValues({});
       firstConnectSync = const Duration(milliseconds: 40);
@@ -6495,6 +6495,7 @@ void main() {
           shikooSignInProvider.overrideWith(
             (ref) => _CountingSignIn(ref, syncs),
           ),
+          if (failing) nativeStartFailedProvider.overrideWithValue(() => true),
         ],
       );
       rows(t.container, t.first, 'on_hold');
@@ -6561,6 +6562,58 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 150));
       expect(syncs, [1], reason: 'the second connect asks nothing more');
     });
+
+    test('a connect that fails marks nothing: the service stays held, no '
+        'memory is written and no sync is asked', () async {
+      final t = await held(failing: true);
+      t.setup.tunnel = null;
+      await t.controller.connect();
+      await pumpEventQueue();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(
+        t.container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(current(t.container).onHold, isTrue);
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(key),
+        isNull,
+      );
+      expect(syncs, isEmpty);
+    });
+
+    for (final status in ['expired', 'disabled', 'removed']) {
+      test('a file-only $status row with no expires_at is ended, not a '
+          'started service with 30 days from today', () async {
+        final t = await held();
+        t.container
+            .read(shikooAccountProvider.notifier)
+            .set(
+              ShikooAccount(
+                services: [
+                  LinkedService(
+                    id: 1000 + t.first,
+                    title: 'user',
+                    status: status,
+                    profileId: t.first,
+                    fileOnly: true,
+                    durationDays: 30,
+                  ),
+                ],
+              ),
+            );
+        await pumpEventQueue();
+        final state = t.container.read(shikooStateProvider);
+        final service = [
+          state.service!,
+          ...state.others,
+        ].firstWhere((s) => s.id == t.first);
+        expect(service.ended, ShikooServiceStatus.expired);
+        expect(service.finished, isTrue);
+        expect((service.onHold, service.fileOnly), (false, true));
+        expect((service.usedBytes, service.totalBytes), (0, 0));
+      });
+    }
 
     test('a service the panel does not hold starts no sync and keeps no '
         'memory', () async {
