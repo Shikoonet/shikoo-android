@@ -6,6 +6,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -174,6 +175,16 @@ func TestTheEngineIsToldThePinnedAddressAndTheServerIsCarriedFromTheStart(t *tes
 	s.event("RECONNECTING", "", false)
 	if got := shikooOwnerNow(); got.State != stateConnecting || got.Server != "ov" {
 		t.Errorf("reconnecting the core says %+v: the server stays carried, not up", got)
+	}
+}
+
+func TestAStartAsksTheNameOnceOnTheSessionNotAlsoInAndroidsPrepare(t *testing.T) {
+	engine, _ := withEngine(t)
+	var asked atomic.Int32
+	deviceDNSIs(t, dnsServer(t, "198.51.100.30", &asked))
+	startFake(t, engine, map[string]any{"server": "ov.shikoo.test"})
+	if !bytes.Contains([]byte(engine.profile), []byte("remote 198.51.100.30 1194\n")) || asked.Load() != 1 {
+		t.Errorf("profile %q after %d questions; want the address, asked once", engine.profile, asked.Load())
 	}
 }
 
