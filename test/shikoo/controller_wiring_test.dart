@@ -4087,6 +4087,112 @@ void main() {
     expect(probes.toSet(), {'هلند ۱', 'ترکیه ۱'}, reason: 'the button');
   });
 
+  test('only the on_hold service is left unpinged: an active service of the '
+      'same account still pings on its card, the on_hold one does not '
+      '(Sam, 2026-11-01)', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final first = container.read(profilesProvider).single;
+    final second = Profile.normal(url: '$panel/none/b');
+    container.read(profilesProvider.notifier)
+      ..put(first.copyWith(url: '$panel/none/a'))
+      ..put(second);
+    LinkedService linked(int id, String status, int profile) => LinkedService(
+      id: id,
+      title: 'user$id',
+      status: status,
+      profileId: profile,
+    );
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              linked(7, 'active', first.id),
+              linked(8, 'on_hold', second.id),
+            ],
+          ),
+        );
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+
+    controller.openService(first.id);
+    await pumpEventQueue();
+    expect(probes, isNotEmpty, reason: 'the active service pings on open');
+
+    probes.clear();
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    controller.openService(null);
+    controller.openService(second.id);
+    await pumpEventQueue();
+    expect(probes, isEmpty, reason: 'the on_hold service does not');
+  });
+
+  test('an update that takes the selected server of an on_hold service '
+      'already on the tunnel stops it and says so, as for any other '
+      '(Sam, 2026-11-01)', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final first = container.read(profilesProvider).single;
+    container
+        .read(profilesProvider.notifier)
+        .put(first.copyWith(url: '$panel/none/a'));
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 7,
+                title: 'user111',
+                status: 'on_hold',
+                profileId: first.id,
+              ),
+            ],
+          ),
+        );
+    Group group(List<String> names) => Group(
+      type: GroupType.Selector,
+      name: 'PROXY',
+      hidden: false,
+      all: [
+        const Proxy(name: _version, type: 'Vless'),
+        for (final name in names) Proxy(name: name, type: 'Vless'),
+      ],
+    );
+    container.read(groupsProvider.notifier).value = [
+      group(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']),
+    ];
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.selectServer('آلمان ۱');
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    probes.clear();
+
+    setup.onApply = () => container.read(groupsProvider.notifier).value = [
+      group(['هلند ۱', 'ترکیه ۱']),
+    ];
+    await controller.refreshService();
+    await pumpEventQueue();
+    expect(setup.runs, [false], reason: 'the tunnel stops');
+    expect(probes, isEmpty);
+    expect(container.read(shikooStateProvider).notice, isA<SelectedGone>());
+  });
+
   test('an update that takes the selected server away pings that service once '
       'and names the fastest of this round, not of an older one; connected, '
       'the tunnel stops and nothing is picked (Sam, 2026-10-30)', () async {
