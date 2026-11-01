@@ -77,6 +77,7 @@ void main() {
       'mtu': 1280,
       'persistent-keepalive': 25,
       'udp': true,
+      'remote-dns-resolve': true,
     });
     expect(proxies[3], _vless);
   });
@@ -109,6 +110,78 @@ void main() {
         {'server': '203.0.113.7', 'port': 51820, 'allowed-ips': allowed},
       ],
     };
+
+    group('a panel that names its own dns', () {
+      Map<String, dynamic> filled(Map<String, dynamic> panel) {
+        final proxy = _wireGuard('wg', panel);
+        wireGuardDefaults(proxy);
+        return proxy;
+      }
+
+      test('has them answer in the tunnel, and keeps its list', () {
+        final proxy = filled({
+          'dns': ['9.9.9.9', '149.112.112.112'],
+        });
+        expect(proxy['remote-dns-resolve'], isTrue);
+        expect(proxy['dns'], ['9.9.9.9', '149.112.112.112']);
+      });
+
+      test('keeps an explicit remote-dns-resolve: false', () {
+        final proxy = filled({
+          'dns': ['9.9.9.9'],
+          'remote-dns-resolve': false,
+        });
+        expect(proxy['remote-dns-resolve'], isFalse);
+        expect(proxy['dns'], ['9.9.9.9']);
+      });
+
+      test('is left as it is when UDP is off or there is no IPv4 address', () {
+        expect(
+          filled({
+            'dns': ['9.9.9.9'],
+            'udp': false,
+          }).containsKey('remote-dns-resolve'),
+          isFalse,
+        );
+        expect(
+          filled({
+            'dns': ['9.9.9.9'],
+            'ip': null,
+            'ipv6': 'fd00::7',
+          }).containsKey('remote-dns-resolve'),
+          isFalse,
+        );
+      });
+
+      test('is left as it is when one element is not an address: mihomo '
+          'would refuse the whole subscription', () {
+        for (final dns in [
+          ['1.1.1.1, 8.8.8.8'],
+          ['1.1.1.1', ' 8.8.8.8'],
+          ['1.1.1.1 '],
+          ['9.9.9.9', 'dns.example'],
+          <String>[],
+          '9.9.9.9',
+        ]) {
+          final proxy = filled({'dns': dns});
+          expect(
+            proxy.containsKey('remote-dns-resolve'),
+            isFalse,
+            reason: '$dns',
+          );
+          expect(proxy['dns'], dns);
+        }
+      });
+
+      test(
+        'and a panel that names none is given the two defaults, as before',
+        () {
+          final proxy = filled({});
+          expect(proxy['remote-dns-resolve'], isTrue);
+          expect(proxy['dns'], ['1.1.1.1', '8.8.8.8']);
+        },
+      );
+    });
 
     test('not when the panel turned UDP off: the core sends no UDP then', () {
       expect(resolvesInside({'udp': false}), isFalse);

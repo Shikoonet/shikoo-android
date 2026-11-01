@@ -364,6 +364,11 @@ door would refuse the report), and pinging unopened services through another cor
   REALITY's ClientHello offered `X25519MLKEM768` in its key share, so ML-KEM stays on. **Not tested:** the panel's
   real servers, WireGuard, the 32-bit box, and Windows.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
+- mihomo's own DNS is poisoned on some ISPs (doh.pub answered with the ISP's sinkhole), so a server name never resolved: the OpenVPN ping
+  (`ovpnProbe` dials through `proxy-server-nameserver`) showed «وصل، بی‌اینترنت» on a working tunnel, and a WireGuard endpoint did not carry data.
+  `shikooDns` appends `8.8.8.8` and `1.1.1.1` to `proxy-server-nameserver`, only when the profile has a list. A WireGuard server that names
+  its own `dns` but not `remote-dns-resolve` gets the latter from `wireGuardDefaults` (patch 59), under its UDP, IPv4 and `allowed-ips` guards and only when every
+  `dns` element is an address (a bad one would make mihomo refuse the whole subscription).
 - An owner core's server name is resolved by Go while the VPN is blocked (a start) or held (a switch). A held VPN keeps
   its own DNS servers behind a tun nothing reads, so Android's resolver timed out and the start fell back to mihomo
   (found 2026-10-31 with a server name; an IP never needed DNS). A fresh start still asks the device's resolver first,
