@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class ShikooAlertsTest {
     private val at = 1_793_000_000_000L
@@ -142,5 +143,35 @@ class ShikooAlertsTest {
 
         assertFalse(appears(TAKEOVER_MILLIS) { false })
         assertEquals(11_000L, currentTime)
+    }
+}
+
+class ShikooAlertsWiringTest {
+    private fun squeezed(text: String) = text.replace(Regex("""\s+"""), "")
+    private val source = squeezed(File("src/main/kotlin/com/follow/clash/ShikooAlerts.kt").readText())
+
+    private fun body(signature: String) = source.substringAfter(squeezed(signature)).substringBefore("privatefun")
+
+    @Test
+    fun `the revoke's check is the settle check on the real clock and a VPN the system lists`() {
+        assertTrue(
+            source.contains(
+                "takeoverCheck(Build.VERSION.SDK_INT,{vpnOwners(context)},Process.myUid(),SystemClock::elapsedRealtime,)" +
+                    "{vpnNets(context).also(note).isNotEmpty()}",
+            ),
+        )
+    }
+
+    @Test
+    fun `revoked waits for that check, not for a constant`() {
+        assertTrue(source.contains("valfound=appears(TAKEOVER_MILLIS,seen)"))
+    }
+
+    @Test
+    fun `only a VPN transport network is listed, by its presence and not its per-UID connected state`() {
+        val nets = body("private fun vpnNets(")
+        assertTrue(nets.contains("manager.allNetworks.filter{vpnCaps(manager,it)!=null}"))
+        assertFalse(nets.contains("isConnected"))
+        assertTrue(body("private fun vpnCaps(").contains("hasTransport(NetworkCapabilities.TRANSPORT_VPN)"))
     }
 }
