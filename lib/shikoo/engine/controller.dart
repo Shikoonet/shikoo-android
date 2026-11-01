@@ -774,7 +774,11 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     loginRefused: loginRefused.contains(profile.id),
     notHere: shelf.containsKey(profile.id) && !openvpnHere,
     purchasedAt: shelf[profile.id]?.purchasedAt,
-    durationDays: linkedBy[profile.id]?.durationDays,
+    durationDays: switch (linkedBy[profile.id]) {
+      LinkedService(outsourced: true, :final durationDays) ||
+      LinkedService(fileOnly: true, :final durationDays) => durationDays,
+      _ => null,
+    },
     onHold:
         linkedBy[profile.id]?.status == 'on_hold' && connectedTo != profile.id,
     fileOnly: linkedBy[profile.id]?.fileOnly ?? false,
