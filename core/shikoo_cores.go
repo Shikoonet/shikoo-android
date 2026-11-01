@@ -64,7 +64,7 @@ func shikooCoresParse(raw *config.RawConfig) (*config.Config, error) {
 // leaveTheServerToTheCustomer turns every group that tests its servers by itself into a select one, members kept.
 // mihomo URL-tests a url-test group the moment its config loads, VPN off, and the panel starts an on_hold service's
 // 30-day clock on the first byte through any of its servers: only the customer's connect may be that byte.
-// shortcut: a proxy-provider's own health-check stays on, no sub ships one; turn it off here when one does.
+// shortcut: provider health-checks and http provider downloads (MATCH,PROXY sends them through a server) stay on; no sub has one.
 func leaveTheServerToTheCustomer(raw *config.RawConfig) {
 	for _, group := range raw.ProxyGroup {
 		switch group["type"] {
