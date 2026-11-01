@@ -363,6 +363,14 @@ class ShikooL10nEn extends ShikooL10n {
       'You\'ll connect to the first server that answers.';
 
   @override
+  String get waitsForInternet =>
+      'Your phone has no internet. Check your connection; I\'ll connect as soon as it\'s back.';
+
+  @override
+  String get waitsForInternetTv =>
+      'No internet. Check your connection; I\'ll connect as soon as it\'s back.';
+
+  @override
   String get noServerAnswered => 'No server answered';
 
   @override

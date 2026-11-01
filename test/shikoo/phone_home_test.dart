@@ -47,11 +47,14 @@ ShikooState _phone({
   List<ShikooServer> servers = _servers,
   bool isTV = false,
   ({int done, int total})? pinging,
+  ShikooConnection connection = ShikooConnection.off,
+  bool waitingForInternet = false,
 }) => ShikooState(
-  connection: ShikooConnection.off,
+  connection: connection,
   connectedFor: Duration.zero,
   isTV: isTV,
   pinging: pinging,
+  waitingForInternet: waitingForInternet,
   service: ShikooService(
     name: 'user123 · الماس',
     usedBytes: 33 << 30,
@@ -2461,6 +2464,38 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('connect waiting for internet says so in both '
+      'languages, keeps the button on «connecting», and a tap on it '
+      'cancels', (tester) async {
+    final controller = _Controller();
+    when(() => controller.disconnect()).thenAnswer((_) async {});
+    final waiting = _phone(
+      connection: ShikooConnection.connecting,
+      waitingForInternet: true,
+    );
+    final holder = await _pump(tester, waiting, controller: controller);
+
+    expect(
+      find.text(
+        'اینترنت گوشی وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('در حال اتصال…'), findsOneWidget);
+    await tester.tap(find.byType(PowerButton));
+    verify(() => controller.disconnect()).called(1);
+
+    await _pump(tester, waiting, locale: 'en', controller: controller);
+    expect(
+      find.text(
+        "Your phone has no internet. Check your connection; I'll connect as soon as it's back.",
+      ),
+      findsOneWidget,
+    );
+    holder.value = _phone(connection: ShikooConnection.connecting);
+    await tester.pump();
   });
 
   testWidgets('connected with no internet: the amber button, the card in the '

@@ -96,6 +96,10 @@ other type (vmess, trojan, hysteria, …) is `other` and always mihomo.
 - **2026-10-23:** if the picked core's engine does not start at all, Go leaves its servers to mihomo, which keeps
   carrying them: the customer sees «وصل نشد», the server shows «با میهومو» (`ShikooServer.core`), and the pick stays.
   For owner cores the same rule is package h2's to build.
+- **2026-11-02, the exception (Sam):** a customer's own connect on the official WireGuard core while offline waits, with
+  no VPN of ours up, instead of leaving the server to mihomo (`lib/shikoo/engine/offline.dart`). Offline is no network but
+  none, or a server name that does not resolve while neither the door nor `shikooServerNameDns` (TCP 53) answers. Any doubt,
+  a switch's rebuild, the tile and always-on go on as before.
 - Changing the core while connected uses today's server-switch notices («در حال رفتن به…» / «حالا از … وصلی»), named
   after the core. The state's `coreSwitch` carries it.
 - Screens: design «الف», a «هسته‌ها» group in settings with one row per protocol the customer's services hold
