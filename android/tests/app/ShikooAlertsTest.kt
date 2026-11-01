@@ -65,6 +65,52 @@ class ShikooAlertsTest {
         }
     }
 
+    private fun clocked(sdk: Int, owners: () -> List<Int>, vpn: () -> Boolean, at: LongArray) =
+        takeoverCheck(sdk, owners, us, { at[0] }, vpn)
+
+    @Test
+    fun `below Android 10 a VPN counts only once it has outlived the settle time, from the revoke`() {
+        assertEquals(2_000L, TAKEOVER_SETTLE_MILLIS)
+        val at = longArrayOf(50_000)
+        val check = clocked(28, unread, { true }, at)
+        assertFalse(check())
+        at[0] = 50_000 + TAKEOVER_SETTLE_MILLIS - 1
+        assertFalse(check())
+        at[0] = 50_000 + TAKEOVER_SETTLE_MILLIS
+        assertTrue(check())
+    }
+
+    @Test
+    fun `below Android 10 the VPN networks are read on every poll, also before the settle time`() {
+        val at = longArrayOf(50_000)
+        var reads = 0
+        val check = clocked(28, unread, { reads++; true }, at)
+        check()
+        at[0] = 50_500
+        check()
+        assertEquals(2, reads)
+    }
+
+    @Test
+    fun `below Android 10 our own VPN listed for a moment after the revoke and then gone is no takeover`() {
+        val at = longArrayOf(50_000)
+        var listed = true
+        val check = clocked(25, unread, { listed }, at)
+        assertFalse(check())
+        listed = false
+        for (t in listOf(500L, 1_500L, 2_000L, 9_500L)) {
+            at[0] = 50_000 + t
+            assertFalse("$t", check())
+        }
+    }
+
+    @Test
+    fun `from Android 10 the settle time is not waited and no bare check is made`() {
+        val at = longArrayOf(50_000)
+        assertTrue(clocked(29, { listOf(us, -1) }, blind, at)())
+        assertFalse(clocked(29, { listOf(us) }, blind, at)())
+    }
+
     @Test
     fun `the revoke alert is on until Dart's own switch for it is turned off, and no other switch turns it off`() {
         val stored = mutableMapOf<String, Boolean>()
