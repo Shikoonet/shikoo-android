@@ -441,4 +441,10 @@ func TestAFreshStartThatGetsNoAnswerLeavesNoPinForTheNextHeldRebuild(t *testing.
 	}
 	systemDNSIs(t, answeringDNS(t, "203.0.113.9"))
 	wantAddress(t, "wg.shikoo.test", true, "203.0.113.9")
+
+	lastEndpoint.Store(&pinnedEndpoint{"wg.shikoo.test", netip.MustParseAddr("198.51.100.1")})
+	wantAddress(t, "192.0.2.77", false, "192.0.2.77")
+	if pin := lastEndpoint.Load(); pin != nil {
+		t.Fatalf("a fresh start on a literal address left the pin of the session before: %+v", *pin)
+	}
 }

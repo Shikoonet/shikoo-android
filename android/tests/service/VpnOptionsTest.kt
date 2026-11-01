@@ -200,6 +200,8 @@ class VpnShapeTest {
         val cleanup = Regex("""private fun cleanup\(keepHeld: Boolean = false\) \{(.*?)\n    \}""", RegexOption.DOT_MATCHES_ALL)
             .find(service)?.groupValues?.get(1).orEmpty()
         assertTrue(cleanup.substringAfter("} else {").contains("Core.setOwnerProtector(null)"))
+        val kept = cleanup.substringAfter("if (keepHeld) {", "").substringBefore("} else {")
+        assertTrue(kept.isNotEmpty() && !kept.contains("Core.setOwnerProtector(null)"))
         val stop = Regex("""override fun stop\(\) \{(.*?)\n    \}""", RegexOption.DOT_MATCHES_ALL)
             .find(service)?.groupValues?.get(1).orEmpty()
         assertTrue(stop.contains("cleanup(keepHeld = switching)"))
