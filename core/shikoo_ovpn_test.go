@@ -58,7 +58,7 @@ func ovpnMapping(set map[string]any) map[string]any {
 
 func profileLines(t *testing.T, set map[string]any) []string {
 	t.Helper()
-	plan, err := ovpnPrepare(ovpnMapping(set), false)
+	plan, err := ovpnPrepare(ovpnMapping(set), false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestTheOpenvpnProfileStatesMihomosDefaults(t *testing.T) {
 			t.Errorf("no %q in\n%s", want, strings.Join(lines, "\n"))
 		}
 	}
-	if plan, _ := ovpnPrepare(ovpnMapping(nil), false); plan.Username != "shikoo" || plan.Password != "secret" ||
+	if plan, _ := ovpnPrepare(ovpnMapping(nil), false, false); plan.Username != "shikoo" || plan.Password != "secret" ||
 		strings.Contains(plan.Profile, "secret") || !strings.Contains(plan.Profile, "<ca>\n"+testCA+"\n</ca>") {
 		t.Errorf("credentials: %q %q, in the profile: %v", plan.Username, plan.Password, strings.Contains(plan.Profile, "secret"))
 	}
@@ -105,7 +105,7 @@ func TestTheOpenvpnEngineRefusesWhatOnlyMihomoCarries(t *testing.T) {
 		{"dev": "tap"},
 		{"ca": ""},
 	} {
-		if _, err := ovpnPrepare(ovpnMapping(set), false); err == nil {
+		if _, err := ovpnPrepare(ovpnMapping(set), false, false); err == nil {
 			t.Errorf("%v: prepared", set)
 		}
 	}
@@ -137,7 +137,7 @@ func TestPrepareOwnerGivesOpenvpnItsProfile(t *testing.T) {
 
 func prepareOpenvpn(t *testing.T, iranDirect bool) {
 	t.Helper()
-	if _, err := ovpnPrepare(ovpnMapping(nil), iranDirect); err != nil {
+	if _, err := ovpnPrepare(ovpnMapping(nil), iranDirect, false); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { ovpnPrepared.Store(nil) })
@@ -392,7 +392,7 @@ func pingOpenvpn(t *testing.T, address string, set map[string]any, up bool) int3
 	t.Helper()
 	host, port, _ := net.SplitHostPort(address)
 	set["server"], set["port"] = host, port
-	if _, err := ovpnPrepare(ovpnMapping(set), false); err != nil {
+	if _, err := ovpnPrepare(ovpnMapping(set), false, false); err != nil {
 		t.Fatal(err)
 	}
 	ovpnState(&ovpnStateParams{Session: 1, Server: "ov", Up: up})

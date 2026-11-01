@@ -357,6 +357,18 @@ door would refuse the report), and pinging unopened services through another cor
   REALITY's ClientHello offered `X25519MLKEM768` in its key share, so ML-KEM stays on. **Not tested:** the panel's
   real servers, WireGuard, the 32-bit box, and Windows.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
+- An owner core's server name is resolved by Go while the VPN is blocked (a start) or held (a switch). A held VPN keeps
+  its own DNS servers behind a tun nothing reads, so Android's resolver timed out and the start fell back to mihomo
+  (found 2026-10-31 with a server name; an IP never needed DNS). A fresh start still asks the device's resolver first,
+  so Private DNS is honoured as before. A rebuild under a held VPN (`VpnService` tells Go with `held`) reuses the
+  address the last start resolved for the same host, and for a new host asks the networks' DNS from protected sockets
+  first, treating a private, loopback, link-local or unspecified answer as poison (an ISP's `10.10.34.x`). That remembered
+  address lives only while one owner session runs unbroken: a full stop (the protector cleared), mihomo's tunnel
+  starting or the next fresh start forgets it, so a later rebuild resolves again. OpenVPN 3
+  resolves its `remote` inside the engine, so a live rebuild with a name ended
+  the connection («وصل نشد»: `OpenVPN RESOLVE`, then 20 s of nothing) and never reached mihomo; `ovpnPrepare` now hands
+  the engine the address `pinnedHost` finds, while the session and the pings keep the name. The engine uses the name
+  for nothing else: the profile has no `verify-x509-name`, and OpenVPN 3 sets no TLS hostname without one.
 
 ## 9. From the packages, not yet verified (از بسته‌ها، هنوز سنجیده نشده)
 

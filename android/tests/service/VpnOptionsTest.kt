@@ -1,6 +1,7 @@
 package com.follow.clash.service.models
 
 import com.follow.clash.common.AccessControlMode
+import com.follow.clash.core.OWNER_HELD
 import com.follow.clash.core.OWNER_IRAN_DIRECT
 import java.io.File
 import java.net.Inet4Address
@@ -193,10 +194,46 @@ class VpnShapeTest {
             .find(service)?.groupValues?.get(1).orEmpty()
         assertTrue(onRevoke.contains("Core.setOwnerProtector(null)"))
     }
+
+    @Test
+    fun `a full stop drops the owner core's protect and only a switch keeps it`() {
+        val cleanup = Regex("""private fun cleanup\(keepHeld: Boolean = false\) \{(.*?)\n    \}""", RegexOption.DOT_MATCHES_ALL)
+            .find(service)?.groupValues?.get(1).orEmpty()
+        assertTrue(cleanup.substringAfter("} else {").contains("Core.setOwnerProtector(null)"))
+        val kept = cleanup.substringAfter("if (keepHeld) {", "").substringBefore("} else {")
+        assertTrue(kept.isNotEmpty() && !kept.contains("Core.setOwnerProtector(null)"))
+        val stop = Regex("""override fun stop\(\) \{(.*?)\n    \}""", RegexOption.DOT_MATCHES_ALL)
+            .find(service)?.groupValues?.get(1).orEmpty()
+        assertTrue(stop.contains("cleanup(keepHeld = switching)"))
+    }
 }
 
 class OwnerArgumentsTest {
     // The json tag Go reads (PrepareOwnerParams, TestPrepareOwnerReadsTheKeysKotlinSends).
     @Test
     fun iranDirectGoesUnderTheKeyGoReads() = assertEquals("iran-direct", OWNER_IRAN_DIRECT)
+
+    @Test
+    fun heldGoesUnderTheKeyGoReads() = assertEquals("held", OWNER_HELD)
+
+    // Whether a switch held the VPN is the one fact Go cannot see: its DNS decides on it (core/shikoo_dns.go).
+    private val service = File("src/main/java/com/follow/clash/service/VpnService.kt").readText()
+
+    @Test
+    fun `a start reads whether a switch held the VPN before it holds a blocking one`() {
+        val start = service.substringAfter("private fun handleStart(options: VpnOptions) {")
+        val take = start.indexOf("val held = heldTun.take()")
+        assertTrue(take >= 0 && start.indexOf("holdBlocked(options)") > take)
+    }
+
+    @Test
+    fun `a start hands the answer itself to prepareOwner`() {
+        assertTrue(Regex("""Core\.prepareOwner\(.*,\s*held\)""").containsMatchIn(service))
+    }
+
+    @Test
+    fun `prepareOwner puts the answer itself in the call`() {
+        val core = File("../core/src/main/java/com/follow/clash/core/Core.kt").readText()
+        assertTrue(core.contains(".put(OWNER_HELD, held)"))
+    }
 }

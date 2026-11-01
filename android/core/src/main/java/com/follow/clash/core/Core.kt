@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 
 // PrepareOwnerParams' json tag in core/shikoo_wg.go; a test on each side pins it.
 const val OWNER_IRAN_DIRECT = "iran-direct"
+const val OWNER_HELD = "held"
 
 object Core {
     private external fun startTun(
@@ -86,10 +87,10 @@ object Core {
         suspended: Boolean,
     )
 
-    fun prepareOwner(core: String, server: String, iranDirect: Boolean): JSONObject =
+    fun prepareOwner(core: String, server: String, iranDirect: Boolean, held: Boolean): JSONObject =
         invokeAndWait(
             "shikooPrepareOwner",
-            JSONObject().put("core", core).put("server", server).put(OWNER_IRAN_DIRECT, iranDirect),
+            JSONObject().put("core", core).put("server", server).put(OWNER_IRAN_DIRECT, iranDirect).put(OWNER_HELD, held),
         ).getJSONObject("result")
 
     fun startOwner(fd: Int): Boolean = invokeAndWait("shikooStartOwner", fd).optBoolean("result")

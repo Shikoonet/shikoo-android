@@ -223,6 +223,7 @@ func handleStartTun(callback unsafe.Pointer, fd int, stack, address, dns string)
 	tunLock.Lock()
 	defer tunLock.Unlock()
 	stopTunLocked()
+	lastEndpoint.Store(nil)
 	if fd == 0 {
 		if callback != nil {
 			releaseObject(callback)
@@ -279,6 +280,7 @@ var (
 
 func handleUpdateDns(value string) {
 	seq := dnsUpdateSeq.Add(1)
+	rememberSystemDNS(strings.Split(value, ","))
 	safeGoDetached("updateDns", func() {
 		dnsUpdateMu.Lock()
 		defer dnsUpdateMu.Unlock()
