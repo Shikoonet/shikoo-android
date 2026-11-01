@@ -1990,7 +1990,11 @@ class ShikooController {
     if (up) {
       if (wanted) _set(const _Intent());
       _forgetRound();
-      unawaited(wanted ? _checkSelected() : pingAll());
+      if (wanted) {
+        unawaited(_checkSelected());
+      } else if (!_holds(_current)) {
+        unawaited(pingAll());
+      }
     } else if (wanted) {
       final off = disconnect(dropped: true);
       _set(const _Intent(error: ShikooError.coreDown));
@@ -2809,7 +2813,7 @@ class ShikooController {
   }
 
   /// Off, the card opened is the one connect uses; on, the tunnel stays. Null folds every card.
-  void openService(int? id) {
+  void openService(int? id, {bool explicitPing = false}) {
     _ref.read(_openProvider.notifier).set(id);
     _ref.read(_landedProvider.notifier).set(null);
     _closeOpened();
@@ -2818,14 +2822,23 @@ class ShikooController {
         .listed
         .firstWhereOrNull((s) => s.id == id);
     if (service == null || service.ended != null) return;
-    if (service.id == _current) return unawaited(pingAll());
+    final probe = explicitPing || !_holds(service.id);
+    if (service.id == _current) return probe ? unawaited(pingAll()) : null;
     if (!_running && !_ref.read(_intentProvider).connecting) {
       selectService(service.id);
-      _pingOnArrival = true;
+      _pingOnArrival = probe;
       return;
     }
-    unawaited(_pingOther(service.id));
+    unawaited(_pingOther(service.id, probe: probe));
   }
+
+  bool _holds(int? id) =>
+      id != null &&
+      !(id == _current && _upOrStarting) &&
+      _ref
+          .read(shikooAccountProvider)
+          .services
+          .any((s) => s.profileId == id && s.status == 'on_hold');
 
   void _closeOpened() {
     _openNo++;
@@ -2833,7 +2846,7 @@ class ShikooController {
     _ref.read(_openRoundProvider.notifier).set(_noRound);
   }
 
-  Future<void> _pingOther(int id) async {
+  Future<void> _pingOther(int id, {required bool probe}) async {
     final no = _openNo;
     final main = await _mainGroupOf(id);
     if (no != _openNo || main == null || main.servers.isEmpty) return;
@@ -2846,6 +2859,7 @@ class ShikooController {
     final names = [...opened.proxies.keys];
     final round = _ref.read(_openRoundProvider.notifier);
     _ref.read(_openedProvider.notifier).set(opened);
+    if (!probe) return;
     round.set((pending: names.toSet(), total: names.length, ended: false));
     await pingServers(
       names,
@@ -3040,7 +3054,7 @@ class ShikooController {
         when removed.contains(shift.to) || removed.contains(shift.from)) {
       _endSwitch();
     }
-    if (had != null && removed.contains(had)) {
+    if (had != null && removed.contains(had) && !_holds(id)) {
       if (_upOrStarting) {
         _notice(SelectedGone(had));
         return disconnect();

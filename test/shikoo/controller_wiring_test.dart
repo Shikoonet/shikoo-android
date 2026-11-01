@@ -4025,6 +4025,68 @@ void main() {
     expect(container.read(shikooStateProvider).sorted, isTrue);
   });
 
+  test("an on_hold service is pinged by nothing of the app's own: not when its "
+      'card opens, nor after an update that took its selected server; the ping '
+      'button pings it (Sam, 2026-11-01)', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final first = container.read(profilesProvider).single;
+    container
+        .read(profilesProvider.notifier)
+        .put(first.copyWith(url: '$panel/none/a'));
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 7,
+                title: 'user111',
+                status: 'on_hold',
+                profileId: first.id,
+              ),
+            ],
+          ),
+        );
+    Group group(List<String> names) => Group(
+      type: GroupType.Selector,
+      name: 'PROXY',
+      hidden: false,
+      all: [
+        const Proxy(name: _version, type: 'Vless'),
+        for (final name in names) Proxy(name: name, type: 'Vless'),
+      ],
+    );
+    container.read(groupsProvider.notifier).value = [
+      group(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']),
+    ];
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.selectServer('آلمان ۱');
+
+    controller.openService(null);
+    controller.openService(first.id);
+    await pumpEventQueue();
+    expect(probes, isEmpty, reason: 'its card opened');
+
+    setup.onApply = () => container.read(groupsProvider.notifier).value = [
+      group(['هلند ۱', 'ترکیه ۱']),
+    ];
+    await controller.refreshService();
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(probes, isEmpty, reason: 'its selected server left in an update');
+    expect(state.notice, isA<ServersChanged>());
+
+    await controller.pingAll();
+    expect(probes.toSet(), {'هلند ۱', 'ترکیه ۱'}, reason: 'the button');
+  });
+
   test('an update that takes the selected server away pings that service once '
       'and names the fastest of this round, not of an older one; connected, '
       'the tunnel stops and nothing is picked (Sam, 2026-10-30)', () async {
@@ -6126,6 +6188,68 @@ void main() {
       ]);
       expect(t.fromFile, isEmpty, reason: 'the core holds it');
     });
+
+    void hold(ProviderContainer container, int id) => container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: id + 1000,
+                title: 'user$id',
+                status: 'on_hold',
+                profileId: id,
+              ),
+            ],
+          ),
+        );
+
+    test('an on_hold service opened while connected lists its servers and '
+        'sends none of its own pings; the ping button does (Sam, '
+        '2026-11-01)', () async {
+      final t = await twoServices();
+      hold(t.container, t.second);
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      expect(state.open, t.second);
+      expect(
+        state.opened!.servers.map((s) => s.name),
+        unorderedEquals(secondNames),
+      );
+      expect(state.opened!.pinging, isNull);
+      expect(t.fromFile, isEmpty);
+
+      t.controller.openService(t.second, explicitPing: true);
+      await pumpEventQueue();
+      expect(t.fromFile, isNotEmpty);
+    });
+
+    test(
+      'an on_hold service opened while off becomes the one connect uses, '
+      'and nothing pings it until the button does (Sam, 2026-11-01)',
+      () async {
+        final t = await twoServices(connected: false);
+        hold(t.container, t.second);
+        clearInteractions(t.core);
+        t.controller.openService(t.second);
+        await pumpEventQueue();
+        t.container.read(groupsProvider.notifier).value = [group(secondNames)];
+        await pumpEventQueue();
+        var state = t.container.read(shikooStateProvider);
+        expect(state.service!.id, t.second);
+        expect(pingsOf(state.servers).map((p) => p.$2), everyElement(isNull));
+        verifyNever(() => t.core.asyncTestDelay(any(), any()));
+        expect(t.fromFile, isEmpty);
+
+        await t.controller.pingAll();
+        state = t.container.read(shikooStateProvider);
+        expect(
+          pingsOf(state.servers).map((p) => p.$2),
+          everyElement(isNotNull),
+        );
+      },
+    );
 
     /// A pasted service's file holds «سوئد ۱»; its id is known only once it is saved.
     Future<String> pasteable(
