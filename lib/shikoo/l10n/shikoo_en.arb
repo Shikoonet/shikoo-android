@@ -771,6 +771,8 @@
   "@validFromFirst": {"description": "A file-only (WireGuard) service the panel has not started: no data figures, ever. {days} is validDays, shown bold.", "placeholders": {"days": {"type": "String"}}},
   "validFromToday": "Valid: {days} from today",
   "@validFromToday": {"description": "A file-only service connected once, for the minutes until the panel sends its end date. {days} is validDays, shown bold.", "placeholders": {"days": {"type": "String"}}},
-  "pingHeld": "Ping comes after your first connection, so your 30 days don’t start early.",
-  "@pingHeld": {"description": "After the “Servers” title above the list of a service the panel has not started: it has no ping button, as every ping would start its days."}
+  "pingHeld": "Ping comes after your first connection, so your validity doesn’t start early.",
+  "@pingHeld": {"description": "After the “Servers” title above the list of a service the panel has not started, when its length is not known: it has no ping button, as every ping would start its days."},
+  "pingHeldDays": "{days, plural, =1{Ping comes after your first connection, so your 1 day doesn’t start early.} other{Ping comes after your first connection, so your {days} days don’t start early.}}",
+  "@pingHeldDays": {"description": "pingHeld for a service whose length is known.", "placeholders": {"days": {"type": "int", "format": "decimalPattern"}}}
 }

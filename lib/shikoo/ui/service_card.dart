@@ -1589,10 +1589,12 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
       ShikooConnection.connecting,
     }.contains(state.connection);
     final held = state.service?.onHold ?? false;
+    final days = state.service?.durationDays;
+    final heldNote = days == null ? l.pingHeld : l.pingHeldDays(days);
     final caption = widget.other && busy
         ? l.otherServiceCaptionTv
         : held
-        ? l.pingHeld
+        ? heldNote
         : !state.sorted && state.pinging == null
         ? l.sortsOnPing
         : (listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave);
@@ -1657,7 +1659,7 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     spacing: Space.s3,
                     children: [
-                      title(l.pingHeld),
+                      title(heldNote),
                       _SearchField(controller: _search),
                     ],
                   )

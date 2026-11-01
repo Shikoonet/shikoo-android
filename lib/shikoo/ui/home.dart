@@ -62,6 +62,7 @@ typedef _Shown = ({
   String link,
   String? chip,
   bool ok,
+  bool held,
   int? renewId,
   bool renews,
 });
@@ -246,6 +247,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             name: service.name,
             chip: service.chip,
             ok: service.ok,
+            held: service.held,
             open: () => unawaited(
               openSupport(
                 context,
@@ -598,6 +600,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
         _ => l.chipFinished,
       },
       ok: service.ended == null,
+      held: service.onHold,
       renewId: account.serviceOf(service.id),
       renews: !service.revoked && account.renewsOn(service.id),
     );
@@ -610,6 +613,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
           ? l.chipFinished
           : (linked.status == 'active' ? l.statusActive : null),
       ok: !linked.finished,
+      held: false,
       renewId: linked.id,
       renews: linked.finished ? linked.renews : linked.botRenews,
     );
@@ -634,6 +638,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
             name: service.name,
             chip: service.chip,
             ok: service.ok,
+            held: service.held,
             open: () => openRenew(
               context,
               isTV: state.isTV,

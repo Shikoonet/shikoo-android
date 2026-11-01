@@ -3355,11 +3355,17 @@ abstract class ShikooL10n {
   /// **'Valid: {days} from today'**
   String validFromToday(String days);
 
-  /// After the “Servers” title above the list of a service the panel has not started: it has no ping button, as every ping would start its days.
+  /// After the “Servers” title above the list of a service the panel has not started, when its length is not known: it has no ping button, as every ping would start its days.
   ///
   /// In en, this message translates to:
-  /// **'Ping comes after your first connection, so your 30 days don’t start early.'**
+  /// **'Ping comes after your first connection, so your validity doesn’t start early.'**
   String get pingHeld;
+
+  /// pingHeld for a service whose length is known.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{Ping comes after your first connection, so your 1 day doesn’t start early.} other{Ping comes after your first connection, so your {days} days don’t start early.}}'**
+  String pingHeldDays(int days);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {

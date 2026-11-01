@@ -2090,5 +2090,15 @@ class ShikooL10nFa extends ShikooL10n {
   }
 
   @override
-  String get pingHeld => 'پینگ بعد از اولین اتصال، تا ۳۰ روزت زودتر شروع نشود.';
+  String get pingHeld => 'پینگ بعد از اولین اتصال، تا اعتبارت زودتر شروع نشود.';
+
+  @override
+  String pingHeldDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return 'پینگ بعد از اولین اتصال، تا $daysString روزت زودتر شروع نشود.';
+  }
 }

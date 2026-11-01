@@ -2169,5 +2169,23 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get pingHeld =>
-      'Ping comes after your first connection, so your 30 days don’t start early.';
+      'Ping comes after your first connection, so your validity doesn’t start early.';
+
+  @override
+  String pingHeldDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other:
+          'Ping comes after your first connection, so your $daysString days don’t start early.',
+      one:
+          'Ping comes after your first connection, so your 1 day doesn’t start early.',
+    );
+    return '$_temp0';
+  }
 }
