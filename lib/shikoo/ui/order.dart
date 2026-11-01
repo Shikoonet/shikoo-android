@@ -296,7 +296,11 @@ class _OrderCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         StatusChip(
-                          status: service.ended ?? ShikooServiceStatus.active,
+                          status:
+                              service.ended ??
+                              (service.onHold
+                                  ? ShikooServiceStatus.onHold
+                                  : ShikooServiceStatus.active),
                         ),
                         if (picked)
                           Text(

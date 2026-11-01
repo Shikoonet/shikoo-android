@@ -50,7 +50,7 @@ enum ShikooError {
 }
 
 /// [revoked]: a pasted link the panel no longer knows (404 or 410).
-enum ShikooServiceStatus { active, expired, exhausted, revoked }
+enum ShikooServiceStatus { active, onHold, expired, exhausted, revoked }
 
 enum ShikooPick { server, finding, auto, none }
 
@@ -145,6 +145,8 @@ class ShikooService {
     this.notHere = false,
     this.purchasedAt,
     this.durationDays,
+    this.onHold = false,
+    this.fileOnly = false,
   });
 
   final bool bridgeLeg;
@@ -186,6 +188,11 @@ class ShikooService {
   final DateTime? purchasedAt;
   final int? durationDays;
 
+  /// The panel has not started it and this device is not connected to it: connecting is what starts it.
+  final bool onHold;
+
+  final bool fileOnly;
+
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
   String get username => usernameOf(name);
@@ -198,7 +205,7 @@ class ShikooService {
     if (totalBytes > 0 && usedBytes >= totalBytes) {
       return ShikooServiceStatus.exhausted;
     }
-    return ShikooServiceStatus.active;
+    return onHold ? ShikooServiceStatus.onHold : ShikooServiceStatus.active;
   }
 
   bool get finished => const {
@@ -208,7 +215,11 @@ class ShikooService {
 
   ShikooServiceStatus? get ended {
     final status = statusAt(shikooNow());
-    return (usageKnown || revoked) && status != ShikooServiceStatus.active
+    return (usageKnown || revoked) &&
+            !const {
+              ShikooServiceStatus.active,
+              ShikooServiceStatus.onHold,
+            }.contains(status)
         ? status
         : null;
   }
@@ -726,10 +737,18 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final route = ref.watch(shikooWarpRouteProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
-  final shelf = {
+  final linkedBy = {
     for (final linked in ref.watch(shikooAccountProvider).services)
-      if (linked.outsourced) ?linked.profileId: linked,
+      ?linked.profileId: linked,
   };
+  final shelf = {
+    for (final MapEntry(:key, :value) in linkedBy.entries)
+      if (value.outsourced) key: value,
+  };
+  final connectedTo =
+      runTime != null || nativeStart != null || intent.connecting
+      ? profile?.id
+      : null;
   final loginRefused = ref.watch(_loginRefusedProvider);
   final specs = ref.watch(shikooCoreSpecsProvider);
   final tunnel = ref.watch(shikooTunnelProvider);
@@ -755,7 +774,11 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     loginRefused: loginRefused.contains(profile.id),
     notHere: shelf.containsKey(profile.id) && !openvpnHere,
     purchasedAt: shelf[profile.id]?.purchasedAt,
-    durationDays: shelf[profile.id]?.durationDays,
+    durationDays: linkedBy[profile.id]?.durationDays,
+    onHold:
+        linkedBy[profile.id]?.status == 'on_hold' && connectedTo != profile.id,
+    fileOnly: linkedBy[profile.id]?.fileOnly ?? false,
+    fileExpire: linkedBy[profile.id]?.expiresAt,
   );
 
   final group = _mainGroup(ref);
@@ -1037,21 +1060,26 @@ ShikooService _serviceFrom(
   bool notHere = false,
   DateTime? purchasedAt,
   int? durationDays,
+  bool onHold = false,
+  bool fileOnly = false,
+  DateTime? fileExpire,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
     id: profile.id,
     name: _nameOf(profile),
-    usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
-    totalBytes: info?.total ?? 0,
-    expire: (info?.expire ?? 0) > 0
+    usedBytes: fileOnly ? 0 : (info?.upload ?? 0) + (info?.download ?? 0),
+    totalBytes: fileOnly ? 0 : info?.total ?? 0,
+    expire: fileOnly && fileExpire != null
+        ? fileExpire
+        : (info?.expire ?? 0) > 0
         ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
         : null,
     announce: extras?.announce,
     supportUrl: extras?.supportUrl,
     account: extras?.account,
     updatedAt: profile.lastUpdateDate,
-    usageKnown: info != null && !outsourced,
+    usageKnown: (info != null || fileOnly) && !outsourced,
     refresh: refresh,
     leg: leg,
     bridgeLeg: bridgeLeg,
@@ -1063,6 +1091,8 @@ ShikooService _serviceFrom(
     notHere: notHere,
     purchasedAt: purchasedAt,
     durationDays: durationDays,
+    onHold: onHold,
+    fileOnly: fileOnly,
   );
 }
 

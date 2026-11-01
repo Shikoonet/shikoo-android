@@ -762,5 +762,15 @@
   "alertRemovedTitle": "Your server was removed",
   "alertRemovedBody": "“{server}” is no longer in your subscription, so you were disconnected. Pick another one.",
   "@alertRemovedBody": {"description": "Android alert when an update took away the connected server.", "placeholders": {"server": {"type": "String"}}},
-  "alertPickServer": "Pick a server"
+  "alertPickServer": "Pick a server",
+  "statusOnHold": "Not activated yet",
+  "@statusOnHold": {"description": "The service chip, grey, while the panel has not started the service: it starts at the first connection."},
+  "validDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@validDays": {"description": "The length of a file-only service, bold inside validFromFirst and validFromToday.", "placeholders": {"days": {"type": "int", "format": "decimalPattern"}}},
+  "validFromFirst": "Valid: {days} from your first connection",
+  "@validFromFirst": {"description": "A file-only (WireGuard) service the panel has not started: no data figures, ever. {days} is validDays, shown bold.", "placeholders": {"days": {"type": "String"}}},
+  "validFromToday": "Valid: {days} from today",
+  "@validFromToday": {"description": "A file-only service connected once, for the minutes until the panel sends its end date. {days} is validDays, shown bold.", "placeholders": {"days": {"type": "String"}}},
+  "pingHeld": "Ping comes after your first connection, so your 30 days don’t start early.",
+  "@pingHeld": {"description": "After the “Servers” title above the list of a service the panel has not started: it has no ping button, as every ping would start its days."}
 }

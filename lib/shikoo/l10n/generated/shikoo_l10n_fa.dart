@@ -2065,4 +2065,30 @@ class ShikooL10nFa extends ShikooL10n {
 
   @override
   String get alertPickServer => 'انتخاب سرور';
+
+  @override
+  String get statusOnHold => 'در انتظار فعال‌سازی';
+
+  @override
+  String validDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    return '$daysString روز';
+  }
+
+  @override
+  String validFromFirst(String days) {
+    return 'اعتبار: $days از اولین اتصال';
+  }
+
+  @override
+  String validFromToday(String days) {
+    return 'اعتبار: $days از امروز';
+  }
+
+  @override
+  String get pingHeld => 'پینگ بعد از اولین اتصال، تا ۳۰ روزت زودتر شروع نشود.';
 }

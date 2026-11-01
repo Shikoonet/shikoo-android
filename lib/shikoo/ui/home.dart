@@ -592,6 +592,7 @@ class _ShikooHomeState extends ConsumerState<ShikooHome> {
       below: serviceTitle(context, service),
       link: service.supportLink,
       chip: switch (service.ended) {
+        null when service.onHold => l.statusOnHold,
         null => l.statusActive,
         ShikooServiceStatus.revoked => l.chipRevoked,
         _ => l.chipFinished,

@@ -160,7 +160,7 @@ class _ServiceCardState extends State<ServiceCard> {
     }.contains(state.connection);
     final landed = state.landed?.id == service?.id ? state.landed : null;
     const inset = EdgeInsets.symmetric(horizontal: Space.s4);
-    final onPing = service?.ended != null
+    final onPing = service?.ended != null || (service?.onHold ?? false)
         ? null
         : () {
             _list.currentState?.sortAfterRound();
@@ -970,6 +970,15 @@ class _Summary extends StatelessWidget {
         TextSpan(text: l.summaryExpired(_date(context, l, expire!))),
       ],
       ShikooServiceStatus.exhausted => [TextSpan(text: l.summaryExhausted)],
+      _ when service.fileOnly => [
+        TextSpan(
+          text: expire != null
+              ? l.validUntil(_date(context, l, expire))
+              : service.onHold || service.durationDays == null
+              ? l.outsourcedSummary
+              : l.validFromToday(l.validDays(service.durationDays!)),
+        ),
+      ],
       _ => [
         TextSpan(text: whole('${l.usedLabel} ')),
         TextSpan(
@@ -1183,52 +1192,79 @@ class _Usage extends StatelessWidget {
     final used = service.usedBytes;
     final ratio = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
     final expire = service.expire;
+    final fileOnly = service.fileOnly;
+    final days = service.durationDays;
     Widget row(List<Widget> children) => Wrap(
       alignment: WrapAlignment.spaceBetween,
       runSpacing: Space.s1,
       children: children,
     );
+    // The days are bold, wherever the language puts them in the line.
+    Widget fromLine(String Function(String days) line) {
+      final shown = l.validDays(days!);
+      final text = line(shown);
+      final at = text.indexOf(shown);
+      return Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: text.substring(0, at)),
+            TextSpan(text: shown, style: strong),
+            TextSpan(text: text.substring(at + shown.length)),
+          ],
+        ),
+        style: muted,
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(top: Space.s3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          row([
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: '${l.usedLabel} '),
-                  TextSpan(text: gb(used), style: strong),
-                  if (total > 0) TextSpan(text: ' ${l.ofTotalGb(gb(total))}'),
-                ],
-              ),
-              style: muted,
-            ),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: '${l.remainingLabel} '),
-                  TextSpan(
-                    text: total > 0
-                        ? l
-                              .gb(gb(math.max(total - used, 0)))
-                              .replaceAll(' ', '\u00A0')
-                        : l.unlimited,
-                    style: ended == ShikooServiceStatus.exhausted
-                        ? danger
-                        : (ratio >= _nearlyUsed ? warning : strong),
+          if (fileOnly && expire == null)
+            days == null
+                ? Text(l.outsourcedSummary, style: muted)
+                : fromLine(
+                    service.onHold ? l.validFromFirst : l.validFromToday,
                   ),
-                ],
+          if (!fileOnly) ...[
+            row([
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: '${l.usedLabel} '),
+                    TextSpan(text: gb(used), style: strong),
+                    if (total > 0) TextSpan(text: ' ${l.ofTotalGb(gb(total))}'),
+                  ],
+                ),
+                style: muted,
               ),
-              style: muted,
-            ),
-          ]),
-          if (total > 0) ...[
-            const SizedBox(height: Space.s2),
-            MeterBar(ratio: ratio),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: '${l.remainingLabel} '),
+                    TextSpan(
+                      text: total > 0
+                          ? l
+                                .gb(gb(math.max(total - used, 0)))
+                                .replaceAll(' ', '\u00A0')
+                          : l.unlimited,
+                      style: ended == ShikooServiceStatus.exhausted
+                          ? danger
+                          : (ratio >= _nearlyUsed ? warning : strong),
+                    ),
+                  ],
+                ),
+                style: muted,
+              ),
+            ]),
+            if (total > 0) ...[
+              const SizedBox(height: Space.s2),
+              MeterBar(ratio: ratio),
+            ],
           ],
           if (expire != null) ...[
-            const SizedBox(height: Space.s2),
+            if (!fileOnly) const SizedBox(height: Space.s2),
             row([
               Text(
                 l.validUntil(_date(context, l, expire)),
@@ -1552,8 +1588,11 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
       ShikooConnection.on,
       ShikooConnection.connecting,
     }.contains(state.connection);
+    final held = state.service?.onHold ?? false;
     final caption = widget.other && busy
         ? l.otherServiceCaptionTv
+        : held
+        ? l.pingHeld
         : !state.sorted && state.pinging == null
         ? l.sortsOnPing
         : (listEquals(kept, order) ? l.fastestFirst : l.sortsOnLeave);
@@ -1569,6 +1608,25 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
     final move = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : const Duration(milliseconds: 250);
+    // A service the panel has not started says why it has no ping, in two lines at most.
+    Widget title(String text) => Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: l.serversTitle,
+            style: TextStyle(
+              fontSize: t.s.body,
+              fontWeight: FontWeight.w700,
+              color: t.c.text,
+            ),
+          ),
+          TextSpan(text: ' · $text'),
+        ],
+      ),
+      maxLines: held ? 2 : 1,
+      overflow: TextOverflow.ellipsis,
+      style: muted,
+    );
     Widget line(String text) => Padding(
       padding: const EdgeInsets.all(Space.s2),
       child: Text(text, style: muted),
@@ -1593,23 +1651,15 @@ class _ServerListState extends State<_ServerList> with WidgetsBindingObserver {
               Space.s2,
             ),
             child: state.isTV
-                ? Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: l.serversTitle,
-                          style: TextStyle(
-                            fontSize: t.s.body,
-                            fontWeight: FontWeight.w700,
-                            color: t.c.text,
-                          ),
-                        ),
-                        TextSpan(text: ' · $caption'),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: muted,
+                ? title(caption)
+                : held
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: Space.s3,
+                    children: [
+                      title(l.pingHeld),
+                      _SearchField(controller: _search),
+                    ],
                   )
                 : _SearchField(controller: _search),
           ),
