@@ -6357,6 +6357,89 @@ void main() {
       },
     );
 
+    test(
+      'a service the panel holds reads onHold until the tunnel is on it; a '
+      'file-only row carries its days and no data (Sam, 2026-11-01)',
+      () async {
+        final t = await twoServices();
+        ShikooService of(int id) {
+          final state = t.container.read(shikooStateProvider);
+          return [
+            state.service!,
+            ...state.others,
+          ].firstWhere((s) => s.id == id);
+        }
+
+        void account(List<LinkedService> rows) => t.container
+            .read(shikooAccountProvider.notifier)
+            .set(ShikooAccount(services: rows));
+        LinkedService row(int id, String status, {bool fileOnly = false}) =>
+            LinkedService(
+              id: id + 1000,
+              title: 'user$id',
+              status: status,
+              profileId: id,
+              fileOnly: fileOnly,
+              durationDays: fileOnly ? 30 : null,
+            );
+
+        account([row(t.first, 'on_hold'), row(t.second, 'on_hold')]);
+        expect(of(t.first).onHold, isFalse, reason: 'the tunnel is on it');
+        expect(of(t.second).onHold, isTrue);
+        expect(of(t.second).statusAt(shikooNow()), ShikooServiceStatus.onHold);
+        expect(of(t.second).ended, isNull);
+
+        await t.controller.disconnect();
+        t.container.read(runTimeProvider.notifier).value = null;
+        await pumpEventQueue();
+        expect(of(t.first).onHold, isTrue, reason: 'off, it is held again');
+
+        account([row(t.first, 'active'), row(t.second, 'active')]);
+        expect(of(t.second).onHold, isFalse);
+        expect(of(t.second).fileOnly, isFalse);
+
+        t.container
+            .read(profilesProvider.notifier)
+            .put(
+              t.container
+                  .read(profilesProvider)
+                  .getProfile(t.second)!
+                  .copyWith(
+                    subscriptionInfo: const SubscriptionInfo(
+                      download: 10,
+                      total: 5,
+                    ),
+                  ),
+            );
+        account([row(t.second, 'on_hold', fileOnly: true)]);
+        final file = of(t.second);
+        expect((file.fileOnly, file.durationDays), (true, 30));
+        expect(
+          file.ended,
+          isNull,
+          reason: 'a file\x27s data figures never end it',
+        );
+        expect(
+          (file.usageKnown, file.usedBytes, file.totalBytes),
+          (true, 0, 0),
+        );
+        expect(file.onHold, isTrue);
+
+        final end = DateTime.now().add(const Duration(days: 18));
+        account([
+          LinkedService(
+            id: 1,
+            title: 'user',
+            status: 'active',
+            profileId: t.second,
+            fileOnly: true,
+            expiresAt: end,
+          ),
+        ]);
+        expect(of(t.second).expire, end, reason: 'the panel\x27s date');
+      },
+    );
+
     /// A pasted service's file holds «سوئد ۱»; its id is known only once it is saved.
     Future<String> pasteable(
       ProviderContainer container,
