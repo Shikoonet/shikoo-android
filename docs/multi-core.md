@@ -168,6 +168,12 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     password.
   - A core that isn't registered, or that fails, leaves its mappings to mihomo with the marker removed, and logs one
     line. The marker never reaches mihomo's parser.
+  - `leaveTheServerToTheCustomer` (called from `shikooCoresParse`, so for every config mihomo loads, `loadConfig` and
+    the rebuild after the tunnel alike): every group of type `url-test`, `fallback` or `load-balance` becomes `select`
+    with its members, and a group's `interval` goes. mihomo URL-tests such a group's servers the moment the config loads
+    (`adapter/provider/healthcheck.go:44-46`), VPN off, and the panel starts an on_hold service's 30 days at the first
+    byte through any of its servers (emulator run 2026-11-01: 6 connections on open with a `Fastest` url-test group, 0
+    without). The server never changes by itself either (Sam, 2026-10-30). A proxy-provider's own health check stays on.
 - `core/common.go` (already patched, row 24): `loadConfig` (`:368-374`) becomes `UnmarshalRawConfig`, then
   `shikooCoresParse(raw)`, which rewrites and then calls `ParseRawConfig`, what `executor.ParseWithBytes` does through
   `config.Parse` (`config/config.go:474-481`); a config that fails to parse stops the cores it started. After

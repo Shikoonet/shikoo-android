@@ -19,7 +19,7 @@ class _Controller extends Mock implements ShikooController {
   final opened = <int?>[];
 
   @override
-  void openService(int? id) => opened.add(id);
+  void openService(int? id, {bool explicitPing = false}) => opened.add(id);
 }
 
 const _channel = MethodChannel('shikoo/alerts');

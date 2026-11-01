@@ -14,6 +14,7 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/shikoo/app/alerts.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
@@ -537,6 +538,37 @@ void main() {
 
     desk.delay = 50;
     await desk.die();
+    expect(desk.state.servers.single.ping, 50);
+  });
+
+  test('an on_hold service is not measured by a core that comes back while '
+      'off (Sam, 2026-11-01)', () async {
+    final desk = _Desk()
+      ..tunnel = null
+      ..delay = -1;
+    desk.container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 7,
+                title: 'user111',
+                status: 'on_hold',
+                profileId: desk.container.read(currentProfileIdProvider),
+              ),
+            ],
+          ),
+        );
+    await pumpEventQueue();
+    await desk.controller.pingAll();
+
+    desk.delay = 50;
+    await desk.die();
+    expect(desk.state.servers.single.ping, isNot(50));
+    expect(desk.calls, ['restart']);
+
+    await desk.controller.pingAll();
     expect(desk.state.servers.single.ping, 50);
   });
 

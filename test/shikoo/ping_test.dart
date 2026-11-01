@@ -240,6 +240,30 @@ void main() {
     }
   });
 
+  test("the panel's two groups give the home its PROXY and its servers "
+      'whatever type Fastest has', () {
+    for (final fastest in ['url-test', 'select']) {
+      final main = mainGroupOf({
+        'proxies': [
+          for (final name in ['a', 'b']) {'name': name, 'type': 'vless'},
+        ],
+        'proxy-groups': [
+          {
+            'name': 'PROXY',
+            'type': 'select',
+            'proxies': ['Fastest', 'a', 'b'],
+          },
+          {
+            'name': 'Fastest',
+            'type': fastest,
+            'proxies': ['a', 'b'],
+          },
+        ],
+      });
+      expect((main?.group, main?.servers.keys.toList()), ('PROXY', ['a', 'b']));
+    }
+  });
+
   group('never connects blind to the first row', () {
     String? pick(
       Map<String, int> pings, {

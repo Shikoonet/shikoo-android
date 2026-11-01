@@ -164,7 +164,9 @@ class _ServiceCardState extends State<ServiceCard> {
         ? null
         : () {
             _list.currentState?.sortAfterRound();
-            if (other) return controller.openService(service!.id);
+            if (other) {
+              return controller.openService(service!.id, explicitPing: true);
+            }
             unawaited(controller.pingAll());
           };
     final connected = state.connection == ShikooConnection.on;
