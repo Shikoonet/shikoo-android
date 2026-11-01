@@ -2142,6 +2142,9 @@ class ShikooL10nEn extends ShikooL10n {
   String get statusOnHold => 'Not activated yet';
 
   @override
+  String get validFromFirstShort => 'Valid from your first connection';
+
+  @override
   String validDays(int days) {
     final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
       localeName,

@@ -975,7 +975,7 @@ class _Summary extends StatelessWidget {
           text: expire != null
               ? l.validUntil(_date(context, l, expire))
               : service.onHold || service.durationDays == null
-              ? l.outsourcedSummary
+              ? l.validFromFirstShort
               : l.validFromToday(l.validDays(service.durationDays!)),
         ),
       ],
@@ -1223,7 +1223,7 @@ class _Usage extends StatelessWidget {
         children: [
           if (fileOnly && expire == null)
             days == null
-                ? Text(l.outsourcedSummary, style: muted)
+                ? Text(l.validFromFirstShort, style: muted)
                 : fromLine(
                     service.onHold ? l.validFromFirst : l.validFromToday,
                   ),

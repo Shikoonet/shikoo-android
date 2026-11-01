@@ -765,6 +765,8 @@
   "alertPickServer": "Pick a server",
   "statusOnHold": "Not activated yet",
   "@statusOnHold": {"description": "The service chip, grey, while the panel has not started the service: it starts at the first connection."},
+  "validFromFirstShort": "Valid from your first connection",
+  "@validFromFirstShort": {"description": "A file-only (WireGuard) service the panel has not started: its folded card, or its open card when the length is not known. The shelf card keeps outsourcedSummary."},
   "validDays": "{days, plural, =1{1 day} other{{days} days}}",
   "@validDays": {"description": "The length of a file-only service, bold inside validFromFirst and validFromToday.", "placeholders": {"days": {"type": "int", "format": "decimalPattern"}}},
   "validFromFirst": "Valid: {days} from your first connection",

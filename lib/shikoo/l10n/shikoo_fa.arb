@@ -539,6 +539,7 @@
   "alertRemovedBody": "«{server}» دیگر در اشتراکت نیست و اتصال قطع شد. یکی دیگر انتخاب کن.",
   "alertPickServer": "انتخاب سرور",
   "statusOnHold": "در انتظار فعال‌سازی",
+  "validFromFirstShort": "اعتبار از اولین اتصال",
   "validDays": "{days} روز",
   "validFromFirst": "اعتبار: {days} از اولین اتصال",
   "validFromToday": "اعتبار: {days} از امروز",

@@ -2070,6 +2070,9 @@ class ShikooL10nFa extends ShikooL10n {
   String get statusOnHold => 'در انتظار فعال‌سازی';
 
   @override
+  String get validFromFirstShort => 'اعتبار از اولین اتصال';
+
+  @override
   String validDays(int days) {
     final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
       localeName,

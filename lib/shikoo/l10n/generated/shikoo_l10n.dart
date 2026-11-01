@@ -3337,6 +3337,12 @@ abstract class ShikooL10n {
   /// **'Not activated yet'**
   String get statusOnHold;
 
+  /// A file-only (WireGuard) service the panel has not started: its folded card, or its open card when the length is not known. The shelf card keeps outsourcedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid from your first connection'**
+  String get validFromFirstShort;
+
   /// The length of a file-only service, bold inside validFromFirst and validFromToday.
   ///
   /// In en, this message translates to:
