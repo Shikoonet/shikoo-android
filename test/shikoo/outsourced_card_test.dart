@@ -657,7 +657,7 @@ void main() {
         account,
       );
       noSale();
-      expect(find.textContaining('روی ویندوز کار نمی‌کند'), findsOneWidget);
+      expect(find.textContaining('فقط در حالت «تونل»'), findsOneWidget);
 
       await _pump(
         tester,
@@ -961,7 +961,9 @@ void main() {
             brightness: b,
           );
           final l = lookupShikooL10n(Locale(language));
-          final line = _in<ServiceCard>(find.text(l.outsourcedNotHere));
+          final line = _in<ServiceCard>(
+            find.text(l.outsourcedNotHere(l.modeTunnel, l.powerConnect)),
+          );
           expect(line, findsOneWidget);
           expect(find.textContaining(l.outsourcedTitle), findsNothing);
           expect(find.text(l.loadingServers), findsNothing);

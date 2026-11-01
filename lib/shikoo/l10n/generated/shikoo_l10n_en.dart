@@ -969,8 +969,9 @@ class ShikooL10nEn extends ShikooL10n {
       'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.';
 
   @override
-  String get outsourcedNotHere =>
-      'This account doesn\'t work on Windows yet; connect it on your phone or TV.';
+  String outsourcedNotHere(String mode, String connect) {
+    return 'On Windows this account works only in $mode mode. Choose $mode under the $connect button.';
+  }
 
   @override
   String outsourcedBought(String date) {

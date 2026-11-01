@@ -1586,11 +1586,11 @@ abstract class ShikooL10n {
   /// **'This account is no longer accepted; its time has probably run out. Go to the bot for a new account.'**
   String get outsourcedRefused;
 
-  /// On a shelf (OpenVPN) account's card on Windows, where no core runs OpenVPN yet: in the refused line's place, not red. The account never connects there.
+  /// On a shelf (OpenVPN) account's card on Windows in Proxy mode, where the official OpenVPN engine cannot run: in the refused line's place, not red. {mode} is modeTunnel and {connect} is powerConnect: the mode switch sits under that button in both window layouts.
   ///
   /// In en, this message translates to:
-  /// **'This account doesn\'t work on Windows yet; connect it on your phone or TV.'**
-  String get outsourcedNotHere;
+  /// **'On Windows this account works only in {mode} mode. Choose {mode} under the {connect} button.'**
+  String outsourcedNotHere(String mode, String connect);
 
   /// Grey line under the refused sentence of a shelf account's card when its door told the sale date but not the plan. {date} is Jalali in Persian, Gregorian in English.
   ///

@@ -926,8 +926,9 @@ class ShikooL10nFa extends ShikooL10n {
       'این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.';
 
   @override
-  String get outsourcedNotHere =>
-      'این حساب فعلاً روی ویندوز کار نمی‌کند؛ روی گوشی یا تلویزیون وصلش کن.';
+  String outsourcedNotHere(String mode, String connect) {
+    return 'این حساب روی ویندوز فقط در حالت «$mode» کار می‌کند. زیر دکمهٔ «$connect»، «$mode» را انتخاب کن.';
+  }
 
   @override
   String outsourcedBought(String date) {

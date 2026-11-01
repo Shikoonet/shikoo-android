@@ -1388,7 +1388,12 @@ class _Guide extends StatelessWidget {
           Text.rich(
             TextSpan(
               children: notHere
-                  ? [TextSpan(text: l.outsourcedNotHere, style: strong)]
+                  ? [
+                      TextSpan(
+                        text: l.outsourcedNotHere(l.modeTunnel, l.powerConnect),
+                        style: strong,
+                      ),
+                    ]
                   : refused
                   ? [
                       TextSpan(text: l.outsourcedRefused, style: strong),

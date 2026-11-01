@@ -32,6 +32,8 @@ Future<void> _pump(
   WidgetTester tester,
   ShikooMode mode, {
   bool mixed = false,
+  String locale = 'fa',
+  bool desktop = true,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view
@@ -49,7 +51,7 @@ Future<void> _pump(
       key: UniqueKey(),
       overrides: [
         noShots,
-        shikooDesktopProvider.overrideWithValue(true),
+        shikooDesktopProvider.overrideWithValue(desktop),
         profilesProvider.overrideWith(() => TestProfiles([profile])),
         coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
         nativeRunTimeProvider.overrideWithValue(() async => null),
@@ -71,7 +73,7 @@ Future<void> _pump(
         ),
       ],
       child: MaterialApp(
-        locale: const Locale('fa'),
+        locale: Locale(locale),
         supportedLocales: ShikooL10n.supportedLocales,
         localizationsDelegates: const [
           ShikooL10n.delegate,
@@ -125,7 +127,9 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(ServiceCard),
-          matching: find.text(l.outsourcedNotHere),
+          matching: find.text(
+            l.outsourcedNotHere(l.modeTunnel, l.powerConnect),
+          ),
         ),
         findsOneWidget,
       );
@@ -157,7 +161,10 @@ void main() {
     'servers, the round button and the pill, as on a phone',
     (tester) async {
       await _pump(tester, ShikooMode.tunnel);
-      expect(find.text(l.outsourcedNotHere), findsNothing);
+      expect(
+        find.text(l.outsourcedNotHere(l.modeTunnel, l.powerConnect)),
+        findsNothing,
+      );
       expect(tester.widget<ShikooIconButton>(gauge).onPressed, isNotNull);
       expect(
         find.descendant(
@@ -193,7 +200,10 @@ void main() {
     'account; back in the tunnel mode the pick is in its row again',
     (tester) async {
       await _pump(tester, ShikooMode.proxy, mixed: true);
-      expect(find.text(l.outsourcedNotHere), findsNothing);
+      expect(
+        find.text(l.outsourcedNotHere(l.modeTunnel, l.powerConnect)),
+        findsNothing,
+      );
       final rows = tester.widgetList<ServerRow>(find.byType(ServerRow));
       expect(rows.map((row) => row.server.name), ['هلند ۱']);
       expect(rows.any((row) => row.selected), isFalse);
@@ -215,4 +225,34 @@ void main() {
     },
     variant: windows,
   );
+
+  for (final code in ['fa', 'en']) {
+    testWidgets(
+      "$code: a shelf account's line sends to the tunnel mode under the "
+      'connect button by their labels, and shows only on Windows in proxy mode',
+      (tester) async {
+        final l = lookupShikooL10n(Locale(code));
+        final (tunnel, under) = code == 'fa'
+            ? ('«${l.modeTunnel}»', 'زیر دکمهٔ «${l.powerConnect}»')
+            : (l.modeTunnel, 'under the ${l.powerConnect} button');
+        expect(
+          l.outsourcedNotHere(l.modeTunnel, l.powerConnect),
+          allOf(contains(tunnel), contains(under)),
+        );
+        for (final (desktop, mode, shown) in [
+          (true, ShikooMode.proxy, true),
+          (true, ShikooMode.tunnel, false),
+          (false, ShikooMode.proxy, false),
+        ]) {
+          await _pump(tester, mode, locale: code, desktop: desktop);
+          expect(
+            find.text(l.outsourcedNotHere(l.modeTunnel, l.powerConnect)),
+            shown ? findsOneWidget : findsNothing,
+            reason: 'Windows: $desktop, $mode',
+          );
+        }
+      },
+      variant: windows,
+    );
+  }
 }

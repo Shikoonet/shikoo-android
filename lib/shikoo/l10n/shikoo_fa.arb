@@ -248,7 +248,7 @@
   "outsourcedSummary": "اعتبار از اولین اتصال",
   "outsourcedEnded": "اعتبارش تمام شد. برای حساب تازه، به ربات شیکونت برو.",
   "outsourcedRefused": "این حساب دیگر پذیرفته نمی‌شود؛ احتمالاً زمانش تمام شده. برای حساب تازه به ربات برو.",
-  "outsourcedNotHere": "این حساب فعلاً روی ویندوز کار نمی‌کند؛ روی گوشی یا تلویزیون وصلش کن.",
+  "outsourcedNotHere": "این حساب روی ویندوز فقط در حالت «{mode}» کار می‌کند. زیر دکمهٔ «{connect}»، «{mode}» را انتخاب کن.",
   "outsourcedBought": "خرید {date}",
   "outsourcedBoughtPlan": "خرید {date} · {plan}",
   "planMonths1": "یک‌ماهه",
