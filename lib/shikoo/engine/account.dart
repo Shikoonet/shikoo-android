@@ -117,12 +117,10 @@ class LinkedService {
   /// A shelf account another provider runs: no date or volume shown (Sam); undated by the door, a closed one is dated when first seen.
   final bool outsourced;
 
-  /// When the shop sold it and for how many days: only a door of app 1.0.58 or later says, and only of a shelf account.
-  /// A file-only service (1.0.60) has [durationDays] too.
+  /// When the shop sold it and for how many days: only a door of app 1.0.58 or later says, and only of a shelf or file-only account.
   final DateTime? purchasedAt;
   final int? durationDays;
 
-  /// A WireGuard file service: its card shows days, never data. Its door row has a normal link.
   final bool fileOnly;
 
   bool get botRenews => renewable != false;
