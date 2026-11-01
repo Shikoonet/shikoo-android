@@ -64,7 +64,7 @@ const shikooCoreSpecs = <ShikooCore, ShikooCoreSpec>{
 /// A ready core whose engine runs on some platforms only; one missing here is ready on every platform.
 const shikooReadyOn = <ShikooCore, Set<ShikooPlatform>>{
   ShikooCore.wireguard: {ShikooPlatform.android},
-  ShikooCore.openvpn: {ShikooPlatform.android},
+  ShikooCore.openvpn: {ShikooPlatform.android, ShikooPlatform.windows},
 };
 
 final shikooReadyOnProvider = Provider<Map<ShikooCore, Set<ShikooPlatform>>>(

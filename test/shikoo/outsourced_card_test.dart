@@ -941,8 +941,8 @@ void main() {
 
     for (final b in Brightness.values) {
       for (final language in ['fa', 'en']) {
-        testWidgets('on Windows, where no core runs OpenVPN yet, the card says '
-            "so in the refused line's place, not in red, and keeps the bot "
+        testWidgets('on Windows in proxy mode, where the official core has no '
+            "tunnel to own, the card says so in the refused line's place, not in red, and keeps the bot "
             'button ($language, ${b.name})', (tester) async {
           // As the app has it there: its OpenVPN servers are not offered.
           await _pump(

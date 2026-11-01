@@ -95,7 +95,7 @@ func wireTun(t *testing.T, pick *string) (*tunWiring, func(rules string)) {
 	start, mihomo, picks := startOwnerTunnel, mihomoTun, pickOf
 	pickOf = func(string) string { return *pick }
 	mihomoTun = func(conf LC.Tun) { w.mihomo = append(w.mihomo, conf.Enable) }
-	startOwnerTunnel = func(_, key string, mapping map[string]any, _ bool) error {
+	startOwnerTunnel = func(_, key, _ string, mapping map[string]any, _ bool) error {
 		w.carryingAtStart = append(w.carryingAtStart, windowsCarrying())
 		if w.fail {
 			return errors.New("no engine")

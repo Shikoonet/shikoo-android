@@ -333,6 +333,20 @@ jobs:
           bash tools/warp-build.sh windows
           rm -rf build/warp*
 
+      - name: The OpenVPN 3 engine, gitignored, from the cache (windows/CMakeLists.txt installs it beside the core)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: ovpn3
+        with:
+          path: libclash/windows/ShikooNetOvpn3.dll
+          key: ovpn3-windows-${{ hashFiles('tools/ovpn3-build.sh', 'android/service/src/main/cpp/**') }}
+
+      - name: The OpenVPN 3 engine, with the runner's Visual Studio
+        if: steps.ovpn3.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          bash tools/ovpn3-build.sh windows
+          rm -rf build/ovpn3
+
       - name: Inno Setup 6.7.3, as tools/windows-toolchain.ps1 installs it
         shell: pwsh
         run: |
