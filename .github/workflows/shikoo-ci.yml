@@ -74,6 +74,10 @@ jobs:
         if: github.event_name == 'push' || !github.event.pull_request.draft
         run: TZ=Asia/Tehran flutter test test/shikoo/logs_test.dart
 
+      - name: Tests, the sale day on a refused card in Tehran time
+        if: github.event_name == 'push' || !github.event.pull_request.draft
+        run: TZ=Asia/Tehran flutter test test/shikoo/outsourced_card_test.dart --plain-name "the day of the sale is the local day"
+
       - name: Tests, staging names
         if: github.event_name == 'push' || !github.event.pull_request.draft
         run: flutter test test/shikoo/windows_names_test.dart --dart-define=SHIKOO_FLAVOR=staging

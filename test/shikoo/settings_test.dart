@@ -7,6 +7,7 @@ import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/shikoo/l10n/generated/shikoo_l10n.dart';
 import 'package:fl_clash/shikoo/ui/settings.dart';
 import 'package:fl_clash/shikoo/ui/icons.dart';
+import 'package:fl_clash/shikoo/ui/report.dart' show SwitchRow;
 import 'package:fl_clash/shikoo/ui/theme.dart';
 import 'package:fl_clash/shikoo/ui/widgets.dart';
 import 'package:flutter/services.dart';
@@ -101,6 +102,8 @@ Future<String?> _press(WidgetTester tester, LogicalKeyboardKey key) async {
 
 /// Settings › Connection's second switch (warp_ui_test.dart).
 final _warp = lookupShikooL10n(const Locale('fa')).warpSwitch;
+
+final _alerts = lookupShikooL10n(const Locale('fa')).alerts;
 
 void main() {
   // The TV page fits one screen with Vazirmatn's widths, not the test font's.
@@ -225,6 +228,7 @@ void main() {
       'سایت‌های ایرانی بدون فیلترشکن',
     );
     expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), _alerts);
     expect(
       await _press(tester, LogicalKeyboardKey.arrowDown),
       'بررسی به‌روزرسانی',
@@ -254,6 +258,7 @@ void main() {
     expect(_focused(), 'خودکار');
     expect(await _press(tester, down), 'سایت‌های ایرانی بدون فیلترشکن');
     expect(await _press(tester, down), _warp);
+    expect(await _press(tester, down), _alerts);
     expect(await _press(tester, down), 'بررسی به‌روزرسانی');
     expect(await _press(tester, down), 'درباره');
     expect(await _press(tester, down), 'درباره', reason: 'the column ends');
@@ -377,6 +382,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(mirrored(ShikooIcon.logout), -1);
     expect(mirrored(ShikooIcon.chevronFwd), -1);
+  });
+
+  testWidgets('«دیگر نشان نده» on either alert turns the alerts switch off; '
+      'the remote turns both back on, and off', (tester) async {
+    final container = await _pumpSettings(tester, _Controller());
+    bool shown() => tester
+        .widget<SwitchRow>(
+          find.ancestor(
+            of: find.text(_alerts),
+            matching: find.byType(SwitchRow),
+          ),
+        )
+        .on;
+    (bool, bool) both() => (
+      container.read(shikooAlertNoTrafficProvider),
+      container.read(shikooAlertDroppedProvider),
+    );
+    expect(shown(), isTrue);
+    await container.read(shikooAlertDroppedProvider.notifier).set(false);
+    await tester.pumpAndSettle();
+    expect(shown(), isFalse);
+
+    expect(
+      await _press(tester, LogicalKeyboardKey.arrowDown),
+      'سایت‌های ایرانی بدون فیلترشکن',
+    );
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), _warp);
+    expect(await _press(tester, LogicalKeyboardKey.arrowDown), _alerts);
+    await _press(tester, LogicalKeyboardKey.select);
+    expect(shown(), isTrue);
+    expect(both(), (true, true));
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      (
+        prefs.getBool('shikoo.alerts.noTraffic'),
+        prefs.getBool('shikoo.alerts.dropped'),
+      ),
+      (true, true),
+    );
+
+    await _press(tester, LogicalKeyboardKey.select);
+    expect(both(), (false, false));
+    expect(_focused(), _alerts, reason: 'the remote stays on the row');
   });
 
   testWidgets('the status bar follows the app theme, not FlClash setting', (

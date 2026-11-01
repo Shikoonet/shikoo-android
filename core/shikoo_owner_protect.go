@@ -28,9 +28,18 @@ func (o *ownerProtector) set(protect func(fd int) bool, release func()) {
 	last := o.release
 	o.protect, o.release = protect, release
 	o.mu.Unlock()
+	if protect == nil {
+		lastEndpoint.Store(nil)
+	}
 	if last != nil {
 		last()
 	}
+}
+
+func (o *ownerProtector) holds() bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.protect != nil
 }
 
 // socket protects fd while an owner core's VPN holds the app; with none, only a socket that must be kept out fails.

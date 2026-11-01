@@ -143,6 +143,8 @@ class ShikooService {
     this.outsourced = false,
     this.loginRefused = false,
     this.notHere = false,
+    this.purchasedAt,
+    this.durationDays,
   });
 
   final bool bridgeLeg;
@@ -179,6 +181,10 @@ class ShikooService {
 
   /// An outsourced (OpenVPN) account no core here runs, as on Windows: its card says so, and it never connects.
   final bool notHere;
+
+  /// A shelf account's sale, as its door told it; null for any other service.
+  final DateTime? purchasedAt;
+  final int? durationDays;
 
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
@@ -245,7 +251,9 @@ class SilentReplaced extends ShikooNotice {
 }
 
 class SelectedGone extends ShikooNotice {
-  const SelectedGone();
+  const SelectedGone(this.server);
+
+  final String server;
 }
 
 class RefreshFailed extends ShikooNotice {
@@ -520,6 +528,15 @@ Duration ownerAnswerLimit = const Duration(seconds: 2);
 Duration ownerWatchEvery = const Duration(seconds: 2);
 
 @visibleForTesting
+Duration internetRecheckEvery = const Duration(seconds: 15);
+
+@visibleForTesting
+Duration internetRecheckMax = const Duration(seconds: 120);
+
+@visibleForTesting
+Duration internetSettle = const Duration(seconds: 3);
+
+@visibleForTesting
 Duration ownerDeathWindow = const Duration(minutes: 1);
 
 /// Go's `shikooOwner`: the owner core carrying the tunnel and its server, both '' when none; null with no answer.
@@ -709,9 +726,9 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final route = ref.watch(shikooWarpRouteProvider);
   final pasted = ref.watch(_pastedProvider);
   final revoked = ref.watch(_revokedProvider);
-  final outsourced = {
+  final shelf = {
     for (final linked in ref.watch(shikooAccountProvider).services)
-      if (linked.outsourced) ?linked.profileId,
+      if (linked.outsourced) ?linked.profileId: linked,
   };
   final loginRefused = ref.watch(_loginRefusedProvider);
   final specs = ref.watch(shikooCoreSpecsProvider);
@@ -734,9 +751,11 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     pasted: pasted.contains(profile.id),
     revoked: revoked.contains(profile.id),
     number: unnamed.indexOf(profile.id) + 1,
-    outsourced: outsourced.contains(profile.id),
+    outsourced: shelf.containsKey(profile.id),
     loginRefused: loginRefused.contains(profile.id),
-    notHere: outsourced.contains(profile.id) && !openvpnHere,
+    notHere: shelf.containsKey(profile.id) && !openvpnHere,
+    purchasedAt: shelf[profile.id]?.purchasedAt,
+    durationDays: shelf[profile.id]?.durationDays,
   );
 
   final group = _mainGroup(ref);
@@ -1016,6 +1035,8 @@ ShikooService _serviceFrom(
   bool outsourced = false,
   bool loginRefused = false,
   bool notHere = false,
+  DateTime? purchasedAt,
+  int? durationDays,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
@@ -1040,6 +1061,8 @@ ShikooService _serviceFrom(
     outsourced: outsourced,
     loginRefused: loginRefused,
     notHere: notHere,
+    purchasedAt: purchasedAt,
+    durationDays: durationDays,
   );
 }
 
@@ -1121,6 +1144,12 @@ String? ownerAside(ProviderReader read, Uri url) {
   return proxy == 'DIRECT' ? null : proxy;
 }
 
+@visibleForTesting
+Options subscriptionOptions(String url) => Options(
+  responseType: ResponseType.bytes,
+  headers: doorHeaders(Uri.parse(url), () => globalState.packageInfo.version),
+);
+
 Future<Response<Uint8List>> _get(
   String url,
   String? proxy, {
@@ -1134,7 +1163,7 @@ Future<Response<Uint8List>> _get(
     );
   try {
     return await dio
-        .get<Uint8List>(url, options: Options(responseType: ResponseType.bytes))
+        .get<Uint8List>(url, options: subscriptionOptions(url))
         .timeout(timeout ?? subscriptionTimeout);
   } catch (error) {
     commonPrint.log(
@@ -1203,6 +1232,7 @@ class ShikooController {
       _switched?.cancel();
       _coreSwitched?.cancel();
       _ownerWatch?.cancel();
+      _internetWatch?.cancel();
     });
     _ref.listen(shikooStateProvider.select(serviceInstead), (_, id) {
       if (id != null) scheduleMicrotask(() => selectService(id));
@@ -1305,6 +1335,12 @@ class ShikooController {
       ),
       (_, now) => scheduleMicrotask(() => unawaited(_checkTraffic(now?.$2))),
     );
+    _ref.listen(
+      shikooStateProvider.select(
+        (s) => s.noInternet ? (s.service?.id, s.selected) : null,
+      ),
+      (_, now) => _watchInternet(now != null),
+    );
     _ref.listen(coreStatusProvider, (was, now) {
       if (was == CoreStatus.connected &&
           now == CoreStatus.disconnected &&
@@ -1338,6 +1374,9 @@ class ShikooController {
   final Ref _ref;
 
   bool foreground = true;
+
+  /// The customer stopped the tunnel, here or from the VPN notification or the tile: no alert follows.
+  bool offByCustomer = false;
   static const _appPicksKey = 'shikoo.appPicks';
 
   Map<String, String> _appPickByService = const {};
@@ -1353,6 +1392,13 @@ class ShikooController {
   bool _streamingRouted = false;
   Future<void> _streamingRoute = Future.value();
   int _trafficNo = 0;
+  Timer? _internetWatch;
+  int _watchNo = 0;
+  Duration _internetGap = internetRecheckEvery;
+  bool _rechecking = false;
+
+  @visibleForTesting
+  Duration get internetGap => _internetGap;
 
   Timer? _ownerWatch;
   DateTime? _ownerRebuiltAt;
@@ -1500,6 +1546,7 @@ class ShikooController {
   }
 
   Future<void> _connect({required bool setAside}) async {
+    offByCustomer = false;
     if (_ref.read(currentProfileProvider) == null ||
         (_ref.read(shikooStateProvider).service?.notHere ?? false)) {
       return;
@@ -1835,7 +1882,7 @@ class ShikooController {
     if (!shikooOnlyCores.containsValue(_coreFor(carried))) {
       return _fallBackToMihomo();
     }
-    final off = disconnect();
+    final off = disconnect(dropped: true);
     _set(const _Intent(error: ShikooError.coreDown));
     await off;
   }
@@ -1863,7 +1910,10 @@ class ShikooController {
     unawaited(_setup.setRunning(false));
   }
 
-  Future<void> disconnect() async {
+  /// [dropped]: the app gave up on an engine that died, a stop the customer is told of; every other stop is the
+  /// customer's or has an alert of its own, and says no drop.
+  Future<void> disconnect({bool dropped = false}) async {
+    offByCustomer = !dropped;
     if (!_fallingBack) {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }
@@ -1940,9 +1990,13 @@ class ShikooController {
     if (up) {
       if (wanted) _set(const _Intent());
       _forgetRound();
-      unawaited(wanted ? _checkSelected() : pingAll());
+      if (wanted) {
+        unawaited(_checkSelected());
+      } else if (!_holds(_current)) {
+        unawaited(pingAll());
+      }
     } else if (wanted) {
-      final off = disconnect();
+      final off = disconnect(dropped: true);
       _set(const _Intent(error: ShikooError.coreDown));
       await off;
     }
@@ -2554,6 +2608,47 @@ class ShikooController {
     if (current()) _ref.read(_noTrafficProvider.notifier).set(!ok);
   }
 
+  void _watchInternet(bool on, [Duration? first]) {
+    _internetWatch?.cancel();
+    final no = ++_watchNo;
+    _internetGap = internetRecheckEvery;
+    _internetWatch = on
+        ? Timer(first ?? _internetGap, () => unawaited(_tick(no)))
+        : null;
+  }
+
+  Future<void> _tick(int no) async {
+    await _recheckInternet();
+    if (no != _watchNo ||
+        !_ref.mounted ||
+        !_ref.read(shikooStateProvider).noInternet) {
+      return;
+    }
+    final doubled = _internetGap * 2;
+    _internetGap = doubled > internetRecheckMax ? internetRecheckMax : doubled;
+    _internetWatch = Timer(_internetGap, () => unawaited(_tick(no)));
+  }
+
+  /// The route needs a moment after a network change: one ask once it has settled, then the pace starts over.
+  void onNetworkChange() => _watchInternet(true, internetSettle);
+
+  /// Only lifts the warning, for the pick's traffic flag and its ping alike; raising it stays [_checkTraffic]'s two asks.
+  Future<void> _recheckInternet() async {
+    if (_rechecking || !_ref.read(shikooStateProvider).noInternet) return;
+    _rechecking = true;
+    final no = _trafficNo;
+    bool current() => no == _trafficNo && _ref.mounted;
+    try {
+      if (await _nativeRunTime() == null || !current()) return;
+      if (!await _ref.read(trafficPassesProvider)() || !current()) return;
+      _ref.read(_noTrafficProvider.notifier).set(false);
+      await _checkSelected();
+    } catch (_) {
+    } finally {
+      _rechecking = false;
+    }
+  }
+
   void _sort() {
     final group = _group;
     if (group == null) return;
@@ -2718,7 +2813,7 @@ class ShikooController {
   }
 
   /// Off, the card opened is the one connect uses; on, the tunnel stays. Null folds every card.
-  void openService(int? id) {
+  void openService(int? id, {bool explicitPing = false}) {
     _ref.read(_openProvider.notifier).set(id);
     _ref.read(_landedProvider.notifier).set(null);
     _closeOpened();
@@ -2727,14 +2822,23 @@ class ShikooController {
         .listed
         .firstWhereOrNull((s) => s.id == id);
     if (service == null || service.ended != null) return;
-    if (service.id == _current) return unawaited(pingAll());
+    final probe = explicitPing || !_holds(service.id);
+    if (service.id == _current) return probe ? unawaited(pingAll()) : null;
     if (!_running && !_ref.read(_intentProvider).connecting) {
       selectService(service.id);
-      _pingOnArrival = true;
+      _pingOnArrival = probe;
       return;
     }
-    unawaited(_pingOther(service.id));
+    unawaited(_pingOther(service.id, probe: probe));
   }
+
+  bool _holds(int? id) =>
+      id != null &&
+      !(id == _current && _upOrStarting) &&
+      _ref
+          .read(shikooAccountProvider)
+          .services
+          .any((s) => s.profileId == id && s.status == 'on_hold');
 
   void _closeOpened() {
     _openNo++;
@@ -2742,7 +2846,7 @@ class ShikooController {
     _ref.read(_openRoundProvider.notifier).set(_noRound);
   }
 
-  Future<void> _pingOther(int id) async {
+  Future<void> _pingOther(int id, {required bool probe}) async {
     final no = _openNo;
     final main = await _mainGroupOf(id);
     if (no != _openNo || main == null || main.servers.isEmpty) return;
@@ -2755,6 +2859,7 @@ class ShikooController {
     final names = [...opened.proxies.keys];
     final round = _ref.read(_openRoundProvider.notifier);
     _ref.read(_openedProvider.notifier).set(opened);
+    if (!probe) return;
     round.set((pending: names.toSet(), total: names.length, ended: false));
     await pingServers(
       names,
@@ -2949,9 +3054,9 @@ class ShikooController {
         when removed.contains(shift.to) || removed.contains(shift.from)) {
       _endSwitch();
     }
-    if (had != null && removed.contains(had)) {
+    if (had != null && removed.contains(had) && !_holds(id)) {
       if (_upOrStarting) {
-        _notice(const SelectedGone());
+        _notice(SelectedGone(had));
         return disconnect();
       }
       _removed = had;

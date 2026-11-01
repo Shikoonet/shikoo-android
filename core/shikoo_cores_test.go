@@ -9,10 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 
+	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outboundgroup"
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/config"
@@ -274,6 +277,78 @@ func TestShikooCoresKeepAServerNamedByABareNumber(t *testing.T) {
 
 	if got := proxyTypes(cfg, "7"); got[0] != constant.Socks5 || fake.stopped != 0 {
 		t.Errorf("type %v, stopped %d: a core that keeps the name 7 as YAML read it must still carry the server", got, fake.stopped)
+	}
+}
+
+// The shape a PasarGuard panel serves (2026-11-01): quoted, and its url-test group has no url, interval or lazy.
+const panelGroupsYaml = `
+proxies:
+  - {name: a, type: http, server: 1.1.1.1, port: 1}
+  - {name: b, type: http, server: 1.1.1.2, port: 1}
+proxy-groups:
+  - name: 'PROXY'
+    type: 'select'
+    proxies: ['Fastest', 'a', 'b']
+  - name: 'Fastest'
+    type: 'url-test'
+    proxies: ['a', 'b']
+  - {name: 'Backup', type: 'fallback', proxies: ['b', 'a'], url: 'http://127.0.0.1:1/', interval: 300}
+  - {name: 'Spread', type: 'load-balance', proxies: ['a', 'b'], interval: 300}
+`
+
+func TestNoGroupTestsItsServersByItselfAndEveryMemberStays(t *testing.T) {
+	cfg := parseShikooCores(t, panelGroupsYaml)
+
+	members := map[string]string{"PROXY": "Fastest a b", "Fastest": "a b", "Backup": "b a", "Spread": "a b"}
+	for name, want := range members {
+		group := cfg.Proxies[name]
+		if group.Type() != constant.Selector {
+			t.Errorf("group %s is %v, want a select group: only the customer's connect may be the first byte", name, group.Type())
+			continue
+		}
+		var got []string
+		for _, member := range group.(*adapter.Proxy).ProxyAdapter.(*outboundgroup.Selector).Proxies() {
+			got = append(got, member.Name())
+		}
+		if strings.Join(got, " ") != want {
+			t.Errorf("group %s holds %v, want %q", name, got, want)
+		}
+	}
+}
+
+func TestAppliedGroupsSendNothingToAnyServerBeforeConnect(t *testing.T) {
+	kinds := []string{"url-test", "fallback", "load-balance", "select"}
+	hits := make([]atomic.Int32, len(kinds))
+	var proxies, groups strings.Builder
+	proxies.WriteString("proxies:")
+	groups.WriteString("proxy-groups:")
+	for i, kind := range kinds {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = listener.Close() })
+		go func(i int) {
+			for {
+				conn, err := listener.Accept()
+				if err != nil {
+					return
+				}
+				hits[i].Add(1)
+				_ = conn.Close()
+			}
+		}(i)
+		fmt.Fprintf(&proxies, "\n  - {name: s%d, type: http, server: 127.0.0.1, port: %d}", i, listener.Addr().(*net.TCPAddr).Port)
+		fmt.Fprintf(&groups, "\n  - {name: g%d, type: %s, proxies: [s%d], url: \"http://127.0.0.1:1/\", interval: 1}", i, kind, i)
+	}
+	appliedHome(t, proxies.String()+"\n"+groups.String()+"\n")
+
+	time.Sleep(2500 * time.Millisecond)
+
+	for i, kind := range kinds {
+		if got := hits[i].Load(); got != 0 {
+			t.Errorf("a %s group sent %d connections to its server with nothing connected", kind, got)
+		}
 	}
 }
 

@@ -18,7 +18,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart'
-    show coreName, flclashVersion, mihomoVersion;
+    show coreName, flclashVersion, mihomoVersion, shikooVersionProvider;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -348,6 +348,7 @@ Future<_Harness> _harness({
       shikooDeviceProvider.overrideWithValue(
         () async => (name: 'Test', kind: 'phone'),
       ),
+      shikooVersionProvider.overrideWithValue('1.0.57'),
       ...overrides,
     ],
   );

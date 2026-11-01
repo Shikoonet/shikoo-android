@@ -973,6 +973,47 @@ class ShikooL10nEn extends ShikooL10n {
       'This account doesn\'t work on Windows yet; connect it on your phone or TV.';
 
   @override
+  String outsourcedBought(String date) {
+    return 'Bought $date';
+  }
+
+  @override
+  String outsourcedBoughtPlan(String date, String plan) {
+    return 'Bought $date · $plan';
+  }
+
+  @override
+  String get planMonths1 => '1 month';
+
+  @override
+  String get planMonths2 => '2 months';
+
+  @override
+  String get planMonths3 => '3 months';
+
+  @override
+  String get planMonths6 => '6 months';
+
+  @override
+  String get planYear => '1 year';
+
+  @override
+  String planDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$daysString days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get summaryExpiredNoDate => 'Expired. Renew to use it again.';
 
   @override
@@ -2027,4 +2068,73 @@ class ShikooL10nEn extends ShikooL10n {
   @override
   String get updateFailedWarp =>
       'No answer directly or via WARP. Connect with these servers, then try through the server; if it still fails, ask Support.';
+
+  @override
+  String get alerts => 'Connection alerts';
+
+  @override
+  String get alertsHelp =>
+      'A notification when the connection has no internet or stops on its own';
+
+  @override
+  String get alertNoTrafficTitle => 'Connected, but no internet';
+
+  @override
+  String alertNoTrafficBody(String server) {
+    return 'Nothing opened through “$server”. Pick another server.';
+  }
+
+  @override
+  String get alertPickAnother => 'Pick another server';
+
+  @override
+  String get alertDontShow => 'Don’t show again';
+
+  @override
+  String alertDroppedTitle(String app) {
+    return '$app disconnected';
+  }
+
+  @override
+  String alertDroppedBody(String app) {
+    return 'The connection stopped on its own. Your internet is direct now, not through $app.';
+  }
+
+  @override
+  String alertRevokedBody(String app) {
+    return 'Another app took over the connection, so $app stopped.';
+  }
+
+  @override
+  String get alertReconnect => 'Connect again';
+
+  @override
+  String get alertExpiredTitle => 'Your service has expired';
+
+  @override
+  String get alertExhaustedTitle => 'Your service is out of data';
+
+  @override
+  String alertEndedBody(String service) {
+    return '“$service” has ended. Renew to use it again.';
+  }
+
+  @override
+  String get alertRefusedTitle => 'Your account was refused';
+
+  @override
+  String alertRefusedBody(String server) {
+    return '“$server” didn’t accept your username and password. Message support.';
+  }
+
+  @override
+  String get alertRemovedTitle => 'Your server was removed';
+
+  @override
+  String alertRemovedBody(String server) {
+    return '“$server” is no longer in your subscription, so you were disconnected. Pick another one.';
+  }
+
+  @override
+  String get alertPickServer => 'Pick a server';
 }

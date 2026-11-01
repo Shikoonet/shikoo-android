@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"cmp"
-	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/binary"
@@ -11,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -63,6 +61,7 @@ type PrepareOwnerParams struct {
 	Core       string `json:"core"`
 	Server     string `json:"server"`
 	IranDirect bool   `json:"iran-direct"`
+	Held       bool   `json:"held"`
 }
 
 type ownerPlan struct {
@@ -126,9 +125,10 @@ func handlePrepareOwner(params *PrepareOwnerParams) (any, error) {
 		return nil, fmt.Errorf("server %q is not in the config", params.Server)
 	}
 	if params.Core == "openvpn" {
-		return ovpnPrepare(mapping, params.IranDirect)
+		return ovpnPrepare(mapping, params.IranDirect, params.Held)
 	}
-	plan, prepared, err := wgPlan(mapping, iranRanges(params.IranDirect), int(sdkVersion.Load()), lookupEndpoint)
+	resolve := func(host string) (netip.Addr, error) { return resolveEndpoint(host, params.Held) }
+	plan, prepared, err := wgPlan(mapping, iranRanges(params.IranDirect), int(sdkVersion.Load()), resolve)
 	if err != nil {
 		return nil, err
 	}
@@ -403,28 +403,6 @@ func wgKey(value string) (string, error) {
 		return "", fmt.Errorf("%d bytes, not 32", len(key))
 	}
 	return hex.EncodeToString(key), nil
-}
-
-// Before the VPN is up, and the app stays out of it: the device's own DNS, as the official app resolves it.
-func lookupEndpoint(host string) (netip.Addr, error) {
-	if ip, err := netip.ParseAddr(host); err == nil {
-		return ip.Unmap(), nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil {
-		return netip.Addr{}, err
-	}
-	for _, ip := range ips {
-		if ip.Unmap().Is4() {
-			return ip.Unmap(), nil
-		}
-	}
-	if len(ips) == 0 {
-		return netip.Addr{}, errors.New("no address")
-	}
-	return ips[0], nil
 }
 
 // readIPSet reads an ipcidr rule set in mihomo's MRS form (rules/provider/mrs_reader.go).

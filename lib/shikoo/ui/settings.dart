@@ -145,6 +145,23 @@ class ShikooSettings extends ConsumerWidget {
               onChanged: (on) =>
                   unawaited(ref.read(shikooControllerProvider).setBridge(on)),
             ),
+            if (!shikooDesktop)
+              SwitchRow(
+                label: l.alerts,
+                help: l.alertsHelp,
+                on:
+                    ref.watch(shikooAlertNoTrafficProvider) &&
+                    ref.watch(shikooAlertDroppedProvider),
+                inCard: true,
+                onChanged: (on) {
+                  unawaited(
+                    ref.read(shikooAlertNoTrafficProvider.notifier).set(on),
+                  );
+                  unawaited(
+                    ref.read(shikooAlertDroppedProvider.notifier).set(on),
+                  );
+                },
+              ),
           ],
         ),
       ),

@@ -48,6 +48,7 @@ func shikooCoresParse(raw *config.RawConfig) (*config.Config, error) {
 	shikooCoresRewrite(raw)
 	// After the rewrite: a server a core took is its loopback SOCKS by now, so only what mihomo carries is checked.
 	leaveOutBadServers(raw)
+	leaveTheServerToTheCustomer(raw)
 	cfg, err := config.ParseRawConfig(raw)
 	if err != nil {
 		for _, stop := range shikooCoresStarting {
@@ -58,6 +59,23 @@ func shikooCoresParse(raw *config.RawConfig) (*config.Config, error) {
 	}
 	shikooOwnerGates(raw, cfg)
 	return cfg, nil
+}
+
+// leaveTheServerToTheCustomer turns every group that tests its servers by itself into a select one, members kept.
+// mihomo URL-tests a url-test group the moment its config loads, VPN off, and the panel starts an on_hold service's
+// 30-day clock on the first byte through any of its servers: only the customer's connect may be that byte.
+// shortcut: provider health-checks and http provider downloads (MATCH,PROXY sends them through a server) stay on; no sub has one.
+func leaveTheServerToTheCustomer(raw *config.RawConfig) {
+	for _, group := range raw.ProxyGroup {
+		switch group["type"] {
+		case "url-test", "fallback", "load-balance":
+			group["type"] = "select"
+		}
+		if group["type"] == "select" {
+			// Only an interval of 0 keeps a select group from testing itself (adapter/outboundgroup/parser.go).
+			delete(group, "interval")
+		}
+	}
 }
 
 func shikooCoresRewrite(raw *config.RawConfig) {

@@ -496,7 +496,10 @@ void main() {
     final controller = _Controller();
     late final ValueNotifier<ShikooState> holder;
     when(
-      () => controller.openService(any()),
+      () => controller.openService(
+        any(),
+        explicitPing: any(named: 'explicitPing'),
+      ),
     ).thenAnswer((_) => holder.value = _cards(open: 7));
     holder = await _pump(
       tester,
@@ -512,7 +515,7 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('پینگ سرورها'));
     await tester.pumpAndSettle();
-    verify(() => controller.openService(7)).called(1);
+    verify(() => controller.openService(7, explicitPing: true)).called(1);
     holder.value = _cards(
       open: 7,
       opened: 7,
@@ -2723,6 +2726,8 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.ensureVisible(find.text('حذف').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('حذف').first);
     await tester.pumpAndSettle();
     expect(find.textContaining('اتصال قطع می‌شود و این سرویس'), findsOneWidget);
@@ -2730,6 +2735,8 @@ void main() {
     await tester.pumpAndSettle();
     verifyNever(() => controller.removeService(any()));
 
+    await tester.ensureVisible(find.text('حذف').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('حذف').last);
     await tester.pumpAndSettle();
     expect(find.textContaining('این سرویس از این گوشی پاک'), findsOneWidget);

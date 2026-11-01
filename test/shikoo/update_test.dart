@@ -35,7 +35,7 @@ class _Controller implements ShikooController {
   void Function() onDisconnect;
 
   @override
-  Future<void> disconnect() async {
+  Future<void> disconnect({bool dropped = false}) async {
     events.add('disconnect');
     onDisconnect();
   }

@@ -144,10 +144,12 @@ class VpnService : SystemVpnService(), ManagedService {
     // An owner engine that does not start leaves its server to mihomo (Sam, 2026-10-23); OpenVPN fails (2026-10-30).
     private fun handleStart(options: VpnOptions) {
         if (options.ownsTunnel) Core.setOwnerProtector(::protect)
-        if (!heldTun.take() && options.ownsTunnel) holdBlocked(options)
+        val held = heldTun.take()
+        if (!held && options.ownsTunnel) holdBlocked(options)
         val plan = if (options.ownsTunnel) {
             runCatching {
-                Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect)
+                // A VPN a switch holds answers no DNS: Go reuses the last start's address for the server's name.
+                Core.prepareOwner(options.core.orEmpty(), options.server.orEmpty(), options.iranDirect, held)
             }.getOrElse { error ->
                 if (options.core == OPENVPN_CORE) error("OpenVPN has no plan: $error")
                 GlobalState.log("Owner core has no plan, mihomo carries the server: $error")

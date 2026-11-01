@@ -36,6 +36,7 @@ import 'package:riverpod/misc.dart' show Override;
 import 'package:riverpod/riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/redirecting_client.dart';
 import '../helpers/test_profiles.dart';
 
 class _Core extends Mock implements CoreHandlerInterface {}
@@ -92,6 +93,10 @@ class _Setup extends SetupAction {
 
   /// Holds the traffic check open until completed.
   Completer<void>? trafficGate;
+
+  /// With [holdAsks], each traffic ask waits in [asks] for the test to answer it.
+  bool holdAsks = false;
+  final asks = <Completer<bool>>[];
 
   /// What an applied profile changes, such as the core's server list.
   void Function()? onApply;
@@ -193,6 +198,11 @@ _home([List<Override> more = const []]) {
       nativeRunTimeProvider.overrideWithValue(() async => setup.tunnel),
       trafficPassesProvider.overrideWithValue(() async {
         setup.trafficAsked++;
+        if (setup.holdAsks) {
+          final answer = Completer<bool>();
+          setup.asks.add(answer);
+          return answer.future;
+        }
         await setup.trafficGate?.future;
         return setup.traffic;
       }),
@@ -255,6 +265,24 @@ final _gone = <String>{};
 /// The next request to a path waits until completed; the gate is gone once a request took it.
 final _held = <String, Completer<void>>{};
 
+/// The app header each path of the panel was asked with.
+final _panelSaw = <String, String?>{};
+
+/// The door's https address answers from the test's own panel server.
+class _DoorAtPanel extends HttpOverrides {
+  _DoorAtPanel(this.port);
+
+  final int port;
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) => RedirectingClient(
+    super.createHttpClient(context),
+    (url) => url.host == Uri.parse(shikooApiBases.first).host
+        ? url.replace(scheme: 'http', host: '127.0.0.1', port: port)
+        : url,
+  );
+}
+
 Future<void> _taken(String path) async {
   while (_held.containsKey(path)) {
     await Future<void>.delayed(const Duration(milliseconds: 5));
@@ -271,6 +299,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   _mostInFlight = 0;
   _gone.clear();
   _held.clear();
+  _panelSaw.clear();
   _panelClock = null;
   _panelInfo = _unused;
   when(() => core.validateConfig(any())).thenAnswer((_) async => '');
@@ -289,6 +318,7 @@ Future<String> _panel(ProviderContainer container, _Core core) async {
   addTearDown(() => server.close(force: true));
   server.listen((call) async {
     final held = _held.remove(call.uri.path)?.future;
+    _panelSaw[call.uri.path] = call.headers.value(shikooAppHeader);
     _mostInFlight = math.max(_mostInFlight, ++_inFlight);
     await Future<void>.delayed(const Duration(milliseconds: 20));
     await held;
@@ -644,7 +674,11 @@ void main() {
           expect(setup.runs, [true, false], reason: reason);
           expect(proxies.picked, [gone], reason: reason);
           expect(state.connection, ShikooConnection.off, reason: reason);
-          expect(state.notice, isA<SelectedGone>(), reason: reason);
+          expect(
+            state.notice,
+            isA<SelectedGone>().having((n) => n.server, 'server', gone),
+            reason: reason,
+          );
 
           final clear = !up
               ? 'connect'
@@ -2593,6 +2627,56 @@ void main() {
     expect(held, hasLength(1));
   });
 
+  test('a shelf account carries its sale and plan to its service, and no '
+      'other service does', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final id = container.read(currentProfileIdProvider);
+    void account({required bool shelf}) => container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 42,
+                title: 'user1001',
+                status: 'active',
+                profileId: id,
+                outsourced: shelf,
+                purchasedAt: DateTime.utc(2026, 9, 30, 8),
+                durationDays: 30,
+              ),
+            ],
+          ),
+        );
+
+    account(shelf: true);
+    var service = container.read(shikooStateProvider).service!;
+    expect(
+      (service.purchasedAt, service.durationDays),
+      (DateTime.utc(2026, 9, 30, 8), 30),
+    );
+    account(shelf: false);
+    service = container.read(shikooStateProvider).service!;
+    expect((service.purchasedAt, service.durationDays), (null, null));
+  });
+
+  test('a link at the door is fetched with the app version, a panel link '
+      'without', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final controller = container.read(shikooControllerProvider);
+
+    await HttpOverrides.runWithHttpOverrides(() async {
+      await controller.addService('${shikooApiBases.first}/file/user111/a');
+      await controller.addService('$panel/file/user222/a');
+    }, _DoorAtPanel(Uri.parse(panel).port));
+
+    expect(_panelSaw, {
+      '/file/user111/a': globalState.packageInfo.version,
+      '/file/user222/a': null,
+    });
+  });
+
   test(
     'a paste marks its profile pasted; one the account adds is not',
     () async {
@@ -3939,6 +4023,174 @@ void main() {
     await pumpEventQueue();
     expect(probes, unorderedEquals(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']));
     expect(container.read(shikooStateProvider).sorted, isTrue);
+  });
+
+  test("an on_hold service is pinged by nothing of the app's own: not when its "
+      'card opens, nor after an update that took its selected server; the ping '
+      'button pings it (Sam, 2026-11-01)', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final first = container.read(profilesProvider).single;
+    container
+        .read(profilesProvider.notifier)
+        .put(first.copyWith(url: '$panel/none/a'));
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 7,
+                title: 'user111',
+                status: 'on_hold',
+                profileId: first.id,
+              ),
+            ],
+          ),
+        );
+    Group group(List<String> names) => Group(
+      type: GroupType.Selector,
+      name: 'PROXY',
+      hidden: false,
+      all: [
+        const Proxy(name: _version, type: 'Vless'),
+        for (final name in names) Proxy(name: name, type: 'Vless'),
+      ],
+    );
+    container.read(groupsProvider.notifier).value = [
+      group(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']),
+    ];
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.selectServer('آلمان ۱');
+
+    controller.openService(null);
+    controller.openService(first.id);
+    await pumpEventQueue();
+    expect(probes, isEmpty, reason: 'its card opened');
+
+    setup.onApply = () => container.read(groupsProvider.notifier).value = [
+      group(['هلند ۱', 'ترکیه ۱']),
+    ];
+    await controller.refreshService();
+    await pumpEventQueue();
+    final state = container.read(shikooStateProvider);
+    expect(probes, isEmpty, reason: 'its selected server left in an update');
+    expect(state.notice, isA<ServersChanged>());
+
+    await controller.pingAll();
+    expect(probes.toSet(), {'هلند ۱', 'ترکیه ۱'}, reason: 'the button');
+  });
+
+  test('only the on_hold service is left unpinged: an active service of the '
+      'same account still pings on its card, the on_hold one does not '
+      '(Sam, 2026-11-01)', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final first = container.read(profilesProvider).single;
+    final second = Profile.normal(url: '$panel/none/b');
+    container.read(profilesProvider.notifier)
+      ..put(first.copyWith(url: '$panel/none/a'))
+      ..put(second);
+    LinkedService linked(int id, String status, int profile) => LinkedService(
+      id: id,
+      title: 'user$id',
+      status: status,
+      profileId: profile,
+    );
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              linked(7, 'active', first.id),
+              linked(8, 'on_hold', second.id),
+            ],
+          ),
+        );
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await pumpEventQueue();
+
+    controller.openService(first.id);
+    await pumpEventQueue();
+    expect(probes, isNotEmpty, reason: 'the active service pings on open');
+
+    probes.clear();
+    controller.selectService(second.id);
+    await pumpEventQueue();
+    controller.openService(null);
+    controller.openService(second.id);
+    await pumpEventQueue();
+    expect(probes, isEmpty, reason: 'the on_hold service does not');
+  });
+
+  test('an update that takes the selected server of an on_hold service '
+      'already on the tunnel stops it and says so, as for any other '
+      '(Sam, 2026-11-01)', () async {
+    final (:container, :core, :proxies, :setup) = _home();
+    final panel = await _panel(container, core);
+    final first = container.read(profilesProvider).single;
+    container
+        .read(profilesProvider.notifier)
+        .put(first.copyWith(url: '$panel/none/a'));
+    container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 7,
+                title: 'user111',
+                status: 'on_hold',
+                profileId: first.id,
+              ),
+            ],
+          ),
+        );
+    Group group(List<String> names) => Group(
+      type: GroupType.Selector,
+      name: 'PROXY',
+      hidden: false,
+      all: [
+        const Proxy(name: _version, type: 'Vless'),
+        for (final name in names) Proxy(name: name, type: 'Vless'),
+      ],
+    );
+    container.read(groupsProvider.notifier).value = [
+      group(['آلمان ۱', 'هلند ۱', 'ترکیه ۱']),
+    ];
+    final probes = <String>[];
+    when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+      final name = call.positionalArguments[1] as String;
+      probes.add(name);
+      return Delay(name: name, url: '', value: 50);
+    });
+    final controller = container.read(shikooControllerProvider);
+    await controller.selectServer('آلمان ۱');
+    container.read(runTimeProvider.notifier).value = 1;
+    setup.tunnel = DateTime(2026);
+    await pumpEventQueue();
+    probes.clear();
+
+    setup.onApply = () => container.read(groupsProvider.notifier).value = [
+      group(['هلند ۱', 'ترکیه ۱']),
+    ];
+    await controller.refreshService();
+    await pumpEventQueue();
+    expect(setup.runs, [false], reason: 'the tunnel stops');
+    expect(probes, isEmpty);
+    expect(container.read(shikooStateProvider).notice, isA<SelectedGone>());
   });
 
   test('an update that takes the selected server away pings that service once '
@@ -6043,6 +6295,68 @@ void main() {
       expect(t.fromFile, isEmpty, reason: 'the core holds it');
     });
 
+    void hold(ProviderContainer container, int id) => container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: id + 1000,
+                title: 'user$id',
+                status: 'on_hold',
+                profileId: id,
+              ),
+            ],
+          ),
+        );
+
+    test('an on_hold service opened while connected lists its servers and '
+        'sends none of its own pings; the ping button does (Sam, '
+        '2026-11-01)', () async {
+      final t = await twoServices();
+      hold(t.container, t.second);
+      t.controller.openService(t.second);
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      expect(state.open, t.second);
+      expect(
+        state.opened!.servers.map((s) => s.name),
+        unorderedEquals(secondNames),
+      );
+      expect(state.opened!.pinging, isNull);
+      expect(t.fromFile, isEmpty);
+
+      t.controller.openService(t.second, explicitPing: true);
+      await pumpEventQueue();
+      expect(t.fromFile, isNotEmpty);
+    });
+
+    test(
+      'an on_hold service opened while off becomes the one connect uses, '
+      'and nothing pings it until the button does (Sam, 2026-11-01)',
+      () async {
+        final t = await twoServices(connected: false);
+        hold(t.container, t.second);
+        clearInteractions(t.core);
+        t.controller.openService(t.second);
+        await pumpEventQueue();
+        t.container.read(groupsProvider.notifier).value = [group(secondNames)];
+        await pumpEventQueue();
+        var state = t.container.read(shikooStateProvider);
+        expect(state.service!.id, t.second);
+        expect(pingsOf(state.servers).map((p) => p.$2), everyElement(isNull));
+        verifyNever(() => t.core.asyncTestDelay(any(), any()));
+        expect(t.fromFile, isEmpty);
+
+        await t.controller.pingAll();
+        state = t.container.read(shikooStateProvider);
+        expect(
+          pingsOf(state.servers).map((p) => p.$2),
+          everyElement(isNotNull),
+        );
+      },
+    );
+
     /// A pasted service's file holds «سوئد ۱»; its id is known only once it is saved.
     Future<String> pasteable(
       ProviderContainer container,
@@ -7005,5 +7319,430 @@ void main() {
     await pumpEventQueue();
     final state = container.read(shikooStateProvider);
     expect((setup.trafficAsked, state.connectedNoTraffic), (0, false));
+  });
+
+  group('the no-internet warning', () {
+    final probed = <String>[];
+    var delay = 50;
+
+    Future<void> within(bool Function() done) async {
+      for (var i = 0; i < 300 && !done(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(done(), isTrue, reason: 'it came within three seconds');
+    }
+
+    Future<Completer<bool>> ask(_Setup setup, int n) async {
+      await within(() => setup.asks.length > n);
+      return setup.asks[n];
+    }
+
+    ShikooState stateOf(ProviderContainer container) =>
+        container.read(shikooStateProvider);
+
+    /// Connected on 'هلند ۱' with the first tick after [every] and no wait over [max]; [held] hands each
+    /// traffic ask to the test in `setup.asks`, [passing] lets traffic through from the start.
+    Future<
+      ({ProviderContainer container, ShikooController controller, _Setup setup})
+    >
+    warned({
+      bool desktop = false,
+      bool held = false,
+      bool streaming = false,
+      bool passing = false,
+      Duration every = const Duration(milliseconds: 20),
+      Duration max = const Duration(milliseconds: 80),
+    }) async {
+      final (was, wasMax, wasSettle) = (
+        internetRecheckEvery,
+        internetRecheckMax,
+        internetSettle,
+      );
+      internetRecheckEvery = every;
+      internetRecheckMax = max;
+      internetSettle = const Duration(milliseconds: 30);
+      addTearDown(() {
+        internetRecheckEvery = was;
+        internetRecheckMax = wasMax;
+        internetSettle = wasSettle;
+      });
+      probed.clear();
+      if (streaming) _memoryDatabase();
+      final (:container, :core, :proxies, :setup) = _home([
+        if (desktop) ...[
+          shikooDesktopProvider.overrideWithValue(true),
+          localPortFreeProvider.overrideWithValue((_) async => true),
+          tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.ready),
+          coreActionProvider.overrideWith(() => _Restart([])),
+        ],
+      ]);
+      if (streaming) _withStreaming(container);
+      setup.holdAsks = held;
+      setup.traffic = passing;
+      when(() => core.asyncTestDelay(any(), any())).thenAnswer((call) async {
+        final name = call.positionalArguments[1] as String;
+        probed.add(name);
+        return Delay(name: name, url: '', value: delay);
+      });
+      final controller = container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      await controller.selectServer('هلند ۱');
+      setup.tunnel = DateTime(2026);
+      await controller.connect();
+      await pumpEventQueue();
+      return (container: container, controller: controller, setup: setup);
+    }
+
+    /// The first traffic ask the test has not answered yet, once it has come.
+    Future<Completer<bool>> open(_Setup setup) async {
+      late Completer<bool> found;
+      await within(() {
+        final waiting = setup.asks.where((ask) => !ask.isCompleted);
+        if (waiting.isEmpty) return false;
+        found = waiting.first;
+        return true;
+      });
+      return found;
+    }
+
+    /// Answers every ask "no traffic" until [done], and none after it.
+    Future<void> failUntil(_Setup setup, bool Function() done) => within(() {
+      if (done()) return true;
+      for (final ask in setup.asks) {
+        if (!ask.isCompleted) ask.complete(false);
+      }
+      return done();
+    });
+
+    /// Holds [ticks] ticks open one by one, reading the wait before each, and answers each "no traffic".
+    Future<List<Duration>> waits(
+      _Setup setup,
+      ShikooController controller,
+      int ticks,
+    ) async {
+      final seen = <Duration>[];
+      for (var i = 0; i < ticks; i++) {
+        final tick = await open(setup);
+        seen.add(controller.internetGap);
+        tick.complete(false);
+      }
+      return seen;
+    }
+
+    const ms = Duration(milliseconds: 1);
+
+    test(
+      'each tick that leaves the warning doubles the wait, up to a cap',
+      () async {
+        delay = 50;
+        final (:container, :controller, :setup) = await warned(held: true);
+        await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+
+        expect(await waits(setup, controller, 5), [
+          ms * 20,
+          ms * 40,
+          ms * 80,
+          ms * 80,
+          ms * 80,
+        ]);
+      },
+    );
+
+    test('a new pick starts the wait over', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      expect(await waits(setup, controller, 4), [
+        ms * 20,
+        ms * 40,
+        ms * 80,
+        ms * 80,
+      ]);
+
+      await controller.selectServer('آلمان ۱');
+      await pumpEventQueue();
+      await failUntil(
+        setup,
+        () =>
+            stateOf(container).selected == 'آلمان ۱' &&
+            stateOf(container).connectedNoTraffic,
+      );
+      expect(await waits(setup, controller, 2), [ms * 20, ms * 40]);
+    });
+
+    test('a reconnect starts the wait over', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      expect(await waits(setup, controller, 4), [
+        ms * 20,
+        ms * 40,
+        ms * 80,
+        ms * 80,
+      ]);
+
+      await controller.disconnect();
+      await controller.connect();
+      await pumpEventQueue();
+      await failUntil(
+        setup,
+        () =>
+            stateOf(container).connection == ShikooConnection.on &&
+            stateOf(container).connectedNoTraffic,
+      );
+      expect(await waits(setup, controller, 2), [ms * 20, ms * 40]);
+    });
+
+    test('a network change asks once after a short wait though the next tick '
+        'is an hour away, and the answer lifts the warning', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(
+        held: true,
+        every: const Duration(hours: 1),
+      );
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(setup.asks, hasLength(2), reason: 'no tick for an hour');
+
+      controller.onNetworkChange();
+      (await open(setup)).complete(true);
+      await within(() => !stateOf(container).noInternet);
+      expect(stateOf(container).connectedNoTraffic, isFalse);
+    });
+
+    test('a network change after the wait has grown starts it over', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(
+        held: true,
+        max: const Duration(seconds: 1),
+      );
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      expect(await waits(setup, controller, 4), [
+        ms * 20,
+        ms * 40,
+        ms * 80,
+        ms * 160,
+      ]);
+
+      controller.onNetworkChange();
+      final settled = await open(setup);
+      expect(controller.internetGap, ms * 20);
+      settled.complete(false);
+      expect(await waits(setup, controller, 1), [ms * 40]);
+    });
+
+    test('a network change while an ask is open adds no second one beside '
+        'it', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      await failUntil(setup, () => stateOf(container).connectedNoTraffic);
+      final inFlight = await open(setup);
+
+      controller.onNetworkChange();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(setup.asks, hasLength(3));
+      inFlight.complete(false);
+    });
+
+    test('a network change asks nothing when no warning shows', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(passing: true);
+      expect(stateOf(container).noInternet, isFalse);
+      final asked = setup.trafficAsked;
+
+      controller.onNetworkChange();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(setup.trafficAsked, asked);
+
+      await controller.disconnect();
+      controller.onNetworkChange();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(setup.trafficAsked, asked);
+    });
+
+    test('the app shell hands every connectivity change to the controller', () {
+      final shell = File('lib/shikoo/app/app.dart').readAsStringSync();
+      final handler = shell
+          .split('_onConnectivityChanged(List<ConnectivityResult> results)')
+          .last
+          .split('\n  }\n')
+          .first;
+      expect(
+        handler,
+        contains('ref.read(shikooControllerProvider).onNetworkChange()'),
+      );
+    });
+
+    for (final desktop in [false, true]) {
+      test(
+        '${desktop ? 'on Windows' : 'on a phone'} it stays while the traffic '
+        'still fails, and goes by itself once the traffic passes, '
+        'with no reconnect',
+        () async {
+          delay = 50;
+          final (:container, :controller, :setup) = await warned(
+            desktop: desktop,
+          );
+          expect(stateOf(container).noInternet, isTrue);
+          final asked = setup.trafficAsked;
+          await within(() => setup.trafficAsked >= asked + 3);
+          expect(stateOf(container).noInternet, isTrue);
+
+          setup.traffic = true;
+          await within(() => !stateOf(container).noInternet);
+          final state = stateOf(container);
+          expect(
+            (state.connectedNoTraffic, state.selected, state.connection),
+            (false, 'هلند ۱', ShikooConnection.on),
+          );
+          expect(setup.runs, [true]);
+        },
+      );
+    }
+
+    test('a silent ping goes with it: the selected server is pinged again, '
+        'the rest of the list never', () async {
+      delay = -1;
+      final (:container, :controller, :setup) = await warned();
+      var state = stateOf(container);
+      expect(
+        (state.selectedServer?.ping, state.connectedNoTraffic),
+        (-1, true),
+      );
+      probed.clear();
+      final order = [for (final server in state.servers) server.name];
+
+      delay = 40;
+      setup.traffic = true;
+      await within(() => !stateOf(container).noInternet);
+      state = stateOf(container);
+      expect(state.selectedServer?.ping, 40);
+      expect(probed.toSet(), {'هلند ۱'});
+      expect([for (final server in state.servers) server.name], order);
+    });
+
+    test('a server whose pings stay silent while it carries traffic loses '
+        'its warning and shows no number', () async {
+      delay = -1;
+      final (:container, :controller, :setup) = await warned();
+      expect(stateOf(container).selectedServer?.ping, -1);
+
+      setup.traffic = true;
+      await within(() => !stateOf(container).noInternet);
+      expect(stateOf(container).selectedServer?.ping, isNull);
+    });
+
+    test('an ask that outlives a change of server does not decide for the '
+        'new one', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(held: true);
+      (await ask(setup, 0)).complete(false);
+      (await ask(setup, 1)).complete(false);
+      await within(() => stateOf(container).connectedNoTraffic);
+      final stale = await ask(setup, 2);
+
+      await controller.selectServer('آلمان ۱');
+      (await ask(setup, 3)).complete(false);
+      (await ask(setup, 4)).complete(false);
+      await within(
+        () =>
+            stateOf(container).selected == 'آلمان ۱' &&
+            stateOf(container).connectedNoTraffic,
+      );
+
+      stale.complete(true);
+      await pumpEventQueue();
+      expect(stateOf(container).connectedNoTraffic, isTrue);
+      expect(stateOf(container).noInternet, isTrue);
+    });
+
+    test(
+      'it asks one at a time, and not at all after the disconnect',
+      () async {
+        delay = 50;
+        final (:container, :controller, :setup) = await warned(held: true);
+        (await ask(setup, 0)).complete(false);
+        (await ask(setup, 1)).complete(false);
+        await within(() => stateOf(container).noInternet);
+        await ask(setup, 2);
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        expect(
+          setup.asks,
+          hasLength(3),
+          reason: 'the open ask has no second beside it',
+        );
+
+        setup.asks[2].complete(false);
+        await ask(setup, 3);
+        await controller.disconnect();
+        setup.asks[3].complete(true);
+        await pumpEventQueue();
+        final asked = setup.asks.length;
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(setup.asks, hasLength(asked));
+        expect(stateOf(container).connection, ShikooConnection.off);
+      },
+    );
+
+    test('a failed ask leaves the flag down when only the ping raised the '
+        'warning', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned(passing: true);
+      expect(stateOf(container).noInternet, isFalse);
+
+      delay = -1;
+      setup
+        ..traffic = false
+        ..holdAsks = true;
+      var pinged = false;
+      unawaited(controller.pingAll().whenComplete(() => pinged = true));
+      await failUntil(setup, () => pinged);
+      var state = stateOf(container);
+      expect(
+        (
+          state.selectedServer?.ping,
+          state.connectedNoTraffic,
+          state.noInternet,
+        ),
+        (-1, false, true),
+      );
+
+      (await open(setup)).complete(false);
+      await pumpEventQueue();
+      state = stateOf(container);
+      expect((state.connectedNoTraffic, state.noInternet), (false, true));
+    });
+
+    test('a tunnel native does not report is not asked, and the warning '
+        'waits for it', () async {
+      delay = 50;
+      final (:container, :controller, :setup) = await warned();
+      setup.tunnel = null;
+      final asked = setup.trafficAsked;
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(setup.trafficAsked, asked);
+      expect(stateOf(container).noInternet, isTrue);
+
+      setup
+        ..tunnel = DateTime(2026)
+        ..traffic = true;
+      await within(() => !stateOf(container).noInternet);
+    });
+
+    test(
+      'a change to the streaming server ends it: no warning, no ask',
+      () async {
+        delay = 50;
+        final (:container, :controller, :setup) = await warned(streaming: true);
+        expect(stateOf(container).noInternet, isTrue);
+
+        await controller.selectServer(_streaming);
+        await pumpEventQueue();
+        expect(stateOf(container).noInternet, isFalse);
+        final asked = setup.trafficAsked;
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(setup.trafficAsked, asked);
+      },
+    );
   });
 }

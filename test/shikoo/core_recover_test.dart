@@ -13,9 +13,12 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
+import 'package:fl_clash/shikoo/app/alerts.dart';
+import 'package:fl_clash/shikoo/engine/account.dart';
 import 'package:fl_clash/shikoo/engine/clock.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:riverpod/riverpod.dart';
@@ -271,6 +274,33 @@ void main() {
     desk.expectDown();
   });
 
+  test('a core left down is a drop the customer is told of, not a stop of '
+      'theirs', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final posts = <String>[];
+    const channel = MethodChannel('shikoo/alerts');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'post') posts.add((call.arguments as Map)['kind']);
+      return call.method == 'target' ? null : true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final settle = alertSettle;
+    alertSettle = const Duration(milliseconds: 20);
+    addTearDown(() => alertSettle = settle);
+    final desk = _Desk();
+    await desk.connect();
+    desk.controller.foreground = false;
+    desk.container.read(shikooAlertsProvider);
+    for (var death = 1; death <= coreRevives + 1; death++) {
+      await desk.die();
+    }
+    desk.expectDown();
+    await Future<void>.delayed(alertSettle * 4);
+    expect(posts, ['dropped']);
+  });
+
   test('once the window has passed, the deaths before it no longer '
       'count', () async {
     final desk = _Desk();
@@ -508,6 +538,37 @@ void main() {
 
     desk.delay = 50;
     await desk.die();
+    expect(desk.state.servers.single.ping, 50);
+  });
+
+  test('an on_hold service is not measured by a core that comes back while '
+      'off (Sam, 2026-11-01)', () async {
+    final desk = _Desk()
+      ..tunnel = null
+      ..delay = -1;
+    desk.container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: 7,
+                title: 'user111',
+                status: 'on_hold',
+                profileId: desk.container.read(currentProfileIdProvider),
+              ),
+            ],
+          ),
+        );
+    await pumpEventQueue();
+    await desk.controller.pingAll();
+
+    desk.delay = 50;
+    await desk.die();
+    expect(desk.state.servers.single.ping, isNot(50));
+    expect(desk.calls, ['restart']);
+
+    await desk.controller.pingAll();
     expect(desk.state.servers.single.ping, 50);
   });
 

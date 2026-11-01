@@ -87,6 +87,14 @@ String? shikooLink(
 String? _origin(Uri? uri) =>
     uri == null ? null : '${uri.scheme}://${uri.host}:${uri.port}';
 
+Map<String, String> doorHeaders(
+  Uri url,
+  String Function() version, {
+  List<String> doors = shikooApiBases,
+}) => doors.any((door) => _origin(Uri.tryParse(door)) == _origin(url))
+    ? {shikooAppHeader: version()}
+    : const {};
+
 String normalLink(String link) {
   final uri = Uri.tryParse(link);
   if (uri == null) return link;

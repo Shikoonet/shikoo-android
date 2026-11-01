@@ -1627,6 +1627,87 @@ void main() {
       expect(row(null, 'yes').outsourced, isFalse);
     });
 
+    test('the row keeps the sale and the plan a 1.0.58 door sends: missing, '
+        'null, a bad date, or days that are no positive number are null', () {
+      final door = Uri.parse('http://10.0.2.2:7460/api/v1/app/services');
+      (DateTime?, int?) sale(Map<String, Object?> more) {
+        final row = AccountServiceRow.fromJson({
+          'id': 42,
+          'title': 'user1001',
+          'location': null,
+          'status': 'expired',
+          'expires_at': null,
+          'sub_url': null,
+          'outsourced': true,
+          ...more,
+        }, door);
+        return (row.purchasedAt, row.durationDays);
+      }
+
+      final at = DateTime.utc(2026, 9, 30, 8);
+      expect(
+        sale({'purchased_at': '2026-09-30T08:00:00Z', 'duration_days': 30}),
+        (at, 30),
+      );
+      expect(sale({}), (null, null));
+      expect(sale({'purchased_at': '2026-09-30T08:00:00Z'}), (at, null));
+      expect(
+        sale({'purchased_at': '2026-09-30T08:00:00Z', 'duration_days': null}),
+        (at, null),
+      );
+      expect(sale({'purchased_at': 'last month', 'duration_days': 30}), (
+        null,
+        30,
+      ));
+      expect(sale({'purchased_at': 7, 'duration_days': 30}), (null, 30));
+      for (final days in <Object?>['30', 30.5, 0, -30]) {
+        expect(
+          sale({'purchased_at': '2026-09-30T08:00:00Z', 'duration_days': days}),
+          (at, null),
+          reason: '$days',
+        );
+      }
+    });
+
+    test('the sale and the plan come from the door and stay through a '
+        'restart', () async {
+      final h = await _harness();
+      h.api.services = [
+        {
+          ...shelf(42),
+          'purchased_at': '2026-09-30T08:00:00Z',
+          'duration_days': 30,
+        },
+        {...shelf(43), 'purchased_at': '2026-08-01T08:00:00Z'},
+        shelf(44),
+      ];
+      await _signedIn(h);
+      List<(DateTime?, int?)> sales(ProviderContainer c) => [
+        for (final s in c.read(shikooAccountProvider).services)
+          (s.purchasedAt, s.durationDays),
+      ];
+      final expected = [
+        (DateTime.utc(2026, 9, 30, 8), 30),
+        (DateTime.utc(2026, 8, 1, 8), null),
+        (null, null),
+      ];
+      expect(sales(h.container), expected);
+      final restarted = ProviderContainer(
+        overrides: [
+          shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
+          shikooStateProvider.overrideWithValue(_state),
+          shikooControllerProvider.overrideWithValue(h.controller),
+          profilesProvider.overrideWith(
+            () => TestProfiles(h.container.read(profilesProvider)),
+          ),
+          profilesActionProvider.overrideWith(_Profiles.new),
+        ],
+      );
+      addTearDown(restarted.dispose);
+      await restarted.read(shikooSignInProvider).load();
+      expect(sales(restarted), expected);
+    });
+
     test(
       'one comes from the door, never renewed, also after a restart',
       () async {

@@ -14,6 +14,7 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/core.dart';
 import 'package:fl_clash/providers/database.dart';
+import 'package:fl_clash/shikoo/app/alerts.dart';
 import 'package:fl_clash/shikoo/engine/controller.dart';
 import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
@@ -22,6 +23,7 @@ import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -436,8 +438,14 @@ void main() {
       0,
     ], reason: 'the VPN stays, blocking, from the stop to the start');
     expect(home.container.read(shikooStateProvider).selected, 'W');
+    expect(
+      home.controller.offByCustomer,
+      isFalse,
+      reason: 'the switch\'s own stop is not the customer\'s',
+    );
 
     await home.controller.disconnect();
+    expect(home.controller.offByCustomer, isTrue);
     expect(home.setup.runs, [false, true, false]);
     expect(home.setup.holds, [0], reason: "the user's own stop frees it");
   });
@@ -521,6 +529,66 @@ void main() {
         rule.rawValue,
     ], contains('DOMAIN-SUFFIX,xn--mgba3a4fra,DIRECT'));
   });
+
+  test('connected on OpenVPN, the Iranian-sites switch rebuilds the tunnel on '
+      'its official engine alone, whichever way it turns: mihomo is never given '
+      'the server', () async {
+    final before = database;
+    database = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await database.close();
+      database = before;
+    });
+    final home = await _home(
+      ready: {ShikooCore.openvpn},
+      running: const {'A': 'Vless', 'O': 'OpenVPN'},
+      carrying: () => (core: 'openvpn', server: 'O'),
+    );
+    await _connectOn(home, 'O');
+    home.setup.runs.clear();
+
+    for (final on in [false, true]) {
+      await home.controller.setIranDirect(on);
+      expect(home.container.read(shikooOwnerProvider), (
+        core: 'openvpn',
+        server: 'O',
+        iranDirect: on,
+      ));
+      expect(home.container.read(shikooOwnerHeldOffProvider), isFalse);
+    }
+    expect(home.setup.runs, [false, true, false, true]);
+    expect(_server(home, 'O').core, ShikooCore.openvpn);
+    expect(home.container.read(shikooStateProvider).lastError, isNull);
+  });
+
+  for (final core in [ShikooCore.xray, ShikooCore.singBox]) {
+    test('connected on a VLESS server through ${core.name}, the Iranian-sites '
+        'switch applies the config in place: the tunnel stays up and no owner '
+        'core is asked for', () async {
+      final before = database;
+      database = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await database.close();
+        database = before;
+      });
+      final home = await _home(
+        ready: {core},
+        choices: {ShikooProtocol.vless: core},
+        running: const {'A': 'Socks5', 'B': 'Vless', 'W': 'WireGuard'},
+        carrying: () => (core: '', server: ''),
+      );
+      await _connectOn(home, 'A');
+      home.setup.runs.clear();
+      final applies = home.setup.applies;
+
+      await home.controller.setIranDirect(false);
+
+      expect(home.setup.runs, isEmpty);
+      expect(home.setup.applies, greaterThan(applies));
+      expect(home.container.read(shikooOwnerProvider), isNull);
+      expect(home.container.read(shikooOwnerHeldOffProvider), isFalse);
+    });
+  }
 
   test('on Windows neither the Iranian switch nor a new key of the carried '
       'server reconnects: Go rebuilds the engine in place', () async {
@@ -774,6 +842,51 @@ void main() {
       home.container.read(shikooStateProvider).lastError,
       ShikooError.coreDown,
     );
+  });
+
+  test('an engine death the app gives up on is a drop the customer is told '
+      'of: the «dropped» alert posts, not the customer-stop silence', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final posts = <String>[];
+    const channel = MethodChannel('shikoo/alerts');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'post') posts.add((call.arguments as Map)['kind']);
+      return call.method == 'target' ? null : true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final settle = alertSettle;
+    alertSettle = const Duration(milliseconds: 20);
+    addTearDown(() => alertSettle = settle);
+    final every = ownerWatchEvery;
+    ownerWatchEvery = const Duration(milliseconds: 20);
+    addTearDown(() => ownerWatchEvery = every);
+    var deaths = 0;
+    final home = await _home(
+      ready: {ShikooCore.openvpn},
+      running: const {'A': 'Vless', 'O': 'OpenVPN'},
+      carrying: () => deaths > 0 && deaths-- > 0
+          ? (core: '', server: '')
+          : (core: 'openvpn', server: 'O'),
+    );
+    await _connectOn(home, 'O');
+    home.controller.foreground = false;
+    home.container.read(shikooAlertsProvider);
+    home.setup.runs.clear();
+
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    deaths = 1;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(
+      home.container.read(shikooStateProvider).lastError,
+      ShikooError.coreDown,
+    );
+    // The stop the app asked for reaches the service, as it does on a phone.
+    home.container.read(runTimeProvider.notifier).value = null;
+    await Future<void>.delayed(alertSettle * 4);
+    expect(posts, ['dropped']);
   });
 
   test('the hold on mihomo ends with the connection however it ends, and a '

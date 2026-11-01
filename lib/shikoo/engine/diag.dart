@@ -240,6 +240,7 @@ Future<ProbeChecks> runProbes({
   List<String> doors = shikooApiBases,
   Duration limit = probeLimit,
   String? proxy,
+  Map<String, String> appHeaders = const {},
 }) async {
   final dio =
       Dio(BaseOptions(followRedirects: false, validateStatus: (_) => true))
@@ -247,12 +248,20 @@ Future<ProbeChecks> runProbes({
           createHttpClient: () =>
               HttpClient()..findProxy = (_) => proxy ?? 'DIRECT',
         );
-  Future<Probe> one(String url, {String method = 'GET', int? want}) async {
+  Future<Probe> one(
+    String url, {
+    String method = 'GET',
+    int? want,
+    Map<String, String>? headers,
+  }) async {
     final watch = Stopwatch()..start();
     String result;
     try {
       final response = await dio
-          .request<void>(url, options: Options(method: method))
+          .request<void>(
+            url,
+            options: Options(method: method, headers: headers),
+          )
           .timeout(limit);
       final code = response.statusCode;
       final proxyFailed =
@@ -285,7 +294,10 @@ Future<ProbeChecks> runProbes({
     final (home, abroad, door) = await (
       first(domestic, (url) => one(url, method: 'HEAD')),
       one(international, want: HttpStatus.noContent),
-      first(doors, (base) => one('$base/health', want: HttpStatus.ok)),
+      first(
+        doors,
+        (base) => one('$base/health', want: HttpStatus.ok, headers: appHeaders),
+      ),
     ).wait;
     String said(Probe p) => '${p.result.replaceAll('_', ' ')} ${p.ms}ms';
     shikooDiag.add(
@@ -367,8 +379,10 @@ class ShikooProbes extends Notifier<AsyncValue<ProbeChecks>?> {
   }
 }
 
-Future<ProbeChecks> ownerProbes(ProviderReader read) =>
-    runProbes(proxy: ownerAside(read, Uri.parse(internationalProbe)));
+Future<ProbeChecks> ownerProbes(ProviderReader read) => runProbes(
+  proxy: ownerAside(read, Uri.parse(internationalProbe)),
+  appHeaders: {shikooAppHeader: read(shikooVersionProvider)},
+);
 
 final shikooProbeProvider =
     NotifierProvider<ShikooProbes, AsyncValue<ProbeChecks>?>(ShikooProbes.new);

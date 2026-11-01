@@ -37,6 +37,9 @@ const shikooApiBases = [
 
 const shikooTestDoor = _apiOverride != '';
 
+/// The app's version, sent to the door alone: the server answers some calls by what the version can read.
+const shikooAppHeader = 'X-Shikoo-App';
+
 /// Capped once percent-encoded, as the QR carries it: a Persian letter takes six characters.
 String? usableLink(String? url) {
   final uri = Uri.tryParse(url ?? '');
@@ -185,6 +188,17 @@ class ShikooSwitchNotifier extends Notifier<bool> {
 
 final shikooUpdateNoticeProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
   () => ShikooSwitchNotifier('shikoo.updateNotice'),
+);
+
+/// Off after «دیگر نشان نده» on that alert; Settings › Connection turns both back on. `ShikooAlerts.kt` reads the
+/// dropped one too, as `flutter.shikoo.alerts.dropped`.
+final shikooAlertNoTrafficProvider =
+    NotifierProvider<ShikooSwitchNotifier, bool>(
+      () => ShikooSwitchNotifier('shikoo.alerts.noTraffic'),
+    );
+
+final shikooAlertDroppedProvider = NotifierProvider<ShikooSwitchNotifier, bool>(
+  () => ShikooSwitchNotifier('shikoo.alerts.dropped'),
 );
 
 /// Iranian sites bypass the VPN. Turned with `ShikooController.setIranDirect`, which moves the core too.

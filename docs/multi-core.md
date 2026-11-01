@@ -168,6 +168,12 @@ markers; that `VpnOptions` survives the same way is a guess for ه۲ to check.
     password.
   - A core that isn't registered, or that fails, leaves its mappings to mihomo with the marker removed, and logs one
     line. The marker never reaches mihomo's parser.
+  - `leaveTheServerToTheCustomer` (called from `shikooCoresParse`, so for every config mihomo loads, `loadConfig` and
+    the rebuild after the tunnel alike): every group of type `url-test`, `fallback` or `load-balance` becomes `select`
+    with its members, and a group's `interval` goes. mihomo URL-tests such a group's servers the moment the config loads
+    (`adapter/provider/healthcheck.go:44-46`), VPN off, and the panel starts an on_hold service's 30 days at the first
+    byte through any of its servers (emulator run 2026-11-01: 6 connections on open with a `Fastest` url-test group, 0
+    without). The server never changes by itself either (Sam, 2026-10-30). A proxy-provider's own health check stays on.
 - `core/common.go` (already patched, row 24): `loadConfig` (`:368-374`) becomes `UnmarshalRawConfig`, then
   `shikooCoresParse(raw)`, which rewrites and then calls `ParseRawConfig`, what `executor.ParseWithBytes` does through
   `config.Parse` (`config/config.go:474-481`); a config that fails to parse stops the cores it started. After
@@ -357,6 +363,18 @@ door would refuse the report), and pinging unopened services through another cor
   REALITY's ClientHello offered `X25519MLKEM768` in its key share, so ML-KEM stays on. **Not tested:** the panel's
   real servers, WireGuard, the 32-bit box, and Windows.
 - The Windows toolchain change was not run: no Windows build with Go 1.27 yet.
+- An owner core's server name is resolved by Go while the VPN is blocked (a start) or held (a switch). A held VPN keeps
+  its own DNS servers behind a tun nothing reads, so Android's resolver timed out and the start fell back to mihomo
+  (found 2026-10-31 with a server name; an IP never needed DNS). A fresh start still asks the device's resolver first,
+  so Private DNS is honoured as before. A rebuild under a held VPN (`VpnService` tells Go with `held`) reuses the
+  address the last start resolved for the same host, and for a new host asks the networks' DNS from protected sockets
+  first, treating a private, loopback, link-local or unspecified answer as poison (an ISP's `10.10.34.x`). That remembered
+  address lives only while one owner session runs unbroken: a full stop (the protector cleared), mihomo's tunnel
+  starting or the next fresh start forgets it, so a later rebuild resolves again. OpenVPN 3
+  resolves its `remote` inside the engine, so a live rebuild with a name ended
+  the connection («وصل نشد»: `OpenVPN RESOLVE`, then 20 s of nothing) and never reached mihomo; `ovpnPrepare` now hands
+  the engine the address `pinnedHost` finds, while the session and the pings keep the name. The engine uses the name
+  for nothing else: the profile has no `verify-x509-name`, and OpenVPN 3 sets no TLS hostname without one.
 
 ## 9. From the packages, not yet verified (از بسته‌ها، هنوز سنجیده نشده)
 
