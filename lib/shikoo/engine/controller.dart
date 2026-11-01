@@ -792,7 +792,9 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
         connectedTo != profile.id &&
         !connectedOnce.contains(profile.id),
     fileOnly: linkedBy[profile.id]?.fileOnly ?? false,
-    fileExpire: linkedBy[profile.id]?.expiresAt,
+    fileExpire:
+        linkedBy[profile.id]?.expiresAt ??
+        (linkedBy[profile.id]?.finished ?? false ? shikooNow() : null),
   );
 
   final group = _mainGroup(ref);
