@@ -554,6 +554,18 @@ abstract class ShikooL10n {
   /// **'You\'ll connect to the first server that answers.'**
   String get connectsToFirst;
 
+  /// Under the round button while Connect waits for the phone's internet, on the official WireGuard core: nothing of ours runs, and pressing the button cancels.
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone has no internet. Check your connection; I\'ll connect as soon as it\'s back.'**
+  String get waitsForInternet;
+
+  /// waitsForInternet on the TV, which is no phone.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet. Check your connection; I\'ll connect as soon as it\'s back.'**
+  String get waitsForInternetTv;
+
   /// No description provided for @noServerAnswered.
   ///
   /// In en, this message translates to:

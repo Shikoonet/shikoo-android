@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/native.dart';
 import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -20,6 +21,7 @@ import 'package:fl_clash/shikoo/engine/cores.dart';
 import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart';
 import 'package:fl_clash/shikoo/engine/mode.dart';
+import 'package:fl_clash/shikoo/engine/offline.dart';
 import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/settings.dart';
 import 'package:fl_clash/state.dart';
@@ -131,7 +133,7 @@ const _profile = {
   'proxies': [
     {'name': 'A', 'type': 'vless'},
     {'name': 'B', 'type': 'vless'},
-    {'name': 'W', 'type': 'wireguard'},
+    {'name': 'W', 'type': 'wireguard', 'server': 'wg.shikoo.test'},
   ],
   'proxy-groups': [
     {
@@ -159,8 +161,13 @@ Future<_Home> _home({
     'W': 'WireGuard',
   },
   ShikooCarrying? Function()? carrying,
+  Future<List<ConnectivityResult>> Function()? networks,
+  Future<bool> Function(String)? resolves,
+  Future<bool> Function()? door,
+  Future<bool> Function()? resolvers,
   bool desktop = false,
   bool proxy = false,
+  ShikooAdmin admin = ShikooAdmin.refused,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final core = _Core();
@@ -169,7 +176,7 @@ Future<_Home> _home({
   final setup = _Setup();
   final container = ProviderContainer(
     overrides: [
-      tunAuthorizeProvider.overrideWithValue(() async => ShikooAdmin.refused),
+      tunAuthorizeProvider.overrideWithValue(() async => admin),
       coreOwnerProvider.overrideWithValue(() => CoreProcessOwner.helper),
       profilesProvider.overrideWith(() => TestProfiles([profile])),
       proxiesActionProvider.overrideWith(() => proxies),
@@ -184,8 +191,14 @@ Future<_Home> _home({
       shikooCoreSpecsProvider.overrideWithValue(_ready(ready)),
       shikooDesktopProvider.overrideWithValue(desktop || proxy),
       if (proxy) shikooModeProvider.overrideWith(_ProxyMode.new),
+      if (proxy) localPortFreeProvider.overrideWithValue((_) async => true),
       if (carrying != null)
         ownerCarryingProvider.overrideWithValue(() async => carrying()),
+      if (networks != null) networksNowProvider.overrideWithValue(networks),
+      if (resolves != null) hostResolvesProvider.overrideWithValue(resolves),
+      if (door != null) doorReachableProvider.overrideWithValue(door),
+      if (resolvers != null)
+        resolversReachableProvider.overrideWithValue(resolvers),
     ],
   );
   addTearDown(container.dispose);
@@ -714,6 +727,325 @@ void main() {
     await pumpEventQueue();
 
     expect(home.setup.runs, isNot(contains(true)));
+  });
+
+  group('a customer connecting on the official WireGuard core', () {
+    var nets = [ConnectivityResult.none];
+    var resolved = false;
+    var doorUp = false;
+    var netAsks = 0;
+    var doorAsks = 0;
+    var resolversUp = false;
+    var resolverAsks = 0;
+    Completer<void>? gate;
+
+    Future<_Home> offline({
+      ShikooChoices choices = const {
+        ShikooProtocol.wireguard: ShikooCore.wireguard,
+      },
+      Map<String, String> running = _onMihomo,
+      Set<ShikooCore> ready = const {ShikooCore.wireguard},
+      bool desktop = false,
+      String pick = 'W',
+    }) async {
+      nets = [ConnectivityResult.none];
+      resolved = doorUp = false;
+      netAsks = doorAsks = resolverAsks = 0;
+      resolversUp = false;
+      gate = null;
+      final (first, max, settle) = (
+        offlineRecheckFirst,
+        offlineRecheckMax,
+        internetSettle,
+      );
+      offlineRecheckFirst = const Duration(milliseconds: 20);
+      offlineRecheckMax = const Duration(milliseconds: 80);
+      internetSettle = const Duration(milliseconds: 30);
+      addTearDown(() {
+        offlineRecheckFirst = first;
+        offlineRecheckMax = max;
+        internetSettle = settle;
+      });
+      final home = await _home(
+        ready: ready,
+        choices: choices,
+        running: running,
+        desktop: desktop,
+        admin: ShikooAdmin.ready,
+        networks: () async {
+          netAsks++;
+          await gate?.future;
+          return nets;
+        },
+        resolves: (_) async => resolved,
+        door: () async {
+          doorAsks++;
+          return doorUp;
+        },
+        resolvers: () async {
+          resolverAsks++;
+          return resolversUp;
+        },
+      );
+      await home.controller.selectServer(pick);
+      home.setup.tunnel = DateTime(2026);
+      return home;
+    }
+
+    Future<void> settled() =>
+        Future<void>.delayed(const Duration(milliseconds: 250));
+
+    bool waiting(_Home home) =>
+        home.container.read(shikooStateProvider).waitingForInternet;
+
+    test('with no network at all waits, starts nothing, and starts on the '
+        'core once a network answers', () async {
+      final home = await offline();
+
+      await home.controller.connect();
+      await settled();
+      expect(home.setup.runs, isEmpty);
+      expect(waiting(home), isTrue);
+      expect((doorAsks, resolverAsks), (0, 0), reason: 'no network at all');
+      expect(
+        home.container.read(shikooStateProvider).connection,
+        ShikooConnection.connecting,
+      );
+
+      nets = [ConnectivityResult.wifi];
+      resolved = true;
+      await settled();
+      expect(home.setup.runs, [true]);
+      expect(waiting(home), isFalse);
+    });
+
+    test('with a network, a name that does not resolve and no door waits; '
+        'the door answering lets it start', () async {
+      final home = await offline();
+      nets = [ConnectivityResult.mobile];
+
+      await home.controller.connect();
+      await settled();
+      expect(home.setup.runs, isEmpty);
+      expect(waiting(home), isTrue);
+
+      doorUp = true;
+      await settled();
+      expect(home.setup.runs, [true]);
+    });
+
+    test('with a network, a name that does not resolve and no door, the '
+        'resolvers answering by address lets it start', () async {
+      final home = await offline();
+      nets = [ConnectivityResult.wifi];
+      resolversUp = true;
+
+      await home.controller.connect();
+      expect(home.setup.runs, [true]);
+      expect(waiting(home), isFalse);
+      expect(resolverAsks, greaterThan(0));
+    });
+
+    test('a server picked while it waits keeps the wait, the message and the '
+        'network events', () async {
+      final home = await offline();
+      offlineRecheckFirst = const Duration(seconds: 30);
+      await home.controller.connect();
+      expect(waiting(home), isTrue);
+
+      await home.controller.selectServer('A');
+      expect(waiting(home), isTrue);
+      home.controller.forgetError();
+      expect(waiting(home), isTrue);
+
+      nets = [ConnectivityResult.wifi];
+      home.controller.onNetworkChange();
+      await settled();
+      expect(home.setup.runs, [true]);
+      expect(waiting(home), isFalse);
+    });
+
+    test('with a network, a name that does not resolve and the door up starts '
+        'at once, as before', () async {
+      final home = await offline();
+      nets = [ConnectivityResult.wifi];
+      doorUp = true;
+
+      await home.controller.connect();
+      expect(home.setup.runs, [true]);
+      expect(waiting(home), isFalse);
+    });
+
+    test('never lets the door decide while the name resolves, or the server '
+        'is an address', () async {
+      final home = await offline();
+      nets = [ConnectivityResult.wifi];
+      resolved = true;
+
+      await home.controller.connect();
+      expect(home.setup.runs, [true]);
+      expect(doorAsks, 0);
+    });
+
+    test(
+      'takes a VPN among the networks for no proof of being offline',
+      () async {
+        final home = await offline();
+        nets = [ConnectivityResult.vpn];
+
+        await home.controller.connect();
+        expect(home.setup.runs, [true]);
+      },
+    );
+
+    test(
+      'rechecks when a network event comes, not only on the backoff',
+      () async {
+        final home = await offline();
+        offlineRecheckFirst = const Duration(seconds: 30);
+        await home.controller.connect();
+        expect(waiting(home), isTrue);
+
+        nets = [ConnectivityResult.wifi];
+        resolved = true;
+        home.controller.onNetworkChange();
+        await settled();
+        expect(home.setup.runs, [true]);
+      },
+    );
+
+    test('stops waiting when the customer cancels, and a network that comes '
+        'later starts nothing', () async {
+      final home = await offline();
+
+      await home.controller.connect();
+      await settled();
+      await home.controller.disconnect();
+      expect(waiting(home), isFalse);
+      final asked = netAsks;
+      nets = [ConnectivityResult.wifi];
+      resolved = true;
+      home.controller.onNetworkChange();
+      await settled();
+      expect(home.setup.runs, [false]);
+      expect(netAsks, asked);
+    });
+
+    for (final back in [false, true]) {
+      test(
+        'a recheck under way when the customer cancels, ${back ? 'with the '
+                  'internet back' : 'still offline'}, waits no more and starts '
+        'nothing',
+        () async {
+          final home = await offline();
+          await home.controller.connect();
+          await settled();
+          gate = Completer<void>();
+          await Future<void>.delayed(const Duration(milliseconds: 120));
+          final asked = netAsks;
+          await home.controller.disconnect();
+          if (back) {
+            nets = [ConnectivityResult.wifi];
+            resolved = true;
+          }
+          gate!.complete();
+          await settled();
+          expect(home.setup.runs, [false]);
+          expect(netAsks, asked);
+        },
+      );
+    }
+
+    test(
+      'a recheck under way when the app is torn down ends quietly',
+      () async {
+        final home = await offline();
+        await home.controller.connect();
+        await settled();
+        gate = Completer<void>();
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        home.container.dispose();
+        gate!.complete();
+        await settled();
+      },
+    );
+
+    test('stops rechecking when the app is torn down', () async {
+      final home = await offline();
+
+      await home.controller.connect();
+      await settled();
+      home.container.dispose();
+      final asked = netAsks;
+      await settled();
+      expect(netAsks, asked);
+    });
+
+    test('backs off 20 ms, 40 ms, 80 ms and no further', () async {
+      final home = await offline();
+      final seen = <Duration>[];
+
+      await home.controller.connect();
+      for (
+        final end = DateTime.now().add(const Duration(milliseconds: 600));
+        DateTime.now().isBefore(end);
+        await Future<void>.delayed(const Duration(milliseconds: 3))
+      ) {
+        final gap = home.controller.offlineGap;
+        if (seen.isEmpty || seen.last != gap) seen.add(gap);
+      }
+      expect(seen, [
+        const Duration(milliseconds: 20),
+        const Duration(milliseconds: 40),
+        const Duration(milliseconds: 80),
+      ]);
+    });
+
+    test('starts the backoff over with each new connect', () async {
+      final home = await offline();
+      await home.controller.connect();
+      await settled();
+      expect(home.controller.offlineGap, const Duration(milliseconds: 80));
+
+      await home.controller.disconnect();
+      await home.controller.connect();
+      expect(home.controller.offlineGap, const Duration(milliseconds: 20));
+    });
+
+    test(
+      'asks nothing of a switch, a mihomo pick, OpenVPN or Windows',
+      () async {
+        final switching = await offline();
+        await switching.controller.whileStopped(
+          () async {},
+          startAgain: () => true,
+        );
+        await settled();
+        expect(netAsks, 0);
+        expect(switching.setup.runs, [false, true]);
+
+        final mihomo = await offline(choices: const {});
+        await mihomo.controller.connect();
+        expect(netAsks, 0);
+        expect(mihomo.setup.runs, [true]);
+
+        final openvpn = await offline(
+          choices: const {},
+          ready: {ShikooCore.openvpn},
+          running: const {'O': 'OpenVPN'},
+          pick: 'O',
+        );
+        await openvpn.controller.connect();
+        expect(netAsks, 0);
+
+        final windows = await offline(desktop: true);
+        windows.container.read(coreStatusProvider.notifier).value =
+            CoreStatus.connected;
+        await windows.controller.connect();
+        expect(netAsks, 0);
+        expect(windows.setup.runs, [true]);
+      },
+    );
   });
 
   test('an owner core that dies under a running app is built again; one that '

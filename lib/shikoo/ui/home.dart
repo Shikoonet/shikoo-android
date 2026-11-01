@@ -1334,6 +1334,8 @@ class _PowerZone extends StatelessWidget {
       ShikooError.coreStart => l.coreStartDesktop,
       null when state.busyPort != null => l.busyPortDesktop,
       null when state.helperFailed => l.helperFailedDesktop,
+      null when state.waitingForInternet =>
+        state.isTV ? l.waitsForInternetTv : l.waitsForInternet,
       null when state.waiting => l.connectsToFirst,
       null when shift?.stage == ShikooSwitchStage.failed => l.switchFailedTv(
         serverName(shift!.to),

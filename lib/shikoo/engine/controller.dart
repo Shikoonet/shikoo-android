@@ -20,6 +20,7 @@ import 'package:fl_clash/shikoo/engine/diag.dart';
 import 'package:fl_clash/shikoo/engine/direct_dns.dart' show directInboundProxy;
 import 'package:fl_clash/shikoo/engine/mode.dart';
 import 'package:fl_clash/shikoo/engine/naming.dart';
+import 'package:fl_clash/shikoo/engine/offline.dart';
 import 'package:fl_clash/shikoo/engine/order.dart';
 import 'package:fl_clash/shikoo/engine/owner.dart';
 import 'package:fl_clash/shikoo/engine/paste.dart';
@@ -344,6 +345,7 @@ class ShikooState {
     this.refresh = ShikooRefresh.idle,
     this.notice,
     this.waiting = false,
+    this.waitingForInternet = false,
     this.others = const [],
     this.switching,
     this.sorted = false,
@@ -382,6 +384,8 @@ class ShikooState {
 
   /// Connect was pressed before a server was chosen: the first one that answers is used.
   final bool waiting;
+
+  final bool waitingForInternet;
 
   final List<ShikooService> others;
 
@@ -439,10 +443,14 @@ class _Intent {
     this.error,
     this.busyPort,
     this.helperFailed = false,
+    this.offline = false,
   });
 
   final bool connecting;
   final bool waiting;
+
+  /// Connecting, held back until the phone has internet: nothing of ours runs meanwhile.
+  final bool offline;
   final ShikooError? error;
   final int? busyPort;
   final bool helperFailed;
@@ -556,6 +564,12 @@ Duration internetRecheckMax = const Duration(seconds: 120);
 
 @visibleForTesting
 Duration internetSettle = const Duration(seconds: 3);
+
+@visibleForTesting
+Duration offlineRecheckFirst = const Duration(seconds: 5);
+
+@visibleForTesting
+Duration offlineRecheckMax = const Duration(minutes: 2);
 
 @visibleForTesting
 Duration ownerDeathWindow = const Duration(minutes: 1);
@@ -952,6 +966,7 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     refresh: refreshing[profile?.id] ?? ShikooRefresh.idle,
     notice: ref.watch(_noticeProvider),
     waiting: intent.waiting,
+    waitingForInternet: intent.offline,
     switching: switching,
     sorted: (orders[profile?.id] ?? const []).isNotEmpty,
     open: ids.contains(open) ? open : null,
@@ -1296,6 +1311,7 @@ class ShikooController {
       _ownerWatch?.cancel();
       _internetWatch?.cancel();
       _firstSync?.cancel();
+      _offlineWait?.cancel();
     });
     _ref.listen(shikooAccountProvider, (_, account) {
       final started = {
@@ -1461,6 +1477,9 @@ class ShikooController {
 
   Map<String, String> _appPickByService = const {};
   int _attempt = 0;
+  Timer? _offlineWait;
+  Duration _offlineGap = offlineRecheckFirst;
+  ShikooError? _offlineError;
 
   Future<void>? _rebuilding;
   bool _rebuildAgain = false;
@@ -1701,10 +1720,14 @@ class ShikooController {
 
   Future<void> _start([ShikooError? error]) async {
     final attempt = ++_attempt;
+    _offlineWait?.cancel();
     _set(_Intent(connecting: true, error: error));
     final refused = await _desktopReady(attempt);
     if (attempt != _attempt) return;
     if (refused != null) return _set(refused);
+    final offline = await _startsOffline();
+    if (attempt != _attempt) return;
+    if (offline) return _waitForInternet(error);
     bool started;
     try {
       started = await _setup.setRunning(
@@ -1745,6 +1768,59 @@ class ShikooController {
     }
     _set(const _Intent(error: ShikooError.connectTimeout));
     await _setup.setRunning(false);
+  }
+
+  /// A customer's own connect on the official WireGuard core; a switch's rebuild, a tile and always-on start as before.
+  Future<bool> _startsOffline() async {
+    if (_reconnects > 0 ||
+        _ref.read(shikooDesktopProvider) ||
+        _ref.read(shikooOwnerProvider)?.core != ShikooCore.wireguard.name) {
+      return false;
+    }
+    try {
+      return await startsOffline(
+        networks: _ref.read(networksNowProvider),
+        resolves: _ref.read(hostResolvesProvider),
+        door: _ref.read(doorReachableProvider),
+        resolvers: _ref.read(resolversReachableProvider),
+        host: _ref.read(shikooSelectedSourceProvider)?['server'] as String?,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// No VPN of ours is up, so the app's own network events are the phone's; the timer covers a missed one.
+  void _waitForInternet(ShikooError? error) {
+    _offlineError = error;
+    _offlineGap = offlineRecheckFirst;
+    _set(const _Intent(connecting: true, offline: true));
+    _ref.read(shikooDiagProvider).add('T', 'waiting for internet');
+    _recheckOffline(_offlineGap);
+  }
+
+  @visibleForTesting
+  Duration get offlineGap => _offlineGap;
+
+  void _recheckOffline(Duration after) {
+    final attempt = _attempt;
+    _offlineWait?.cancel();
+    _offlineWait = Timer(after, () async {
+      final offline = await _startsOffline();
+      if (!_ref.mounted) return;
+      if (!offline) {
+        if (attempt == _attempt) unawaited(_start(_offlineError));
+        return;
+      }
+      if (attempt != _attempt) return;
+      _offlineGap = Duration(
+        microseconds: math.min(
+          _offlineGap.inMicroseconds * 2,
+          offlineRecheckMax.inMicroseconds,
+        ),
+      );
+      _recheckOffline(_offlineGap);
+    });
   }
 
   /// FlClash's flags for the mode are set only here: with TUN on, each apply asks for the helper service.
@@ -2027,6 +2103,7 @@ class ShikooController {
       _ref.read(shikooOwnerHeldOffProvider.notifier).set(false);
     }
     _attempt++;
+    _offlineWait?.cancel();
     _endSwitch();
     _ref.read(_landedProvider.notifier).set(null);
     final took = _endOwnerRoad();
@@ -2051,7 +2128,13 @@ class ShikooController {
 
   void forgetError() {
     final intent = _ref.read(_intentProvider);
-    _set(_Intent(connecting: intent.connecting, waiting: intent.waiting));
+    _set(
+      _Intent(
+        connecting: intent.connecting,
+        waiting: intent.waiting,
+        offline: intent.offline,
+      ),
+    );
   }
 
   bool get _coreUp => _ref.read(coreStatusProvider) == CoreStatus.connected;
@@ -2349,6 +2432,7 @@ class ShikooController {
       _Intent(
         connecting: intent.waiting ? waiting : intent.connecting,
         waiting: waiting,
+        offline: intent.offline,
         error: error,
       ),
     );
@@ -2740,7 +2824,10 @@ class ShikooController {
   }
 
   /// The route needs a moment after a network change: one ask once it has settled, then the pace starts over.
-  void onNetworkChange() => _watchInternet(true, internetSettle);
+  void onNetworkChange() {
+    _watchInternet(true, internetSettle);
+    if (_ref.read(_intentProvider).offline) _recheckOffline(internetSettle);
+  }
 
   /// Only lifts the warning, for the pick's traffic flag and its ping alike; raising it stays [_checkTraffic]'s two asks.
   Future<void> _recheckInternet() async {

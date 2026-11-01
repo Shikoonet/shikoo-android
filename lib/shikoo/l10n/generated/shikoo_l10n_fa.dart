@@ -324,6 +324,14 @@ class ShikooL10nFa extends ShikooL10n {
   String get connectsToFirst => 'اولین سروری که جواب بدهد، وصل می‌شوی.';
 
   @override
+  String get waitsForInternet =>
+      'اینترنت گوشی وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.';
+
+  @override
+  String get waitsForInternetTv =>
+      'اینترنت وصل نیست؛ اینترنت خودت را بررسی کن. وقتی برگشت، خودم وصل می‌شوم.';
+
+  @override
   String get noServerAnswered => 'هیچ سروری جواب نداد';
 
   @override
