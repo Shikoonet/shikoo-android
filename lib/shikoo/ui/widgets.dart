@@ -911,6 +911,7 @@ String unnamedTitle(ShikooL10n l, String language, int number) => number > 1
 String statusLabel(ShikooL10n l, ShikooServiceStatus status) =>
     switch (status) {
       ShikooServiceStatus.active => l.statusActive,
+      ShikooServiceStatus.onHold => l.statusOnHold,
       ShikooServiceStatus.expired => l.chipExpired,
       ShikooServiceStatus.exhausted => l.stateExhausted,
       ShikooServiceStatus.revoked => l.chipRevoked,
@@ -945,13 +946,14 @@ class StatusChip extends StatelessWidget {
     final t = ShikooTheme.of(context);
     final l = ShikooL10n.of(context);
     final ok = status == ShikooServiceStatus.active;
+    final grey = neutral || status == ShikooServiceStatus.onHold;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s3,
         vertical: Space.s1,
       ),
       decoration: ShapeDecoration(
-        color: neutral
+        color: grey
             ? t.c.surfaceSunken
             : (ok ? t.c.positiveSoft : t.c.dangerSoft),
         shape: const StadiumBorder(),
@@ -961,7 +963,7 @@ class StatusChip extends StatelessWidget {
         style: t.text(
           t.s.caption,
           weight: FontWeight.w700,
-          color: neutral ? t.c.textMuted : (ok ? t.c.positive : t.c.danger),
+          color: grey ? t.c.textMuted : (ok ? t.c.positive : t.c.danger),
         ),
       ),
     );

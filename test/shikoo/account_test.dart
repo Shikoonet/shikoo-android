@@ -1709,6 +1709,93 @@ void main() {
     });
 
     test(
+      'a file-only row is read from the door, renewable and dated like a '
+      'usual one, and stays so through a restart (Sam, 2026-11-01)',
+      () async {
+        final h = await _harness();
+        h.api.services = [
+          {
+            ..._service(42, 'user42', status: 'on_hold'),
+            'file_only': true,
+            'duration_days': 30,
+          },
+          _service(43, 'user43'),
+          {..._service(44, 'user44'), 'file_only': 'yes'},
+        ];
+        await _signedIn(h);
+        List<(int, bool, int?, String, bool, bool)> flags(
+          ProviderContainer c,
+        ) => [
+          for (final s in c.read(shikooAccountProvider).services)
+            (
+              s.id,
+              s.fileOnly,
+              s.durationDays,
+              s.status,
+              s.outsourced,
+              s.botRenews,
+            ),
+        ];
+        final expected = [
+          (42, true, 30, 'on_hold', false, true),
+          (43, false, null, 'active', false, true),
+          (44, false, null, 'active', false, true),
+        ];
+        expect(flags(h.container), expected);
+        final restarted = ProviderContainer(
+          overrides: [
+            shikooApiProvider.overrideWithValue(ShikooApi([h.api.base])),
+            shikooStateProvider.overrideWithValue(_state),
+            shikooControllerProvider.overrideWithValue(h.controller),
+            profilesProvider.overrideWith(
+              () => TestProfiles(h.container.read(profilesProvider)),
+            ),
+            profilesActionProvider.overrideWith(_Profiles.new),
+          ],
+        );
+        addTearDown(restarted.dispose);
+        await restarted.read(shikooSignInProvider).load();
+        expect(flags(restarted), expected);
+      },
+    );
+
+    test('a file-only service the door later sends as ended, without the flag, '
+        'stays file-only (Sam, 2026-11-01)', () async {
+      final h = await _harness();
+      h.api.services = [
+        {
+          ..._service(42, 'user42', status: 'on_hold'),
+          'file_only': true,
+          'duration_days': 30,
+        },
+      ];
+      await _signedIn(h);
+      h.api.services = [_service(42, 'user42', status: 'expired')];
+      expect(await h.signIn.sync(), isTrue);
+      final row = h.container.read(shikooAccountProvider).services.single;
+      expect((row.status, row.fileOnly), ('expired', true));
+    });
+
+    test('a file-only service renewed into a normal plan, now active and with '
+        'no flag, is not file-only any more (Sam, 2026-11-01)', () async {
+      final h = await _harness();
+      h.api.services = [
+        {
+          ..._service(42, 'user42', status: 'on_hold'),
+          'file_only': true,
+          'duration_days': 30,
+        },
+      ];
+      await _signedIn(h);
+      for (final status in ['active', 'on_hold']) {
+        h.api.services = [_service(42, 'user42', status: status)];
+        expect(await h.signIn.sync(), isTrue);
+        final row = h.container.read(shikooAccountProvider).services.single;
+        expect((row.status, row.fileOnly), (status, false), reason: status);
+      }
+    });
+
+    test(
       'one comes from the door, never renewed, also after a restart',
       () async {
         final h = await _harness();

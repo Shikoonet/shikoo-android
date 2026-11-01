@@ -2137,4 +2137,58 @@ class ShikooL10nEn extends ShikooL10n {
 
   @override
   String get alertPickServer => 'Pick a server';
+
+  @override
+  String get statusOnHold => 'Not activated yet';
+
+  @override
+  String get validFromFirstShort => 'Valid from your first connection';
+
+  @override
+  String validDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$daysString days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String validFromFirst(String days) {
+    return 'Valid: $days from your first connection';
+  }
+
+  @override
+  String validFromToday(String days) {
+    return 'Valid: $days from today';
+  }
+
+  @override
+  String get pingHeld =>
+      'Ping comes after your first connection, so your validity doesn’t start early.';
+
+  @override
+  String pingHeldDays(int days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other:
+          'Ping comes after your first connection, so your $daysString days don’t start early.',
+      one:
+          'Ping comes after your first connection, so your 1 day doesn’t start early.',
+    );
+    return '$_temp0';
+  }
 }

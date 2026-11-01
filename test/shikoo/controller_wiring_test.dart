@@ -81,6 +81,19 @@ class _Profiles extends ProfilesAction {
   }
 }
 
+/// Counts the account syncs the controller asks for.
+class _CountingSignIn extends ShikooSignIn {
+  _CountingSignIn(super.ref, this.syncs);
+
+  final List<int> syncs;
+
+  @override
+  Future<bool?> sync() async {
+    syncs.add(1);
+    return true;
+  }
+}
+
 class _Setup extends SetupAction {
   final runs = <bool>[];
 
@@ -6745,6 +6758,338 @@ void main() {
         );
       },
     );
+
+    test(
+      'a service the panel holds reads onHold until the tunnel is on it; a '
+      'file-only row carries its days and no data (Sam, 2026-11-01)',
+      () async {
+        final t = await twoServices();
+        ShikooService of(int id) {
+          final state = t.container.read(shikooStateProvider);
+          return [
+            state.service!,
+            ...state.others,
+          ].firstWhere((s) => s.id == id);
+        }
+
+        void account(List<LinkedService> rows) => t.container
+            .read(shikooAccountProvider.notifier)
+            .set(ShikooAccount(services: rows));
+        LinkedService row(int id, String status, {bool fileOnly = false}) =>
+            LinkedService(
+              id: id + 1000,
+              title: 'user$id',
+              status: status,
+              profileId: id,
+              fileOnly: fileOnly,
+              durationDays: fileOnly ? 30 : null,
+            );
+
+        account([row(t.first, 'on_hold'), row(t.second, 'on_hold')]);
+        expect(of(t.first).onHold, isFalse, reason: 'the tunnel is on it');
+        expect(of(t.second).onHold, isTrue);
+        expect(of(t.second).statusAt(shikooNow()), ShikooServiceStatus.onHold);
+        expect(of(t.second).ended, isNull);
+
+        await t.controller.disconnect();
+        t.container.read(runTimeProvider.notifier).value = null;
+        await pumpEventQueue();
+        expect(of(t.first).onHold, isTrue, reason: 'off, it is held again');
+
+        account([row(t.first, 'active'), row(t.second, 'active')]);
+        expect(of(t.second).onHold, isFalse);
+        expect(of(t.second).fileOnly, isFalse);
+
+        t.container
+            .read(profilesProvider.notifier)
+            .put(
+              t.container
+                  .read(profilesProvider)
+                  .getProfile(t.second)!
+                  .copyWith(
+                    subscriptionInfo: const SubscriptionInfo(
+                      download: 10,
+                      total: 5,
+                      expire: 4102444800,
+                    ),
+                  ),
+            );
+        account([row(t.second, 'on_hold', fileOnly: true)]);
+        final file = of(t.second);
+        expect((file.fileOnly, file.durationDays), (true, 30));
+        expect(
+          file.ended,
+          isNull,
+          reason: 'a file\x27s data figures never end it',
+        );
+        expect(file.expire, isNull, reason: 'only the panel row dates it');
+        expect(
+          (file.usageKnown, file.usedBytes, file.totalBytes),
+          (true, 0, 0),
+        );
+        expect(file.onHold, isTrue);
+
+        final end = DateTime.now().add(const Duration(days: 18));
+        account([
+          LinkedService(
+            id: 1,
+            title: 'user',
+            status: 'active',
+            profileId: t.second,
+            fileOnly: true,
+            expiresAt: end,
+          ),
+        ]);
+        expect(of(t.second).expire, end, reason: 'the panel\x27s date');
+      },
+    );
+
+    const key = 'shikoo.held_connected';
+    final syncs = <int>[];
+
+    void rows(ProviderContainer container, int id, String status) => container
+        .read(shikooAccountProvider.notifier)
+        .set(
+          ShikooAccount(
+            services: [
+              LinkedService(
+                id: id + 1000,
+                title: 'user$id',
+                status: status,
+                profileId: id,
+                fileOnly: true,
+                durationDays: 30,
+              ),
+            ],
+          ),
+        );
+
+    Future<
+      ({
+        ProviderContainer container,
+        ShikooController controller,
+        _Core core,
+        _Setup setup,
+        int first,
+      })
+    >
+    held({bool failing = false}) async {
+      syncs.clear();
+      SharedPreferences.setMockInitialValues({});
+      firstConnectSync = const Duration(milliseconds: 40);
+      addTearDown(() => firstConnectSync = const Duration(minutes: 2));
+      final t = await twoServices(
+        connected: false,
+        more: [
+          shikooSignInProvider.overrideWith(
+            (ref) => _CountingSignIn(ref, syncs),
+          ),
+          if (failing) nativeStartFailedProvider.overrideWithValue(() => true),
+        ],
+      );
+      rows(t.container, t.first, 'on_hold');
+      return (
+        container: t.container,
+        controller: t.controller,
+        core: t.core,
+        setup: t.setup,
+        first: t.first,
+      );
+    }
+
+    ShikooService current(ProviderContainer container) =>
+        container.read(shikooStateProvider).service!;
+
+    Future<void> connectAndStop(
+      ProviderContainer container,
+      ShikooController controller,
+      _Setup setup,
+    ) async {
+      setup.tunnel = DateTime(2026);
+      await controller.connect();
+      await pumpEventQueue();
+      await controller.disconnect();
+      container.read(runTimeProvider.notifier).value = null;
+      await pumpEventQueue();
+    }
+
+    test(
+      'a held service connects once: connect, then disconnect: the card still reads started, the ping '
+      'comes back and the note goes (Sam, 2026-11-01)',
+      () async {
+        final t = await held();
+        expect(current(t.container).onHold, isTrue);
+        clearInteractions(t.core);
+        t.controller.openService(null);
+        t.controller.openService(t.first);
+        await pumpEventQueue();
+        verifyNever(() => t.core.asyncTestDelay(any(), any()));
+
+        await connectAndStop(t.container, t.controller, t.setup);
+        final service = current(t.container);
+        expect(service.onHold, isFalse);
+        expect(service.statusAt(shikooNow()), ShikooServiceStatus.active);
+        expect((service.fileOnly, service.durationDays), (true, 30));
+        expect(service.expire, isNull, reason: 'the panel has no date yet');
+        clearInteractions(t.core);
+        t.controller.openService(null);
+        t.controller.openService(t.first);
+        await pumpEventQueue();
+        verify(
+          () => t.core.asyncTestDelay(any(), any()),
+        ).called(greaterThan(0));
+      },
+    );
+
+    test('the sync for the panel\'s date is scheduled once, however often '
+        'the service connects again', () async {
+      final t = await held();
+      await connectAndStop(t.container, t.controller, t.setup);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(syncs, [1]);
+      await connectAndStop(t.container, t.controller, t.setup);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(syncs, [1], reason: 'the second connect asks nothing more');
+    });
+
+    test('a service renewed out of file-only reads its data again: used up is '
+        'exhausted, not active (Sam, 2026-11-01)', () async {
+      final t = await held();
+      t.container
+          .read(profilesProvider.notifier)
+          .put(
+            t.container
+                .read(profilesProvider)
+                .getProfile(t.first)!
+                .copyWith(
+                  subscriptionInfo: const SubscriptionInfo(
+                    download: 10,
+                    total: 5,
+                    expire: 4102444800,
+                  ),
+                ),
+          );
+      t.container
+          .read(shikooAccountProvider.notifier)
+          .set(
+            ShikooAccount(
+              services: [
+                LinkedService(
+                  id: 1000 + t.first,
+                  title: 'user',
+                  status: 'active',
+                  profileId: t.first,
+                ),
+              ],
+            ),
+          );
+      await pumpEventQueue();
+      final state = t.container.read(shikooStateProvider);
+      final service = [
+        state.service!,
+        ...state.others,
+      ].firstWhere((s) => s.id == t.first);
+      expect(service.fileOnly, isFalse);
+      expect((service.usedBytes, service.totalBytes), (10, 5));
+      expect(service.ended, ShikooServiceStatus.exhausted);
+    });
+
+    test('a connect that fails marks nothing: the service stays held, no '
+        'memory is written and no sync is asked', () async {
+      final t = await held(failing: true);
+      t.setup.tunnel = null;
+      await t.controller.connect();
+      await pumpEventQueue();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(
+        t.container.read(shikooStateProvider).lastError,
+        ShikooError.connectTimeout,
+      );
+      expect(current(t.container).onHold, isTrue);
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(key),
+        isNull,
+      );
+      expect(syncs, isEmpty);
+    });
+
+    for (final status in ['expired', 'disabled', 'removed']) {
+      test('a file-only $status row with no expires_at is ended, not a '
+          'started service with 30 days from today', () async {
+        final t = await held();
+        t.container
+            .read(shikooAccountProvider.notifier)
+            .set(
+              ShikooAccount(
+                services: [
+                  LinkedService(
+                    id: 1000 + t.first,
+                    title: 'user',
+                    status: status,
+                    profileId: t.first,
+                    fileOnly: true,
+                    durationDays: 30,
+                  ),
+                ],
+              ),
+            );
+        await pumpEventQueue();
+        final state = t.container.read(shikooStateProvider);
+        final service = [
+          state.service!,
+          ...state.others,
+        ].firstWhere((s) => s.id == t.first);
+        expect(service.ended, ShikooServiceStatus.expired);
+        expect(service.finished, isTrue);
+        expect((service.onHold, service.fileOnly), (false, true));
+        expect((service.usedBytes, service.totalBytes), (0, 0));
+      });
+    }
+
+    test('a service the panel does not hold starts no sync and keeps no '
+        'memory', () async {
+      final t = await held();
+      rows(t.container, t.first, 'active');
+      await connectAndStop(t.container, t.controller, t.setup);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(syncs, isEmpty);
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(key),
+        isNull,
+      );
+    });
+
+    test('the memory is written down, and a restart reads it', () async {
+      final t = await held();
+      await connectAndStop(t.container, t.controller, t.setup);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList(key), ['${t.first}']);
+
+      final (:container, :core, :proxies, :setup) = _home();
+      final id = container.read(currentProfileIdProvider)!;
+      rows(container, id, 'on_hold');
+      expect(current(container).onHold, isTrue, reason: 'not read yet');
+      await prefs.setStringList(key, ['$id']);
+      container.read(shikooControllerProvider);
+      await pumpEventQueue();
+      expect(current(container).onHold, isFalse, reason: 'after a restart');
+    });
+
+    test('once the panel no longer says on_hold the memory is dropped, so '
+        'a later hold reads held again', () async {
+      final t = await held();
+      await connectAndStop(t.container, t.controller, t.setup);
+      expect(current(t.container).onHold, isFalse);
+
+      rows(t.container, t.first, 'active');
+      await pumpEventQueue();
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(key),
+        isEmpty,
+      );
+      rows(t.container, t.first, 'on_hold');
+      expect(current(t.container).onHold, isTrue);
+    });
 
     /// A pasted service's file holds «سوئد ۱»; its id is known only once it is saved.
     Future<String> pasteable(

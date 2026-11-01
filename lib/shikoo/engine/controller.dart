@@ -50,7 +50,7 @@ enum ShikooError {
 }
 
 /// [revoked]: a pasted link the panel no longer knows (404 or 410).
-enum ShikooServiceStatus { active, expired, exhausted, revoked }
+enum ShikooServiceStatus { active, onHold, expired, exhausted, revoked }
 
 enum ShikooPick { server, finding, auto, none }
 
@@ -148,6 +148,8 @@ class ShikooService {
     this.notHere = false,
     this.purchasedAt,
     this.durationDays,
+    this.onHold = false,
+    this.fileOnly = false,
   });
 
   final bool bridgeLeg;
@@ -189,6 +191,11 @@ class ShikooService {
   final DateTime? purchasedAt;
   final int? durationDays;
 
+  /// The panel has not started it and this device is not connected to it: connecting is what starts it.
+  final bool onHold;
+
+  final bool fileOnly;
+
   String get supportLink => usableLink(supportUrl) ?? ShikooLinks.support;
 
   String get username => usernameOf(name);
@@ -201,7 +208,7 @@ class ShikooService {
     if (totalBytes > 0 && usedBytes >= totalBytes) {
       return ShikooServiceStatus.exhausted;
     }
-    return ShikooServiceStatus.active;
+    return onHold ? ShikooServiceStatus.onHold : ShikooServiceStatus.active;
   }
 
   bool get finished => const {
@@ -211,7 +218,11 @@ class ShikooService {
 
   ShikooServiceStatus? get ended {
     final status = statusAt(shikooNow());
-    return (usageKnown || revoked) && status != ShikooServiceStatus.active
+    return (usageKnown || revoked) &&
+            !const {
+              ShikooServiceStatus.active,
+              ShikooServiceStatus.onHold,
+            }.contains(status)
         ? status
         : null;
   }
@@ -483,6 +494,13 @@ final _refreshesProvider = _cell<Map<int, ShikooRefresh>>(const {});
 final _legsProvider = _cell<Map<int, ShikooLeg>>(const {});
 final _freshProvider = _cell<Set<String>>(const {});
 final _pastedProvider = _cell<Set<int>>(const {});
+
+/// The panel's on_hold services this device connected to once: started for the app until the panel says so.
+final _connectedOnceProvider = _cell<Set<int>>(const {});
+const _connectedOnceKey = 'shikoo.held_connected';
+
+/// After a held service's first connect the account syncs once, for the panel's date.
+Duration firstConnectSync = const Duration(minutes: 2);
 final _revokedProvider = _cell<Set<int>>(const {});
 final _noticeProvider = _cell<ShikooNotice?>(null);
 final _switchProvider = _cell<ShikooSwitch?>(null);
@@ -741,11 +759,20 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
   final bridgeLegs = ref.watch(_bridgeLegsProvider);
   final route = ref.watch(shikooWarpRouteProvider);
   final pasted = ref.watch(_pastedProvider);
+  final connectedOnce = ref.watch(_connectedOnceProvider);
   final revoked = ref.watch(_revokedProvider);
-  final shelf = {
+  final linkedBy = {
     for (final linked in ref.watch(shikooAccountProvider).services)
-      if (linked.outsourced) ?linked.profileId: linked,
+      ?linked.profileId: linked,
   };
+  final shelf = {
+    for (final MapEntry(:key, :value) in linkedBy.entries)
+      if (value.outsourced) key: value,
+  };
+  final connectedTo =
+      runTime != null || nativeStart != null || intent.connecting
+      ? profile?.id
+      : null;
   final loginRefused = ref.watch(_loginRefusedProvider);
   final specs = ref.watch(shikooCoreSpecsProvider);
   final tunnel = ref.watch(shikooTunnelProvider);
@@ -771,7 +798,19 @@ final shikooStateProvider = Provider<ShikooState>((ref) {
     loginRefused: loginRefused.contains(profile.id),
     notHere: shelf.containsKey(profile.id) && !openvpnHere,
     purchasedAt: shelf[profile.id]?.purchasedAt,
-    durationDays: shelf[profile.id]?.durationDays,
+    durationDays: switch (linkedBy[profile.id]) {
+      LinkedService(outsourced: true, :final durationDays) ||
+      LinkedService(fileOnly: true, :final durationDays) => durationDays,
+      _ => null,
+    },
+    onHold:
+        linkedBy[profile.id]?.status == 'on_hold' &&
+        connectedTo != profile.id &&
+        !connectedOnce.contains(profile.id),
+    fileOnly: linkedBy[profile.id]?.fileOnly ?? false,
+    fileExpire:
+        linkedBy[profile.id]?.expiresAt ??
+        (linkedBy[profile.id]?.finished ?? false ? shikooNow() : null),
   );
 
   final group = _mainGroup(ref);
@@ -1053,21 +1092,26 @@ ShikooService _serviceFrom(
   bool notHere = false,
   DateTime? purchasedAt,
   int? durationDays,
+  bool onHold = false,
+  bool fileOnly = false,
+  DateTime? fileExpire,
 }) {
   final info = profile.subscriptionInfo;
   return ShikooService(
     id: profile.id,
     name: _nameOf(profile),
-    usedBytes: (info?.upload ?? 0) + (info?.download ?? 0),
-    totalBytes: info?.total ?? 0,
-    expire: (info?.expire ?? 0) > 0
+    usedBytes: fileOnly ? 0 : (info?.upload ?? 0) + (info?.download ?? 0),
+    totalBytes: fileOnly ? 0 : info?.total ?? 0,
+    expire: fileOnly
+        ? fileExpire
+        : (info?.expire ?? 0) > 0
         ? DateTime.fromMillisecondsSinceEpoch(info!.expire * 1000)
         : null,
     announce: extras?.announce,
     supportUrl: extras?.supportUrl,
     account: extras?.account,
     updatedAt: profile.lastUpdateDate,
-    usageKnown: info != null && !outsourced,
+    usageKnown: (info != null || fileOnly) && !outsourced,
     refresh: refresh,
     leg: leg,
     bridgeLeg: bridgeLeg,
@@ -1079,6 +1123,8 @@ ShikooService _serviceFrom(
     notHere: notHere,
     purchasedAt: purchasedAt,
     durationDays: durationDays,
+    onHold: onHold,
+    fileOnly: fileOnly,
   );
 }
 
@@ -1249,6 +1295,18 @@ class ShikooController {
       _coreSwitched?.cancel();
       _ownerWatch?.cancel();
       _internetWatch?.cancel();
+      _firstSync?.cancel();
+    });
+    _ref.listen(shikooAccountProvider, (_, account) {
+      final started = {
+        for (final s in account.services)
+          if (s.status != 'on_hold') ?s.profileId,
+      };
+      scheduleMicrotask(
+        () => _setConnectedOnce(
+          _ref.read(_connectedOnceProvider).difference(started),
+        ),
+      );
     });
     _ref.listen(shikooStateProvider.select(serviceInstead), (_, id) {
       if (id != null) scheduleMicrotask(() => selectService(id));
@@ -1368,6 +1426,12 @@ class ShikooController {
     app?.onVpnConsent = onVpnConsent;
     scheduleMicrotask(() => _ref.read(_extrasProvider.notifier).load());
     scheduleMicrotask(_loadPasted);
+    scheduleMicrotask(() async {
+      final prefs = await SharedPreferences.getInstance();
+      _ref.read(_connectedOnceProvider.notifier).set({
+        ...?prefs.getStringList(_connectedOnceKey)?.map(int.parse),
+      });
+    });
     scheduleMicrotask(() => _ref.read(savedOrderProvider.notifier).load());
     scheduleMicrotask(() => _ref.read(shikooModeProvider.notifier).load());
     scheduleMicrotask(() async {
@@ -1450,6 +1514,7 @@ class ShikooController {
   String? _pickInCore;
   Timer? _switched;
   Timer? _coreSwitched;
+  Timer? _firstSync;
   int _coreMove = 0;
   String? _awaiting;
   DateTime _awaitingUntil = DateTime(0);
@@ -1664,6 +1729,7 @@ class ShikooController {
     if (attempt != _attempt) return;
     if (since != null) {
       _nativeStart(since);
+      _firstConnect(_current);
       _loginRefused(_current, refused: false);
       await _checkCarrying();
       if (attempt != _attempt) return;
@@ -2876,9 +2942,42 @@ class ShikooController {
     unawaited(_pingOther(service.id, probe: probe));
   }
 
+  void _setConnectedOnce(Set<int> ids) {
+    final now = _ref.read(_connectedOnceProvider);
+    if (ids.length == now.length) return;
+    _ref.read(_connectedOnceProvider.notifier).set(ids);
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (prefs) => prefs.setStringList(_connectedOnceKey, [
+          for (final id in ids) '$id',
+        ]),
+      ),
+    );
+  }
+
+  /// A held service's first connect starts it at the panel, which dates it a few minutes on.
+  void _firstConnect(int? id) {
+    final once = _ref.read(_connectedOnceProvider);
+    if (id == null ||
+        once.contains(id) ||
+        !_ref
+            .read(shikooAccountProvider)
+            .services
+            .any((s) => s.profileId == id && s.status == 'on_hold')) {
+      return;
+    }
+    _setConnectedOnce({...once, id});
+    _firstSync?.cancel();
+    _firstSync = Timer(
+      firstConnectSync,
+      () => unawaited(_ref.read(shikooSignInProvider).sync()),
+    );
+  }
+
   bool _holds(int? id) =>
       id != null &&
       !(id == _current && _upOrStarting) &&
+      !_ref.read(_connectedOnceProvider).contains(id) &&
       _ref
           .read(shikooAccountProvider)
           .services

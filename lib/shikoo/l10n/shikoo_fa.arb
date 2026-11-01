@@ -537,5 +537,12 @@
   "alertRefusedBody": "«{server}» نام کاربری و رمزت را قبول نکرد و وصل نشد. به پشتیبانی پیام بده.",
   "alertRemovedTitle": "سرورت حذف شد",
   "alertRemovedBody": "«{server}» دیگر در اشتراکت نیست و اتصال قطع شد. یکی دیگر انتخاب کن.",
-  "alertPickServer": "انتخاب سرور"
+  "alertPickServer": "انتخاب سرور",
+  "statusOnHold": "در انتظار فعال‌سازی",
+  "validFromFirstShort": "اعتبار از اولین اتصال",
+  "validDays": "{days} روز",
+  "validFromFirst": "اعتبار: {days} از اولین اتصال",
+  "validFromToday": "اعتبار: {days} از امروز",
+  "pingHeld": "پینگ بعد از اولین اتصال، تا اعتبارت زودتر شروع نشود.",
+  "pingHeldDays": "پینگ بعد از اولین اتصال، تا {days} روزت زودتر شروع نشود."
 }

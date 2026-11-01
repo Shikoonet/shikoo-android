@@ -3330,6 +3330,48 @@ abstract class ShikooL10n {
   /// In en, this message translates to:
   /// **'Pick a server'**
   String get alertPickServer;
+
+  /// The service chip, grey, while the panel has not started the service: it starts at the first connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Not activated yet'**
+  String get statusOnHold;
+
+  /// A file-only (WireGuard) service the panel has not started: its folded card, or its open card when the length is not known. The shelf card keeps outsourcedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid from your first connection'**
+  String get validFromFirstShort;
+
+  /// The length of a file-only service, bold inside validFromFirst and validFromToday.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day} other{{days} days}}'**
+  String validDays(int days);
+
+  /// A file-only (WireGuard) service the panel has not started: no data figures, ever. {days} is validDays, shown bold.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid: {days} from your first connection'**
+  String validFromFirst(String days);
+
+  /// A file-only service connected once, for the minutes until the panel sends its end date. {days} is validDays, shown bold.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid: {days} from today'**
+  String validFromToday(String days);
+
+  /// After the “Servers” title above the list of a service the panel has not started, when its length is not known: it has no ping button, as every ping would start its days.
+  ///
+  /// In en, this message translates to:
+  /// **'Ping comes after your first connection, so your validity doesn’t start early.'**
+  String get pingHeld;
+
+  /// pingHeld for a service whose length is known.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{Ping comes after your first connection, so your 1 day doesn’t start early.} other{Ping comes after your first connection, so your {days} days don’t start early.}}'**
+  String pingHeldDays(int days);
 }
 
 class _ShikooL10nDelegate extends LocalizationsDelegate<ShikooL10n> {
