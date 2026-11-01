@@ -401,6 +401,64 @@ void main() {
     });
   });
 
+  testWidgets('in English a held file-only card says «your» first connection, '
+      'folded and open without a length, while the shelf card keeps its own', (
+    tester,
+  ) async {
+    final held = _file(onHold: true).copy(id: 2);
+    final today = _file().copy(id: 3);
+    final open = _file(onHold: true, days: null);
+    await _pump(
+      tester,
+      _state(open, others: [held, today]),
+      ShikooAccount(
+        bot: _bot,
+        services: [
+          for (final other in [open, held, today])
+            LinkedService(
+              id: 60 + other.id,
+              title: other.name,
+              status: other.onHold ? 'on_hold' : 'active',
+              profileId: other.id,
+              fileOnly: true,
+            ),
+        ],
+      ),
+      locale: 'en',
+    );
+    expect(
+      _text('Valid from your first connection'),
+      findsNWidgets(2),
+      reason: 'two folded cards: the held one and the one with no length',
+    );
+    expect(_text('Valid: 30 days from today'), findsOneWidget);
+    expect(_text('Valid from the first connection'), findsNothing);
+    expect(
+      _l('en').outsourcedSummary,
+      'Valid from the first connection',
+      reason: 'the shelf card\x27s own key is not touched',
+    );
+  });
+
+  testWidgets('in English an open held file-only card without a length says '
+      '«your» first connection', (tester) async {
+    final service = _file(onHold: true, days: null);
+    await _pump(
+      tester,
+      _state(service),
+      _account(service, 'on_hold'),
+      locale: 'en',
+    );
+    expect(
+      find.descendant(
+        of: find.byType(ServiceCard),
+        matching: _text('Valid from your first connection'),
+      ),
+      findsOneWidget,
+    );
+    expect(_text('Valid from the first connection'), findsNothing);
+  });
+
   testWidgets('the renew list names a held service as not activated, '
       'beside the active one', (tester) async {
     final held = _usual(onHold: true).copy(id: 2);
@@ -592,6 +650,26 @@ void main() {
           brightness: dark ? Brightness.dark : Brightness.light,
         );
         await _shot(tester, 'folded-fa-$theme');
+        await _pump(
+          tester,
+          _state(_usual(), others: folded),
+          ShikooAccount(
+            bot: _bot,
+            services: [
+              for (final other in folded)
+                LinkedService(
+                  id: 60 + other.id,
+                  title: other.name,
+                  status: other.onHold ? 'on_hold' : 'active',
+                  profileId: other.id,
+                  fileOnly: true,
+                ),
+            ],
+          ),
+          locale: 'en',
+          brightness: dark ? Brightness.dark : Brightness.light,
+        );
+        await _shot(tester, 'folded-en-$theme');
         final ended = _file(
           expire: DateTime.now().subtract(const Duration(days: 2)),
         );
